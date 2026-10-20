@@ -1,6 +1,6 @@
 """The unattended data-lane merge, driven against a stand-in for `gh`.
 
-`scripts/merge-when-green.sh` lands the collect and big-case-board PRs because
+`scripts/merge-when-green.sh` lands the collect, big-case-board and update-history PRs because
 armed auto-merge never exercises the dev App's approval bypass. Its contract is
 mostly about when it does *not* merge — a moved head, a failed check, a refusal
 nothing is still running to clear, a deadline — so each of those is driven
@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "merge-when-green.sh"
 SHA = "a" * 40
 OTHER_SHA = "b" * 40
+TITLE = "predict: 3 prediction(s) (run 20261012T141200Z) [auto-released]"
 
 FAKE_GH = r"""#!/usr/bin/env python3
 import json, os, subprocess, sys
@@ -72,9 +73,11 @@ def _pull(
     head: str = SHA,
     base: str = "main",
     head_repo: str | None = "owner/repo",
+    title: str = TITLE,
 ) -> dict[str, Any]:
     return {
         "json": {
+            "title": title,
             "state": state,
             "merged": merged,
             "head": {"sha": head, "repo": {"full_name": head_repo} if head_repo else None},
@@ -151,9 +154,34 @@ def test_merges_once_every_check_concluded_pinned_to_the_pushed_commit(tmp_path:
     # Not asked while a check was still running.
     assert len(merges) == 1
     assert "sha=" + SHA in merges[0]["args"]
-    assert "merge_method=squash" in merges[0]["args"]
+    assert "merge_method=merge" in merges[0]["args"]
     assert merges[0]["token"] == "app-token"
     assert "Merged" in summary
+
+
+def test_the_merge_commit_takes_the_pr_title_and_number_as_its_subject(tmp_path: Path) -> None:
+    # The auto-released mark and run id ride the title, and the daily cap is
+    # counted from `main`'s subjects; the platform's own merge subject carries
+    # neither. A `|` in a title must not shift the fields read before it.
+    title = "metrics: refresh | the big-case board"
+    proc, calls, _ = _run(
+        tmp_path, {"pull": [_pull(title=title)], "checks": [GREEN], "merge": [MERGED]}
+    )
+    assert proc.returncode == 0, proc.stderr
+    (merge,) = _merges(calls)
+    assert f"commit_title={title} (#17)" in merge["args"]
+    assert "sha=" + SHA in merge["args"]
+
+
+def test_a_merge_method_override_is_honoured(tmp_path: Path) -> None:
+    _, calls, _ = _run(
+        tmp_path,
+        {"pull": [_pull()], "checks": [GREEN], "merge": [MERGED]},
+        extra_env={"MERGE_METHOD": "squash"},
+    )
+    (merge,) = _merges(calls)
+    assert "merge_method=squash" in merge["args"]
+    assert f"commit_title={TITLE} (#17)" in merge["args"]
 
 
 def test_a_refusal_with_every_check_green_is_retried_once(tmp_path: Path) -> None:

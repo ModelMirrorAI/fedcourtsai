@@ -1,7 +1,8 @@
 """Converge committed cert outcomes against the disposition their docket text carries.
 
-A ``granted`` label on a cert-stage outcome asserts what the order said, and the
-committed ledger holds records the current parser reads differently. Nothing
+A cert-stage label asserts what the order said — a ``granted``, or the
+``denied`` / ``dismissed`` a docket's exit recorded — and the committed ledger
+holds records the current parser reads differently. Nothing
 else re-reads them: ``record_outcomes`` is idempotent-by-filter, so a resolution
 pass never revisits a resolved event, and the Munsingwear migration's predicate
 (``granted`` + a ``mootness`` basis) cannot reach a record carrying no basis at
@@ -13,7 +14,7 @@ own disposing entry, returns a label the arm below admits. No confirmation, no
 write — the outcome is reported with the reason instead, so the dry run is the
 triage ledger.
 
-**Two arms, and the difference between them is what kind of mistake each
+**Three arms, and the difference between them is what kind of mistake each
 corrects** (:data:`RelabelArm`).
 
 ``gvr`` — *the same order, read more finely.* An order that grants, vacates and
@@ -78,9 +79,30 @@ those three move plus ``actual_granted`` (1 → 0), ``resolved_at`` (to the
 confirming entry's date), and — because moving the date is what strands them —
 ``signals`` / ``interim_signals``, which are frozen *as at resolution* and would
 otherwise hide every docket step between the two dates from the increment
-claims. Votes and every other recorded field stay under both.
+claims. Votes and every other recorded field stay under every arm.
 
-**Population.** Committed cert-stage outcomes labeled ``granted``. Stage comes
+``restored-grant`` — *the exit was no exit.* The mirror of ``disowned-grant``,
+on a recorded ``denied`` or ``dismissed``: the label was read off text that
+names the petition's fate without deciding it — the termination conditional a
+stay order pending certiorari ends with ("Should the petition ... be denied,
+this stay shall terminate automatically"), or a Rule 46 dismissal "only as to"
+one petitioner — while the docket went on to its grant or GVR. The order guard
+and the partial-scope veto in :mod:`fedcourtsai.pipeline.cert_signals` stop the
+parser reading those sentences; this arm restores the grant they hid. It fires
+only where the confirming entry is a grant, no entry dated the recorded
+resolution still parses as an exit, and one carries the refused sentence
+(:func:`_recorded_exit`), which is quoted as the warrant. The binary moves 0 →
+1 and the resolution re-dates to the grant, with the same field set as a
+withdrawal. Like that arm it reaches back through the era boundary on its
+warrant. A refused exit whose docket ends in a different exit (a partial
+dismissal followed by the real denial) moves no binary and is reported rather
+than relabeled.
+
+**Population.** Committed cert-stage outcomes labeled ``granted``, and those
+labeled ``denied`` / ``dismissed`` whose case row in the corpus records a grant
+(:func:`_corpus_records_grant` — the screen that keeps the exit majority of the
+ledger from costing a snapshot read each; the docket text is still the
+warrant). Stage comes
 from the declared moments table
 (:func:`fedcourtsai.pipeline.moments.declares`), not from ``event.yaml``: these
 baselines carry no stage of their own, and the moments table is where the
@@ -88,9 +110,9 @@ pipeline reads a stage-level answer off an event id. A declared moment of
 another stage is simply out of population — it resolves under its own standard,
 which the cert vocabulary has no claim on — but an id the table declares
 *nothing* for is reported rather than passed over in silence, since there the
-sweep cannot tell what governs the event at all. Idempotent under both arms,
-because the relabel leaves the population: neither a ``gvr`` nor a ``denied`` /
-``dismissed`` outcome reads ``granted``.
+sweep cannot tell what governs the event at all. Idempotent under every arm:
+a ``gvr`` leaves the population, and a withdrawn or restored label is re-read
+from the entry it was re-dated to, whose parse it now agrees with.
 
 **Scope: the ledger, and only the ledger.** ``data/cases`` is the derived-judgment
 store this sweep converges, and corpus writes belong to the writer jobs' upsert
@@ -127,6 +149,7 @@ from .pipeline.cert_signals import (
     match_disposition_signal,
     mootness_disposition,
     proceedings_entries,
+    refused_exit_sentence,
     refused_grant_sentence,
 )
 from .pipeline.outcome import granted_flag
@@ -143,11 +166,12 @@ from .serialize import read_model, write_json
 #: parser recorded.
 #:
 #: A **date** is the right instrument only where the docket cannot answer the
-#: provenance question itself. It can, for the ``disowned-grant`` arm: a
-#: recorded resolution date carrying an entry that no longer parses as a grant
-#: names the parse gap directly (:func:`_recording_entry`), so that arm is
-#: governed by its own warrant and this constant does not bound it. Anything
-#: that is not one of those two things stays behind this date.
+#: provenance question itself. It can, for the two binary arms: a recorded
+#: resolution date carrying an entry that no longer parses as a grant
+#: (:func:`_recording_entry`, ``disowned-grant``) or as an exit
+#: (:func:`_recorded_exit`, ``restored-grant``) names the parse gap directly,
+#: so those arms are governed by their own warrants and this constant does not
+#: bound them. Anything else stays behind this date.
 PARSED_ORDER_TEXT_SINCE = date(2025, 10, 6)
 
 #: How much of a matched order's own words the report quotes. Wide enough to
@@ -176,6 +200,14 @@ _NO_RECORDING_ENTRY_REASON = (
     "no entry dated the recorded resolution carries text a grant could have been read out of, so "
     "the label's provenance cannot be established and the parse-gap warrant fails"
 )
+_NO_RECORDED_EXIT_REASON = (
+    "no entry dated the recorded resolution carries text a denial or dismissal could have been "
+    "read out of, so the label's provenance cannot be established and the restore warrant fails"
+)
+_LIVE_EXIT_REASON = (
+    "an entry dated the recorded resolution still parses as an exit, so the label's own warrant "
+    "stands and the grant is a separate order rather than a correction"
+)
 _LIVE_GRANT_RECITAL_REASON = (
     "an entry on this docket still parses as a grant, so the label's own warrant stands and a "
     "later non-grant entry is a subsequent order rather than a correction"
@@ -194,10 +226,11 @@ class _Confirmation:
 
 #: Which remit authorized a relabel. ``gvr`` re-reads a grant the parser now
 #: reads as a prose GVR — same order, finer label, the binary unmoved.
-#: ``disowned-grant`` withdraws a grant the parser no longer reads at all, and
-#: is the one arm that moves the binary and the resolution date, so the two are
-#: named apart everywhere they are reported.
-RelabelArm = Literal["gvr", "disowned-grant"]
+#: ``disowned-grant`` withdraws a grant the parser no longer reads at all;
+#: ``restored-grant`` is its mirror, restoring the grant a refused exit hid.
+#: Those two move the binary and the resolution date, in opposite directions,
+#: so all three are named apart everywhere they are reported.
+RelabelArm = Literal["gvr", "disowned-grant", "restored-grant"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -220,8 +253,10 @@ class DispositionRelabel:
     #: grant withdrawal as a label sharpening.
     arm: RelabelArm
     #: On ``disowned-grant``, the refused sentence the withdrawn ``granted`` was
-    #: read out of — the arm's own warrant, quoted so the dry run shows the
-    #: evidence for the withdrawal and not only for the order replacing it.
+    #: read out of; on ``restored-grant``, the refused sentence the replaced
+    #: ``denied`` / ``dismissed`` was read out of — each arm's own warrant,
+    #: quoted so the dry run shows the evidence for the relabel and not only
+    #: for the order replacing it.
     recital: str | None = None
     #: Committed evaluation directories under the event — the re-grade backlog
     #: this relabel creates. Non-zero only under ``include_scored``.
@@ -248,6 +283,10 @@ class DispositionConvergenceResult:
     #: Candidates the sweep declines to judge at all: resolved before the era
     #: boundary, carrying an undeclared event id, or held back as scored.
     out_of_scope: int = 0
+    #: ``denied`` / ``dismissed`` outcomes the corpus screen passed over: their
+    #: case row records no grant, so the docket text is never read. Counted
+    #: rather than listed — it is most of the ledger.
+    screened: int = 0
 
 
 def _truncate(text: str) -> str:
@@ -358,6 +397,45 @@ def _recording_entry(
     return _Disowned(recital) if recital is not None else "unidentified"
 
 
+def _recorded_exit(
+    payload: dict[str, Any], resolved_at: date
+) -> _Disowned | Literal["exit", "unidentified"]:
+    """What the entries dated a recorded denial or dismissal say about it today.
+
+    :func:`_recording_entry`'s mirror for the ``restored-grant`` arm, and
+    scoped to the recorded day rather than the docket, because the two binary arms
+    guard opposite mistakes. A withdrawal must never take a real grant away, so
+    any grant anywhere vetoes it; a restoration must never overturn a real
+    exit, and the exit that matters is the one the label was read from. A
+    later denial on the same docket (the real terminal after a partial
+    dismissal) is no veto here — the confirming entry already decides what the
+    label becomes, and a grant arm acts only where that entry is a grant.
+
+    - ``"exit"`` — an entry dated the recorded resolution still parses as a
+      denial or dismissal. The label's warrant stands. (The ordinary shape — a
+      real denial later vacated on rehearing — never reaches here, because that
+      denial is itself the confirming entry and agrees with the label; this is
+      the backstop for a same-day grant entry read ahead of the exit.)
+    - :class:`_Disowned` — no entry on that day parses as an exit, and one
+      carries an exit-shaped sentence today's parser refuses
+      (:func:`fedcourtsai.pipeline.cert_signals.refused_exit_sentence`: a stay
+      order's termination conditional, a dismissal scoped "only as to" one
+      party). That sentence is the label's provenance.
+    - ``"unidentified"`` — nothing on that day an exit could have been read
+      from. Reported, never rewritten.
+    """
+    recital: str | None = None
+    for text, raw in proceedings_entries(payload):
+        if entry_date(raw) != resolved_at:
+            continue
+        matched = match_disposition_signal(text)
+        if matched is not None and matched[0] in _WITHDRAWN_GRANT_LABELS:
+            return "exit"
+        if recital is None:
+            recital = refused_exit_sentence(text)
+    return _Disowned(recital) if recital is not None else "unidentified"
+
+
 def _stamped_evaluations(paths: EventPaths) -> int:
     """How many committed evaluation directories sit under one event.
 
@@ -381,7 +459,7 @@ class _Skip:
     """One candidate the sweep will not rewrite, and which denominator it counts in."""
 
     reason: str
-    bucket: Literal["checkable", "uncheckable", "out_of_scope"]
+    bucket: Literal["checkable", "uncheckable", "out_of_scope", "screened"]
 
 
 @dataclass(frozen=True)
@@ -441,9 +519,10 @@ def _readable_snapshot(
     return snapshot_date, payload
 
 
-#: The labels the ``disowned-grant`` arm may put in a withdrawn grant's place.
-#: Both leave :data:`~fedcourtsai.schemas.GRANTED_DISPOSITIONS`, which is what
-#: makes this the one arm that moves the binary.
+#: The exits: the labels the ``disowned-grant`` arm may put in a withdrawn
+#: grant's place, and the recorded labels the ``restored-grant`` arm may
+#: replace. Both leave :data:`~fedcourtsai.schemas.GRANTED_DISPOSITIONS`, which
+#: is what makes those two the arms that move the binary.
 _WITHDRAWN_GRANT_LABELS: frozenset[Disposition] = frozenset(
     {Disposition.denied, Disposition.dismissed}
 )
@@ -454,8 +533,9 @@ class _Arm:
     """The remit a read of the docket authorizes, with the evidence it rests on."""
 
     kind: RelabelArm
-    #: The refused sentence the withdrawn ``granted`` was read out of. Present on
-    #: ``disowned-grant`` and nowhere else, because nowhere else is a relabel
+    #: The refused sentence the replaced label was read out of: the withdrawn
+    #: ``granted`` on ``disowned-grant``, the replaced ``denied`` / ``dismissed``
+    #: on ``restored-grant``. Absent on ``gvr``, the one arm whose relabel is not
     #: warranted by text the parser declines to read.
     recital: str | None = None
 
@@ -477,6 +557,61 @@ def _withdrawal(payload: dict[str, Any], resolved_at: date) -> _Arm | _Skip:
     return _Arm("disowned-grant", recital=recording.recital)
 
 
+def _restoration(payload: dict[str, Any], resolved_at: date) -> _Arm | _Skip:
+    """Whether the docket warrants restoring a grant over a recorded exit, or why not.
+
+    The ``restored-grant`` arm's whole licence, read the way :func:`_withdrawal`
+    reads its own: positive evidence on the recorded day, not the calendar, so
+    it reaches back through the era boundary on the same terms.
+    """
+    recording = _recorded_exit(payload, resolved_at)
+    if recording == "exit":
+        return _Skip(_LIVE_EXIT_REASON, "checkable")
+    if recording == "unidentified":
+        return _Skip(_NO_RECORDED_EXIT_REASON, "checkable")
+    return _Arm("restored-grant", recital=recording.recital)
+
+
+def _agrees(confirmed: _Confirmation, outcome: Outcome) -> _Skip:
+    """The label agrees with the text; say so, and name a date the agreement hides.
+
+    No arm moves a date on its own, so a label the confirming entry agrees with
+    keeps its ``resolved_at`` even where that entry is dated later — a grant
+    recorded on a stay order's day and confirmed by the real grant months on.
+    The reason names the gap so the dry run surfaces it rather than reading as
+    a clean record.
+    """
+    reason = f"docket text parses {confirmed.disposition.value!r}; the label agrees"
+    if confirmed.filed != outcome.resolved_at:
+        reason += (
+            f", but its confirming entry is dated {confirmed.filed.isoformat()}, not the "
+            f"recorded {outcome.resolved_at.isoformat()}; no arm moves a date alone"
+        )
+    return _Skip(reason, "checkable")
+
+
+def _binary_arm(
+    confirmed: _Confirmation, recorded: Disposition, outcome: Outcome, payload: dict[str, Any]
+) -> _Arm | _Skip:
+    """The remit where an exit is on one side of the disagreement: the binary arms.
+
+    A recorded grant the text now reads as an exit is the withdrawal
+    (:func:`_withdrawal`). A recorded exit the text now reads as a grant is the
+    restoration (:func:`_restoration`); one it reads as a different exit (a
+    partial dismissal whose docket ends in a denial) moves no binary and is
+    reported, not relabeled.
+    """
+    if recorded not in _WITHDRAWN_GRANT_LABELS:
+        return _withdrawal(payload, outcome.resolved_at)
+    if confirmed.disposition not in GRANTED_DISPOSITIONS:
+        return _Skip(
+            f"docket text parses {confirmed.disposition.value!r}, which is outside this "
+            f"sweep's remit for a recorded exit: {confirmed.evidence!r}",
+            "checkable",
+        )
+    return _restoration(payload, outcome.resolved_at)
+
+
 def _arm(
     confirmed: _Confirmation | None,
     recorded: Disposition,
@@ -490,8 +625,10 @@ def _arm(
     already, a text that disagrees but reads as something else, and the era
     boundary — comes back reported rather than as silence.
 
-    The order matters. The ``disowned-grant`` test runs **before** the era
-    boundary because it *answers* the question the boundary asks. The boundary
+    The order matters. The ``restored-grant`` and ``disowned-grant`` tests run
+    **before** the era boundary because each *answers* the question the
+    boundary asks (shown here for the withdrawal; the restoration's refused exit
+    sentence is the same kind of evidence). The boundary
     protects labels the disposition parser never wrote — normalized from the
     upstream record's own fields, the older vocabulary's faithful record — and a
     ``disowned`` recording entry is positive evidence to the contrary: an order
@@ -503,18 +640,16 @@ def _arm(
 
     The final skip is a **total-function default, not a live case**: every label
     :data:`~fedcourtsai.pipeline.cert_signals._ENTRY_SIGNALS` can return is named
-    by an arm above or agrees with the recorded ``granted``. It is what a label
+    by an arm above or agrees with the recorded label. It is what a label
     the parser gains later meets — reported, never acted on — so the sweep's
     remit only ever widens deliberately.
     """
     if confirmed is None:
         return _Skip(_NO_DISPOSING_ENTRY_REASON, "checkable")
     if confirmed.disposition == recorded:
-        return _Skip(
-            f"docket text parses {confirmed.disposition.value!r}; the label agrees", "checkable"
-        )
-    if confirmed.disposition in _WITHDRAWN_GRANT_LABELS:
-        return _withdrawal(payload, outcome.resolved_at)
+        return _agrees(confirmed, outcome)
+    if recorded in _WITHDRAWN_GRANT_LABELS or confirmed.disposition in _WITHDRAWN_GRANT_LABELS:
+        return _binary_arm(confirmed, recorded, outcome, payload)
     if outcome.resolved_at < PARSED_ORDER_TEXT_SINCE:
         return _era_skip(outcome)
     if confirmed.disposition is not Disposition.gvr:
@@ -539,6 +674,10 @@ def _update_for(arm: RelabelArm, outcome: Outcome, confirmed: _Confirmation) -> 
     coverage sentinel, and filling one in would widen the assessed set rather
     than correct it. ``actual_granted`` is untouched by construction — a GVR is
     in :data:`~fedcourtsai.schemas.GRANTED_DISPOSITIONS`.
+
+    ``disowned-grant`` and ``restored-grant`` move the same fields, in opposite
+    directions on the binary; the account below is written for the withdrawal
+    and holds for the restoration with the grant gained rather than lost.
 
     ``disowned-grant`` — a different order, and no grant at all. The record's
     whole warrant moves to the confirming entry, so every field derived from the
@@ -576,7 +715,7 @@ def _update_for(arm: RelabelArm, outcome: Outcome, confirmed: _Confirmation) -> 
     truth is 1. Re-freezing them is the resolution pass's work, not a
     single-entry read's; ``None`` is the field's own documented "nobody looked"
     sentinel, and every claim masks on it. Votes and every other recorded field
-    stay as they are under both arms.
+    stay as they are under every arm.
     """
     if arm == "gvr":
         basis = "mootness" if outcome.disposition_basis == "mootness" else confirmed.basis
@@ -609,11 +748,14 @@ def _assess(
     *,
     include_scored: bool,
 ) -> _Plan | _Skip | None:
-    """Judge one ``granted`` outcome. ``None`` means it is not this sweep's business.
+    """Judge one ``granted``, ``denied`` or ``dismissed`` outcome. ``None`` means
+    it is not this sweep's business.
 
-    The gates run cheapest-and-most-categorical first — stage, then the scored
-    holdback — so a candidate the sweep may not touch never costs a snapshot
-    read. The era boundary runs *after* the text read rather than beside them,
+    The gates run cheapest-and-most-categorical first — stage, then the exit
+    screen (a recorded ``denied`` / ``dismissed`` whose corpus row records no
+    grant, :func:`_corpus_records_grant`), then the scored holdback — so a
+    candidate the sweep may not touch never costs a snapshot read. The era
+    boundary runs *after* the text read rather than beside them,
     because it is not categorical: whether a label is the older vocabulary's
     record or a parse gap is a question the docket text answers (see
     :func:`_arm`). The cost of moving it is one snapshot read per pre-era
@@ -628,6 +770,12 @@ def _assess(
     if not moments.declares(outcome.event_id, Stage.cert):
         undeclared = moments.spec_for(outcome.event_id) is None
         return _Skip(_UNDECLARED_EVENT_REASON, "out_of_scope") if undeclared else None
+    # The exit screen runs once the stage is known, so its count is cert-stage
+    # outcomes only, and before the scored holdback, so an exit the corpus gives
+    # no reason to read is never reported as held back either.
+    recorded = Disposition(outcome.actual_disposition)
+    if recorded in _WITHDRAWN_GRANT_LABELS and not _corpus_records_grant(conn, outcome):
+        return _Skip("the corpus row records no grant", "screened")
     event_paths = EventPaths(path.parent)
     if (barred := _out_of_scope(event_paths, outcome, include_scored=include_scored)) is not None:
         return barred
@@ -636,7 +784,6 @@ def _assess(
         return readable
     snapshot_date, payload = readable
     confirmed = _confirming_signal(payload, outcome.resolved_at)
-    recorded = Disposition(outcome.actual_disposition)
     chosen = _arm(confirmed, recorded, outcome, payload)
     if isinstance(chosen, _Skip):
         return chosen
@@ -666,6 +813,22 @@ def _assess(
     )
 
 
+def _corpus_records_grant(conn: sqlite3.Connection, outcome: Outcome) -> bool:
+    """The cheap screen for the ``restored-grant`` arm: does the case row hold a grant?
+
+    The exit population is most of the ledger, and reading every denial's
+    docket text to find the handful a refused exit hid would cost a snapshot
+    read per outcome. The corpus row answers first, because the live channel
+    and ``refresh-dockets`` re-derive ``disposition`` from the same parser on
+    every read and the column takes the incoming value: a row whose docket the
+    parser now reads as granted already says so. The screen only admits; the
+    docket text is still the warrant. A row not yet re-read is screened out and
+    waits for its refresh, which is why that re-read comes first.
+    """
+    row = corpus.get_row(conn, outcome.case_id)
+    return row is not None and row.disposition in GRANTED_DISPOSITIONS
+
+
 def converge_disposition_labels(
     conn: sqlite3.Connection,
     data_root: Path,
@@ -674,7 +837,10 @@ def converge_disposition_labels(
     max_relabels: int | None = None,
     include_scored: bool = False,
 ) -> DispositionConvergenceResult:
-    """Re-resolve every committed ``granted`` cert outcome against its stored snapshot.
+    """Re-resolve committed cert outcomes against their stored snapshots.
+
+    Every ``granted`` outcome, and every ``denied`` / ``dismissed`` one whose
+    corpus row records a grant (the ``restored-grant`` population).
 
     Dry run by default (reads the ledger and the snapshots, writes nothing);
     ``apply`` rewrites each confirmed ``outcome.json`` through
@@ -705,11 +871,13 @@ def converge_disposition_labels(
     disposing, the recorded label already agreeing with the text, committed
     scored output, a resolution predating the era boundary that the
     ``disowned-grant`` warrant does not reach, a recorded resolution date the
-    snapshot carries no entry for, a grant still standing on that date, or a
-    parse that disagrees but is neither ``gvr`` nor a withdrawal — the last of
-    which this sweep deliberately declines to act on. Its remit is the two shapes
-    named in the module docstring, not a licence to rewrite any label it now
-    disagrees with.
+    snapshot carries no entry for, a grant still standing on that date, an exit
+    still standing on its recorded day, or a parse that disagrees but no arm
+    names — the last of which this sweep deliberately declines to act on. Its
+    remit is the three shapes named in the module docstring, not a licence to
+    rewrite any label it now disagrees with. ``denied`` / ``dismissed`` outcomes
+    the corpus screen passes over are counted in
+    :attr:`DispositionConvergenceResult.screened`, not listed.
     """
     result = DispositionConvergenceResult(applied=apply)
     planned: list[tuple[Path, Outcome, dict[str, Any]]] = []
@@ -718,13 +886,18 @@ def converge_disposition_labels(
         # Equality, never identity: a validated artifact carries the plain string
         # (``use_enum_values``), so the recorded label is normalized back to a member
         # before it is reported or compared against the parser's own.
-        if outcome.actual_disposition != Disposition.granted:
+        recorded = Disposition(outcome.actual_disposition)
+        if recorded is not Disposition.granted and recorded not in _WITHDRAWN_GRANT_LABELS:
             continue
         ref = f"{outcome.case_id}/{outcome.event_id}"
         verdict = _assess(conn, path, outcome, ref, include_scored=include_scored)
         if verdict is None:
             continue
         if isinstance(verdict, _Skip):
+            if verdict.bucket == "screened":
+                # Counted, never listed: it is most of the ledger.
+                result.screened += 1
+                continue
             if verdict.bucket == "checkable":
                 result.checkable += 1
             elif verdict.bucket == "uncheckable":

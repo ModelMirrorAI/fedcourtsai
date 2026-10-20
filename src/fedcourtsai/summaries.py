@@ -38,7 +38,7 @@ import hashlib
 import json
 import re
 import shutil
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -67,8 +67,9 @@ from .schemas import (
     CaseSummaryUsage,
     SummaryPlan,
     SummaryPlanCase,
+    SummaryWithdrawal,
 )
-from .serialize import write_text
+from .serialize import load_yaml, write_raw_json, write_text
 
 #: The summarizer's system prompt, relative to the repository root.
 PROMPT_PATH = Path(".github/prompts/summarize.md")
@@ -193,13 +194,133 @@ def input_chars(payload: Mapping[str, Any], documents: Iterable[tuple[str, str]]
     return snapshot + sum(min(len(text), cap) for _, text in documents)
 
 
-def newest_summary(data_root: Path, court_id: str, docket_id: int) -> Path | None:
-    """The case's newest committed summary file by snapshot day, or ``None``."""
+def dated_summaries(data_root: Path, court_id: str, docket_id: int) -> list[tuple[date, Path]]:
+    """The case's committed summary files with their snapshot days, oldest first."""
     directory = CasePaths(data_root, court_id, docket_id).summaries_dir
     if not directory.is_dir():
+        return []
+    dated: list[tuple[date, Path]] = []
+    for path in directory.iterdir():
+        match = _SUMMARY_NAME.match(path.name)
+        if match is None:
+            continue
+        try:
+            dated.append((date.fromisoformat(match.group(1)), path))
+        except ValueError:
+            continue
+    return sorted(dated)
+
+
+def newest_summary(
+    data_root: Path, court_id: str, docket_id: int, *, docketed: date | None = None
+) -> Path | None:
+    """The case's newest committed summary file by snapshot day, or ``None``.
+
+    With ``docketed``, a summary withdrawn against that docketed date
+    (:func:`is_withdrawn`) is passed over: it describes another petition, so it
+    is not the case's summary at all.
+    """
+    kept = [
+        path
+        for day, path in dated_summaries(data_root, court_id, docket_id)
+        if not is_withdrawn(day, docketed)
+    ]
+    return kept[-1] if kept else None
+
+
+#: How the Court's docket JSON writes ``DocketedDate`` (``August 21, 2026``).
+_DOCKETED_FORMATS = ("%B %d, %Y", "%b %d, %Y")
+
+
+def docketed_date(payload: Mapping[str, Any]) -> date | None:
+    """The docketed date a Court docket JSON payload carries, or ``None``.
+
+    ``None`` for a blank or unparseable field, which withdraws nothing.
+    """
+    raw = payload.get("DocketedDate")
+    if not isinstance(raw, str) or not raw.strip():
         return None
-    dated = sorted(p for p in directory.iterdir() if _SUMMARY_NAME.match(p.name))
-    return dated[-1] if dated else None
+    text = " ".join(raw.split())
+    for fmt in _DOCKETED_FORMATS:
+        try:
+            return datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def is_withdrawn(snapshot: date, docketed: date | None) -> bool:
+    """Whether a summary written from ``snapshot`` describes another petition.
+
+    A summary is written from a snapshot of the Court's docket JSON, which
+    exists only once the petition is docketed, so a summary of the petition a
+    number now holds cannot predate that petition's docketed date. One that does
+    was written while the number held another petition: the Clerk re-docketed
+    it, and the re-entered petition carries its own, later docketed date
+    (:mod:`fedcourtsai.pipeline.redocket`). The rule reads the case's newest
+    record alone, so it needs no older snapshot. It also withdraws a summary
+    written before a docketed date the Clerk corrected to a later day for the
+    same petition, which costs a superseded display file; a re-docketing whose
+    re-entered petition keeps a docketed date on or before the old summary's day
+    is not seen.
+    """
+    return docketed is not None and snapshot < docketed
+
+
+def withdrawn_summaries(
+    data_root: Path, court_id: str, docket_id: int, docketed: date | None
+) -> list[SummaryWithdrawal]:
+    """The case's committed summaries :func:`is_withdrawn` against ``docketed``.
+
+    Each names its repository-relative path, built on the ``data/`` root the
+    publish jail compares against, whatever ``data_root`` the plan read.
+    """
+    if docketed is None:
+        return []
+    case_id = ids.case_id(court_id, docket_id)
+    repo_case = CasePaths(Path("data"), court_id, docket_id)
+    return [
+        SummaryWithdrawal(
+            case_id=case_id,
+            path=repo_case.summary(day.isoformat()).as_posix(),
+            snapshot=day,
+            docketed=docketed,
+        )
+        for day, _ in dated_summaries(data_root, court_id, docket_id)
+        if is_withdrawn(day, docketed)
+    ]
+
+
+def withdraw_summaries(data_root: Path, plan: SummaryPlan) -> list[str]:
+    """Delete the plan's withdrawn summaries under ``data_root``; the paths removed.
+
+    Each file is located from its case id and snapshot day through
+    :class:`~fedcourtsai.paths.CasePaths`, never from the plan's path string,
+    and a row whose path is not that canonical one is refused. A file already
+    gone is skipped, so a re-run is a no-op.
+    """
+    removed: list[str] = []
+    for row in plan.withdrawn:
+        if re.fullmatch(ids.CASE_ID_PATTERN, row.case_id) is None:
+            raise ValueError(f"withdrawal row names case {row.case_id!r}, not a case id")
+        court_id, docket = row.case_id.split("/", 1)
+        docket_id = int(docket)
+        # A court segment of dots alone is a case id's shape but a directory
+        # traversal; the canonical id is one `ids.case_id` builds unchanged.
+        if court_id.strip(".") == "" or ids.case_id(court_id, docket_id) != row.case_id:
+            raise ValueError(f"withdrawal row names case {row.case_id!r}, not a case id")
+        day = row.snapshot.isoformat()
+        canonical = CasePaths(Path("data"), court_id, docket_id).summary(day).as_posix()
+        if row.path != canonical or not is_summary_path(row.path):
+            raise ValueError(f"withdrawal row names {row.path!r}, not its summary {canonical!r}")
+        target = CasePaths(data_root, court_id, docket_id).summary(day)
+        if target.is_file():
+            target.unlink()
+            removed.append(row.path)
+    return removed
 
 
 def committed_front(path: Path) -> CaseSummaryFrontMatter | None:
@@ -250,8 +371,16 @@ def plan_summaries(
     earlier contract, each by case id, so a ``limit`` spends on the cases a
     reader has nothing for, then on the ones whose summary is out of date.
     ``limit`` of 0 means no limit.
+
+    A committed summary written before the newest record's docketed date
+    describes another petition (:func:`is_withdrawn`): it is listed under
+    ``withdrawn`` for the run to delete, and the newest summary the case is
+    compared against is the newest one left, so a case whose every summary is
+    withdrawn is planned as ``new``. Withdrawals cost nothing and are never held
+    back by the limit.
     """
     owed: list[SummaryPlanCase] = []
+    withdrawn: list[SummaryWithdrawal] = []
     up_to_date = 0
     no_snapshot: list[str] = []
     not_live_shaped: list[str] = []
@@ -266,8 +395,10 @@ def plan_summaries(
         if LIVE_SHAPE_KEY not in record.payload:
             not_live_shaped.append(case_id)
             continue
+        docketed = docketed_date(record.payload)
+        withdrawn += withdrawn_summaries(data_root, court_id, docket_id, docketed)
         digest = record_digest(record.payload, record.documents)
-        newest = newest_summary(data_root, court_id, docket_id)
+        newest = newest_summary(data_root, court_id, docket_id, docketed=docketed)
         front = committed_front(newest) if newest is not None else None
         if is_current(front, digest):
             up_to_date += 1
@@ -304,6 +435,7 @@ def plan_summaries(
         not_live_shaped=not_live_shaped,
         deferred=len(owed) - len(planned),
         cases=planned,
+        withdrawn=withdrawn,
         estimated_cost_usd_low=round(low, 2),
         estimated_cost_usd_high=round(high, 2),
     )
@@ -353,6 +485,8 @@ def render_plan_report(plan: SummaryPlan, *, run_url: str = "") -> str:
         + f"body contract): {plan.up_to_date}",
         f"- owed and planned: **{len(plan.cases)}**"
         + (f" ({plan.deferred} more deferred by the limit)" if plan.deferred else ""),
+        "- summaries withdrawn (written before the petition the number now holds "
+        + f"was docketed): {len(plan.withdrawn)}",
         f"- no corpus snapshot: {len(plan.no_snapshot)}",
         "- newest snapshot not the Court's own docket JSON (not summarized): "
         + f"{len(plan.not_live_shaped)}",
@@ -377,6 +511,17 @@ def render_plan_report(plan: SummaryPlan, *, run_url: str = "") -> str:
             "Nothing is owed: every eligible case's summary matches its record "
             + "and the current body contract."
         )
+    if plan.withdrawn:
+        lines += [
+            "",
+            "Withdrawn (the review PR deletes them):",
+            "",
+            "| case | summary | docketed |",
+            "|---|---|---|",
+        ]
+        lines += [
+            f"| `{w.case_id}` | `{w.path}` | {w.docketed.isoformat()} |" for w in plan.withdrawn
+        ]
     return "\n".join(lines) + "\n"
 
 
@@ -432,7 +577,50 @@ def prune_stage(plan: SummaryPlan, stage_root: Path) -> list[tuple[str, str]]:
             if reason:
                 _remove(case_dir)
                 removed.append((label, reason))
+                continue
+            removed.extend(
+                (f"{label}/{kind}", reason) for kind, reason in _withhold_residuals(case_dir)
+            )
     return removed
+
+
+DOCUMENT_WITHHELD = "document withheld"
+"""The reason :func:`prune_stage` gives a document it withholds from a kept case."""
+
+# A document kind as provisioning names its text file: a lower-case stem.
+_STAGED_KIND = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def _withhold_residuals(case_dir: Path) -> list[tuple[str, str]]:
+    """Remove each staged document the contact scrub left a contact-shaped match on.
+
+    Provisioning stages such a document unchanged and records what the scrub's
+    residual detector still found as the manifest row's ``contact_residuals``.
+    The rule keys on that count, not on ``contact_scrubbed: false``, which is
+    also what every represented docket's documents read. A row whose count is
+    missing or not a whole number is withheld too, since nothing then says it
+    is clean.
+    Each withheld document's text file and manifest row go together, so the
+    manifest still lists exactly the files staged, and the case crosses with
+    the rest of its record. Returns ``(kind, reason)`` for each.
+    """
+    manifest = case_dir / "record/documents/documents.json"
+    if not manifest.is_file():
+        return []
+    entries = json.loads(manifest.read_text())
+    kept: list[Any] = []
+    withheld: list[tuple[str, str]] = []
+    for entry in entries:
+        count = entry.get("contact_residuals")
+        if isinstance(count, int) and not isinstance(count, bool) and count == 0:
+            kept.append(entry)
+            continue
+        kind = entry["kind"]
+        (case_dir / f"record/documents/{kind}.txt").unlink(missing_ok=True)
+        withheld.append((kind, f"{DOCUMENT_WITHHELD}: {count!r} contact residual(s)"))
+    if withheld:
+        write_raw_json(manifest, kept)
+    return withheld
 
 
 def _stage_problem(case_dir: Path, case: SummaryPlanCase) -> str:
@@ -490,12 +678,22 @@ def _staged_documents(case_dir: Path) -> tuple[set[str], str]:
     allowed = {manifest}
     for entry in entries:
         kind = entry.get("kind") if isinstance(entry, dict) else None
-        if not isinstance(kind, str):
-            return set(), "documents manifest entry has no kind"
-        if not all(_is_court_url(url) for url in str(entry.get("url", "")).split("|")):
-            return set(), f"document {kind!r} was not fetched from supremecourt.gov"
+        problem = _entry_problem(entry, kind)
+        if problem:
+            return set(), problem
         allowed.add(f"record/documents/{kind}.txt")
     return allowed, ""
+
+
+def _entry_problem(entry: Any, kind: object) -> str:
+    """Why one manifest row may not cross: no kind, a kind that is not a file stem, or off-host."""
+    if not isinstance(kind, str):
+        return "documents manifest entry has no kind"
+    if not _STAGED_KIND.match(kind):
+        return f"documents manifest entry has a malformed kind {kind!r}"
+    if not all(_is_court_url(url) for url in str(entry.get("url", "")).split("|")):
+        return f"document {kind!r} was not fetched from supremecourt.gov"
+    return ""
 
 
 def _is_court_url(url: str) -> bool:
@@ -841,7 +1039,7 @@ def parse_summary(text: str) -> tuple[CaseSummaryFrontMatter, str]:
     if match is None:
         raise SummaryFormatError("no YAML front matter block")
     try:
-        front = CaseSummaryFrontMatter.model_validate(yaml.safe_load(match.group(1)))
+        front = CaseSummaryFrontMatter.model_validate(load_yaml(match.group(1)))
     except (yaml.YAMLError, ValidationError) as exc:
         raise SummaryFormatError(f"front matter: {exc}") from exc
     return front, text[match.end() :]
@@ -858,10 +1056,12 @@ def summary_file_problems(file: Path, root: Path) -> list[str] | None:
     that band gates what the harness accepts from the model, and a committed
     summary is judged on shape.
     """
-    try:
-        parts = file.relative_to(root).parts
-    except ValueError:  # pragma: no cover - callers pass paths under root
+    # Lexical, as `Path.relative_to` is, minus its walk of `file.parents`: the
+    # ledger scan calls this once per file in the tree.
+    base = len(root.parts)
+    if file.parts[:base] != root.parts:  # pragma: no cover - callers pass paths under root
         return None
+    parts = file.parts[base:]
     if len(parts) < 5 or parts[0] != "cases" or parts[3] != "summaries":
         return None
     name = _SUMMARY_NAME.match(parts[4]) if len(parts) == 5 else None
@@ -887,10 +1087,11 @@ def summary_file_problems(file: Path, root: Path) -> list[str] | None:
 # --- the publish jail --------------------------------------------------------------
 
 # A summary file at the one layout `fedcourtsai.paths` puts it at, repo-relative.
-# Matched whole, with a numeric docket segment and a dated name, so nothing else
-# under a case — an event, a record file — can pass as one.
+# Matched whole, with a court segment that opens on a letter or digit (so never
+# `.` or `..`), a numeric docket segment and a dated name, so nothing else under
+# a case — an event, a record file — can pass as one.
 _SUMMARY_PATH = re.compile(
-    r"data/cases/[a-z0-9._-]+/[0-9]+/summaries/[0-9]{4}-[0-9]{2}-[0-9]{2}\.md"
+    r"data/cases/[a-z0-9][a-z0-9._-]*/[0-9]+/summaries/[0-9]{4}-[0-9]{2}-[0-9]{2}\.md"
 )
 
 
@@ -901,18 +1102,24 @@ def is_summary_path(rel: str) -> bool:
     return _SUMMARY_PATH.fullmatch(rel) is not None
 
 
-def summary_changes(changes: Iterable[tuple[str, str]]) -> tuple[list[str], list[str]]:
+def summary_changes(
+    changes: Iterable[tuple[str, str]], withdrawn: Collection[str] = ()
+) -> tuple[list[str], list[str]]:
     """Split ``(status, path)`` changes into summary writes and everything else.
 
-    A summary write is an addition or a modification of a summary file — the
-    only change the summaries lane makes. Anything else (a deletion, a rename,
-    any other path) is returned as a violation, each rendered ``<status> <path>``.
+    A summary write is an addition or a modification of a summary file. The
+    only other change the summaries lane makes is deleting a summary its plan
+    withdrew, admitted only for a path in ``withdrawn`` and returned in neither
+    list. Anything else (any other deletion, a rename, any other path) is
+    returned as a violation, each rendered ``<status> <path>``.
     """
     writes: list[str] = []
     violations: list[str] = []
     for status, path in changes:
         if status in {"A", "M"} and is_summary_path(path):
             writes.append(path)
+        elif status == "D" and path in withdrawn and is_summary_path(path):
+            continue
         else:
             violations.append(f"{status} {path}")
     return sorted(writes), sorted(violations)

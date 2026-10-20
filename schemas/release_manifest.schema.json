@@ -1,0 +1,114 @@
+{
+  "$defs": {
+    "ReleaseEntry": {
+      "additionalProperties": false,
+      "description": "One results release in the release manifest (``docs/releases.json``).\n\nThe fedcourts.ai site reads the manifest from ``main`` and each release's\ndocuments from the release's own tag, so the list can grow while every\npublished page stays fixed to its tagged text. An entry whose tag does not\nexist yet is shown there as upcoming.",
+      "properties": {
+        "audit": {
+          "description": "Repository path of the release's audit write-up, read at `tag`",
+          "pattern": "^docs/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\\.md$",
+          "title": "Audit",
+          "type": "string"
+        },
+        "code_doi": {
+          "anyOf": [
+            {
+              "pattern": "^10\\.[0-9]{4,9}/[^\\s]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The concept DOI of the project's Zenodo software record, which resolves to its newest archived version; the release cites it beside its tag, which pins the exact code. Null until the record exists",
+          "title": "Code Doi"
+        },
+        "covers": {
+          "description": "One line, for a lay reader, on what the release covers",
+          "minLength": 1,
+          "title": "Covers",
+          "type": "string"
+        },
+        "data_doi": {
+          "anyOf": [
+            {
+              "pattern": "^10\\.[0-9]{4,9}/[^\\s]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The DOI of the release's Zenodo dataset record; null until reserved",
+          "title": "Data Doi"
+        },
+        "label": {
+          "description": "The release's short name, e.g. \"Release 1\"",
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "published": {
+          "description": "The release's publication date",
+          "format": "date",
+          "title": "Published",
+          "type": "string"
+        },
+        "slug": {
+          "description": "The release's URL path segment on the site (`/results/<slug>`)",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "title": "Slug",
+          "type": "string"
+        },
+        "summary": {
+          "description": "Repository path of the release's public summary, read at `tag`",
+          "pattern": "^docs/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\\.md$",
+          "title": "Summary",
+          "type": "string"
+        },
+        "tag": {
+          "description": "The git tag the release is published from, in the `results/` namespace",
+          "pattern": "^results/[A-Za-z0-9._-]+$",
+          "title": "Tag",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slug",
+        "label",
+        "tag",
+        "published",
+        "covers",
+        "summary",
+        "audit"
+      ],
+      "title": "ReleaseEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``docs/releases.json`` \u2014 every results release, newest first.\n\nCommitted beside the releases it describes and promoted with them, so\npublishing a release needs no change to the site that lists it.",
+  "properties": {
+    "releases": {
+      "description": "The releases, newest first",
+      "items": {
+        "$ref": "#/$defs/ReleaseEntry"
+      },
+      "title": "Releases",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "releases"
+  ],
+  "title": "ReleaseManifest",
+  "type": "object"
+}

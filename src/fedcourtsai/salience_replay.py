@@ -206,6 +206,8 @@ def _replay_cell(
         synthesized,
         config,
         version=version,
+        # No `application_twins`: the replay projects modern cert rows only, so
+        # no application reaches the interim reserve here.
         # An arrival cohort exists only at the arrival policy: a row still
         # undistributed at a later cutoff is a reconstruction artifact (often
         # a blind projection), and drawing it would pool the arrival slice

@@ -4046,3 +4046,134 @@ def test_a_docket_first_ingested_decided_lands_closed_and_marked(tmp_path: Path)
         baseline.resolved_without_outcome_reason,
     ) == (True, True, corpus.NO_OUTCOME_INGESTED_DECIDED)
     assert not CasePaths(data_root, "scotus", docket_id).event(baseline.event_id).outcome.exists()
+
+
+#: An ancillary paper's distribution: a sealing motion docketed under its own
+#: M-number rides the petition's docket page, ahead of the petition's own.
+_MOTION_DISTRIBUTED_ENTRY = {
+    "Date": "Jul 10 2026",
+    "Text": "Motion (25M8) DISTRIBUTED for Conference of 9/29/2026.",
+}
+
+
+def test_an_ancillary_motion_distribution_never_opens_the_distribution_moment(
+    tmp_path: Path,
+) -> None:
+    """The 26-455 / 26-461 / 26-462 shape: the motion's distribution moves the
+    membership column, but the petition itself is undistributed, so no
+    distribution-moment cell is queued until the petition's own distribution
+    lands — even when that one names the same conference as the motion's."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    served = {"25-1": _payload("25-1")}
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 9))
+
+    served["25-1"]["ProceedingsandOrder"].append(_MOTION_DISTRIBUTED_ENTRY)
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 10)
+        )
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None
+    assert row.distributed_for_conference == date(2026, 9, 29)  # membership: any paper
+    assert row.distribution_count == 0  # the petition's own trajectory: dist-v2
+    assert queues.predict == []
+    assert "evt-petition-disposition" not in forecastable_events(
+        db, "scotus", 9_025_000_001, today=date(2026, 7, 10)
+    )
+
+    served["25-1"]["ProceedingsandOrder"].append(
+        {"Date": "Jul 11 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 11)
+        )
+    assert [q["docket"] for q in queues.predict] == [9_025_000_001]
+    assert queues.predict[0]["events"] == ["evt-petition-disposition"]
+
+
+def test_an_ancillary_paper_distributed_after_the_petition_is_no_relist(tmp_path: Path) -> None:
+    """The petition is on one conference; a motion is then distributed for
+    another. The membership column moves, the petition's own count does not,
+    so nothing queues and no relist is read."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    served = {"25-1": _payload("25-1")}
+    served["25-1"]["ProceedingsandOrder"].append(_DISTRIBUTED_ENTRY)
+    with _frontier_client(served) as client:
+        live_poll_all(client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 10))
+
+    served["25-1"]["ProceedingsandOrder"].append(
+        {"Date": "Jul 11 2026", "Text": "Motion (25M9) DISTRIBUTED for Conference of 10/10/2026."}
+    )
+    with _frontier_client(served) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 11)
+        )
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None
+    assert row.distributed_for_conference == date(2026, 10, 10)  # the motion's
+    assert row.distribution_count == 1
+    assert queues.predict == []
+    assert queues.predict_skipped_relist_cooldown == []
+
+
+def test_a_first_petition_distribution_after_a_motions_is_not_a_relist(tmp_path: Path) -> None:
+    """A motion's distribution came first and a predict was queued the same day:
+    the petition's own first distribution is not a relist, so the cooldown does
+    not suppress it."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    docket_id = live_docket_id(25, 1)
+    motion_only = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _MOTION_DISTRIBUTED_ENTRY]
+    )
+    with _frontier_client({"25-1": motion_only}) as client:
+        discover_live(client, db, data_root, 25, max_new=1, today=date(2026, 7, 11))
+    with corpus.connect(db) as conn:
+        corpus.latch_salience_selected(conn, ["scotus/9025000001"])
+        corpus.stamp_predict_queued(conn, ["scotus/9025000001"], date(2026, 7, 11))
+    distributed = _payload(
+        "25-1",
+        proceedings=[
+            _payload()["ProceedingsandOrder"][0],
+            _MOTION_DISTRIBUTED_ENTRY,
+            {"Date": "Jul 11 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."},
+        ],
+    )
+    with _frontier_client({"25-1": distributed}) as client:
+        queues, _ = live_poll_all(
+            client,
+            db,
+            data_root,
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(),
+            today=date(2026, 7, 11),
+        )
+    assert [q["docket"] for q in queues.predict] == [docket_id]
+    assert queues.predict_skipped_relist_cooldown == []
+
+
+def test_a_docket_first_seen_with_only_a_motion_distributed_queues_nothing(
+    tmp_path: Path,
+) -> None:
+    """The discovery path's transition test is the petition's own distribution too."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    motion_only = _payload(
+        "25-1", proceedings=[_payload()["ProceedingsandOrder"][0], _MOTION_DISTRIBUTED_ENTRY]
+    )
+    with _frontier_client({"25-1": motion_only}) as client:
+        queues, _ = live_poll_all(
+            client, db, data_root, term=25, config=LiveConfig(), today=date(2026, 7, 10)
+        )
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/9025000001")
+    assert row is not None and row.distributed_for_conference == date(2026, 9, 29)
+    assert queues.predict == []

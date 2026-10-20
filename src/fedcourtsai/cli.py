@@ -71,6 +71,7 @@ from . import (
     registry_gate,
     repo_gate,
     retrieval,
+    schedule,
     scope_manifest,
     secretscan,
     summaries,
@@ -99,6 +100,7 @@ from .backtest import (
     select_backtest_set,
 )
 from .buttondown import API_KEY_ENV, ButtondownError, make_client, post_draft
+from .cell_access import AccessHit, AccessKind, audit_cell_access
 from .cert_backtest import (
     CERT_BACKTEST_SCOPES,
     ReplayOutcome,
@@ -132,6 +134,7 @@ from .collect import (
     ThrottleRollup,
     assert_board_within_jail,
     assert_cleanup_within_jail,
+    assert_updates_within_jail,
     assert_within_jail,
     attempted_corpus_query,
     cell_failures,
@@ -174,12 +177,15 @@ from .disposition_convergence import converge_disposition_labels
 from .docket_marking_migration import normalize_docket_markings
 from .finalize import (
     FinalizeRole,
+    JudgeFileOutcome,
+    JudgeFileSettlement,
     OutputSnapshot,
     agent_produced_output,
     blinded_candidates,
     cell_output_root,
     required_outputs,
     reset_output_root,
+    settle_judge_level_outputs,
     snapshot_output_root,
 )
 from .fixture import build_fixture_corpus
@@ -261,6 +267,7 @@ from .pipeline import (
     granted_noted,
     historical,
     liveprobe,
+    merits_lineups,
     moments,
     ocr_sweep,
     opinion_lineups,
@@ -392,6 +399,7 @@ from .promotion_train import (
 )
 from .promotion_train import decide as promotion_train_decide
 from .public_update import (
+    archive_public_updates,
     build_public_update,
     last_complete_week,
     public_update_subject,
@@ -1378,7 +1386,10 @@ def reconcile_salience_selection_cmd(
     `salience_selected` on each conference cohort's top-N by score plus the
     always-include carve-outs (CVSG, above-floor). The latch is one-way (sticky), so
     a re-run never de-selects a case that later drifts below the cap. Dry-run by
-    default; `--apply` writes (the run-seed walk then pushes the corpus). Prints a
+    default; `--apply` writes (the run-seed walk then pushes the corpus). Lists the
+    interim reserve's occupants — each latched, still-pending application with its
+    filing date, the stored snapshot read, and whether it still holds a slot (one
+    whose snapshot already reads as an interim disposal does not). Prints a
     `SalienceSelectionResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
@@ -1398,6 +1409,18 @@ def reconcile_salience_selection_cmd(
         f"scored {result.scored}, newly selected {result.newly_selected} "
         f"across {result.conferences} conference(s)"
     )
+    held = sum(o.holds_slot for o in result.reserve_occupants)
+    typer.echo(
+        f"interim reserve: {held} of {config.interim_reserve_slots} slot(s) held, "
+        f"{len(result.reserve_occupants) - held} occupant(s) released as disposed"
+    )
+    for occupant in result.reserve_occupants:
+        typer.echo(
+            f"  {occupant.case_id} {occupant.docket_number} filed {occupant.date_filed} "
+            f"snapshot {occupant.snapshot_date} "
+            f"{'holds a slot' if occupant.holds_slot else 'released: snapshot reads disposed'}"
+            f"{' (snapshot read failed)' if occupant.snapshot_read_failed else ''}"
+        )
     typer.echo(result.model_dump_json())
 
 
@@ -3317,14 +3340,15 @@ def converge_disposition_labels_cmd(
         ),
     ] = False,
 ) -> None:
-    """Re-resolve committed `granted` cert outcomes against their stored docket text.
+    """Re-resolve committed cert outcomes against their stored docket text.
 
     A deterministic **ledger** convergence sweep for the labels no re-resolution
     reaches: `record_outcomes` is idempotent-by-filter, so a resolved event is
     never revisited. Over each committed cert-stage outcome labeled `granted`,
+    and each labeled `denied` / `dismissed` whose corpus row records a grant,
     the sweep reads the case's latest stored snapshot, parses the earliest
     disposing entry at or after the recorded resolution date, and relabels only
-    where that parse confirms one of **two arms**.
+    where that parse confirms one of **three arms**.
 
     `gvr` — the same order read more finely: an order granting, vacating and
     remanding in one breath, which `match_disposition_signal` reads through its
@@ -3338,6 +3362,19 @@ def converge_disposition_labels_cmd(
     petition-stage Rule 46 dismissal — was recorded nowhere. This arm moves the
     grant binary 1 → 0 and re-dates the resolution to the confirming entry.
 
+    `restored-grant` — the mirror, on a recorded `denied` / `dismissed`: the
+    exit was read off text that decides nothing about the petition — a stay
+    order's termination conditional ("Should the petition ... be denied, this
+    stay shall terminate automatically"), a Rule 46 dismissal "only as to" one
+    petitioner — while the docket went on to its grant or GVR. It fires only
+    where the confirming entry is a grant, nothing dated the recorded
+    resolution still parses as an exit, and an entry that day carries the
+    refused exit sentence, quoted as the warrant. It moves the binary 0 → 1 and
+    re-dates the resolution to the grant. The exit population is screened on
+    the corpus row first (a row the parser now reads as granted), so it reaches
+    only dockets the live poll or `refresh-dockets` has re-read — run that
+    re-read first.
+
     The era boundary is the separation the forward-convention rule needs: before
     it, a cert label was normalized from upstream record fields and never passed
     through the disposition parser, so its `granted` is the older vocabulary's
@@ -3350,28 +3387,32 @@ def converge_disposition_labels_cmd(
     with a date on it. A resolution date the snapshot carries no entry for, or a
     docket that still carries a grant order somewhere (the real grant whose Rule
     46 exit or mootness dismissal comes later), is reported and never rewritten.
+    The `restored-grant` arm reaches back on its own warrant, scoped to the
+    recorded day: an entry dated the recorded resolution carries a refused exit
+    sentence and nothing that day still parses as an exit.
 
     Candidates carrying committed predict/evaluate output are **held back by
     default**, because an `evaluation.json` is stamped with a `correct` bit
     computed from the outcome; `--include-scored` opts in and reports, per
     relabel, how many stamped evaluations it puts in the re-grade backlog that
-    `stamp-cell --regrade` is the follow-through for. On a `disowned-grant` that
-    backlog is not the whole debt. `resolved_at` only ever moves **later** (the
-    confirming entry is at or after the recorded resolution), so a withdrawal
-    can only push an already-scored cell from the retrospective stratum toward
-    `forward` — the leaderboard's rank key — and can only clear a recorded
-    forward-claim breach, never the reverse. Both are correct where the
-    withdrawal is, but the direction is one-sided and flattering, so read the
-    dry run for it; neither lands through `--regrade` — they arrive on the next
-    board build.
+    `stamp-cell --regrade` is the follow-through for. On the two binary arms
+    (`disowned-grant`, `restored-grant`) that backlog is not the whole debt.
+    `resolved_at` only ever moves **later** (the confirming entry is at or after
+    the recorded resolution), so a relabel on either can only push an
+    already-scored cell from the retrospective stratum toward `forward` — the
+    leaderboard's rank key — and can only clear a recorded forward-claim breach,
+    never the reverse. Both are correct where the relabel is, but the direction
+    is one-sided and flattering, so read the dry run for it; neither lands
+    through `--regrade` — they arrive on the next board build.
 
     Self-confirming, so the report is the point: every relabel is printed with
     the arm that authorized it, every population member not relabeled with its
     reason, and the header carries the honest denominators — how many
     candidates were actually checkable, how many
     had no readable text, how many the sweep declines to judge, and how the
-    relabels split between the two arms, since the `disowned-grant` count is the
-    one that moves grant rates — in the ledger. **The corpus is a separate
+    relabels split between the three arms, since the `disowned-grant` and
+    `restored-grant` counts are the ones that move grant rates — in the ledger,
+    and how many exit outcomes the corpus screen passed over. **The corpus is a separate
     store and does not follow**: base rates and every published disposition
     figure are built from it, so until it is corrected too a withdrawn row reads
     0 here while still counting as a grant in the denominators those cells are
@@ -3383,8 +3424,8 @@ def converge_disposition_labels_cmd(
     fabricated grant that opened no merits event is not. Those owe a curated
     corpus write, and corpus writes belong to the writer jobs' upsert path.
 
-    Idempotent (neither a `gvr` nor a `denied`/`dismissed` outcome reads
-    `granted`). Dry-run by default.
+    Idempotent (a `gvr` leaves the population, and a withdrawn or restored label
+    re-reads the entry it was re-dated to and agrees with it). Dry-run by default.
     `--apply` writes and **requires** `--max-relabels`, so the number applied is
     one the maintainer read in the dry run rather than a default nobody chose;
     it refuses above that bound, since the population this sweep converges is
@@ -3428,16 +3469,20 @@ def converge_disposition_labels_cmd(
         )
         raise typer.Exit(code=1)
     verb = "relabeled" if apply else "would relabel"
-    # Split by arm in the header: the two carry different risk — `gvr` sharpens a
-    # label the binary keeps, `disowned-grant` withdraws the grant outright — so
-    # the count a maintainer approves with `--max-relabels` has to say which.
+    # Split by arm in the header: they carry different risk — `gvr` sharpens a
+    # label the binary keeps, `disowned-grant` withdraws the grant outright and
+    # `restored-grant` restores one — so the count a maintainer approves with
+    # `--max-relabels` has to say which.
     withdrawals = sum(1 for entry in result.relabeled if entry.arm == "disowned-grant")
+    restorations = sum(1 for entry in result.relabeled if entry.arm == "restored-grant")
     typer.echo(
         f"converge-disposition-labels ({'applied' if apply else 'dry-run'}): "
         f"{verb} {len(result.relabeled)} of {result.checkable} checkable candidate(s) "
-        f"({len(result.relabeled) - withdrawals} gvr, {withdrawals} disowned-grant); "
+        f"({len(result.relabeled) - withdrawals - restorations} gvr, {withdrawals} "
+        f"disowned-grant, {restorations} restored-grant); "
         f"{result.uncheckable} uncheckable (no readable docket text); "
-        f"{result.out_of_scope} out of scope"
+        f"{result.out_of_scope} out of scope; "
+        f"{result.screened} denied/dismissed screened out (corpus row records no grant)"
     )
     for entry in result.relabeled:
         backlog = (
@@ -3445,26 +3490,28 @@ def converge_disposition_labels_cmd(
             if entry.stamped_evaluations
             else ""
         )
-        # The `disowned-grant` arm moves the grant binary and re-dates the
-        # resolution, so its line says both out loud rather than leaving a
-        # reviewer to infer them from the label: those are the two fields a
-        # relabel here can put out of step with anything already scored or
-        # plotted against the old date.
-        withdrawal = (
-            f"; grant bit 1 -> 0, resolution re-dated to {entry.entry_filed.isoformat()}"
-            if entry.arm == "disowned-grant"
+        # The two binary arms move the grant bit and re-date the resolution, so
+        # their lines say both out loud rather than leaving a reviewer to infer
+        # them from the label: those are the two fields a relabel there can put
+        # out of step with anything already scored or plotted against the old
+        # date.
+        flips = {"disowned-grant": "1 -> 0", "restored-grant": "0 -> 1"}
+        binary_move = (
+            f"; grant bit {flips[entry.arm]}, resolution re-dated to "
+            f"{entry.entry_filed.isoformat()}"
+            if entry.arm in flips
             else ""
         )
-        # A withdrawal rests on two pieces of text, not one, and the *refused*
+        # A binary relabel rests on two pieces of text, not one, and the *refused*
         # sentence is the half a reviewer cannot reconstruct: it is why the
-        # stored grant is a parse gap rather than a record to leave alone.
+        # stored label is a parse gap rather than a record to leave alone.
         # Printed first, since the arm is only warranted if it convinces.
         recital = f" — read from {entry.recital!r}" if entry.recital else ""
         typer.echo(
             f"  {verb} {entry.ref} [{entry.arm}]: {entry.was.value} -> {entry.now.value} "
             f"({entry.basis}) [entry {entry.entry_filed.isoformat()}, resolved "
             f"{entry.resolved_at.isoformat()}, snapshot {entry.snapshot_date.isoformat()}]"
-            f"{withdrawal}{backlog}{recital} — {entry.evidence!r}"
+            f"{binary_move}{backlog}{recital} — {entry.evidence!r}"
         )
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
@@ -4262,6 +4309,71 @@ def decision_census_cmd(
     typer.echo(census.model_dump_json())
 
 
+@app.command("merits-lineups")
+def merits_lineups_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First October Term to report.")
+    ] = 2020,
+    last_term: Annotated[
+        int, typer.Option("--last-term", help="Last October Term to report.")
+    ] = 2025,
+) -> None:
+    """Derive each recorded decision's per-Justice merits votes, read-only, with a per-Term census.
+
+    The corpus-side vote target for decided cases the pipeline never forecast
+    (`pipeline/merits_lineups.py`): every document the per-opinion record
+    (`opinions`) holds, its writings read through the rule the merits vote
+    source stamps with and seated on its `opinion_benches` row. A lineup is the
+    whole bench or none, with its status: `complete`; `per-curiam` (the record
+    names no joiners of the Court's opinion); `unobserved` (no filled bench
+    row: the syllabus lineup was not complete, or the opinion-record pass has
+    not yet read the document for its bench); `unplaced`; `refused`. The
+    census sets each Term's complete lineups against the decision census's
+    plenary decided dockets (`decision-census`'s decided less order-riding), by
+    the docket numbers the listing prints, matched across the range's Terms,
+    and counts the unanimous lineups and the splits, a vote in part on each
+    side kept apart. Writes nothing. Prints one line per Term to stderr and
+    `{"census": ..., "lineups": [...]}` JSON to stdout. Fails loud if the
+    corpus is absent.
+    """
+    if first_term > last_term:
+        typer.echo("merits-lineups: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before deriving merits lineups.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        lineups = merits_lineups.merits_lineups(conn, first_term=first_term, last_term=last_term)
+        census = merits_lineups.lineup_census(
+            conn, lineups, first_term=first_term, last_term=last_term
+        )
+    for term in census.terms:
+        statuses = ", ".join(f"{k} {v}" for k, v in term.statuses.items()) or "-"
+        splits = ", ".join(f"{k} {v}" for k, v in term.splits.items()) or "-"
+        typer.echo(
+            f"OT{term.term}: {term.documents} documents ({statuses}); "
+            f"{term.covered} of {term.plenary_decided} plenary decided dockets covered "
+            f"({term.printed} printed by any document, {term.covered_across_terms} across "
+            f"Terms), {term.unmatched_complete} complete lineup(s) unmatched; "
+            f"{term.unanimous} unanimous; splits: {splits}",
+            err=True,
+        )
+    typer.echo(
+        json.dumps(
+            {
+                "census": census.model_dump(mode="json"),
+                "lineups": [lineup.model_dump(mode="json") for lineup in lineups],
+            }
+        )
+    )
+
+
 @app.command("backfill-opinion-record")
 def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a CLI entrypoint; options map 1:1 to inputs
     first_term: Annotated[
@@ -4282,7 +4394,8 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
         int | None,
         typer.Option(
             "--max-rows",
-            help="Blast-radius bound, required with --apply: refuse to insert more opinion rows.",
+            help="Blast-radius bound, required with --apply: refuse to insert more rows "
+            "(opinion rows plus bench rows, the dry run's 'would insert N').",
         ),
     ] = None,
     throttle: Annotated[
@@ -4318,9 +4431,13 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
 
     Dry run by default, and the dry run opens the corpus read-only: it writes
     nothing anywhere but the optional PDF cache. Fill-only and idempotent — a
-    recorded document is never fetched again and no stored row is changed.
-    ``--apply`` refuses above ``--max-rows``, which counts the opinion rows it
-    would insert; the apply half belongs in run-repair's `opinion-record` pass,
+    complete document is never fetched again and no stored row is changed. Each
+    read signed decision also gets a bench row (`opinion_benches`): who sat,
+    where its syllabus lineup accounts for the whole bench, else null. A signed
+    decision recorded without one is read again to add it, beside rows it
+    leaves untouched.
+    ``--apply`` refuses above ``--max-rows``, which counts the opinion rows and
+    bench rows it would insert; the apply half belongs in run-repair's `opinion-record` pass,
     which on an apply holds the corpus-write credentials. Nothing a predict or
     evaluate cell sees reads the table. Prints the readings of the unrecorded
     listing rows as one JSON array on stdout and a per-Term count on stderr.
@@ -4403,7 +4520,9 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                         terms=terms,
                         apply=True,
                         max_rows=max_rows,
-                        write=lambda pairs: opinion_record.insert_opinions(conn, pairs),
+                        write=lambda pairs, benches: opinion_record.insert_opinions(
+                            conn, pairs, benches
+                        ),
                     )
             else:
                 with corpus.connect_local_unmigrated(db_path) as ro:
@@ -4418,7 +4537,11 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
             with SupremeCourtClient(throttle_seconds=throttle) as client:
                 fetcher = opinion_lineups.OpinionFetcher(client, cache_dir=cache_dir)
                 result = opinion_record.read_opinion_record(
-                    fetcher, terms=terms, recorded=recorded, dockets=dockets
+                    fetcher,
+                    terms=terms,
+                    recorded=recorded,
+                    rebench=opinion_record.projected_rebench(handed),
+                    dockets=dockets,
                 )
         else:
             with SupremeCourtClient(throttle_seconds=throttle) as client:
@@ -4432,7 +4555,9 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                             dockets=dockets,
                             apply=True,
                             max_rows=max_rows,
-                            write=lambda pairs: opinion_record.insert_opinions(conn, pairs),
+                            write=lambda pairs, benches: opinion_record.insert_opinions(
+                                conn, pairs, benches
+                            ),
                         )
                 else:
                     with corpus.connect_local_unmigrated(db_path) as ro:
@@ -4452,23 +4577,27 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
         counts = {k: sum(1 for r in rows if r.status == k) for k in ("read", "refused", "skipped")}
         opinions = sum(len(r.opinions) for r in rows)
         typer.echo(
-            f"OT{term}: {len(rows)} unrecorded listing rows — {counts['read']} read "
+            f"OT{term}: {len(rows)} listing rows not held whole — {counts['read']} read "
             f"({opinions} opinions), {counts['refused']} refused, {counts['skipped']} skipped",
             err=True,
         )
+    for conflict in result.bench_conflicts:
+        typer.echo(conflict, err=True)
+    total = result.rows + result.benches
     done = (
-        f"inserted {result.inserted} of {result.rows}"
+        f"inserted {result.inserted + result.benches_inserted} of {total}"
         if result.applied
-        else f"would insert {result.rows}"
+        else f"would insert {total}"
     )
     typer.echo(
         f"backfill-opinion-record ({'applied' if result.applied else 'dry-run'}): "
-        f"{done} opinion row(s); {result.already_recorded} listing row(s) already recorded",
+        f"{done} row(s) — {result.rows} opinion row(s), {result.benches} bench row(s); "
+        f"{result.already_recorded} listing row(s) already recorded",
         err=True,
     )
     if result.refused:
         typer.echo(
-            f"backfill-opinion-record: refusing to insert {result.rows} rows "
+            f"backfill-opinion-record: refusing to insert {total} rows "
             f"(--max-rows {max_rows}). Triage the dry run before raising the bound.",
             err=True,
         )
@@ -5068,6 +5197,59 @@ def scope_manifest_cmd(
     typer.echo(
         f"scope-manifest: {manifest.cases} public case(s), {manifest.eligible} eligible, "
         f"{manifest.excluded} excluded -> {destination}"
+    )
+
+
+@app.command("schedule")
+def schedule_cmd(
+    out: Annotated[
+        Path | None,
+        typer.Option(help="JSON output path (default: <data_root>/schedule/schedule.json)."),
+    ] = None,
+    today: Annotated[
+        str | None,
+        typer.Option(help="Judge passed conferences against this ISO date (default: UTC today)."),
+    ] = None,
+) -> None:
+    """Publish each pending public docket's next conference for the site timeline.
+
+    Writes ``data/schedule/schedule.json`` — one row per docket with a committed
+    directory under ``data/cases`` whose corpus row is undecided and distributed
+    for a conference, enumerated from the committed tree alone. A conference
+    before today's UTC date is published as null with the reason, never as an
+    upcoming date. The live poll writes the same file after every cycle; this
+    command rebuilds it from a pulled corpus. Leaves a committed file alone when
+    no corpus is present.
+    """
+    settings = get_settings()
+    destination = out if out is not None else schedule.schedule_path(settings.data_root)
+    as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    _write_schedule(
+        settings.data_root, corpus.corpus_db_path(settings.corpus_root), destination, as_of=as_of
+    )
+
+
+def _write_schedule(data_root: Path, db_path: Path, destination: Path, *, as_of: date) -> None:
+    """Build the schedule against ``as_of`` and swap it in whole, unless skipped.
+
+    Written beside the destination and renamed over it, so a write that fails
+    partway leaves the committed file as it was rather than a truncated one the
+    window's data commit would carry.
+    """
+    built = schedule.build_schedule(data_root=data_root, corpus_db_path=db_path, as_of=as_of)
+    if built.skipped:
+        typer.echo(f"schedule: skipped (no corpus at {db_path}); {destination} left as is")
+        return
+    staged = destination.with_name(destination.name + ".tmp")
+    try:
+        write_json(staged, built)
+        staged.replace(destination)
+    finally:
+        staged.unlink(missing_ok=True)
+    upcoming = sum(1 for entry in built.entries if entry.next_conference is not None)
+    typer.echo(
+        f"schedule: {len(built.entries)} distributed public docket(s), {upcoming} with an "
+        f"upcoming conference, as of {built.as_of} -> {destination}"
     )
 
 
@@ -5677,9 +5859,23 @@ def corpus_push() -> None:
 
     Refuses to run while the out-of-band pointer override is set: a writer
     owns the *committed* pointer, and an environment that overrides reads is
-    not reading the pair it would be publishing to.
+    not reading the pair it would be publishing to. Refuses, too, inside an
+    Actions job whose workflow did not enable remote writes: only the corpus
+    writer jobs publish, and under the corpus split a job without the switch
+    has withheld every content-store payload its rows point at, so the blob it
+    would publish describes objects that were never stored. Like the mirror's
+    gate, that refusal is a guard against accidents; the role a job holds is
+    what authorizes a publish.
     """
     settings = get_settings()
+    if casestore.in_actions_job() and not settings.remote_writes:
+        typer.echo(
+            "corpus-push refuses to run in an Actions job that does not enable "
+            "remote writes: only the corpus writer jobs publish the corpus, and "
+            "they set the switch in their workflow.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     if settings.corpus_pointer is not None:
         typer.echo(
             "corpus-push refuses to run while the out-of-band corpus pointer "
@@ -7897,6 +8093,13 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     reads the engine's own log rather than the agent's word. Runs as a post-agent
     step, before ``validate``.
 
+    Before stamping it tidies the cell's own reports: on ``--role evaluator`` it
+    moves a judge-level ``retrieval.md`` / ``tooling.json`` the judge copied into
+    each candidate's directory up to where the contract keys it
+    (:func:`fedcourtsai.finalize.settle_judge_level_outputs`), then normalises
+    ``flags.json`` and ``tooling.json``, then notes in ``flags.json`` any part of
+    the pair it moved, found nowhere, or found beside a differing candidate copy.
+
     The digest is resolved from the working tree (:func:`process_version.digest_for_actor`):
     the actor's prompt-template bytes plus its resolved registry config. A missing
     artifact is a clean no-op (a no-output cell has nothing to stamp and is already
@@ -8049,8 +8252,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             role=UsageRole(role),
             actor_id=actor,
         )
-        _normalise_cell_flags(event_paths, coordinates)
-        _normalise_cell_tooling(event_paths, coordinates)
+        _tidy_cell_self_reports(event_paths, coordinates, event)
 
     if role == "predictor":
         targets = [event_paths.prediction(actor, run_id)]
@@ -8581,6 +8783,229 @@ def _flag_unread_snapshot(
             return
         flags = existing.model_copy(update={"flags": [*existing.flags, flag]})
     write_json(flags_path, flags)
+
+
+def _tidy_cell_self_reports(event_paths: EventPaths, where: CellCoordinates, event_id: str) -> None:
+    """Settle, normalise and annotate a cell's own reports before it is stamped.
+
+    The judge-level pair is settled first, so a report moved up from a
+    candidate directory is normalised where it now sits; its notes, and a
+    predict cell's lane audit, land after the flags are normalised, so they
+    append to a file that parses.
+    """
+    settled: list[JudgeFileSettlement] = []
+    if where.role == UsageRole.evaluator:
+        settled = settle_judge_level_outputs(
+            event_paths, evaluator=where.actor_id, run_id=where.run_id
+        )
+    _normalise_cell_flags(event_paths, where)
+    _normalise_cell_tooling(event_paths, where)
+    _flag_judge_level_outputs(event_paths, where, event_id, settled)
+    if where.role == UsageRole.predictor:
+        _flag_cell_access(event_paths, where, event_id)
+
+
+_JUDGE_PAIR_PREFIX = "Harness check: the judge-level"
+
+
+def _judge_pair_note(item: JudgeFileSettlement, where: str) -> tuple[FlagSeverity, str] | None:
+    """The severity and wording of one judge-level file's note, or None for none."""
+    lead = f"{_JUDGE_PAIR_PREFIX} {item.name}"
+    if item.outcome is JudgeFileOutcome.relocated:
+        return FlagSeverity.info, (
+            f"{lead} was written into {item.removed} candidate director(ies) instead of "
+            f"{where}. Every copy said the same thing, so the harness moved one there and "
+            "removed the rest."
+        )
+    if item.outcome is JudgeFileOutcome.ambiguous:
+        return FlagSeverity.warning, (
+            f"{lead} was written into {item.left} candidate director(ies) instead of "
+            f"{where}, and the copies differ, so none was moved: this cell has no "
+            f"judge-level {item.name}, and the copies stay where the judge wrote them."
+        )
+    if item.outcome is JudgeFileOutcome.stray:
+        return FlagSeverity.warning, (
+            f"{lead} is in {where}, and {item.left} candidate director(ies) also hold a "
+            f"{item.name} that differs from it; those copies are left as the judge wrote them."
+        )
+    if item.outcome is JudgeFileOutcome.missing:
+        return FlagSeverity.warning, (
+            f"{lead} is missing: this cell wrote no {item.name} in {where} or under any "
+            "candidate, and the contract asks for one every run."
+        )
+    return None
+
+
+def _flag_judge_level_outputs(
+    event_paths: EventPaths,
+    where: CellCoordinates,
+    event_id: str,
+    settled: list[JudgeFileSettlement],
+) -> None:
+    """Leave a note in the cell's ``flags.json`` for each judge-level file not in place.
+
+    :func:`fedcourtsai.finalize.settle_judge_level_outputs` has already moved
+    what it could; this says what it did and what it could not, in the channel
+    the collect job rolls into the run PR and the agent-feedback issue, because
+    a judge that misfiles its pair is a prompt-contract miss a maintainer
+    should see even where the harness repaired it. A relocation is ``info``
+    (the cell's record is whole); a missing pair or copies the harness would
+    not choose between is a ``warning``, since the cell's own retrieval
+    account or tooling answer is then absent where its readers look.
+
+    Appended to the cell's own file where there is one, as the snapshot
+    tripwire's note is, and skipped where that file does not parse. A note
+    already present word for word is not added again, so a re-stamp does not
+    grow the list. The run log gets a count, never a candidate directory's
+    name, since those names are the agent's to choose.
+    """
+    location = f"evaluations/{where.actor_id}/{where.run_id}/"
+    notes: list[AgentFlag] = []
+    for item in settled:
+        note = _judge_pair_note(item, location)
+        if note is None:
+            continue
+        severity, message = note
+        typer.echo(
+            f"::warning::stamp: {where.actor_id} {_one_line(where.case_id)} judge-level "
+            + f"{item.name}: {item.outcome.value} ({item.removed} candidate cop(ies) removed, "
+            + f"{item.left} left).",
+            err=True,
+        )
+        notes.append(
+            AgentFlag(
+                category=FlagCategory.other,
+                severity=severity,
+                message=message,
+                event_id=event_id,
+                source=FlagSource.harness,
+            )
+        )
+    _append_harness_notes(
+        event_paths.evaluation_flags(where.actor_id, where.run_id),
+        where,
+        notes,
+        what="judge-level file notes",
+    )
+
+
+def _append_harness_notes(
+    flags_path: Path, where: CellCoordinates, notes: list[AgentFlag], *, what: str
+) -> None:
+    """Append harness notes to a cell's ``flags.json``, creating it if absent.
+
+    Skipped, with a log line, where the file does not parse: the cell's own
+    flags are left as written. A note already present word for word is not
+    added again, so a re-stamp does not grow the list.
+    """
+    if not notes:
+        return
+    flags = AgentFlags(
+        case_id=where.case_id,
+        run_id=where.run_id,
+        role=where.role,
+        actor_id=where.actor_id,
+        flags=notes,
+    )
+    if flags_path.is_file():
+        try:
+            existing = AgentFlags.model_validate_json(flags_path.read_text())
+        except (OSError, ValueError):
+            typer.echo(
+                f"::warning::stamp: {flags_path} does not parse, so the {what} "
+                + "survive only in this log; the cell's flags are left as written.",
+                err=True,
+            )
+            return
+        known = {item.message for item in existing.flags}
+        fresh = [note for note in notes if note.message not in known]
+        if not fresh:
+            return
+        flags = existing.model_copy(update={"flags": [*existing.flags, *fresh]})
+    write_json(flags_path, flags)
+
+
+_CELL_ACCESS_PREFIX = "Harness check: this cell's logged tool calls"
+# How many of a kind's paths a note quotes, and how much of each.
+_CELL_ACCESS_EXAMPLES = 3
+_CELL_ACCESS_PATH_CHARS = 120
+
+_CELL_ACCESS_WHAT: dict[AccessKind, str] = {
+    AccessKind.oracle: "named data/qp-topics/, the removed cert-outcome oracle the prompt "
+    + "forbids reading",
+    AccessKind.cell_record: "named a committed predictions/ or evaluations/ path other than "
+    + "this cell's own run directory (another predictor's output, an earlier run, or a "
+    + "glob over them)",
+    AccessKind.write: "wrote under data/ or a case record/ outside this cell's own run "
+    + "directory",
+}
+
+
+def _cell_access_note(kind: AccessKind, hits: list[AccessHit], event_id: str) -> AgentFlag:
+    # Quoted before the cut, so an escape-heavy path cannot outgrow its share
+    # of the message; the whole is clamped to the schema's cap besides.
+    paths = list(dict.fromkeys(ascii(hit.path)[:_CELL_ACCESS_PATH_CHARS] for hit in hits))
+    shown = ", ".join(paths[:_CELL_ACCESS_EXAMPLES])
+    more = (
+        f" and {len(paths) - _CELL_ACCESS_EXAMPLES} more"
+        if len(paths) > _CELL_ACCESS_EXAMPLES
+        else ""
+    )
+    return AgentFlag(
+        category=FlagCategory.other,
+        severity=FlagSeverity.warning,
+        message=(
+            f"{_CELL_ACCESS_PREFIX} {_CELL_ACCESS_WHAT[kind]}: {len(hits)} call(s), "
+            + f"e.g. {shown}{more}. Read from retrieval_log.json, which records that a "
+            + "call named the path, not what it returned; check the transcript before "
+            + "treating it as a read."
+        )[:_FLAG_MESSAGE_LIMIT],
+        event_id=event_id,
+        source=FlagSource.harness,
+    )
+
+
+def _flag_cell_access(event_paths: EventPaths, where: CellCoordinates, event_id: str) -> None:
+    """Note in a predict cell's ``flags.json`` each logged call that left its lane.
+
+    The audit is :func:`fedcourtsai.cell_access.audit_cell_access`, over the
+    ``retrieval_log.json`` the capture step wrote from the engine's own
+    transcript: a call naming the removed oracle, another cell's committed
+    output, or a write outside the cell's run directory. A ``warning``, one per
+    kind, because the log shows a call named a path rather than what it read —
+    a maintainer reads the transcript to tell a read from a mention. A cell
+    with no log, or one that does not parse, is left alone: capture reports its
+    own failures.
+    """
+    log_path = event_paths.prediction_retrieval_log(where.actor_id, where.run_id)
+    try:
+        log = RetrievalLog.model_validate_json(log_path.read_text())
+    except (OSError, ValueError):
+        return
+    hits = audit_cell_access(
+        log.calls,
+        case_id=where.case_id,
+        event_id=event_id,
+        actor_id=where.actor_id,
+        run_id=where.run_id,
+    )
+    notes: list[AgentFlag] = []
+    for kind in AccessKind:
+        of_kind = [hit for hit in hits if hit.kind is kind]
+        if not of_kind:
+            continue
+        typer.echo(
+            f"::warning::stamp: {where.actor_id} {_one_line(where.case_id)}: {len(of_kind)} "
+            + f"logged call(s) of kind {kind.value} left the cell's lane.",
+            err=True,
+        )
+        notes.append(_cell_access_note(kind, of_kind, event_id))
+    _append_harness_notes(
+        event_paths.prediction_flags(where.actor_id, where.run_id),
+        where,
+        notes,
+        what="cell-access notes",
+    )
 
 
 def _warn_on_missing_stakes_read(record: Prediction, actor: str) -> None:
@@ -9834,14 +10259,20 @@ def registry_gate_cmd(
 ) -> None:
     """The promotion gate's Step 0: refuse a batch whose process registrations cannot be stamped.
 
-    Reads the registry, config and prompts at ``--at`` and the ledger, registry
-    and tags of ``--main-ref``, from git alone, whatever tree is checked out.
+    Reads the registry, config, prompts and code-side digest inputs at ``--at``
+    and the ledger, registry and tags of ``--main-ref``, from git alone,
+    whatever tree is checked out.
     Refuses first a batch with no registry or one that does not load; then
     pending registrations on a main that does not declare merge-stamped
     instants, a pending digest that already stamps a committed cell on main,
     an unregistered enabled actor, a predictor with more than one open window,
     more than one label new to main or one whose ``prereg/`` tag already
-    exists, a repeated boundary name, and a pending row already on main. Tags
+    exists, a repeated boundary name, a pending row already on main, and a
+    batch that changes, drops or reorders a row main has stamped or does not
+    keep main's blessing labels as a prefix (three-way against the merge
+    bases; a pending close on a window no live predictor computes, a blessing
+    that left the fleet, and a revocation of a closed window dated at or after
+    the head pass). Tags
     are read locally, so the caller fetches them first
     (``git fetch origin --tags``).
     """
@@ -10681,6 +11112,48 @@ def public_update_cmd(
             f"{len(update.new)} newly forecast -> {out}",
             err=True,
         )
+
+
+@app.command("archive-public-updates")
+def archive_public_updates_cmd(
+    *,
+    through: Annotated[
+        str,
+        typer.Option(
+            help="Last ISO week to archive, as YYYY-Www; defaults to the last complete week (UTC)."
+        ),
+    ] = "",
+) -> None:
+    """Add each missing week's update to the site's history under ``metrics/updates/``.
+
+    Write-once: a week already there is left alone, and a week with nothing to
+    send gets no file. Starts at the first week the email list was sent, so a
+    missed run is caught up on the next one. Exits 2 on a malformed week or one
+    not yet complete, else 0, printing what it wrote.
+    """
+    settings = get_settings()
+    latest = last_complete_week(datetime.now(UTC))
+    chosen = through or latest
+    try:
+        week_bounds(chosen)
+    except ValueError as exc:
+        typer.echo(f"archive-public-updates: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    # A week still in progress would be frozen half-written by the write-once rule.
+    if week_bounds(chosen)[0] > week_bounds(latest)[0]:
+        typer.echo(
+            f"archive-public-updates: {chosen} is not complete yet (the last complete week "
+            f"is {latest}).",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    result = archive_public_updates(settings.data_root, settings.metrics_root, chosen)
+    for week in result.written:
+        typer.echo(f"archive-public-updates: wrote {week}")
+    typer.echo(
+        f"archive-public-updates: through {chosen}: {len(result.written)} written, "
+        f"{len(result.present)} already archived, {len(result.empty)} with nothing to send"
+    )
 
 
 @app.command("post-public-update")
@@ -14376,14 +14849,20 @@ def summary_stage_check_cmd(
     documents manifest with one text file per listed supremecourt.gov document —
     and removes everything else under the stage root. Each removal is printed as
     a ``::warning::``; the case is then reported skipped by ``summarize`` and
-    planned again by the next run.
+    planned again by the next run. A kept case's document the contact scrub left
+    a residual on (``contact_residuals`` above zero) is withheld alone, with its
+    manifest row, and printed the same way.
     """
     plan = SummaryPlan.model_validate_json(plan_file.read_text())
     removed = summaries.prune_stage(plan, staged)
     for what, reason in removed:
         typer.echo(f"::warning::removed {what} from the staged records: {reason}")
     kept = sum(1 for p in (staged / "cases").glob("*/*") if p.is_dir())
-    line = f"stage check: {kept} staged case record(s) kept, {len(removed)} removed"
+    withheld = sum(1 for _, reason in removed if reason.startswith(summaries.DOCUMENT_WITHHELD))
+    line = (
+        f"stage check: {kept} staged case record(s) kept, {len(removed) - withheld} removed, "
+        f"{withheld} document(s) withheld"
+    )
     typer.echo(line)
     if summary is not None:
         with summary.open("a", encoding="utf-8") as fh:
@@ -14403,6 +14882,14 @@ def summary_paths_cmd(
             "addition or modification of a case summary file.",
         ),
     ] = False,
+    plan_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--plan",
+            help="The plan JSON `summarize-plan` wrote: a deletion of a summary it "
+            "withdraws is admitted rather than refused.",
+        ),
+    ] = None,
 ) -> None:
     """Print the case summary files a change set writes; with --strict, the lane's jail.
 
@@ -14410,15 +14897,47 @@ def summary_paths_cmd(
     summaries/<YYYY-MM-DD>.md`` — so its branch may carry nothing else. Without
     ``--strict`` this is the filter the workflow uses to carry an open refresh
     PR's summaries forward (other paths are ignored); with it, the check that
-    refuses to publish a change set holding anything but summaries.
+    refuses to publish a change set holding anything but summaries. With
+    ``--plan``, the one deletion the lane makes, a summary that plan withdraws,
+    passes too; it is not printed.
     """
+    withdrawn: set[str] = set()
+    if plan_file is not None:
+        plan = SummaryPlan.model_validate_json(plan_file.read_text())
+        withdrawn = {row.path for row in plan.withdrawn}
     changes = [(c.status, c.path) for c in parse_name_status(name_status_file.read_text())]
-    writes, violations = summaries.summary_changes(changes)
+    writes, violations = summaries.summary_changes(changes, withdrawn)
     if strict and violations:
         for violation in violations:
             typer.echo(f"::error::not a case summary write: {violation}", err=True)
         raise typer.Exit(code=1)
     for path in writes:
+        typer.echo(path)
+
+
+@app.command("summary-withdraw")
+def summary_withdraw_cmd(
+    plan_file: Annotated[
+        Path, typer.Option("--plan", help="The plan JSON `summarize-plan` wrote.")
+    ],
+) -> None:
+    """Delete the committed summaries a summary plan withdraws; print each path removed.
+
+    A summary written before the docketed date of the petition its docket
+    number now holds describes another petition (a re-docketed number), and
+    ``summarize-plan`` lists it under ``withdrawn``. The publish job runs this
+    on its checkout so the review PR carries the deletion, which
+    ``summary-paths --strict --plan`` then admits. A file already gone is
+    skipped.
+    """
+    settings = get_settings()
+    plan = SummaryPlan.model_validate_json(plan_file.read_text())
+    try:
+        removed = summaries.withdraw_summaries(settings.data_root, plan)
+    except ValueError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    for path in removed:
         typer.echo(path)
 
 
@@ -15704,7 +16223,8 @@ def live_poll(
     (daily-debounced), ground truth for the rest. Resolution is detected from
     the proceedings text, so a decided petition or application lands
     ``outcome.json`` deterministically. Writes the same three queue files
-    as ``pull-all``.
+    as ``pull-all``, then rebuilds ``data/schedule/schedule.json`` from the
+    refreshed corpus (warning, never failing, if that build breaks).
     """
     settings = get_settings()
     live_cfg = load_live_config(settings.config_root)
@@ -15747,6 +16267,15 @@ def live_poll(
     out.write_text(json.dumps(queues.predict) + "\n")
     evaluate_out.write_text(json.dumps(queues.evaluate) + "\n")
     unrecorded_out.write_text(json.dumps(queues.unrecorded) + "\n")
+    # The schedule rides the cycle that moved its dates, into the same data
+    # commit. Display data, so a failure here costs the site one cycle's dates
+    # and never the poll's facts or queues.
+    try:
+        _write_schedule(
+            settings.data_root, db, schedule.schedule_path(settings.data_root), as_of=today
+        )
+    except Exception as exc:  # any failure degrades to a warning
+        typer.echo(f"schedule: warning: not written ({type(exc).__name__}: {exc})", err=True)
     discovery_failed = f" ({len(discovery.failed)} stream error(s))" if discovery.failed else ""
     typer.echo(
         f"Live cycle (OT{probe_term:02d}): onboarded {len(discovery.onboarded)} new petition(s)"
@@ -18058,11 +18587,15 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "purposes. "
         + "The ~+20% level gap to the 410-cell pre-freeze ledger is an UPPER "
         + "BOUND on any level effect, not a measurement of one.",
-        "The codex row is PRE-CUTOVER and projects LOW: it was measured on "
-        + "gpt-5.6-sol ($5/$30 per MTok) while that engine's default is now "
-        + "gpt-6-astra ($10/$50). On the new default a fully-tournamented case "
-        + "prices nearer $16.7-17.8 than the $14.97 these rates sum to, and "
-        + "only the first measured post-cutover run re-anchors the row.",
+        "The codex and gemini rows are PRE-CUTOVER. The codex row projects "
+        + "HIGH: it was measured on gpt-5.6-sol ($5/$30 per MTok) while that "
+        + "engine's default is now gpt-6.1-sol ($2/$10), roughly a third of "
+        + "the cost at equal token counts. The gemini row was measured on "
+        + "gemini-3.1-pro-preview ($2/$12); gemini-4-argon lists at $2/$10 "
+        + "until 2026-12-01, when the row projects HIGH by about a fifth, and "
+        + "$4/$20 after, when it projects LOW by about a third. Both are "
+        + "list-price projections, and only the first measured post-cutover "
+        + "runs re-anchor the rows.",
     ],
     "evaluate": [
         "An ASSUMPTION, not a measurement: these rates scale a pre-freeze "
@@ -20564,6 +21097,28 @@ def assert_board_paths_cmd(
         typer.echo(f"::error::{exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"board jail OK ({len(changes)} change(s))")
+
+
+@app.command("assert-update-paths")
+def assert_update_paths_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+) -> None:
+    """Enforce the weekly-update history's path jail; exit non-zero on any violation.
+
+    The history PR merges unattended, so its diff is bounded instead: new
+    `metrics/updates/<YYYY-Www>.md` files, added, and nothing else. CI runs this
+    as a required status check on the PR, independently of the workflow that
+    produced the branch.
+    """
+    changes = parse_name_status(name_status_file.read_text())
+    try:
+        assert_updates_within_jail(changes)
+    except PathJailError as exc:
+        typer.echo(f"::error::{exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"update jail OK ({len(changes)} change(s))")
 
 
 @app.command("collect-union")

@@ -10931,3 +10931,1048 @@ freeze commit is recorded here.
   either side of it reads the two regimes separately. The comparison of the
   first conferences after it against those before it is recorded by a later
   entry, once those conferences have been selected.
+
+- **`proc-v10`: the codex pair moves to `gpt-6.1-sol` and the gemini pair to
+  `gemini-4-argon`, and the claude pair carries forward unchanged; recorded
+  2026-10-18.** Carried to `main` by `<FILL: promotion tag>` (merge
+  `<FILL: merge sha>`, `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v10`**. The first label registered under the merge-stamped
+  rule the 2026-10-14 entry declared, so its counting instant, its four bless
+  moments and every window edge it moves are the carrying merge's committer
+  time, with no hand-set gap. It is two supersession shapes at one carrying
+  promotion ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  - **the third shape, for `codex-baseline` and `gemini-baseline`.** Their
+    digests move because their engines' default models, a digest input
+    (`pricing.DEFAULT_MODELS`), are `gpt-6.1-sol` and `gemini-4-argon`. Their
+    `proc-v8` windows **close** at this label's instant and a `proc-v10`
+    window opens there for each new digest. Nothing is de-counted and nothing
+    is re-owed: every cell counted in either `proc-v8` window keeps counting
+    under `proc-v8`.
+  - **the second shape, for `codex-judge` and `gemini-judge`.** Their digests
+    move with the same two models. The instant is **not** held, because the
+    predictor half moves too.
+
+  `claude-baseline` and `claude-judge` are **byte-identical** to `proc-v9`:
+  no prompt byte moves in this label and the claude engine default is
+  unchanged. They keep `proc-v9`'s bless moments verbatim, and
+  `claude-baseline` keeps one unbroken window, still labelled `proc-v9`. The
+  predictor-prompt amendments the `proc-v9` entry deferred are deferred again,
+  so that this label breaks no claude window.
+
+  **Digests** (`uv run fedcourts process-digest --all`, before this change on
+  `staging` `e5a68224b` and at it):
+
+  | Actor | `proc-v9` | `proc-v10` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734` | same, carried forward |
+  | `codex-baseline` | `sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c` | `sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4` (new) |
+  | `gemini-baseline` | `sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f` | `sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434` (new) |
+  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | same, carried forward |
+  | `codex-judge` | `sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` (new) |
+  | `gemini-judge` | `sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` (new) |
+
+  **Step 0.** At `origin/main` `c5ba7a273` (`2026-10-18T23:14:47Z`), `git grep
+  -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
+  the four newly blessed digests, and the wider census, `git grep -l
+  '"process_version": {' origin/main -- data/cases | wc -l`, is **2689**
+  stamped cells. At the carrying merge the newly blessed predictor digests
+  stamp <FILL: census predictions digest=7ab92dd4,bee46e92> committed
+  predictions and the evaluator digests
+  <FILL: census evaluations digest=a8610eec,6a88d3dc> committed evaluations.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`1a0b2bef…`, `claude-fable-5-1`) | `proc-v8` | `2026-09-16T00:26:04Z` | `2026-10-11T12:00:00Z` |
+  | `codex-baseline` (`70fee158…`, `gpt-6-astra`) | `proc-v8` | `2026-09-16T00:26:04Z` | this label's instant (was open) |
+  | `gemini-baseline` (`a9033e56…`, `gemini-3.1-pro-preview`) | `proc-v8` | `2026-09-16T00:26:04Z` | this label's instant (was open) |
+  | `claude-baseline` (`605201bd…`, `claude-opus-5-5`) | `proc-v9` | `2026-10-11T12:00:00Z` | open |
+  | `codex-baseline` (`7ab92dd4…`, `gpt-6.1-sol`) | `proc-v10` | this label's instant | open (new) |
+  | `gemini-baseline` (`bee46e92…`, `gemini-4-argon`) | `proc-v10` | this label's instant | open (new) |
+
+  **What the close owes, provisional.** `successor-disclosures` reads only
+  stamped windows, so a pending registration prints nothing. These lines were
+  run with this commit's pending rows stamped by hand at a provisional
+  instant, `2026-10-19T00:00:00Z`, in a scratch copy of the registry, over
+  `origin/main`'s ledger at `c5ba7a273`. `uv run fedcourts
+  successor-disclosures --closed proc-v8 --successor proc-v10`:
+
+  ```
+  successor proc-v10 closes proc-v8 at 2026-10-19T00:00:00+00:00
+    closed proc-v8 claude-baseline: 252 counted event(s) — 110 resolved, 142 pending at close
+    closed proc-v8 codex-baseline: 296 counted event(s) — 138 resolved, 158 pending at close
+    closed proc-v8 gemini-baseline: 295 counted event(s) — 137 resolved, 158 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    graded by claude-judge @ sha256:167b7d71…: 81 grading(s), 0 at or after the instant
+    graded by claude-judge @ sha256:fbc0e9c3…: 329 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:18a76b93…: 81 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:9670e1c1…: 329 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:22558044…: 81 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:dbdc9064…: 329 grading(s), 0 at or after the instant
+  ```
+
+  The `claude-baseline` line is the window `proc-v9` closed, which the
+  command lists because it too carries the `proc-v8` label; this label does
+  not move it, and its resolved and pending counts are at its own close,
+  `2026-10-11T12:00:00Z`, not at this label's instant. Outcomes and gradings keep landing until the instant, so these
+  lines are re-run once the carrying merge has stamped the registry, and a
+  dated follow-up entry quotes that run. The per-engine partition of the
+  successor's counted events (failed, uncounted, not reached, missing) prints
+  nothing before a `proc-v10` window holds a cell, so the same follow-up entry
+  quotes those four buckets from a run made once both `proc-v10` windows hold
+  counted cells. The board publishes per-window `by_protocol` figures as soon
+  as a window holds graded cells, which a hand-written entry cannot reliably
+  precede, so the promise is narrower than `proc-v9`'s: the follow-up lands
+  before any `proc-v10` window figure is quoted outside the committed board.
+  The `proc-v9` entry's equivalent follow-up has not landed; its buckets, from
+  `uv run fedcourts successor-disclosures --closed proc-v8 --successor
+  proc-v9` over `origin/main` at `c5ba7a273`, read `claude-baseline: 44
+  successor-counted event(s); earlier window proc-v8: 0 failed, 0 uncounted
+  cell, 6 missing, 38 not reached before the close`.
+  **Split events can now arise.** Unlike `proc-v9`, this label closes two
+  engines' windows. An event on which one of codex and gemini counts under
+  `proc-v8` while the other counts under `proc-v10` has no complete grid,
+  since the two windows never ran together; so has an event on which
+  `claude-baseline` counts under its closed `proc-v8` window while codex or
+  gemini counts under `proc-v10`, which arises where that engine left the
+  event uncounted in `proc-v8`. The follow-up entry states both counts.
+
+  **What a reading across engines can be after this label.** The registered
+  pooled reading keeps each predictor's `proc-v8` and `proc-v10` windows as
+  one record, model change included, and the registered engine comparison is
+  over paired events from whichever windows
+  ([metrics/README.md](../metrics/README.md)). So both a pooled codex or
+  gemini figure and the board's paired rank span this model change, and the
+  composition says so. The grid of (`claude-baseline` `proc-v9`,
+  `codex-baseline` `proc-v10`, `gemini-baseline` `proc-v10`) is a cut, read
+  from the per-window `by_protocol` entries; no surface computes it as a
+  paired figure today. Its population is the events the `proc-v8` windows did
+  not reach, which is selected, so the cut is never a measurement that the
+  change helped. Every OT2026 long-conference release figure was built at the refresh
+  commit `0918fb18e` before `proc-v9`, so this label moves none of them.
+
+  **Evidence for the change other than the closed windows' boards.** The close
+  is decided while 138 of `codex-baseline`'s 296 and 137 of
+  `gemini-baseline`'s 295 counted `proc-v8` events have resolved, so it rests
+  on nothing those outcomes say:
+  - **When it was decided.** The gemini move was proposed on 2026-10-02, to
+    wait only on the model being served in the API; the codex move was proposed on
+    2026-10-12, for cost. At that proposal (`2026-10-12T22:10:12Z`, the same
+    scratch-registry run stamped there), 110 of `codex-baseline`'s 256 and
+    109 of `gemini-baseline`'s 253 counted `proc-v8` events had resolved,
+    upper bounds since resolution is read by UTC day. Neither proposal cites a score; both cite the
+    published rates and the vendors' capability claims.
+  - **Cost.** Re-pricing the committed token counts on `main` at `c5ba7a273`
+    at the published rates: the 296 `codex-baseline` predictions on
+    `gpt-6-astra` average $3.08 as recorded and $0.44 at `gpt-6.1-sol`'s $2 /
+    $10 ($0.10 cached input); the 153 `codex-judge` gradings $2.86 and $0.42.
+    The 522 `gemini-baseline` predictions on `gemini-3.1-pro-preview` average
+    $0.58 as recorded and $0.46 at `gemini-4-argon`'s introductory $2 / $10
+    ($0.10 cached), or $0.92 at the $4 / $20 ($0.20 cached) rate scheduled
+    from 2026-12-01 (the doubled cached rate is assumed from the doubled
+    input rate; the reports below do not state it);
+    the 174 `gemini-judge` gradings $0.71, $0.55 and $1.11. These are priced,
+    not measured: they assume each new model spends the same tokens. The
+    gemini move is not a cost move: from 2026-12-01 it prices about 1.6x the
+    model it replaces, so its outcome-free evidence is the vendor's claim and
+    the decision date alone.
+  - **Published capability.** OpenAI describes `gpt-6.1-sol` as close to
+    `gpt-6-astra` on agentic work, and Google describes `gemini-4-argon` as
+    its new frontier model. Those are the vendors' claims, not measurements
+    here.
+  - **Sources, checked 2026-10-18.** `gpt-6.1-sol` and its $2 / $10 ($0.10
+    cached) rate: OpenAI's launch post
+    (`openai.com/index/introducing-gpt-6-1-sol`), released 2026-09-29 per
+    `llm-stats.com`. `gemini-4-argon`, generally available in the Gemini API
+    from 2026-10-13 at $2 / $10 ($0.10 cached) through 2026-11-30 and $4 /
+    $20 after: press reports (VentureBeat, technology.org on 2026-10-14) that
+    quote Google's pricing page; the page itself was not read here.
+  - **Availability.** Both ids are generally available in their vendors' APIs
+    by those reports. Neither has been called on this project's keys before
+    this entry, so the staging rehearsal is the first check that each serves.
+
+  **The evaluator half.** An evaluator digest records and never partitions, so
+  every `codex-judge` and `gemini-judge` grading series pools across this
+  rubric boundary, and the grader model is what moves at it. Cells in the
+  closed `proc-v8` windows still collecting gradings after the carrying
+  promotion are graded by `codex-judge` and `gemini-judge` on the new models,
+  and the successor-disclosures lines above count those "at or after the
+  instant". The open `claude-baseline` `proc-v9` window (44 counted events on
+  `origin/main` at `c5ba7a273`) is graded the same way, and no command prints
+  that count, since the window is not closed: its judge-dependent figures
+  then pool two `codex-judge` and two `gemini-judge` rubrics. A pooled
+  judge-dependent figure spanning this boundary is coverage, and its
+  per-rubric reading is the claimable one
+  ([metrics/README.md](../metrics/README.md)).
+
+  **Disclosed with the label, moving no digest:**
+  - **The engine CLIs do not name either model.** The pinned codex CLI
+    (0.144.1) lists neither `gpt-6-astra` nor `gpt-6.1-sol` in its model
+    catalog and runs both on its fallback model metadata, as it has run every
+    `gpt-6-astra` cell. The pinned gemini CLI (0.49.0) does not list
+    `gemini-4-argon` in its known-model set, and neither does the newest
+    release, 0.64.0; the model id is passed through as `--model`. Neither pin
+    moves in this label.
+  - **Effort is unchanged.** Codex cells keep `effort: high`; gemini cells set
+    no thinking budget and take the model's default.
+  - **The Argon rate is introductory.** `MODEL_RATES` prices `gemini-4-argon`
+    at $2 / $10 ($0.10 cached), and `usage.json` records the rate in force when
+    the cell is recorded, so a gemini cost series crossing 2026-12-01 crosses a
+    rate change as well as any token change.
+  - **The planning rates are not re-anchored.** The pinned per-cell table the
+    spend plans price against keeps its pre-cutover codex and gemini rows, so
+    a plan's codex line projects high, and its gemini line projects high by
+    about a fifth until 2026-12-01 and low by about a third after. The re-anchor waits for measured `proc-v10` cells.
+  - **The blinding scrub gains two terms.** `gpt-6.1-sol` and
+    `gemini-4-argon` join the rate table, so the evaluate cell's identity
+    scrub masks them. Only prose naming those models is affected.
+
+- **The contact scrub leaves an Ohio State Reports citation alone, and its
+  email shape is bounded at the address limits; recorded 2026-10-18.** A
+  **conditioning** entry in the *what the pipeline provisions* class, under
+  unchanged digests: no prompt byte and no registry field the digests read
+  moves, and `uv run fedcourts process-digest --all` at this commit prints
+  what it prints at its parent on `staging`: `proc-v10` (registered pending
+  in the entry above) and the six digests `605201bd…` (claude-baseline),
+  `7ab92dd4…` (codex-baseline), `bee46e92…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `a8610eec…` (codex-judge) and `6a88d3dc…` (gemini-judge).
+
+  **What changes**, on the staged copy alone
+  (`pipeline.documents.scrub_contact_details` and the residual detector).
+  - **A citation is no longer withheld as an address.** The shape pass and the
+    residual detector read `Ohio St.` as the reporter in two spellings. With a
+    `2d`/`3d` series or the Ohio State Law Journal's `L.J.`, a page of one to
+    four digits standing as a word, not followed by a capitalized word
+    (`123 Ohio St. 3d 456`, `75 Ohio St. L.J. 123`). Without a series, a page
+    followed by a pin cite or a parenthesis (`1 Ohio St. 3, 5`,
+    `1 Ohio St. 3 (1852)`). On a self-represented docket the shape pass
+    withheld these, and where one opened a line on a document's opening or
+    closing the detector counted it, so the row read `contact_scrubbed:
+    false`. An Ohio Street address is withheld as before, with a label
+    (`12 W Ohio St. Apt 4`), a lettered unit (`350 Ohio St. 4B`), a word after
+    its number (`1200 W Ohio St. 3d Floor`) or a bare suite (`350 Ohio St.
+    200`). A first-series citation with neither a pin cite nor a parenthesis
+    (`1 Ohio St. 3` closing a sentence) is still withheld.
+  - **The plain email shape bounds every run**: a local part of at most 64
+    characters, labels of at most 63, at most nine labels before a top-level
+    label of at most 63. A long run of address characters with a sign and no
+    domain behind it took time quadratic in its length (about 29 s at the
+    150,000-character document cap) and now scans in linear time. A string
+    past those bounds is no longer withheld by this shape: a local part of
+    more than 64 characters with no `.`, `-` or `%` inside it (which the
+    residual detector still counts, so the row reads `false`), or a domain of
+    more than ten labels (which it does not). Neither is an address the
+    addressing RFCs admit.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut: the pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after.
+  - **The registry row** is `scrub-ohio-reporter-citation`: every predictor,
+    reach `self-represented dockets`, not gradual, since provisioning reads the
+    stored documents and the next cell provisioned on an affected docket reads
+    the change. It is registered **pending** in the change's own PR
+    (`fedcourts register-boundary`), under the 2026-10-14 merge-stamping
+    declaration. Its `merge` and `at` stay null until the promotion merge
+    that carries it to `main` stamps them (`promotion-record`); until then it
+    is left out of `process_version.HARNESS_BOUNDARIES`, so no cell has a side
+    of it, and a board built meanwhile names it under
+    `frozen_process.pending`.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side, and its number is listed.
+  - **The counting windows it falls inside** depend on the carrying
+    promotion. Claude-baseline's `proc-v9` window in either case, since
+    `proc-v10` carries it forward unbroken. For codex-baseline and
+    gemini-baseline, their `proc-v8` windows if this boundary is stamped
+    before `proc-v10`'s instant, and their `proc-v10` windows if it is
+    stamped at or after it; carried by the same promotion, both are stamped
+    at that merge's instant, and every cell on either side of the boundary
+    is then also on the same side of the window edge.
+  - **Evaluate cells are dated by this entry, not partitioned**: the boundary
+    registry splits predictor cells only, and an evaluate cell provisioned
+    after the carrying merge reads the wider text under the same evaluator
+    digests.
+  - **Exposure is an upper bound and is not sized.** Whether a docket reads as
+    self-represented, and whether its documents cite the Ohio reports, lives
+    only in the corpus, and no census of either was run for this entry.
+
+  **What a post-change cell reads.** On an affected docket, a superset of the
+  pre-change text: the citations the scrub had replaced with its placeholder,
+  and in the contrived cases above an over-long address string. A
+  `documents.json` row whose only residual was such a citation reads
+  `contact_scrubbed: true` with a lower `contact_residuals` where it read
+  `false`. Predict cells, evaluate cells and the case-summary lane's
+  `summary-stage` read the same from the carrying promotion on; cells already
+  run and summaries already written stay as they are. No skill movement is
+  predicted, and a movement in either direction across this boundary may not
+  be read as a model effect. No base rate re-prices, no membership rule moves,
+  no scored figure moves, and nothing is written to the corpus.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_documents.py -k "ohio or linear_time or not_a_contact or
+  mailing_address"` is green, and `uv run fedcourts process-digest --all`
+  prints the same label and six digests at the carrying merge as at its
+  first parent.
+- **An interim reserve slot frees when its occupant's stored docket reads as
+  disposed; recorded 2026-10-19.** A **membership-rule** entry under unchanged
+  digests: no value, digest or `salience_version` moves, but which pending
+  applications the interim reserve funds can. The reserve is applied by
+  `pipeline.salience.plan_cohorts` under every scorer, so it is not part of
+  what a salience version names.
+
+  **What moved.** A latched, still-unresolved application held its reserve slot
+  until the resolver recorded a disposition. From the carrying merge, the
+  selection pass also reads each occupant's newest stored snapshot, and an
+  occupant on which `pipeline.outcome.interim_disposal_signal` fires keeps its
+  latch but stops counting against `salience.interim_reserve_slots`. That is
+  the scan the forward queue's decided-guard already reads, so the slot it
+  frees was funding no cell. The gate replay reads no snapshots and passes no
+  release, so it does not reproduce a live fill in which a release fired.
+  `reconcile-salience-selection` now lists every occupant with its filing
+  date, the snapshot read, whether it holds a slot, and whether the read
+  failed. A released occupant stays latched and unresolved, so every live
+  cycle (twelve a day) reads its snapshot again until a pull records the
+  disposition: one content-store read per occupant per cycle.
+
+  **Why it is a boundary.** A freed slot goes to the next application on the
+  escalation ladder, and the slots in use lower the current conference's cert
+  rank fill one-for-one, so the change can move which applications and which
+  cert petitions are selected from the carrying merge on. It moves no cell
+  already minted and re-derives nothing committed.
+
+  **What it frees today.** Nothing. Read ranged against the index pointer
+  `79e92043b8dbe9c0…` (latest pull 2026-10-19), the reserve holds 5 of 5
+  slots: `scotus/73279700` (25A622, filed 2025-11-25, newest snapshot
+  2026-10-06), 9526000163 (26A163), 9526000416, 9526000458 and 9526000499.
+  The scan fires on none of them. 25A622 and 26A163 each carry a single stored
+  entry, the application's submission, so no reading of the stored docket can
+  free them; a slot held that way needs a pull that records the disposition,
+  or a rule this entry does not make.
+
+  The runnable effect check once it is live: where the corpus is pulled,
+  `uv run fedcourts reconcile-salience-selection` (a dry run) prints an
+  `interim reserve:` line and one line per occupant, each saying whether it
+  holds a slot, and every occupant it reports released is one whose stored
+  docket the forward queue's decided-guard also reads as disposed.
+
+- **A distribution-moment cell is minted only on the petition's own
+  distribution, never on an ancillary paper's; recorded 2026-10-19.** A
+  **membership-rule** entry: it changes which cells are minted from the
+  carrying merge on, under unchanged digests, and moves no value a minted
+  cell reads.
+
+  **What changes.** "The petition is distributed" is one predicate,
+  `store.petition_distributed`: the row's `distribution_count`, which ingest
+  takes under the entry-initial parse `dist-v2`, is above zero; the
+  `distributed_for_conference` column stands in only where no count was ever
+  derived (a row never live-parsed, and every application row). Four readers
+  take it: the fan-out's premature-cell refusal
+  (`store._premature_distribution_cell`), the re-predict rule
+  (`pipeline.pull._reopenable_moment`), the live channel's predict trigger
+  (`pipeline.live._distribution_transition`) and its relist test. The
+  re-predict rule's distribution limb registered above refuses a
+  cert/distribution event "unless it carries a `distributed_for_conference`
+  still ahead"; from the carrying merge it also refuses one whose petition is
+  not distributed in its own right, so a conference named only by an
+  ancillary paper's distribution (a sealing motion, a motion for leave under
+  a linked M-number) no longer satisfies it. The live trigger is a rise in the
+  petition's own count where the pre-poll row carries one, so a petition
+  distributed for the conference an ancillary paper already named still
+  triggers, and an ancillary paper distributed for another conference after
+  the petition triggers nothing and is not read as a relist.
+
+  **What it resolves.** The declared divergence of the unversioned cohort key
+  in the `dist-v2` entry above — rows sitting in the conference cohort an
+  ancillary paper was distributed for while carrying a zero count — no longer
+  reaches minting: such a row earns no distribution-moment cell until its own
+  distribution lands. The key itself is unchanged.
+
+  **What it does not change, disclosed.**
+  - **Cohort selection** (`pipeline.salience`, the cohort pass) still groups
+    pending rows by `distributed_for_conference`, so an ancillary-only row can
+    be latched `salience_selected` in that conference's cohort and then have
+    no cell minted. Its selection spends a cohort slot and no model budget.
+  - **Arrival freshness** (`pipeline.outcome`'s arrival mint and the
+    salience arrival sweep) still refuses a row whose
+    `distributed_for_conference` is set, so an ancillary-only row is neither
+    an arrival nor a distribution cell until its own distribution lands. That
+    rule is registered with the arrival moment and is not moved here.
+  - **The parse.** A distribution the clerk enters entry-initially for an
+    ancillary paper reads as the petition's under `dist-v2` and is out of this
+    predicate's reach, as it is out of the count's.
+
+  **Committed cells keep counting.** No cell is voided, set aside or
+  re-minted by this entry, and no harness boundary is registered: the change
+  decides who is minted, not what a minted cell reads. Census at this commit
+  against the production blob under `origin/main`'s pointer (sha256
+  `79e92043…`, latest pull 2026-10-19), reading each case's latest live
+  snapshot (stored 2026-10-14 for the cases named): of 1077 committed
+  `evt-petition-disposition` predict cells on 238 SCOTUS cases, **6 cells on
+  2 cases** (`scotus/9026000013`, run `20260820T181919Z`; `scotus/9026000455`,
+  run `20261006T142731Z`; three predictors each) were minted when the docket
+  carried a distribution by its run day but no petition distribution under
+  `dist-v2`. Their scope (`process_version.window_of` on each stamp): the
+  three `scotus/9026000013` cells are stamped `proc-v3`, the declared-shakedown
+  cohort, so they are alpha and in no frozen-scope figure. The three
+  `scotus/9026000455` cells are stamped `proc-v8` inside each predictor's
+  `proc-v8` counting window, so they are **frozen scope**; the event has no
+  committed outcome at this vintage, so no graded figure holds them yet, and
+  they are not on the set-aside list, so they enter the frozen figures when it
+  resolves. Whether they sit in Release 1's registered cohort was not checked
+  here. `scotus/9026000461` and `scotus/9026000462` are not among them:
+  their stored dockets carry an entry-initial distribution before their run,
+  which is the parse limit above. 3 pending SCOTUS rows carry a membership
+  column with a zero count at this vintage (`scotus/9026000455`,
+  `scotus/9026000492`, `scotus/9026005823`); no SCOTUS row carries a
+  membership column with a null count, so the trigger's fallback reaches no
+  stored row.
+
+  The runnable effect check once it is live: `uv run pytest tests/test_store.py
+  tests/test_live.py -k "ancillary or only_its_motion or motions_is_not or
+  only_a_motion or petition_distributed"` is green, and `uv run fedcourts
+  predict-plan` lists no `evt-petition-disposition` for a pending SCOTUS row
+  whose `distribution_count` is 0.
+
+- **A cert distribution event whose frozen-scope cells were minted before the
+  petition itself was distributed is set aside from the ongoing boards'
+  default figures; recorded 2026-10-19.** A **membership-rule** entry under
+  unchanged digests: it adds one listed reason to the set-aside the 2026-10-16
+  entry registered and moves which cells the default figures count, no value
+  a cell reads. `uv run fedcourts process-digest --all` prints `proc-v10` and
+  the six digests `605201bd…` (claude-baseline), `7ab92dd4…`
+  (codex-baseline), `bee46e92…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `a8610eec…` (codex-judge) and `6a88d3dc…` (gemini-judge)
+  on either side of the change.
+
+  **`pre-distribution-mint`.** Every cell on a cert distribution event whose
+  forward frozen-scope distribution-moment cells were minted when the docket
+  carried a distribution by their run day but none of the petition itself —
+  only an ancillary paper's, such as a motion for leave under a linked
+  M-number — so `store.petition_distributed` reads false of the petition at
+  their run. Such a
+  cell forecasts from a moment the petition had not reached, and the record
+  cannot show what moment it stands at. Whether the petition was distributed
+  in its own right reads the docket entries, which live in the corpus, so the
+  event is **listed**, a `SetAsideReason` value with its own row shape
+  (`PreDistributionSetAsideEvent`: the event and `minted_run_id`, the
+  harness run of the cells minted before the petition's distribution).
+  `src/fedcourtsai/set_aside_events.json` lists one event under it:
+  `scotus/9026000455` `evt-petition-disposition`. Its three cells, one per
+  baseline predictor, are run `20261006T142731Z`, stamped `proc-v8` inside
+  each predictor's `proc-v8` counting window (`process_version.window_of`),
+  forward, with a provisioned `distribution_count` of 0. Like every listed
+  row it sets aside every cell on the event; `minted_run_id` is the census
+  row's record and no reader keys on it. **No later cell on the event is
+  minted for these three predictors**, whenever the petition is distributed or
+  relisted: each holds a counted `proc-v8` cell, so the fan-out's
+  already-predicted skip (`matrix.predict_matrix`) drops it and the re-predict
+  rule does not re-owe it (`store.predictor_holds_no_counted_prediction` reads
+  false for all three). Run against this ledger, `predict_matrix` over the
+  event with `reopen_events` naming it plans no cell. Two paths could still
+  mint one, and the event grain would sweep it out of the default with the
+  rest: a predictor enabled later, which holds no cell and is minted its
+  first, and a revocation of the `proc-v8` window, which de-counts these
+  cells and re-owes the event once the petition's own distribution opens its
+  moment. Either such cell would be a legitimate forecast set aside by this
+  row, and a later dated entry is owed to say so if one is minted.
+
+  **The census.** It is the one recorded by the landed 2026-10-19 entry above
+  that mints a distribution-moment cell only on the petition's own
+  distribution, at its vintage: the production blob under `origin/main`'s pointer (sha256
+  `79e92043…`, latest pull 2026-10-19), each case's latest live snapshot.
+  Of 1077 committed `evt-petition-disposition` predict cells on 238 SCOTUS
+  cases, 6 cells on 2 cases were minted with a distribution on the docket
+  by their run day and none of the petition under `dist-v2`. The other three
+  are `scotus/9026000013`'s run `20260820T181919Z`, stamped `proc-v3`, the
+  declared-shakedown cohort: `window_of` places them in no counting window,
+  so they are in no frozen-scope figure and need no row. That event's later
+  cells, runs `20260918T195102Z` and `20260919T192714Z` (`proc-v8`), are not
+  in the census, which found the petition distributed by their run, so the
+  event is not listed and they stay counted. Of the committed forward
+  `evt-petition-disposition` cells, only `scotus/9026000455`'s three carry a
+  provisioned `distribution_count` of 0. That entry records the
+  `scotus/9026000455` cells as frozen scope and not on the set-aside list;
+  from this entry they are listed.
+
+  **What it moves.** Nothing yet: the event has no committed outcome at this
+  vintage, so no graded figure holds its cells. When it resolves, its
+  gradings leave the default `cert@distribution` figures on
+  `metrics/leaderboard.json` and `metrics/claim-scores.json` and are counted
+  back in their sensitivity lines, and the public update reads the event as
+  set aside meanwhile. One event cannot move a pooled figure by more than its
+  own gradings, and its outcome correlation is unknown in direction; both
+  readings are published, as for every reason. **Release 1 is unchanged**:
+  its figures build without the set-aside (`stratify(...,
+  apply_set_aside=False)`). No harness boundary is registered: that entry's
+  minting guard refuses such a cell from its carrying merge on,
+  and any committed before it is a row this reason owes, appended with its
+  own dated entry.
+
+  The runnable effect check once it is live: `uv run python -c "from
+  fedcourtsai.set_aside import SET_ASIDE_EVENTS as S;
+  print(S[('scotus/9026000455', 'evt-petition-disposition')].reason)"`
+  prints `pre-distribution-mint`, and once the event resolves and the metrics
+  refresh runs, `jq '.set_aside.by_reason' metrics/leaderboard.json` carries
+  a `pre-distribution-mint` count.
+
+- **The interim reserve holds one slot per application number; recorded
+  2026-10-19.** A **membership-rule** entry under unchanged digests: no value,
+  digest, base rate or `salience_version` moves, but which pending
+  applications the reserve funds can. It supersedes one line of the 2026-10-18
+  entry on the one-row-per-number count, which recorded that the salience
+  interim reserve does not read the skip set.
+
+  **What moved.** `pipeline.salience.plan_cohorts` keys a reserve slot on the
+  application number, the unit the interim base rate counts, rather than on
+  the corpus row. A number latched under any of its rows holds one slot (none
+  once its occupant is released as disposed), and none of its other rows
+  contends while it is latched. An unlatched number contends
+  through the row `corpus.duplicate_application_case_ids` keeps: the rows that
+  call skips are still scored and are never picked. The slot is keyed on the
+  number rather than on today's survivor because the survivor can move, from
+  an unobserved stub to its observed twin, once the stub is first polled.
+
+  **What does not move.**
+  - Moment minting and the predict queue do not read the skip set. A number
+    already latched under two rows stays funded twice, and the reserve counts
+    it once, so live interim predictions can then exceed
+    `interim_reserve_slots` by that number's extra rows. A twin row with a
+    committed prediction is likewise still owed its open moments by cohort
+    completion, outside the reserve.
+  - No cert cohort, carve-out or arrival pick: the change reads application
+    rows only, and the gate replay projects modern cert rows alone.
+  - No harness boundary is registered. The change moves which cases are
+    funded, not any cell's input, so a boundary would split cells that read
+    the same thing on either side of it.
+
+  **Exposure.** None committed, by the count recorded with the 2026-10-18
+  entry on blob `5d4bac58…` (pull 2026-10-17, newest snapshot row
+  2026-07-13): none of the 23 skipped rows carries a committed ledger
+  directory on `main` or `staging`, so no committed cell names one. How many
+  skipped rows are pending, and so could contend, was not re-measured for
+  this entry.
+
+  Carried to `main` by the promotion merge `<FILL: merge sha>`, merged
+  `<FILL: merged-at>`.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_salience.py -k "reserve or twice"` is green, and `uv run fedcourts
+  process-digest --all` prints the same label and digests at the carrying
+  merge as at its first parent.
+
+- **The merits-judgment parser reads summary dispositions, lower-court rulings,
+  in-order Rule 46 decrees and each consolidated docket's own clause; recorded
+  2026-10-19.** A **scoring-baseline** entry that is also a **conditioning**
+  one, under unchanged digests: no prompt byte, registry digest field or
+  `salience_version` moves, and `uv run fedcourts process-digest --all` at
+  this change prints `proc-v10` and the six digests it prints at its parent
+  (`605201bd…`, `7ab92dd4…`, `bee46e92…`, `167b7d71…`, `a8610eec…`,
+  `6a88d3dc…`). What moves is which rows the registered merits base rate pools
+  and with which judgment, and the `merits_judgment` a merits cell reads.
+
+  **What moved** (`pipeline.judgment`; its writers are the judgment backfill
+  and the live poll's latch, and its direct readers beyond them are
+  `pipeline.outcome.forward_leakage`, `pipeline.outcome.disposition_route` and
+  `pipeline.decision_record`).
+  - **A judgment that follows the entry's own grant recital** after a comma or
+    "and" parses (`Petition for certiorari GRANTED, judgment REVERSED.`). A
+    rehearing petition's grant is not a recital.
+  - **The lower-court ruling certiorari ran to** is a disposition subject,
+    admitted by an allow-list only: the en banc order, an order dated in front
+    of the noun, or an order or determination "of" a named court other than
+    this one (`The en banc order of the United States Court of Appeals ... is
+    vacated`, `Determination of United States Court of Appeals ...
+    REVERSED`). The Court's own orders ("The order heretofore entered by ...",
+    "The order of October 2, 2023 consolidating the cases ...") stay
+    unmatched. The veto on an interlocutory order ("granting", "staying",
+    "denying", "heretofore", "entered by" between the noun and the verb)
+    applies to the ruling subject only, and an application's own disposition
+    entry reads no ruling subject. A judgment subject carries no veto.
+  - **The single-verb shape's subject-verb gap is 120 characters**, wide
+    enough for a judgment recital that names the lower court's own docket
+    numbers. The in-part and equally-divided shapes keep their gaps.
+  - **A consolidated entry is read for the row's own docket**: the clause
+    naming its number (every number of a listed citation counts), else the
+    clause naming none, else the whole entry. A sentence opening on a
+    companion's number ("No. 25-406, judgment REVERSED") is that companion's.
+  - **The Court's Rule 46 decree inside a longer order** is a
+    `voluntary-dismissal` termination (`... and the petitions in Nos. 20-429,
+    20-454, and 20-539 are dismissed pursuant to Rule 46.1.`), the petition
+    spelling gated on the row's recorded grant as the Clerk's spelling is. A
+    termination match that cites docket numbers counts only where the row's
+    own number is among them. The provisioning scan's terminal regex reads
+    "petitions" as well as "petition", so it refuses the decree too.
+  - **A parsed judgment clears a stored termination**, in the backfill's write
+    (`corpus.set_merits_judgment`) and in the ingestion upsert alike. The
+    clear is one-way: a parse later retracted restores no termination.
+
+  **What it moves**, read ranged against the index pointer `44ca3bca…`
+  (latest pull 2026-10-19), every granted SCOTUS row's latest stored snapshot,
+  the parent's parser against this change's: 1253 granted rows, 1247 with a
+  snapshot, 15 whose reading changes, 14 of them in the merits population.
+  That final regression run is the record of this entry, and each changed row
+  was read against its own disposition entry. An earlier run against
+  `4f55f94d…` found the same 15 rows.
+  - **Enter the pool as disturbed**: 18-589 (`affirmed-in-part-reversed-in-part`),
+    20-37 and 20-38 (`vacated`), each at `judgment-issued` before. 20-37 and
+    20-38 are Munsingwear mootness vacaturs, and count as disturbed like any
+    parsed vacatur.
+  - **Flips**: 22-331 from `affirmed` to `reversed`. Its copy of the
+    consolidated entry opens with No. 22-23's affirmance.
+  - **Excluded by the gap-0 guard**: seven decisions dated on their own grant,
+    17-193, 17-467, 20-507, 20-927 and 20-1539 (`reversed`), 17-654 and
+    21-1609 (`vacated`). Each leaves `judgment-issued` for a parsed judgment
+    that `judgment_rode_the_grant_order` keeps out of the pool, as it does
+    every summary disposition.
+  - **Terminated, outside the pool**: 20-429, 20-454 and 20-539, from no
+    merits record to `voluntary-dismissal`.
+  - **Decision record only**: 19-122, labelled `gvr` and outside the merits
+    population, gains a parsed `vacated` its decision-record reading takes.
+
+  **The counts, projected** from the committed `metrics/statpack.json` and
+  `metrics/statpack.md` at `main` `ac757d745`, not re-read from a refreshed
+  pack: each row above moved by hand onto the committed section.
+  - The pooled disturbed rate, over the ten grant Terms OT2016–25 (the pack
+    carries OT2017–25): 540 → 543 parsed, 377 → 381 disturbed, 69.8% → 70.2%.
+    Over OT2015–24: 516 → 519 parsed, 360 → 364 disturbed, 69.8% → 70.1%.
+  - Pack-wide `granted` 596 → 589 and `excluded` 66 → 73: the seven same-day
+    decisions leave the cohort for the excluded count.
+  - Per grant Term: OT2017 `granted` 56 → 53 and `excluded` 3 → 6 (17-193,
+    17-467, 17-654); OT2018 `parsed` 75 → 76, `disturbed` 50 → 51 (18-589);
+    OT2020 `granted` 79 → 77, `excluded` 2 → 4, `parsed` 69 → 71,
+    `disturbed` 57 → 59 (20-507, 20-927 out; 20-37, 20-38 in); OT2021
+    `granted` 67 → 65, `excluded` 1 → 3 (20-1539, 21-1609); OT2022
+    `affirmed` 22 → 21, `reversed` 23 → 24, `disturbed` 50 → 51 (22-331).
+  - The decision census's terminations: 10 fewer `judgment-issued`, 3 more
+    `voluntary-dismissal`.
+
+  **The summary-route claim.** `disposition_route` reads the same parser, so
+  the `summary-disposition-route` claim moves with it.
+  - Five committed `evt-petition-disposition` outcomes carry `plenary` and now
+    contradict the parser, which reads each as a same-day judgment:
+    `scotus/6217670`, `scotus/6351957`, `scotus/7022587`, `scotus/59772701`
+    and `scotus/60653327`. Two carry no route: `scotus/29114262` and
+    `scotus/72470952`.
+  - None of the seven has a prediction, so no graded claim moves. They are
+    left as recorded: no sweep re-derives a route other than to `gvr`, and
+    they carry no graded claim to correct.
+  - From the carrying merge on, a resolution through these shapes resolves the
+    claim to 1.
+  - `summary_route_base_rate` counts only the `gvr` and `summary-reversal`
+    labels, so every same-day judgment under a plain `granted` label that the
+    route now reads as summary widens the downward bias
+    `docs/outcome-decomposition.md` describes.
+
+  **No resolved merits event moves.** None of these dockets carries a resolved
+  merits event or a graded merits cell. The three Title X dockets (20-429,
+  20-454, 20-539) each carry an open `evt-order-judgment` with no committed
+  prediction (failed attempts only, run `20260816T170829Z`). A termination
+  resolves no merits event, so those events stay open.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** As the 2026-10-17
+  interim-pool entry reads that rule, a scoring-baseline change that is also a
+  conditioning one joins the boundary registry through its conditioning half.
+  This change moves the merits base rate a merits cell is provisioned with,
+  and `merits_judgment` on the retrieval surface, so it joins.
+  - **The registry row** is `merits-judgment-parser-summary-ruling-consolidated`.
+    It applies to every predictor, its reach is `granted dockets`, and it is
+    **gradual**: the corpus moves at the first run-seed window after the
+    carrying merge, and the pool a cell anchors on at the statpack refresh
+    after that, not at the merge itself. It is registered **pending** in this
+    change's own PR (`fedcourts register-boundary`), under the 2026-10-14
+    merge-stamping declaration. Its `merge` and `at` stay null until the
+    promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before the
+    backfill window or the statpack refresh still read the parent's columns
+    and pool, so the after-side `n` is an upper bound on exposure.
+
+  **How it lands.** Nothing is written by this change. The run-seed window's
+  daily `backfill-merits-judgments --apply` re-derives the rows on its first
+  run after the change reaches `main`, and the decision-record sweep then
+  fills the rows the cleared termination returns to its population. The pool
+  moves at the statpack refresh after that window.
+
+  The runnable effect check once it is live:
+  - after that window, where the corpus is pulled, `uv run fedcourts
+    backfill-merits-judgments` (a dry run) reports `updated` 0 and
+    `terminations_written` 0;
+  - after the next statpack refresh, `jq '.merits | [.parsed, .disturbed,
+    .granted, .cert_order_excluded]' metrics/statpack.json` prints `[543, 381,
+    589, 73]` as projected from the committed pack, or values that differ
+    from it only by judgments and grants landed since;
+  - `uv run pytest tests/test_judgment.py tests/test_outcome.py -k "ruling or
+    consolidated or decree or companion or clears or summary_reversal or
+    own_clause"` is green, and `uv run fedcourts process-digest --all` prints
+    the same label and six digests at the carrying merge as at its first
+    parent.
+
+- **The cert resolver stops reading a stay order's termination conditional or a
+  partial exit as the petition's disposition, and reads the plural and short
+  cert nouns; recorded 2026-10-19.** A **scoring-baseline** entry and a
+  **conditioning** one through the same numbers. It moves the realized cert
+  record: the corpus rows the statpack's per-Term grant counts and per-band
+  segment pools are built from, and the committed `evt-petition-disposition`
+  outcomes the cert figures are graded against. The statpack's segment pools
+  are what a cert cell is provisioned with and what its `segment_base_rate` is
+  stamped from, so the same change moves a cell's input. It moves no digest:
+  no prompt template, neither agent config and not
+  `src/fedcourtsai/process_version.py` changes, and `uv run fedcourts
+  process-digest --all` prints `proc-v10` and the same digests before and
+  after the change. It registers one harness boundary, below. The carrying
+  merge writes nothing to the corpus or the ledger; the repair below is a
+  separate, bounded writer-lane run.
+
+  **The pattern change** (`src/fedcourtsai/pipeline/cert_signals.py`). Three
+  rules, each covering one shape the census below found:
+  - a sentence whose cert noun sits under a conditional, wherever in the
+    sentence the conditional falls ("Should the petition for a writ of
+    certiorari be denied, this stay shall terminate automatically", "In the
+    event the petition … is granted", "… shall terminate if the petition is
+    denied", and "both petitions" / "either petition"), is a non-order sentence
+    for every row, so a stay order pending certiorari records neither a denial
+    nor a grant;
+  - a denial or dismissal scoped to part of the case is not the petition's
+    exit, so the first-match scan steps past it to the docket's real
+    disposition. A party scope counts where the clerk marks it as partial
+    ("only as to", "only with respect to", or a named party: "as to petitioner
+    Smith"); a bare role ("dismissed as to the petitioner pursuant to Rule 46")
+    is still a whole exit. A question scope ("DENIED as to Question 2") always
+    counts. A grant limited in scope is still a grant;
+  - the plain order rows read the petition in either number ("the petitions are
+    GRANTED") and the short "petition for certiorari" spelling.
+
+  `converge-disposition-labels` gains a third arm, `restored-grant`, the
+  mirror of `disowned-grant`. It applies to a committed `denied` / `dismissed`
+  outcome whose recording day carries only a refused exit sentence and whose
+  confirming entry is a grant. It moves `actual_granted` 0 → 1 and re-dates the
+  resolution to the grant. It reads only cert-stage outcomes whose corpus row
+  already records the grant.
+
+  **The census.** It was read at blob
+  `4f55f94d9263d1e257b1f27616a87efad96af5a8974d184097afc8f1cda736f1`
+  (`freshness: latest pull 2026-10-19, latest snapshot 2026-07-13`, read ranged
+  under that pointer, each docket's latest live snapshot from the content
+  store) against the ledger at `origin/main` `e1b48eb55`. It covers 19,866
+  OT2017–OT2025 cert-form rows with a stored live snapshot, re-parsed with
+  `ingest._live_resolution` before and after the change. It does not reach
+  the 25,093 OT2017–OT2024 cert-form rows that have never been live-polled,
+  which hold no snapshot. 23 rows change reading. Grouped by what they move:
+  - **A grant gained** (stored `denied` / `dismissed` / NULL, now a grant), 15:
+    17-1272, 18-1323, 18-481, 18-483, 18-557, 19-1212, 19-1328, 19-715,
+    20-74, 20-746, 21-386, 24-1246, 24-813 (*Chevron USA v. Plaquemines
+    Parish*), and the consolidated 25-1083 / 25-1084;
+  - **a grant lost**, 1: 22-6500, recorded `granted` off the "either petition
+    … is granted" half of a two-docket stay order, now `dismissed` (moot,
+    2025-03-10);
+  - **label or date only**, binary unchanged, 6: 20-8, 21-5511, 23-492 and
+    24-5160 (`dismissed` → `denied`), 21-186 (`denied` → `dismissed`), 22-7466
+    (grant re-dated from the stay order to 2024-01-22);
+  - **already right**, 1: 20-826 (stored `granted`; the old parse read the stay
+    conditional as a denial).
+
+  Three more rows hold a value no current parse produces: 19-840 and 20-449
+  are stored `denied` where the docket parses as a grant, and 20-450 is stored
+  `denied` where it parses as dismissed. They were written before the
+  ancillary-order guard and sit out of the live rotation, so the same re-read
+  converges them.
+
+  **What it moves, once the repair lands.**
+  - **Statpack grants** on `metrics/statpack.json`, by docket Term, after the
+    refresh below and the next statpack build: OT2017 163 → 164, OT2018
+    146 → 150, OT2019 155 → 159, OT2020 161 → 164, OT2021 152 → 153, OT2022
+    109 → 108, OT2024 116 → 118, OT2025 103 → 105, or values that differ only
+    by rows landed since. OT2019 and OT2020 include the stale 19-840 and
+    20-449. These are the committed pack's counts with each refreshed row's
+    stored reading replaced by the branch parser's over the same snapshot.
+  - **The merits section** gains 3 rows carrying 2 judgments: 24-813
+    vacated, and the consolidated 25-1083 / 25-1084 reversed by one judgment.
+  - **The ledger.** A `restored-grant` dry run over the affected cases'
+    outcomes at `e1b48eb55`, against rows re-derived with the branch parser
+    from the same snapshots, restores 13: 17-1272, 18-1323, 18-481, 19-715,
+    19-1212, 19-1328, 19-840, 20-74, 20-449, 20-746, 21-386, 24-1246 and
+    24-813. 20-74, 20-746 and 21-386 become `gvr`. Every one resolved before
+    `PARSED_ORDER_TEXT_SINCE`, so all 13 cross the era boundary, each on the
+    same-day refused-sentence warrant (a stay conditional, a partial Rule 46
+    dismissal, or for 19-840 and 20-449 a motion order the ancillary-order
+    guard refuses), never on the calendar. 22-6500 has no ledger directory,
+    so its lost grant moves the corpus only.
+  - **Forward resolutions.** A restoration moves `resolved_at` later, by
+    between 0 days (24-1246) and about eight months. A resolution date is what
+    places a cell in the forward or retrospective stratum, so a restoration
+    under a cell on one of these events would be a dated break in the forward
+    series under an unchanged digest. No committed predict or evaluate output
+    sits under any of the 13 at `e1b48eb55`, so none moves today; the break is
+    dated here for any reading that spans the apply.
+
+  **Residuals the repair leaves.** These are reported, not rewritten.
+  - Ledger and corpus disagree on the label after the refresh for 20-8 and
+    23-492 (ledger `dismissed`, corpus `denied`), 21-186 (ledger `denied`,
+    corpus `dismissed`) and 20-450 (ledger `denied`, corpus `dismissed`).
+    A different exit moves no binary, and the convergence sweep's exit remit is
+    the grant.
+  - A label the docket text agrees with keeps its date even where the
+    confirming entry is later. 20-826's ledger reads `granted` on 2021-01-04,
+    an extension order's day, against the grant on 2021-04-05. The dry run
+    names the gap ("its confirming entry is dated 2021-04-05, not the recorded
+    2021-01-04"). No arm moves a date alone. 22-7466's grant dated to the stay
+    order is the same shape in the corpus; it has no ledger directory.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The 2026-10-11
+  entry settling the pooled default's implementation choices names this class:
+  a scoring-baseline change that is also a conditioning one joins the boundary
+  registry through its conditioning half. The 2026-10-17 interim-pool entry is
+  the precedent for a statpack-pool change. This change moves the cert segment
+  pools cert cells are provisioned with, so it joins.
+  - **The registry row.** The boundary is `cert-exit-guard-and-plural-nouns`.
+    It applies to every predictor and is **gradual**, because the input a cell
+    reads moves at the statpack refresh that follows the repair, not at the
+    merge. Its reach is `all`. It is registered **pending** in this change's
+    own PR (`fedcourts register-boundary`), under the 2026-10-14
+    merge-stamping declaration. Its `merge` and `at` stay null until the
+    promotion merge that carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge.
+    Because the boundary is gradual, an after-side cell provisioned before the
+    refresh still anchored on the under-counted pool, so the after-side `n` is
+    an upper bound on exposure. The anchoring side is read from the cell's
+    provisioning run id against the refresh commit's time, as the 2026-10-12
+    entry reads it.
+
+  **Timing.** The pools move at the first statpack refresh on `main` after
+  the corpus refresh below lands, not at the carrying merge. Cert skill is read
+  keyed on the stamped `segment_base_rate`, as the 2026-10-12 entry registers,
+  so that refresh is one more dated, digest-silent break in the series. A cell
+  provisioned before the refresh and graded after it anchored on one pool and
+  is scored against the other.
+
+  **Release 1 disclosure.** The tagged release (`results/ot2026-longconf`)
+  reads its own tag and does not move. Its cert skill figures were scored
+  against band pools that under-count grants. Every pool moves the same way:
+  15 grants gained against 1 lost, the loss outside the paid scored segment.
+  So its anchors were slightly low. A low anchor understates Brier skill on a
+  denial and overstates it on a grant-family event. Per band, the exact
+  `risk_set` anchors before and after are below, from `uv run fedcourts
+  segment-anchors --term 2025 --term 2026`. "Before" is the committed
+  `metrics/statpack.json` at `e1b48eb55`. "After" is that pack with the
+  refreshed rows' segment and prefix slices replaced by the branch parser's
+  reading over the same snapshots (the 23 refresh dockets below plus
+  25-1083 / 25-1084). The pool `n` is the weighted resolved denominator:
+  - docket Term 2025 (pools OT2017–OT2024): federal 72.93% → 75.69%
+    (n=181); high 34.97% → 35.30% (n=898); state 22.70% → 23.21%
+    (n=392); elevated 17.22% → 17.37% (n=2810); baseline 5.12% → 5.19%
+    (n=11580);
+  - docket Term 2026 (pools OT2017–OT2025): federal 70.59% → 73.17%
+    (n=204 → 205); high 35.43% → 35.74% (n=971); state 23.46% → 23.93%
+    (n=422); elevated 16.85% → 16.98% (n=3122); baseline 5.00% → 5.07%
+    (n=12883 → 12884).
+
+  The exact after-values are the post-repair statpack's, which can differ by
+  rows landed since. No committed `evaluation.json` is rewritten: a stamped
+  cell keeps the rate it was stamped with, and a re-grade is a separate
+  dispatch.
+
+  **The repair route.** Corpus first, then the ledger, as separate dispatches:
+  1. `run-seed` with `refresh_dockets` set to these 23 dockets:
+     `17-1272 18-1323 18-481 18-483 18-557 19-1212 19-1328 19-715 19-840
+     20-74 20-746 20-8 20-449 20-450 21-186 21-386 21-5511 22-6500 22-7466
+     23-492 24-1246 24-5160 24-813`. Each is re-served through the shared
+     ingest seam, so the unlatched `disposition` / `date_cert_granted` /
+     `date_decided` columns take the fresh parse. All of them except 22-6500
+     are rows no rotation revisits, because each carries a disposition and
+     either a termination date or no open merits event. 22-6500 is still in
+     the rotation through its recorded grant and an open merits event, but
+     each poll would re-derive it only by the same parse, so it is named here
+     to land with the rest. 25-1083 and 25-1084 are in the live rotation and
+     converge on its next poll; they may be appended.
+  2. `run-repair` with `repair=disposition-convergence` and
+     `repair_mode=dry-run`. Its header states the relabel count across all
+     three arms.
+  3. The same with `repair_mode=apply`, and `repair_bound` set to the dry
+     run's total relabel count across all arms (not the `restored-grant`
+     count alone).
+
+  A row whose refresh drops its grant date while an open merits event sits on
+  it (22-6500, if one was minted) is `merits-phantom-removal`'s.
+
+  The runnable effect check once it is live: where the corpus is pulled, `uv
+  run fedcourts converge-disposition-labels` prints a header naming
+  `restored-grant`. After the repair, its dry run lists no `restored-grant`
+  relabel, and `jq '.terms[] | select(.term == 2024) | .grants'
+  metrics/statpack.json` reads 118 at the next statpack refresh, or a value
+  that differs only by rows landed since.
+
+- **The cert resolver reads a direct appeal's plenary-review order as a grant;
+  recorded 2026-10-19.** A **scoring-baseline** entry and a **conditioning**
+  one through the same numbers, in the class of the cert-exit-guard entry
+  above. It moves the realized cert record of mandatory-jurisdiction direct
+  appeals: the corpus rows the statpack's grant counts, per-band segment pools,
+  summary-route baseline and merits section are built from. The segment pools
+  are what a cert cell is provisioned with and what its `segment_base_rate` is
+  stamped from, so the same change moves a cell's input. It moves no digest: no
+  prompt template, neither agent config and not
+  `src/fedcourtsai/process_version.py` changes, and `uv run fedcourts
+  process-digest --all` prints `proc-v10` and the same six digests before and
+  after the change. It registers one harness boundary, below. The carrying
+  merge writes nothing to the corpus or the ledger.
+
+  **The pattern change** (`src/fedcourtsai/pipeline/cert_signals.py`). Two
+  rows join the resolver's grant family, both reading `granted`:
+  - "Probable jurisdiction NOTED." — with or without the copula, a limiting
+    clause, or the argument-setting tail;
+  - "Further consideration of the question of jurisdiction is POSTPONED to
+    the hearing of the case on the merits.", with or without "in this case" or
+    "of this Court" after "jurisdiction". Grant-side under the `Disposition`
+    convention, because the postponement sets the appeal for the same full
+    briefing and argument the noting does and the Court decides its
+    jurisdiction with the merits, so the merits proceeding opens behind it.
+
+  Both read only where the phrase opens its sentence and the sentence names no
+  docket number. The first rule keeps a stay order's "In the event probable
+  jurisdiction is noted" and a party paper urging the noting from reading. The
+  second keeps a combined order ("Probable jurisdiction in No. 17-1 is noted.
+  The appeal in No. 17-2 is dismissed …") from recording a grant on the docket
+  whose entry merely carries another docket's noting; a single-docket noting
+  that names a number is therefore a deliberate miss. The existing non-order
+  and motion guards run on every match. Deliberate misses besides: a noting
+  conjoined behind a motion order in one sentence ("The motion … is denied,
+  and probable jurisdiction is noted."), summary affirmance, and dismissal for
+  want of a substantial federal question. A noting and a vacate-and-remand in
+  one entry read as `gvr`, as every grant row's GVR upgrade does.
+
+  A docket whose first disposition is the noting or postponement latches the
+  merits pair as a cert grant does: `date_cert_granted` is that order's date,
+  the termination stays undated, and the later judgment fills
+  `merits_judgment` / `merits_decided`. A postponed appeal the Court later
+  dismisses for want of jurisdiction ("Appeal DISMISSED for want of
+  jurisdiction.") reads `granted` on the postponement with no merits judgment:
+  the merits-judgment parser does not read that dismissal, so it is a
+  merits-stage residual for triage, never a second cert disposition.
+
+  **The census.** It was read at blob
+  `0e888d60bbf1bffcaa4f7311f436ff42a70bed93e78a121ffd53476a68288a93`
+  (`freshness: latest pull 2026-10-19, latest snapshot 2026-07-13`, read ranged
+  under that pointer, each docket's latest live snapshot from the content
+  store) against the ledger at `origin/main` `a57c586a9`. It covers the 21,230
+  cert-form rows with a stored live snapshot (of 21,353 live-polled). Both new
+  rows need the word "jurisdiction", which 41 of those snapshots carry. Those
+  41 were re-parsed with `ingest.map_live_docket` with and without the two
+  rows, and 3 change reading, all `gvr` → `granted`:
+  - 18-422 (*Rucho v. Common Cause*) and 18-726 (*Lamone v. Benisek*):
+    granted 2019-01-04 (the postponement), argued 2019-03-26, merits
+    `vacated` 2019-06-27;
+  - 20-366 (*Trump v. New York*): granted 2020-10-16 (the postponement),
+    argued 2020-11-30, merits `vacated` 2020-12-18.
+
+  Each was stored as a `gvr` dated to its merits judgment, because the merits
+  vacatur was the first entry the resolver read. No live snapshot carries a
+  "probable jurisdiction noted" entry: the direct appeals that do (*Louisiana
+  v. Callais*, 24-109, among them) hold no snapshot at all.
+
+  **What it moves, once those 3 rows are re-read.**
+  - **The per-band cert pools: nothing.** `gvr` and `granted` are both in the
+    grant family the statpack's `est_grant*rate` figures count, so the 3 flips
+    move no per-Term grant count and no per-band `risk_set` anchor.
+  - **The summary-route baseline falls.** It counts `gvr` in its numerator
+    over the paid grant family, and the 3 rows leave the numerator: docket
+    Term 2026 0.3540 → 0.3506, docket Term 2025 0.3538 → 0.3501.
+  - **The merits section and its baseline.** The statpack's merits section
+    gains 3 `granted` rows carrying 3 `vacated` judgments, so `disturbed_rate`
+    moves 0.6981 → 0.6998 (377/540 → 380/543 on the committed pack). Each
+    row's `date_cert_granted` moves from its merits date to its postponement
+    date, which shortens OT2018's and OT2020's filing-to-grant days by those
+    rows.
+  - **The ledger.** The three dockets each hold a committed
+    `evt-petition-disposition` outcome at `a57c586a9` reading `gvr` with
+    `actual_granted` 1, resolved on the merits date. No committed predict or
+    evaluate output sits under any of them. No `converge-disposition-labels`
+    arm relabels `gvr` to `granted`, so those three keep their label and date.
+    The binary they carry is already right. This is reported, not rewritten.
+
+  These are the committed pack's figures with the 3 rows' stored reading
+  replaced by the branch parser's; the exact after-values are the next
+  statpack refresh's, which can differ by rows landed since.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** A
+  scoring-baseline change that is also a conditioning one joins the boundary
+  registry through its conditioning half, as the cert-exit-guard entry above
+  did.
+  - **The registry row.** The boundary is
+    `direct-appeal-plenary-review-grant`. It applies to every predictor and is
+    **gradual**, because the input a cell reads moves at the statpack refresh
+    that follows a re-read of the affected rows, not at the merge. Its reach is
+    `all`. It is registered **pending** in this change's own PR (`fedcourts
+    register-boundary`), under the 2026-10-14 merge-stamping declaration. Its
+    `merge` and `at` stay null until the promotion merge that carries it to
+    `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge. The
+    after-side `n` is an upper bound on exposure, as for every gradual
+    boundary, and the anchoring side is read from the cell's provisioning run
+    id against the refresh commit's time.
+
+  **Timing.** The carrying merge changes the parser only. A row takes the new
+  reading when it is next ingested — a live poll, a historical walk, or a
+  `refresh_dockets` re-serve — and the pools and baselines move at the first
+  statpack refresh on `main` after that. The 3 census rows carry a disposition
+  and no open merits event, so no rotation revisits them; they move only when
+  re-served. The resolver assumes nothing about the order rows are polled in,
+  so the never-polled backlog (#2581) inherits the reading whenever it is
+  reached and this change does not block that work. The committed
+  `metrics/docket.md` still carries the old direct-appeal caveat (its
+  "Summary reversals are not broken out" bullet) until the next `fedcourts
+  docket` run regenerates it from `analytics.py`.
+
+  **Release 1 disclosure.** The tagged release (`results/ot2026-longconf`)
+  reads its own tag and does not move. Its per-band cert anchors are untouched
+  by the census. Its summary-route anchor ran slightly high, because these 3
+  plenary appeals sat in its numerator as `gvr`.
+
+  **The one-off refresh is held.** The direct appeals the corpus holds hollow
+  would enter the pools on the grant side only while summary affirmance and
+  dismissal for want of a substantial federal question stay resolver misses,
+  so onboarding them now would bias the pools upward. The bound that motivates
+  the hold: if all 23 district-origin dockets below joined as grants, the
+  docket Term 2025 pools would move state 22.70% → ~27.0%, federal 72.93% →
+  ~76.0% and high 34.97% → ~36.6%. So the `run-seed` refresh waits until the
+  denied/dismissed side lands, and direct appeals then enter the pools on both
+  sides at once. The candidate list, recorded here for that dispatch, is 44
+  dockets = 41 + 3:
+  - **41 hollow dockets**: every paid-stream OT2017–OT2024 cert-form docket
+    number whose corpus rows have never been live-polled and that has no
+    live-polled row under another `case_id`. None holds a disposition. 23 of
+    the 41 name a federal district court as `originating_court`, which on a
+    Term-form docket marks a direct appeal or a petition before judgment. The
+    other 18 are rows the historical walker left hollow; a re-serve resolves
+    them under the resolver's existing rows, independent of this change.
+  - **3 census flips**, re-served so their rows take the new reading.
+
+  `24-109 24-110 22-807 21-1086 17-586 17-626 17-333 18-281 17-1364 18-422
+  18-726 20-366 24-111 17-680 17-780 17-1339 17-1368 18-290 18-433 18-1134
+  20-1279 21-12 22-92 22-136 22-492 23-969 17-1003 17-1660 18-443 19-1209
+  20-201 20-298 20-391 20-524 21-582 21-583 21-587 21-633 22-350 23-624
+  24-969 24-999 24-1030 24-1888`. A served record with no machine-readable
+  disposition is skipped by that path and by the historical walker, which is
+  why the direct appeals stayed hollow while the resolver missed the noting.
+
+  **Ledger events from that refresh.** A re-serve records an outcome only where
+  the petition event is still open, and mints the open merits event only where
+  it records a merits-opening grant whose judgment has not latched, whose
+  proceeding is not terminated, whose grant is not stale, and which is in
+  predict scope (`outcome._merits_mint_verdict`). So the 3 census flips mint
+  none (their petition events are resolved), a decided appeal mints none (its
+  judgment latches on the same read), and only a noted appeal still awaiting
+  judgment can mint one.
+
+  The runnable effect check, after that `run-seed` refresh lands: where the
+  corpus is pulled (`uv run fedcourts corpus-pull`),
+  `sqlite3 corpus/corpus.db "SELECT disposition, date_cert_granted, case_name
+  FROM cases WHERE case_id = 'scotus/69779623'"` prints `granted`, the date of
+  24-109's "Probable jurisdiction NOTED" entry, and a non-empty case name; and
+  the same query on `scotus/14833516` (18-422) prints `granted|2019-01-04|…`.
+  Before it, at the carrying merge: `uv run pytest tests/test_cert_signals.py
+  -k "plenary or direct_appeal or postponed or noted_appeal or docket_numbered"`
+  is green, and `uv run fedcourts process-digest --all` prints the same label
+  and six digests as at its first parent.

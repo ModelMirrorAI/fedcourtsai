@@ -162,6 +162,12 @@ jobs:
     # every step below reads or writes the corpus.
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+      # The one switch that lets this job write the remote corpus estate at
+      # all: the content-store mirror and `corpus-push` (`remote_writes` in
+      # fedcourtsai/config.py). Set by the corpus writer jobs alone, on their
+      # own `env:`; any other job's corpus writes stay local whatever
+      # credential it holds (tests/test_workflow_corpus_write.py).
+      FEDCOURTS_REMOTE_WRITES: "true"
     # The ambient GITHUB_TOKEN reads only: the checkout uses it, which is what
     # `contents: read` is for. Every WRITE — the corpus push and every gh call —
     # runs on the App token instead, so the ambient one carries no write at all.
@@ -1310,7 +1316,7 @@ jobs:
       - name: Assert no credential reaches the parse
         run: |
           set -euo pipefail
-          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+          if env | grep -E '^AWS_' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables reached the parse job"
             exit 1
           fi
@@ -1650,7 +1656,7 @@ jobs:
       - name: Assert no credential reaches the parse
         run: |
           set -euo pipefail
-          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+          if env | grep -E '^AWS_' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables reached the parse job"
             exit 1
           fi
@@ -1740,6 +1746,9 @@ jobs:
     # the blob push and the commit.
     timeout-minutes: 30
     environment: corpus-write
+    env:
+      # Lets this job write the remote corpus estate (see the `seed` job).
+      FEDCOURTS_REMOTE_WRITES: "true"
     permissions:
       contents: read
       id-token: write # the read-write role for the fresh pull, the write and the push
@@ -1873,7 +1882,7 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
-          if env | grep -E '^AWS_' | grep -E '=.+' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables reached the OCR sweep commit"
             exit 1
           fi

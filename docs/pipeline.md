@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -297,8 +297,9 @@ call, no branch write.
 
 `run-analytics` is the **corpus analysis & derived metrics** surface, also outside
 the cascade: every task that reads the corpus and answers a question or refreshes a
-derived artifact is a mode here (dispatch `mode` input, or one of the two
-schedules — the weekly metrics refresh and the daily big-case board, each gated
+derived artifact is a mode here (dispatch `mode` input, or one of the three
+schedules — the weekly metrics refresh, the daily big-case board and the weekly
+update history, each gated
 on which cron fired rather than on the event class),
 each as its own least-privilege job holding only the credentials its mode needs.
 
@@ -311,7 +312,7 @@ run only there — bind `prod`, while
 forwards the out-of-band index pointer off `main`, since the committed
 pointer names the production blob; any other ref resolves its own name,
 which names no configured environment and binds nothing — fail-closed). The
-three publishing jobs' App-token mint, git-identity and PR steps are
+four publishing jobs' App-token mint, git-identity and PR steps are
 fenced to `main`-branch runs, so a staging dispatch is a **rehearsal**: it
 runs a mode as far as the staging pair's contents support — the labeling
 mode's extract enforces its reference-coverage floor against that corpus, so
@@ -391,8 +392,8 @@ queues behind the production run of the same mode. The modes:
   byte-stable, so a no-op refresh diffs empty) — opens a **reviewed** PR rendered
   by the tested `metrics-refresh-plan` command: never a
   direct commit to `main`, never auto-merged. It mints the dev App token to do
-  so; `big-cases` and `qp-topic-publish` below are the only other jobs here that
-  do. The branch is fixed
+  so; `big-cases`, `public-updates` and `qp-topic-publish` below are the only
+  other jobs here that do. The branch is fixed
   (`metrics/refresh`) and force-pushed, so an unmerged refresh PR is updated in
   place by the next tick rather than stacking. It gates on the weekly cron by
   name (`github.event.schedule`), not on the event class, because a `schedule`
@@ -413,9 +414,12 @@ queues behind the production run of the same mode. The modes:
   [metrics/README.md](../metrics/README.md)'s section for the board; the short
   version is that a stakes read is neither scored nor ranked.
 
-  It is the **one PR lane here that merges unattended**, and the argument is about the
+  It is one of the **two PR lanes here that merge unattended** (with
+  `public-updates` below), and the argument is about the
   artifact rather than the cadence. The board is a byte-stable pure function of
-  the committed ledger, so a day that changed nothing opens nothing; a day that
+  the committed ledger and the committed schedule (whose rows carry no build
+  day, so it moves only when a case's conference does), so a day that changed
+  nothing opens nothing; a day that
   changed something re-rolls committed cells by a tested command that the PR's
   own required checks rerun; and the diff is bounded to the board's two files by
   the required `paths` check, which runs the tested `assert-board-paths` jail on
@@ -429,6 +433,25 @@ queues behind the production run of the same mode. The modes:
   waits for an approval. (That the job's own call does exercise it is
   unverified until its first production run; its summary says which.) The job arms it anyway, so where its own merge gives
   up the PR stays open and lands on the maintainer's approval.
+- **`public-updates`** (weekly schedule Mon 12:59 UTC, or dispatch) adds each
+  missing week's public update to the site's running history,
+  `metrics/updates/<YYYY-Www>.md`, with `fedcourts archive-public-updates`, and
+  lands it as a PR to `main` on the fixed, force-pushed `metrics/public-updates`
+  branch. Each file is the `public-update` render the email draft carries, with
+  its title as a heading; `post-public-update` drafts at 12:57, so the page and
+  the draft read the same `main` unless a commit lands between the two runs. The
+  history starts at the first week the list was sent and is write-once once
+  merged: a week on `main` is never re-rendered, not even for a later void or
+  set-aside (a correction is a reviewed PR), while a week whose PR has not
+  merged is rendered again by the next run. A week with nothing to show gets no
+  file and is looked at again each run, so a missed week, or one that later
+  gains a dated entry, is written when a run first finds it non-empty, rendered
+  from the ledger as it then stands. It reads `data/` only, like `big-cases`, and does not bind
+  `website`. It merges unattended on the board's argument, with a narrower
+  bound: the required `paths` check runs the tested `assert-update-paths` jail
+  on this branch, which admits added week files under `metrics/updates/` and
+  nothing else, no modify and no delete. A draft the maintainer edits before
+  sending, or never sends, is still archived as rendered.
 - **`tool-usage`** (dispatch) rolls every committed `retrieval_log.json` into an
   **offered-vs-called** report: which configured MCP tools were never called,
   which are used by some engines and not others, and call counts per tool /
@@ -821,7 +844,7 @@ reads each item under a slice deadline. `ocr-sweep` waits for the walk,
 downloads the plan and the worklist by artifact id, refuses a plan naming
 anything off the worklist, writes the rest, pushes the blob, and only then
 mints the App token for the pointer commit. The plan carries filing text, so it
-would cross under a proposed carve-out in [data-sources.md](data-sources.md)
+crosses under the OCR sweep's carve-out in [data-sources.md](data-sources.md)
 (*PII stance*). The run's `corpus-write` lock is held until its last job ends,
 which with this sweep is at worst about 115 minutes: the projection (30) and
 parse (50) beside the walk (55), then the writer (30). A window that fires in
@@ -834,14 +857,14 @@ those three are run-seed's whole dispatch surface; the maintenance passes live
 on **run-repair**.
 
 **run-repair** is the maintainer's repair bench — `workflow_dispatch` only, no
-schedule, one pass per dispatch, dry-run by default, and
+schedule, one pass per dispatch, dry-run by default, and on an apply
 joined to the same `corpus-write` lock so a pass can never interleave with a
 window's corpus push. It carries a generic selector: `repair` names the pass,
 `repair_mode` is `dry-run` or `apply`, `repair_bound` carries the blast-radius
 count, `repair_target` the pass's named subject, and `repair_options` its closed
-vocabulary of switches. `dry-run` means the selected pass writes nothing — the
-prerequisites each pass is gated on still apply, so a dry-run dispatch can move
-the corpus pointer by a convergence a scheduled window would have made anyway.
+vocabulary of switches. `dry-run` writes nothing off the runner: the
+prerequisites each pass is gated on apply to the runner's copy alone, under the
+read-only role, with no App token and no lock.
 [data-pipeline.md](data-pipeline.md#maintenance-passes) is the contract — what
 each pass accepts, every refusal, the `dedupe-live-rows` prerequisite each
 pass in the corpus job is gated on, and the dispatch commands.
@@ -1065,13 +1088,18 @@ what it widens is the removal set the apply's bound already sizes.
 
 `disposition-convergence` converges stored disposition labels onto the current
 classifier, writing `outcome.json` under `data/` alongside the pointer in the
-step's one commit. Its ledger names **which of its two arms** each relabel came
+step's one commit. Its ledger names **which of its three arms** each relabel came
 from, and the reading a maintainer owes them differs: `gvr` sharpens a label
 whose grant binary does not move, while `disowned-grant` withdraws a grant the
 classifier no longer reads at all — moving `actual_granted` 1 → 0 and re-dating
-the resolution — so that count is the one that shifts realized grant rates and
-every figure keyed on a resolution date (`docs/cli.md` carries each arm's
-warrant). By default it converges the population carrying **no committed predict
+the resolution — and `restored-grant` restores one a refused exit hid (a stay
+order's termination conditional, a Rule 46 dismissal "only as to" one party),
+moving it 0 → 1 and re-dating the resolution to the grant. Those two counts are
+the ones that shift realized grant rates and every figure keyed on a resolution
+date (`docs/cli.md` carries each arm's warrant). `restored-grant` admits only
+outcomes whose corpus row already records the grant, so its dockets are
+re-read first — by the live poll, or by `run-seed`'s `refresh_dockets` for a
+row no rotation revisits — and the convergence dry run follows. By default it converges the population carrying **no committed predict
 or evaluate output**: rewriting the label under a cell that has already been
 graded would move what a published standing was computed from while the standing
 sat still, so any event whose directory holds agent output is reported in the
@@ -1083,7 +1111,7 @@ much as in `apply`, unlike the bare bound, because what the number states there
 is a decision to take on a re-grade backlog rather than a write bound. The two
 readings are different: the plain dry-run's held-back lines size the *decision to
 widen* (they are candidates the sweep never parsed, so most will not be
-relabeled — only a candidate one of the two arms claims writes), while the bound
+relabeled — only a candidate one of the arms claims writes), while the bound
 an `apply` is checked against is the widened dry-run's own relabel count, which
 spans the scored and unscored confirmations together. On `apply` the step still
 runs the dry-run into the step summary first, as a receipt of what the rewrite
@@ -1180,16 +1208,19 @@ sees moves: both columns are
 withheld from the `query` rows, and no gate, mint or outcome reads them.
 
 `opinion-record` builds the per-opinion record — each opinion's kind, author,
-joiners and word count — into the corpus `opinions` table (`fedcourts
-backfill-opinion-record`) for OT2020–OT2025, a range pinned in the workflow rather
+joiners and word count — into the corpus `opinions` table, with who sat on each
+signed decision in `opinion_benches` (`fedcourts
+backfill-opinion-record`), for OT2020–OT2025, a range pinned in the workflow rather
 than taken as an input (OT2017–OT2019 list only whole volumes, which the pass
-skips). It fetches each unrecorded document the Court's opinions listing links
-from supremecourt.gov at about one request a second and inserts fill-only, and
+skips). It fetches each document the Court's opinions listing links that the
+record does not yet hold whole — unrecorded, or a signed decision recorded
+without its bench row — from supremecourt.gov at about one request a second and
+inserts fill-only, and
 it writes nothing under `data/`, so its commit is the corpus pointer alone. The
 PDFs are fetched and parsed in the credential-free parse job; the writer pulls
 the corpus fresh under the lock, re-validates the readings, resolves each case
 id, inserts and pushes, and mints the App token only after the push. The
-bound is the dry run's opinion-row count. Each run fetches again, so an apply does not lead
+bound is the dry run's "would insert N": opinion rows and bench rows together. Each run fetches again, so an apply does not lead
 with a dry run, and a re-dispatched dry run after the apply is the control.
 Nothing a cell sees moves: the table is no part of a `query` row, and no gate,
 mint, outcome or score reads it.
@@ -1348,7 +1379,9 @@ daily ×4 → run-seed → walk Terms newest-first, ingest every decided petitio
                                  │    unrecorded outcome, surfaced per-case on the
                                  │    window's step summary
                                  ├─ route the predict queue (as above)
-                                 └─ derive the evaluate backlog (as above)
+                                 ├─ derive the evaluate backlog (as above)
+                                 └─ rebuild data/schedule/schedule.json
+                                      (display only; a failure warns)
    daily ×2 → run-predict → plan (derive the predict backlog from committed state,
                                  │       build the matrix, render the plan report)
                                  → approval (the review hold: required
@@ -1704,8 +1737,9 @@ The mechanics:
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, and salience-replay PRs, the qp-topic
   labeling run's `qp-topics/refresh` PR, the case-summary lane's
-  `summaries/refresh` PR, and the big-case board's
-  `metrics/big-cases` PR); on those
+  `summaries/refresh` PR, the big-case board's
+  `metrics/big-cases` PR and the update history's `metrics/public-updates`
+  PR); on those
   legitimate lanes it reports `skipped`, which satisfies the requirement. Its
   definition lives in `main`'s own ci.yml, so the context reports on every
   lane into `main` (docs/security.md inventories this).
@@ -1771,7 +1805,11 @@ The mechanics:
   digest at the head must be registered; each predictor keeps at most one
   open window, a pending close counting as a close; the batch carries at most
   one label new to `main`, with no `prereg/` tag yet; no boundary name may
-  repeat; and nothing may already sit pending on `main` — `fedcourts
+  repeat; nothing may already sit pending on `main`; and no row `main` has
+  stamped may change, go or move, nor any evaluator digest's blessing labels
+  lose `main`'s prefix, save a pending close on a window no live predictor
+  computes, a blessing that left the fleet, and a revocation of a closed
+  window dated at or after the head — `fedcourts
   registry-gate`, read from git alone, so both call sites check out full
   history with tags).
   The `promote` dispatch runs
@@ -2038,8 +2076,10 @@ checks alongside `gate` and `paths`. Each reports `skipped`, which satisfies
 the requirement, on every PR it does not gate; requiring a context before its
 producing job reaches `main` strands every unattended collect PR, which is
 what the procedure's ordering prevents. For the promotion train, **in this
-order**: (1) the two `promote:` branch rulesets (creation by the dev App
-alone; no update, force-push or deletion but by the admin role), and
+order**: (1) the two `promote:` branch rulesets over `promote/**` and every
+casing of the prefix (creation by the dev App alone; no update, force-push or
+deletion but by the admin role), the `case variants: restrict creation`
+ruleset, and
 `scripts/promotion-gate.sh contexts` green with an admin token; (2) only then
 `promote/*` added to the `staging` environment's deployment branches —
 before the creation ruleset holds, any write holder could push a
@@ -2047,7 +2087,7 @@ before the creation ruleset holds, any write holder could push a
 dev App checked to hold no Workflows permission, the dispatch App's Actions
 write (already granted), and `config/promotion-train.yaml` naming the
 approver and the daily dispatch cap (docs/security.md carries each, and the
-case-sensitivity check the first setup owes). Close any draft `staging` →
+non-admin push checks that confirm the rulesets). Close any draft `staging` →
 `main` PR left open, or the train stands aside behind it.
 
 The `staging` *deployment environment* the freshness runs deploy to
@@ -2096,6 +2136,31 @@ its purpose — and two restrict creation, `promotion/**` and `prereg/**` to the
 data App and the admin role, every other tag to the admin role alone, so no
 other credential can plant a canonical name ahead of the workflow. The
 promotion gate's `contexts` stage checks all three are present and active.
+
+**The release manifest.** `docs/releases.json` lists every results release,
+newest first, one entry per `results/` tag: its `slug` (the site's
+`/results/<slug>` path), `label`, `tag`, `published` date, a one-line `covers`
+description for a lay reader, the repository paths of its public `summary` and
+its `audit` write-up, and the DOIs of its Zenodo dataset record (`data_doi`)
+and of the code it cites (`code_doi`), each null until it exists. fedcourts.ai
+reads the manifest from `main` and each release's summary from that release's
+own tag, so tagging a release is all it takes for the site to publish it, and a
+published page stays fixed to its tagged text while the list grows. An entry
+whose tag does not exist yet is shown there as upcoming, so add one only once
+announcing the release is intended.
+
+The manifest is a reviewed file like the documents it lists, not data: it rides
+`staging` and reaches `main` in a promotion, never by a writer. So a release's
+entry goes in **the release's own pull request**, beside its filled documents,
+and is promoted with them before the tag is pushed; the tag then sits on a
+commit whose manifest already names it. `ReleaseManifest` in
+`fedcourtsai.schemas` holds its rules — URL-safe, unique slugs; each tag
+`results/<slug>`, so a page's address and the tag its text is read at name the
+same release; unique labels; newest first; Markdown paths under `docs/`; DOIs
+written bare — and `tests/test_release_manifest.py` checks the committed file
+against them, and that each entry's summary and audit write-up exist at its tag
+where the checkout has the tag, or in the working tree where it does not (CI's
+shallow checkout fetches no tags).
 
 ### Engine CLI updates
 
@@ -2584,7 +2649,10 @@ discloses the grant the way a merits event in the ledger does. Nothing the
 replay runs reads either file. The salience-gate arm writes under `metrics/`
 in the same checkout, so the board comes back from the commit, asserted
 pristine, before that arm runs; and since only the arm's own report crosses
-to `publish`, its removal never reaches what the PR commits. The standing `metrics/cert-backtest.json` is withheld by
+to `publish`, its removal never reaches what the PR commits. The weekly public
+update history, `metrics/updates/`, leaves and comes back with the board on the
+same terms, because each week's resolved section names decided events beside
+their outcomes. The standing `metrics/cert-backtest.json` is withheld by
 `cert-backtest` itself (see the `cert-backtest` row in [cli.md](cli.md)).
 
 Two residuals ride that fence, and both are the reason it is described as
@@ -2820,10 +2888,12 @@ re-derives on a later cycle for as long as no prediction is committed for it. A
 spend-breach deferral clears on its own when the window rolls past the burst
 that tripped it (or when the maintainer raises `spend.ceiling_usd`). A breach
 driven by a sustained *rate* rather than a burst — a capacity knob left
-non-binding, which at the current planning rate runs above the ceiling
-(`config/tracking.yaml`'s `spend` section carries the figure) — does not clear
-that way: it re-trips each cycle, and the fix is the capacity knob or the
-ceiling, not waiting.
+non-binding, running above the ceiling — does not clear that way: it re-trips
+each cycle, and the fix is the capacity knob or the ceiling, not waiting. The
+shipped ceiling sits above the measured rate of such a regression
+(`config/tracking.yaml`'s `spend` section carries both figures), so that band
+does not trip it at all; the auto-release budget in `config/review-hold.yaml`
+is what stops it running unattended.
 
 ### The evaluate cell grades blind
 

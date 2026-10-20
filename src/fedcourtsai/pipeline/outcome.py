@@ -254,7 +254,7 @@ _TERMINAL_ENTRY_RE = re.compile(
     r"|\bcase termination\b"
     r"|\bconsidered closed\b"
     r"|\brule\s*39\.8\b"
-    r"|\bpetition\b.{0,80}?\bdismissed\b"
+    r"|\bpetitions?\b.{0,80}?\bdismissed\b"
     r"|^judgment issued\b"
     r"|\bjudgment\b.{0,40}?\bvacated\b.{0,80}?\bremand\w*"
     # The SCOTUS merits judgment: once the Court enters judgment the case is
@@ -405,13 +405,15 @@ def snapshot_shows_judgment(docket: Mapping[str, Any]) -> str | None:
     the docket (this function sees a payload and no row) but a refusal to make
     one: the shapes it thereby declines are the *petition*-subject ones, and
     those are the ones :data:`_TERMINAL_ENTRY_RE` reads for itself through its
-    "petition ... dismissed" branch — "Petition Dismissed - Rule 46.",
+    "petition(s) ... dismissed" branch — "Petition Dismissed - Rule 46.",
+    the Court's in-order decree on several dockets ("the petitions in Nos. ...
+    are dismissed pursuant to Rule 46.1"),
     "Petition dismissed as moot.", the abatement spelled on the petition. The
     split is exact, and it is what makes the refusal free: the shapes the regex
     misses are precisely the ones whose subject is the case or the writ ("Writ
     of Certiorari Dismissed - Rule 46.", the Court vacating its own grant
-    order, an abatement spelled on the writ — the branch keys on "petition",
-    which does not match inside "petitioner"), and those are precisely the
+    order, an abatement spelled on the writ — the branch keys on "petition" or
+    "petitions", neither of which matches inside "petitioner"), and those are precisely the
     shapes the parser admits with no docket-level fact at all. So the two
     instruments are complementary rather than redundant, the guard needs both,
     and neither the assumption nor the recall is lost.

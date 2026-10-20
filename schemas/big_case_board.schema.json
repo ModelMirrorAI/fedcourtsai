@@ -253,6 +253,19 @@
           "title": "Reading Rule",
           "type": "string"
         },
+        "schedule_rule": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where `scheduled` comes from and when it is null",
+          "title": "Schedule Rule"
+        },
         "short_caption_rule": {
           "description": "How `short_caption` is derived from `caption`, and when it is null",
           "title": "Short Caption Rule",
@@ -616,6 +629,18 @@
           "description": "One fixed plain-language line per action open at `moment`'s stage, filled with `asking_party` and `other_party`: granted and denied for a petition or an application, reversed, affirmed and vacated for a merits case. Consequences only, never likelihood \u2014 shown beside the forecast, paired by each line's `side`, so a reader can tell whom each action helps. None exactly when `asking_party` is. Display-only",
           "title": "Outcome Lines"
         },
+        "scheduled": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BigCaseScheduled"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The case's next scheduled date, joined from the committed `data/schedule/schedule.json` by the `schedule_rule` provenance string; None where the schedule carries no upcoming date for the case. Carries no `as_of`, so the board moves only when a case's date does. Display-only"
+        },
         "score_max": {
           "description": "Highest current read on the case's current moment",
           "maximum": 1.0,
@@ -673,6 +698,30 @@
         "score_range"
       ],
       "title": "BigCaseRow",
+      "type": "object"
+    },
+    "BigCaseScheduled": {
+      "additionalProperties": false,
+      "description": "The next date the Court has set for a case, as the committed schedule carries it.",
+      "properties": {
+        "date": {
+          "description": "The scheduled day, on or after the day the schedule was last built. A reader rendering later drops a date that has since passed rather than show it as upcoming",
+          "format": "date",
+          "title": "Date",
+          "type": "string"
+        },
+        "kind": {
+          "const": "conference",
+          "description": "What is scheduled: `conference`, the conference the docket is distributed for",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "date"
+      ],
+      "title": "BigCaseScheduled",
       "type": "object"
     },
     "CountingWindow": {
@@ -746,7 +795,7 @@
       "type": "object"
     },
     "Disposition": {
-      "description": "The realized-outcome vocabulary, with the mapping conventions for\nnon-standard SCOTUS forms. A **grant/vacate/remand** is its own label,\n``gvr`` \u2014 including the Munsingwear vacatur, whose mootness basis is *also*\ncarried by ``Outcome.disposition_basis`` (``gvr`` + ``mootness`` = a\nMunsingwear vacatur, segmented into the procedural stratum; ``gvr`` +\n``standard`` = a merits GVR). ``gvr`` counts as a grant on the **binary axis**\n(it joins the granted set for ``actual_granted``), so ``probability`` /\nBrier stay comparable across the label's introduction; only the\ndisposition-label axis distinguishes it. The label is a **forward-convention**\nchange: historical GVRs recorded as ``granted`` before it existed keep that\nlabel except the identifiable Munsingwear ones (``granted`` + ``mootness``),\nwhich a one-time backfill relabels; a plain-``granted`` merits GVR in history\nis an accepted residual (indistinguishable post-hoc without re-resolving the\nsource, and immaterial on the binary axis). That residual covers a label\nnormalized from the upstream record's own fields, never a resolution the\ndisposition parser itself recorded off order text and got wrong \u2014 those\ndisagree with their own order text and are converged against it. What\nseparates the two is provenance, and the convergence sweep\n(:mod:`fedcourtsai.disposition_convergence`) establishes it two ways: a date\nboundary in code, so that widening snapshot coverage alone cannot reach the\nresidual, and \u2014 where the docket itself shows that the entry a ``granted``\nwas read off no longer parses as a grant at all \u2014 that entry, which dates\nthe parse gap and so needs no calendar. On mandatory-jurisdiction direct\nappeals the resolver latches only the vacatur-remand form (now ``gvr``); the\nother direct-appeal forms (probable jurisdiction noted, summary affirmance,\ndismissal for want of a substantial federal question) are deliberate resolver\nmisses that reach maintainer triage, where the convention is: grant-side for\nprobable jurisdiction, the denied/dismissed side for summary affirmance and\nwant-of-a-question.",
+      "description": "The realized-outcome vocabulary, with the mapping conventions for\nnon-standard SCOTUS forms. A **grant/vacate/remand** is its own label,\n``gvr`` \u2014 including the Munsingwear vacatur, whose mootness basis is *also*\ncarried by ``Outcome.disposition_basis`` (``gvr`` + ``mootness`` = a\nMunsingwear vacatur, segmented into the procedural stratum; ``gvr`` +\n``standard`` = a merits GVR). ``gvr`` counts as a grant on the **binary axis**\n(it joins the granted set for ``actual_granted``), so ``probability`` /\nBrier stay comparable across the label's introduction; only the\ndisposition-label axis distinguishes it. The label is a **forward-convention**\nchange: historical GVRs recorded as ``granted`` before it existed keep that\nlabel except the identifiable Munsingwear ones (``granted`` + ``mootness``),\nwhich a one-time backfill relabels; a plain-``granted`` merits GVR in history\nis an accepted residual (indistinguishable post-hoc without re-resolving the\nsource, and immaterial on the binary axis). That residual covers a label\nnormalized from the upstream record's own fields, never a resolution the\ndisposition parser itself recorded off order text and got wrong \u2014 those\ndisagree with their own order text and are converged against it. What\nseparates the two is provenance, and the convergence sweep\n(:mod:`fedcourtsai.disposition_convergence`) establishes it two ways: a date\nboundary in code, so that widening snapshot coverage alone cannot reach the\nresidual, and \u2014 where the docket itself shows that the entry a ``granted``\nwas read off no longer parses as a grant at all \u2014 that entry, which dates\nthe parse gap and so needs no calendar. On mandatory-jurisdiction direct\nappeals the convention is grant-side for plenary review, and the\ndenied/dismissed side for summary affirmance and dismissal for want of a\nsubstantial federal question. The resolver reads the grant side: the\nvacatur-remand form as ``gvr``, and probable jurisdiction noted \u2014 or further\nconsideration of jurisdiction postponed to the hearing on the merits, which\nsets the appeal for the same briefing and argument \u2014 as ``granted``, which\nopens the merits proceeding a cert grant does. Summary affirmance and\nwant-of-a-question are deliberate resolver misses that reach maintainer\ntriage.",
       "enum": [
         "granted",
         "denied",
@@ -951,9 +1000,9 @@
       "type": "integer"
     },
     "schema_version": {
-      "const": "1.2",
-      "default": "1.2",
-      "description": "The artifact's schema version. A reader keys on it: a `1.1` row carries the display fields `short_caption`, `docket_number`, `docket_number_source` and `docket_url`, and a `1.2` row adds `asking_party`, `other_party`, `outcome_lines` and `asking_declined`",
+      "const": "1.3",
+      "default": "1.3",
+      "description": "The artifact's schema version. A reader keys on it: a `1.1` row carries the display fields `short_caption`, `docket_number`, `docket_number_source` and `docket_url`, a `1.2` row adds `asking_party`, `other_party`, `outcome_lines` and `asking_declined`, and a `1.3` row adds `scheduled`",
       "title": "Schema Version",
       "type": "string"
     },

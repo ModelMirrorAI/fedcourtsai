@@ -40,6 +40,7 @@ parses every flag it was given.
 
 from __future__ import annotations
 
+import functools
 import json
 import re
 from pathlib import Path
@@ -124,7 +125,9 @@ BENIGN_REFUSALS = {
 }
 
 
+@functools.cache
 def _workflow() -> dict[Any, Any]:
+    """The parsed workflow, read once per process; every caller only reads it."""
     data = yaml.safe_load(RUN_REPAIR.read_text())
     assert isinstance(data, dict)
     return data
@@ -187,11 +190,11 @@ def _ungated_cli_steps() -> list[dict[str, Any]]:
     Keyed on ``(job, step name)``, not the name alone: two jobs carrying a
     same-named CLI step would otherwise drop the ungated one from coverage.
     """
+    selected = [_steps_for(name) for name in _passes()]
     gated = {
         (job_id, str(step["name"]))
-        for name in _passes()
         for job_id, _, step in _cli_steps()
-        if step in _steps_for(name)
+        if any(step in steps for steps in selected)
     }
     return [step for job_id, _, step in _cli_steps() if (job_id, str(step["name"])) not in gated]
 

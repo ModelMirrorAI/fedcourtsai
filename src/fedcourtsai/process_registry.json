@@ -17,6 +17,14 @@
         "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
         "source": "hand"
       }
+    },
+    {
+      "label": "proc-v10",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
     }
   ],
   "blessings": [
@@ -32,24 +40,24 @@
       }
     },
     {
-      "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
+      "digest": "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4",
       "role": "predictor",
       "actor_id": "codex-baseline",
-      "label": "proc-v8",
+      "label": "proc-v10",
       "blessed": {
-        "at": "2026-09-16T00:26:04Z",
-        "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
+      "digest": "sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434",
       "role": "predictor",
       "actor_id": "gemini-baseline",
-      "label": "proc-v8",
+      "label": "proc-v10",
       "blessed": {
-        "at": "2026-09-16T00:26:04Z",
-        "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
@@ -65,24 +73,24 @@
       }
     },
     {
-      "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
+      "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
       "role": "evaluator",
       "actor_id": "codex-judge",
-      "label": "proc-v9",
+      "label": "proc-v10",
       "blessed": {
-        "at": "2026-10-11T00:12:02Z",
-        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
+      "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
       "role": "evaluator",
       "actor_id": "gemini-judge",
-      "label": "proc-v9",
+      "label": "proc-v10",
       "blessed": {
-        "at": "2026-10-11T00:12:02Z",
-        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     }
@@ -113,7 +121,11 @@
         "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -125,7 +137,11 @@
         "merge": "545e26e2b753ac79701a4fd638689a8d48654bce",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -136,6 +152,30 @@
         "at": "2026-10-11T12:00:00Z",
         "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
         "source": "hand"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v10",
+      "digest": "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v10",
+      "digest": "sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
       },
       "closes": null,
       "revoked_at": null
@@ -152,13 +192,20 @@
       "proc-v8"
     ],
     "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": [
-      "proc-v9"
+      "proc-v9",
+      "proc-v10"
     ],
     "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": [
       "proc-v9"
     ],
     "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": [
       "proc-v9"
+    ],
+    "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac": [
+      "proc-v10"
+    ],
+    "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4": [
+      "proc-v10"
     ]
   },
   "harness_boundaries": [
@@ -303,6 +350,38 @@
       "name": "interim-pool-one-row-per-number",
       "merge": "dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c",
       "at": "2026-10-18T01:06:13Z",
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
+    },
+    {
+      "name": "scrub-ohio-reporter-citation",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
+    },
+    {
+      "name": "merits-judgment-parser-summary-ruling-consolidated",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "granted dockets",
+      "gradual": true
+    },
+    {
+      "name": "cert-exit-guard-and-plural-nouns",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
+    },
+    {
+      "name": "direct-appeal-plenary-review-grant",
+      "merge": null,
+      "at": null,
       "predictors": null,
       "reach": "all",
       "gradual": true

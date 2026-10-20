@@ -262,6 +262,7 @@ def _stage(stage_root: Path, court: str = "scotus", docket: int = 1) -> None:
                     "url": "https://www.supremecourt.gov/DocketPDF/26/26-1/1/petition.pdf",
                     "entry_date": "Jan 02 2026",
                     "truncated": False,
+                    "contact_residuals": 0,
                 }
             ]
         )
@@ -898,6 +899,198 @@ def test_summaries_config_defaults_when_the_section_is_absent(tmp_path: Path) ->
     assert load_summaries_config(tmp_path) == SummariesConfig()
 
 
+# --- withdrawal (a re-docketed number) ------------------------------------------------
+
+# The number's current petition, docketed the day after the earlier one was.
+REDOCKETED = {**PAYLOAD, "DocketedDate": "August 21, 2026"}
+
+
+def test_docketed_date_reads_the_court_format() -> None:
+    assert summaries.docketed_date(REDOCKETED) == date(2026, 8, 21)
+    assert summaries.docketed_date({"DocketedDate": "Aug 21, 2026"}) == date(2026, 8, 21)
+    assert summaries.docketed_date({"DocketedDate": "  August  21,  2026 "}) == date(2026, 8, 21)
+    assert summaries.docketed_date({"DocketedDate": ""}) is None
+    assert summaries.docketed_date({"DocketedDate": "soon"}) is None
+    assert summaries.docketed_date(PAYLOAD) is None
+
+
+def test_plan_withdraws_a_summary_written_before_the_current_docketing(tmp_path: Path) -> None:
+    digest = summaries.record_digest(REDOCKETED, DOCS)
+    _commit_summary(tmp_path, "scotus/9026000221", "2026-08-20", "sha256:" + "1" * 64)
+    _commit_summary(tmp_path, "scotus/9026000221", "2026-08-21", "sha256:" + "2" * 64)
+    _commit_summary(tmp_path, "scotus/9026000221", "2026-10-13", digest)
+    plan = _plan(tmp_path, {"scotus/9026000221": _record(REDOCKETED)})
+    # The newest summary is the current petition's and is current: nothing owed.
+    assert plan.cases == []
+    assert plan.up_to_date == 1
+    assert [(w.path, w.snapshot, w.docketed) for w in plan.withdrawn] == [
+        (
+            "data/cases/scotus/9026000221/summaries/2026-08-20.md",
+            date(2026, 8, 20),
+            date(2026, 8, 21),
+        )
+    ]
+    report = summaries.render_plan_report(plan)
+    assert "summaries withdrawn" in report
+    assert "data/cases/scotus/9026000221/summaries/2026-08-20.md" in report
+
+
+def test_a_case_whose_only_summary_is_withdrawn_is_planned_new(tmp_path: Path) -> None:
+    # Even a matching digest does not make another petition's summary current.
+    digest = summaries.record_digest(REDOCKETED, DOCS)
+    _commit_summary(tmp_path, "scotus/1", "2026-08-20", digest)
+    plan = _plan(tmp_path, {"scotus/1": _record(REDOCKETED)})
+    assert [(c.case_id, c.reason) for c in plan.cases] == [("scotus/1", "new")]
+    assert [w.case_id for w in plan.withdrawn] == ["scotus/1"]
+
+
+def test_withdrawals_are_never_deferred_by_the_limit(tmp_path: Path) -> None:
+    _commit_summary(tmp_path, "scotus/1", "2026-08-20", "sha256:" + "1" * 64)
+    records: dict[str, summaries.CaseRecord | None] = {
+        "scotus/1": _record(REDOCKETED),
+        "scotus/2": _record(),
+    }
+    plan = _plan(tmp_path, records, limit=1)
+    assert len(plan.cases) == 1
+    assert [w.case_id for w in plan.withdrawn] == ["scotus/1"]
+
+
+def test_no_docketed_date_withdraws_nothing(tmp_path: Path) -> None:
+    _commit_summary(tmp_path, "scotus/1", "2026-08-20", summaries.record_digest(PAYLOAD, DOCS))
+    plan = _plan(tmp_path, {"scotus/1": _record()})
+    assert plan.withdrawn == []
+    assert plan.cases == []
+
+
+def test_summary_withdraw_deletes_the_planned_files_and_the_jail_admits_only_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    data = tmp_path / "data"
+    stale = _commit_summary(data, "scotus/1", "2026-08-20", "sha256:" + "1" * 64)
+    kept = _commit_summary(data, "scotus/1", "2026-10-13", "sha256:" + "2" * 64)
+    plan = _plan(data, {"scotus/1": _record(REDOCKETED)})
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text(plan.model_dump_json())
+
+    removed = runner.invoke(app, ["summary-withdraw", "--plan", str(plan_file)])
+    assert removed.exit_code == 0, removed.output
+    assert removed.stdout.split() == ["data/cases/scotus/1/summaries/2026-08-20.md"]
+    assert not stale.exists() and kept.exists()
+    # A re-run finds the file gone and removes nothing.
+    again = runner.invoke(app, ["summary-withdraw", "--plan", str(plan_file)])
+    assert again.exit_code == 0 and again.stdout.split() == []
+
+    changes = tmp_path / "changes.txt"
+    changes.write_text(
+        "D\tdata/cases/scotus/1/summaries/2026-08-20.md\n"
+        + "D\tdata/cases/scotus/1/summaries/2026-10-13.md\n"
+        + "A\tdata/cases/scotus/2/summaries/2026-10-13.md\n"
+    )
+    args = ["summary-paths", "--name-status-file", str(changes), "--strict"]
+    without_plan = runner.invoke(app, args)
+    assert without_plan.output.count("not a case summary write") == 2
+    with_plan = runner.invoke(app, [*args, "--plan", str(plan_file)])
+    assert with_plan.exit_code == 1
+    assert with_plan.output.count("not a case summary write") == 1
+    assert "D data/cases/scotus/1/summaries/2026-10-13.md" in with_plan.output
+    only_planned = tmp_path / "planned.txt"
+    only_planned.write_text(
+        "D\tdata/cases/scotus/1/summaries/2026-08-20.md\n"
+        + "A\tdata/cases/scotus/2/summaries/2026-10-13.md\n"
+    )
+    clean = runner.invoke(
+        app,
+        [
+            "summary-paths",
+            "--name-status-file",
+            str(only_planned),
+            "--strict",
+            "--plan",
+            str(plan_file),
+        ],
+    )
+    assert clean.exit_code == 0, clean.output
+    assert clean.stdout.split() == ["data/cases/scotus/2/summaries/2026-10-13.md"]
+
+
+def test_a_summary_written_on_the_docketed_day_is_kept(tmp_path: Path) -> None:
+    # The boundary: a snapshot taken the day the petition was docketed is that
+    # petition's, so only a strictly earlier day withdraws.
+    assert not summaries.is_withdrawn(date(2026, 8, 21), date(2026, 8, 21))
+    assert summaries.is_withdrawn(date(2026, 8, 20), date(2026, 8, 21))
+    digest = summaries.record_digest(REDOCKETED, DOCS)
+    _commit_summary(tmp_path, "scotus/1", "2026-08-21", digest)
+    plan = _plan(tmp_path, {"scotus/1": _record(REDOCKETED)})
+    assert plan.withdrawn == []
+    assert plan.up_to_date == 1
+
+
+def _withdrawal_plan(case_id: str, path: str) -> SummaryPlan:
+    return SummaryPlan.model_validate(
+        {
+            "model": "claude-sonnet-5",
+            "eligible": 1,
+            "up_to_date": 1,
+            "deferred": 0,
+            "cases": [],
+            "withdrawn": [
+                {
+                    "case_id": case_id,
+                    "path": path,
+                    "snapshot": "2026-08-20",
+                    "docketed": "2026-08-21",
+                }
+            ],
+            "estimated_cost_usd_low": 0,
+            "estimated_cost_usd_high": 0,
+        }
+    )
+
+
+@pytest.mark.parametrize("court", ["..", ".", "Scotus", "a b"])
+def test_summary_withdraw_refuses_a_traversing_or_malformed_case_id(
+    tmp_path: Path, court: str
+) -> None:
+    data = tmp_path / "data" / "cases" / "inner"
+    data.mkdir(parents=True)
+    # The file a `../1` row would reach from a data root one level down.
+    outside = tmp_path / "data" / "cases" / "1" / "summaries" / "2026-08-20.md"
+    outside.parent.mkdir(parents=True)
+    outside.write_text("not a summary of this case")
+    path = f"data/cases/{court}/1/summaries/2026-08-20.md"
+    with pytest.raises(ValueError, match="not a case id"):
+        summaries.withdraw_summaries(data, _withdrawal_plan(f"{court}/1", path))
+    assert outside.exists()
+    assert not summaries.is_summary_path(path)
+
+
+def test_summary_withdraw_refuses_a_row_off_its_canonical_path(tmp_path: Path) -> None:
+    plan = SummaryPlan.model_validate(
+        {
+            "model": "claude-sonnet-5",
+            "eligible": 1,
+            "up_to_date": 1,
+            "deferred": 0,
+            "cases": [],
+            "withdrawn": [
+                {
+                    "case_id": "scotus/1",
+                    "path": "data/cases/scotus/2/summaries/2026-08-20.md",
+                    "snapshot": "2026-08-20",
+                    "docketed": "2026-08-21",
+                }
+            ],
+            "estimated_cost_usd_low": 0,
+            "estimated_cost_usd_high": 0,
+        }
+    )
+    target = _commit_summary(tmp_path, "scotus/1", "2026-08-20", "sha256:" + "1" * 64)
+    with pytest.raises(ValueError, match="not its summary"):
+        summaries.withdraw_summaries(tmp_path, plan)
+    assert target.exists()
+
+
 def test_the_summary_model_is_priced() -> None:
     assert MODEL_RATES["claude-sonnet-5"] == ModelRate(2.0, 10.0)
 
@@ -1049,5 +1242,117 @@ def test_summary_stage_check_command_warns_and_counts(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     assert "::warning::removed scotus/2 from the staged records: not planned" in result.output
-    assert "stage check: 1 staged case record(s) kept, 1 removed" in result.output
-    assert summary.read_text() == "stage check: 1 staged case record(s) kept, 1 removed\n"
+    line = "stage check: 1 staged case record(s) kept, 1 removed, 0 document(s) withheld"
+    assert line in result.output
+    assert summary.read_text() == line + "\n"
+
+
+def _set_residuals(stage_root: Path, rows: list[tuple[str, object]]) -> CasePaths:
+    """Stage one case whose manifest lists ``rows`` as (kind, contact_residuals)."""
+    paths = CasePaths(stage_root, "scotus", 1)
+    entries = []
+    for kind, count in rows:
+        paths.document(kind).write_text(kind.upper())
+        entry: dict[str, object] = {
+            "kind": kind,
+            "url": f"https://www.supremecourt.gov/DocketPDF/26/26-1/1/{kind}.pdf",
+            "contact_scrubbed": count == 0,
+        }
+        if count is not None:
+            entry["contact_residuals"] = count
+        entries.append(entry)
+    paths.documents_manifest.write_text(json.dumps(entries))
+    return paths
+
+
+def test_stage_check_withholds_a_document_the_scrub_left_residuals_on(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    paths = _set_residuals(stage, [("petition", 2), ("brief-in-opposition", 0)])
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+
+    removed = summaries.prune_stage(plan, stage)
+
+    assert removed == [("scotus/1/petition", "document withheld: 2 contact residual(s)")]
+    assert not paths.document("petition").exists()
+    assert paths.document("brief-in-opposition").read_text() == "BRIEF-IN-OPPOSITION"
+    manifest = json.loads(paths.documents_manifest.read_text())
+    assert [entry["kind"] for entry in manifest] == ["brief-in-opposition"]
+    # The case still crosses, and a second check finds nothing more to remove.
+    assert paths.snapshot("2026-09-22").is_file()
+    assert summaries.prune_stage(plan, stage) == []
+
+
+def test_stage_check_keys_on_the_residual_count_not_the_scrubbed_flag(tmp_path: Path) -> None:
+    # A represented docket's documents read `contact_scrubbed: false` with no
+    # residuals; a row with no count at all says nothing is clean.
+    stage = tmp_path / "stage"
+    _stage(stage)
+    paths = _set_residuals(stage, [("petition", 0), ("brief-in-opposition", None)])
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    entries = json.loads(paths.documents_manifest.read_text())
+    entries[0]["contact_scrubbed"] = False
+    paths.documents_manifest.write_text(json.dumps(entries))
+
+    removed = summaries.prune_stage(plan, stage)
+
+    assert [what for what, _ in removed] == ["scotus/1/brief-in-opposition"]
+    assert paths.document("petition").is_file()
+    assert not paths.document("brief-in-opposition").exists()
+
+
+def test_stage_check_removes_a_case_whose_manifest_names_a_path_as_a_kind(
+    tmp_path: Path,
+) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    paths = _set_residuals(stage, [("petition", 3)])
+    entries = json.loads(paths.documents_manifest.read_text())
+    entries[0]["kind"] = "../context"
+    paths.documents_manifest.write_text(json.dumps(entries))
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+
+    removed = summaries.prune_stage(plan, stage)
+
+    assert removed == [("scotus/1", "documents manifest entry has a malformed kind '../context'")]
+    assert not paths.base.exists()
+
+
+def test_summary_stage_check_command_counts_withheld_documents_apart(tmp_path: Path) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    _set_residuals(stage, [("petition", 2)])
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+    plan_file = tmp_path / "plan.json"
+    plan_file.write_text(plan.model_dump_json())
+
+    result = CliRunner().invoke(
+        app, ["summary-stage-check", "--plan", str(plan_file), "--staged", str(stage)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "::warning::removed scotus/1/petition from the staged records: "
+        + "document withheld: 2 contact residual(s)"
+    ) in result.output
+    assert "stage check: 1 staged case record(s) kept, 0 removed, 1 document(s) withheld" in (
+        result.output
+    )
+
+
+@pytest.mark.parametrize("count", ["2", True, 1.5, None])
+def test_stage_check_withholds_a_document_whose_residual_count_is_not_a_count(
+    tmp_path: Path, count: object
+) -> None:
+    stage = tmp_path / "stage"
+    _stage(stage)
+    paths = _set_residuals(stage, [("petition", 0)])
+    entries = json.loads(paths.documents_manifest.read_text())
+    entries[0]["contact_residuals"] = count
+    paths.documents_manifest.write_text(json.dumps(entries))
+    plan = _plan(tmp_path / "data", {"scotus/1": _record()})
+
+    removed = summaries.prune_stage(plan, stage)
+
+    assert [what for what, _ in removed] == ["scotus/1/petition"]
+    assert not paths.document("petition").exists()

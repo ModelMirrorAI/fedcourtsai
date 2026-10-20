@@ -16,7 +16,13 @@ import pytest
 from typer.testing import CliRunner, Result
 
 from fedcourtsai import process_version
-from fedcourtsai.cli import _FLAG_MESSAGE_LIMIT, _TRIPWIRE_PREFIX, _names_a_snapshot, app
+from fedcourtsai.cli import (
+    _CELL_ACCESS_PREFIX,
+    _FLAG_MESSAGE_LIMIT,
+    _TRIPWIRE_PREFIX,
+    _names_a_snapshot,
+    app,
+)
 from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from fedcourtsai.pipeline.outcome import MERITS_EVENT_ID
@@ -48,6 +54,8 @@ from fedcourtsai.schemas import (
     Prediction,
     PredictionContext,
     ResolutionSignals,
+    RetrievalCall,
+    RetrievalLog,
     Stage,
     StatPack,
     StatPackInterim,
@@ -3540,6 +3548,19 @@ def test_an_off_vocabulary_severity_no_longer_fails_an_evaluate_cell(_data_root:
             }
         )
     )
+    # The judge-level pair is in place, so the only notes are the flag's own.
+    event_paths.evaluation_retrieval("gemini-judge", "RID").write_text("The record only.\n")
+    write_json(
+        event_paths.evaluation_tooling("gemini-judge", "RID"),
+        AgentToolingFeedback(
+            case_id="scotus/73521973",
+            run_id="RID",
+            role=UsageRole.evaluator,
+            actor_id="gemini-judge",
+            used_corpus_query=False,
+            used_base_rates=False,
+        ),
+    )
     before = validate_ledger(_data_root)
     assert any("flags.json" in problem for problem in before.problems)
 
@@ -3576,3 +3597,239 @@ def test_a_regrade_leaves_an_off_vocabulary_flags_file_byte_identical(
     assert result.exit_code == 0, result.output
     assert flags_path.read_text() == written
     assert "normalised it" not in result.output
+
+
+def test_stamp_moves_a_misfiled_judge_pair_up_and_says_so(_data_root: Path) -> None:
+    """The gemini-judge shape: the judge-level pair copied into each candidate's
+    directory. The stamp moves one copy to the judge level, where the collect
+    roll-ups read it, and leaves an `info` note in the cell's flags; a second
+    stamp neither moves nor notes anything more."""
+    event = "evt-petition-disposition"
+    predictors = ("claude-baseline", "codex-baseline", "gemini-baseline")
+    event_paths = CasePaths(_data_root, "scotus", 5).event(event)
+    tooling = AgentToolingFeedback(
+        case_id="scotus/5",
+        run_id="RID",
+        role=UsageRole.evaluator,
+        actor_id="gemini-judge",
+        used_corpus_query=False,
+        used_base_rates=True,
+    )
+    for predictor in predictors:
+        seed_evaluation(
+            _data_root,
+            "scotus",
+            5,
+            event,
+            evaluator_id="gemini-judge",
+            predictor_id=predictor,
+            run_id="RID",
+        )
+        run_dir = event_paths.evaluation_dir("gemini-judge", predictor, "RID")
+        (run_dir / "retrieval.md").write_text("No retrieval beyond the provisioned inputs.\n")
+        write_json(run_dir / "tooling.json", tooling)
+
+    result = _stamp("evaluator", "gemini-judge", 5, event, "RID")
+    assert result.exit_code == 0, result.output
+    assert "judge-level tooling.json: relocated" in result.output
+    assert read_model(event_paths.evaluation_tooling("gemini-judge", "RID"), AgentToolingFeedback)
+    assert event_paths.evaluation_retrieval("gemini-judge", "RID").is_file()
+    for predictor in predictors:
+        run_dir = event_paths.evaluation_dir("gemini-judge", predictor, "RID")
+        assert sorted(path.name for path in run_dir.iterdir()) == ["evaluation.json"]
+    flags = read_model(event_paths.evaluation_flags("gemini-judge", "RID"), AgentFlags)
+    assert [(flag.severity, flag.source) for flag in flags.flags] == [
+        (FlagSeverity.info, FlagSource.harness),
+        (FlagSeverity.info, FlagSource.harness),
+    ]
+    assert all(flag.message.startswith("Harness check: the judge-level") for flag in flags.flags)
+    assert validate_ledger(_data_root).ok
+
+    again = _stamp("evaluator", "gemini-judge", 5, event, "RID")
+    assert again.exit_code == 0, again.output
+    assert "judge-level" not in again.output
+    assert read_model(event_paths.evaluation_flags("gemini-judge", "RID"), AgentFlags) == flags
+
+
+def test_stamp_flags_a_judge_pair_written_nowhere(_data_root: Path) -> None:
+    """A judge that wrote neither report anywhere gets a warning per file, appended
+    after the cell's own flags rather than over them."""
+    event = "evt-petition-disposition"
+    seed_evaluation(_data_root, "scotus", 6, event, evaluator_id="claude-judge", run_id="RID")
+    event_paths = CasePaths(_data_root, "scotus", 6).event(event)
+    own = AgentFlag(
+        category=FlagCategory.other,
+        severity=FlagSeverity.info,
+        message="The judge's own note.",
+        event_id=event,
+    )
+    write_json(
+        event_paths.evaluation_flags("claude-judge", "RID"),
+        AgentFlags(
+            case_id="scotus/6",
+            run_id="RID",
+            role=UsageRole.evaluator,
+            actor_id="claude-judge",
+            flags=[own],
+        ),
+    )
+    result = _stamp("evaluator", "claude-judge", 6, event, "RID")
+    assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.evaluation_flags("claude-judge", "RID"), AgentFlags).flags
+    assert flags[0] == own
+    assert [flag.severity for flag in flags[1:]] == [FlagSeverity.warning] * 2
+    assert "retrieval.md is missing" in flags[1].message
+    assert "tooling.json is missing" in flags[2].message
+
+
+def test_a_predictor_stamp_does_not_look_for_a_judge_pair(_data_root: Path) -> None:
+    seed_prediction(_data_root, "scotus", 7, "evt-y", run_id="RID")
+    result = _stamp("predictor", "claude-baseline", 7, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    assert "judge-level" not in result.output
+    assert (
+        not CasePaths(_data_root, "scotus", 7)
+        .event("evt-y")
+        .prediction_flags("claude-baseline", "RID")
+        .exists()
+    )
+
+
+def test_a_relocated_tooling_report_is_normalised_where_it_lands(_data_root: Path) -> None:
+    """Settling runs before normalising: a misshaped report the judge copied into
+    every candidate is moved up first, then coerced there, and the cell validates."""
+    event = "evt-petition-disposition"
+    event_paths = CasePaths(_data_root, "scotus", 8).event(event)
+    report = {
+        "schema_version": "1.0",
+        "case_id": "scotus/8",
+        "run_id": "RID",
+        "role": "evaluator",
+        "actor_id": "gemini-judge",
+        "used_corpus_query": False,
+        "used_base_rates": False,
+        "an_invented_key": "dropped by the normaliser",
+    }
+    for predictor in ("claude-baseline", "codex-baseline"):
+        seed_evaluation(
+            _data_root,
+            "scotus",
+            8,
+            event,
+            evaluator_id="gemini-judge",
+            predictor_id=predictor,
+            run_id="RID",
+        )
+        run_dir = event_paths.evaluation_dir("gemini-judge", predictor, "RID")
+        (run_dir / "tooling.json").write_text(json.dumps(report))
+        (run_dir / "retrieval.md").write_text("The record only.\n")
+    result = _stamp("evaluator", "gemini-judge", 8, event, "RID")
+    assert result.exit_code == 0, result.output
+    landed = read_model(event_paths.evaluation_tooling("gemini-judge", "RID"), AgentToolingFeedback)
+    assert "[harness]" in (landed.notes or "")
+    assert validate_ledger(_data_root).ok
+
+
+def test_stamp_warns_where_the_judges_copies_disagree(_data_root: Path) -> None:
+    event = "evt-petition-disposition"
+    event_paths = CasePaths(_data_root, "scotus", 9).event(event)
+    for predictor in ("claude-baseline", "codex-baseline"):
+        seed_evaluation(
+            _data_root,
+            "scotus",
+            9,
+            event,
+            evaluator_id="gemini-judge",
+            predictor_id=predictor,
+            run_id="RID",
+        )
+        run_dir = event_paths.evaluation_dir("gemini-judge", predictor, "RID")
+        (run_dir / "retrieval.md").write_text(f"What I read for {predictor}.\n")
+    result = _stamp("evaluator", "gemini-judge", 9, event, "RID")
+    assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.evaluation_flags("gemini-judge", "RID"), AgentFlags).flags
+    retrieval = [flag for flag in flags if "retrieval.md" in flag.message]
+    assert len(retrieval) == 1
+    assert retrieval[0].severity == FlagSeverity.warning
+    assert "the copies differ, so none was moved" in retrieval[0].message
+    assert not event_paths.evaluation_retrieval("gemini-judge", "RID").exists()
+
+
+def _seed_cell_log(data_root: Path, docket: int, *queries: str) -> EventPaths:
+    """A predictor cell beside a retrieval log of shell calls running ``queries``."""
+    seed_prediction(data_root, "scotus", docket, "evt-y", run_id="RID")
+    event_paths = CasePaths(data_root, "scotus", docket).event("evt-y")
+    write_json(
+        event_paths.prediction_retrieval_log("claude-baseline", "RID"),
+        RetrievalLog(
+            case_id=f"scotus/{docket}",
+            run_id="RID",
+            role=UsageRole.predictor,
+            actor_id="claude-baseline",
+            engine=Engine.claude_code,
+            calls=[RetrievalCall(tool="Bash", query=query) for query in queries],
+        ),
+    )
+    return event_paths
+
+
+def test_stamp_notes_a_predict_cell_that_named_the_oracle(_data_root: Path) -> None:
+    """The audit's only witness reaches the flags channel, once per kind, and a
+    re-stamp does not add it again."""
+    event_paths = _seed_cell_log(
+        _data_root,
+        11,
+        "git restore data/qp-topics/qp-topic-reference.json",
+        "ls data/cases/scotus/*/events/*/predictions/codex-baseline/*/prediction.json",
+        "cat data/qp-topics/qp-topic-reference.json",
+    )
+    for _ in range(2):
+        result = _stamp("predictor", "claude-baseline", 11, "evt-y", "RID")
+        assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+    notes = [flag for flag in flags.flags if flag.message.startswith(_CELL_ACCESS_PREFIX)]
+    assert [(note.source, note.severity) for note in notes] == [
+        (FlagSource.harness, FlagSeverity.warning)
+    ] * 2
+    assert "data/qp-topics/" in notes[0].message and "2 call(s)" in notes[0].message
+    assert "codex-baseline" in notes[1].message
+    assert "left the cell's lane" in result.output
+
+
+def test_stamp_leaves_a_predict_cell_in_its_lane_without_a_note(_data_root: Path) -> None:
+    event_paths = _seed_cell_log(
+        _data_root,
+        12,
+        "find data -name AGENTS.md -not -path 'data/qp-topics/*'",
+        "cat data/cases/scotus/12/events/evt-y/predictions/claude-baseline/RID/prediction.json",
+    )
+    result = _stamp("predictor", "claude-baseline", 12, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    assert not event_paths.prediction_flags("claude-baseline", "RID").exists()
+
+
+def test_the_lane_audit_leaves_a_cell_without_a_readable_log_alone(_data_root: Path) -> None:
+    """Capture reports its own failures; the audit adds nothing over them."""
+    seed_prediction(_data_root, "scotus", 13, "evt-y", run_id="RID")
+    event_paths = CasePaths(_data_root, "scotus", 13).event("evt-y")
+    result = _stamp("predictor", "claude-baseline", 13, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    log_path = event_paths.prediction_retrieval_log("claude-baseline", "RID")
+    log_path.write_text("{not json")
+    result = _stamp("predictor", "claude-baseline", 13, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    assert not event_paths.prediction_flags("claude-baseline", "RID").exists()
+
+
+def test_the_lane_audit_bounds_a_note_quoting_escape_heavy_paths(_data_root: Path) -> None:
+    """Paths are the agent's to choose; however they quote, the note stays
+    inside the schema's cap and the stamp completes."""
+    event_paths = _seed_cell_log(
+        _data_root,
+        14,
+        *(f"cat data/qp-topics/{i}{chr(0xE0001) * 200}" for i in range(4)),
+    )
+    result = _stamp("predictor", "claude-baseline", 14, "evt-y", "RID")
+    assert result.exit_code == 0, result.output
+    flags = read_model(event_paths.prediction_flags("claude-baseline", "RID"), AgentFlags)
+    assert all(len(flag.message) <= _FLAG_MESSAGE_LIMIT for flag in flags.flags)

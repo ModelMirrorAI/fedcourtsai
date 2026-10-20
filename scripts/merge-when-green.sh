@@ -9,8 +9,19 @@
 # ambient `GITHUB_TOKEN`, so the dev App needs no checks permission), `REPO`
 # (owner/name). Optional: `MERGE_REQUIRED_CHECKS` (space-separated check names
 # that must have reported before a refusal counts as settled; default
-# `gate paths`), `MERGE_METHOD` (default `squash`), `MERGE_WAIT_SECONDS`
+# `gate paths`), `MERGE_METHOD` (default `merge`), `MERGE_WAIT_SECONDS`
 # (default 1200), `MERGE_POLL_SECONDS` (default 30).
+#
+# The merge commit's subject is the PR's title with its number, `<title> (#N)`,
+# rather than the platform's `Merge pull request #N from <branch>`. The title
+# is what a lane writes for `main`'s log: a run PR's title carries its run id
+# and, for a round the review hold auto-released, the auto-released mark that
+# the next round's `hold-decision` counts its daily cap from. The merge commit
+# is dated when it lands, so that count reads the round on `main` from the
+# moment it merges, however long the PR waited; for a collect PR the branch
+# commit beneath it carries the same mark under the time it was built. A PR
+# merged by hand takes the repository's default merge subject instead, which
+# docs/security.md sets to the same PR title.
 #
 # Why this exists rather than `gh pr merge --auto`. `main: require approval`
 # lists the dev App as a pull-request-only bypass actor, and that bypass is what
@@ -83,7 +94,7 @@ esac
   exit 2
 }
 
-method=${MERGE_METHOD:-squash}
+method=${MERGE_METHOD:-merge}
 wait_s=${MERGE_WAIT_SECONDS:-1200}
 poll_s=${MERGE_POLL_SECONDS:-30}
 read -r -a required <<<"${MERGE_REQUIRED_CHECKS:-gate paths}"
@@ -111,8 +122,10 @@ next_poll() {
 }
 
 # The answers are joined on `|`, not tabs: tab is IFS whitespace, so `read`
-# would collapse an empty field and shift the ones after it.
-PULL_JQ='[.state, (.merged | tostring), .head.sha, .base.ref, (.head.repo.full_name // "")] | join("|")'
+# would collapse an empty field and shift the ones after it. The title goes
+# last, so a `|` inside it stays in the last variable rather than shifting the
+# fields before it.
+PULL_JQ='[.state, (.merged | tostring), .head.sha, .base.ref, (.head.repo.full_name // ""), .title] | join("|")'
 # Newest run per check name, then: how many are still unsettled (queued,
 # running, or cancelled), the failed ones, and the ones that concluded.
 # shellcheck disable=SC2016 # `$latest` is a jq variable, not a shell one
@@ -136,7 +149,7 @@ while :; do
     next_poll
     continue
   fi
-  IFS='|' read -r state merged head base head_repo <<<"$info"
+  IFS='|' read -r state merged head base head_repo title <<<"$info"
   if [ -z "$state" ]; then
     last_refusal="the pull request read came back empty"
     next_poll
@@ -191,7 +204,8 @@ while :; do
   fi
 
   if out=$(timeout 30 gh api -X PUT "repos/${REPO}/pulls/${pr}/merge" \
-    -f merge_method="$method" -f sha="$sha" --jq '.sha' 2>&1); then
+    -f merge_method="$method" -f sha="$sha" -f commit_title="${title} (#${pr})" \
+    --jq '.sha' 2>&1); then
     echo "Merged PR #${pr} at ${sha} as ${out}."
     if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
       printf 'Merged %s once its checks passed.\n' "$pr_url" >>"$GITHUB_STEP_SUMMARY"

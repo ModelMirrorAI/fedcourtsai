@@ -185,11 +185,10 @@ runbook, [docs/security.md](docs/security.md).
   process in the job can request an OIDC token for the job's environment, and
   every relying party that accepts that subject is reachable with it. Among
   AWS roles, the design leaves only the read-only role reachable: the production
-  read-write role's trust is to name `corpus-write`, an environment only the
-  corpus writer jobs bind, and nothing else — a maintainer IAM step the
-  promotion gate cannot read, and until it is done the read-write role still
-  accepts a `prod` token (*`corpus-write` holds the production read-write role* in
-  [docs/security.md](docs/security.md)).
+  read-write role's trust names `corpus-write`, an environment only the
+  corpus writer jobs bind, and nothing else — an IAM statement the promotion
+  gate cannot read, which the maintainer keeps (*`corpus-write` holds the
+  production read-write role* in [docs/security.md](docs/security.md)).
   Beyond AWS it is the Claude GitHub App's installation-token exchange, which
   accepts a token from any job in this repository holding `id-token: write`
   and yields one with the App's write grant: an **accepted residual** — the
@@ -292,16 +291,16 @@ runbook, [docs/security.md](docs/security.md).
   branches (`staging` also admits the promotion train's `promote/*`
   candidates: commits already on `staging`, created only by the dev App and
   never moved), so a PR-branch job cannot assume any of them. In production the
-  split is identity once the read-write role's trust names `corpus-write`
-  alone — a maintainer IAM step the promotion gate cannot read; until it is
-  done the role still names `prod` too (*`corpus-write` holds the production read-write role* in
+  split is identity: the read-write role's trust names `corpus-write` alone —
+  an IAM statement the promotion gate cannot read, which the maintainer keeps
+  (*`corpus-write` holds the production read-write role* in
   [docs/security.md](docs/security.md)). Only the corpus writer jobs bind
   `corpus-write` (`tests/test_workflow_corpus_write.py` pins the binding, and
   the gate checks only the environment: its `main`-only policy and its
   names), so then no `prod`-bound job — no agent cell — can ask for the write
   role, whatever it runs. That removes *agents* from the write role's reach,
   not hostile *parsers*: the writer jobs themselves parse fetched third-party
-  content while holding it — the pull and seed windows' fetched dockets, and
+  content while holding or able to mint it — the pull and seed windows' fetched dockets, and
   the corpus repair job's OCR-recovery and document back-fill passes, which
   are not split from it the way the fetching passes are. In staging it stays provenance: any `staging`-bound job could ask for
   the staging write role, which writes only the disposable staging pair, and
@@ -568,7 +567,7 @@ runbook, [docs/security.md](docs/security.md).
   by identity, since the agent workflows authenticate as a separate **dev
   App** that bypasses no required check. `main: require approval` requires
   one approving review, which only the `maintainers` team can give, and
-  bypasses it for the dev App's pull requests (what lets its two unattended
+  bypasses it for the dev App's pull requests (what lets its three unattended
   lanes land, by the jobs' own merge call — GitHub's auto-merge never
   exercises a bypass, and the call's doing so is unverified until its first
   production run; still bound by the checks), for the data App, and for any pull request an

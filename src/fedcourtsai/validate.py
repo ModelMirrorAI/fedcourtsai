@@ -57,7 +57,6 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
-import yaml
 from pydantic import ValidationError
 
 from . import corpus, ids
@@ -90,6 +89,7 @@ from .schemas import (
     Stage,
     VoteValue,
 )
+from .serialize import load_yaml
 from .summaries import summary_file_problems
 
 # Bounded sample of matched case ids per exclusion, so the scope audit stays small.
@@ -284,10 +284,12 @@ def _in_provisioning_tree(file: Path, root: Path) -> bool:
     the failure would be a validation pass that checked nothing — the one shape a
     gate must never have.
     """
-    try:
-        parts = file.relative_to(root).parts
-    except ValueError:  # pragma: no cover - rglob yields paths under root
+    # A lexical prefix test, as `Path.relative_to` makes, without its walk of
+    # `file.parents`: the ledger scan asks this of every file in the tree.
+    base = len(root.parts)
+    if file.parts[:base] != root.parts:  # pragma: no cover - rglob yields paths under root
         return False
+    parts = file.parts[base:]
     return len(parts) > 4 and parts[0] == "cases" and parts[3] == "record"
 
 
@@ -323,7 +325,7 @@ def validate_ledger(path: Path) -> LedgerValidation:
         checked += 1
         try:
             text = file.read_text()
-            data = json.loads(text) if file.suffix == ".json" else yaml.safe_load(text)
+            data = json.loads(text) if file.suffix == ".json" else load_yaml(text)
             model.model_validate(data)
         except Exception as exc:
             problems.append(f"{file}: {exc}")
@@ -1104,7 +1106,7 @@ def _evaluation_event_stage(evaluation_path: Path) -> Stage | None:
     """
     event_file = evaluation_path.parents[4] / "event.yaml"
     try:
-        return PredictableEvent.model_validate(yaml.safe_load(event_file.read_text())).stage
+        return PredictableEvent.model_validate(load_yaml(event_file.read_text())).stage
     except (OSError, ValueError, ValidationError):
         return None
 
@@ -1332,7 +1334,7 @@ def check_merits_predictions(data_root: Path) -> CorpusCheck:
         if not predictions_root.is_dir():
             continue
         try:
-            event = PredictableEvent.model_validate(yaml.safe_load(event_file.read_text()))
+            event = PredictableEvent.model_validate(load_yaml(event_file.read_text()))
         except (OSError, ValueError, ValidationError):
             continue
         if event.stage != Stage.merits:
@@ -1390,7 +1392,7 @@ def check_scored_votes(data_root: Path) -> CorpusCheck:
         if not evaluations_root.is_dir():
             continue
         try:
-            event = PredictableEvent.model_validate(yaml.safe_load(event_file.read_text()))
+            event = PredictableEvent.model_validate(load_yaml(event_file.read_text()))
         except (OSError, ValueError, ValidationError):
             continue
         if event.stage == Stage.merits:
@@ -1515,9 +1517,7 @@ def _vote_source_problems(
     if court not in source.courts:
         found.append(f"{source.source} votes on a {court} case")
     try:
-        event = PredictableEvent.model_validate(
-            yaml.safe_load((event_dir / "event.yaml").read_text())
-        )
+        event = PredictableEvent.model_validate(load_yaml((event_dir / "event.yaml").read_text()))
         # The event's own stage, else the one its id declares: the cert
         # baselines are written with none of their own.
         stage: Stage | None = moments.event_stage(event.stage, event.event_id)
@@ -1716,7 +1716,7 @@ def check_judgment_only_on_merits_outcomes(data_root: Path) -> CorpusCheck:
         if not outcome_file.is_file():
             continue
         try:
-            event = PredictableEvent.model_validate(yaml.safe_load(event_file.read_text()))
+            event = PredictableEvent.model_validate(load_yaml(event_file.read_text()))
         except (OSError, ValueError, ValidationError):
             continue
         # `==`, never `is`: the models carry `use_enum_values`, so the stage

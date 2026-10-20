@@ -23,6 +23,10 @@ from tests.workflow_gate import own_condition, own_needs
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
 COLLECT_ACTION = ROOT / ".github" / "actions" / "collect-run" / "action.yml"
+#: How a ready run PR arms auto-merge: a merge commit under the PR's title,
+#: the subject merge-when-green.sh gives its own merge, so the auto-released
+#: mark reaches `main`'s log whichever of the two lands the PR.
+ARM_AUTO_MERGE = 'gh pr merge --auto --merge --subject "${title} (#${url##*/})" "$url"'
 
 # Each fan-out workflow and the matrix job its collect job waits on.
 FAN_OUTS = {"run-predict.yml": "predict", "run-evaluate.yml": "evaluate"}
@@ -689,8 +693,26 @@ def test_the_composite_hands_merge_targets_through_a_step_output() -> None:
     aggregate = next(s for s in action["runs"]["steps"] if s.get("id") == "aggregate")
     assert "merge-targets<<MERGE_TARGETS_EOF" in aggregate["run"]
     # Only an armed PR is a target: the line sits inside the auto-merge branch.
-    armed = aggregate["run"].split('gh pr merge --auto --squash "$url"', 1)[1]
+    armed = aggregate["run"].split(ARM_AUTO_MERGE, 1)[1]
     assert armed.index("merge_targets+=") < armed.index("\n  fi\n")
+
+
+def test_no_unattended_lane_arms_a_squash() -> None:
+    # Data PRs land on `main` as merge commits under their titles; a squash
+    # arm would land the same PR differently depending on who merged it.
+    for path in (COLLECT_ACTION, WORKFLOWS / "run-analytics.yml"):
+        text = path.read_text()
+        assert "--squash" not in text, path
+    assert ARM_AUTO_MERGE in COLLECT_ACTION.read_text()
+    analytics = (WORKFLOWS / "run-analytics.yml").read_text()
+    assert analytics.count(ARM_AUTO_MERGE.replace('"$url"', '"$url" ||')) == 2
+
+
+def test_the_update_history_job_merges_its_pr_with_the_committed_script() -> None:
+    job = _load(WORKFLOWS / "run-analytics.yml")["jobs"]["public-updates"]
+    step = next(s for s in _steps(job) if s.get("name") == "Open or update the history PR")
+    assert MERGE_SCRIPT_FROM_COMMIT in step["run"]
+    assert step["env"]["CHECKS_TOKEN"] == "${{ github.token }}"
 
 
 def test_the_board_job_merges_its_pr_with_the_committed_script() -> None:

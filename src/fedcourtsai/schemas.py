@@ -13,7 +13,7 @@ import re
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 from enum import StrEnum
-from typing import Any, Final, Literal, get_args
+from typing import Annotated, Any, Final, Literal, get_args
 
 from pydantic import (
     BaseModel,
@@ -67,12 +67,15 @@ class Disposition(StrEnum):
     residual, and — where the docket itself shows that the entry a ``granted``
     was read off no longer parses as a grant at all — that entry, which dates
     the parse gap and so needs no calendar. On mandatory-jurisdiction direct
-    appeals the resolver latches only the vacatur-remand form (now ``gvr``); the
-    other direct-appeal forms (probable jurisdiction noted, summary affirmance,
-    dismissal for want of a substantial federal question) are deliberate resolver
-    misses that reach maintainer triage, where the convention is: grant-side for
-    probable jurisdiction, the denied/dismissed side for summary affirmance and
-    want-of-a-question.
+    appeals the convention is grant-side for plenary review, and the
+    denied/dismissed side for summary affirmance and dismissal for want of a
+    substantial federal question. The resolver reads the grant side: the
+    vacatur-remand form as ``gvr``, and probable jurisdiction noted — or further
+    consideration of jurisdiction postponed to the hearing on the merits, which
+    sets the appeal for the same briefing and argument — as ``granted``, which
+    opens the merits proceeding a cert grant does. Summary affirmance and
+    want-of-a-question are deliberate resolver misses that reach maintainer
+    triage.
     """
 
     granted = "granted"
@@ -4843,7 +4846,10 @@ class VoidedEventsRecord(_Strict):
 #: reviewed edit with its own dated freeze-record entry. `increment-run-day` is the
 #: one claim-grain reason: it sets aside a claim inside a cell, never the cell.
 SetAsideReason = Literal[
-    "interim-decision-day", "post-conference-first-forecast", "increment-run-day"
+    "interim-decision-day",
+    "post-conference-first-forecast",
+    "increment-run-day",
+    "pre-distribution-mint",
 ]
 
 
@@ -4872,6 +4878,39 @@ class SetAsideEvent(_Strict):
     declared: date = Field(description="The date of the freeze-record entry that sets it aside")
 
 
+class PreDistributionSetAsideEvent(_Strict):
+    """One cert distribution event set aside because its cells were minted before the petition was.
+
+    The distribution moment's cells forecast from the petition's own
+    distribution for a conference; a cell minted while only an ancillary paper
+    (a sealing motion, a motion for leave under a linked M-number) had been
+    distributed forecast from a moment the petition never reached, so the
+    record cannot show what moment it stands at. Whether the petition was
+    distributed in its own right reads the docket entries, which live in the
+    corpus, so the event is listed rather than computed.
+    """
+
+    case_id: str = Field(pattern=CASE_ID_PATTERN, description="The event's case id")
+    event_id: str = Field(pattern=EVENT_ID_PATTERN, description="The event's id")
+    reason: Literal["pre-distribution-mint"] = Field(
+        description="Why its cells are set aside. `pre-distribution-mint`: the event's "
+        "forward frozen-scope distribution-moment cells were minted when the docket carried "
+        "a distribution by their run day but none of the petition itself "
+        "(`store.petition_distributed` reads false)"
+    )
+    minted_run_id: str = Field(
+        description="The harness run id of the event's forward frozen-scope cells minted "
+        "before the petition was distributed"
+    )
+    declared: date = Field(description="The date of the freeze-record entry that sets it aside")
+
+
+#: One row of the listed set-aside registry, its shape chosen by its reason.
+ListedSetAsideEvent = Annotated[
+    SetAsideEvent | PreDistributionSetAsideEvent, Field(discriminator="reason")
+]
+
+
 class SetAsideEventsRegistry(_Strict):
     """``src/fedcourtsai/set_aside_events.json`` — the listed set-aside events, append-only.
 
@@ -4881,7 +4920,96 @@ class SetAsideEventsRegistry(_Strict):
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
-    events: list[SetAsideEvent] = Field(description="The listed events, in the order declared")
+    events: list[ListedSetAsideEvent] = Field(
+        description="The listed events, in the order declared"
+    )
+
+
+#: A release slug: lower-case words joined by single hyphens, so it is a URL path
+#: segment as written.
+RELEASE_SLUG_PATTERN: Final = r"^[a-z0-9]+(?:-[a-z0-9]+)*$"
+#: A DOI as the release documents cite it (``10.<registrant>/<suffix>``), never a URL.
+DOI_PATTERN: Final = r"^10\.[0-9]{4,9}/[^\s]+$"
+#: A repository path to a release document: relative, Markdown, under ``docs/``.
+RELEASE_DOC_PATTERN: Final = r"^docs/(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\.md$"
+
+
+class ReleaseEntry(_Strict):
+    """One results release in the release manifest (``docs/releases.json``).
+
+    The fedcourts.ai site reads the manifest from ``main`` and each release's
+    documents from the release's own tag, so the list can grow while every
+    published page stays fixed to its tagged text. An entry whose tag does not
+    exist yet is shown there as upcoming.
+    """
+
+    slug: str = Field(
+        pattern=RELEASE_SLUG_PATTERN,
+        description="The release's URL path segment on the site (`/results/<slug>`)",
+    )
+    label: str = Field(min_length=1, description='The release\'s short name, e.g. "Release 1"')
+    tag: str = Field(
+        pattern=r"^results/[A-Za-z0-9._-]+$",
+        description="The git tag the release is published from, in the `results/` namespace",
+    )
+    published: date = Field(description="The release's publication date")
+    covers: str = Field(
+        min_length=1, description="One line, for a lay reader, on what the release covers"
+    )
+    summary: str = Field(
+        pattern=RELEASE_DOC_PATTERN,
+        description="Repository path of the release's public summary, read at `tag`",
+    )
+    audit: str = Field(
+        pattern=RELEASE_DOC_PATTERN,
+        description="Repository path of the release's audit write-up, read at `tag`",
+    )
+    data_doi: str | None = Field(
+        default=None,
+        pattern=DOI_PATTERN,
+        description="The DOI of the release's Zenodo dataset record; null until reserved",
+    )
+    code_doi: str | None = Field(
+        default=None,
+        pattern=DOI_PATTERN,
+        description="The concept DOI of the project's Zenodo software record, which "
+        "resolves to its newest archived version; the release cites it beside its tag, "
+        "which pins the exact code. Null until the record exists",
+    )
+
+
+class ReleaseManifest(_Strict):
+    """``docs/releases.json`` — every results release, newest first.
+
+    Committed beside the releases it describes and promoted with them, so
+    publishing a release needs no change to the site that lists it.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    releases: list[ReleaseEntry] = Field(description="The releases, newest first")
+
+    @model_validator(mode="after")
+    def _releases_cohere(self) -> ReleaseManifest:
+        """One page per slug, one entry per tag and label, tags named for slugs, newest first.
+
+        The site builds ``/results/<slug>`` and reads that page's documents at
+        ``tag``, so a tag that is not ``results/<slug>`` would put one release's
+        text under another's address.
+        """
+        for entry in self.releases:
+            if entry.tag != f"results/{entry.slug}":
+                raise ValueError(
+                    f"release {entry.slug}: tag {entry.tag} is not results/{entry.slug}"
+                )
+        for field in ("slug", "tag", "label"):
+            values = [getattr(entry, field) for entry in self.releases]
+            repeated = sorted({v for v in values if values.count(v) > 1})
+            if repeated:
+                raise ValueError(f"release {field} listed more than once: {', '.join(repeated)}")
+        dates = [entry.published for entry in self.releases]
+        if dates != sorted(dates, reverse=True):
+            raise ValueError("releases must be listed newest first by `published`")
+        return self
 
 
 class SetAsideRecord(_Strict):
@@ -7608,6 +7736,79 @@ class ScopeManifest(_Strict):
     )
 
 
+ScheduleStaleReason = Literal["conference_passed"]
+
+
+class ScheduleEntry(_Strict):
+    """One pending, already-public docket's next scheduled conference.
+
+    A row exists for every docket on the public set whose corpus row is
+    unresolved and carries a conference it was distributed for. The date is
+    published as `next_conference` only while it falls on or after the
+    schedule's `as_of`; once it has passed and the docket has not moved, the
+    row keeps the date it was distributed for and says why it is no longer a
+    scheduled date, so a past conference is never shown as upcoming.
+    """
+
+    case_id: str = Field(description="``<court>/<docket>`` of an already-public case")
+    next_conference: date | None = Field(
+        description="The conference the docket is distributed for, when it falls on or "
+        "after `as_of`; null exactly when `stale_reason` is set"
+    )
+    distributed_for_conference: date = Field(
+        description="The corpus `distributed_for_conference`: the date named by the "
+        "docket's newest 'DISTRIBUTED for Conference of …' entry, as the live channel "
+        "last read it, whether or not it has passed"
+    )
+    stale_reason: ScheduleStaleReason | None = Field(
+        default=None,
+        description="Why the row carries no `next_conference`: `conference_passed` (the "
+        "conference is before `as_of` and the docket shows no newer distribution or a "
+        "decision yet). Null while the date is still ahead",
+    )
+    last_live_polled: date | None = Field(
+        default=None,
+        description="When the live channel last read this docket — the per-case vintage of "
+        "`distributed_for_conference`, which `as_of` is not",
+    )
+
+    @model_validator(mode="after")
+    def _stale_exactly_when_unscheduled(self) -> ScheduleEntry:
+        """A row is either scheduled or says why it is not."""
+        if (self.next_conference is None) == (self.stale_reason is None):
+            raise ValueError("stale_reason is set exactly when next_conference is null")
+        return self
+
+
+class Schedule(_Strict):
+    """``data/schedule/schedule.json`` — the next scheduled conference, public set only.
+
+    Written by the live poll from the corpus it already holds, after each cycle,
+    for the dockets the repository already discloses under ``data/cases``: it is
+    enumerated from that committed tree alone and never from a corpus scan, the
+    same compilation-extent boundary as the scope manifest. Display data for
+    the public site: it is not a prediction-ledger record (a schedule moves on
+    every relist), nothing predicts, evaluates or scores on it, and no cell is
+    provisioned with it. ``skipped`` is set, with no entries, when no corpus was
+    present.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    skipped: bool = Field(
+        default=False, description="True when no corpus was present; nothing was read"
+    )
+    as_of: date | None = Field(
+        default=None,
+        description="The UTC day the schedule was built on, which decides whether a "
+        "conference has passed; null on a skipped build",
+    )
+    entries: list[ScheduleEntry] = Field(
+        default_factory=list,
+        description="One entry per pending public docket with a conference it was "
+        "distributed for, in case_id order",
+    )
+
+
 QpTopicLabel = Literal[
     "administrative-law-and-benefit-programs",
     "business-and-financial-regulation",
@@ -9337,6 +9538,24 @@ class BigCaseCurrentRead(_Strict):
     )
 
 
+# `BigCaseScheduled` names a field `date`, which would shadow the type inside its
+# own class body; its annotation spells the type through this alias instead.
+_Day = date
+
+
+class BigCaseScheduled(_Strict):
+    """The next date the Court has set for a case, as the committed schedule carries it."""
+
+    kind: Literal["conference"] = Field(
+        description="What is scheduled: `conference`, the conference the docket is distributed for"
+    )
+    date: _Day = Field(
+        description="The scheduled day, on or after the day the schedule was last built. A "
+        "reader rendering later drops a date that has since passed rather than show it "
+        "as upcoming"
+    )
+
+
 class BigCaseRow(_Strict):
     """One case on the board: the panel's current stakes reads and their mean.
 
@@ -9433,6 +9652,13 @@ class BigCaseRow(_Strict):
         "`asking_rule` provenance string (`no_caption`, `not_scotus`, `in_re`, "
         "`not_two_sided`, `docket_labels`, `short_form`, `original_jurisdiction`, "
         "`cross_petition`, `stage`); None exactly when `asking_party` is set",
+    )
+    scheduled: BigCaseScheduled | None = Field(
+        default=None,
+        description="The case's next scheduled date, joined from the committed "
+        "`data/schedule/schedule.json` by the `schedule_rule` provenance string; None where "
+        "the schedule carries no upcoming date for the case. Carries no `as_of`, so the "
+        "board moves only when a case's date does. Display-only",
     )
     status: Literal["pending", "partly_resolved", "resolved"] = Field(
         description="Resolution state across **all** the case's predicted events, derived "
@@ -9558,6 +9784,10 @@ class BigCaseProvenance(_Strict):
         description="How `asking_party`, `other_party` and `outcome_lines` are derived, "
         "where each `asking_declined` value comes from, and what the lines cannot see"
     )
+    schedule_rule: str | None = Field(
+        default=None,
+        description="Where `scheduled` comes from and when it is null",
+    )
     process_label: str = Field(
         description="The process label in force when the board was built — what a "
         "prediction minted today stamps, not a scope filter on the rows (see `version_scope`)"
@@ -9598,12 +9828,13 @@ class BigCaseBoard(_Strict):
     artifact's vintage is the commit that wrote it.
     """
 
-    schema_version: Literal["1.2"] = Field(
-        default="1.2",
+    schema_version: Literal["1.3"] = Field(
+        default="1.3",
         description="The artifact's schema version. A reader keys on it: a `1.1` row "
         "carries the display fields `short_caption`, `docket_number`, "
-        "`docket_number_source` and `docket_url`, and a `1.2` row adds `asking_party`, "
-        "`other_party`, `outcome_lines` and `asking_declined`",
+        "`docket_number_source` and `docket_url`, a `1.2` row adds `asking_party`, "
+        "`other_party`, `outcome_lines` and `asking_declined`, and a `1.3` row adds "
+        "`scheduled`",
     )
     process_scope: Literal["frozen", "all"] = Field(
         default="all",
@@ -9772,6 +10003,39 @@ class DecisionDateConvergenceResult(_Strict):
     )
 
 
+class ReserveOccupant(_Strict):
+    """One latched, still-pending application the interim reserve weighed.
+
+    ``holds_slot`` is False when the application's newest stored snapshot
+    already reads as an interim disposal
+    (:func:`fedcourtsai.pipeline.outcome.interim_disposal_signal`): the row is
+    still unresolved in the corpus, but the pass no longer counts it against
+    ``interim_reserve_slots``. ``date_filed`` dates the occupancy, so a slot held
+    for months is visible in the ledger.
+    """
+
+    case_id: str
+    docket_number: str = ""
+    date_filed: date | None = None
+    snapshot_date: date | None = Field(
+        default=None, description="The newest stored snapshot read; None when none is stored"
+    )
+    holds_slot: bool = Field(
+        default=True,
+        description=(
+            "False when the stored snapshot already reads as an interim disposal, "
+            "which frees the slot while the row awaits a resolver"
+        ),
+    )
+    snapshot_read_failed: bool = Field(
+        default=False,
+        description=(
+            "True when the snapshot read raised, as distinct from no snapshot being "
+            "stored; the occupant then holds its slot"
+        ),
+    )
+
+
 class SalienceSelectionResult(_Strict):
     """``reconcile-salience-selection`` result: what the salience pass scored and picked.
 
@@ -9800,6 +10064,13 @@ class SalienceSelectionResult(_Strict):
         description="Cases newly latched selected (the one-way latch never removes)",
     )
     sample_selected: list[str] = Field(default_factory=list)
+    reserve_occupants: list[ReserveOccupant] = Field(
+        default_factory=list,
+        description=(
+            "Every latched, still-pending application the interim reserve weighed, "
+            "with whether it still holds a slot"
+        ),
+    )
 
 
 class CaptionCensusClass(_Strict):
@@ -11454,6 +11725,19 @@ class SummaryPlanCase(_Strict):
         return self
 
 
+class SummaryWithdrawal(_Strict):
+    """One committed summary a summary run withdraws: written before the petition
+    the docket number now holds was docketed, so it describes another petition."""
+
+    case_id: str
+    path: str = Field(description="The summary file's repository-relative path")
+    snapshot: date = Field(description="The snapshot day the summary was written from")
+    docketed: date = Field(
+        description="The docketed date the case's newest record carries, which the "
+        + "summary's snapshot day precedes"
+    )
+
+
 class SummaryPlan(_Strict):
     """``fedcourts summarize-plan`` output — what a summary run would write and cost.
 
@@ -11479,6 +11763,12 @@ class SummaryPlan(_Strict):
     )
     deferred: int = Field(ge=0, description="Cases owed a summary that the limit held back")
     cases: list[SummaryPlanCase]
+    withdrawn: list[SummaryWithdrawal] = Field(
+        default_factory=list,
+        description="Committed summaries of another petition than the docket number now "
+        + "holds (a re-docketed number), which the run's review PR deletes; free, so "
+        + "never deferred by the limit",
+    )
     estimated_cost_usd_low: float = Field(ge=0)
     estimated_cost_usd_high: float = Field(ge=0)
 
@@ -11845,6 +12135,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "attempt.json": CellFailure,
     "retrieval_log.json": RetrievalLog,
     "scope.json": ScopeManifest,
+    "schedule.json": Schedule,
     "qp-topic-reference.json": QpTopicReference,
     "qp-topics.json": QpTopicLabels,
 }
@@ -11868,6 +12159,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "corpus_validation": CorpusValidation,
     "corpus_scope_audit": CorpusScopeAudit,
     "scope_manifest": ScopeManifest,
+    "schedule": Schedule,
     "live_frontier": LiveFrontier,
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
@@ -11889,4 +12181,5 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "process_registry": ProcessRegistry,
     "voided_events": VoidedEventsRegistry,
     "set_aside_events": SetAsideEventsRegistry,
+    "release_manifest": ReleaseManifest,
 }

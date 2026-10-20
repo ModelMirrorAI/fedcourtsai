@@ -95,7 +95,7 @@ from .schemas import (
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v9"
+CURRENT_PROCESS_LABEL = "proc-v10"
 
 #: The committed frozen-process registry the freeze constants below are built
 #: from: the labels and their counting instants, the digests the current label
@@ -249,22 +249,32 @@ def harness_stamps_cert_anchor(label: str | None) -> bool:
 # digest, never the label, so a process that drifted under an unchanged label
 # is not silently blessed.
 #
-# proc-v9 blesses four digests newly and carries two forward:
+# proc-v9 blessed four digests newly and carried two forward:
 #
-# - claude-baseline's predictor digest is new: the claude engine's default
+# - claude-baseline's predictor digest was new: the claude engine's default
 #   model (`pricing.DEFAULT_MODELS`, a digest input) is claude-opus-5-5. This
-#   is the predictor-half re-bless, so it closes the proc-v8 claude-baseline
-#   window and opens a proc-v9 one (COUNTING_WINDOWS).
-# - the three evaluator digests are new: the evaluate prompt's stakes-read
+#   was the predictor-half re-bless, so it closed the proc-v8 claude-baseline
+#   window and opened a proc-v9 one (COUNTING_WINDOWS).
+# - the three evaluator digests were new: the evaluate prompt's stakes-read
 #   instruction says the predictors' `big_case_score` is in view and asks for
 #   a read that does not anchor on it, its `qp-topics` leakage rule reads a
 #   search that excludes the path as not touching it, and a frozen-band cert
-#   cell's anchor is left to the stamp; claude-judge also takes the claude
+#   cell's anchor is left to the stamp; claude-judge also took the claude
 #   default model. An evaluator digest records and never partitions, so this
-#   half closes and opens no window.
-# - codex-baseline's and gemini-baseline's predictor digests are byte-identical
-#   to proc-v8's. They keep proc-v8's bless moment verbatim and their proc-v8
-#   windows stay open and unbroken (a test asserts the bytes did not move).
+#   half closed and opened no window.
+# - codex-baseline's and gemini-baseline's predictor digests were
+#   byte-identical to proc-v8's, so they kept proc-v8's bless moment and
+#   their proc-v8 windows stayed open.
+#
+# proc-v10 blesses four digests newly and carries two forward:
+#
+# - the codex and gemini pairs' four digests are new: their engines' default
+#   models are gpt-6.1-sol and gemini-4-argon. The predictor half closes the
+#   proc-v8 codex-baseline and gemini-baseline windows and opens a proc-v10
+#   window for each new digest.
+# - claude-baseline's and claude-judge's digests are byte-identical to
+#   proc-v9's: no prompt byte moves in this label. claude-baseline's proc-v9
+#   window stays open and unbroken.
 #
 # Each digest maps to **the instant it was blessed**: the merge time of the
 # promotion that carried its registration to `main`, the moment its bytes
@@ -404,9 +414,10 @@ FROZEN_SINCE: datetime | None = counting_instant(_REGISTRY)
 # proc-v8 opened one window per predictor digest at its counting instant,
 # `2026-09-16T00:26:04Z` (a test pins that none of the three leaves this
 # registry without a closing instant). proc-v9 closes claude-baseline's at
-# FROZEN_SINCE and opens a proc-v9 window for the new claude-baseline digest
-# there; codex-baseline's and gemini-baseline's stay open, still labelled
-# proc-v8.
+# its instant and opens a proc-v9 window for the new claude-baseline digest
+# there. proc-v10 closes codex-baseline's and gemini-baseline's proc-v8
+# windows at its instant and opens a proc-v10 window for each new digest;
+# claude-baseline's proc-v9 window stays open.
 #
 # A **pending** edge reads in the safe direction until its carrying merge
 # stamps it: a window whose opening is pending is not a window yet, so its
@@ -475,18 +486,39 @@ def compute_process_digest(prompt_bytes: bytes, config_canonical: dict[str, obje
     return "sha256:" + hashlib.sha256(body).hexdigest()
 
 
-def _resolved_model(engine: str, model: str | None) -> str:
+@dataclass(frozen=True)
+class CodeInputs:
+    """The digest inputs that live in code rather than in the config and prompts.
+
+    The running package's own values by default. A caller digesting another
+    revision's tree passes that revision's values, read from its source, so a
+    batch that bumps an engine default is digested as the batch would run it.
+    """
+
+    default_models: Mapping[str, str]
+    engine_retrieval: Mapping[str, Sequence[str]]
+
+
+#: The running package's code-side digest inputs.
+RUNNING_CODE_INPUTS: Final = CodeInputs(DEFAULT_MODELS, ENGINE_RETRIEVAL)
+
+
+def _resolved_model(
+    engine: str, model: str | None, default_models: Mapping[str, str] = DEFAULT_MODELS
+) -> str:
     """The model that actually ran: the registry override, else the engine default.
 
     Hash the resolved value, not the raw ``model`` field — a null that falls back
     to ``DEFAULT_MODELS`` must move the digest when that default is bumped, or a
     model change would silently ride under the same process version.
     """
-    return model or DEFAULT_MODELS[engine]
+    return model or default_models[engine]
 
 
 def _config_canonical(
-    registry_path: Path, actor: PredictorConfig | EvaluatorConfig
+    registry_path: Path,
+    actor: PredictorConfig | EvaluatorConfig,
+    code: CodeInputs = RUNNING_CODE_INPUTS,
 ) -> dict[str, object]:
     """The resolved registry subset that defines an actor's process.
 
@@ -494,14 +526,14 @@ def _config_canonical(
     both. Resolves the model (registry override, else engine default), the
     engine's retrieval surface, and the pinned MCP manifest *entries* (not just
     the ids a pin bump would leave unchanged), so any of them moving is a new
-    process.
+    process. ``code`` supplies the engine defaults and retrieval surfaces.
     """
     servers = resolve_mcp_servers(load_mcp_servers(registry_path), actor.mcp_servers)
     return {
         "engine": actor.engine,
-        "model": _resolved_model(actor.engine, actor.model),
+        "model": _resolved_model(actor.engine, actor.model, code.default_models),
         "prompt_path": actor.prompt,
-        "retrieval": list(ENGINE_RETRIEVAL[actor.engine]),
+        "retrieval": list(code.engine_retrieval[actor.engine]),
         # Exclude `description` — a manifest comment is documentation, not a
         # process input. Folding it in would bump every actor's version on a
         # cosmetic edit, and the actor-level description is already excluded
@@ -511,11 +543,18 @@ def _config_canonical(
     }
 
 
-def digest_for_actor(repo_root: Path, config_root: Path, role: str, actor_id: str) -> str:
+def digest_for_actor(
+    repo_root: Path,
+    config_root: Path,
+    role: str,
+    actor_id: str,
+    code: CodeInputs = RUNNING_CODE_INPUTS,
+) -> str:
     """Resolve one actor's process digest from the working tree.
 
     ``role`` is ``"predictor"`` or ``"evaluator"``. Loads the registry entry,
-    reads its prompt-template bytes (``repo_root``-relative), and hashes both.
+    reads its prompt-template bytes (``repo_root``-relative), and hashes both,
+    with ``code`` as the code-side inputs (the running package's by default).
     Raises ``KeyError`` if the actor is not a registry id and ``OSError`` if its
     prompt file is missing — a genuine config inconsistency must fail loudly,
     never ship a cell with a fabricated-looking process version.
@@ -531,7 +570,7 @@ def digest_for_actor(repo_root: Path, config_root: Path, role: str, actor_id: st
     else:
         raise ValueError(f"role must be predictor or evaluator, not {role!r}")
     prompt_bytes = (repo_root / entry.prompt).read_bytes()
-    return compute_process_digest(prompt_bytes, _config_canonical(registry_path, entry))
+    return compute_process_digest(prompt_bytes, _config_canonical(registry_path, entry, code))
 
 
 def _find(

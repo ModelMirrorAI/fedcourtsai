@@ -75,7 +75,12 @@
 #       at <sha> must be registered; each predictor keeps at most one open
 #       window (a pending close counts as a close); the batch carries at most
 #       one label new to `main`, with no `prereg/` tag yet; no boundary name
-#       may repeat; and nothing may already sit pending on `origin/main`.
+#       may repeat; nothing may already sit pending on `origin/main`; and no
+#       row `origin/main` has stamped may change, go or move, nor any
+#       evaluator digest's blessing labels lose main's prefix, save a pending
+#       close on a window no live predictor computes, a blessing that left
+#       the fleet, and a revocation of a closed window dated at or after the
+#       head.
 #       The logic is tested Python (`fedcourts registry-gate`,
 #       src/fedcourtsai/registry_gate.py); it reads git alone — <sha>'s tree,
 #       `origin/main` and the local tags — so the caller fetches `main` and

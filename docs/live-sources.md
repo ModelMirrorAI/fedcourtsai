@@ -158,7 +158,16 @@ it bites only when a tier is starving the rest and the priority tiers govern
 otherwise.
 
 **Predict fires on the distribution transition** — a fresh distribution or a relist's new date — the cert-calendar analogue of
-`pull.predict_on_change_only`, for petitions the salience gate admits (a
+`pull.predict_on_change_only`, for petitions the salience gate admits. The
+transition is the **petition's own**: an ancillary paper's distribution (a
+sealing motion or a motion for leave under its own M-number, "Motion (26M8)
+DISTRIBUTED for Conference of …") moves the conference-membership column but
+opens no distribution moment. The trigger is a rise in the petition's own
+`dist-v2` count below (`store.petition_distributed`), so the petition's first
+distribution triggers even when it names the conference that paper already
+did, and a paper distributed for another conference after the petition does
+not trigger; only a row never live-parsed, with no count to compare, falls
+back to a new date on the membership column. (A
 deferred petition's transition only keeps it on the watchlist; the cycle-end
 selection sweep queues what a later selection latches; a relist inside its
 requeue cooldown is suppressed instead — see
@@ -244,6 +253,9 @@ run-seed's daily window. Neither column reaches a cell: both are withheld from t
 `query` retrieval rows ([corpus/README.md](../corpus/README.md)).
 
 ## Documents: from metadata to content
+
+[document-provisioning.md](document-provisioning.md) maps this section: the
+steps in order, the kinds a cell can be given, and how coverage is measured.
 
 The document PDFs linked from each docket are the step-change in input quality
 — the questions presented and the petition/BIO are the signals cert prediction
@@ -798,7 +810,8 @@ Both files are gitignored, and no predict or evaluate cell uploads `record/`,
 so what can reach public git from a cell is what its prose quotes, which is the
 exposure [data-sources.md](data-sources.md) already names. The case-summary
 lane's one-day `summary-stage` artifact does carry both staged files, scrubbed
-as above ([case-summaries.md](case-summaries.md)). The scrub narrows what
+as above, less any document the residual detector still reads a match on
+([case-summaries.md](case-summaries.md)). The scrub narrows what
 reaches the ledger; it does not make a filing anonymous, and a cell with
 retrieval rights can reach the same PDF and docket JSON upstream whatever was
 withheld from its copy.

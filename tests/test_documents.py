@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 import threading
+import time
 from datetime import date
 from pathlib import Path
 
@@ -3876,6 +3877,13 @@ def test_the_scrub_withholds_a_telephone_number(detail: str) -> None:
         "88 North Cascade Avenue, Apt. 4B",
         "700 Grand Ridge Road",
         "17 Willow Lane #3",
+        # A street that shares its name with a reporter, set as an address.
+        "350 Ohio St.",
+        "12 W Ohio St. Apt 4",
+        "350 Ohio St. 4B",
+        "1200 W Ohio St. 3d Floor",
+        "350 Ohio St. 200",
+        "401 N Ohio St. 1200, Columbus OH",
         "P.O. Box 4417",
         "PO Box 4417",
     ],
@@ -3922,6 +3930,11 @@ def test_the_scrub_counts_every_detail_it_withheld() -> None:
         "Roe v. Wade, 410 U.S. 113, 153 (1973)",
         "Brady v. Maryland, 373 U.S. 83 (1963)",
         "28 U.S.C. 1254(1)",
+        # The Ohio State Reports, in each series and spacing.
+        "State v. Doe, 123 Ohio St. 3d 456 (2010)",
+        "Smith v. Jones, 98 Ohio St.2d 12, 15 (1964)",
+        "Brown v. Board, 1 Ohio St. 3 (1852)",
+        "Note, 75 Ohio St. L.J. 123 (2014)",
         # The court's own address line, which carries no street number.
         "Supreme Court of the United States, Washington, D.C. 20543",
         # A page and word count from a certificate of compliance.
@@ -4691,6 +4704,34 @@ def test_a_contact_shape_the_scrub_leaves_on_the_opening_is_a_residual(
     assert [name for name, _ in documents_module.contact_residual_matches(scrubbed.text)] == [shape]
     assert scrubbed.residuals == 1
     assert not scrubbed.clean
+
+
+def test_an_ohio_reporter_citation_opening_a_line_is_not_a_residual() -> None:
+    text = "Jane Doe, Petitioner Pro Se\n123 Ohio St. 3d 456 (2010).\n\nQUESTION PRESENTED\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == text
+    assert scrubbed.residuals == 0
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A long run of address characters ending on a sign with no domain.
+        "a.b." * 37_500 + "@",
+        # A sign before a long run of hyphenated domain characters, no dot.
+        "a@" + "a-" * 74_999,
+        "a-" * 74_999 + "@",
+    ],
+    ids=["dotted-local-part", "hyphenated-domain", "hyphenated-local-part"],
+)
+def test_the_email_shape_scans_a_hostile_document_in_linear_time(text: str) -> None:
+    # One garbled filing at the document cap must not stall a cell's provisioning.
+    start = time.perf_counter()
+    scrub_contact_details(text)
+
+    assert time.perf_counter() - start < 5.0
 
 
 def test_a_residual_in_the_middle_of_a_document_is_not_read() -> None:

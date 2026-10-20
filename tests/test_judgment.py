@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.ingest import map_live_docket
 from fedcourtsai.pipeline.judgment import (
     PER_CURIAM,
     backfill_merits_judgments,
@@ -910,3 +911,525 @@ def test_judgment_rode_the_grant_order_is_the_gap_guard() -> None:
     assert judgment_rode_the_grant_order(granted, granted)
     assert judgment_rode_the_grant_order(granted - timedelta(days=3), granted)
     assert not judgment_rode_the_grant_order(granted + timedelta(days=1), granted)
+
+
+# --- disposition shapes beyond the bare judgment noun -----------------------------
+
+# Real disposition entries, verbatim from the dockets named, whose disposition
+# rides a shape the judgment noun alone does not anchor: a summary disposition
+# joined to its grant by a comma or "and", the lower-court ruling certiorari ran
+# to named as the subject, and a long noun-verb recital. Each was a decided
+# docket whose only readable terminal word was the mandate notation.
+_RULING_ENTRIES: tuple[tuple[str, str, Judgment], ...] = (
+    (
+        "17-193",
+        "Petition for certiorari GRANTED, judgment REVERSED. <a href = 'https://www."
+        + "supremecourt.gov/opinions/17pdf/17-193_o7jp.pdf'>Opinion</a> per curiam.",
+        Judgment.reversed,
+    ),
+    (
+        "17-467",
+        "Petition for certiorari GRANTED, Judgment REVERSED and case REMANDED Justice "
+        + "Sotomayor, with whom Justice Ginsburg joins, dissenting. Opinion per curiam. "
+        + "(Detached Opinion )",
+        Judgment.reversed,
+    ),
+    (
+        "20-507",
+        "Petition GRANTED and judgment REVERSED. Justice Sotomayor dissents. "
+        + "Opinion per curiam. (Detached Opinion )",
+        Judgment.reversed,
+    ),
+    (
+        "17-654",
+        "The petition for a writ of certiorari is granted.  The en banc order of the "
+        + "United States Court of Appeals for the District of Columbia Circuit is "
+        + "vacated and the case is remanded to that court with instructions to direct "
+        + "the District Court to dismiss the relevant individual claim for injunctive "
+        + "relief as moot.  See United States v. Munsingwear, Inc., 340 U. S. 36 "
+        + "(1950).  Opinion per curiam.",
+        Judgment.vacated,
+    ),
+    (
+        "18-589",
+        "February 13, 2018 order VACATED, November 9, 2017 order AFFIRMED IN PART, "
+        + "March 29, 2018 order REVERSED IN PART, and CASE REMANDED (No. 18-587 is "
+        + "Vacated in Part, Reversed in Part, and Remanded, and No. 18-588 is Affirmed "
+        + "and Remanded).  Roberts, C. J., delivered the opinion of the Court, except "
+        + "as to Part IV.",
+        Judgment.affirmed_in_part,
+    ),
+    (
+        "20-37",
+        "The motion to vacate the judgments is granted.  The judgment of the United "
+        + "States Court of Appeals for the District of Columbia Circuit in Nos. "
+        + "19-5094 and 19-5096 is vacated, and the cases are remanded to that court "
+        + "with instructions to direct the District Court to vacate its judgment and "
+        + "dismiss the case as moot.  See <i>United States</i> v. <i>Munsingwear</i>, "
+        + "<i>Inc.</i>, 340 U. S. 36 (1950).  The judgment of the United States Court "
+        + "of Appeals for the District of Columbia Circuit in Nos. 19-5293 and "
+        + "19-5295 is vacated, and the cases are remanded to that court with "
+        + "instructions to direct the District Court to remand to the Secretary of "
+        + "Health and Human Services.  VIDED.",
+        Judgment.vacated,
+    ),
+    (
+        "20-927",
+        "Petition for a writ of certiorari before judgment GRANTED. The petition for "
+        + "writ of certiorari before judgment to the United States Court of Appeals "
+        + "for the Fourth Circuit is granted. The December 29, 2020 order of the "
+        + "United States District Court for the District of Maryland is reversed, and "
+        + "the case is remanded to the Court of Appeals with instructions to remand to "
+        + "the District Court for the prompt designation of Indiana under 18 U. S. C. "
+        + "§3596(a).\r\nThe application to vacate stay presented to THE CHIEF JUSTICE "
+        + "and by him referred to the Court is granted. The January 13, 2021 order of "
+        + "the Court of Appeals granting a stay is vacated.",
+        Judgment.reversed,
+    ),
+    (
+        "20-1539",
+        "Petition GRANTED.  Determination of United States Court of Appeals for the "
+        + "Ninth Circuit that Rivas-Villegas is not entitled to qualified immunity "
+        + "REVERSED.  Opinion per curiam.",
+        Judgment.reversed,
+    ),
+    (
+        "21-1609",
+        "The application for stay (21A222) presented to Justice Kagan and by her "
+        + "referred to the Court is treated as a petition for a writ of certiorari "
+        + "before judgment, and the petition is granted.  The September 28, 2021 "
+        + "order of the United States District Court for the District of Arizona is "
+        + "vacated, and the case is remanded to the United States Court of Appeals for "
+        + "the Ninth Circuit with instructions to remand to the District Court for "
+        + "further consideration in light of <i>Dobbs</i>  v. <i>Jackson Women's "
+        + "Health Organization</i>, 597 U. S. ___ (2022).",
+        Judgment.vacated,
+    ),
+    (
+        "22-506",
+        "Application (22A444) DENIED AS MOOT.  Judgment REVERSED and case REMANDED.  "
+        + "Roberts, C. J., delivered the opinion of the Court.",
+        Judgment.reversed,
+    ),
+)
+
+
+@pytest.mark.parametrize(("docket", "text", "expected"), _RULING_ENTRIES)
+def test_real_ruling_and_recital_dispositions_parse(
+    docket: str, text: str, expected: Judgment
+) -> None:
+    assert match_judgment(text, docket_number=docket) == expected
+    assert match_judgment(text) == expected
+
+
+# An "order" is a disposition subject only where the sentence identifies it as
+# the lower court's ruling. The Court's own orders, an interlocutory order's
+# vacatur, an application's own disposition entry, and a motion granted beside a
+# judgment noun all stay unmatched.
+_RULING_NEAR_MISSES: tuple[str, ...] = (
+    # 20-927's separate application entry, verbatim.
+    "Application (20A134) granted by the Court.  The application to vacate stay "
+    + "presented to THE CHIEF JUSTICE and by him referred to the Court is granted. "
+    + "The January 13, 2021 order of the Court of Appeals granting a stay is vacated.",
+    # The same entry with the interlocutory verb gone: the application entry
+    # alone keeps it out, not the word "granting".
+    "Application (20A134) granted by the Court.  The January 13, 2021 order of the "
+    + "Court of Appeals is vacated.",
+    "The order heretofore entered by The Chief Justice is vacated.",
+    "The orders heretofore entered by Justice Kagan are vacated.",
+    "The order of October 2, 2023 consolidating the cases is vacated.",
+    "The order setting the case for argument is vacated.",
+    "The order of June 1, 2020 holding the petition in abeyance is vacated.",
+    "The order entered on Oct 5 is vacated.",
+    "The order of this Court of June 1, 2020 is vacated.",
+    "The order granting the motion for divided argument is vacated.",
+    "The order granting the petition for a writ of certiorari is vacated.",
+    "The order of the Court of Appeals staying its mandate is vacated.",
+    "The order of the District Court denying the motion to intervene is affirmed.",
+    "Motion for leave to proceed in forma pauperis GRANTED, judgment of the Court of "
+    + "Appeals REVERSED.",
+    "Petition for rehearing GRANTED, judgment VACATED.",
+    "Motion to vacate the order of the Court of Appeals filed.",
+)
+
+
+@pytest.mark.parametrize("text", _RULING_NEAR_MISSES)
+def test_interlocutory_orders_and_motions_stay_unmatched(text: str) -> None:
+    assert match_judgment(text) is None
+
+
+def test_a_judgment_subject_carries_no_interlocutory_veto() -> None:
+    """The ruling subject's veto is the ruling subject's alone: a judgment that
+    denied relief below is reversed on the merits."""
+    text = "The judgment of the Court of Appeals denying habeas relief is reversed."
+    assert match_judgment(text) == Judgment.reversed
+
+
+def test_a_stay_vacated_after_the_reversal_never_displaces_it() -> None:
+    """20-927: the application entry follows the reversal on the same day, and
+    the last-match rule would hand the docket a vacatur if it read as one."""
+    reversal = next(text for docket, text, _ in _RULING_ENTRIES if docket == "20-927")
+    payload = _live_payload(
+        ("Jan 15 2021", reversal),
+        ("Jan 15 2021", _RULING_NEAR_MISSES[0]),
+        ("Feb 16 2021", "JUDGMENT ISSUED."),
+    )
+    assert last_judgment_entry(payload) == (Judgment.reversed, date(2021, 1, 15))
+
+
+# --- consolidated entries, read per docket ----------------------------------------
+
+# Each docket's copy of a consolidated judgment entry, verbatim, with the
+# disposition that docket received. The companion's clause names the
+# companion's number; the docket's own is either named or unlabelled.
+_CONSOLIDATED: tuple[tuple[str, str, Judgment], ...] = (
+    (
+        "22-331",
+        "Judgment AFFIRMED (as to No. 22-23); Judgment REVERSED and case REMANDED (as "
+        + "to No. 22-331). Kavanaugh, J., delivered the opinion of the Court.",
+        Judgment.reversed,
+    ),
+    (
+        "22-23",
+        "Adjudged to be AFFIRMED (as to No. 22-23); Judgment REVERSED and case "
+        + "REMANDED (as to No. 22-331). Kavanaugh, J., delivered the opinion of the "
+        + "Court.",
+        Judgment.affirmed,
+    ),
+    (
+        "25-406",
+        "Judgment REVERSED and case REMANDED. No. 25-567, adjudged to be affirmed. "
+        + "Roberts, C. J., delivered the opinion of the Court. VIDED.",
+        Judgment.reversed,
+    ),
+    (
+        "25-567",
+        "Adjudged to be AFFIRMED. No. 25-406, judgment REVERSED and case REMANDED. "
+        + "Roberts, C. J., delivered the opinion of the Court. VIDED.",
+        Judgment.affirmed,
+    ),
+    (
+        "24-1287",
+        "Judgment in No. 24-1287 is VACATED and case REMANDED with instructions to "
+        + "dismiss for lack of jurisdiction; the judgment in No. 25-250 is AFFIRMED.",
+        Judgment.vacated,
+    ),
+    (
+        "25-250",
+        "Adjudged to be AFFIRMED. Judgment in No. 24-1287 is VACATED and case "
+        + "REMANDED with instructions to dismiss for lack of jurisdiction.",
+        Judgment.affirmed,
+    ),
+)
+
+
+@pytest.mark.parametrize(("docket", "text", "expected"), _CONSOLIDATED)
+def test_a_consolidated_entry_reads_the_dockets_own_clause(
+    docket: str, text: str, expected: Judgment
+) -> None:
+    assert match_judgment(text, docket_number=docket) == expected
+
+
+def test_the_payload_reader_takes_the_dockets_own_number() -> None:
+    """Passed explicitly, from the payload's own number, and with a capital marking."""
+    text = _CONSOLIDATED[0][1]
+    entries = (("Jan 12 2023", "Petition GRANTED."), ("Jun 22 2023", text))
+    payload = _live_payload(*entries)
+    assert last_judgment_entry(payload, docket_number="22-331") == (
+        Judgment.reversed,
+        date(2023, 6, 22),
+    )
+    assert last_judgment_entry(payload, docket_number="22-331 *** CAPITAL CASE ***") == (
+        Judgment.reversed,
+        date(2023, 6, 22),
+    )
+    payload["CaseNumber"] = "22-331"
+    assert last_judgment_entry(payload) == (Judgment.reversed, date(2023, 6, 22))
+    payload["CaseNumber"] = "22-23"
+    assert last_judgment_entry(payload) == (Judgment.affirmed, date(2023, 6, 22))
+
+
+def test_a_semicolon_split_mixed_disposition_keeps_its_mixed_reading() -> None:
+    """An entry citing no docket number is read whole, so the clause reading
+    never splits one docket's mixed disposition into its first half."""
+    text = "Judgment AFFIRMED IN PART; REVERSED IN PART, and case REMANDED."
+    assert match_judgment(text, docket_number="23-100") == Judgment.affirmed_in_part
+
+
+# --- the Court's Rule 46 decree inside a longer order -----------------------------
+
+# 20-429 / 20-454 / 20-539: the Court's order, carried on all three dockets,
+# dismisses the petitions in its third sentence.
+_AMA_ORDER = (
+    "The Government has filed a letter brief representing that it will continue "
+    + "enforcing the challenged rule and regulations outside the State of Maryland "
+    + "for as long as they remain operative.  If further litigation is brought "
+    + "against the challenged rule and regulations outside of Maryland, the "
+    + "Government represents that it will either oppose that litigation on "
+    + "threshold grounds or seek to hold the litigation in abeyance pending the "
+    + "completion of notice and comment.  In light of the Government's "
+    + "representations, the motions for leave to intervene are denied, and the "
+    + "petitions in Nos. 20-429, 20-454, and 20-539 are dismissed pursuant to Rule "
+    + "46.1.  If the Government fails to enforce the challenged rule and "
+    + "regulations outside of Maryland prior to the completion of notice and "
+    + "comment, or if litigation is brought against the challenged rule and "
+    + "regulations outside of Maryland, any aggrieved party may file an "
+    + "application in this Court after seeking relief in the appropriate District "
+    + "Court and Court of Appeals.  Justice Thomas, Justice Alito, and Justice "
+    + "Gorsuch would grant the motions for leave to intervene and deny the "
+    + "stipulations to dismiss the petitions.  VIDED."
+)
+
+
+@pytest.mark.parametrize(
+    ("text", "cert_granted", "expected"),
+    [
+        (_AMA_ORDER, True, MeritsTermination.voluntary_dismissal),
+        # The petition subject is stage-ambiguous, so the grant gates it.
+        (_AMA_ORDER, False, None),
+        (
+            "The motion is granted, and the case is dismissed under Rule 46.",
+            False,
+            MeritsTermination.voluntary_dismissal,
+        ),
+        # The parties' stipulations, verbatim from the same dockets, say "filed".
+        (
+            "Joint stipulation to dismiss the cases in Nos. 20-429 and 20-539 pursuant "
+            + "to Rule 46.1 filed. VIDED.",
+            True,
+            None,
+        ),
+        ("Joint stipulation to dismiss the case pursuant to Rule 46.1 filed.", True, None),
+        # A partial dismissal inside an order still leaves the case live.
+        (
+            "The motion is granted, and the case is dismissed under Rule 46 as to "
+            + "respondent Jones.",
+            True,
+            None,
+        ),
+    ],
+)
+def test_a_rule_46_decree_inside_an_order_terminates(
+    text: str, cert_granted: bool, expected: MeritsTermination | None
+) -> None:
+    assert match_merits_termination(text, cert_granted=cert_granted) == expected
+    assert match_judgment(text) is None
+
+
+def test_backfill_reads_the_in_order_decree_on_every_consolidated_docket(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    payload = _live_payload(
+        ("Feb 22 2021", "Petition GRANTED."),
+        (
+            "Mar 12 2021",
+            "Joint stipulation to dismiss the case pursuant to Rule 46.1 filed.",
+        ),
+        ("May 17 2021", _AMA_ORDER),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _granted_row("scotus/20", "20-429", date(2021, 2, 22)),
+                _granted_row("scotus/21", "20-454", date(2021, 2, 22)),
+            ],
+        )
+        corpus.upsert_snapshot(conn, "scotus/20", date(2026, 10, 13), payload)
+        corpus.upsert_snapshot(conn, "scotus/21", date(2026, 10, 13), payload)
+        result = backfill_merits_judgments(conn, apply=True)
+        rows = [corpus.get_row(conn, case_id) for case_id in ("scotus/20", "scotus/21")]
+    assert result.terminated == 2 and result.parsed == 0
+    for row in rows:
+        assert row is not None
+        assert row.merits_terminated == MeritsTermination.voluntary_dismissal.value
+        assert row.merits_judgment is None
+
+
+# --- a read disposition supersedes the mandate notation ---------------------------
+
+
+def test_a_parsed_judgment_clears_a_stored_mandate_termination(tmp_path: Path) -> None:
+    """17-193: a docket stamped `judgment-issued` because its summary reversal was
+    unreadable gets the reversal and loses the termination, so the readers that
+    count a terminated row apart see it as decided."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    payload = _live_payload(
+        ("Nov 06 2017", _RULING_ENTRIES[0][1]),
+        ("Jan 09 2018", "JUDGMENT ISSUED."),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_granted_row("scotus/30", "17-193", date(2017, 11, 6))])
+        corpus.upsert_snapshot(conn, "scotus/30", date(2026, 8, 17), payload)
+        corpus.set_merits_termination(conn, "scotus/30", MeritsTermination.judgment_issued)
+        dry = backfill_merits_judgments(conn, apply=False)
+        untouched = corpus.get_row(conn, "scotus/30")
+        applied = backfill_merits_judgments(conn, apply=True)
+        row = corpus.get_row(conn, "scotus/30")
+        again = backfill_merits_judgments(conn, apply=True)
+    assert dry.parsed == 1 and dry.updated == 1 and dry.terminated == 0
+    assert untouched is not None
+    assert untouched.merits_terminated == MeritsTermination.judgment_issued.value
+    assert applied.updated == 1
+    assert row is not None
+    assert row.merits_judgment == Judgment.reversed.value
+    assert row.merits_decided == date(2017, 11, 6)
+    assert row.merits_terminated is None
+    # The same-day reversal rode the cert order, so the pool guard excludes it.
+    assert judgment_rode_the_grant_order(date(2017, 11, 6), date(2017, 11, 6))
+    assert again.updated == 0 and again.unchanged == 1
+
+
+# --- docket scoping: listed citations, companions, terminations -------------------
+
+
+def test_every_number_in_a_listed_citation_is_the_dockets_own() -> None:
+    """The second docket of "Nos. A, B, and C" and of "Nos. A and B" is cited too."""
+    listed = (
+        "Judgment AFFIRMED (as to No. 24-900); Judgment REVERSED and case REMANDED "
+        + "(as to Nos. 24-901, 24-902, and 24-903)."
+    )
+    assert match_judgment(listed, docket_number="24-902") == Judgment.reversed
+    assert match_judgment(listed, docket_number="24-900") == Judgment.affirmed
+    paired = (
+        "Judgment AFFIRMED (as to No. 24-900); Judgment VACATED and case REMANDED "
+        + "(as to Nos. 24-901 and 24-902)."
+    )
+    assert match_judgment(paired, docket_number="24-902") == Judgment.vacated
+
+
+def test_a_companions_copy_is_read_under_the_other_dockets_number() -> None:
+    """Each docket's copy reads the same for every docket it names: 25-567's
+    copy, read for 25-406, gives 25-406's reversal, and 22-331's for 22-23."""
+    by_docket = {docket: text for docket, text, _ in _CONSOLIDATED}
+    assert match_judgment(by_docket["25-567"], docket_number="25-406") == Judgment.reversed
+    assert match_judgment(by_docket["22-331"], docket_number="22-23") == Judgment.affirmed
+    assert match_judgment(by_docket["25-250"], docket_number="24-1287") == Judgment.vacated
+
+
+def test_a_decree_naming_other_dockets_never_ends_this_one() -> None:
+    companion = (
+        "The petition in No. 20-454 is dismissed pursuant to Rule 46.1. The case in "
+        + "No. 20-429 will be argued as scheduled."
+    )
+    assert match_merits_termination(companion, cert_granted=True, docket_number="20-429") is None
+    assert (
+        match_merits_termination(companion, cert_granted=True, docket_number="20-454")
+        == MeritsTermination.voluntary_dismissal
+    )
+    writ = (
+        "The writ of certiorari in No. 20-454 is dismissed under Rule 46. The case "
+        + "in No. 20-429 will be argued as scheduled."
+    )
+    assert match_merits_termination(writ, cert_granted=False, docket_number="20-429") is None
+    assert (
+        match_merits_termination(writ, cert_granted=False, docket_number="20-454")
+        == MeritsTermination.voluntary_dismissal
+    )
+    # The AMA order names all three, the middle one of a listed citation included.
+    for docket in ("20-429", "20-454", "20-539"):
+        assert (
+            match_merits_termination(_AMA_ORDER, cert_granted=True, docket_number=docket)
+            == MeritsTermination.voluntary_dismissal
+        )
+    assert match_merits_termination(_AMA_ORDER, cert_granted=True, docket_number="20-999") is None
+    # Through the payload reader, off the payload's own number.
+    payload = _live_payload(("May 17 2021", companion))
+    payload["CaseNumber"] = "20-429"
+    assert last_merits_termination(payload, cert_granted=True) is None
+    assert (
+        last_merits_termination(payload, cert_granted=True, docket_number="20-454")
+        == MeritsTermination.voluntary_dismissal
+    )
+
+
+# --- the writers clear a termination a judgment supersedes ------------------------
+
+
+def test_set_merits_judgment_clears_a_termination(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_granted_row("scotus/40", "17-193", date(2017, 11, 6))])
+        corpus.set_merits_termination(conn, "scotus/40", MeritsTermination.judgment_issued)
+        corpus.set_merits_judgment(conn, "scotus/40", Judgment.reversed, date(2017, 11, 6))
+        row = corpus.get_row(conn, "scotus/40")
+    assert row is not None
+    assert row.merits_judgment == Judgment.reversed.value
+    assert row.merits_terminated is None
+
+
+def test_an_upsert_carrying_a_judgment_clears_a_termination_one_way(tmp_path: Path) -> None:
+    """The live latch's write path: a parsed judgment clears the termination;
+    an upsert with no parse keeps whatever is stored and restores nothing."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    bare = _granted_row("scotus/41", "17-193", date(2017, 11, 6))
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [bare])
+        corpus.set_merits_termination(conn, "scotus/41", MeritsTermination.judgment_issued)
+        corpus.upsert_rows(conn, [bare])
+        kept = corpus.get_row(conn, "scotus/41")
+        parsed = bare.model_copy(
+            update={"merits_judgment": Judgment.reversed.value, "merits_decided": date(2017, 11, 6)}
+        )
+        corpus.upsert_rows(conn, [parsed])
+        cleared = corpus.get_row(conn, "scotus/41")
+        corpus.upsert_rows(conn, [bare])
+        after = corpus.get_row(conn, "scotus/41")
+    assert kept is not None and kept.merits_terminated == MeritsTermination.judgment_issued.value
+    assert cleared is not None and cleared.merits_terminated is None
+    assert cleared.merits_judgment == Judgment.reversed.value
+    assert after is not None and after.merits_terminated is None
+    assert after.merits_judgment == Judgment.reversed.value
+
+
+def test_the_live_latch_reads_the_dockets_own_clause() -> None:
+    """`map_live_docket` threads the docket number: 22-331's copy of the
+    consolidated entry, which opens on No. 22-23's affirmance, latches reversed."""
+    text = next(text for docket, text, _ in _CONSOLIDATED if docket == "22-331")
+    payload = {
+        "CaseNumber": "22-331",
+        "DocketedDate": "Sep 30, 2022",
+        "ProceedingsandOrder": [
+            {"Date": "Jan 13 2023", "Text": "Petition GRANTED."},
+            {"Date": "Jun 22 2023", "Text": text},
+        ],
+    }
+    record = map_live_docket(payload, 72_475_659)
+    assert record["merits_judgment"] == Judgment.reversed.value
+    assert record["merits_decided"] == "2023-06-22"
+
+
+def test_the_backfill_reads_a_consolidated_entry_for_the_rows_own_docket(
+    tmp_path: Path,
+) -> None:
+    """The row's own number decides, not the number the snapshot carries: a
+    stored payload with no number of its own, or the companion's, still reads
+    the row's clause."""
+    text = next(text for docket, text, _ in _CONSOLIDATED if docket == "22-331")
+    entries = [
+        {"Date": "Jan 13 2023", "Text": "Petition GRANTED."},
+        {"Date": "Jun 22 2023", "Text": text},
+    ]
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _granted_row("scotus/50", "22-331", date(2023, 1, 13)),
+                _granted_row("scotus/51", "22-331", date(2023, 1, 13)),
+            ],
+        )
+        corpus.upsert_snapshot(
+            conn, "scotus/50", date(2026, 8, 1), {"ProceedingsandOrder": entries}
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/51",
+            date(2026, 8, 1),
+            {"CaseNumber": "22-23", "ProceedingsandOrder": entries},
+        )
+        backfill_merits_judgments(conn, apply=True)
+        rows = [corpus.get_row(conn, case_id) for case_id in ("scotus/50", "scotus/51")]
+    for row in rows:
+        assert row is not None and row.merits_judgment == Judgment.reversed.value

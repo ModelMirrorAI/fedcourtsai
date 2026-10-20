@@ -15,10 +15,11 @@
 #   scripts/gate.sh lint     ruff format --check + ruff check
 #   scripts/gate.sh types    mypy
 #   scripts/gate.sh test     pytest, fanned across cores (set GATE_COV=1 for
-#                            coverage, as CI does, measured under Python's
-#                            sys.monitoring — COVERAGE_CORE overrides the core
-#                            for a comparison run; GATE_TEST_WORKERS=1 for a
-#                            serial run when debugging)
+#                            coverage, as CI does on a push to main, measured
+#                            under Python's sys.monitoring — COVERAGE_CORE
+#                            overrides the core for a comparison run;
+#                            GATE_TEST_WORKERS=1 for a serial run when
+#                            debugging)
 #   scripts/gate.sh data     validate data + corpus-status
 #   scripts/gate.sh schemas  export-schemas + schema-drift check
 #   scripts/gate.sh data-tests  only the tests marked reads_data

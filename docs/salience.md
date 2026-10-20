@@ -1154,7 +1154,8 @@ petition's transition fetches nothing, and its documents are provisioned by the
 sweep — when it is latched, or when cohort completion admits it.
 
 **The relist requeue cooldown.** A **relist** — a distribution transition on a
-petition already distributed before, as opposed to its first distribution — inside
+petition already distributed before in its own right (an ancillary paper's
+earlier distribution does not count), as opposed to its first distribution — inside
 `salience.relist_requeue_cooldown_days` (default 1) of the case's last
 prediction is treated as administrative churn rather than a
 materially different posture, and is not requeued: the divert is surfaced on
@@ -1187,6 +1188,9 @@ petitions to the state its docket disclosed at a chosen cutoff
 — petition **arrival**, the **first distribution**, or the **last
 pre-resolution distribution** — and runs the same selection core the live pass
 runs (`plan_cohorts`) over the projection, into `metrics/salience-replay.json`.
+The replay reads no stored snapshots and passes the core no reserve release,
+so where the live pass freed an interim reserve slot because the occupant's
+stored docket read as disposed, the replay does not reproduce that fill.
 
 The projection layer (`fedcourtsai.pipeline.asof`) is the honesty mechanism:
 time-invariant identity (docket number, fee class, originating court, sampling
@@ -1602,19 +1606,28 @@ rather than folding it into an undifferentiated "granted."
   label normalized from the upstream record's own fields, which never passed
   through the disposition parser at all, so `granted` there is a faithful record
   of what the older vocabulary could say. It does not cover a resolution the
-  parser itself recorded by reading the docket's order text and got wrong. Two
+  parser itself recorded by reading the docket's order text and got wrong. Three
   shapes do that. The **prose GVR** names the lower court between the grant and
   the vacatur, and fell to the cert-before-judgment grant row until
   `cert_signals._gvr_tail_sentence` closed the gap. The **ancillary-order grant**
-  is read off text that decides nothing about the petition, in either of the two
+  is read off text that decides nothing about the petition, in any of the three
   shapes `cert_signals._is_non_order_sentence` refuses: an order *about* the
   petition rather than one on it — an extension of time to respond, a delayed
-  distribution, an unsealing — or a docketing recital, whose disposition word is
-  quoted or conditional inside a sentence ending "filed". Both disagree with their own
+  distribution, an unsealing — a conditional on the petition's fate (a stay
+  order's "In the event the petition ... is granted"), or a docketing recital, whose disposition word is
+  quoted or conditional inside a sentence ending "filed". The **refused exit**
+  is its mirror on a recorded `denied` or `dismissed`: the exit was read off
+  text that names the petition's fate without deciding it — the termination
+  conditional a stay order pending certiorari ends with ("Should the petition
+  ... be denied, this stay shall terminate automatically"), which
+  `cert_signals._is_non_order_sentence` refuses, or a Rule 46 dismissal scoped
+  "only as to" one petitioner, which the partial-scope veto refuses on the exit
+  rows — while the docket went on to its grant. All three disagree with their own
   order text rather than with a superseded convention, and one order can sit
-  behind both labels, so leaving them makes the ledger contradict itself about a
-  single day's work. `converge-disposition-labels` converges them, re-resolving
-  the stored docket text and rewriting only what the parser confirms.
+  behind more than one label, so leaving them makes the ledger contradict itself
+  about a single day's work. `converge-disposition-labels` converges them,
+  re-resolving the stored docket text and rewriting only what the parser
+  confirms.
 
   The separation is enforced in its predicate, not left to which snapshots
   happen to be stored, and each shape meets it on its own terms. For the prose
@@ -1633,10 +1646,16 @@ rather than folding it into an undifferentiated "granted."
   entry sharing its date. The warrant fails two ways, each reported as the one
   it was: the docket still parses a grant somewhere, or the label's provenance
   cannot be established at all — no entry on the recorded date, or entries with
-  nothing a grant could have been read from. The warrant is the
+  nothing a grant could have been read from. The refused exit carries the same
+  kind of proof, scoped to its own day: an entry dated the recorded resolution
+  carries an exit-shaped sentence the parser refuses
+  (`cert_signals.refused_exit_sentence`), nothing that day still parses as an
+  exit, and the confirming entry is a grant. A refused exit whose docket ends in
+  a different exit (a partial dismissal followed by the real denial) moves no
+  binary and is reported rather than relabeled. Each warrant is its
   arm's whole licence, so a fuller snapshot store buys text to judge and never a
-  way past it. The penalization worry does not reach either
-  class — their labels were the parser's reading of an order, not the best word
+  way past it. The penalization worry does not reach any of the three
+  classes — their labels were the parser's reading of an order, not the best word
   an earlier vocabulary offered — and any candidate already carrying committed
   predict *or* evaluate output is held back by default, since an evaluation's
   `correct` bit was stamped from the label being corrected; `--include-scored`
@@ -1706,7 +1725,14 @@ latched its substantive reading. Selection is a **quota, not a ranking**: the tr
 features do not exist here, so each selection pass fills up to
 `salience.interim_reserve_slots` (5) with pending substantive applications in
 **escalation-ladder order** — requested response first, then the amicus
-count, `case_id` for determinism. The referral signal sits on the ladder as
+count, `case_id` for determinism. A slot is an application **number's**, the
+unit the interim base rate counts: a number the corpus stores under two case
+ids holds at most one slot. Latched under any of its rows, it holds one (none
+once released as disposed, below) and its other rows do not contend; unlatched, it contends through the row
+`corpus.duplicate_application_case_ids` keeps, and the rows that call skips
+are scored but never picked. Moment minting and the predict queue do not read
+the skip set, so a number already latched under two rows stays funded twice.
+The referral signal sits on the ladder as
 an observation but not in the pick order: a referral usually arrives *as* the
 disposition entry itself, so it carries no forecast horizon — a slot it
 earned would fund a prediction of an already written order. The pick order is
@@ -1717,12 +1743,18 @@ by which the rotation reached more recently, and any change in how the
 proceedings text is read reaches the pending cohort one poll at a time rather
 than all at once. A selected application occupies its slot until
 it resolves (the sticky latch never de-selects), so the reserve bounds
-*concurrent* live interim predictions and a slot frees only on resolution —
-where "resolves"
-means the machine-matched resolution the accumulation rule below requires, so
-an application decided in language the vocabulary misses pins its slot until a
-maintainer resolves the residue;
-it is visible as the application rotation's long-unresolved tail. The slots in
+*concurrent* live interim predictions. A slot frees on the machine-matched
+resolution the accumulation rule below requires, or earlier, when the
+occupant's newest stored snapshot already reads as an interim disposal
+(`outcome.interim_disposal_signal`, the high-recall scan the forward queue's
+decided-guard reads). The resolver's vocabulary is exact-match, so an
+application decided in language it misses stays unresolved; its outcome is
+legible in the snapshot, no forward cell will be minted for it, and it keeps
+its latch but not its slot. An application whose stored docket shows no
+disposal at all — an upstream docket that never updated, or a disposition the
+corpus has not yet pulled — still holds its slot until a pull records one;
+`reconcile-salience-selection` lists every occupant with its filing date and
+the snapshot read, so a slot held for months is visible. The slots in
 use lower the cert **rank-fill limit** one-for-one in the **latest
 conference cohort of the pass** — never a carve-out — so the reserve is defined
 inside `N`. Whether it *spends* inside `N` depends on the cohort: a lowered

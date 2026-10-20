@@ -1,5 +1,49 @@
 {
   "$defs": {
+    "PreDistributionSetAsideEvent": {
+      "additionalProperties": false,
+      "description": "One cert distribution event set aside because its cells were minted before the petition was.\n\nThe distribution moment's cells forecast from the petition's own\ndistribution for a conference; a cell minted while only an ancillary paper\n(a sealing motion, a motion for leave under a linked M-number) had been\ndistributed forecast from a moment the petition never reached, so the\nrecord cannot show what moment it stands at. Whether the petition was\ndistributed in its own right reads the docket entries, which live in the\ncorpus, so the event is listed rather than computed.",
+      "properties": {
+        "case_id": {
+          "description": "The event's case id",
+          "pattern": "^[a-z0-9._-]+/[0-9]+$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "declared": {
+          "description": "The date of the freeze-record entry that sets it aside",
+          "format": "date",
+          "title": "Declared",
+          "type": "string"
+        },
+        "event_id": {
+          "description": "The event's id",
+          "pattern": "^evt-[a-z0-9._]+-[a-z0-9._-]+$",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "minted_run_id": {
+          "description": "The harness run id of the event's forward frozen-scope cells minted before the petition was distributed",
+          "title": "Minted Run Id",
+          "type": "string"
+        },
+        "reason": {
+          "const": "pre-distribution-mint",
+          "description": "Why its cells are set aside. `pre-distribution-mint`: the event's forward frozen-scope distribution-moment cells were minted when the docket carried a distribution by their run day but none of the petition itself (`store.petition_distributed` reads false)",
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "event_id",
+        "reason",
+        "minted_run_id",
+        "declared"
+      ],
+      "title": "PreDistributionSetAsideEvent",
+      "type": "object"
+    },
     "SetAsideEvent": {
       "additionalProperties": false,
       "description": "One event whose cells are set aside from the default figures, and the census row behind it.\n\nThe reasons a committed artifact alone cannot decide sit here \u2014 the\npost-conference reason reads the petition's docket entries, which live in\nthe corpus \u2014 so the set-aside is a committed fact every offline board reads\nthe same way. A reason the committed ledger decides by itself is computed\ninstead and never listed.",
@@ -58,7 +102,21 @@
     "events": {
       "description": "The listed events, in the order declared",
       "items": {
-        "$ref": "#/$defs/SetAsideEvent"
+        "discriminator": {
+          "mapping": {
+            "post-conference-first-forecast": "#/$defs/SetAsideEvent",
+            "pre-distribution-mint": "#/$defs/PreDistributionSetAsideEvent"
+          },
+          "propertyName": "reason"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/SetAsideEvent"
+          },
+          {
+            "$ref": "#/$defs/PreDistributionSetAsideEvent"
+          }
+        ]
       },
       "title": "Events",
       "type": "array"

@@ -49,10 +49,11 @@ class ModelRate:
 
 
 # Keyed by the model id the engine actually ran. The production models are
-# claude-opus-5-5 (predict/evaluate), gpt-6-astra, and gemini-3.1-pro-preview
-# (the Pro tier is the like-for-like comparator against the other engines'
-# frontier defaults); the Gemini Pro rate is the standard <=200k-context tier
-# and the Astra rate the <=272k-input tier (both step up beyond that). The
+# claude-opus-5-5 (predict/evaluate), gpt-6.1-sol, and gemini-4-argon (each
+# engine's frontier tier, the like-for-like comparators). The Argon rate is
+# Google's introductory one, scheduled to double to $4 / $20 on 2026-12-01
+# (the cached rate assumed to double with it); re-price the row then, since
+# record-usage prices every cell at the table's current rate. The
 # table is deliberately wider than what the registries route: the cheaper tier of each
 # engine is priced too — claude-sonnet-4-6 and claude-haiku-4-5, gpt-5.6-terra
 # and gpt-5.6-luna, gemini-3.7-flash (the newest stable Flash) and the
@@ -61,7 +62,8 @@ class ModelRate:
 # cannot price rather than recording a zero. Both Flash rates are promotional;
 # re-check them after 2026-12-31, when the promotion is scheduled to end.
 # Superseded production models (claude-fable-5-1, claude-fable-5,
-# claude-opus-4-8, gpt-5.6-sol, gpt-5.5, gemini-3.5-flash) keep
+# claude-opus-4-8, gpt-6-astra, gpt-5.6-sol, gpt-5.5, gemini-3.1-pro-preview,
+# gemini-3.5-flash) keep
 # their rates for the same reason: a re-recorded old cell (record-usage with an
 # explicit --model) must still price, and the committed ledger holds cells that
 # ran on each of them.
@@ -89,11 +91,15 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
     # exact key and exits non-zero on an id it cannot find, so labeler-shaped
     # accounting needs the two spellings reconciled first.
     "claude-haiku-4-5": ModelRate(1.0, 5.0),
+    # Both new frontier rows carry their published cached-input rate, a
+    # twentieth of input, where the uniform multiplier would bill a tenth.
+    "gpt-6.1-sol": ModelRate(2.0, 10.0, cache_read_per_mtok=0.10),
     "gpt-6-astra": ModelRate(10.0, 50.0),
     "gpt-5.6-sol": ModelRate(5.0, 30.0),
     "gpt-5.6-terra": ModelRate(2.0, 12.0),
     "gpt-5.6-luna": ModelRate(0.20, 1.20),
     "gpt-5.5": ModelRate(5.0, 30.0),
+    "gemini-4-argon": ModelRate(2.0, 10.0, cache_read_per_mtok=0.10),
     "gemini-3.1-pro-preview": ModelRate(2.0, 12.0),
     "gemini-3.7-flash": ModelRate(0.75, 3.75),
     "gemini-3.6-flash": ModelRate(0.75, 3.75),
@@ -110,8 +116,8 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
 # the same commit (``docs/process-version.md``).
 DEFAULT_MODELS: Final[dict[str, str]] = {
     "claude-code": "claude-opus-5-5",
-    "codex": "gpt-6-astra",
-    "gemini": "gemini-3.1-pro-preview",
+    "codex": "gpt-6.1-sol",
+    "gemini": "gemini-4-argon",
 }
 
 

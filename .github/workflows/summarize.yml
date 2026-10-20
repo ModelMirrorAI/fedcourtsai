@@ -475,7 +475,7 @@ jobs:
       - name: Assert no cloud credential in this job
         run: |
           set -euo pipefail
-          if env | grep -E '^AWS_' | grep -qvE '^AWS_(REGION|DEFAULT_REGION)='; then
+          if env | grep -E '^AWS_' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
             echo "::error::AWS credential variables leaked into the job env"
             exit 1
           fi
@@ -599,6 +599,14 @@ jobs:
         with:
           name: case-summaries
           path: ${{ runner.temp }}/out
+      # The plan names the committed summaries this run withdraws (written
+      # before the petition a re-docketed number now holds was docketed); the
+      # PR deletes them, and the jail admits exactly those deletions.
+      - name: Download the plan
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: summary-plan
+          path: ${{ runner.temp }}/plan
 
       - name: Mint app token
         id: app-token
@@ -646,9 +654,12 @@ jobs:
             done < "$RUNNER_TEMP/carried-paths.txt"
           fi
           cp -R "$RUNNER_TEMP/out/data/." data/
+          uv run fedcourts summary-withdraw --plan "$RUNNER_TEMP/plan/summary-plan.json" \
+            > "$RUNNER_TEMP/withdrawn.txt"
           git add -A data
           git diff --cached --name-status origin/main > "$RUNNER_TEMP/changes.txt"
           uv run fedcourts summary-paths --strict \
+            --plan "$RUNNER_TEMP/plan/summary-plan.json" \
             --name-status-file "$RUNNER_TEMP/changes.txt" > /dev/null
           uv run fedcourts validate data
           uv run fedcourts scan-diff-for-secrets \
@@ -659,6 +670,9 @@ jobs:
             exit 0
           fi
           total=$(wc -l < "$RUNNER_TEMP/changes.txt")
+          # Every deletion is a withdrawal: the jail above refused any deletion
+          # the plan does not withdraw, so this count is right only behind it.
+          withdrawn=$(awk -F '\t' '$1 == "D"' "$RUNNER_TEMP/changes.txt" | wc -l)
           # The subject names this Actions run, and an auto-released run marks
           # it, so `main` keeps the round `hold-decision` counts once it merges.
           title="data(summaries): ${total} plain-language case summar$([ "$total" = 1 ] && echo y || echo ies) (run ${GITHUB_RUN_ID})"
@@ -667,6 +681,9 @@ jobs:
           fi
           {
             printf '%s\n\n' "Plain-language case summaries (docs/case-summaries.md): ${WRITTEN} written by this run, ${total} in this PR in all (an open PR's earlier summaries are carried forward). Display material — nothing scores them — so review is a read for factual errors and slant against the filings, not a number."
+            if [ "$withdrawn" != "0" ]; then
+              printf '%s\n\n' "${withdrawn} of the changes delete a summary written before the petition its docket number now holds was docketed: a re-docketed number, so the summary describes another petition (docs/case-summaries.md, Withdrawal)."
+            fi
             printf '%s\n\n' "Every file passed the summary jail, \`fedcourts validate\`, and the secret scan before this push. Each file's front matter names the model, the prompt digest and the record digest it was written from."
             printf '%s\n' "Run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}"
           } > "$RUNNER_TEMP/pr-body.md"

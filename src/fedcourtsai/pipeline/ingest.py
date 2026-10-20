@@ -647,7 +647,9 @@ _LIVE_TITLE_ROLE_RE = re.compile(r",\s*(?:petitioner|respondent|applicant|appell
 # conference is this docket on", where an ancillary paper's distribution names
 # the same conference the petition is on, and the cohort a petition is scored in
 # must be one value per case rather than one per registered parse. The versioned
-# reading governs the trajectory *count* only (`_live_distribution_count`).
+# reading governs the trajectory *count* only (`_live_distribution_count`), and
+# so whether the petition itself has been distributed: the membership key alone
+# never opens a distribution moment (`fedcourtsai.store.petition_distributed`).
 _LIVE_DISTRIBUTED_RE = DISTRIBUTED_RE  # the shared definition; see cert_signals
 
 
@@ -1021,7 +1023,7 @@ def map_live_docket(
             # vacatur is the cert-stage disposition, not a judgment on the
             # merits, and this column is read as the latter — including on the
             # agent-facing retrieval surface.
-            merits = last_judgment_entry({"docket_entries": entries})
+            merits = last_judgment_entry({"docket_entries": entries}, docket_number=docket_number)
             # The merits stage's second forecast moment, latched on the same
             # poll and from the same payload — the docket says when both sides'
             # arguments reached the record, and nothing else does.

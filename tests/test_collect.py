@@ -10,10 +10,12 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 
 from fedcourtsai import retrieval
 from fedcourtsai.agent_flags import FlagTheme
 from fedcourtsai.blinding import neutral_tool_class
+from fedcourtsai.cli import app
 from fedcourtsai.collect import (
     AUTO_RELEASED_MARKER,
     CODE_MODE_PARENT_TOOL,
@@ -27,6 +29,7 @@ from fedcourtsai.collect import (
     ThrottleRollup,
     assert_board_within_jail,
     assert_cleanup_within_jail,
+    assert_updates_within_jail,
     assert_within_jail,
     attempted_corpus_query,
     cell_artifact_name,
@@ -288,6 +291,58 @@ def test_board_jail_rejects_a_deletion() -> None:
         assert_board_within_jail(parse_name_status("D\tmetrics/big-cases.md\n"))
 
 
+# --- weekly update history jail ---------------------------------------------
+
+
+def test_update_jail_admits_added_week_files() -> None:
+    assert_updates_within_jail(
+        parse_name_status("A\tmetrics/updates/2026-W42.md\nA\tmetrics/updates/2026-W43.md\n")
+    )
+
+
+def test_update_jail_rejects_a_rewrite_or_deletion_of_a_published_week() -> None:
+    for status in ("M", "D"):
+        with pytest.raises(PathJailError, match="the history only adds files"):
+            assert_updates_within_jail(
+                parse_name_status(f"{status}\tmetrics/updates/2026-W42.md\n")
+            )
+
+
+def test_update_jail_refuses_a_rename_or_copy_into_the_history() -> None:
+    for line in (
+        "R100\tmetrics/x.md\tmetrics/updates/2026-W42.md",
+        "C100\ta.md\tmetrics/updates/2026-W42.md",
+    ):
+        with pytest.raises(PathJailError, match="the history only adds files"):
+            assert_updates_within_jail(parse_name_status(line + "\n"))
+
+
+def test_assert_update_paths_cli_exits_1_with_an_error_and_0_when_clean(tmp_path: Path) -> None:
+    changes = tmp_path / "changes.txt"
+    changes.write_text("A\tmetrics/updates/2026-W42.md\n")
+    ok = CliRunner().invoke(app, ["assert-update-paths", "--name-status-file", str(changes)])
+    assert ok.exit_code == 0
+    assert "update jail OK" in ok.output
+    changes.write_text("M\tmetrics/updates/2026-W42.md\n")
+    bad = CliRunner().invoke(app, ["assert-update-paths", "--name-status-file", str(changes)])
+    assert bad.exit_code == 1
+    assert "::error::" in bad.output
+
+
+def test_update_jail_rejects_any_other_path() -> None:
+    for path in (
+        "metrics/updates/notes.md",
+        "metrics/updates/2026-W42.md.bak",
+        "metrics/updates/nested/2026-W42.md",
+        "metrics/updates/2026-W00.md",
+        "metrics/updates/2027-W53.md",
+        "metrics/big-cases.md",
+        "src/fedcourtsai/cli.py",
+    ):
+        with pytest.raises(PathJailError, match="not a weekly update file"):
+            assert_updates_within_jail(parse_name_status(f"A\t{path}\n"))
+
+
 # --- add-only union --------------------------------------------------------
 
 
@@ -412,9 +467,9 @@ def test_union_of_a_symlinked_source_root_is_empty(tmp_path: Path) -> None:
 
 def test_an_auto_released_round_marks_its_ready_commit_and_nothing_else() -> None:
     """The daily auto-release cap is counted from `main`'s commit subjects, so
-    the mark rides the ready commit's subject (which a squash of the one-commit
-    PR keeps) and the title; a held round carries no mark, and the draft PR,
-    which never auto-merges, carries none either."""
+    the mark rides the ready commit's subject and the title, which the merge
+    commit takes as its subject; a held round carries no mark, and the draft
+    PR, which never auto-merges, carries none either."""
 
     cells = [_cell("claude-baseline"), _cell("codex-baseline", validated=False)]
     released = collect_plan(
@@ -427,9 +482,12 @@ def test_an_auto_released_round_marks_its_ready_commit_and_nothing_else() -> Non
     assert AUTO_RELEASED_MARKER not in held.ready.commit_message
     assert released.partial is not None
     assert AUTO_RELEASED_MARKER not in released.partial.commit_message
-    # The counter reads the subject exactly as a squash merge lands it.
-    assert count_auto_released([f"{released.ready.commit_message} (#2400)"]) == 1
-    assert count_auto_released([f"{held.ready.commit_message} (#2400)"]) == 0
+    # The counter reads both subjects exactly as the merge lands them: the
+    # merge commit's (the title and number) and the ready commit's beneath it.
+    merged = [f"{released.ready.title} (#2400)", released.ready.commit_message]
+    assert count_auto_released(merged) == 1
+    assert count_auto_released(merged[:1]) == count_auto_released(merged[1:]) == 1
+    assert count_auto_released([f"{held.ready.title} (#2400)", held.ready.commit_message]) == 0
 
 
 def test_all_ready_opens_one_ready_pr_no_draft() -> None:

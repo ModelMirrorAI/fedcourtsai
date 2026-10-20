@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, get_args
@@ -31,7 +31,10 @@ from fedcourtsai.process_version import (
     HARNESS_BOUNDARIES,
     BoundaryReach,
     HarnessBoundary,
+    bless_moments,
+    counting_instant,
     load_process_registry,
+    registered_windows,
 )
 from fedcourtsai.schemas import CountingWindow, ProcessRegistry, RegistryBoundaryReach
 
@@ -43,13 +46,12 @@ _V9_MERGE = datetime(2026, 10, 11, 0, 12, 2, tzinfo=UTC)
 _V9_SINCE = datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC)
 _CODEX_AND_GEMINI = frozenset({"codex-baseline", "gemini-baseline"})
 
+# proc-v10 replaces the codex and gemini pairs' blessings with its own four,
+# which are pending and so in no bless map until its merge stamps them; the
+# claude pair's two carry forward.
 GOLDEN_DIGESTS = {
     "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734": _V9_MERGE,
-    "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c": _V8,
-    "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f": _V8,
     "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": _V9_MERGE,
-    "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": _V9_MERGE,
-    "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": _V9_MERGE,
 }
 
 GOLDEN_WINDOWS = (
@@ -84,9 +86,14 @@ GOLDEN_BLESSING_LABELS = {
     "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13": ("proc-v8",),
     "sha256:9670e1c147a723e68534d88ec494cb2c7b7463dcf18dbadecadf3108f08383b1": ("proc-v8",),
     "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe": ("proc-v8",),
-    "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": ("proc-v9",),
+    "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": (
+        "proc-v9",
+        "proc-v10",
+    ),
     "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": ("proc-v9",),
     "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": ("proc-v9",),
+    "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac": ("proc-v10",),
+    "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4": ("proc-v10",),
 }
 
 _SCRUB_0921 = "a2f84f2eedb4e3b3dcc222522a55b8a93ae1eff0"
@@ -95,6 +102,8 @@ _PROMOTION_1001 = "b09c2d0bbe9a3f0fb8c38ac8b077e1d29d73020b"
 _PROMOTION_1003 = "41d003e28da4232d772031bf142a773afea52ff5"
 _PROMOTION_1010 = "6460e93061a0f4d6a06c14b5b1526346aba7a353"
 _PROMOTION_1011_2 = "c432a95a9073bcae6651eb6b75fddd30aefbd8d8"
+_PROMOTION_1016 = "1c1cd1f257e1bcbcd4f5339173fff2dab68ed317"
+_PROMOTION_1018 = "dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c"
 _SR: BoundaryReach = "self-represented dockets"
 
 GOLDEN_BOUNDARIES = (
@@ -185,24 +194,95 @@ GOLDEN_BOUNDARIES = (
         "granted dockets",
         gradual=True,
     ),
+    HarnessBoundary(
+        "scrub-withheld-petitioner-block",
+        _PROMOTION_1016,
+        datetime(2026, 10, 16, 20, 17, 17, tzinfo=UTC),
+        None,
+        _SR,
+    ),
+    HarnessBoundary(
+        "single-entry-trigger-placement",
+        _PROMOTION_1016,
+        datetime(2026, 10, 16, 20, 17, 17, tzinfo=UTC),
+        None,
+        "all",
+    ),
+    HarnessBoundary(
+        "query-clock-prior-last-pull-mask",
+        _PROMOTION_1016,
+        datetime(2026, 10, 16, 20, 17, 17, tzinfo=UTC),
+        None,
+        "all",
+    ),
+    HarnessBoundary(
+        "scrub-scanned-caption-residuals",
+        _PROMOTION_1018,
+        datetime(2026, 10, 18, 1, 6, 13, tzinfo=UTC),
+        None,
+        _SR,
+    ),
+    HarnessBoundary(
+        "interim-pool-one-row-per-number",
+        _PROMOTION_1018,
+        datetime(2026, 10, 18, 1, 6, 13, tzinfo=UTC),
+        None,
+        "all",
+        gradual=True,
+    ),
 )
+
+
+#: The merges the golden values above were stamped by. A label's instants are
+#: stamped on `main` by its carrying merge, in a commit that may touch nothing
+#: but the registry and the freeze record, so until a `staging` commit extends
+#: the goldens the constants are compared as they read with every instant a
+#: later merge stamped put back to pending: each known row still compares
+#: exactly, and only rows a carrying merge has stamped since are let through.
+_GOLDEN_MERGES = frozenset(
+    {"545e26e2b753ac79701a4fd638689a8d48654bce", "6460e93061a0f4d6a06c14b5b1526346aba7a353"}
+)
+
+
+def _unstamped(node: Any) -> Any:
+    if isinstance(node, dict):
+        if set(node) == {"at", "merge", "source"} and node["merge"] not in _GOLDEN_MERGES:
+            return {"at": None, "merge": None, "source": "merge"}
+        return {key: _unstamped(value) for key, value in node.items()}
+    if isinstance(node, list):
+        return [_unstamped(value) for value in node]
+    return node
+
+
+def _as_the_goldens_know_it() -> ProcessRegistry:
+    raw = json.loads(_REGISTRY_FILE.read_text(encoding="utf-8"))
+    rows = {key: _unstamped(raw[key]) for key in ("labels", "blessings", "windows")}
+    return load_process_registry(
+        json.dumps({**raw, **rows}), current_label=process_version.CURRENT_PROCESS_LABEL
+    )
 
 
 def test_the_bless_map_reproduces_its_golden_values_in_order() -> None:
     assert isinstance(FROZEN_PROCESS_DIGESTS, MappingProxyType)
-    assert list(FROZEN_PROCESS_DIGESTS.items()) == list(GOLDEN_DIGESTS.items())
+    known = bless_moments(_as_the_goldens_know_it())
+    assert list(known.items()) == list(GOLDEN_DIGESTS.items())
+    assert all(
+        FROZEN_PROCESS_DIGESTS[digest] == moment for digest, moment in GOLDEN_DIGESTS.items()
+    )
     assert all(moment.tzinfo is UTC for moment in FROZEN_PROCESS_DIGESTS.values())
 
 
 def test_the_counting_instant_reproduces_its_golden_value() -> None:
-    assert FROZEN_SINCE == _V9_SINCE
+    assert counting_instant(_as_the_goldens_know_it()) == _V9_SINCE
     assert FROZEN_SINCE is not None and FROZEN_SINCE.tzinfo is UTC
+    assert FROZEN_SINCE >= _V9_SINCE
 
 
 def test_the_counting_windows_reproduce_their_golden_values_in_order() -> None:
     assert isinstance(COUNTING_WINDOWS, tuple)
-    assert COUNTING_WINDOWS == GOLDEN_WINDOWS
-    assert repr(COUNTING_WINDOWS) == repr(GOLDEN_WINDOWS)
+    known = registered_windows(_as_the_goldens_know_it())
+    assert known == GOLDEN_WINDOWS
+    assert repr(known) == repr(GOLDEN_WINDOWS)
 
 
 def test_the_blessing_labels_reproduce_their_golden_values_in_order() -> None:
@@ -232,7 +312,7 @@ def test_the_boundary_reach_vocabulary_is_one_vocabulary() -> None:
 
 def test_a_half_pending_instant_is_refused() -> None:
     """An instant is pending only with both `at` and `merge` null; one alone is refused."""
-    raw = json.loads(_REGISTRY_FILE.read_text(encoding="utf-8"))
+    raw = _raw()
     raw["labels"][-1]["since"]["merge"] = None
     with pytest.raises(ValueError, match="together, or neither"):
         load_process_registry(json.dumps(raw))
@@ -264,15 +344,30 @@ def test_the_registry_is_the_single_source_of_the_freeze_constants() -> None:
         assert boundary.merge not in code, boundary.name
 
 
+def _stamped(node: Any, at: str) -> Any:
+    """``node`` with every pending instant stamped ``at``, as a carrying merge would."""
+    if isinstance(node, dict):
+        if node.get("at", "") is None and node.get("merge", "") is None:
+            return {**node, "at": at, "merge": "f" * 40}
+        return {key: _stamped(value, at) for key, value in node.items()}
+    if isinstance(node, list):
+        return [_stamped(value, at) for value in node]
+    return node
+
+
 def _raw() -> dict[str, Any]:
+    """The committed registry with any pending rows stamped, so a mutation is its only fault."""
     loaded: dict[str, Any] = json.loads(_REGISTRY_FILE.read_text(encoding="utf-8"))
-    return loaded
+    carried = max(entry["since"]["at"] for entry in loaded["labels"] if entry["since"]["at"])
+    after = datetime.fromisoformat(carried) + timedelta(hours=1)
+    stamped: dict[str, Any] = _stamped(loaded, after.strftime("%Y-%m-%dT%H:%M:%SZ"))
+    return stamped
 
 
 @pytest.mark.parametrize(
     ("mutate", "match"),
     [
-        (lambda r: r["labels"].pop(), "no label row for proc-v9"),
+        (lambda r: r["labels"].pop(), f"no label row for {process_version.CURRENT_PROCESS_LABEL}"),
         (lambda r: r["labels"].append(r["labels"][0]), "a label has two rows"),
         (lambda r: r["blessings"].append(r["blessings"][0]), "a digest is blessed twice"),
         (lambda r: r["blessings"][0].update(label="proc-v7"), "proc-v7 has no label row"),

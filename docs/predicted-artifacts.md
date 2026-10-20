@@ -469,8 +469,31 @@ strict. A `--regrade` leaves flags as committed.
 
 Each flag also carries a `source`: `agent` (the default) or `harness`, for the
 notes a harness step writes into the same file (the stamp's unread-snapshot
-tripwire, the normalisation note). It is a triage label the roll-up filters
-and counts on, not an authentication, since the file is the agent's own.
+tripwire, the normalisation note, the lane audit below). It is a triage label
+the roll-up filters and counts on, not an authentication, since the file is the
+agent's own.
+
+The **lane audit** is one of those notes. On a predict cell the stamp reads the
+cell's `retrieval_log.json` (`fedcourtsai.cell_access`) and adds one `warning`
+per kind of logged call that left the cell's lane: a call naming `qp-topics`,
+the cert-outcome oracle removed from the agent's tree; a call naming a committed
+`predictions/` or `evaluations/` path other than the cell's own run directory
+(another predictor's output, an earlier run, a glob over them, or the whole
+directory read from git history); and a file tool, shell redirection or `tee`
+writing under `data/` or a case `record/` outside that directory, which a path
+naming another case or event is, even under the same run id. A path named only
+to exclude it (`-not -path`, `--exclude`, a `!` glob or an `:(exclude)`
+pathspec) does not count, nor does a search, a fetch, an MCP call or a
+subagent's prompt. A `grep -v` over output a command already opened does
+count, as the evaluate prompt grades it. The log records that a call *named* a
+path, not what it returned, and it sees only the captured query slice: a path
+past the capture cut, a relative path after a `cd`, a path reached through a
+variable or a glob over the hidden name itself (`qp-top*`), a write made by
+`cp`, `mv`, `sed -i` or an interpreter, and a file tool's write whose target
+the capture cut off behind a long `content` are all missed. Read the note as a
+pointer to the transcript, not as a finding of a read. What a call's slice
+shows depends on how its engine logs it, so the note is engine-shaped: counts
+of it per engine compare logging as much as behaviour.
 
 The roll-up groups flags by case, event, source and theme. The theme is the
 tracked theme a flag's message matches in `src/fedcourtsai/flag_themes.json`
@@ -819,9 +842,17 @@ An evaluate cell runs once the event resolves and writes one pair of files per
 predictor it scores, under
 `events/<event_id>/evaluations/<evaluator_id>/<predictor_id>/<run_id>/`, plus
 one `retrieval.md`, one `tooling.json`, and an optional `flags.json` for the
-cell as a whole, a level above at `evaluations/<evaluator_id>/<run_id>/`. This
-is the short version; `metrics/README.md` is the authority on what any of these
-numbers may be claimed to show.
+cell as a whole, a level above at `evaluations/<evaluator_id>/<run_id>/`. A
+judge that copies `retrieval.md` and `tooling.json` into each predictor's
+directory instead has them moved up by `stamp-cell` when every copy agrees, and
+left in place with a warning when they differ; either way a harness note lands
+in the cell's flags (`stamp-cell` in [cli.md](cli.md)). The step settles a cell
+as it is stamped, not the ledger, so some committed gradings hold a copy under
+each predictor and none at the cell level; the readers that look at the cell
+level (the run-ops tooling digest and the run PR's corpus-use cross-check) find
+no self-report for those cells. This is the short version;
+`metrics/README.md` is the authority on what any of these numbers may be
+claimed to show.
 
 The evaluator never sees that layout while it works. It grades **blind**: the
 harness stages each predictor's latest prediction under an opaque alias with its

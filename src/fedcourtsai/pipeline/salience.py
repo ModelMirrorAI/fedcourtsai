@@ -62,6 +62,7 @@ re-band a prediction already written.
 from __future__ import annotations
 
 import hashlib
+import logging
 import sqlite3
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
@@ -79,11 +80,15 @@ from ..schemas import (
     DistributionCensusBand,
     DistributionCensusTerm,
     Moment,
+    ReserveOccupant,
     SalienceSelectionResult,
     SalienceUnlatchResult,
     Stage,
 )
+from ..supremecourt import parse_scotus_application_number
 from . import caption, cert_signals, moments
+
+logger = logging.getLogger(__name__)
 
 # The **active** salience-function version: the one the live selection pass scores
 # and stamps with. A refit is a NEW version registered alongside, never an
@@ -869,6 +874,14 @@ def _select_cohort(
     return selected
 
 
+def _application_key(row: corpus.CorpusRow) -> tuple[int, int] | str:
+    """The application number a row carries, or its ``case_id`` where none parses."""
+    number = parse_scotus_application_number(
+        corpus.strip_docket_annotation(row.docket_number or "")
+    )
+    return number if number is not None else row.case_id
+
+
 def _interim_ladder_key(row: corpus.CorpusRow) -> tuple[int, int, str]:
     """Reserve pick order: furthest up the escalation ladder first.
 
@@ -898,6 +911,8 @@ def plan_cohorts(
     *,
     version: SalienceScorer | None = None,
     select_arrivals: bool | None = None,
+    released: Callable[[corpus.CorpusRow], bool] | None = None,
+    application_twins: frozenset[str] = frozenset(),
 ) -> tuple[dict[str, float], list[str], int, int]:
     """Score ``rows`` and pick each conference cohort's selected slice.
 
@@ -920,7 +935,13 @@ def plan_cohorts(
     **interim reserve** instead of a cohort: pending (unresolved) applications
     fill up to ``interim_reserve_slots``, escalation-ladder order
     (:func:`_interim_ladder_key`), counting the still-pending already-selected
-    ones against the cap first (a slot frees only when its occupant resolves).
+    ones against the cap first. A slot frees when its occupant resolves, or
+    when ``released`` returns True for the occupant — the live pass's test of
+    whether its stored docket already reads as an interim disposal
+    (:func:`_reserve_occupant`), which the forward queue already treats as
+    decided. It is called once per pending occupant and on nothing else. A
+    caller with no snapshots to read (the gate replay) passes none, and every
+    pending occupant holds its slot.
     The slots in use lower the rank-fill limit in the **latest** conference
     cohort of the pass — the conference cycle the applications are live in — so
     the reserve is defined inside ``N``. It is sized to *spend* inside ``N``
@@ -929,6 +950,18 @@ def plan_cohorts(
     yet measured at the shipped capacity (``docs/salience.md``, *The interim
     docket*). An unfilled
     reserve lowers nothing.
+
+    A slot belongs to an application **number**, the unit the interim base
+    rate counts, not to a corpus row: a number the corpus stores under more
+    than one ``case_id`` holds one slot through whichever row carries the
+    latch, and none of its other rows contends while it does. Unlatched, it
+    contends through its survivor alone — ``application_twins`` names the
+    other rows (:func:`fedcourtsai.corpus.duplicate_application_case_ids`),
+    which are scored and never picked — so where the survivor is resolved or
+    out of scope and a twin is pending, the number does not contend at all.
+    The survivor can move (an unobserved stub becomes the survivor once it is
+    first polled), which is why a held slot is keyed on the number and not on
+    the row that survives today.
     """
     active = version if version is not None else scorer()
     # `select_arrivals` narrows (never widens) the version's own arrival
@@ -991,11 +1024,29 @@ def plan_cohorts(
             arrivals.append(row.case_id)
 
     # The interim reserve: still-pending occupants hold their slots (sticky
-    # latch), new picks fill the remainder in ladder order.
-    occupants = [row for row in applications if row.salience_selected]
+    # latch), new picks fill the remainder in ladder order. An occupant whose
+    # stored docket already reads as disposed keeps its latch but not its slot.
+    # The slot is the number's: a number latched under any of its rows holds
+    # one slot unless released, and none of its rows contends again either way.
+    latched = [row for row in applications if row.salience_selected]
+    held = {_application_key(row) for row in latched}
+    occupants = list(
+        {
+            _application_key(row): row
+            for row in latched
+            if not (released is not None and released(row))
+        }.values()
+    )
     open_slots = max(0, config.interim_reserve_slots - len(occupants))
     contenders = sorted(
-        (row for row in applications if not row.salience_selected), key=_interim_ladder_key
+        (
+            row
+            for row in applications
+            if not row.salience_selected
+            and row.case_id not in application_twins
+            and _application_key(row) not in held
+        ),
+        key=_interim_ladder_key,
     )
     reserve_picks = [row.case_id for row in contenders[:open_slots]]
     reserve_in_use = len(occupants) + len(reserve_picks)
@@ -1016,6 +1067,74 @@ def plan_cohorts(
     return scores, to_select, eligible, len(cohorts)
 
 
+def _reserve_occupant(conn: sqlite3.Connection, row: corpus.CorpusRow) -> ReserveOccupant:
+    """Read a pending reserve occupant's newest stored snapshot for a disposal.
+
+    An occupant whose snapshot reads as an interim disposal
+    (:func:`fedcourtsai.pipeline.outcome.interim_disposal_signal`) is reported
+    with ``holds_slot`` False. The resolver's vocabulary is exact-match and
+    can miss a disposing order phrased around the relief, which leaves the row
+    unresolved while the outcome is legible; the forward queue already reads
+    the same signal as decided, so no cell will be minted for the slot to fund.
+    A row with no stored snapshot, or whose read fails, holds its slot — the
+    rule before the release existed — so a content-store outage can only leave
+    the reserve as full as it was, never fail the pass. A failed read is logged
+    as a warning and marked ``snapshot_read_failed``, so the ledger tells it
+    apart from an occupant with nothing stored.
+    """
+    from . import outcome  # noqa: PLC0415 - outcome<-moments<-... keeps this deferred
+
+    read_failed = False
+    try:
+        snapshot = corpus.latest_snapshot(conn, row.case_id)
+    except Exception as exc:  # an unreadable store must not cost the live window its push
+        snapshot = None
+        read_failed = True
+        logger.warning(
+            "salience reserve: snapshot read for %s failed (%s); it holds its slot",
+            row.case_id,
+            type(exc).__name__,
+        )
+    disposed = snapshot is not None and outcome.interim_disposal_signal(snapshot[1]) is not None
+    return ReserveOccupant(
+        case_id=row.case_id,
+        docket_number=row.docket_number,
+        date_filed=row.date_filed,
+        snapshot_date=snapshot[0] if snapshot is not None else None,
+        holds_slot=not disposed,
+        snapshot_read_failed=read_failed,
+    )
+
+
+def _planned_selection(
+    conn: sqlite3.Connection, config: SalienceConfig
+) -> tuple[tuple[dict[str, float], list[str], int, int], list[ReserveOccupant]]:
+    """The selection plan beside the reserve occupants it was planned against.
+
+    One snapshot read per pending occupant, so the cost is bounded by the
+    reserve's size plus whatever latched applications remain unresolved.
+    """
+    occupancy: list[ReserveOccupant] = []
+
+    def released(row: corpus.CorpusRow) -> bool:
+        occupant = _reserve_occupant(conn, row)
+        occupancy.append(occupant)
+        return not occupant.holds_slot
+
+    plan = plan_cohorts(
+        (
+            row
+            for row in corpus.iter_rows(conn, court="scotus")
+            # Tier-0 excluded (incl. IFP): not scored, not selected.
+            if corpus.out_of_scope_reason_full(conn, row) is None
+        ),
+        config,
+        released=released,
+        application_twins=corpus.duplicate_application_case_ids(conn),
+    )
+    return plan, occupancy
+
+
 def _selection_plan(
     conn: sqlite3.Connection, config: SalienceConfig
 ) -> tuple[dict[str, float], list[str], int, int]:
@@ -1024,17 +1143,11 @@ def _selection_plan(
     The pure planning half of the pass: the live corpus scan with the Tier-0
     eligibility filter applied (which admits cert petitions and substantive
     applications), delegating scoring, cohort selection, and the interim
-    reserve to :func:`plan_cohorts`.
+    reserve to :func:`plan_cohorts`, whose reserve slot is an application
+    number's — with the reserve's occupants whose stored docket already reads
+    as disposed released (:func:`_reserve_occupant`).
     """
-    return plan_cohorts(
-        (
-            row
-            for row in corpus.iter_rows(conn, court="scotus")
-            # Tier-0 excluded (incl. IFP): not scored, not selected.
-            if corpus.out_of_scope_reason_full(conn, row) is None
-        ),
-        config,
-    )
+    return _planned_selection(conn, config)[0]
 
 
 def apply_salience_selection(
@@ -1140,7 +1253,7 @@ def reconcile_salience_selection(
     mint's ``event.yaml`` half lands under. Idempotent under the sticky
     latch — a second run with no corpus change latches nothing new.
     """
-    scores, to_select, eligible, conferences = _selection_plan(conn, config)
+    (scores, to_select, eligible, conferences), occupancy = _planned_selection(conn, config)
     if apply:
         corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
         corpus.latch_salience_selected(conn, to_select)
@@ -1153,6 +1266,7 @@ def reconcile_salience_selection(
         conferences=conferences,
         newly_selected=len(to_select),
         sample_selected=sorted(to_select)[:_MAX_SAMPLE],
+        reserve_occupants=occupancy,
     )
 
 

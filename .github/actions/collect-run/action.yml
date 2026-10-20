@@ -61,8 +61,9 @@ inputs:
     description: >
       `true` when the round skipped the review hold under its auto-release caps
       (the plan job's `hold-decision`). The ready commit's subject then carries
-      the auto-released mark, which a squash merge keeps on `main`, where the
-      next round's plan counts its daily cap. Anything but `true` is no mark.
+      the auto-released mark, as does the PR title the merge commit takes as
+      its subject, so `main` keeps it where the next round's plan counts its
+      daily cap. Anything but `true` is no mark.
     required: false
     default: 'false'
   courtlistener-token:
@@ -528,7 +529,9 @@ runs:
           # (e.g. the repo's "Allow auto-merge" is off) leaves the PR open for a
           # manual merge rather than failing the run.
           if [ "$draft" != "true" ] && [ "$auto" = "true" ]; then
-            gh pr merge --auto --squash "$url" \
+            # A merge commit under the PR's title, as merge-when-green.sh
+            # lands it, so the mark reaches `main`'s first-parent log either way.
+            gh pr merge --auto --merge --subject "${title} (#${url##*/})" "$url" \
               || echo "::warning::could not enable auto-merge on ${url}"
             # Hand the caller's merge step this PR and the exact commit just
             # pushed. Armed auto-merge never exercises the dev App's approval

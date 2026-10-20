@@ -2171,10 +2171,16 @@ number. The opening-only shapes and the residual detector read this much.
 # An address local part followed by a dotted domain. Deliberately narrower than
 # the addressing RFCs allow (no quoted local parts, no bare-IP domains): the
 # targets are the addresses people sign filings with, and a wider pattern buys
-# nothing but false positives over legal prose.
+# nothing but false positives over legal prose. Every run is bounded at the
+# RFC limits (a 64-character local part, 63-character labels) and the domain at
+# nine labels before the top-level one: unbounded, a long run of address
+# characters with an `@` and no domain behind it costs time quadratic in its
+# length, and one garbled filing at the document cap then stalls its cell's
+# provisioning for half a minute. A string past those bounds is not an address
+# anyone signs with, and this shape leaves it.
 _EMAIL_RE = re.compile(
-    r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
-    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}\b"
+    r"\b[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?){0,8}\.[A-Za-z]{2,63}\b"
 )
 
 # The same address as a scanned page's text layer spells it: OCR sets a blank on
@@ -2368,13 +2374,32 @@ _STREET_CAPITAL_SUFFIXES = "|".join(
 # "Title 23 of the Federal Highway Act" would then read as an address.
 _STREET_CONNECTORS = "(?:de|del|la|las|los|el|du|des|da|van|von|der)"
 
+# The Ohio State Reports cite as a volume, `Ohio St.`, an optional series and a
+# page (`123 Ohio St. 3d 456`, `98 Ohio St.2d 12`, `1 Ohio St. 3 (1852)`), and
+# the Ohio State Law Journal as `75 Ohio St. L.J. 123`, which is a street
+# address's shape to the letter. With a series or the journal's `L.J.`, a page
+# of one to four digits standing as a word of its own and not followed by a
+# capitalized word reads as the citation; an address line goes on to a
+# lettered unit (`4B`) or a word (`3d Floor`). Without one, the page must be
+# followed by a pin cite or a parenthesis (`1 Ohio St. 3, 5`, `1 Ohio St. 3
+# (1852)`), since a bare number there is as often an address's suite
+# (`350 Ohio St. 200`). The final name token is never read as `Ohio` where
+# such a citation follows.
+_OHIO_SERIES = r"[ \t]*(?:[23]d|L\.[ \t]?J\.)"
+_OHIO_REPORTER = (
+    r"(?!(?i:Ohio[ \t]+St\.)(?:"
+    rf"{_OHIO_SERIES}[ \t]+\d{{1,4}}(?![\w-])(?![ \t]+[A-Z][a-z])"
+    r"|[ \t]+\d{1,4}(?=[ \t]*\(|,[ \t]*\d)"
+    r"))"
+)
+
 
 def _street_pattern(suffixes: str) -> re.Pattern[str]:
     """The street-address shape ending on one of ``suffixes``."""
     return re.compile(
         r"(?:(?<![\w.-])|(?<=^[.-]))\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
         rf"(?:(?:[A-Z0-9][\w'.-]{{0,40}}|{_STREET_CONNECTORS})[ \t]+){{0,4}}"
-        r"(?:[A-Z][\w'.-]{0,40}|\d{1,3}(?:st|nd|rd|th))[ \t]+"
+        rf"{_OHIO_REPORTER}(?:[A-Z][\w'.-]{{0,40}}|\d{{1,3}}(?:st|nd|rd|th))[ \t]+"
         rf"(?:{suffixes})\b\.?"
         r"(?:[ \t]*,?[ \t]*(?:Apt|Apartment|Suite|Ste|Unit|Floor|Fl|Rm|Room|No|APT|UNIT)"
         r"\.?[ \t]*[\w-]+"
@@ -2611,7 +2636,7 @@ _RESIDUAL_STREET_SUFFIX_WORDS = "|".join(
 _RESIDUAL_STREET_RE = re.compile(
     r"^[^\w\n]{0,3}\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
     r"(?:[A-Za-z][\w'.-]{0,40}[ \t]+){0,4}"
-    r"(?:[A-Za-z][\w'.-]{0,40}|\d{1,3}(?:st|nd|rd|th))[ \t]+"
+    rf"{_OHIO_REPORTER}(?:[A-Za-z][\w'.-]{{0,40}}|\d{{1,3}}(?:st|nd|rd|th))[ \t]+"
     rf"(?:{_RESIDUAL_STREET_SUFFIX_WORDS}|{_RESIDUAL_STREET_SUFFIX_WORDS.upper()})\b",
     re.MULTILINE,
 )

@@ -12,10 +12,13 @@ from fedcourtsai import public_update, set_aside
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.public_update import (
+    archive_path,
+    archive_public_updates,
     build_public_update,
     last_complete_week,
     render_public_update,
     week_bounds,
+    weeks_through,
 )
 from fedcourtsai.schemas import (
     Disposition,
@@ -374,3 +377,110 @@ def test_a_set_aside_event_is_never_shown_as_forecast_in_advance(
 
     new = build_public_update(data, _week_of(base.date()))
     assert [item.case_id for item in new.new] == ["scotus/402"]
+
+
+def test_weeks_through_crosses_a_year_and_is_empty_when_reversed() -> None:
+    # 2026 is a 53-week ISO year.
+    assert weeks_through("2026-W52", "2027-W01") == ["2026-W52", "2026-W53", "2027-W01"]
+    assert weeks_through("2026-W42", "2026-W42") == ["2026-W42"]
+    assert weeks_through("2026-W43", "2026-W42") == []
+
+
+def test_the_history_is_write_once_and_skips_an_empty_week(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data, metrics = tmp_path / "data", tmp_path / "metrics"
+    base = _base()
+    first = _week_of(base.date())
+    monkeypatch.setattr(public_update, "ARCHIVE_FIRST_WEEK", first)
+    _event(data, 601, "Lambda v. Mu")
+    _forecast(data, 601, at=base, probability=0.7)
+    following = _week_of(base.date() + timedelta(days=7))
+
+    result = archive_public_updates(data, metrics, following)
+    assert result.written == (first,)
+    assert result.empty == (following,)
+    path = archive_path(metrics, first)
+    assert path == metrics / "updates" / f"{first}.md"
+    # The file is the email's render, with its title.
+    assert path.read_text() == render_public_update(build_public_update(data, first))
+
+    # A later change to the ledger inside that week does not rewrite the page.
+    _event(data, 602, "Nu v. Xi")
+    _forecast(data, 602, at=base + timedelta(minutes=5), probability=0.4)
+    again = archive_public_updates(data, metrics, following)
+    assert again.written == ()
+    assert again.present == (first,)
+    assert "Nu v. Xi" not in path.read_text()
+
+
+def test_the_history_starts_at_the_first_week_the_list_was_sent(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data, metrics = tmp_path / "data", tmp_path / "metrics"
+    base = _base()
+    _event(data, 611, "Omicron v. Pi")
+    _forecast(data, 611, at=base, probability=0.6)
+    later = _week_of(base.date() + timedelta(days=14))
+    monkeypatch.setattr(public_update, "ARCHIVE_FIRST_WEEK", later)
+    result = archive_public_updates(data, metrics, later)
+    assert result.written == ()
+    assert not (metrics / "updates").exists()
+
+
+def test_archive_cli_reports_what_it_wrote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    data, metrics = tmp_path / "data", tmp_path / "metrics"
+    env = {"FEDCOURTS_DATA_ROOT": str(data), "FEDCOURTS_METRICS_ROOT": str(metrics)}
+    base = _base()
+    week = _week_of(base.date())
+    monkeypatch.setattr(public_update, "ARCHIVE_FIRST_WEEK", week)
+    _event(data, 621, "Rho v. Sigma")
+    _forecast(data, 621, at=base, probability=0.6)
+
+    bad = runner.invoke(app, ["archive-public-updates", "--through", "2026-42"], env=env)
+    assert bad.exit_code == 2
+
+    result = runner.invoke(app, ["archive-public-updates", "--through", week], env=env)
+    assert result.exit_code == 0, result.output
+    assert f"wrote {week}" in result.output
+    assert "Rho v. Sigma" in archive_path(metrics, week).read_text()
+
+    rerun = runner.invoke(app, ["archive-public-updates", "--through", week], env=env)
+    assert rerun.exit_code == 0, rerun.output
+    assert "0 written, 1 already archived" in rerun.output
+
+
+def test_a_missed_run_catches_up_every_non_empty_week(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data, metrics = tmp_path / "data", tmp_path / "metrics"
+    base = _base()
+    first = _week_of(base.date())
+    monkeypatch.setattr(public_update, "ARCHIVE_FIRST_WEEK", first)
+    _event(data, 631, "Tau v. Upsilon")
+    _forecast(data, 631, at=base, probability=0.6)
+    _event(data, 632, "Phi v. Chi")
+    _forecast(data, 632, at=base + timedelta(days=14), probability=0.3)
+    third = _week_of(base.date() + timedelta(days=14))
+    result = archive_public_updates(data, metrics, third)
+    assert result.written == (first, third)
+    assert len(result.empty) == 1
+
+
+def test_a_caption_line_break_cannot_open_a_block(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    _event(data, 641, "Psi\n# v. Omega\n---")
+    _forecast(data, 641, at=base, probability=0.6)
+    text = render_public_update(build_public_update(data, _week_of(base.date())))
+    assert "\n# v. Omega" not in text
+    assert "\n---\n\n_" not in text.split("## New forecasts this week", 1)[1].split("---")[0]
+
+
+def test_archive_cli_refuses_a_week_still_in_progress(tmp_path: Path) -> None:
+    env = {"FEDCOURTS_DATA_ROOT": str(tmp_path / "data"), "FEDCOURTS_METRICS_ROOT": str(tmp_path)}
+    year, week, _ = datetime.now(UTC).date().isocalendar()
+    current = f"{year}-W{week:02d}"
+    result = runner.invoke(app, ["archive-public-updates", "--through", current], env=env)
+    assert result.exit_code == 2
+    assert "not complete yet" in result.output

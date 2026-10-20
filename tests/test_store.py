@@ -8,6 +8,7 @@ from fedcourtsai import corpus, process_version
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline import moments as moments_module
+from fedcourtsai.pipeline.pull import _reopenable_moment
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
@@ -43,6 +44,7 @@ from fedcourtsai.store import (
     live_payload_reader,
     normalized_stage,
     open_events,
+    petition_distributed,
     recent_cell_census,
     resolved_events,
     unforecastable_listed_events,
@@ -2025,3 +2027,76 @@ def test_iter_predictions_on_an_absent_ledger_creates_nothing(tmp_path: Path) ->
     absent = tmp_path / "absent"
     assert iter_predictions(absent) == []
     assert not absent.exists()
+
+
+#: The No. 26-455 shape: the only distribution on the docket is a sealing
+#: motion's, filed under its own M-number; the petition is undistributed.
+_MOTION_ONLY = _docket(
+    ("Sep 01 2026", "Motion (26M8) for leave to file under seal filed."),
+    ("Sep 09 2026", "Motion (26M8) DISTRIBUTED for Conference of 10/9/2026."),
+    ("Oct 05 2026", "Petition for a writ of certiorari filed."),
+)
+
+
+@pytest.mark.parametrize(
+    ("count", "conference", "distributed"),
+    [
+        # An ancillary paper's distribution sets the membership column only.
+        (0, date(2026, 10, 9), False),
+        (1, date(2026, 10, 9), True),
+        (0, None, False),
+        # No count was ever derived: the column is the only evidence there is.
+        (None, date(2026, 10, 9), True),
+        (None, None, False),
+    ],
+)
+def test_petition_distributed_reads_the_petitions_own_count(
+    count: int | None, conference: date | None, distributed: bool
+) -> None:
+    row = corpus.CorpusRow(
+        case_id="scotus/60",
+        court="scotus",
+        docket_number="26-60",
+        distributed_for_conference=conference,
+        distribution_count=count,
+    )
+    assert petition_distributed(row) is distributed
+
+
+def test_an_ancillary_motions_distribution_mints_no_distribution_cell(tmp_path: Path) -> None:
+    """The motion's conference is still ahead, so the upper bound reads nothing
+    and admits; only the lower bound, keyed on the petition's own count, refuses."""
+    db = corpus.corpus_db_path(tmp_path)
+    _distributed_petition(db, 61, _MOTION_ONLY, stored=date(2026, 10, 6))
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET distributed_for_conference = '2026-10-09', "
+            "distribution_count = 0 WHERE case_id = ?",
+            ("scotus/61",),
+        )
+        conn.commit()
+    assert forecastable_events(db, "scotus", 61, today=date(2026, 10, 6)) == []
+    with corpus.connect(db) as conn:
+        conn.execute("UPDATE cases SET distribution_count = 1 WHERE case_id = ?", ("scotus/61",))
+        conn.commit()
+    assert forecastable_events(db, "scotus", 61, today=date(2026, 10, 6)) == [
+        "evt-petition-disposition"
+    ]
+
+
+def test_a_re_predict_never_targets_a_petition_only_its_motion_distributed() -> None:
+    row = corpus.CorpusRow(
+        case_id="scotus/62",
+        court="scotus",
+        docket_number="26-62",
+        distributed_for_conference=date(2026, 10, 9),
+        distribution_count=0,
+    )
+
+    def payloads(case_id: str) -> tuple[date, dict[str, object]] | None:
+        return date(2026, 10, 6), _MOTION_ONLY
+
+    day = date(2026, 10, 6)
+    assert not _reopenable_moment("evt-petition-disposition", row, day=day, payloads=payloads)
+    distributed = row.model_copy(update={"distribution_count": 1})
+    assert _reopenable_moment("evt-petition-disposition", distributed, day=day, payloads=payloads)

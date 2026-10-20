@@ -1573,6 +1573,27 @@ def test_snapshot_shows_judgment_reads_a_post_grant_rule_46_dismissal() -> None:
     assert snapshot_shows_disposition(docket) is None
 
 
+def test_snapshot_shows_judgment_reads_the_courts_rule_46_decree_on_several_dockets() -> None:
+    # 20-429 / 20-454 / 20-539: the Court dismisses the *petitions* in the third
+    # sentence of a longer order. The parser's petition shapes are declined
+    # here (no row, so no grant on record), so the regex's own plural branch is
+    # what refuses a merits cell on any of the three dockets.
+    docket = {
+        "CaseNumber": "20-454",
+        "ProceedingsandOrder": [
+            {"Date": "Feb 22 2021", "Text": "Petition GRANTED."},
+            {
+                "Date": "May 17 2021",
+                "Text": "In light of the Government's representations, the motions for "
+                + "leave to intervene are denied, and the petitions in Nos. 20-429, "
+                + "20-454, and 20-539 are dismissed pursuant to Rule 46.1.  VIDED.",
+            },
+        ],
+    }
+    signal = snapshot_shows_judgment(docket)
+    assert signal is not None and "are dismissed pursuant to Rule 46.1" in signal
+
+
 # Every real termination spelling, with which of the guard's two instruments
 # carries it. The split is exact and not a coincidence: the guard holds a
 # payload and no row, so it reads the parser with `cert_granted=False` — and
@@ -1721,6 +1742,29 @@ def test_disposition_route_separates_a_summary_merits_grant_from_a_plenary_one()
             pending, disposition=Disposition.granted, date_cert_granted=date(2026, 1, 12)
         )
         == "plenary"
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # 17-193 and 20-507, verbatim: the summary reversal shares the grant's
+        # sentence, after a comma or "and".
+        "Petition for certiorari GRANTED, judgment REVERSED. Opinion per curiam.",
+        "Petition GRANTED and judgment REVERSED. Justice Sotomayor dissents. "
+        + "Opinion per curiam. (Detached Opinion )",
+    ],
+)
+def test_disposition_route_reads_a_same_sentence_summary_reversal(text: str) -> None:
+    payload = _granted_payload(
+        ("Jan 12 2026", "Petition for a writ of certiorari filed."),
+        ("May 11 2026", text),
+    )
+    assert (
+        disposition_route(
+            payload, disposition=Disposition.granted, date_cert_granted=date(2026, 5, 11)
+        )
+        == "summary-merits"
     )
 
 

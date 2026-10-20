@@ -53,9 +53,10 @@ closes once read: a daily prediction-reading digest — one predicted event with
 every predictor side by side — and a Monday performance digest carrying the
 cells and spend produced over the week, the trailing month and the Term to
 date, plus the back-test results) and
-`run-analytics` — seven dispatch modes: corpus statistics, the
+`run-analytics` — eight dispatch modes: corpus statistics, the
 distribution-parse census, the document text-coverage enumeration, the
-tool-usage roll-up, the metrics refresh, the daily big-case board, and the
+tool-usage roll-up, the metrics refresh, the daily big-case board, the weekly
+public update history, and the
 qp-topic labeler (the only one that runs an agent) — both schedule/dispatch
 only. A development lane, `corpus-check`, runs the check a pull request's
 description declares at the PR's head against the corpus, read-only, once the
@@ -231,10 +232,11 @@ already-selected one.
 
 A **substantive application** (stay or injunction) runs a parallel, simpler
 lifecycle under the interim stage: docketed → holds or waits for one of the
-bounded reserve slots (ladder order above; a slot frees only when an occupant
-resolves) → predicted on its interim baseline, re-forecast when the Court
-requests a response and when that response arrives → resolved through the
-interim disposition vocabulary and evaluated. The stage's baseline is registered
+bounded reserve slots (ladder order above; a slot frees when an occupant
+resolves, or when its stored docket already reads as disposed) → predicted on
+its interim baseline, re-forecast when the Court requests a response and when
+that response arrives → resolved through the interim disposition vocabulary
+and evaluated. The stage's baseline is registered
 and wired — the substantive slice pooled over application-Terms strictly before
 the case's own — and an interim skill number exists only where that pool clears
 its pre-registered floor, travelling with the selection caveats registered
@@ -322,7 +324,9 @@ models in `fedcourtsai.schemas` (exported to `schemas/*.schema.json`).
 Alongside the per-case tree, two repo-level roll-ups are regenerated
 deterministically and committed for review: `metrics/` and `data/scope/scope.json`
 (the published prediction-scope decision for the already-public case set) —
-plus the `data/qp-topics/` artifacts, which are not roll-ups at all
+plus `data/schedule/schedule.json`, the live poll's display file of each
+pending public docket's next conference (rewritten each live window, not a
+reviewed roll-up), and the `data/qp-topics/` artifacts, which are not roll-ups at all
 (`docs/qp-topic.md`): `qp-topic-reference.json`, the hand-labeled topic
 reference set, authored as a judgment and changed only in its own reviewed diff;
 and — once a labeling run has produced one — `qp-topics.json`, the
@@ -388,7 +392,7 @@ docs/               design & operations references (see Documentation below)
 
 ## Documentation
 
-- [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) (the pending-case track's design) · [Data sources, terms & PII](docs/data-sources.md) (the same sources' terms posture, not their design) · [Corpus store & row schema](corpus/README.md)
+- [Data pipeline](docs/data-pipeline.md) (the corpus & ingestion) · [Live sources](docs/live-sources.md) (the pending-case track's design) · [Document provisioning](docs/document-provisioning.md) (which filings reach a cell, and how coverage is measured) · [Data sources, terms & PII](docs/data-sources.md) (the same sources' terms posture, not their design) · [Corpus store & row schema](corpus/README.md)
 - [Pipeline & triggers](docs/pipeline.md) · [CLI reference](docs/cli.md)
 - [Predicted artifacts](docs/predicted-artifacts.md) (what one prediction consists of, with examples)
 - [Metrics & what may be claimed](metrics/README.md) · [Salience gate](docs/salience.md) · [Process version](docs/process-version.md) · [Freeze record](docs/freeze-record.md)

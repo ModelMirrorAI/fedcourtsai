@@ -62,6 +62,41 @@
       ],
       "title": "SummaryPlanCase",
       "type": "object"
+    },
+    "SummaryWithdrawal": {
+      "additionalProperties": false,
+      "description": "One committed summary a summary run withdraws: written before the petition\nthe docket number now holds was docketed, so it describes another petition.",
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "docketed": {
+          "description": "The docketed date the case's newest record carries, which the summary's snapshot day precedes",
+          "format": "date",
+          "title": "Docketed",
+          "type": "string"
+        },
+        "path": {
+          "description": "The summary file's repository-relative path",
+          "title": "Path",
+          "type": "string"
+        },
+        "snapshot": {
+          "description": "The snapshot day the summary was written from",
+          "format": "date",
+          "title": "Snapshot",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "path",
+        "snapshot",
+        "docketed"
+      ],
+      "title": "SummaryWithdrawal",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -127,6 +162,14 @@
       "minimum": 0,
       "title": "Up To Date",
       "type": "integer"
+    },
+    "withdrawn": {
+      "description": "Committed summaries of another petition than the docket number now holds (a re-docketed number), which the run's review PR deletes; free, so never deferred by the limit",
+      "items": {
+        "$ref": "#/$defs/SummaryWithdrawal"
+      },
+      "title": "Withdrawn",
+      "type": "array"
     }
   },
   "required": [

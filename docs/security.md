@@ -38,7 +38,7 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   `run-evaluate`; no job that runs an agent names it), the reviewed-PR openers (`run-backtest`'s publish job,
   `run-analytics`'s metrics-refresh and qp-topic-publish jobs, and
   `summarize`'s publish job),
-  `run-analytics`'s big-cases job (the one PR opener here that merges its own PR unattended),
+  `run-analytics`'s big-cases and public-updates jobs (the two PR openers here that merge their own PRs unattended),
   `sync-staging`, and the promotion train (`promotion-prep`'s `write` job),
   which cuts each frozen `promote/<date>` candidate, opens its PR and merges
   it on the configured approver's approval of exactly its head.
@@ -57,9 +57,11 @@ jail (the dev App's unattended merges), the writer jail (the data App), or
   promotion candidate's `promote/<date>` branch, once per head. Its client id is the
   `DISPATCH_APP_CLIENT_ID` variable and its private key the
   `DISPATCH_APP_PRIVATE_KEY` secret, both on `prod`; it must be named
-  `fedcourtsai-dispatch`, because `run-predict`'s agent steps allow its bot
-  login (`fedcourtsai-dispatch[bot]`) past their actor checks — a chained
-  round's actor. It is its own App rather
+  `fedcourtsai-dispatch`, because the agent steps of `run-predict`,
+  `run-evaluate` and `integration-test` allow its bot login
+  (`fedcourtsai-dispatch[bot]`) past their actor checks — a chained round's
+  actor, and the train's gate suite's — and `config/dispatchers.json` names it
+  as the one bot the run gate admits. It is its own App rather
   than a scope added to the dev App because the dev App's key sits in jobs that
   run agent cells' collect step and open PRs; a dispatch-capable token there
   would let any of those jobs start any workflow. It is an App rather than
@@ -90,17 +92,18 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | Workflow | App | Token scope | Notes |
 |----------|-----|-------------|-------|
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
-| `run-seed` | data | contents (walker steps; the order-vote sweep's writer); none at all on the order-vote sweep's projection and parse jobs; ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
+| `run-seed` | data | contents (walker steps; the order-vote and OCR sweeps' writers); none at all on either sweep's projection and parse jobs; ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
 | `promotion-record` (write job only) | data | contents | on a staging→main promotion merge only (a no-secret, read-only `classify` job decides that first): push the annotated `promotion/` and `prereg/` tags and the one-parent record commit that fills the placeholders the merge added and stamps its pending registrations. The job runs up to three attempts. In each, the plan, the tags, the apply, the commit, the jail and a validation of the jailed SHA run holding no write credential; only then is a token minted, and only that attempt's push and revoke steps read it, the push refusing one that is not the data App's. The push never re-plans: where `main` advanced it records the rejection, the attempt's token is revoked, and the next attempt prepares again from a fresh fetch holding no credential, running `write.sh` from the newly fetched main tip — the same trust the data App already places in main. Every token still live after the last attempt is revoked before the job ends, and the check that main holds no pending registration runs in the report job, so no repo code runs in the write job while a write token is live. The step split is a least-exposure ordering within one job, not a credential boundary: the planner's code is main's own reviewed code, and a hostile planner would need a job boundary to be contained. A tag push never replaces one, the commit is pushed with a lease on the base it was jailed against, and every push blanks any ambient header and runs no hook. The failure issue and the PR comment ride the ambient token in a separate job |
-| `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for every role its environment is trusted by — both corpus roles under `corpus-write` (the corpus, application back-fill, decision-record and opinion-record jobs), and under `prod` (`handoff-projection`) the read-only role, alone once the read-write role's trust is narrowed to `corpus-write` (*`corpus-write` holds the production read-write role* below) — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
+| `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The corpus job's dry run holds the read-only session and no App token, and pushes nothing; its apply holds the read-write role and the App token. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for every role its environment is trusted by — both corpus roles under `corpus-write` (the corpus, application back-fill, decision-record and opinion-record jobs), and under `prod` (`handoff-projection`) the read-only role alone, since the read-write role's trust names `corpus-write` only (*`corpus-write` holds the production read-write role* below) — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
 | `run-predict`, `run-evaluate` (`collect` job only) | dev | contents, pull-requests | the cell jobs name no App credential: a Claude cell's action gets the job's own token, capped at `contents: read` by the cell job's permissions, and the codex and gemini cells get none. The workflow commits, and `collect` merges its run PR once the required checks pass with a second workflow token minted for that step alone. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
 | `run-backtest` (publish job only) | dev | contents, pull-requests | open the reviewed back-test PR. The replay job holds no App credential: it hands the arm's one report to the publish job as a one-day artifact, and the publish job, which runs no engine and assumes no role, checks that the hand-off holds that file alone, that the tree differs from the commit there alone, and scans the change and the PR prose for secrets, all before it mints. The `cadence` guard holds no App token either, only an ambient `actions: read` over this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
-| `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — the one PR opener in this repo that is not reviewed by a human, which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
+| `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — one of the two PR openers in this repo not reviewed by a human (with the public-updates row below), which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
+| `run-analytics` (public-updates job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** update-history PR, whose diff the required `paths` check bounds independently (`assert-update-paths`: added `metrics/updates/<YYYY-Www>.md` files, nothing else). The job assumes no role, holds no `id-token` and does not bind `website`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the rows above |
 | `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR, from a job that runs no agent and takes only the measured labels file and the measured block from `qp-topic-label`, as a one-day artifact handed off once the gate has passed. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` (`write` job only — the promotion train) | dev | contents, pull-requests | create a `promote/<date>` candidate branch at staging's tip (the one ref write; never an update, force push or deletion), open its draft PR into `main`, mark it ready, request the approvers' review, refresh the generated block of its body — and **merge it**, with a merge commit pinned to the head, using the dev App's `main: require approval` bypass. The merge runs only after the job re-reads, on the ambient token before minting, that the PR is open, ready and unchanged at the planned head, that an approver in `config/promotion-train.yaml` approved exactly that head with no change requested since, from every page of the reviews (`fedcourts promotion-train-approval`; a short or failed read is not approved), that no fan-out is in flight, and that the registry gate still passes; `main: require PR`'s required checks still bind the merge. The `plan` job before it decides and renders holding no write credential and no environment |
-| `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read (`chain` only) | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
+| `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. Both read the open PRs into `main` and their reviews first, standing down while a promotion is about to merge, and `chain` also reads its round's collect PR. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
 | `promotion-prep` (`dispatch-gate` job) | dispatch | actions write | start `integration-test` `scenario=gate` (`offline-gate` under the `promote:skip-engine-smoke` label) at a promotion candidate's `promote/<date>` branch, only while no dispatched integration run of any title sits at that head and ref: one paid suite per candidate, never re-dispatched by the train, and at most `max_gate_dispatches_per_day` (`config/promotion-train.yaml`) a UTC day across candidates. The run resolves the `staging` environment, spends staging's engine keys with no review hold, and is side-effect free like every integration run |
 | `corpus-check` (post job only) | none — the job's own token | pull-requests write | the one result comment on the PR the plan picked, its body's sha256 recorded in the job's run summary — since any workflow's comment-capable token posts as the same bot, that digest is what marks the lane's result. The ambient token, not an App's: the comment must start nothing, and the job runs no PR code, binds no environment and holds no `id-token`. The `run` job, which runs the PR's code, holds `contents: read` and `id-token` only, and runs that code as an account that can reach neither; `run-auto`, which runs `main`'s, holds the same |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
@@ -112,17 +115,19 @@ the App level the union of what its workflows mint:
   Pull-requests scope from it: the deterministic writers' issue writes must
   trigger nothing and so ride the ambient `GITHUB_TOKEN`. Dropping both grants
   at the App level is a safe tightening.)
-- **dev App**: Contents, Issues, and Pull requests — all *read and write*, and
-  **no Workflows permission** — a requirement, not a tightening: with it, a
+- **dev App**: Contents and Pull requests — both *read and write* (no
+  workflow mints an Issues scope from it: the collect jobs post to the
+  agent-feedback issue on the ambient token, so dropping an Issues grant at
+  the App level is a safe tightening), and **no Workflows permission** — a requirement, not a tightening: with it, a
   dev App token could create or update a ref carrying a workflow file, and
   the promotion train's `promote/` candidates, which the App creates and the
   `staging` environment admits, would put that workflow's push-run in reach
   of staging's role and keys. Verify it in the App's settings when setting up
   the train, and again whenever the App's permissions change; no workflow
   mints a Workflows scope from it.
-- **dispatch App**: Actions — *read and write*, and Pull requests — *read* (the
-  `chain` job waits on its round's collect PR before it dispatches). Nothing
-  else.
+- **dispatch App**: Actions — *read and write*, and Pull requests — *read*
+  (both chain jobs read the open promotion PRs and their reviews before they
+  dispatch, and `chain` also waits on its round's collect PR). Nothing else.
 - **staging App**: none needed — no workflow mints from it.
 
 After changing an App permission, **re-approve the installation** on the repo — a
@@ -321,7 +326,8 @@ published.
 
 The three `main` rulesets are split so each rule's bypass is correct (a ruleset's
 bypass list applies to the whole ruleset); further rulesets protect the
-`staging` and `ops-metrics` branches. Three target tags rather than
+`staging`, `ops-metrics` and `promote/**` branches, and refuse the creation of
+any other casing of `main` and `staging`. Three target tags rather than
 branches. `tags: protect record` blocks update and deletion on the three
 record namespaces (`prereg/**`, `promotion/**`, `results/**`) with an empty
 bypass list, so even an admin must edit the ruleset before a record tag can
@@ -348,11 +354,14 @@ section: active, aimed at the refs named here with no carve-out, the rules
 named here, and bypass lists holding exactly the actors and modes named here,
 with the maintainers team and the two Apps resolved by name at run time. It
 runs only when the maintainer runs it, so an edit between runs goes unseen. Every require-PR ruleset pins
-`allowed_merge_methods` to **`merge, squash`**: `merge` because the sync and the
-promotion must keep `main` and `staging` sharing history, `squash` because the
-data-run `collect` PRs are merged with it, and no rebase because replaying
-commits onto either branch would break that shared history and rewrite the
-pre-registration record's commit ids.
+`allowed_merge_methods` to **`merge`** alone: the sync and the promotion must
+keep `main` and `staging` sharing history, and a squash of either one by hand
+would break it, so the platform refuses a squash outright. Every other PR lands the same way, the unattended data-run PRs
+included. No rebase either, because replaying commits onto either branch
+would break that shared history and rewrite the pre-registration record's
+commit ids. The admin-read check reads the methods on `main: require approval`
+alone and accepts any non-empty subset of `merge, squash`, so it is looser than
+this policy.
 
 - **`main: require PR`** — requires a pull request plus the status checks below
   to merge. **Bypass: the data App only**, so the deterministic writer jobs
@@ -374,8 +383,8 @@ pre-registration record's commit ids.
     runs — and fails — only on a PR to `main` whose head
     is not a same-repo `staging` or non-feature lane, so a feature PR
     cannot ride around the promotion path by mistake. Those lanes are all
-    reviewed except the big-case board's, which merges unattended behind the `paths`
-    jail below. Rulesets cannot constrain
+    reviewed except the big-case board's and the weekly update history's, which
+    merge unattended behind the `paths` jail below. Rulesets cannot constrain
     a PR's source branch, which is why it is a check rather than a rule. Its
     job definition lives in `main`'s own `ci.yml`, so the context reports on
     every lane into `main`; adding a context like it goes through the *Adding
@@ -413,11 +422,14 @@ pre-registration record's commit ids.
     an engine added to `config/predictors.yaml` or `config/evaluators.yaml`
     brings its discovery names in the same change (review-enforced, not tested).
     The same check carries the
-    second unattended lane's jail: `run-analytics`'s daily `big-cases` job opens
+    other unattended lanes' jails: `run-analytics`'s daily `big-cases` job opens
     its board PR on the `metrics/big-cases` branch, and there `paths` runs
     `fedcourts assert-board-paths`, which admits writes of
-    `metrics/big-cases.{json,md}` and nothing else — one bounded diff per lane, so
-    neither unattended merge can carry a change a human never read. It is a no-op that
+    `metrics/big-cases.{json,md}` and nothing else; its weekly `public-updates`
+    job opens its PR on the `metrics/public-updates` branch, and there `paths`
+    runs `fedcourts assert-update-paths`, which admits added
+    `metrics/updates/<YYYY-Www>.md` files and nothing else — one bounded diff per
+    lane, so no unattended merge can carry a change a human never read. It is a no-op that
     passes on every other branch, so requiring it never blocks an ordinary PR. The
     same jail runs producer-side in each collect job; requiring it here enforces
     the guarantee independently of the workflow that produced the branch. Two
@@ -474,8 +486,8 @@ pre-registration record's commit ids.
   ineligible to. A train candidate's only push is the dev App's ref creation,
   never the maintainer's, so the rule would not block its approval either way;
   it stays off for the hand promotions. **Bypass**, each scoped to what it lands:
-  - the **dev App**, for pull requests only — the two unattended lanes
-    (`collect` and the big-case board) land without a human, still bound by
+  - the **dev App**, for pull requests only — the three unattended lanes
+    (`collect`, the big-case board and the weekly update history) land without a human, still bound by
     `main: require PR`'s checks and the `paths` jail, because that ruleset
     does not list it. They land by the job's own merge call
     (`scripts/merge-when-green.sh`), not by GitHub's auto-merge, which never
@@ -520,7 +532,12 @@ pre-registration record's commit ids.
   by hand, on that approval or through the admin bypass.
 - **`promote: restrict creation`** and **`promote: freeze`** — two branch
   rulesets over `refs/heads/promote/**`, the promotion train's candidates
-  (the pattern must be `**`: `promote/*` would leave `promote/a/b` open).
+  (the pattern must be `**`: `promote/*` would leave `promote/a/b` open), and
+  over `refs/heads/[Pp][Rr][Oo][Mm][Oo][Tt][Ee]/**` beside it. Ruleset
+  patterns match case-sensitively — a non-admin push of `Promote/x` passes a
+  ruleset over `promote/**` alone and is refused by the bracket pattern — so
+  the second include covers every casing of the prefix, whatever the
+  environment's `promote/*` branch policy makes of one.
   `promote: restrict creation` restricts creation, **bypass: the dev App and
   the repository admin role, both Always** — a ref creation is not a pull
   request — so only the train (or the maintainer) can cut one. `promote:
@@ -537,7 +554,9 @@ pre-registration record's commit ids.
   staging's first-parent chain, and the train acts on nothing else. The
   `contexts` stage checks both rulesets (`ruleset_checks.py`): some active
   ruleset covering every candidate restricts each of the four rules, and a
-  covering ruleset that freezes admits no App bypass. The freeze also refuses
+  covering ruleset that freezes admits no App bypass. It reads the
+  `refs/heads/promote/**` include alone, not the bracket include; the
+  `Promote/x` push below is what confirms that one. The freeze also refuses
   the repository's *Automatically delete head branches* setting on a merged
   candidate, which is intended: the branches are the train's record of which
   staging tips were cut.
@@ -548,11 +567,14 @@ pre-registration record's commit ids.
   branches. The other order opens a window: without `promote: restrict
   creation`, any write holder — the agent account included — could push a
   `promote/x` branch carrying its own `on: push` workflow, and that push-run
-  would bind the `staging` environment. Whether GitHub's environment branch
-  policy `promote/*` and the ruleset pattern `refs/heads/promote/**` agree on
-  case (a `Promote/x` branch) is not documented; confirm it on the first setup
-  by trying to create `Promote/x` as a non-admin and to bind `staging` from it,
-  and record the result here.
+  would bind the `staging` environment. Confirm the rulesets by pushing
+  `promote/x` and `Promote/x` from a non-admin account: both must be
+  refused. **The ruleset form adds `refs/heads/` itself**: type `promote/**`
+  into *Target branches*, not `refs/heads/promote/**`, which is stored as
+  `refs/heads/refs/heads/promote/**` and covers no branch. The `contexts`
+  stage reads the stored include and fails on that, with one
+  `no active branch ruleset restricts … of promote/**` error per unrestricted
+  rule.
 - **`main: protect history`** — blocks force-pushes and branch deletion. **No
   bypass — neither App.** This is what guarantees the committed *history* of
   the predictions, outcomes, and evaluations under `data/` cannot be rewritten
@@ -627,6 +649,19 @@ pre-registration record's commit ids.
   chain is one the train reports and never dispatches at, marks ready or
   merges, and one the required `promotion-gate` check fails on its
   `provenance` stage, so such a ref never reaches `main`.
+- **`case variants: restrict creation`** — restricts creation of
+  `refs/heads/[Mm][Aa][Ii][Nn]` and `refs/heads/[Ss][Tt][Aa][Gg][Ii][Nn][Gg]`,
+  **bypass: the repository admin role only**. Every environment that admits
+  `main` or `staging` by name (`prod`, `corpus-write`, `corpus-check`,
+  `corpus-check-auto`, `review`, `review-auto`, `website`, `staging`) does so through a branch policy,
+  and whether a policy matches case-insensitively is not documented; refusing every
+  other casing of those names at creation makes the question moot, so no
+  write holder can push a `Main` or `Staging` branch carrying its own
+  workflow. The rule fires only on creation, so the existing `main` and
+  `staging` branches are untouched; both are kept from deletion by their
+  history rulesets (`main: protect history`, `staging: protect history`). The `contexts` stage does not check this ruleset;
+  confirm it by pushing `Staging` from a non-admin account, which must be
+  refused.
 - **`ops-metrics: protect history`** — the same force-push and deletion block on the
   orphan `ops-metrics` branch, where `run-ops` appends its JSON snapshots and the
   corpus-writer path (`run-pull`, `run-seed` and `run-repair`, via the `publish-corpus-verdict`
@@ -639,20 +674,21 @@ pre-registration record's commit ids.
 
 ## Repository merge settings
 
-Settings → General → Pull Requests. Two lanes ask GitHub to merge a PR when the
+Settings → General → Pull Requests. Three lanes ask GitHub to merge a PR when the
 required checks pass — the predict and evaluate `collect` jobs, one PR per run,
-and `run-analytics`'s daily big-case board; these settings are what let that
+`run-analytics`'s daily big-case board and its weekly update history; these settings are what let that
 happen and keep the branch list clean. To reproduce the repo (or use it as a template), set:
 
 | Setting | Value | Why |
 |---------|-------|-----|
-| **Allow auto-merge** | **on** | The `collect` job and the `big-cases` job each run `gh pr merge --auto --squash` before merging the PR themselves, so a PR their own merge gives up on (a slow check, a refusal) still lands the moment the maintainer approves it. With it off that call errors and both degrade gracefully (log a warning and carry on); the jobs' own merge does not depend on it. |
-| **Allow squash merging** | **on** | The run PR is squash-merged, so each run lands as one commit. |
+| **Allow auto-merge** | **on** | The `collect`, `big-cases` and `public-updates` jobs each run `gh pr merge --auto --merge` before merging the PR themselves, so a PR their own merge gives up on (a slow check, a refusal) still lands the moment the maintainer approves it. With it off that call errors and both degrade gracefully (log a warning and carry on); the jobs' own merge does not depend on it. |
+| **Allow squash merging** | **off** | No lane squashes. A data-run PR lands as a merge commit whose subject is the PR's title and number when its job or the armed auto-merge lands it (`scripts/merge-when-green.sh`, and the same subject on the auto-merge arm), so `main`'s first-parent log reads one line per run and carries the auto-released mark the review hold counts its daily cap from. A hand merge — every summaries review PR, and a data PR whose own merge gave up — takes the default subject the next row sets to the same title. |
+| **Default merge commit message** | **Pull request title** | A hand-merged PR's merge commit takes `<title> (#N)` as its subject, the subject the jobs' own merges set. With the platform's `Merge pull request #N from <branch>` instead, an auto-released round merged by hand keeps its mark only on the branch commit beneath, dated when it was built rather than when it landed, so a PR that waited a day under review drops out of the review hold's daily count. |
 | **Automatically delete head branches** | **on** | A new `predict/run-<id>` branch is pushed every run; without this they accumulate. (It cannot touch `main`: GitHub skips the default branch, and `main: protect history` refuses deletion from anyone.) |
-| **Allow merge commits** | **on** | `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
+| **Allow merge commits** | **on** | The only method. `sync-staging` merges `main` into `staging` with `--merge`. A squash or rebase would land a commit with no parent link to `main`'s tip, so the promotion gate's ancestry check would fail and the next sync would reopen the same PR forever. |
 
 Rebase-merge is not used by the pipeline, and every require-PR ruleset pins
-`allowed_merge_methods` to `merge, squash` — so it is refused on `main` and
+`allowed_merge_methods` to `merge` — so it is refused on `main` and
 `staging` regardless of the repo-level toggle. A rebase-merge of either
 ancestry-critical merge would replay commits onto the target, breaking the
 shared history *and* rewriting the pre-registration record's commit ids; no
@@ -663,7 +699,8 @@ on the ruleset that requires them (above), so the checks bind; it bypasses only
 the approval requirement. A bounded diff is what makes merging unattended safe, and the `paths`
 check carries one per lane: the append-only `data/` jail for agent output, and
 `assert-board-paths` — the board's two files, written, nothing else — for the
-big-case board.
+big-case board, and `assert-update-paths` — added week files under
+`metrics/updates/`, nothing else — for the weekly update history.
 
 The predict/evaluate `collect` job latches each run's rolled-up agent flags onto
 one long-lived `agent-feedback` tracking issue — the durable, centralized home for
@@ -761,11 +798,13 @@ them declares an environment, and every job outside `integration-test`,
 `run-analytics` and `summarize` declares `prod` — those three resolve the
 environment from the dispatching ref instead (the branch-resolution paragraph
 below; `summarize`'s publish job, which runs on `main` only, is the literal
-`prod`), which is what makes their staging dispatches rehearsals — with five
+`prod`), which is what makes their staging dispatches rehearsals — with seven
 deliberate exceptions, by environment: the two holds below,
 `corpus-check`'s `run` and `run-auto` jobs, which bind `corpus-check` and
-`corpus-check-auto` (the paragraphs after them), and the corpus writer jobs,
-which bind `corpus-write` (the paragraph after those). The `approval` jobs of run-predict,
+`corpus-check-auto` (the paragraphs after them), the corpus writer jobs,
+which bind `corpus-write` (the paragraph after those), `post-public-update`'s
+`post` job, which binds `website` (*The `website` environment*), and
+`staging-corpus-refresh`'s `refresh` job, which binds `staging`. The `approval` jobs of run-predict,
 run-evaluate, run-backtest and summarize declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables and no role, and its deployment branches
@@ -925,16 +964,16 @@ writers alone.** Every job that assumes the read-write role binds it —
 `decision-record` and `opinion-record` jobs — and no other job may:
 `tests/test_workflow_corpus_write.py` holds every job naming the read-write
 role to the literal `corpus-write`, and refuses the environment to every
-other job, an agent job above all. The design requires the read-write
-role's trust to name `environment:corpus-write` and nothing else, so a job
+other job, an agent job above all. The read-write role's trust names
+`environment:corpus-write` and nothing else, so a job
 binding `prod` — every agent cell among them, each holding
 `id-token: write` — mints a token no role that writes a production store
 accepts. (The environment shares its name with the writers' `corpus-write`
 concurrency lock, which is a different thing: the vote writer and re-grade
-jobs take the lock under `prod`, holding no role, and the decision-record
-job's dry run binds the environment without taking the lock.) It removes
+jobs take the lock under `prod`, holding no role, and the corpus and
+decision-record jobs' dry runs bind the environment without taking the lock.) It removes
 *agents* from the write role's reach, not hostile *parsers*: the writer jobs
-parse fetched third-party content while holding the role — the pull and seed
+parse fetched third-party content while holding or able to mint the role — the pull and seed
 windows' fetched dockets, and the corpus repair job's `ocr-recovery` and
 `document-backfill` passes, which are not split the way the fetching
 passes are (*S3 / the private stores* below). Configure it with:
@@ -960,14 +999,16 @@ passes are (*S3 / the private stores* below). Configure it with:
   token and the corpus base URL then live on both `prod` and `corpus-write`,
   so a rotation or a move updates both.
 
-**Provision in this order: protect the environment and widen the trust
-first, move the jobs second, narrow the trust last.** Create the
+**Re-provisioning keeps this order: protect the environment and widen the
+trust first, move the jobs second, narrow the trust last.** Create the
 environment with the policy and names above and add
 `environment:corpus-write` to both corpus roles' trusts, keeping
-`environment:prod` on the read-write role; promote the workflows that bind
-`corpus-write`; then, once a writer window has succeeded under it, remove
-`environment:prod` from the read-write role's trust. Until that last step a
-`prod` job can still mint a token the read-write role accepts. The
+`environment:prod` (or whichever subject the writer jobs bind until then) on
+the read-write role; promote the workflows that bind
+`corpus-write`; then, once a writer window has succeeded under it, remove that
+subject from the read-write role's trust. Narrowing first fails every
+writer window; skipping the last step leaves a `prod` job able to mint a token
+the read-write role accepts. The
 promotion gate's `contexts` stage checks the environment whenever it runs
 (`fedcourts assert-corpus-write-environment`): it exists,
 its branch policy admits exactly `main`, it holds every name above but the
@@ -998,7 +1039,8 @@ the ~8 known shapes) would pass. Relatedly, never put anything sensitive in a
 `GEMINI_CLI_*` variable: that prefix is an unconditional bypass of both screens.
 
 **Deployment branches are restricted to `main`** — on `prod`,
-`corpus-write`, `corpus-check` and `corpus-check-auto` (and to `staging` and
+`corpus-write`, `corpus-check`, `corpus-check-auto`, `review-auto` and
+`website` (and to `staging` and
 the promotion train's `promote/*` candidates on the `staging` environment,
 whose policy is load-bearing twice over: the
 read-only role's trust names it, and so does the one write-capable role
@@ -1177,15 +1219,15 @@ privileged workflow keys on an `issues` or `issue_comment` trigger.)
 **The staging read-write role adds a write to that radius, and it is the
 kind that does not move the integrity bound.** Its trust names the `staging`
 environment itself, the one every staging reader binds too. Production is
-narrower by design — its read-write role's trust is to name `corpus-write`
-alone, which only the writer jobs bind, a maintainer IAM step the gate cannot
-read (*`corpus-write` holds the production read-write role* above) — and
+narrower by design — its read-write role's trust names `corpus-write`
+alone, which only the writer jobs bind, an IAM statement the gate cannot
+read and the maintainer keeps (*`corpus-write` holds the production read-write role* above) — and
 staging deliberately is
 not: what staging-head code can write is the disposable staging pair, so
 review of what reaches the branch stays the control there, and a change that
 wrongly writes from a reader job fails *visibly here*, in the testing the
-maintainer reads before promotion, while in production, once that trust is
-narrowed, the same write fails its AssumeRole. What staging-head
+maintainer reads before promotion, while in production the same write fails
+its AssumeRole. What staging-head
 code can now write is the staging pair: a lean slice of real cases, rebuilt
 from production by one dispatch. It buys **no production write path** (the
 role is read-only on the production stores by policy) and **no new read
@@ -1457,7 +1499,7 @@ S3 stores — the corpus remote (the index blob under its content-addressed
 pair the third one writes:
 
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`, `run-seed`,
-  `run-repair`'s corpus job, `run-repair`'s decision-record job on an apply,
+  `run-repair`'s corpus and decision-record jobs on an apply,
   and `run-repair`'s application back-fill and opinion-record writer jobs,
   which run on an apply only) —
   **append-only**: it grants *enumerated object actions* — get, put, list —
@@ -1485,6 +1527,8 @@ pair the third one writes:
   writes only the small public projection their parse needs, and
   `run-repair`'s decision-record job, whose read-only pull feeds the dry run,
   which writes nothing, and on an apply the blob the write builds on, and
+  `run-repair`'s corpus job on a dry run, which assumes it directly for the
+  pull and the pass's reads and pushes nothing, and
   `corpus-check`'s `run` job, whose pull serves the approved check of one PR
   head, and its `run-auto` job, whose pull serves an allowlisted query run at
   `main`'s own commit. Two operational facts ride this role. Its IAM **maximum
@@ -1515,7 +1559,7 @@ Access mirrors each workflow's role in the pipeline:
 
 | Workflow                                  | Role / access | Why                              |
 |-------------------------------------------|---------------|----------------------------------|
-| `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus job; decision-record job on an apply; application back-fill and opinion-record writers) | read-write | corpus writers (`corpus-push` + content-store mirror); each of these jobs binds `corpus-write`, the one environment the role's trust is to name |
+| `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus and decision-record jobs on an apply; application back-fill and opinion-record writers) | read-write | corpus writers (`corpus-push` + content-store mirror); each of these jobs binds `corpus-write`, the one environment the role's trust names |
 | `run-predict`, `run-evaluate` — plan jobs  | read-only     | each derives its own backlog — a scan over every open (resolved) event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
 | `run-repair` — `handoff-projection` job | read-only | the credential split's first job, for the vote, application back-fill and opinion-record passes: a full index `corpus-pull`, then the pass's public projection (docket numbers, stored serials, recorded listing keys) as a one-day artifact; it fetches nothing from the Court |
@@ -1523,12 +1567,14 @@ Access mirrors each workflow's role in the pipeline:
 | `run-repair` — votes writer | none | on an apply only: re-validates the plan against the ledger and stamps `outcome.json`; no corpus, no role, no `id-token` — the data App token pushes the commit |
 | `run-seed` — `order-votes-projection`, `order-votes-parse`, `order-votes` jobs | read-only, none, none | the order-list vote sweep: the same three-job split as run-repair's `order-votes` pass on the daily window — a projection job with the read-only role (a full index `corpus-pull`, then each population case's docket number), a parse job holding no credential (no environment, no `id-token`, no secret, and the same AWS/OIDC guard), and a writer holding only the data App token, minted after the planned stamps are applied |
 | `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied, `corpus-push`, then the pointer commit — no fetch, no PDF parse |
+| `run-repair` — corpus job | read-only on a dry run, read-write on an apply | a dry run pulls the index, applies the dedupe (and, for the overhang clear, the scope reconcile) to the runner's copy alone and tees the pass's ledger: no App token, no `corpus-write` lock, the remote-writes switch off, no push. An apply holds the lock, the read-write role and the App token for the whole job, re-assumed for the OCR pass. The dry run narrows what is held, not what is reachable: the job still binds `corpus-write` with `id-token: write`, so any step, the OCR and document back-fill dry runs' PDF parsing among them, can still mint the read-write role |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull). A forward predict cell's provisioning step also fetches its docket's current JSON from the Court (the pre-mint poll), and a post-run step holding no credential fetches it once more, both through the live poller's client, which refuses any hop off the Court's host; each payload is only scanned for the event's outcome, never stored or handed to the cell |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store; the text-coverage mode reads wider on the same terms — a document-manifest round trip per live-slice case plus each stored document's text body |
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
+| `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
 | `summarize` — generate, publish           | none          | generate holds the environment's Anthropic API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |
@@ -1574,25 +1620,28 @@ The cloud-session user's runbook (maintainer):
 
 The code holds the same line without relying on the credential. A corpus
 write mirrors to the content store only inside a GitHub Actions job (a marker
-the runner sets in every job) and only from the configured corpus file, so a
-writer pass run locally, or a script that seeds a temporary database through
-the corpus write helpers, never attempts a store write even where the
-environment names production's store. The marker is a guard against
-accidents, not a control — anyone can set it — so outside Actions the
-read-only role remains what refuses a write; the marker only keeps a local
-writer run from attempting one. Inside Actions the role scoping above is what
-confines writes to the writer jobs. The mechanism is *Only an
-Actions job's writes to the corpus file reach the store* in
+the runner sets in every job), only in a job whose workflow enables remote
+writes, and only from the configured corpus file. The corpus writer jobs set
+the switch on their own `env:`, where their permissions are reviewed, a
+workflow test holds that exactly the jobs assuming the read-write role set it,
+and `corpus-push` refuses an Actions job without it. So a predict, evaluate or
+analytics job that held a writable credential by mistake still attempts no
+store write and publishes no blob, and a writer pass run locally, or a script
+that seeds a temporary database through the corpus write helpers, never
+attempts one even where the environment names production's store. The switch
+and the runner marker are guards against accidents, not authorizations:
+anything that can run code in a job can set either, so the role scoping above
+is still what confines writes to the writer jobs, inside Actions and out. The mechanism is *Only a
+writer job's writes to the corpus file reach the store* in
 [data-pipeline.md](data-pipeline.md).
 
 Every role's OIDC trust is scoped to named environments of this repo
 (`...:sub` like `repo:<owner>/<repo>:environment:corpus-write`), so only a job
 binding one of those environments can assume it. The production read-write
-role is to name `corpus-write` alone, the environment only the corpus writer
-jobs bind — a maintainer IAM step the gate cannot read, and until its last
-part is done the role still names `prod` too (*`corpus-write` holds the production read-write role*
-above, which gives the order) — so that no job that runs an agent can mint
-a token it accepts; the read-only role names `prod`, `corpus-write` (the
+role names `corpus-write` alone, the environment only the corpus writer
+jobs bind — an IAM statement the gate cannot read, which the maintainer keeps
+(*`corpus-write` holds the production read-write role* above) — so no job
+that runs an agent can mint a token it accepts; the read-only role names `prod`, `corpus-write` (the
 decision-record job's pull), `staging`, which is
 what lets the integration scenarios — and `run-analytics`'s staging
 rehearsals, whose environments resolve from the dispatching branch on the
@@ -1854,7 +1903,9 @@ removes, before the upload, any case whose tree is not exactly what
 provisioning writes — the planned day's Court docket JSON, `context.json`, and
 manifest-listed supremecourt.gov documents (`summary-stage-check`) — so a
 snapshot that changed after the plan never crosses; `summarize` refuses one as
-well. It
+well. The same check withholds any staged document whose manifest row records
+a contact-scrub residual (`contact_residuals` above zero), so a contact detail
+the scrub missed on a filing's opening or closing does not cross either. It
 widens that footing in one way the extract does not: the extract carries one
 section of each petition, while this carries every stored filing of each
 planned case — whole appendices, cert-stage replies, the Solicitor General's
@@ -1872,17 +1923,17 @@ run-seed's OCR sweep runs the split too, with its own two files:
 `ocr-worklist-<run_id>`, one window's slice of the recovery class as case
 ids, document kinds, the Court's URLs and page counts, and
 `ocr-plan-<run_id>`, the text the credential-free parse read off those
-filings, which would cross under a proposed carve-out in
+filings, which crosses under the OCR sweep's carve-out in
 [data-sources.md](data-sources.md) (*PII stance*) on the same terms as the
 application back-fill's: the Court's own public filings, nothing from our
 stores, one artifact, one day, never committed and never printed. On this
 public repository any signed-in user can download either artifact while it
 exists, four windows a day; deleting the plan once the writer has read it
 would need `actions: write` on the writer, a trade left to the maintainer.
-The recovered text also meets the contact scrub with an open residual: OCR
-output can lay contact details out in shapes the scrub misses; on one scanned
-filing (scotus/9026000314) they survived a scrub reporting
-`contact_scrubbed: true`.
+The recovered text also meets the contact scrub, whose shapes OCR output does
+not always match. The residual detector records such a document as not
+scrubbed and keeps it out of the summary stage, but the cell is still staged
+it (*PII stance* in [data-sources.md](data-sources.md)).
 The writer reads both files as untrusted input. Every identifier in them is
 pattern-checked on read (a SCOTUS case id, a recoverable kind, a single
 https Court link, a failure reason from a closed set), so a forged file is
@@ -1918,15 +1969,17 @@ Court's docket number for it — the same pair the qp-topic artifacts and the
 release dataset publish; for the application back-fill, the Term's highest
 stored application serial and its live-owned serials, which say how far the
 corpus's rows reach and which of them the live channel polls; for the
-opinion record, the (Term, listing number) of each document already recorded,
-the row key of the Court's own opinions listing. Each says something about the
+opinion record, the (Term, listing number) of each document it already holds
+whole and of each signed decision it holds without a bench row, the row key of
+the Court's own opinions listing. Each says something about the
 compilation extent — which public dockets the pipeline holds — on the footing
 argued above, and nothing about their contents. `repair-plan-<run_id>`, on an
 apply only, carries what the parse read: for the vote passes, each planned
 record (votes, provenance, writing roles — the fields the writer commits to
 public git anyway); for the opinion record, each document's opinion rows read
 off the Court's listing and PDF (kind, author, joiners, word counts, the
-printed header sentence) with the case id left for the writer to resolve. The
+printed header sentence) and the bench and non-participation its syllabus
+prints, with the case id left for the writer to resolve. The
 application back-fill's plan carries each served docket JSON verbatim —
 party contact blocks included, a self-represented applicant's address,
 telephone and prisoner number among them — with the ledger's structured
@@ -2025,8 +2078,8 @@ PDFs inside the corpus job: `ocr-recovery` and `document-backfill` are not
 split. And in every job that holds `id-token: write` — the projection,
 the two corpus writers, the decision-record and corpus jobs — every step can
 mint a token for every role its environment is trusted by — under `prod`
-(the projection) the read-only role, alone once the read-write role's trust
-is narrowed to `corpus-write` (*`corpus-write` holds the production read-write role*), and both
+(the projection) the read-only role alone, since the read-write role's trust
+names `corpus-write` only (*`corpus-write` holds the production read-write role*), and both
 corpus roles under `corpus-write` (the rest): the runner injects the OIDC
 request pair into each step after the step's own `env:`, so blanking it there
 is a no-op, and only a job without the permission is out of its reach. A
@@ -2060,8 +2113,8 @@ shape the split-mode production system has, seeded by
 
 **What does not change.** Production keeps its single-writer discipline
 untouched: the production read-write role's trust names no staging
-environment and no new job assumes it (its narrowing to `corpus-write` alone
-is the maintainer IAM step in *`corpus-write` holds the production read-write role*). **The guarantee is IAM** — the staging role's policy is
+environment and no new job assumes it (it names `corpus-write` alone,
+per *`corpus-write` holds the production read-write role*). **The guarantee is IAM** — the staging role's policy is
 read-only on the production stores, so nothing in this lane can reach the
 production write path whatever it is pointed at. The seeder's own rail, which
 refuses a destination that *is, or is inside*, either store of its **pinned
@@ -2127,8 +2180,8 @@ the repoint. Read step 5's two ordering notes before doing either.
    mode reads as a missing policy. No new environment is created; the write
    role's trust
    deliberately names the environment the integration scenarios already bind
-   (production's read-write role's trust is to name the writer-only
-   `corpus-write` environment instead, once the maintainer narrows it; on staging, what a wrongly-writing change reaches is
+   (production's read-write role's trust names the writer-only
+   `corpus-write` environment instead; on staging, what a wrongly-writing change reaches is
    the disposable pair, so review of what reaches the branch is the control,
    and such a change fails visibly here before promotion). The branch policy is the gate, and what it enforces is code
    provenance: only code that passed a pull request and the `staging`

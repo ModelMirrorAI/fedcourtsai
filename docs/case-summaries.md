@@ -226,6 +226,45 @@ summaries of an unchanged record written to an earlier contract, so a
 `limit` spends on the cases a reader has nothing for before the ones whose
 summary is only out of date.
 
+## Withdrawal
+
+A summary is filed under a docket id, and the Supreme Court Clerk occasionally
+re-dockets: a petition is moved to another number and the freed number is
+re-entered for a different petition, which the live channel records under the
+same docket id ([data-pipeline.md](data-pipeline.md);
+`fedcourtsai.pipeline.redocket`). A summary written before the move describes
+the earlier petition, so it is withdrawn rather than left standing as the
+record of the case.
+
+**The rule** (`summaries.is_withdrawn`). A committed summary is withdrawn when
+its snapshot day precedes the docketed date (`DocketedDate`) the case's newest
+record carries. A summary is written from the Court's docket JSON, which exists
+only once a petition is docketed, so a summary of the petition the number now
+holds cannot predate that date; the re-entered petition carries its own, later
+docketed date. The rule reads the newest record alone and needs no older
+snapshot. It also withdraws a summary written before a docketed date the Clerk
+corrected to a later day for the same petition, at the cost of one display
+file; a re-entered petition whose docketed date falls on or before the old
+summary's day is not seen.
+
+**What it does.** `summarize-plan` lists each withdrawn summary under the
+plan's `withdrawn` (case, path, snapshot day, docketed date) and in its report,
+and compares the case against its newest summary that is *not* withdrawn, so a
+case whose every summary is withdrawn is planned as `new`. Withdrawals cost
+nothing and the `limit` never defers one. The `publish` job runs
+`fedcourts summary-withdraw --plan`, which deletes those files on the refresh
+branch, and the jail (`summary-paths --strict --plan`) admits a deletion only of
+a summary that plan withdraws. The deletion reaches `main` the way a summary
+does: on the reviewed refresh PR, so the reviewer sees it beside the new
+petition's summary. A run that writes no summary opens no PR, so a withdrawal
+waits for the next run that writes one; each run re-derives the list from
+`main`, so it is not lost in between.
+
+The site renders a case's newest summary only, so once the new petition's
+summary lands the withdrawn one is no longer shown; withdrawal removes it from
+the published ledger as well, where it otherwise stays filed as a summary of a
+case it does not describe.
+
 ## The model
 
 `summaries.model` in `config/tracking.yaml`: **Claude Sonnet 5**
@@ -305,7 +344,9 @@ summary files and nothing else (`fedcourts summary-paths --strict`), `data/`
 must validate, and `scan-diff-for-secrets` must pass with the API key as a
 known secret; a failure withholds both the artifact and the PR. On `main` the
 `publish` job cuts `summaries/refresh` from `main`, carries the open PR's
-summaries forward, adds the run's, re-runs the jail, the validator and the scan
+summaries forward, adds the run's, deletes the plan's withdrawn summaries
+(*Withdrawal*, above), re-runs the jail — which admits those deletions and no
+other — the validator and the scan
 over the whole change set, force-pushes and opens or updates the PR. It is
 **never auto-merged**: the collect jails do not cover this branch family, so an
 auto-merge needs a jail of its own first. `ci.yml`'s `main-base` routing admits
@@ -368,7 +409,15 @@ snapshot in the Court's own shape, `context.json`, and the documents manifest
 with one text file per listed document, each fetched from supremecourt.gov. A
 symlink removes the case rather than being followed, and anything else under
 the stage root is removed. A removed case is reported skipped and planned again
-by the next run.
+by the next run. The same check withholds any document the contact scrub left
+a contact-shaped match on: provisioning stages such a document unchanged and
+records the match count as its manifest row's `contact_residuals`, and a
+non-zero count removes the document's text and its row while the rest of the
+case crosses. The rule keys on that count rather than on `contact_scrubbed:
+false`, which every represented docket's documents also read, and a row with
+no count is withheld too. The summary is then written from the rest of the
+record under the plan's digest, which covers the withheld document, so the
+case is not planned again until its record changes.
 
 **The written summaries are a public artifact for a week.** The
 `case-summaries` artifact carries the generated files, after the jail and the
@@ -387,8 +436,11 @@ spot check needs.
   returns (at 140 minutes, under its 165-minute cap) and what was written is
   still collected. Exits 1 if the plan held cases and none was written, so a
   dead key reads as a failure rather than an empty success.
-- `fedcourts summary-paths --name-status-file <f> [--strict]` — the lane's path
-  filter and, with `--strict`, its publish jail.
+- `fedcourts summary-paths --name-status-file <f> [--strict] [--plan plan.json]`
+  — the lane's path filter and, with `--strict`, its publish jail; `--plan`
+  admits the deletions that plan withdraws.
+- `fedcourts summary-withdraw --plan plan.json` — deletes the plan's withdrawn
+  summaries from the checkout and prints each path removed.
 
 ## Cost
 
@@ -420,7 +472,8 @@ a run costs more than the estimate by roughly its first-pass rejection rate.
 
 - **Grading summaries.** They are display material; nothing is scored on them.
 - **Summaries of earlier snapshots.** Only the newest record is summarized; a
-  superseded summary stays as written, dated by its snapshot.
+  superseded summary stays as written, dated by its snapshot, unless it is
+  withdrawn as another petition's (*Withdrawal*, above).
 - **Short captions, docket numbers and outcome lines.** The big-case board
   derives these deterministically (`short_caption`, `docket_number`, and the
   asking side with one line per open action in `outcome_lines`); whether this

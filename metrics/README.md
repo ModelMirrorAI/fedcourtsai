@@ -49,7 +49,10 @@ as over one window's, never as an average of window figures. It treats a
 `predictor_id` as one forecaster whose process evolves, model changes included,
 and its figure as that forecaster's record, not a property of its current
 process or model: `claude-baseline`'s `proc-v8` (`claude-fable-5-1`) and
-`proc-v9` (`claude-opus-5-5`) windows are one pooled record. Each counted
+`proc-v9` (`claude-opus-5-5`) windows are one pooled record, as are
+`codex-baseline`'s `proc-v8` (`gpt-6-astra`) and `proc-v10` (`gpt-6.1-sol`)
+windows and `gemini-baseline`'s `proc-v8` (`gemini-3.1-pro-preview`) and
+`proc-v10` (`gemini-4-argon`) windows. Each counted
 forecast was registered before its outcome existed and no later window can
 replace it, so the pooled record is out-of-sample however the process changed.
 No Term or trailing bound applies; a bounded figure is a cut. Under that rule:
@@ -203,10 +206,11 @@ On the leaderboard the readings ride beside the pooled value:
   count.
 
 The per-rubric reading is the claimable figure. Every judge's evaluate digest
-moved at `proc-v9`, `claude-judge`'s with its model, so a pooled value spanning
-more than one digest of one evaluator mixes judge rubrics: it is coverage,
-never a claimable figure or a comparison. A `rubrics` list naming one evaluator
-twice is the sign. The claim judge-validation tau-b, the ops reasoning-quality
+moved at `proc-v9`, `claude-judge`'s with its model, and `codex-judge`'s and
+`gemini-judge`'s moved again with their models at `proc-v10`, so a pooled
+value spanning more than one digest of one evaluator mixes judge rubrics: it
+is coverage, never a claimable figure or a comparison. A `rubrics` list
+naming one evaluator twice is the sign. The claim judge-validation tau-b, the ops reasoning-quality
 quantiles and the semantic per-grader agreement list their rubrics but carry
 no per-rubric reading yet, so there a pooled value spanning two digests of an
 evaluator has no claimable form. The signature rule is registered in
@@ -342,7 +346,9 @@ The offline gate
 and are committed. Others land here without being gate-checked:
 `cert-backtest.json`, which only a released replay writes, `docket.{json,md}`,
 which is regenerated on demand by `fedcourts docket`, `big-cases.{json,md}`,
-which the daily `big-cases` lane keeps current on its own cadence, and
+which the daily `big-cases` lane keeps current on its own cadence,
+`updates/<YYYY-Www>.md`, to which the weekly `public-updates` lane adds each
+missing week, and
 `salience-replay.json`, produced on demand by the free, deterministic
 `fedcourts salience-replay` (locally, or via the `run-backtest` dispatch's
 `replay: salience-gate` mode, landing as a reviewed PR), and
@@ -1579,7 +1585,7 @@ default-only, and so are `claim-scores.json`'s judge-agreement pairs
 per-band or judge-agreement figure is read without the set-aside cells. The default is
 the headline; a sensitivity line is a disclosure, never a rank key, and never
 stacked with another departure. Each reason is a dated freeze-record entry.
-Two cell-grain reasons exist, and one claim-grain reason (below):
+Three cell-grain reasons exist, and one claim-grain reason (below):
 
 - **`interim-decision-day`** — a forward interim cell whose harness clock,
   dated in Court time (America/New_York, the clock `resolved_at` is dated in),
@@ -1618,6 +1624,18 @@ Two cell-grain reasons exist, and one claim-grain reason (below):
   of its last census: a row the census later finds owed is appended with its
   own dated freeze-record entry, and the list is closed once the census reports
   no owed row with the guard live.
+- **`pre-distribution-mint`** — every cell on a cert distribution event whose
+  forward frozen-scope distribution-moment cells were minted when the docket
+  carried a distribution by their run day but none of the petition itself,
+  only an ancillary paper's (a motion for leave under a linked M-number, a
+  sealing motion), so `store.petition_distributed` read false of the
+  petition: the cells forecast from a moment the petition had not reached.
+  The reading needs the docket entries, so these events are **listed** in the
+  same file, each row naming the run minted before the petition's
+  distribution. The fan-out mints no such cell; it waits for the petition's
+  own distribution (`store.petition_distributed`). A row sets aside every
+  cell on its event, and no later cell is minted on it for a predictor that
+  already holds a counted one.
 
 **`increment-run-day`**, the claim grain. One claim inside a cell is set aside
 and the cell stays counted: a resolved `cvsg-increment`,
@@ -1766,7 +1784,11 @@ the petitioner's death, a grant the Court vacated — has **no
 disposition to record**, while a bare mandate
 notation marks a case that *was* decided on a docket whose disposition entry
 the corpus never captured, which is a coverage failure of the same family as
-the two residues above. Neither is folded into the judgment vocabulary,
+the two residues above. A termination of either kind leaves the residue once a
+judgment parses on its docket: the write of a parsed judgment (the backfill's,
+or the live poll's) clears the termination in the same write, one-way, and the
+row then meets the pool's admission like any other parse, gap guard included.
+Neither is folded into the judgment vocabulary,
 because a seventh value would be scored as an undisturbed judgment, asserting
 in the first case that the decision below survived a merits ruling nobody
 made, and in the second that it survived a ruling whose direction is simply
@@ -2678,6 +2700,15 @@ the rendered table) and
   justice-level statistics, which need a per-justice vote record) so a
   citation is never read as a claim that the figure is zero.
 
+- `updates/<YYYY-Www>.md` — the **weekly public update history**: one file per
+  ISO week with anything to show, from the email list's first send onward,
+  each the `fedcourts public-update` render of that week, written by
+  `fedcourts archive-public-updates` when a run first finds the week non-empty
+  and never re-rendered once merged, not even for a later void or set-aside.
+  The fedcourts.ai site renders it as its updates page. It is display
+  material like the email: it states forecasts and outcomes side by side,
+  computes no score, and no metric reads it.
+
 - `big-cases.json` / `big-cases.md` — the **case-centric big-case board**: one
   row per predicted case, carrying each predictor's current `big_case_score`
   and the mean across the predictors that gave one, ranked by mean descending,
@@ -2904,6 +2935,20 @@ the rendered table) and
   Labor", "the FTC", but "Apple") is display-grade, not grammar-complete. Like
   the other display fields, these are never read by a predictor, an evaluator
   or a metric, and `metrics/big-cases.md` does not render them.
+
+  **The next scheduled date.** Like `docket_number`, `scheduled` is read from
+  committed data outside the prediction ledger: the board joins it by case id
+  from `data/schedule/schedule.json`, which the live poll writes from the
+  conference each pending public docket's newest "DISTRIBUTED for Conference
+  of …" entry names (`fedcourts schedule`). It is `{kind, date}` with `kind`
+  `conference`, and null where the case is not on the schedule (decided,
+  granted, or never distributed) or its conference had already passed on the
+  day the schedule was built. The row carries no build day, so the board moves
+  only when a case's date does; a site rendering later drops a date that has
+  since passed rather than show it as upcoming. A schedule moves on every
+  relist, so it is display-only like the fields above and never a ledger
+  record: nothing predicts, evaluates or scores on it. The `schedule_rule`
+  provenance string states the rule in the artifact.
 
   **Process scope, and why the default is version-blind.** `process_scope` says
   which process versions a **current read** may come from. The default is
