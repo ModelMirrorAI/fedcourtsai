@@ -6842,6 +6842,15 @@ class CertBacktestArm(_Strict):
         "(`denied` over `events_scored`) — the per-petition share of "
         "``correct - denied``",
     )
+    granted_correct: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of those, the petitions whose granted-or-not projection the entry "
+        "called — the headline axis. Always-deny gets ``events_scored - granted`` right "
+        "here, so the arm's headline lift **in petitions** is ``granted_correct - "
+        "(events_scored - granted)``. Null on reports written before the granted-axis "
+        "headline",
+    )
 
 
 class CertBacktestBigCase(_Strict):
@@ -7291,8 +7300,8 @@ class CertBacktestEntry(_Strict):
     predictor_id: str
     rank: int = Field(
         ge=1,
-        description="1-based standing; 1 is best. Ordered by lift over the "
-        "always-deny floor, then Brier, then id — **among entries scored over "
+        description="1-based standing; 1 is best. Ordered by the headline "
+        "`granted_lift_over_always_denied`, then Brier, then id — **among entries scored over "
         "the whole set**. An entry short some cells (`provenance.lost_cells`) "
         "sorts below every full one whatever its number, because lift is a "
         "per-petition mean and a lost petition the predictor would have got "
@@ -7315,19 +7324,35 @@ class CertBacktestEntry(_Strict):
     granted_accuracy: float = Field(
         ge=0.0,
         le=1.0,
-        description="Fraction whose binary granted/denied projection matched the outcome",
+        description="Fraction whose binary granted-or-not projection matched the outcome "
+        "(a GVR is granted; a dismissal or withdrawal is not) — the headline accuracy, "
+        "the target the Brier score scores",
     )
     mean_brier_score: float = Field(
         ge=0.0,
         le=1.0,
         description="Mean Brier score of P(granted) vs the realized outcome (lower is better)",
     )
+    granted_lift_over_always_denied: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="The headline: `granted_accuracy` minus always-deny's over the "
+        "petitions **this entry was scored on**, which is their not-granted share — the "
+        "honest signal under cert's structural denial skew, where raw accuracy is cheap, "
+        "and what the board ranks by. That floor is the report's "
+        "`always_not_granted_accuracy` whenever `events_scored` is the whole set, and the "
+        "scored subset's own not-granted share where cells were lost. Null on reports "
+        "written before the granted-axis headline, which ranked by "
+        "`lift_over_always_denied`",
+    )
     lift_over_always_denied: float = Field(
         ge=-1.0,
         le=1.0,
-        description="Disposition accuracy minus the always-deny floor's over the "
-        "petitions **this entry was scored on** — the honest signal under cert's "
-        "structural denial skew, where raw accuracy is cheap. That floor is the "
+        description="Exact-disposition accuracy minus the always-deny floor's over the "
+        "petitions **this entry was scored on** — a secondary reading beside the "
+        "headline, which counts a dismissal or withdrawal as a miss for every "
+        "forecaster, always-deny included. That floor is the "
         "report's `always_denied_accuracy` whenever `events_scored` is the whole "
         "set, and the scored subset's own denial rate where cells were lost",
     )
@@ -7429,11 +7454,20 @@ class CertBacktest(_Strict):
         default=0.0,
         ge=0.0,
         le=1.0,
-        description="The always-deny floor's disposition accuracy over this set: "
-        "the denial base rate a lift figure is measured against, and exactly the "
-        "one every entry that scored the whole set is measured against. An entry "
-        "short some cells (`provenance.lost_cells`) is floored over its own "
-        "scored subset instead, which this figure does not give",
+        description="The always-deny floor's exact-disposition accuracy over this set: "
+        "the denial base rate the secondary `lift_over_always_denied` is measured "
+        "against, and exactly the one every entry that scored the whole set is measured "
+        "against. An entry short some cells (`provenance.lost_cells`) is floored over its "
+        "own scored subset instead, which this figure does not give",
+    )
+    always_not_granted_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The headline floor: always-deny's `granted_accuracy` over this set, "
+        "its not-granted share (denied, dismissed and withdrawn) — what every entry's "
+        "`granted_lift_over_always_denied` is measured against where it scored the whole "
+        "set. Null on an empty set and on reports written before the granted-axis headline",
     )
     provisioning: dict[str, int] = Field(
         default_factory=dict,

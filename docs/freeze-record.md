@@ -12148,3 +12148,59 @@ freeze commit is recorded here.
   not a cost move holds more strongly: at the introductory rate the measured
   prediction is about 1.8 times the recorded $0.58 of the model it replaces.
   Five cells is a small sample, and no rate table is re-anchored here.
+
+- **The cert back-test headlines the granted-or-not axis; recorded
+  2026-10-21.** A **reading-rule** entry, recorded ahead of the promotion that
+  carries the change and of the first scheduled report it governs. It moves
+  no digest and no forward figure.
+
+  **Why.** The report ranked and headlined `lift_over_always_denied`, an
+  exact-disposition accuracy minus the denied share. A Rule 46 dismissal or a
+  withdrawal is not an outcome a cert forecaster is asked to call, so on that
+  axis every such petition was a miss for every forecaster and for the floor.
+  The 2026-10-03 run's ten petitions held one (25-960, dismissed 2026-07-17).
+  Brier already binarised the same petitions to not granted.
+
+  **What moved.** Three fields join the report:
+  - `always_not_granted_accuracy` is the set's not-granted share, which is
+    always-deny's `granted_accuracy`.
+  - `granted_lift_over_always_denied` on each entry is `granted_accuracy`
+    minus that share, over the petitions the entry was scored on.
+  - `granted_correct` on each arm counts the entry's granted-or-not calls
+    there.
+
+  The board ranks by the granted lift, then Brier, then id, with whole-set
+  entries above short ones as before. The review PR's top line and per-arm
+  table, and the weekly digest's floor and per-arm scores, are stated on that
+  axis, and both surfaces name the axis beside the floor. A GVR counts as a
+  grant and a dismissal or withdrawal does not, which is the projection
+  `granted_flag` already applied to Brier and `granted_accuracy`.
+
+  **What did not move.** The draw, the population and the scope are
+  unchanged. No petition is excluded by its outcome. `accuracy`,
+  `always_denied_accuracy`, `lift_over_always_denied` and every arm's
+  `correct`, `denied` and `lift_over_always_denied` keep their
+  exact-disposition meaning as a secondary reading. Brier, calibration and
+  the band segments are unchanged. No prompt template, agent config or
+  `src/fedcourtsai/process_version.py` moved, and the forward leaderboard's
+  exact-match always-deny floor is a different instrument this entry does
+  not touch.
+
+  **The reading rule.** A report with `always_not_granted_accuracy` was ranked
+  on the granted axis, and one without it was ranked on exact disposition.
+  The two lifts are not differenced across that boundary. On a draw with no
+  dismissal or withdrawal the two floors are equal, and the two lifts differ
+  only where a forecaster's disposition label missed inside the same
+  granted-or-not call. The standing report on `main` (run
+  `20261017T115347Z`, ten petitions) is such a draw: every entry's
+  `accuracy` equals its `granted_accuracy` at 0.9 against a 0.9 floor, so
+  its board would rank the same on either axis.
+
+  The runnable effect check once it is live: the first
+  `metrics/cert-backtest.json` landed after the carrying promotion has a
+  non-null `.always_not_granted_accuracy` equal to one minus the grant-family
+  share of its set. Every entry carries `.granted_lift_over_always_denied`,
+  and `jq --argjson n "$(jq .events_scored metrics/cert-backtest.json)"
+  '[.entries[] | select(.events_scored == $n) | .granted_lift_over_always_denied]
+  | . == (sort | reverse)' metrics/cert-backtest.json` prints `true`. The review PR's
+  floor line reads "on granted vs not".

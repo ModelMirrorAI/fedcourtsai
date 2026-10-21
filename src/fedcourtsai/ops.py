@@ -1042,7 +1042,7 @@ def _cert_backtest_dispatch(report: CertBacktest) -> str:
     — a ``--engine stub`` rehearsal writes entries named for real predictors —
     so a quoted line without it cannot say whether a number cost anything.
     ``scope``/``spread``/``limit`` are the population definition, and the
-    always-deny floor is the replayed set's own denial rate, so it moves with
+    always-deny floor is a share of the replayed set's own labels, so it moves with
     them: two differently dispatched reports are scored against two different
     floors, which is a reading rule that has to travel with the quoted line
     rather than sit in the artifact. A report without a `provenance` block says
@@ -1228,6 +1228,22 @@ def _cert_backtest_disclosures(report: CertBacktest) -> str:
     )
 
 
+def _cert_backtest_floor(report: CertBacktest) -> str:
+    """The headline floor with its axis named, and the exact-disposition one beside it.
+
+    The board ranks on the granted-or-not axis, where a dismissal is a correct
+    call for always-deny; on exact disposition it is a miss for every
+    forecaster. A report written before the granted axis was the headline
+    carries the disposition floor alone.
+    """
+    if report.always_not_granted_accuracy is None:
+        return f"{report.always_denied_accuracy:.1%} on exact disposition"
+    return (
+        f"{report.always_not_granted_accuracy:.1%} on granted vs not "
+        f"({report.always_denied_accuracy:.1%} on exact disposition)"
+    )
+
+
 def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
     """The cert back-test, whose absence is the honest thing to report."""
     report = vintaged.value
@@ -1262,8 +1278,8 @@ def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
     return [
         f"- **Cert back-test** ({where}): {_cert_backtest_predictors(report)} over "
         f"{report.events_scored:,} petition(s), banded by `{report.salience_version}`; "
-        f"{grants}always-deny floor "
-        f"{report.always_denied_accuracy:.1%}. `{report.stratum}` by construction — "
+        f"{grants}always-deny floor {_cert_backtest_floor(report)}. "
+        f"`{report.stratum}` by construction — "
         "recall and calibration over known history, never foresight, and an **iteration "
         "instrument**: nothing here is a claimable performance figure "
         f"(`metrics/README.md`).{_cert_backtest_dispatch(report)}"
