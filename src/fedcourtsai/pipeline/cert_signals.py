@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from types import MappingProxyType
 from typing import Any, Literal
 
@@ -1042,6 +1042,41 @@ def relisted_past(payload: Mapping[str, Any], run_day: date) -> bool:
     if not distributions or distributions[-1][1] <= run_day:
         return False
     return any(conference <= run_day for _filed, conference in distributions[:-1])
+
+
+def first_relist_date(payload: Mapping[str, Any]) -> date | None:
+    """When the Court first relisted the petition, or ``None``.
+
+    The trigger of the cert stage's relist moment: the strict date
+    (:func:`entry_date`) of the first **petition** distribution (the
+    entry-initial ``dist-v2`` parse, so an ancillary paper's distribution never
+    counts) that names a later conference than the one before it, filed after
+    that earlier conference **sat on the petition** as
+    :func:`considering_conference` reads it the day before. A distribution
+    entered before the earlier conference, or after a call for response or a
+    bare reschedule took the petition off it, moves the petition without the
+    Court having considered it, and is not a relist. Read only up to the first
+    disposition entry, so nothing distributed after the petition was decided
+    (a rehearing, a post-grant paper) stands in for it. Only the first relist
+    opens the moment; a later one is the same signal again.
+    """
+    previous: date | None = None
+    for text, raw in proceedings_entries(payload):
+        if match_disposition_signal(text) is not None:
+            return None
+        match = _PETITION_DISTRIBUTED_RE.search(text)
+        filed = entry_date(raw)
+        if match is None or filed is None:
+            continue
+        conference = conference_date(match.group(1))
+        if conference is None:
+            continue
+        if previous is not None and conference > previous and previous < filed:
+            sat, reading = considering_conference(payload, filed, filed - timedelta(days=1))
+            if reading == "sat" and sat == previous:
+                return filed
+        previous = conference
+    return None
 
 
 ConferenceReading = Literal["sat", "ahead", "off", "undistributed", "unknown"]

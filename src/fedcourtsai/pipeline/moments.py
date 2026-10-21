@@ -67,7 +67,7 @@ class MomentSpec:
     provisioning cut a forward cell's snapshot to the moment's information set.
     True for every moment a mint seam opens at its own trigger — the CVSG
     invitation, the Solicitor General's invited brief, the cert call for a
-    response, the cert grant, the interim response request, the arrival of a
+    response, the first relist, the cert grant, the interim response request, the arrival of a
     petition or an application. False for
     the cert petition baseline, whose ``opened_at`` is docketing: the moment
     it declares is the **distribution**, so a cut at docketing would delete
@@ -171,6 +171,24 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         decision_target="disposition",
         description=(
             "Disposition of the petition, forecast after the Court called for a response to it."
+        ),
+        claim_set_version=CLAIM_SET_CERT_V2,
+        forecastable=False,
+    ),
+    MomentSpec(
+        # The cert stage's first relist: a conference considered the petition and
+        # the Court listed it again rather than deciding it. Only the first relist
+        # opens it; a later one repeats the same signal. Declared but switched off
+        # until the predict prompt names it.
+        event_id=ids.event_id(EventKind.order.value, "relist-disposition"),
+        kind=EventKind.order,
+        stage=Stage.cert,
+        moment=Moment.relist,
+        ordinal=5,
+        decision_target="disposition",
+        description=(
+            "Disposition of the petition, forecast after the Court first relisted it "
+            "for another conference."
         ),
         claim_set_version=CLAIM_SET_CERT_V2,
         forecastable=False,
@@ -283,7 +301,7 @@ def minted_moment_ids() -> frozenset[str]:
     the bare ``disposition`` id of its kind (``evt-<kind>-disposition``),
     which is what the ingest projection synthesizes, while every later moment
     carries a qualifying label (``arrival-``, ``cvsg-``, ``sg-``, ``call-``,
-    ``response-``) or a different decision target (``judgment``). Registering
+    ``relist-``, ``response-``) or a different decision target (``judgment``). Registering
     a moment therefore needs no edit here; what would is a new stage whose
     baseline is *not* the bare
     ``evt-<kind>-disposition`` shape — the merits precedent, whose first

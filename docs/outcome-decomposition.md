@@ -641,8 +641,8 @@ Drawn from the above, and cheaper to apply than to rediscover:
 ## What is scoreable today
 
 **The declared cert set: `cert-v2`.** Every declared cert **moment** — the
-petition baseline, the CVSG moment, the arrival moment, and the sg-brief and
-call-for-response moments once they are switched on — carries
+petition baseline, the CVSG moment, the arrival moment, and the sg-brief,
+call-for-response and relist moments once they are switched on — carries
 exactly five claims, declared in `pipeline.claims` and answered in full by
 every predictor (`Prediction.claims`); the harness scores them into
 `Evaluation.claim_scores` at the evaluator's post-run stamp (`stamp-cell`,

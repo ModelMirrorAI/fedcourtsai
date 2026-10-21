@@ -425,6 +425,17 @@ class CorpusRow(BaseModel):
         "surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = no call, not yet, or not "
         "parsed — on a decided row polled before the column existed, never parsed.",
     )
+    relisted_at: date | None = Field(
+        default=None,
+        description="When the Court first relisted the petition "
+        "(`pipeline.cert_signals.first_relist_date`): the first petition "
+        "distribution for a later conference, filed after the earlier conference "
+        "sat on the petition, before any disposition — the cert stage's relist "
+        "forecast moment. Written by the live poll at ingest; fill-in latched. "
+        "Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = "
+        "no relist, not yet, or not parsed — on a decided row polled before the "
+        "column existed, never parsed.",
+    )
     merits_brief_on_lead: date | None = Field(
         default=None,
         description="When a consolidated member's own respondent filed its brief on "
@@ -976,7 +987,12 @@ CREATE TABLE IF NOT EXISTS cases (
     -- the lead docket (see CorpusRow and pipeline/documents.py). Written by the
     -- live poll; fill-in latched. Withheld from the retrieval surface and read
     -- by no mint. NULL = not a consolidated member, not yet filed, or not read.
-    merits_brief_on_lead TEXT
+    merits_brief_on_lead TEXT,
+    -- The Court's first relist of a cert petition (see CorpusRow and
+    -- pipeline/cert_signals.py): the date that opens the cert stage's relist
+    -- moment. Written by the live poll at ingest; fill-in latched. Withheld from
+    -- the retrieval surface. NULL = no relist yet, or not parsed.
+    relisted_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1154,6 +1170,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "sg_brief_filed": "TEXT",
     "call_for_response_at": "TEXT",
     "merits_brief_on_lead": "TEXT",
+    "relisted_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1856,6 +1873,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "merits_brief_on_lead": (
             row.merits_brief_on_lead.isoformat() if row.merits_brief_on_lead else None
         ),
+        "relisted_at": row.relisted_at.isoformat() if row.relisted_at else None,
         "capital_case": int(row.capital_case),
     }
 
@@ -1973,6 +1991,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         sg_brief_filed=_optional_date(record, "sg_brief_filed"),
         call_for_response_at=_optional_date(record, "call_for_response_at"),
         merits_brief_on_lead=_optional_date(record, "merits_brief_on_lead"),
+        relisted_at=_optional_date(record, "relisted_at"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -1984,8 +2003,8 @@ def _update_clause(column: str) -> str:
     special: channel-supplied facts (``last_pulled``, the opinion-enrichment
     walk's ``opinion_enrich_attempted_at`` cursor, the document back-fill's
     ``document_floor_probed_at`` floor probe, and the fill-in slice of
-    the live-parsed signals — the conference, CVSG, invited-brief and
-    call-for-response dates, the dated interim/merits signals beside them (a
+    the live-parsed signals — the conference, CVSG, invited-brief,
+    call-for-response and first-relist dates, the dated interim/merits signals beside them (a
     consolidated member's lead-filed respondent brief among them), and
     the merits decision record)
     only ever fill in, so a writer that does not carry the fact keeps what
@@ -2032,6 +2051,7 @@ def _update_clause(column: str) -> str:
         "sg_brief_filed",
         "call_for_response_at",
         "merits_brief_on_lead",
+        "relisted_at",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -3892,7 +3912,7 @@ def opinion_body(row: CorpusRow) -> str | None:
 
 
 #: Columns a ``query`` prior never carries, though the row stores them. The
-#: invited-brief and call-for-response dates are mint triggers, a consolidated
+#: invited-brief, call-for-response and first-relist dates are mint triggers, a consolidated
 #: member's lead-filed respondent brief dates a moment no mint reads yet, and the
 #: merits decision record is an analytics surface — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
@@ -3911,6 +3931,7 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "sg_brief_filed",
         "call_for_response_at",
         "merits_brief_on_lead",
+        "relisted_at",
     }
 )
 

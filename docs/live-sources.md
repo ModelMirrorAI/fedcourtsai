@@ -239,6 +239,19 @@ response-requested moment reads. Live poll only, fill-in latched, withheld
 from the `query` rows, and null on a decided row polled before the column
 existed.
 
+`relisted_at` is the same shape for the petition's **first relist**: the first
+petition distribution (the entry-initial `dist-v2` reading, so an ancillary
+paper's distribution never counts) naming a later conference than the one
+before it, filed after that earlier conference sat on the petition as
+`cert_signals.considering_conference` reads it the day before, and before any
+disposition (`cert_signals.first_relist_date`). A redistribution entered before
+the earlier conference, or after a call for response or a bare reschedule took
+the petition off it, moved the petition without the Court considering it and
+is not a relist. It opens the cert stage's relist moment, once per petition: a
+later relist repeats the same signal. Live poll only, fill-in latched, withheld
+from the `query` rows, and null on a decided row polled before the column
+existed.
+
 On a granted docket the same parse also lands the **merits decision record**
 (`pipeline/decision_record.py`), over every grant — the GVR and the summary
 reversal included, where the merits pair (`merits_judgment` / `merits_decided`)
