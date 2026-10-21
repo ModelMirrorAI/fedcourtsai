@@ -4332,8 +4332,8 @@ def merits_coverage_cmd(
     without a prediction, with its status. Reads the corpus index and the
     committed predictions under the data root; reads no snapshot and writes
     nothing. Prints one line per Term to stderr and the census JSON to stdout;
-    exits 1 when the census finds a hole, so a scheduled caller can alarm on
-    it. Fails loud if the corpus is absent.
+    exits 3 when the census finds a hole, so a scheduled caller can alarm on
+    it apart from a failure. Fails loud (exit 1) if the corpus is absent.
     """
     today = date.today()
     last = last_term if last_term is not None else october_term_year(today)
@@ -4363,7 +4363,7 @@ def merits_coverage_cmd(
     typer.echo(f"uncovered {len(census.uncovered)}; holes {census.gaps}", err=True)
     typer.echo(census.model_dump_json())
     if census.gaps:
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=3)
 
 
 @app.command("merits-lineups")

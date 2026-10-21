@@ -158,7 +158,7 @@ def test_a_granted_ifp_case_is_owed_not_refused(tmp_path: Path) -> None:
     assert _census(db, data) == {"scotus/1": MeritsCoverageStatus.owed}
 
 
-def test_the_cli_exits_nonzero_on_a_hole(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_cli_exits_3_on_a_hole(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "corpus"
     db = corpus.corpus_db_path(root)
     with corpus.connect(db) as conn:
@@ -168,7 +168,48 @@ def test_the_cli_exits_nonzero_on_a_hole(tmp_path: Path, monkeypatch: pytest.Mon
 
     result = CliRunner().invoke(app, ["merits-coverage", "--first-term", "2020"])
 
-    assert result.exit_code == 1, result.output
+    assert result.exit_code == 3, result.output
     payload = json.loads(result.stdout.strip().splitlines()[-1])
     assert payload["gaps"] == 1
     assert payload["uncovered"][0]["status"] == "no_event"
+
+
+def test_a_scope_refused_grant_without_an_event_is_not_a_hole(tmp_path: Path) -> None:
+    # The mint refuses an out-of-scope grant its merits event, so the missing
+    # event is the documented refusal.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    with corpus.connect(db) as conn:
+        _grant(conn, 1, event=False)
+        conn.execute(
+            "UPDATE cases SET date_filed = '2025-06-01', date_decided = '2025-01-01' "
+            + "WHERE case_id = 'scotus/1'"
+        )
+        conn.commit()
+
+    assert _census(db, data) == {"scotus/1": MeritsCoverageStatus.out_of_scope}
+
+
+def test_a_resolved_event_with_no_judgment_is_a_named_hole(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    with corpus.connect(db) as conn:
+        _grant(conn, 1, resolved=True)
+
+    with corpus.connect_readonly(db) as conn:
+        result = merits_coverage(conn, data, first_term=2025, last_term=2025, today=TODAY)
+
+    (entry,) = result.uncovered
+    assert entry.status == MeritsCoverageStatus.no_event
+    assert entry.detail == "merits event resolved, no judgment latched"
+    assert result.gaps == 1
+
+
+def test_a_prediction_counts_even_without_its_corpus_event_row(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    with corpus.connect(db) as conn:
+        _grant(conn, 1, event=False)
+    seed_prediction(data, "scotus", 1, ORDER_JUDGMENT)
+
+    assert _census(db, data) == {}

@@ -1,11 +1,13 @@
 # Release write-up: the OT2026 merits docket
 
-This document is the skeleton and evidence plan for the project's first merits
-release. [milestones.md](milestones.md) calls it Release 3, the end-of-Term
-retrospective, due once the OT2026 merits docket resolves (about June–July
-2027). It defines when the release is done. It is written before any merits
-outcome exists, so the claims are bounded by the process rather than by what
-the numbers turn out to be.
+This document is the skeleton and evidence plan for the merits part of the
+project's end-of-Term release. [milestones.md](milestones.md) calls that
+release Release 3, the end-of-Term retrospective, once the OT2026 merits
+docket resolves (about June–July 2027). The release's cert retrospective has
+its own sections and is outside this document. This document defines when
+the merits part is done. It is written before any merits outcome exists, so
+the claims are bounded by the process rather than by what the numbers turn
+out to be.
 
 It follows the conventions of the long-conference write-up,
 [release-ot2026-long-conference.md](release-ot2026-long-conference.md) (*How to
@@ -16,10 +18,11 @@ read this document* there):
   and U+203A), and the sentence carrying it names the command that fills it;
 - no placeholder is ever replaced by an estimate.
 
-One difference: some of the evidence a merits release needs has no command
-yet. Each such item is marked **Owed** in place, and *Owed before publication*
-at the end collects them. The draft is not publishable while either check
-below returns anything:
+One difference: some of the evidence a merits release needs has no command or
+registration yet. Each such item is marked **Owed** in place, and *Owed before
+publication* at the end collects them. An item that may be resolved by
+stating its absence says so, and stating the absence clears it. The draft is
+not publishable while either check below returns anything:
 
 ```bash
 grep -n "$(printf '‹')" docs/release-ot2026-merits.md
@@ -36,81 +39,96 @@ censuses of the corpus and the ledger.
 command can be run from any checkout with the corpus pulled, or read in place
 with `--corpus-backend ranged`.
 
-**Why the end of the Term, not mid-Term.** A merits figure needs decided merits
-cases, and the Court decides most argued cases between January and June.
-Release 2 (mid-Term) carries the cert leaderboard, the salience ranking and the
-big-case scores. Its merits content is limited to this plan and the coverage
-census in section 1. Any earlier merits evidence is retrospective and reported
-apart (section 6).
+**Timing.** A merits figure needs decided merits cases, and the Court decides
+most argued cases between January and June. Before the end of the Term, the
+only merits evidence is retrospective (section 7). What, if anything, of the
+merits stream an earlier release carries is the maintainer's call, and this
+document does not presume it.
 
-## 1. The counted population
+## 1. The covered population
 
 **State.** Which plenary grants the release covers, and what became of every
 other one. The population is every OT2025 and OT2026 grant that opens a
-merits proceeding, counted per grant Term:
+merits proceeding, keyed to the October Term of its grant date. For each grant
+Term the write-up states:
 
-- **Plenary grants.** The total is ‹plenary grants›.
-- **Forecast.** ‹forecast› carry a committed merits prediction.
-- **No prediction.** Every remaining grant is listed with its status, so
-  none is missing without notice.
+- the total number of plenary grants, ‹plenary grants›;
+- how many carry a committed merits prediction, ‹forecast›;
+- every other grant, listed with its status, so that none is missing without
+  notice.
 
 A grant whose judgment rode the cert order (a GVR, or a summary disposition
-under a `granted` label) is a cert-stage fact. It is counted apart, never
-silently dropped.
+under a `granted` label) is a cert-stage fact. It is counted apart as
+`order_riding`, never silently dropped.
 
-**Evidence.** The census, at the refresh commit with the corpus pulled:
+**Evidence.** The census, run at the refresh commit with the corpus pulled:
 
 ```bash
 uv run fedcourts merits-coverage --first-term 2025 --last-term 2026 > merits-coverage.json
 ```
 
-It gives every plenary grant one status:
+It gives every plenary grant exactly one status. The table lists them in the
+order the census tests them, and the first match wins:
 
 | Status | Meaning |
 |---|---|
-| `forecast` | Counted, subject to the process scope below. |
-| `owed` | An open event awaiting a round. At publication this should be zero. |
-| `out_of_scope` | The predict-scope reason is named. |
-| `terminated` | The case ended without a decision. |
+| `forecast` | A committed merits prediction exists. |
+| `terminated` | The case ended without a decision (section 6). |
 | `decided_unforecast` | Decided before the forward stream reached it. |
-| `stale` | Pending past the stale-grant bound. |
-| `no_event` | A hole. |
-| `not_forecastable` | A hole. |
+| `stale` | Still pending on the record after the stale-grant bound. |
+| `out_of_scope` | Refused by predict scope; the reason is named. |
+| `no_event` | Pending and in scope, but no open merits event. A **hole**. |
+| `owed` | An open event waiting for its first round. |
+| `not_forecastable` | Has an open event, but the merits admission refuses it. A **hole**. |
 
-The command exits non-zero on any hole, and every hole is named in the
-write-up.
+The command exits 3 when it finds a hole. The write-up names every hole.
+Grants still `owed` at publication are listed with their grant dates.
 
 **Prose (settled).**
 
 - **The forward window.** The forward merits stream mints an event when it
   detects a grant. OT2025 grants made before the stream existed show as
   `decided_unforecast` with no merits event. They are outside the forecast
-  population by construction, and the write-up states their count instead of
+  population by construction. The write-up states their count rather than
   folding them in.
 - **IFP grants.** In-forma-pauperis grants are forecast from the scope change
   recorded in [freeze-record.md](freeze-record.md) (the IFP scope rule stops
-  at a merits grant). Merits cells made before that change are paid-only.
+  at a merits grant). Merits cells made before that change are paid-only, so
+  the population behind the cells changes at that date. The write-up states
+  how many counted cells fall on each side of the change.
 - **Original jurisdiction.** Original-jurisdiction cases are outside predict
   scope, even when argued.
 - **Consolidated dockets.** These count once per docket, so one opinion can
-  score several cells. The write-up reports n per docket **and** per argued
-  case. **Owed:** a per-argued-case aggregation of the merits figures (a
-  consolidation key on the census and on the board).
+  score several cells. **Owed:** a per-argued-case aggregation of the merits
+  figures, so the write-up can state n per docket and per argued case.
+- **Decided versus covered.** Grants are keyed by grant Term, and a late
+  OT2026 grant is argued the next Term. Every scored figure below is therefore
+  stated over the decided cases, ‹decided›, with the undecided remainder
+  named.
 
-**State, continued: the process scope.** Within the forecast set, a cell
-counts only under the frozen process in force when the counted window opens:
-‹process version and counting instant from `FROZEN_SINCE` / `COUNTING_WINDOWS`›.
+## 2. The counted cells
 
-Cells from earlier freezes are outside the count. Some cells were provisioned
-with no snapshot cutoff, and those are never pooled with cut cells
-([freeze-record.md](freeze-record.md) records the boundary).
+**State.** Which cells the scored figures count. Counting is per window, the
+rule in `process_version.py` (*Counting is per window*):
 
-The census of counted versus excluded merits cells per digest is
-‹per-digest census›, from the leaderboard's frozen-scope build. **Owed:** a
-merits stage block on the leaderboard (section 2), which is what prints that
-census.
+- A blessing opens a counting window for each predictor digest.
+- A cell counts when its digest has a window containing its stamp.
+- Where one predictor holds cells from several windows on one event, only the
+  earliest still-counting window's cell counts.
+- A successor closes a window without de-counting it. Only a dated revocation
+  de-counts.
 
-## 2. The headline: judgment disturbed
+The write-up lists the windows in force at the refresh commit,
+‹`COUNTING_WINDOWS` labels and instants›. For each moment and each predictor,
+it gives the census of counted versus uncounted merits cells, ‹per-window
+census›. Cells provisioned with no snapshot cutoff are never pooled with cut
+cells ([freeze-record.md](freeze-record.md) records the boundary).
+
+**Owed:** a per-window census within a leaderboard stage block. A stage block
+carries per-entry `windows` today, but no process-scope census of the cells
+it excludes.
+
+## 3. The headline: judgment disturbed, per moment
 
 **State.** The registered merits claim is the probability that the Court
 disturbs the judgment below: reverses, vacates, or reverses in part. Each
@@ -119,78 +137,107 @@ pooled strictly-prior merits base rate (`merits_base_rate`), which is defined
 only where at least `MERITS_BASE_RATE_MIN_PARSED` parsed judgments pool
 ([decision-model.md](decision-model.md)).
 
-Per predictor, the write-up states:
+The headline is stated **per moment**, because `merits@grant` and
+`merits@briefed` are separate populations and a skill figure means something
+only within one. For each moment and each predictor, the write-up states:
 
-- n;
+- n, the number of counted cells;
 - mean Brier;
-- skill against that rate;
-- accuracy on the exact-match judgment axis (`judgment_correct`).
+- skill against the base rate.
 
-A dismissal as improvidently granted, and an equally divided affirmance, score
-as *undisturbed*. Both leave the judgment below standing, and both sit in the
-baseline's denominator.
+It also states accuracy on the exact-match judgment axis (`judgment_correct`),
+beside a stated naive floor: the most common judgment in the strictly-prior
+pool, conditioned the way the predictor is. A dismissal as improvidently
+granted and an equally divided affirmance score as *undisturbed*, because
+both leave the judgment below standing, and both sit in the baseline's
+denominator.
 
-**Evidence.** The baseline: the merits section of `metrics/statpack.json` at
-the refresh commit. Its pool is ‹parsed› parsed judgments, with a disturbed
-rate of ‹disturbed_rate› over grant Terms ‹first›–‹last›, and
-‹cert_order_excluded› order-riding rows removed. The per-cell scores: the
-`stamp-cell` Brier and skill on each graded merits evaluation.
+**Evidence.**
+
+- *The baseline:* the merits section of `metrics/statpack.json` at the refresh
+  commit. Its pool is ‹parsed› parsed judgments, with a disturbed rate of
+  ‹disturbed_rate›, over grant Terms ‹first›–‹last›, with
+  ‹cert_order_excluded› order-riding rows removed.
+- *Per-cell scores:* the `stamp-cell` Brier and skill on each graded merits
+  evaluation.
+- *The per-moment figures:* the leaderboard's `merits@grant` and
+  `merits@briefed` stage blocks. The leaderboard keys its non-cert stages
+  `<stage>@<moment>`, so these blocks appear once a merits evaluation exists.
 
 **Owed:**
-- the leaderboard's `merits@grant` and `merits@briefed` stage blocks, with a
-  reading rule in [metrics/README.md](../metrics/README.md) that says whether
-  the merits board is ranked;
-- `claim-scores` coverage of the `merits-v1` claim set, which today rolls up
-  cert's first moment only.
 
-**Prose (settled).** A merits Brier is not comparable to a cert Brier. The two
-binaries have different base rates: about seven in ten merits judgments are
-disturbed, against a cert grant rate near one in a hundred. Only the skill
-against each stage's own baseline is read across stages, and then only as
-direction, never as rank.
+- a reading rule for the merits stage blocks in
+  [metrics/README.md](../metrics/README.md), saying what may be read from
+  them and that they are never ranked;
+- a merits accuracy floor. The board's floor is cert-only today;
+- `claim-scores` coverage of the `merits-v1` claim set. `claim-scores` rolls
+  up only cert's first moment today.
 
-## 3. The baseline and the smoothing rule
+**Prose (settled).** A merits figure is never compared with a cert figure.
+The two stages answer different questions against different baselines, and
+the leaderboard keeps every `stage@moment` population apart.
 
-**State.** Three things about the baseline every skill figure is measured
-against:
+## 4. Calibration and the engines compared
 
-- the pool it was computed from;
-- the lookback window;
-- the smoothing rule.
+**State.** Two analyses:
+
+- **Calibration** of each predictor's P(disturbed) per moment, the merits
+  analog of the long-conference write-up's section 3: binned forecasts
+  against realized rates.
+- **A paired comparison** of the engines at equal coverage, which cancels the
+  baseline term ([outcome-decomposition.md](outcome-decomposition.md), *Why
+  the difference form*). This is the comparison that carries a skill claim
+  between engines.
+
+The write-up also states which grants each engine covered and which it did
+not.
+
+**Owed:** the command that prints merits calibration and the paired
+equal-coverage comparison. Until it exists, this section states its absence.
+
+## 5. The baseline and the smoothing rule
+
+**State.** The pool behind every skill figure, the lookback window, and the
+smoothing rule if one applies.
 
 **Prose (settled).** The pooled merits baseline rests on hundreds of parsed
-judgments. At that size its estimation error is a few ten-thousandths of a
-Brier point per claim, well below the per-Term drift of the rate itself. So
-the headline does not depend on smoothing.
-
-Smoothing matters for any cut whose pool falls toward the floor of 30: one
-grant Term, one fee class, or one originating court. There the expected error
-is about `π(1−π)/n ≈ 0.007` per claim
+judgments. At that size its estimation error, about `π(1−π)/n`, is a few
+ten-thousandths of a Brier point per claim. That is well below the per-Term
+drift of the rate itself, so the pooled headline does not depend on smoothing.
+`merits_base_rate` has no fee-class, Term or originating-court cut today. A
+smoothing rule becomes owed only if the release publishes a figure scored
+against such a cut, whose pool can fall toward the floor of 30. There the
+error is about `0.007` per claim
 ([outcome-decomposition.md](outcome-decomposition.md)), the same order as the
 drift.
 
-**Owed:** the smoothing rule, registered in
+If the release publishes a cut, the smoothing rule is registered in
 [freeze-record.md](freeze-record.md) before the first counted merits outcome
-resolves. The candidate is a beta-binomial shrinkage of each strictly-prior
-pool toward the pooled all-Term rate, with a fixed pseudo-count. Then a cut's
-rate moves to the pooled one as its pool shrinks, and leaves it as the pool
-grows. Until the rule is registered, a merits cut below the pooled baseline
-is published as coverage, never as evidence of skill.
+resolves. It must keep the strictly-prior rule: a cut's rate can shrink only
+toward a strictly-prior pool. It must also settle the tension with the
+conditioned-floor rule, since shrinking a cut toward a coarser rate unconditions
+it. Choosing the rule and its strength is the maintainer's pre-registration.
+Until a rule is registered, a cut's figure is published as coverage, never as
+evidence of skill.
 
-## 4. Votes
+## 6. Votes, and cases that end without a decision
 
 **State.** Per-Justice vote accuracy (`mean_vote_accuracy`) for each
-predictor. It is scored over complete whole-bench records only, and gated on
-the judgment ([decision-model.md](decision-model.md)). The write-up states:
+predictor. It is scored only on the merits moments and only over complete
+whole-bench records ([decision-model.md](decision-model.md)). That population
+is the signed, parsed opinions that agree with the Granted & Noted list, and a
+consolidated case enters the mean once per docket. The write-up states:
 
-- the scored count ‹vote cells scored›;
-- the number of decided cases without a complete record ‹incomplete›;
-- the reason each one is incomplete.
+- the scored count, ‹vote cells scored›;
+- the decided cases without a complete record, ‹incomplete›, each with its
+  reason;
+- the naive floor the accuracy is read against (for example, every Justice
+  voting with the predicted majority), with the lift over it.
 
 **Evidence.** The opinions vote source stamps merits outcomes through the
-`opinion-votes` pass on `run-repair`. The maintainer runs it as a dry run, then
-as an apply bounded by the dry run's count, after each opinion day of the Term
-(*Maintenance passes* in [data-pipeline.md](data-pipeline.md)):
+`opinion-votes` pass on `run-repair`. The maintainer runs it after each
+opinion day of the Term: a dry run first, then an apply bounded by the dry
+run's count (*Maintenance passes* in [data-pipeline.md](data-pipeline.md)):
 
 ```bash
 gh workflow run run-repair.yml --ref main \
@@ -201,70 +248,74 @@ gh workflow run run-repair.yml --ref main \
 
 `fedcourts granted-noted-check` cross-checks the stamped Terms.
 
+**Owed:** the stated naive floor for `mean_vote_accuracy`.
+
+**Terminations.** The write-up also covers the forecast merits events that
+ended without a disposition: a voluntary dismissal, dismissal as moot,
+abatement, or a grant the Court vacated. It states how many there were and
+what happened to their cells. A termination never scores as *undisturbed*.
+
+**Owed:** a terminal record for a terminated merits event, so its cells are
+de-counted visibly rather than left on an open event.
+
 **Prose (settled).** Vote split, margin and authorship are pre-registered as
 outcomes only. They are not in the declared claim set and are not scored.
 
-## 5. Merits cases that end without a decision
-
-**State.** How many forecast merits events ended without a disposition:
-
-- a voluntary dismissal;
-- dismissal as moot;
-- abatement;
-- a grant the Court vacated.
-
-For each one, what happened to its cells. A termination never scores as
-*undisturbed*, because nothing was decided about the judgment below.
-
-**Owed:** a terminal record for a terminated merits event, so that its cells
-are de-counted visibly rather than left on an open event forever. The census
-in section 1 counts the terminations; the record decides what the board does
-with their cells.
-
-## 6. Retrospective evidence
+## 7. Retrospective evidence
 
 **State.** Any score from replaying decided cases is retrospective. It is
-reported in its own section, stratified apart, and never pooled with forward
-skill (`classify_stratum`). The models may know those outcomes, so a replay
-score bounds nothing about forward skill.
+reported in its own section, stratified apart (`classify_stratum`), and never
+pooled with forward skill. The models may already know those outcomes, so a
+replay score bounds nothing about forward skill.
 
-**Owed:** a merits replay arm on `run-backtest`, covering OT2025's argued
-cases first, priced in [budget.md](budget.md) before its first run. If it has
-not run by publication, this section says so and carries no figure.
+**Owed:** either a merits replay arm on `run-backtest`, covering OT2025's
+argued cases first and priced in [budget.md](budget.md) before its first run,
+or a statement here that none ran.
 
-## 7. The `stats-reviewer` pass
+## 8. Cost
+
+**State.** What the merits stream cost over the Term, per moment and per
+engine, from the committed `usage.json` records, ‹merits spend›. Also stated:
+the per-cell rate the budget planned against.
+
+## 9. The `stats-reviewer` pass
 
 **State.** The same pass as the long-conference write-up's section 7, run on
 the filled draft. Every figure is checked against the command that produced
 it, at the refresh commit.
 
-## 8. The publishing tag
+## 10. The publishing tag
 
-**State.** That the published figures correspond to an exact commit on
-`main`. The machinery is the long-conference write-up's section 8, unchanged:
+**State.** That the published figures correspond to an exact commit on `main`.
+The tag follows the long-conference write-up's section 8:
 
-1. A metrics refresh lands on `main`.
-2. A fill export is built at the refresh commit.
-3. The dataset DOI is reserved.
-4. The filled documents are promoted.
-5. The candidate export is rebuilt and checked against the fill export.
-6. The maintainer pushes a `results/<slug>` tag.
-7. A [releases.json](releases.json) entry names the release.
+- a refresh commit;
+- a fill export, built twice and checked;
+- reserved DOIs for the software and dataset records;
+- the filled documents promoted;
+- a `results/<slug>` tag pushed by the maintainer;
+- the archive records published.
 
-**Owed:** a reader-facing public summary for this release, following the
-long-conference public page, and its `releases.json` entry.
+The [releases.json](releases.json) entry rides the release's own pull request,
+per *The release manifest* in [pipeline.md](pipeline.md).
+
+The long-conference candidate check compares a registered cohort, its
+per-protocol entries and its claim-score diffs. The merits counterparts of
+these depend on sections 2 and 3.
+
+**Owed:** a reader-facing public summary for this release, in the shape of the
+long-conference public page.
 
 ## Owed before publication
 
-Each item below needs building, or registering, before the draft can be
-filled.
-
 | Item | Section |
 |---|---|
-| Leaderboard merits stage blocks, with a reading rule | 2 |
-| `claim-scores` coverage of `merits-v1` | 2 |
 | Per-argued-case aggregation for consolidated dockets | 1 |
-| Smoothing rule, registered before the first counted outcome | 3 |
-| Terminal record for terminated merits events | 5 |
-| Merits replay arm (optional; section 6 can state its absence) | 6 |
-| Public summary and `releases.json` entry | 8 |
+| Per-window census within a leaderboard stage block | 2 |
+| Merits stage reading rule, accuracy floor and `merits-v1` claim-score coverage | 3 |
+| Merits calibration and the paired equal-coverage comparison (or a stated absence) | 4 |
+| Smoothing rule, only if a cut is published | 5 |
+| Naive floor for `mean_vote_accuracy` | 6 |
+| Terminal record for terminated merits events | 6 |
+| Merits replay arm (or a stated absence) | 7 |
+| Public summary | 10 |

@@ -35,14 +35,15 @@ from ..matrix import event_has_predictions
 from ..schemas import MERITS_PROCEEDING_DISPOSITIONS, Stage
 from ..store import merits_event_forecastable
 from ..supremecourt import october_term_year
+from . import moments
 from .judgment import judgment_rode_the_grant_order
 
 
 class MeritsCoverageStatus(StrEnum):
     """What became of one plenary grant's merits forecast, first match wins.
 
-    ``forecast`` and ``owed`` are the stream working; ``out_of_scope``,
-    ``terminated``, ``stale`` and ``decided_unforecast`` are documented
+    ``forecast`` and ``owed`` are the stream working; ``terminated``,
+    ``decided_unforecast``, ``stale`` and ``out_of_scope`` are documented
     refusals or a case the forward stream never reached; ``no_event`` and
     ``not_forecastable`` are the coverage holes this census exists to find.
     """
@@ -55,10 +56,10 @@ class MeritsCoverageStatus(StrEnum):
     """A merits judgment is latched and no prediction was ever committed."""
     stale = "stale"
     """Pending on the record past the stale-grant bound (`is_stale_unparsed_grant`)."""
-    no_event = "no_event"
-    """Pending, and the corpus holds no merits event for it: nothing can be forecast."""
     out_of_scope = "out_of_scope"
-    """A merits event exists, but a predict-scope rule refuses the case."""
+    """A predict-scope rule refuses the case, whether or not a merits event was minted."""
+    no_event = "no_event"
+    """Pending, in scope, and the corpus holds no open merits event: nothing can be forecast."""
     owed = "owed"
     """An open, forecastable merits event awaiting its first predict round."""
     not_forecastable = "not_forecastable"
@@ -82,7 +83,8 @@ class MeritsCoverageEntry(BaseModel):
     detail: str | None = Field(
         default=None,
         description="The predict-scope reason for `out_of_scope`, the termination "
-        "for `terminated`, whether a merits event existed for `decided_unforecast`",
+        "for `terminated`, whether a merits event existed for `decided_unforecast`, "
+        "and a resolved merits event for `no_event`",
     )
 
 
@@ -123,13 +125,28 @@ class MeritsCoverage(BaseModel):
     )
 
 
+#: The declared merits moments' event ids, read in the ledger whatever the corpus holds.
+_MERITS_EVENT_IDS = frozenset(spec.event_id for spec in moments.moments_for(Stage.merits))
+
+
 def _merits_events(conn: corpus.ReadConnection, case_id: str) -> list[corpus.CorpusEvent]:
-    return [e for e in corpus.events_for_case(conn, case_id) if e.stage == Stage.merits]
+    return [
+        e
+        for e in corpus.events_for_case(conn, case_id)
+        if e.stage == Stage.merits or e.event_id in _MERITS_EVENT_IDS
+    ]
 
 
 def _has_prediction(data_root: Path, case_id: str, events: list[corpus.CorpusEvent]) -> bool:
+    """Whether the ledger holds a prediction on any merits event of the case.
+
+    Reads the ledger under every declared merits event id as well as the
+    corpus's own merits events, so a committed forecast counts even where its
+    corpus event row is missing or carries no stage.
+    """
     court, docket = case_id.split("/", 1)
-    return any(event_has_predictions(data_root, court, int(docket), e.event_id) for e in events)
+    event_ids = _MERITS_EVENT_IDS | {e.event_id for e in events}
+    return any(event_has_predictions(data_root, court, int(docket), eid) for eid in event_ids)
 
 
 def classify_grant(  # noqa: PLR0911 - one return per status, in the enum's order
@@ -142,22 +159,28 @@ def classify_grant(  # noqa: PLR0911 - one return per status, in the enum's orde
     if row.merits_terminated is not None:
         return MeritsCoverageStatus.terminated, str(row.merits_terminated)
     if row.merits_judgment is not None:
-        detail = "merits event minted" if events else "no merits event"
-        return MeritsCoverageStatus.decided_unforecast, detail
+        minted = "merits event minted" if events else "no merits event"
+        return MeritsCoverageStatus.decided_unforecast, minted
     if corpus.is_stale_unparsed_grant(row, today=today):
         return MeritsCoverageStatus.stale, None
-    open_events = [e for e in events if not e.resolved]
-    if not open_events:
-        return MeritsCoverageStatus.no_event, None
+    # Before the event check: the mint refuses an out-of-scope grant its event,
+    # so a missing event there is the documented refusal, not a hole.
     reason = corpus.out_of_scope_reason_full(conn, row)
     if reason is not None:
         return MeritsCoverageStatus.out_of_scope, reason
+    open_events = [e for e in events if not e.resolved]
+    if not open_events:
+        resolved = "merits event resolved, no judgment latched" if events else None
+        return MeritsCoverageStatus.no_event, resolved
     if any(merits_event_forecastable(e, row, today) for e in open_events):
         return MeritsCoverageStatus.owed, None
     return MeritsCoverageStatus.not_forecastable, None
 
 
 def _rode_the_order(row: corpus.CorpusRow) -> bool:
+    # The judgment-date half of `decision_record._rode_the_order` only: the
+    # population is already the merits-proceeding labels, so no cert-order
+    # label can reach here.
     return (
         row.merits_decided is not None
         and row.date_cert_granted is not None
