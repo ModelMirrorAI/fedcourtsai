@@ -10819,7 +10819,7 @@ def _vintaged[T: BaseModel](path: Path, model: type[T]) -> Vintaged[T]:
 
 
 def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
-    """The committed replay artifacts the weekly digest's back-test block reports."""
+    """The committed metrics artifacts the weekly digest's scored blocks report."""
     return WeeklyAnalytics(
         backtest=_vintaged(metrics_root / "backtest.json", Backtest),
         salience_replay=_vintaged(metrics_root / "salience-replay.json", SalienceReplay),
@@ -10828,6 +10828,7 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
         # it as an absence rather than omitting the line.
         cert_backtest=_vintaged(metrics_root / "cert-backtest.json", CertBacktest),
         salience_version_in_force=SALIENCE_VERSION,
+        leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
     )
 
 

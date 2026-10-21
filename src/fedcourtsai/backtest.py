@@ -16,9 +16,12 @@ figure is dominated by whichever court supplies the most resolved events, whose
 floor may be near zero, and it mixes outcome vocabularies (``granted`` is cert
 granted on a SCOTUS row, a motion granted on a circuit docket). Lift is therefore
 presentational: entries rank on accuracy then Brier, never on a pooled floor that
-spans those vocabularies. Skill against a leakage-safe, salience-adjusted baseline
-belongs to :mod:`fedcourtsai.cert_backtest`, scoped to the population actually
-predicted.
+spans those vocabularies. The SCOTUS row is split once more, by docket class
+(cert petition, interim application, other), because one SCOTUS slice mixes those
+vocabularies too: the cert floor is the ``cert`` row's, and an application
+back-fill moves the court row without moving it. Skill against a leakage-safe,
+salience-adjusted baseline belongs to :mod:`fedcourtsai.cert_backtest`, scoped to
+the population actually predicted.
 
 The scoring half here is deterministic and offline — a pure function of the
 corpus, with no clock or randomness — so the same corpus always yields
@@ -43,7 +46,14 @@ from typing import Protocol
 from . import corpus
 from .corpus import CorpusRow
 from .pipeline.outcome import granted_flag, is_machine_readable
-from .schemas import Backtest, BacktestCourtScore, BacktestEntry, Disposition
+from .schemas import (
+    Backtest,
+    BacktestCourtScore,
+    BacktestDocketClass,
+    BacktestDocketClassScore,
+    BacktestEntry,
+    Disposition,
+)
 from .supremecourt import october_term_year
 
 # Brier scores are bounded in [0, 1]; a predictor that reported none sorts after
@@ -177,6 +187,7 @@ class BacktestFeatures:
     judges: tuple[str, ...]
     date_filed: date | None
     year: int | None
+    docket_class: BacktestDocketClass | None = None
 
 
 @dataclass(frozen=True)
@@ -215,6 +226,28 @@ class Backtester(Protocol):
     def predict(self, features: BacktestFeatures) -> BacktestPrediction: ...
 
 
+#: The court whose slice the replay also scores per docket class.
+_DOCKET_CLASS_COURT = "scotus"
+
+#: The order docket-class rows are written in: the predicted population first.
+_DOCKET_CLASS_ORDER: tuple[BacktestDocketClass, ...] = ("cert", "application", "other")
+
+
+def docket_class(row: CorpusRow) -> BacktestDocketClass | None:
+    """A SCOTUS row's docket class, read off its docket number; ``None`` off SCOTUS.
+
+    Pre-decision by construction — the docket number is fixed at filing — so it
+    may ride the outcome-free feature view.
+    """
+    if row.court != _DOCKET_CLASS_COURT:
+        return None
+    if corpus.is_modern_cert(row):
+        return "cert"
+    if corpus.is_scotus_application_form(row.docket_number):
+        return "application"
+    return "other"
+
+
 def backtest_features(row: CorpusRow) -> BacktestFeatures:
     """Project a corpus row onto the outcome-free feature view (shared with cert)."""
     return BacktestFeatures(
@@ -224,6 +257,7 @@ def backtest_features(row: CorpusRow) -> BacktestFeatures:
         judges=tuple(row.judges),
         date_filed=row.date_filed,
         year=corpus.case_year(row),
+        docket_class=docket_class(row),
     )
 
 
@@ -603,6 +637,7 @@ class _Tally:
 def _score_one(backtester: Backtester, items: list[BacktestItem]) -> BacktestEntry:
     overall = _Tally()
     per_court: dict[str, _Tally] = defaultdict(_Tally)
+    per_class: dict[BacktestDocketClass, _Tally] = defaultdict(_Tally)
     for item in items:
         prediction = backtester.predict(item.features)
         actual_granted = granted_flag(item.actual_disposition)
@@ -614,6 +649,8 @@ def _score_one(backtester: Backtester, items: list[BacktestItem]) -> BacktestEnt
         }
         overall.add(**scored)  # type: ignore[arg-type]
         per_court[item.features.court].add(**scored)  # type: ignore[arg-type]
+        if item.features.docket_class is not None:
+            per_class[item.features.docket_class].add(**scored)  # type: ignore[arg-type]
     return BacktestEntry(
         predictor_id=backtester.id,
         rank=1,  # provisional; assigned after sorting
@@ -634,6 +671,20 @@ def _score_one(backtester: Backtester, items: list[BacktestItem]) -> BacktestEnt
                 lift_over_always_denied=tally.correct / tally.n - tally.floor,
             )
             for court, tally in sorted(per_court.items())
+        ],
+        docket_classes=[
+            BacktestDocketClassScore(
+                court=_DOCKET_CLASS_COURT,
+                docket_class=docket_class_,
+                events_scored=tally.n,
+                accuracy=tally.correct / tally.n,
+                granted_accuracy=tally.granted_correct / tally.n,
+                mean_brier_score=tally.brier_sum / tally.n,
+                always_denied_accuracy=tally.floor,
+                lift_over_always_denied=tally.correct / tally.n - tally.floor,
+            )
+            for docket_class_ in _DOCKET_CLASS_ORDER
+            if (tally := per_class.get(docket_class_)) is not None
         ],
     )
 

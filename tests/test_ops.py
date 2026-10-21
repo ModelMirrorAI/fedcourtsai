@@ -19,6 +19,7 @@ from fedcourtsai.schemas import (
     AgentToolingFeedback,
     Backtest,
     BacktestCourtScore,
+    BacktestDocketClassScore,
     BacktestEntry,
     BaseRateBucket,
     CalibrationBin,
@@ -42,7 +43,11 @@ from fedcourtsai.schemas import (
     FlagSeverity,
     FlagSource,
     GroupBy,
+    Leaderboard,
+    LeaderboardEntry,
+    LeaderboardStratum,
     LeakageAssessment,
+    LeakageExclusionRecord,
     LedgerValidation,
     LiveFrontier,
     ModelUsage,
@@ -52,6 +57,7 @@ from fedcourtsai.schemas import (
     PredictableEvent,
     Prediction,
     SalienceReplay,
+    SetAsideRecord,
     Stage,
     StatPack,
     StatPackSection,
@@ -2424,6 +2430,7 @@ def _analytics(
     backtest: Backtest | None = None,
     salience_replay: SalienceReplay | None = None,
     cert_backtest: CertBacktest | None = None,
+    leaderboard: Leaderboard | None = None,
     vintage: str | None = "2026-08-29",
     in_force: str = "sal-v4",
 ) -> ops.WeeklyAnalytics:
@@ -2433,6 +2440,7 @@ def _analytics(
         salience_replay=ops.Vintaged(salience_replay, vintage),
         cert_backtest=ops.Vintaged(cert_backtest, vintage),
         salience_version_in_force=in_force,
+        leaderboard=ops.Vintaged(leaderboard, vintage),
     )
 
 
@@ -2797,7 +2805,7 @@ def test_the_weekly_digest_reports_the_backtest_floor_beside_its_accuracy() -> N
     md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(backtest=board))
 
     assert "| prior-vote | _all courts pooled_ | 28,409 | 63.8% | 63.7% | +0.08% | 0.0985 |" in md
-    assert "Read a lift only against its own court's floor" in md
+    assert "Read a lift only against its own row's floor" in md
 
 
 def test_the_weekly_digest_counts_the_weeks_cells_by_role_and_stage() -> None:
@@ -3291,7 +3299,7 @@ def test_the_weekly_digest_publishes_the_predicted_courts_row_not_only_the_poole
 
     assert "| prior-vote | scotus | 21,511 | 82.2% | 82.2% | +0.00% | 0.1000 |" in md
     assert "| prior-vote | _all courts pooled_ | 28,409 |" in md
-    assert "Read a lift only against its own court's floor" in md
+    assert "Read a lift only against its own row's floor" in md
     assert "iteration instrument" in md
 
 
@@ -3550,3 +3558,237 @@ def test_the_window_keeps_ordinary_depth_whatever_the_polls_add() -> None:
     assert names.count("corpus-check") == 48
     newest_poll = max(str(r["createdAt"]) for r in polls)
     assert newest_poll in {str(r["createdAt"]) for r in kept if r["workflowName"] == "corpus-check"}
+
+
+def test_the_weekly_digest_splits_the_scotus_row_by_docket_class() -> None:
+    # One SCOTUS row mixes cert petitions with interim applications, whose floors
+    # differ several-fold, so an application back-fill moves the court row while
+    # the cert floor stays put. The digest publishes the classes, not the mixture.
+    def score(court: str, n: int, floor: float, klass: str | None = None) -> BacktestCourtScore:
+        fields: dict[str, object] = {
+            "court": court,
+            "events_scored": n,
+            "accuracy": floor,
+            "granted_accuracy": 0.9,
+            "mean_brier_score": 0.1,
+            "always_denied_accuracy": floor,
+            "lift_over_always_denied": 0.0,
+        }
+        if klass is None:
+            return BacktestCourtScore.model_validate(fields)
+        return BacktestDocketClassScore.model_validate({**fields, "docket_class": klass})
+
+    board = Backtest(
+        predictors_evaluated=1,
+        events_scored=25_000,
+        entries=[
+            BacktestEntry(
+                rank=1,
+                predictor_id="constant-denied",
+                events_scored=25_000,
+                accuracy=0.767,
+                granted_accuracy=0.8,
+                mean_brier_score=0.19,
+                always_denied_accuracy=0.767,
+                lift_over_always_denied=0.0,
+                courts=[score("scotus", 25_000, 0.767)],
+                docket_classes=[
+                    score("scotus", 20_500, 0.892, "cert"),
+                    score("scotus", 4_450, 0.187, "application"),
+                    score("scotus", 50, 0.5, "other"),
+                ],
+            )
+        ],
+    )
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(backtest=board))
+
+    assert (
+        "| constant-denied | scotus — cert petitions | 20,500 | 89.2% | 89.2% | +0.00% | 0.1000 |"
+        in md
+    )
+    assert "| constant-denied | scotus — applications | 4,450 | 18.7% | 18.7% |" in md
+    assert "| constant-denied | scotus — other dockets | 50 |" in md
+    # The mixed court row is replaced, not printed beside its own parts.
+    assert "| constant-denied | scotus | 25,000 |" not in md
+    assert "the salience-gated population the cert stage predicts is the cert back-test's" in md
+
+
+def _forward(
+    *,
+    events: int = 110,
+    accuracy: float = 0.9818,
+    floor: float = 0.9455,
+    brier: float = 0.0185,
+    skill: float | None = 0.6511,
+    grants: int | None = 6,
+) -> LeaderboardStratum:
+    return LeaderboardStratum(
+        events_scored=events,
+        evaluations=events * 3,
+        accuracy=accuracy,
+        accuracy_scored=events * 3,
+        accuracy_events_scored=events,
+        event_accuracy=accuracy,
+        event_always_deny_accuracy=floor,
+        event_accuracy_lift=accuracy - floor,
+        always_deny_accuracy=floor,
+        accuracy_lift=accuracy - floor,
+        mean_brier_score=brier,
+        population_brier_skill_score=skill,
+        skill_scored=events * 3 if skill is not None else 0,
+        grants_realized=grants,
+    )
+
+
+def _board(
+    *entries: LeaderboardEntry, paired: dict[str, LeaderboardStratum] | None = None, **kw: object
+) -> Leaderboard:
+    """A board whose paired figure is ``paired``, else every entry's own forward."""
+    engines = (
+        paired
+        if paired is not None
+        else {e.predictor_id: e.forward for e in entries if e.forward is not None}
+    )
+    return Leaderboard.model_validate(
+        {
+            "process_scope": "frozen",
+            "predictors_ranked": len(engines),
+            "evaluations_total": sum(e.forward.evaluations for e in entries if e.forward),
+            "events_scored": max((e.events_scored for e in entries), default=0),
+            "entries": entries,
+            "paired": {
+                "predictors": sorted(engines),
+                "events": min((f.accuracy_events_scored for f in engines.values()), default=0),
+                "entries": [
+                    {"predictor_id": p, "forward": f, "unpaired_events": 0}
+                    for p, f in sorted(engines.items())
+                ],
+            }
+            if engines
+            else None,
+            **kw,
+        }
+    )
+
+
+def _lb_entry(predictor_id: str, forward: LeaderboardStratum | None) -> LeaderboardEntry:
+    return LeaderboardEntry.model_validate(
+        {
+            "predictor_id": predictor_id,
+            "evaluators": 3,
+            "events_scored": forward.events_scored if forward else 0,
+            "forward": forward,
+        }
+    )
+
+
+def test_the_weekly_digest_leads_its_scored_blocks_with_the_forward_record() -> None:
+    board = _board(
+        _lb_entry("claude-baseline", _forward()),
+        _lb_entry("gemini-baseline", _forward(accuracy=0.9273, brier=0.0508, skill=0.0422)),
+        _lb_entry("idle-baseline", None),
+        leakage_exclusion=LeakageExclusionRecord(
+            excluded=3, assessed=1239, by_predictor={"gemini-baseline": 3}
+        ),
+        set_aside=SetAsideRecord(excluded=129),
+    )
+
+    md = ops.render_weekly_digest(
+        _empty_report(), analytics=_analytics(leaderboard=board, vintage="2026-10-19")
+    )
+
+    assert "## Forward performance" in md
+    assert md.index("## Forward performance") < md.index("## Backtest results")
+    assert "`metrics/leaderboard.json`, vintage 2026-10-19" in md
+    assert "**110** paired forward event(s)" in md
+    assert "**6** of them realized grant-family" in md
+    # The lift is counted in events beside its points: at six grants one call is
+    # worth almost a whole point. The skill's denominator is gradings, not cells.
+    assert (
+        "| claude-baseline | 98.2% | 94.5% | +3.63% (+4 events) | 0.0185 "
+        "| +0.65 (330 gradings) |" in md
+    )
+    assert "| gemini-baseline | 92.7% | 94.5% | -1.82% (-2 events) |" in md
+    # A predictor with no forward stratum is not printed as a row of dashes.
+    assert "idle-baseline" not in md
+    assert (
+        "3 excluded for suspected leakage (`gemini-baseline` 3); 129 set aside as not "
+        "shown to be forward." in md
+    )
+    assert "not subtractable from the figures above" in md
+
+
+def test_the_weekly_digest_reads_the_paired_figure_not_each_entrys_own() -> None:
+    # An entry's own forward spans events no other engine shares; the ranks, and
+    # so the rows, are read off the paired events. One outside them is unranked.
+    own = _forward(events=140, accuracy=0.99)
+    paired_view = _forward(events=82, accuracy=0.9756, floor=0.9512)
+    board = _board(
+        _lb_entry("claude-baseline", own),
+        _lb_entry("codex-baseline", paired_view),
+        _lb_entry("retired-baseline", _forward(events=12)),
+        paired={"claude-baseline": paired_view, "codex-baseline": paired_view},
+    )
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+
+    assert "**82** paired forward event(s)" in md
+    assert "| claude-baseline | 97.6% | 95.1% |" in md
+    assert "| claude-baseline | 99.0% |" not in md
+    assert "Unranked, outside the paired events: `retired-baseline`." in md
+
+
+def test_the_weekly_digest_names_a_forward_board_with_nothing_scored() -> None:
+    absent = ops.render_weekly_digest(_empty_report(), analytics=_analytics())
+    assert "_`metrics/leaderboard.json` has never landed._" in absent
+
+    empty = ops.render_weekly_digest(
+        _empty_report(), analytics=_analytics(leaderboard=_board(_lb_entry("p", None)))
+    )
+    assert "_No forward cert event is scored by every engine on the board yet" in empty
+
+
+def test_the_weekly_digest_prints_an_unscored_forward_skill_as_unknown() -> None:
+    board = _board(_lb_entry("p", _forward(skill=None, grants=None)))
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(leaderboard=board))
+
+    assert "| p | 98.2% | 94.5% | +3.63% (+4 events) | 0.0185 | — |" in md
+    assert "realized grant-family" not in md
+
+
+def test_the_weekly_digest_says_an_unsplit_scotus_row_is_still_mixed() -> None:
+    board = Backtest(
+        predictors_evaluated=1,
+        events_scored=100,
+        entries=[
+            BacktestEntry(
+                rank=1,
+                predictor_id="constant-denied",
+                events_scored=100,
+                accuracy=0.766,
+                granted_accuracy=0.8,
+                mean_brier_score=0.19,
+                always_denied_accuracy=0.766,
+                lift_over_always_denied=0.0,
+                courts=[
+                    BacktestCourtScore(
+                        court="scotus",
+                        events_scored=100,
+                        accuracy=0.766,
+                        granted_accuracy=0.8,
+                        mean_brier_score=0.19,
+                        always_denied_accuracy=0.766,
+                        lift_over_always_denied=0.0,
+                    )
+                ],
+            )
+        ],
+    )
+
+    md = ops.render_weekly_digest(_empty_report(), analytics=_analytics(backtest=board))
+
+    assert "| constant-denied | scotus | 100 | 76.6% |" in md
+    assert "carries no docket-class split" in md
+    assert "The SCOTUS rows split" not in md
