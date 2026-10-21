@@ -97,7 +97,9 @@ with the one the public cares about most:
   written from each sitting is visible (~25).
 - **Relist re-forecast** and **call for response** — the strongest public
   cert-stage signals; volumes to be counted from the statpack before
-  committing.
+  committing. The call for response is declared, parsed and minted
+  (`evt-order-call-for-response-disposition`, moment `response-requested` on
+  the cert stage) and switched off on the same terms as the SG brief.
 
 These add a few hundred events at most, mainly on the low-volume merits track,
 so the cost is engineering rather than inference: each moment is a

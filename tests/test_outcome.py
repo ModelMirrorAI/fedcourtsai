@@ -2300,6 +2300,7 @@ def test_the_sg_brief_moment_resolves_with_the_petition() -> None:
         "evt-petition-disposition",
         "evt-order-cvsg-disposition",
         "evt-brief-sg-disposition",
+        "evt-order-call-for-response-disposition",
     ]
     resolution = detect_resolution(
         row,
@@ -2355,6 +2356,53 @@ def test_the_sg_brief_moment_is_minted_but_never_forecast(tmp_path: Path) -> Non
     with corpus.connect(db) as conn:
         offered = forecastable_event_ids(conn, "scotus", 9524000210, today=date(2025, 11, 25))
     assert "evt-brief-sg-disposition" not in offered
+
+
+def test_the_call_for_response_moment_is_minted_but_never_forecast(tmp_path: Path) -> None:
+    """A call for response mints on its own, with no CVSG behind it, and offers no cell.
+
+    Declared with ``forecastable=False`` until the predict prompt names the
+    moment, so the event accrues from the poll while no predictor is asked.
+    """
+    db = _db(tmp_path)
+    row = CorpusRow(
+        case_id="scotus/9524000211",
+        court="scotus",
+        docket_id=9524000211,
+        source="live",
+        docket_number="24-211",
+        call_for_response_at=date(2025, 3, 3),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/9524000211", court="scotus", docket_number="24-211")],
+        )
+    minted = mint_moment_events(
+        db,
+        tmp_path,
+        "scotus",
+        9524000211,
+        row,
+        Resolution(),
+        ["evt-petition-disposition"],
+    )
+    assert "evt-order-call-for-response-disposition" in minted
+    assert "evt-brief-sg-disposition" not in minted
+    event = read_model(
+        CasePaths(tmp_path, "scotus", 9524000211)
+        .event("evt-order-call-for-response-disposition")
+        .event_file,
+        PredictableEvent,
+    )
+    assert (event.stage, event.moment, event.opened_at) == (
+        Stage.cert,
+        Moment.response_requested,
+        date(2025, 3, 3),
+    )
+    with corpus.connect(db) as conn:
+        offered = forecastable_event_ids(conn, "scotus", 9524000211, today=date(2025, 3, 10))
+    assert "evt-order-call-for-response-disposition" not in offered
 
 
 # --- applications: every moment resolves from the one disposition -------------

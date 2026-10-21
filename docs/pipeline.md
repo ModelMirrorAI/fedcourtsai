@@ -2757,7 +2757,7 @@ the stored snapshot. A second is the **arrival anchor**: an
 interim arrival cell whose opening entry cannot be located in its snapshot exits
 4, since the moment's information set cannot be identified and cutting at the
 date instead would restore the conditioning that bound replaces. A third is a
-**trigger absent**: a `cvsg`, `response-requested` or `response-filed` cell whose
+**trigger absent**: a `cvsg`, interim `response-requested` or `response-filed` cell whose
 trigger entry no stored payload carries exits 5, since a cell placed before its
 own trigger is forecast from the previous moment under this one's name. A later
 round owes it again once a pull stores the entry; unlike a pre-mint refusal it

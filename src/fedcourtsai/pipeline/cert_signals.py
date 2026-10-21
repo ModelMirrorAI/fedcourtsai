@@ -985,6 +985,29 @@ _RESPONSE_REQUESTED_RE = re.compile(r"^\s*response\s+requested\b", re.I)
 _RESCHEDULED_RE = re.compile(r"^\s*rescheduled\b", re.I)
 
 
+def call_for_response_date(payload: Mapping[str, Any]) -> date | None:
+    """When the Court called for a response to the petition, or ``None``.
+
+    The trigger of the cert stage's call-for-response moment: the strict date
+    (:func:`entry_date`) of the **first** ``Response Requested`` entry
+    (:data:`_RESPONSE_REQUESTED_RE`, the same entry-initial reading that takes a
+    petition off its conference in :func:`considering_conference`) before the
+    first disposition entry, in docket order. The disposition bound keeps a
+    response requested on a post-grant paper — a motion, an application riding
+    the merits docket — off the cert stage. The first match decides: an undated
+    first request yields ``None`` rather than a later request's date.
+
+    Distinct from the interim stage's response request, which reads the Court's
+    request for a response to an *application* and lands in its own columns.
+    """
+    for text, raw in proceedings_entries(payload):
+        if _RESPONSE_REQUESTED_RE.search(text):
+            return entry_date(raw)
+        if match_disposition_signal(text) is not None:
+            return None
+    return None
+
+
 def petition_distributions(payload: Mapping[str, Any], *, through: date) -> list[tuple[date, date]]:
     """Every petition distribution filed on or before ``through``: ``(filed, conference)``.
 

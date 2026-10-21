@@ -368,7 +368,8 @@ class Moment(StrEnum):
     #: interim — the application arrives on the docket; cert — the petition
     #: is docketed (the sal-v2 arrival cohort's moment).
     arrival = "arrival"
-    #: interim — the Court (or a Circuit Justice) asks for a response.
+    #: interim — the Court (or a Circuit Justice) asks for a response to the
+    #: application; cert — the Court calls for a response to the petition.
     response_requested = "response-requested"
     #: interim — a response to the application is filed.
     response_filed = "response-filed"

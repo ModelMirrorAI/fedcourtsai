@@ -1767,6 +1767,46 @@ def sg_brief_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.Corp
     )
 
 
+def call_for_response_event_for(
+    row: CorpusRow, open_event_ids: list[str]
+) -> corpus.CorpusEvent | None:
+    """The cert stage's call-for-response forecast moment, or ``None``.
+
+    A call for a response is the Court's first sign that someone in chambers
+    has read a petition the respondent was content to waive, and it arrives
+    while the petition is pending — so the same disposition is forecast again
+    from the docket as it stands at the call. The date is latched at ingest
+    (:func:`~fedcourtsai.pipeline.cert_signals.call_for_response_date`); the
+    trigger stays true forever, so it re-fires on every poll behind the CVSG
+    moment's two guards: the cert baseline must still be open, and the row must
+    not record the petition decided.
+
+    Never on an application docket, whose own response request is the interim
+    stage's moment and is read by a different parse into different columns.
+    """
+    if row.call_for_response_at is None or row.court != "scotus":
+        return None
+    if corpus.is_scotus_application_form(row.docket_number):
+        return None
+    first = moments.moments_for(Stage.cert)[0]
+    if first.event_id not in open_event_ids or appears_decided(row):
+        return None
+    spec = next(s for s in moments.moments_for(Stage.cert) if s.moment is Moment.response_requested)
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=row.call_for_response_at,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
 def arrival_event_for(
     row: corpus.CorpusRow, open_event_ids: list[str]
 ) -> corpus.CorpusEvent | None:
@@ -1891,6 +1931,7 @@ def mint_moment_events(
             briefed_merits_event_for(row, opens),
             cvsg_event_for(row, opens),
             sg_brief_event_for(row, opens),
+            call_for_response_event_for(row, opens),
         )
         if event is not None
     ]

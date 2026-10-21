@@ -22,6 +22,7 @@ from fedcourtsai.pipeline.outcome import (
     MERITS_EVENT_ID,
     arrival_event_for,
     briefed_merits_event_for,
+    call_for_response_event_for,
     cvsg_event_for,
     forward_leakage,
     interim_response_events_for,
@@ -77,7 +78,7 @@ def test_the_minted_set_is_every_declared_moment_but_the_two_case_level_baseline
     so the corpus holds one for nearly every case and its ledger half is owed
     only at first touch or resolution. Everything else in the register is
     minted, and a mint owes both halves at once — so the set must be exactly
-    the seven non-baseline moments, and must stay derived from the id shape
+    the eight non-baseline moments, and must stay derived from the id shape
     rather than drifting into a hand-maintained list.
     """
     minted = moments.minted_moment_ids()
@@ -85,6 +86,7 @@ def test_the_minted_set_is_every_declared_moment_but_the_two_case_level_baseline
         "evt-petition-arrival-disposition",
         "evt-order-cvsg-disposition",
         "evt-brief-sg-disposition",
+        "evt-order-call-for-response-disposition",
         "evt-order-response-requested-disposition",
         "evt-brief-response-disposition",
         "evt-order-judgment",
@@ -368,6 +370,38 @@ def test_the_sg_brief_moment_is_declared_but_switched_off() -> None:
     assert (spec.stage, spec.moment, spec.forecastable) == (Stage.cert, Moment.sg_brief, False)
     assert spec.opened_at_is_the_moment
     assert "evt-brief-sg-disposition" in moments.minted_moment_ids()
+
+
+def test_the_cert_call_for_response_moment_mints_only_on_an_open_petition() -> None:
+    """The CVSG moment's guards, at the Court's call for a response."""
+    called = date(2026, 9, 2)
+    row = CorpusRow(
+        case_id="scotus/6",
+        court="scotus",
+        docket_id=6,
+        source="live",
+        docket_number="26-120",
+        call_for_response_at=called,
+    )
+    baseline = moments.moments_for(Stage.cert)[0].event_id
+    minted = call_for_response_event_for(row, [baseline])
+    assert minted is not None
+    assert (minted.event_id, minted.stage, minted.moment, minted.opened_at) == (
+        "evt-order-call-for-response-disposition",
+        Stage.cert,
+        Moment.response_requested,
+        called,
+    )
+    assert call_for_response_event_for(row, []) is None
+    decided = row.model_copy(update={"disposition": Disposition.denied.value})
+    assert call_for_response_event_for(decided, [baseline]) is None
+    unread = row.model_copy(update={"call_for_response_at": None})
+    assert call_for_response_event_for(unread, [baseline]) is None
+    # An application's response request is the interim stage's moment.
+    application = row.model_copy(update={"docket_number": "26A120"})
+    assert call_for_response_event_for(application, [baseline]) is None
+    spec = moments.spec_for("evt-order-call-for-response-disposition")
+    assert spec is not None and not spec.forecastable
 
 
 def test_every_cert_moment_declares_the_same_claim_set() -> None:
