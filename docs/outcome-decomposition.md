@@ -682,7 +682,8 @@ grant-family row carries weight 1).
 
 It reads the **paid** per-fee-class cut, not the Term-level pooled one, because
 the paid class is the scored population: IFP petitions are Tier-0-excluded by
-the salience gate (`docs/salience.md`), so no cell is ever an IFP row. They are
+the salience gate (`docs/salience.md`) up to a merits grant, so no cert-stage
+cell is ever an IFP row. They are
 better than a quarter of the pooled grant family at roughly three-quarters GVR,
 so the pooled rate reads 0.467 against the paid 0.354. Eleven points is not a
 rounding error against a difference-form rule: a predictor knowing only its own

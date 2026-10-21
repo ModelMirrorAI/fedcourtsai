@@ -513,19 +513,13 @@ def _merits_forecastable(
     window, and named in ``metrics/README.md`` rather than hidden here.)
 
     The scope rules narrow the forecast population *inside* the baseline's
-    rather than matching it exactly, and the gap is not small: predict scope
-    excludes IFP petitions, consolidated-out-of-scope members, and
-    date-inconsistent rows, while :func:`opens_merits_proceeding` — and so the
-    statpack merits section the baseline is pooled from — admits all of them.
-    The IFP slice alone is roughly an eighth of the committed pack's plain
-    grants, and it is the criminal/habeas end of the docket, whose disturbance
-    rate has no reason to match the paid cohort's. So the merits baseline is
-    measured over a population wider than the one forecast, which is the same
-    shape ``docs/decision-model.md`` invokes to exclude GVRs; the honest
-    resolution is a fee-class cut on the merits section, and until one lands
-    the residue is stated rather than bounded. Admitting the excluded dockets
-    instead is not the alternative — a merits cell on a docket the documented
-    predict-scope exclusion refuses is a scope decision, not a fix.
+    rather than matching it exactly: predict scope excludes
+    consolidated-out-of-scope members and date-inconsistent rows, while
+    :func:`opens_merits_proceeding` — and so the statpack merits section the
+    baseline is pooled from — admits them. IFP grants are on both sides: the
+    IFP scope rule (:func:`fedcourtsai.corpus.is_ungranted_ifp_petition`)
+    stops at the grant, so the criminal/habeas end of the docket, roughly an
+    eighth of the committed pack's plain grants, is forecast as well as pooled.
     """
     return (
         _declares_forecastable(event, Stage.merits)

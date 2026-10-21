@@ -3015,10 +3015,13 @@ def is_ifp_petition(row: CorpusRow) -> bool:
     the IFP docket from ``IFP_SERIAL_BASE`` (5001), so a modern Term-form number
     whose serial is at or above the base is an IFP petition. A documented scope
     decision (see ``docs/salience.md``): IFP petitions are excluded from the
-    predict tournament — the salience gate spends the fundable slice on the paid
-    cert docket. IFP grants are rare but non-zero (Gideon arrived IFP), so this is
-    a deliberate, recorded choice, not a claim IFP cases never matter; relaxing it
-    is additive. Keyed on the parsed serial, so it fires only on a genuine cert
+    predict tournament up to a merits grant — the salience gate spends the
+    fundable slice on the paid cert docket, and the scope rule itself is
+    :func:`is_ungranted_ifp_petition`, which readmits the granted ones. IFP
+    grants are rare but non-zero (Gideon arrived IFP), so this is a deliberate,
+    recorded choice, not a claim IFP cases never matter. This predicate stays
+    the fee-class reading every stratum and cut keys on, grant or no grant.
+    Keyed on the parsed serial, so it fires only on a genuine cert
     docket (applications / original / miscellaneous forms do not parse). SCOTUS-only.
 
     Strips a display annotation before parsing: an annotated number parses as
@@ -3030,6 +3033,29 @@ def is_ifp_petition(row: CorpusRow) -> bool:
         return False
     parsed = parse_scotus_docket_number(strip_docket_annotation(row.docket_number))
     return parsed is not None and parsed[1] >= IFP_SERIAL_BASE
+
+
+def is_ungranted_ifp_petition(row: CorpusRow) -> bool:
+    """Whether an IFP cert docket stays outside predict scope: every one but a merits grant.
+
+    The predict-scope reading of :func:`is_ifp_petition`. The exclusion is a
+    cert-stage funding decision — the salience gate spends the fundable slice on
+    the paid petition docket — so it holds for an IFP petition at every point
+    up to the grant, and stops holding once the grant opens a merits proceeding
+    (:func:`opens_merits_proceeding`). From there the case is the Court's own
+    selection, the merits stream sits outside the salience gate, and the merits
+    baseline already pools IFP grants in its ``parsed`` denominator, so
+    excluding them would score a paid-only forecast population against a
+    pooled rate. A GVR or summary reversal on an IFP docket opens no merits
+    proceeding and stays excluded.
+
+    Readmitting the case leaves its cert stage untouched: a grant resolves the
+    petition, so no cert cell is ever owed on it, and the cert-stage baselines
+    read the paid fee-class cut rather than this rule. The rule is two-way like
+    every row predicate here — a docket re-resolved off the grant family leaves
+    scope again on the next scope reconcile.
+    """
+    return is_ifp_petition(row) and not opens_merits_proceeding(row)
 
 
 def is_salience_deferred(row: CorpusRow) -> bool:
@@ -3272,7 +3298,7 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
         + "not a predictable form",
     ),
     (
-        is_ifp_petition,
+        is_ungranted_ifp_petition,
         "in-forma-pauperis petition — a documented predict-scope exclusion",
     ),
     (
