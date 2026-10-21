@@ -467,7 +467,8 @@ def summary_route_base_rate(
     **The population is the scored population**, which is why the counts come
     from each Term's **paid** :class:`~fedcourtsai.schemas.StatPackTermClass`
     rather than from the Term-level ``base_rates.dispositions``. IFP petitions
-    are Tier-0-excluded by the salience gate, so no cell is ever an IFP row —
+    are Tier-0-excluded by the salience gate up to a merits grant, so no
+    cert-stage cell is ever an IFP row —
     yet they supply nearly a third of the pack's pooled grant family at
     roughly three-quarters GVR, so the all-class rate runs about eleven points
     above the paid one. Against a difference-form rule that is not a rounding

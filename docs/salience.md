@@ -114,7 +114,8 @@ the statpack numbers in force.
   documented per-circuit weight.
 
 Fee class (paid vs IFP) deliberately does **not** enter the score: IFP petitions
-are Tier-0-excluded, leaving the scored set paid-only.
+are Tier-0-excluded, and the selection pass skips the granted IFP dockets that
+rule readmits for their merits events, leaving the scored set paid-only.
 
 Deferred, each with a stated reason:
 

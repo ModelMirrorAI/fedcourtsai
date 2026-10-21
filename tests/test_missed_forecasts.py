@@ -550,6 +550,41 @@ def test_an_open_merits_proceeding_funds_every_event_of_the_case(tmp_path: Path)
     assert _by_case(_scan(db, data))["scotus/1"] == ("missed", "owed_and_unforecast")
 
 
+def test_a_granted_ifp_petitions_cert_event_stays_declined_out_of_scope(
+    tmp_path: Path,
+) -> None:
+    """A merits grant readmits an IFP docket to predict scope for its merits
+    events only, so its open merits event must not turn the petition's own
+    resolved cert event into a miss."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(db, data, 1, selected=False, docket_number="25-5001")
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET disposition = 'granted', date_cert_granted = ? "
+            + "WHERE case_id = 'scotus/1'",
+            (RESOLVED.isoformat(),),
+        )
+        conn.commit()
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id="evt-order-judgment",
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind=EventKind.order,
+                    stage=Stage.merits,
+                    title="Judgment",
+                    opened_at=OPENED,
+                    resolved=False,
+                )
+            ],
+        )
+
+    assert _by_case(_scan(db, data))["scotus/1"] == ("declined", "out_of_scope")
+
+
 def test_the_merits_event_a_grant_mints_does_not_fund_the_granted_petition(
     tmp_path: Path,
 ) -> None:
