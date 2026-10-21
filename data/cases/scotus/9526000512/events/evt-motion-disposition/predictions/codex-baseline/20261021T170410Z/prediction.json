@@ -1,0 +1,67 @@
+{
+  "big_case_rationale": "Statewide voter-identification guidance immediately before a federal general election implicates student voting access and the reach of election-timing restraints, although this application need not settle the underlying constitutional challenge.",
+  "big_case_score": 0.67,
+  "case_id": "scotus/9526000512",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.64
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.94
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.92
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.6
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "cut_anchor_index": 0,
+    "cut_kind": "arrival-position",
+    "cutoff": "2026-10-16",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": false,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-15",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-21T17:15:18Z",
+  "engine": "codex",
+  "event_id": "evt-motion-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-10-15.json",
+  "judgment": null,
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.64,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4",
+    "label": "proc-v10",
+    "pipeline_sha": "9a5ed6e347b4d726489fdb96a413677e0b36a493",
+    "stamped_at": "2026-10-21T17:18:08.570816Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261021T170410Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000499",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-brief-response-disposition",
+      "message": "The provisioned response reports an October 19, 2026 certiorari denial in the related City of Brunswick case, and the briefs report an earlier related Express Scripts denial. These precede this October 21 snapshot and materially lowered my interim-relief estimate. They concern other cases, were not independently verified, and do not reveal this application's outcome. No outcome leakage for the target application is known.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261021T170410Z",
+  "schema_version": "1.0"
+}

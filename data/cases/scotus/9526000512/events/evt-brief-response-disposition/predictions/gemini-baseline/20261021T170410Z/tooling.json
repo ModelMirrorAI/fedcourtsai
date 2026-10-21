@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000512",
+  "run_id": "20261021T170410Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "Provisioned full text of both application.txt and application-response.txt under record/documents/ was decisive for evaluating the competing Purcell and merits forfeiture arguments.",
+    "metrics/statpack.md provided clear per-Term substantive interim application counts for computing the strictly-prior pooled baseline (51/547 = 9.32%).",
+    "CourtListener MCP read_document allowed direct inspection of the two September 2026 SCOTUS per curiam stay opinions (People Not Politicians v. Onder, 26A388, and NRCC v. Brown, 26A274) cited in the briefs."
+  ],
+  "gaps": [
+    "A filter on fedcourts query for substantive applications only (excluding extension applications when --include-applications is passed) or by escalation signals (e.g., --response-requested) would make retrieving comparable interim-docket priors more targeted."
+  ],
+  "notes": "All provisioned documents extracted cleanly with no truncation."
+}

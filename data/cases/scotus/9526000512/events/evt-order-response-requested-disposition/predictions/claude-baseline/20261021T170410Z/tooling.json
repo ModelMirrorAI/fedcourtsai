@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9526000512",
+  "run_id": "20261021T170410Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "record/documents/application.txt"],
+  "helpful": ["Full application text provisioned", "Interim-docket per-Term substantive counts for pooling"],
+  "gaps": ["Lower-court opinion appendix not provisioned, so the district court's reasoning is seen only through the applicant", "No interim base rate conditioned on response-requested or on applicant type (state, election case)"]
+}
