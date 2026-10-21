@@ -19,6 +19,7 @@ from fedcourtsai.promotion_train import (
     GATE_TITLE,
     OFFLINE_GATE_TITLE,
     REFIRE_CAP,
+    REQUIRE_LABEL,
     WAIVER_LABEL,
     Observed,
     TrainAction,
@@ -29,6 +30,7 @@ from fedcourtsai.promotion_train import (
     load_train_config,
     marked_ready,
     next_branch_name,
+    smokes_waived,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -458,6 +460,61 @@ def test_the_waiver_label_accepts_an_offline_gate_run() -> None:
     assert decide(observed, CONFIG).action is TrainAction.MARK_READY
 
 
+def test_a_cell_inert_batch_dispatches_the_token_free_suite_without_the_label() -> None:
+    step = decide(_draft(cell_inert=True), CONFIG)
+    assert step.action is TrainAction.DISPATCH_GATE
+    assert step.scenario == "offline-gate"
+    assert "-f scenario=offline-gate" in step.reason
+    assert "cannot reach a cell" in step.reason
+
+
+@pytest.mark.parametrize("cell_inert", [False, None])
+def test_an_engine_relevant_or_unread_batch_dispatches_the_paid_suite(
+    cell_inert: bool | None,
+) -> None:
+    step = decide(_draft(cell_inert=cell_inert), CONFIG)
+    assert step.action is TrainAction.DISPATCH_GATE
+    assert step.scenario == "gate"
+    assert "-f scenario=gate" in step.reason
+
+
+def test_a_cell_inert_batch_accepts_an_offline_gate_run() -> None:
+    observed = _draft(cell_inert=True, runs=[_run(title=OFFLINE_GATE_TITLE)])
+    assert decide(observed, CONFIG).action is TrainAction.MARK_READY
+    # The verdict alone is what lets the token-free run count.
+    unread = _draft(runs=[_run(title=OFFLINE_GATE_TITLE)])
+    assert decide(unread, CONFIG).action is TrainAction.REPORT
+
+
+@pytest.mark.parametrize("labels", [(REQUIRE_LABEL,), (REQUIRE_LABEL, WAIVER_LABEL)])
+def test_the_require_label_demands_the_paid_suite_on_any_batch(labels: tuple[str, ...]) -> None:
+    observed = _draft(cell_inert=True, open_pulls=[_pull(labels=labels)])
+    step = decide(observed, CONFIG)
+    assert step.scenario == "gate"
+    assert REQUIRE_LABEL in step.reason
+    offline = replace(observed, runs=[_run(title=OFFLINE_GATE_TITLE)])
+    assert decide(offline, CONFIG).action is TrainAction.REPORT
+
+
+@pytest.mark.parametrize(
+    ("labels", "cell_inert", "waived"),
+    [
+        ((), True, True),
+        ((), False, False),
+        ((), None, False),
+        ((WAIVER_LABEL,), False, True),
+        ((WAIVER_LABEL,), None, True),
+        ((REQUIRE_LABEL,), True, False),
+        ((REQUIRE_LABEL, WAIVER_LABEL), True, False),
+        (("promote:skip-engine-smoke-please",), False, False),
+    ],
+)
+def test_who_waives_the_smokes(
+    labels: tuple[str, ...], cell_inert: bool | None, waived: bool
+) -> None:
+    assert smokes_waived(labels, cell_inert)[0] is waived
+
+
 def test_a_refused_registry_is_reported_before_any_spend() -> None:
     step = decide(_draft(registry_ok=False), CONFIG)
     assert step.action is TrainAction.REPORT
@@ -753,6 +810,38 @@ def test_the_step_command_merges_a_candidate_that_holds(tmp_path: Path) -> None:
     step = json.loads(result.output)
     assert step["action"] == "merge"
     assert step["sha"] == HEAD
+
+
+@pytest.mark.parametrize(("flag", "scenario"), [("yes", "offline-gate"), ("no", "gate")])
+def test_the_step_command_reads_the_cell_reach_verdict(
+    tmp_path: Path, flag: str, scenario: str
+) -> None:
+    base = [
+        "promotion-train-step",
+        "--repo",
+        REPO,
+        "--open-prs-file",
+        _write(tmp_path / "open.json", [_pull()]),
+        "--head-on-staging",
+        "yes",
+        "--runs-file",
+        _write(tmp_path / "runs.json", {"workflow_runs": []}),
+        "--recent-dispatches-file",
+        _write(tmp_path / "dispatches.json", {"workflow_runs": []}),
+        "--registry-ok",
+        "yes",
+        "--freshness-ok",
+        "no",
+        "--config",
+        _write(tmp_path / "train.json", CONFIG_JSON),
+    ]
+    result = CliRunner().invoke(app, [*base, "--cell-inert", flag])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["scenario"] == scenario
+    # Left out, the verdict is unknown, and an unknown waives nothing.
+    result = CliRunner().invoke(app, base)
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["scenario"] == "gate"
 
 
 def test_the_step_command_cuts_with_the_date_it_is_told(tmp_path: Path) -> None:

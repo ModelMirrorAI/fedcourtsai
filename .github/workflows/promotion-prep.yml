@@ -15,10 +15,11 @@ name: promotion-prep
 #                   the batch in its body (a scheduled tick reports a batch
 #                   ready to cut and waits);
 #   dispatch_gate — dispatch integration-test `scenario=gate` at that branch
-#                   (`offline-gate` under the `promote:skip-engine-smoke`
-#                   label), only while no dispatched integration run of any
-#                   title sits at the head, and within a daily cap (the
-#                   dispatch App);
+#                   (`offline-gate` when main's scripts/cell_reach.py calls
+#                   the batch cell-inert or the `promote:skip-engine-smoke`
+#                   label is on, never under `promote:require-engine-smoke`),
+#                   only while no dispatched integration run of any title sits
+#                   at the head, and within a daily cap (the dispatch App);
 #   mark_ready    — the gate is green: mark the PR ready, request the
 #                   approvers' review, refresh the body (which re-fires ci.yml's
 #                   `promotion-gate`);
@@ -36,8 +37,9 @@ name: promotion-prep
 # `promote:` rulesets let only the dev App create a candidate and nobody move
 # it (docs/security.md). The maintainer may still merge by hand at any point.
 #
-# Cost: one paid `gate` suite per candidate (three engine-smoke cells and three
-# boot probes). A failed or cancelled gate is reported in the body and never
+# Cost: one paid `gate` suite per candidate that can reach a cell (three
+# engine-smoke cells and three boot probes); a cell-inert batch runs the
+# token-free `offline-gate`. A failed or cancelled gate is reported in the body and never
 # re-dispatched; a maintainer re-run (`gh run rerun <id> --failed`) turns it
 # green in place, and closing the PR stops the train at that tip.
 #
@@ -247,10 +249,29 @@ jobs:
           if [ -n "$number" ]; then
             labels=$(jq -r --argjson n "$number" '.[] | select(.number == $n) | .labels[]?.name' open.json)
           fi
-          # Under the waiver label the freshness read is the narrowed one the
-          # required check makes, so the train and the check agree on evidence.
+          # Whether the engine smokes are waived for this candidate, decided
+          # as ci.yml's promotion-gate decides it, so the freshness read is the
+          # one the required check will make: the require label is strict;
+          # else the waiver label waives; else main's cell-reach classifier
+          # (this checkout is main) waives a batch it calls cell-inert. Every
+          # other answer, a failed classification included, is strict.
+          # promotion_train.smokes_waived is the same rule for the dispatch.
           skip=''
-          if grep -Fqx 'promote:skip-engine-smoke' <<<"$labels"; then
+          reach=''
+          if [ -n "$number" ]; then
+            reach=$(python3 -I scripts/cell_reach.py --base origin/main --head "$sha" \
+              2> cell-reach.log) || reach=''
+            cat cell-reach.log
+            case "$reach" in
+              reach=inert) args+=(--cell-inert yes) ;;
+              reach=engine) args+=(--cell-inert no) ;;
+            esac
+          fi
+          if grep -Fqx 'promote:require-engine-smoke' <<<"$labels"; then
+            skip=''
+          elif grep -Fqx 'promote:skip-engine-smoke' <<<"$labels"; then
+            skip=1
+          elif [ "$reach" = reach=inert ]; then
             skip=1
           fi
           target_sha="$staging_sha"

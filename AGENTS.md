@@ -122,7 +122,9 @@ non-interactive** container. Two consequences shape everything you do:
   `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
   which of the gate's checks a change gets: `scripts/gate.sh`,
   `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
-  registration in `tests/conftest.py`, and the ruleset and environment checks
+  registration in `tests/conftest.py`, the cell-reach classifier that decides
+  whether a promotion owes the engine smokes, `scripts/cell_reach.py` and
+  `tests/test_cell_reach.py`, and the ruleset and environment checks
   its admin-read stage runs, `src/fedcourtsai/ruleset_checks.py`,
   `src/fedcourtsai/environment_checks.py`, with the verdict on when that stage
   is due, `src/fedcourtsai/contexts_due.py`, and their tests; and the process

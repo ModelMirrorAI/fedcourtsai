@@ -19845,6 +19845,13 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
     registry_ok: Annotated[
         _TriState, typer.Option("--registry-ok", help="Did the registry stage pass at the head?")
     ] = _TriState.UNKNOWN,
+    cell_inert: Annotated[
+        _TriState,
+        typer.Option(
+            "--cell-inert",
+            help="Did main's scripts/cell_reach.py call the batch cell-inert?",
+        ),
+    ] = _TriState.UNKNOWN,
     cut_requested: Annotated[
         bool,
         typer.Option(
@@ -19914,6 +19921,7 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
         check_runs=_read_json_list(check_runs_file, "check_runs"),
         quiescent=_tri(quiescent),
         registry_ok=_tri(registry_ok),
+        cell_inert=_tri(cell_inert),
     )
     typer.echo(promotion_train_decide(observed, train_config).model_dump_json())
 

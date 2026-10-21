@@ -1216,12 +1216,20 @@ def test_no_workflow_ever_overrides_the_required_set() -> None:
     ], found
 
 
-def test_the_train_sets_the_skip_from_its_candidates_label_alone() -> None:
-    """The train's setter derives from the waiver label on the candidate,
-    whole-line matched, exactly as ci.yml's waiver step does."""
+def test_the_train_sets_the_skip_as_the_required_check_decides() -> None:
+    """The train's setter derives from the candidate's labels, whole-line
+    matched, and main's cell-reach verdict, in the order ci.yml's waiver step
+    takes them: the require label, then the waiver label, then the verdict."""
     plan = _load(WORKFLOWS / "promotion-prep.yml")["jobs"]["plan"]
     text = _steps_text(plan)
-    assert "grep -Fqx 'promote:skip-engine-smoke' <<<\"$labels\"" in text
+    require = text.index("grep -Fqx 'promote:require-engine-smoke' <<<\"$labels\"")
+    waiver = text.index("grep -Fqx 'promote:skip-engine-smoke' <<<\"$labels\"")
+    verdict = text.index('[ "$reach" = reach=inert ]')
+    assert require < waiver < verdict
+    # The plan job's checkout is main, so this is main's classifier, run
+    # isolated over the three-dot batch, and only its affirmative verdict waives.
+    assert 'python3 -I scripts/cell_reach.py --base origin/main --head "$sha"' in text
+    assert "reach=inert) args+=(--cell-inert yes)" in text
     assert 'PROMOTION_SKIP_SMOKE="$skip" scripts/promotion-gate.sh freshness' in text
     assert "skip=1" in text
 
@@ -1337,6 +1345,7 @@ def test_the_gate_checks_the_auto_release_environment_run_predict_binds() -> Non
 
 
 WAIVER_LABEL = "promote:skip-engine-smoke"
+REQUIRE_LABEL = "promote:require-engine-smoke"
 
 
 def _promotion_gate_job() -> dict[str, Any]:
@@ -1362,12 +1371,14 @@ def test_the_merge_gate_waiver_is_derived_from_the_label_never_hardcoded() -> No
     # One literal, in WAIVER_LABEL; everything else reads it by name. A second
     # literal is how the check and its warning start naming different labels.
     # Comments may say it as often as they need to.
-    literals = [
-        line
-        for line in (WORKFLOWS / "ci.yml").read_text().splitlines()
-        if WAIVER_LABEL in line and not line.lstrip().startswith("#")
-    ]
-    assert literals == [f"      WAIVER_LABEL: {WAIVER_LABEL}"], literals
+    for name, label in (("WAIVER_LABEL", WAIVER_LABEL), ("REQUIRE_LABEL", REQUIRE_LABEL)):
+        assert job["env"][name] == label
+        literals = [
+            line
+            for line in (WORKFLOWS / "ci.yml").read_text().splitlines()
+            if label in line and not line.lstrip().startswith("#")
+        ]
+        assert literals == [f"      {name}: {label}"], literals
 
 
 def test_the_waiver_label_is_read_at_check_time_not_from_the_event_payload() -> None:
@@ -1395,8 +1406,8 @@ def test_the_waiver_fails_closed_and_says_so_when_it_fires() -> None:
     run = str(step["run"])
     # Whole-line match: a label that merely contains this one waives nothing.
     assert "grep -Fqx" in run
-    # A failed read must not read as a waiver.
-    assert "|| true" in run
+    # A failed read must not read as a waiver (executed below).
+    assert "if ! labels=$(gh api" in run
     assert 'echo "skip=1"' in run
     # Loud on the PR, and durable in the run record the promotion is audited
     # from.
@@ -1423,3 +1434,151 @@ def test_the_gate_script_names_what_the_waiver_dropped(tmp_path: Path) -> None:
     # Strict runs stay silent about a waiver that did not happen.
     strict = _run_freshness(tmp_path, offline)
     assert "waived" not in strict.stdout
+
+
+# --- The waiver step, executed ------------------------------------------------
+
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def _commit(repo: Path, files: dict[str, str]) -> str:
+    for rel, text in files.items():
+        path = repo / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "commit")
+    return _git(repo, "rev-parse", "HEAD")
+
+
+def _gate_repo(
+    tmp_path: Path, batch: dict[str, str], *, main_classifier: bool = True
+) -> tuple[Path, str]:
+    """A checkout whose origin/main holds (or lacks) the classifier and whose
+    head carries ``batch`` on top of it."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q", "-b", "main")
+    _git(repo, "config", "user.email", "ci@example.invalid")
+    _git(repo, "config", "user.name", "ci")
+    _git(repo, "config", "commit.gpgsign", "false")
+    base: dict[str, str] = {"docs/a.md": "a\n"}
+    if main_classifier:
+        base["scripts/cell_reach.py"] = (ROOT / "scripts" / "cell_reach.py").read_text()
+    main = _commit(repo, base)
+    _git(repo, "update-ref", "refs/remotes/origin/main", main)
+    head = _commit(repo, batch)
+    return repo, head
+
+
+def _run_waiver_step(
+    tmp_path: Path, repo: Path, head: str, labels: list[str] | None
+) -> tuple[str, str, str]:
+    """Run the waiver step's own shell with a stub `gh` serving ``labels``
+    (None: a failed read). Returns (GITHUB_OUTPUT, stdout, step summary)."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    gh = bin_dir / "gh"
+    if labels is None:
+        gh.write_text("#!/bin/sh\nexit 1\n")
+    else:
+        gh.write_text("#!/bin/sh\nprintf '%s\\n' " + " ".join(f"'{x}'" for x in labels) + "\n")
+    gh.chmod(0o755)
+    temp = tmp_path / "runner-temp"
+    temp.mkdir(exist_ok=True)
+    output = tmp_path / "github-output"
+    output.write_text("")
+    summary = tmp_path / "summary"
+    summary.write_text("")
+    job_env = {k: str(v) for k, v in _promotion_gate_job()["env"].items()}
+    env = {
+        **job_env,
+        "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
+        "HOME": str(tmp_path),
+        "RUNNER_TEMP": str(temp),
+        "GITHUB_OUTPUT": str(output),
+        "GITHUB_STEP_SUMMARY": str(summary),
+        "GITHUB_REPOSITORY": "owner/repo",
+        "GH_TOKEN": "unused",
+        "PR_NUMBER": "7",
+        "HEAD_SHA": head,
+    }
+    result = subprocess.run(
+        ["bash", "-c", str(_waiver_step()["run"])],
+        cwd=repo,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return output.read_text(), result.stdout, summary.read_text()
+
+
+def test_a_cell_inert_batch_is_waived_without_the_label(tmp_path: Path) -> None:
+    repo, head = _gate_repo(tmp_path, {"docs/freeze-record.md": "entry\n"})
+    output, stdout, summary = _run_waiver_step(tmp_path, repo, head, [])
+    assert output == "skip=1\n"
+    assert "::warning::promotion-gate: engine scenarios waived" in stdout
+    assert "cell-inert" in summary
+
+
+@pytest.mark.parametrize(
+    "batch",
+    [
+        {"docs/freeze-record.md": "entry\n", ".github/prompts/predict.md": "p\n"},
+        {"src/fedcourtsai/pricing.py": "DEFAULT_MODELS = {}\n"},
+        {"AGENTS.md": "rules\n"},
+    ],
+)
+def test_a_batch_that_can_reach_a_cell_is_strict(tmp_path: Path, batch: dict[str, str]) -> None:
+    repo, head = _gate_repo(tmp_path, batch)
+    output, stdout, summary = _run_waiver_step(tmp_path, repo, head, [])
+    assert output == ""
+    assert "waived" not in stdout
+    assert summary == ""
+
+
+def test_the_batchs_own_classifier_never_grades_it(tmp_path: Path) -> None:
+    # main has no classifier; the batch brings one that would call anything
+    # inert. The step runs main's copy only, so the gate stays strict.
+    lenient = "print('reach=inert')\n"
+    repo, head = _gate_repo(
+        tmp_path, {"docs/a.md": "b\n", "scripts/cell_reach.py": lenient}, main_classifier=False
+    )
+    output, stdout, _ = _run_waiver_step(tmp_path, repo, head, [])
+    assert output == ""
+    assert "no cell-reach classifier" in stdout
+
+
+def test_the_require_label_overrides_the_verdict_and_the_waiver(tmp_path: Path) -> None:
+    repo, head = _gate_repo(tmp_path, {"docs/freeze-record.md": "entry\n"})
+    for labels in ([REQUIRE_LABEL], [REQUIRE_LABEL, WAIVER_LABEL]):
+        output, _, summary = _run_waiver_step(tmp_path, repo, head, labels)
+        assert output == "", labels
+        assert summary == "", labels
+
+
+def test_the_waiver_label_still_waives_an_engine_batch(tmp_path: Path) -> None:
+    repo, head = _gate_repo(tmp_path, {"src/fedcourtsai/pricing.py": "x = 1\n"})
+    output, _, summary = _run_waiver_step(tmp_path, repo, head, [WAIVER_LABEL])
+    assert output == "skip=1\n"
+    assert WAIVER_LABEL in summary
+
+
+def test_a_failed_label_read_is_strict_even_for_an_inert_batch(tmp_path: Path) -> None:
+    # The require label is an override the gate must be able to see; a read
+    # that could hide it waives nothing.
+    repo, head = _gate_repo(tmp_path, {"docs/freeze-record.md": "entry\n"})
+    output, stdout, _ = _run_waiver_step(tmp_path, repo, head, None)
+    assert output == ""
+    assert "could not be read" in stdout
+
+
+def test_a_label_that_merely_contains_the_require_label_requires_nothing(tmp_path: Path) -> None:
+    repo, head = _gate_repo(tmp_path, {"docs/freeze-record.md": "entry\n"})
+    output, _, _ = _run_waiver_step(tmp_path, repo, head, [f"{REQUIRE_LABEL}-later"])
+    assert output == "skip=1\n"
