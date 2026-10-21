@@ -1729,6 +1729,44 @@ def cvsg_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEv
     )
 
 
+def sg_brief_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEvent | None:
+    """The cert stage's sg-brief forecast moment, or ``None``.
+
+    The CVSG moment forecasts at the invitation; this one forecasts once the
+    brief the Court asked for is on the docket, typically months later. The
+    Solicitor General's recommendation is the strongest single cert signal there
+    is, so the same disposition can be forecast again from a materially better
+    evidence base: the brief itself, provisioned as ``sg-invited-brief``.
+
+    No parser here: the date is latched at ingest
+    (:func:`~fedcourtsai.pipeline.cert_signals.sg_brief_date`), which already
+    requires the invitation before the brief, so a row carrying the date has a
+    CVSG behind it. The trigger stays true forever, so it re-fires on every poll
+    and is made safe by the same two guards as :func:`cvsg_event_for`: the cert
+    baseline must still be open, and the row must not record the petition
+    decided.
+    """
+    if row.sg_brief_filed is None or row.court != "scotus":
+        return None
+    first = moments.moments_for(Stage.cert)[0]
+    if first.event_id not in open_event_ids or appears_decided(row):
+        return None
+    spec = next(s for s in moments.moments_for(Stage.cert) if s.moment is Moment.sg_brief)
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=row.sg_brief_filed,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
 def arrival_event_for(
     row: corpus.CorpusRow, open_event_ids: list[str]
 ) -> corpus.CorpusEvent | None:
@@ -1852,6 +1890,7 @@ def mint_moment_events(
             merits_event_for(row, resolution),
             briefed_merits_event_for(row, opens),
             cvsg_event_for(row, opens),
+            sg_brief_event_for(row, opens),
         )
         if event is not None
     ]
@@ -1879,7 +1918,7 @@ def _without_terminated_merits(
     row (detection keys on ``merits_judgment``), so it would stay open forever
     while provisioning refused every cell it earned. The stored row settles it,
     read on the connection this seam already opens and only when a merits mint
-    is actually on the table; the interim and CVSG mints never consult it.
+    is actually on the table; the interim and cert mints never consult it.
 
     A row the corpus has not stored yet reads as *no finding*, not as a refusal:
     the column is a sweep product, so its absence is the ordinary state of a

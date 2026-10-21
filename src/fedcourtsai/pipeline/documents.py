@@ -97,7 +97,12 @@ from .caption import _scored_segment
 # not opposition briefs — the Solicitor General's invited brief and the reply —
 # in docket order: the CVSG entry opens the first, and the first entry carrying
 # a machine-readable cert disposition closes both.
-from .cert_signals import CVSG_RE, cert_grant_date, match_disposition_signal
+from .cert_signals import (
+    CVSG_RE,
+    cert_grant_date,
+    is_sg_invited_brief_entry,
+    match_disposition_signal,
+)
 from .cert_signals import entry_date as _parse_entry_date
 
 # The interim lane's own reading of what an application asks for. Imported
@@ -423,27 +428,6 @@ _CERT_REPLY_EXCLUDE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# The Solicitor General's **invited brief**, filed in answer to the Court's call
-# for the views of the United States (:data:`cert_signals.CVSG_RE`):
-#
-#   "Brief amicus curiae of United States filed."
-#   "Brief for the United States as amicus curiae filed."
-#   "Brief of the United States as Amicus Curiae filed."
-#
-# Start-anchored on the filer, and the filer must be the United States **and
-# nothing after it** — the lookahead admits only "as …", the verb, a parenthesis
-# or punctuation — because "United States" also opens the names of amici that
-# are not the government ("Brief amicus curiae of United States Conference of
-# Catholic Bishops filed.", "Brief of United States Senators …"). The word
-# "amicus" is required as well, so the United States filing as a **party** — a
-# federal respondent's opposition — stays with the opposition arm.
-_SG_BRIEF_RE = re.compile(
-    r"^\s*brief\s+(?:amicus\s+curiae\s+)?(?:of|for)\s+(?:the\s+)?united\s+states"
-    r"(?=\s*(?:as\b|filed\b|submitted\b|\(|[.,;]|$))",
-    re.IGNORECASE,
-)
-_SG_AMICUS_RE = re.compile(r"\bamicus\b", re.IGNORECASE)
-
 
 # The applicant's **reply** to the response to an application, as the Clerk
 # enters it:
@@ -489,19 +473,6 @@ def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | No
     if _is_post_grant(filed, granted_on) or not _BIO_VERB_RE.search(text):
         return False
     return bool(_CERT_REPLY_RE.search(text)) and not _CERT_REPLY_EXCLUDE_RE.search(text)
-
-
-def _is_sg_invited_brief_entry(text: str) -> bool:
-    """Whether an entry is the brief for the United States as amicus curiae.
-
-    Text alone; the caller supplies the stage — an entry counts only after the
-    Court's invitation and before the first disposition, in docket order — so an
-    uninvited filing by the United States as amicus (a merits-stage amicus brief
-    supporting a party, say) is never read as the invited one.
-    """
-    return bool(
-        _SG_BRIEF_RE.search(text) and _SG_AMICUS_RE.search(text) and _BIO_VERB_RE.search(text)
-    )
 
 
 # Where the questions-presented section of a petition ends: the next standard
@@ -778,11 +749,13 @@ def select_documents(
       link alone. The merits reply arm below reads the same words after the
       grant; the date is the only thing between them.
     - The **Solicitor General's invited brief**
-      (:func:`_is_sg_invited_brief_entry`), stored as ``sg-invited-brief``: the
-      first brief for the United States as amicus curiae entered after the
-      Court's invitation (:data:`cert_signals.CVSG_RE`) and before any
-      disposition entry, from its ``Main Document`` link alone. No other amicus
-      brief is selected by any arm.
+      (:func:`cert_signals.is_sg_invited_brief_entry`), stored as
+      ``sg-invited-brief``: the first brief for the United States as amicus
+      curiae entered after the Court's invitation
+      (:data:`cert_signals.CVSG_RE`) and before any disposition entry, from its
+      ``Main Document`` link alone — the entry
+      :func:`cert_signals.sg_brief_date` dates the sg-brief moment from. No
+      other amicus brief is selected by any arm.
     - The **petitioner's brief on the merits**
       (:func:`merits_signals.is_petitioner_merits_brief`) and the
       **respondent's** (:func:`~merits_signals.is_respondent_merits_brief_document`),
@@ -914,7 +887,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             sg_brief is None
             and invited
             and not disposed
-            and _is_sg_invited_brief_entry(text)
+            and is_sg_invited_brief_entry(text)
             and not _is_post_grant(filed, granted_on)
         ):
             sg_brief = _merits_filing_ref(entry, KIND_SG_INVITED_BRIEF, entry_date)

@@ -897,6 +897,70 @@ def snapshot_cvsg_date(payload: Mapping[str, Any]) -> str | None:
     return None
 
 
+# The Solicitor General's **invited brief**, filed in answer to the Court's call
+# for the views of the United States (:data:`CVSG_RE`):
+#
+#   "Brief amicus curiae of United States filed."
+#   "Brief for the United States as amicus curiae filed."
+#   "Brief of the United States as Amicus Curiae filed."
+#
+# Start-anchored on the filer, and the filer must be the United States **and
+# nothing after it** — the lookahead admits only "as …", the verb, a parenthesis
+# or punctuation — because "United States" also opens the names of amici that
+# are not the government ("Brief amicus curiae of United States Conference of
+# Catholic Bishops filed.", "Brief of United States Senators …"). The word
+# "amicus" is required as well, so the United States filing as a **party** — a
+# federal respondent's opposition — is never read as the invited brief.
+_SG_BRIEF_RE = re.compile(
+    r"^\s*brief\s+(?:amicus\s+curiae\s+)?(?:of|for)\s+(?:the\s+)?united\s+states"
+    r"(?=\s*(?:as\b|filed\b|submitted\b|\(|[.,;]|$))",
+    re.IGNORECASE,
+)
+_SG_AMICUS_RE = re.compile(r"\bamicus\b", re.IGNORECASE)
+_SG_FILED_RE = re.compile(r"\b(?:filed|submitted)\b", re.IGNORECASE)
+
+
+def is_sg_invited_brief_entry(text: str) -> bool:
+    """Whether an entry is the brief for the United States as amicus curiae.
+
+    Text alone; the caller supplies the stage — an entry counts only after the
+    Court's invitation and before the first disposition, in docket order — so an
+    uninvited filing by the United States as amicus (a merits-stage amicus brief
+    supporting a party, say) is never read as the invited one.
+    """
+    return bool(
+        _SG_BRIEF_RE.search(text) and _SG_AMICUS_RE.search(text) and _SG_FILED_RE.search(text)
+    )
+
+
+def sg_brief_date(payload: Mapping[str, Any]) -> date | None:
+    """The date the Solicitor General's invited brief was filed, or ``None``.
+
+    The trigger of the cert stage's sg-brief moment, and the one reading of it:
+    ingest latches it, provisioning re-reads it to check a placed snapshot
+    carries the entry, and the as-of projection cuts it — all through this
+    function, so the three cannot disagree about which entry opened the moment.
+
+    The rule the document selector stores the ``sg-invited-brief`` filing by,
+    so the moment and the document that defines it are read off the same entry:
+    the **first** entry :func:`is_sg_invited_brief_entry` reads, in docket order,
+    after the invitation (:data:`CVSG_RE`) and before the first disposition
+    entry (:func:`match_disposition_signal`). Both stage markers update *after*
+    an entry is read, so neither the invitation entry nor the disposing entry
+    is itself the brief. The first match decides: an undated first brief yields
+    ``None`` (:func:`entry_date`) rather than a later brief's date, since a
+    moment opened at the wrong entry is worse than one not opened.
+    """
+    invited = False
+    for text, raw in proceedings_entries(payload):
+        if invited and is_sg_invited_brief_entry(text):
+            return entry_date(raw)
+        if match_disposition_signal(text) is not None:
+            return None
+        invited = invited or CVSG_RE.search(text) is not None
+    return None
+
+
 #: A distribution of the petition itself: the entry-initial parse, which leaves out
 #: an ancillary paper's distribution ("Motion (…) DISTRIBUTED for Conference of …").
 _PETITION_DISTRIBUTED_RE = distribution_pattern("dist-v2")

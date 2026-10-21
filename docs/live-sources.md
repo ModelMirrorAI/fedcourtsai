@@ -190,6 +190,17 @@ written before the columns existed are back-filled from their stored live
 snapshots at the historical walker's start (`backfill_live_signals` —
 deterministic, idempotent, correct across corpus-blob rollbacks).
 
+`sg_brief_filed` dates the brief a CVSG asks for: the first entry the
+`sg-invited-brief` document arm below would store, read by the one parse both
+share (`cert_signals.sg_brief_date`), so the document and the date never name
+different entries. It opens the cert stage's sg-brief moment. The live poll is
+its only writer, fill-in latched; nothing back-fills it, because the moment
+opens only on an undecided petition and the rotation re-polls every one of
+those, so a null on a decided row polled before the column existed means
+*never parsed*. It is withheld from the `query` retrieval rows
+(`corpus.RETRIEVAL_WITHHELD_COLUMNS`): a cell reads the brief itself, not a
+column admitted to its retrieval surface without a re-bless.
+
 `capital_case` is a fourth column of this family — in practice live-channel
 fed, since only supremecourt.gov serves the marking, though the ingest raise
 is channel-agnostic by design — read not from the

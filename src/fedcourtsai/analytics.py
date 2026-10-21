@@ -3096,7 +3096,8 @@ _BIG_CASE_COLLAPSE_RULE = (
     "**predicted** event by its `opened_at`, which lags the docket wherever no cell has been "
     "dispatched on a newer event; ties broken by the docket's stage progression — the "
     "petition's arrival, then its distribution, then the interim application's arrival, the "
-    "response requested on it and the response filed, then the CVSG, then the merits moments "
+    "response requested on it and the response filed, then the CVSG and the Solicitor "
+    "General's invited brief, then the merits moments "
     "— and then by event id, so a date collision never inverts the order a case is actually "
     "walked in. An event whose definition records no `opened_at` is ordered by the **day** of "
     "its first prediction's harness clock, which therefore falls through to the same "
@@ -3456,6 +3457,7 @@ _BIG_CASE_MOMENT_ORDER: Final[tuple[tuple[Stage, Moment], ...]] = (
     (Stage.interim, Moment.response_requested),
     (Stage.interim, Moment.response_filed),
     (Stage.cert, Moment.cvsg),
+    (Stage.cert, Moment.sg_brief),
     (Stage.merits, Moment.grant),
     (Stage.merits, Moment.briefed),
 )

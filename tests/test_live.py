@@ -2207,6 +2207,22 @@ def test_from_live_docket_parses_distributions_cvsg_and_lower_court_name() -> No
     assert bare.cvsg_date is None
 
 
+def test_from_live_docket_latches_the_invited_brief_date() -> None:
+    """The sg-brief moment's trigger: the first United States amicus brief after the CVSG."""
+    filing = _payload()["ProceedingsandOrder"][0]
+    brief = {"Date": "May 20 2026", "Text": "Brief amicus curiae of United States filed."}
+    row = from_live_docket(
+        _payload(proceedings=[filing, _CVSG_ENTRY, brief, _DISTRIBUTED_SEP]),
+        live_docket_id(25, 102),
+    )
+    assert row.sg_brief_filed == date(2026, 5, 20)
+    # Without the invitation before it, a United States amicus brief opens nothing.
+    uninvited = from_live_docket(
+        _payload(proceedings=[filing, brief, _CVSG_ENTRY]), live_docket_id(25, 103)
+    )
+    assert uninvited.sg_brief_filed is None
+
+
 def test_ingest_live_payload_lands_weight_one_and_observed_zero_signals(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     result = ingest_live_payload(

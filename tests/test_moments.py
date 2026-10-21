@@ -25,6 +25,7 @@ from fedcourtsai.pipeline.outcome import (
     cvsg_event_for,
     forward_leakage,
     interim_response_events_for,
+    sg_brief_event_for,
 )
 from fedcourtsai.schemas import Disposition, EventKind, Moment, Stage
 from fedcourtsai.store import normalized_moment
@@ -76,13 +77,14 @@ def test_the_minted_set_is_every_declared_moment_but_the_two_case_level_baseline
     so the corpus holds one for nearly every case and its ledger half is owed
     only at first touch or resolution. Everything else in the register is
     minted, and a mint owes both halves at once — so the set must be exactly
-    the six non-baseline moments, and must stay derived from the id shape
+    the seven non-baseline moments, and must stay derived from the id shape
     rather than drifting into a hand-maintained list.
     """
     minted = moments.minted_moment_ids()
     assert minted == {
         "evt-petition-arrival-disposition",
         "evt-order-cvsg-disposition",
+        "evt-brief-sg-disposition",
         "evt-order-response-requested-disposition",
         "evt-brief-response-disposition",
         "evt-order-judgment",
@@ -318,6 +320,56 @@ def test_the_cvsg_moment_mints_only_while_the_petition_is_open() -> None:
     assert cvsg_event_for(circuit, [baseline]) is None
 
 
+def test_the_sg_brief_moment_mints_only_while_the_petition_is_open() -> None:
+    """The CVSG moment's guards, at the brief the invitation asked for.
+
+    The brief date is latched like the CVSG date, so the trigger re-fires on
+    every poll; the open baseline and the undecided row are what keep it to
+    petitions with something left to forecast.
+    """
+    filed = date(2025, 11, 20)
+    row = CorpusRow(
+        case_id="scotus/5",
+        court="scotus",
+        docket_id=5,
+        source="live",
+        docket_number="24-210",
+        cvsg_date=date(2025, 5, 12),
+        sg_brief_filed=filed,
+    )
+    baseline = moments.moments_for(Stage.cert)[0].event_id
+    minted = sg_brief_event_for(row, [baseline])
+    assert minted is not None
+    assert (minted.event_id, minted.kind, minted.stage, minted.moment) == (
+        "evt-brief-sg-disposition",
+        EventKind.brief,
+        Stage.cert,
+        Moment.sg_brief,
+    )
+    assert minted.opened_at == filed  # the brief, not the invitation
+    assert minted.decision_target == "disposition"
+    assert sg_brief_event_for(row, []) is None
+    decided = row.model_copy(update={"disposition": Disposition.denied.value})
+    assert sg_brief_event_for(decided, [baseline]) is None
+    assert sg_brief_event_for(row.model_copy(update={"sg_brief_filed": None}), [baseline]) is None
+    circuit = row.model_copy(update={"court": "ca9", "case_id": "ca9/5"})
+    assert sg_brief_event_for(circuit, [baseline]) is None
+
+
+def test_the_sg_brief_moment_is_declared_but_switched_off() -> None:
+    """No cell is filed under the moment until the prompt describing it is registered.
+
+    The predict prompt names each cert moment a cell can be filed under, and a
+    prompt edit moves every predictor's digest, so the moment is minted now and
+    switched on with the process version whose prompt names it.
+    """
+    spec = moments.spec_for("evt-brief-sg-disposition")
+    assert spec is not None
+    assert (spec.stage, spec.moment, spec.forecastable) == (Stage.cert, Moment.sg_brief, False)
+    assert spec.opened_at_is_the_moment
+    assert "evt-brief-sg-disposition" in moments.minted_moment_ids()
+
+
 def test_every_cert_moment_declares_the_same_claim_set() -> None:
     """The claims do not change because the forecast was taken earlier or later.
 
@@ -325,7 +377,7 @@ def test_every_cert_moment_declares_the_same_claim_set() -> None:
     per-moment set version would fragment every claim aggregate for nothing.
     """
     sets = [declared_claim_set(s.event_id) for s in moments.moments_for(Stage.cert)]
-    assert len(sets) >= 3  # baseline, CVSG, arrival
+    assert len(sets) >= 4  # baseline, CVSG, arrival, SG brief
     assert all(cs == sets[0] for cs in sets)
     assert sets[0] is not None
 

@@ -87,6 +87,9 @@ with the one the public cares about most:
 - **Post-oral-argument** — every argued case, after the transcript is out
   (~60 events a Term). First to be built.
 - **SG brief after a CVSG** — the Solicitor General's recommendation (~20).
+  Declared, parsed and minted (`evt-brief-sg-disposition`, moment `sg-brief`),
+  and switched off: no cell is filed under it until the process version whose
+  predict prompt names it.
 - **Late-Term authorship elimination** — a fixed calendar date on which every
   still-undecided argued case is re-forecast, once the pattern of who has
   written from each sitting is visible (~25).

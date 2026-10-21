@@ -2740,8 +2740,9 @@ the rendered table) and
   docket gives no date at all: the newest **predicted** event by its
   `opened_at`, ties broken by the docket's stage progression — the petition's
   arrival, then its distribution, then the interim application's arrival, the
-  response requested on it and the response filed, then the CVSG, then the
-  merits moments — and then by event id, so a date collision never inverts the
+  response requested on it and the response filed, then the CVSG and the
+  Solicitor General's invited brief, then the merits moments — and then by
+  event id, so a date collision never inverts the
   order a case is actually walked in; an event whose definition records no
   `opened_at` is ordered by the **day** of its first prediction's harness clock,
   which therefore falls through to the same tie-break. One exception the
