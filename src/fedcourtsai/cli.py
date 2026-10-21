@@ -7614,7 +7614,8 @@ def cert_backtest_cmd(
     typer.echo(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
         f"{report.events_scored} decided petition(s); always-deny floor "
-        f"{report.always_denied_accuracy:.3f}; engine "
+        f"{report.always_not_granted_accuracy or 0.0:.3f} granted vs not "
+        f"({report.always_denied_accuracy:.3f} exact disposition); engine "
         f"{engine or 'none (offline baselines only)'} -> {destination}"
     )
 

@@ -1691,11 +1691,12 @@ def _predicted(backtester: Backtester, item: BacktestItem) -> BacktestPrediction
 class _ArmAcc:
     """Streaming accumulator for one provisioning arm of one entry."""
 
-    __slots__ = ("correct", "denied", "events", "granted")
+    __slots__ = ("correct", "denied", "events", "granted", "granted_correct")
 
     def __init__(self) -> None:
         self.events = 0
         self.correct = 0
+        self.granted_correct = 0
         self.denied = 0
         self.granted = 0
 
@@ -1716,6 +1717,7 @@ def _arm_scores(arm_acc: Mapping[str, _ArmAcc]) -> list[CertBacktestArm]:
                 granted=acc.granted,
                 accuracy=acc.correct / acc.events,
                 lift_over_always_denied=(acc.correct - acc.denied) / acc.events,
+                granted_correct=acc.granted_correct,
             )
         )
     return arms
@@ -1731,6 +1733,7 @@ def _score_one(
     granted_correct = 0
     brier_sum = 0.0
     denied_scored = 0
+    granted_scored = 0
     pairs: list[tuple[float, int]] = []
     band_acc: dict[str, _BandAcc] = {}
     big_case_scores: list[float] = []
@@ -1745,8 +1748,10 @@ def _score_one(
         disp_correct = prediction.predicted_disposition == item.actual_disposition
         if disp_correct:
             correct += 1
-        if granted_flag(prediction.predicted_disposition) == actual_granted:
+        binary_correct = granted_flag(prediction.predicted_disposition) == actual_granted
+        if binary_correct:
             granted_correct += 1
+        granted_scored += actual_granted
         brier = (prediction.probability_granted - actual_granted) ** 2
         brier_sum += brier
         pairs.append((prediction.probability_granted, actual_granted))
@@ -1757,6 +1762,7 @@ def _score_one(
             tally = arm_acc.setdefault(arm, _ArmAcc())
             tally.events += 1
             tally.correct += int(disp_correct)
+            tally.granted_correct += int(binary_correct)
             tally.denied += int(item.actual_disposition == Disposition.denied)
             tally.granted += actual_granted
         if segments is not None:
@@ -1778,6 +1784,9 @@ def _score_one(
     # counts exactly the items the report-level `always_denied_accuracy` is
     # summed over, so this reproduces that figure wherever nothing was lost.
     floor = denied_scored / n
+    # The headline's floor, by the same rule: always-deny is right on the
+    # binary axis wherever the petition was not granted, dismissals included.
+    granted_floor = (n - granted_scored) / n
     # Null for anything that is not an engine replay: the offline reference
     # baselines are pure functions of the corpus, so they ran no backend and no
     # model, and saying so is what keeps their rows readable beside replayed ones.
@@ -1796,6 +1805,7 @@ def _score_one(
         granted_accuracy=granted_correct / n,
         mean_brier_score=brier_sum / n,
         lift_over_always_denied=correct / n - floor,
+        granted_lift_over_always_denied=granted_correct / n - granted_floor,
         calibration=_calibration(pairs),
         segments=_band_segments(band_acc),
         arms=_arm_scores(arm_acc),
@@ -1813,8 +1823,11 @@ def run_cert_backtest(
 ) -> CertBacktest:
     """Replay each backtester over the cert set and roll the scores up best-first.
 
-    Entries rank by **lift over the always-deny floor** (desc) — under the
-    denial skew that, not raw accuracy, is the signal — then mean Brier (asc),
+    Entries rank by the headline **granted-axis lift over the always-deny
+    floor** (desc) — under the denial skew that, not raw accuracy, is the
+    signal, and the binary target is the one a cert forecast is asked to call
+    and the Brier score scores, so a dismissal is a not-granted outcome rather
+    than a miss for every forecaster — then mean Brier (asc),
     then ``predictor_id``; a total order, deterministic under ties. An empty set
     yields the empty zero-count report. When ``segments`` is given (from
     :func:`build_segment_context`), each entry also carries the per-salience-band
@@ -1845,6 +1858,9 @@ def run_cert_backtest(
     always_denied_accuracy = sum(
         item.actual_disposition == Disposition.denied for item in items
     ) / len(items)
+    always_not_granted_accuracy = sum(
+        not granted_flag(item.actual_disposition) for item in items
+    ) / len(items)
     # Which arm each petition sat in, off the same clocks `provisioning_denied`
     # reads, so an entry's per-arm split and the report's per-arm floors are
     # counted over one assignment.
@@ -1868,7 +1884,7 @@ def run_cert_backtest(
     entries.sort(
         key=lambda e: (
             e.events_scored != len(items),
-            -e.lift_over_always_denied,
+            -(e.granted_lift_over_always_denied or 0.0),
             e.mean_brier_score,
             e.predictor_id,
         )
@@ -1880,6 +1896,7 @@ def run_cert_backtest(
         predictors_evaluated=len(entries),
         salience_version=SALIENCE_VERSION,
         always_denied_accuracy=always_denied_accuracy,
+        always_not_granted_accuracy=always_not_granted_accuracy,
         provisioning=dict(provisioning or {}),
         provisioning_denied=_denied_by_arm(items, provisioning, provenance),
         provenance=provenance,

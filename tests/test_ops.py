@@ -2735,7 +2735,9 @@ def test_the_weekly_digest_states_the_per_arm_mix_and_scores_the_pr_body_does() 
     assert "blind 1 (0 denied · 1 granted · 0 dismissed/withdrawn)" in mix
     assert "truncated 8 (6 denied · 1 granted · 1 dismissed/withdrawn)" in mix
     assert "6 denied · 3 granted · 1 dismissed/withdrawn of 10" in bullet
-    assert "`claude-baseline` blind 1/1 (+1), truncated 6/8 (+0), dated 0/1 (+0)" in bullet
+    assert "`claude-baseline` blind 1/1 (+1), truncated 7/8 (+0), dated 0/1 (+0)" in bullet
+    # The headline floor names its axis, the exact-disposition floor beside it.
+    assert "always-deny floor 70.0% on granted vs not (60.0% on exact disposition)" in bullet
     assert "`constant-denied` blind" not in bullet  # a baseline, not an engine entry
 
 

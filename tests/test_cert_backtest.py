@@ -3090,6 +3090,73 @@ def split_arm_report() -> CertBacktest:
     )
 
 
+def test_the_headline_is_the_granted_axis_where_a_dismissal_is_not_a_miss() -> None:
+    """A dismissal called denied is a correct not-granted call, and the board ranks on it.
+
+    On exact disposition the one dismissal is a miss for every forecaster, the
+    floor included; on the granted axis always-deny gets it right, so the floor
+    is the not-granted share and the engines' lift is what they called beyond it.
+    """
+    report = split_arm_report()
+    assert report.always_denied_accuracy == 0.6
+    assert report.always_not_granted_accuracy == pytest.approx(0.7)
+    claude = next(e for e in report.entries if e.predictor_id == "claude-baseline")
+    assert (claude.accuracy, claude.granted_accuracy) == (0.7, 0.8)
+    assert claude.granted_lift_over_always_denied == pytest.approx(0.1)
+    assert claude.lift_over_always_denied == pytest.approx(0.1)
+    truncated = next(a for a in claude.arms if a.arm == "truncated")
+    assert (truncated.correct, truncated.granted_correct) == (6, 7)
+    # The arms' headline lifts in petitions add back up to the entry's.
+    lifts = [(a.granted_correct or 0) - (a.events_scored - a.granted) for a in claude.arms]
+    assert all(a.granted_correct is not None for a in claude.arms)
+    assert sum(lifts) == 1
+    floor = next(e for e in report.entries if e.predictor_id == "constant-denied")
+    assert floor.granted_lift_over_always_denied == 0.0
+
+
+def test_the_board_ranks_by_granted_lift_not_disposition_lift() -> None:
+    """Calling a dismissal exactly earns nothing on the headline axis.
+
+    ``exact`` names the dismissal and so leads on disposition lift; ``binary``
+    calls it denied, which is the same granted-or-not call, and is separated
+    from ``exact`` only by catching a grant ``exact`` missed.
+    """
+    labels = [
+        ("scotus/1", Disposition.denied),
+        ("scotus/2", Disposition.dismissed),
+        ("scotus/3", Disposition.granted),
+        ("scotus/4", Disposition.granted),
+    ]
+    items = [_item(case_id, actual) for case_id, actual in labels]
+    exact = cert_backtest.ReplayedBacktester(
+        id="exact",
+        engine="stub",
+        predictions={
+            "scotus/1": BacktestPrediction(Disposition.denied, 0.1),
+            "scotus/2": BacktestPrediction(Disposition.dismissed, 0.1),
+            "scotus/3": BacktestPrediction(Disposition.granted, 0.9),
+            "scotus/4": BacktestPrediction(Disposition.denied, 0.1),
+        },
+    )
+    binary = cert_backtest.ReplayedBacktester(
+        id="binary",
+        engine="stub",
+        predictions={
+            "scotus/1": BacktestPrediction(Disposition.denied, 0.1),
+            "scotus/2": BacktestPrediction(Disposition.denied, 0.1),
+            "scotus/3": BacktestPrediction(Disposition.granted, 0.9),
+            "scotus/4": BacktestPrediction(Disposition.gvr, 0.9),
+        },
+    )
+    report = run_cert_backtest([exact, binary], items)
+    by_id = {e.predictor_id: e for e in report.entries}
+    # A GVR is a grant on the binary axis, so `binary` called every outcome there.
+    assert by_id["binary"].granted_lift_over_always_denied == pytest.approx(0.5)
+    assert by_id["exact"].granted_lift_over_always_denied == pytest.approx(0.25)
+    assert by_id["exact"].lift_over_always_denied > by_id["binary"].lift_over_always_denied
+    assert [e.predictor_id for e in report.entries] == ["binary", "exact"]
+
+
 def test_an_entry_is_scored_per_provisioning_arm() -> None:
     """Each entry carries its score on each arm against that arm's own floor.
 
