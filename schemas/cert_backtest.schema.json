@@ -288,7 +288,7 @@
         },
         "unreadable": {
           "default": false,
-          "description": "The cell wrote a `flags.json` that does not parse as `AgentFlags`, so what it disclosed is unknown and `flags` is empty. The cell stays scored: a formatting fault is not evidence of exposure, and an unread note may still have been one",
+          "description": "The cell wrote a `flags.json` with nothing to recover: it cannot be read, does not parse as a JSON object or list, or none of its flags survives the normalisation the cell workflows apply (an off-vocabulary severity or category is coerced and read, not unreadable). What it disclosed is unknown and `flags` is empty. The cell stays scored: a formatting fault is not evidence of exposure, and an unread note may still have been one",
           "title": "Unreadable",
           "type": "boolean"
         }
@@ -324,7 +324,7 @@
           "type": "integer"
         },
         "flags_unreadable": {
-          "description": "Of those, the cells whose `flags.json` did not parse",
+          "description": "Of those, the cells whose `flags.json` had nothing to recover (`unreadable` on the disclosure)",
           "minimum": 0,
           "title": "Flags Unreadable",
           "type": "integer"

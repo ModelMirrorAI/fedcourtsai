@@ -65,6 +65,7 @@ from fedcourtsai.schemas import (
     CertBacktestProvenance,
     Disposition,
     FlagCategory,
+    FlagSeverity,
     PredictionContext,
     PredictorConfig,
     UsageRole,
@@ -2267,12 +2268,20 @@ class _FlaggingRunner:
     ``notes`` maps a predictor id to what its cell leaves: a message becomes a
     valid ``flags.json``; ``None`` leaves a file that does not parse.
     ``fail`` names a predictor whose engine then exits non-zero after writing
-    its note — the lost cell whose note explains the loss.
+    its note — the lost cell whose note explains the loss. ``raw`` maps a
+    predictor id to the file's exact text, for a note that parses but does
+    not validate.
     """
 
-    def __init__(self, notes: dict[str, str | None], fail: str | None = None) -> None:
+    def __init__(
+        self,
+        notes: dict[str, str | None],
+        fail: str | None = None,
+        raw: dict[str, str] | None = None,
+    ) -> None:
         self._notes = notes
         self._fail = fail
+        self._raw = raw or {}
         self._stub = StubRunner()
 
     def run(self, request: RunRequest) -> object:
@@ -2291,6 +2300,10 @@ class _FlaggingRunner:
                     note,
                 )
             )
+        if request.actor_id in self._raw:
+            path = request.event_paths.prediction_flags(request.actor_id, request.run_id)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(self._raw[request.actor_id])
         if request.actor_id == self._fail:
             raise EngineFailed(f"{request.actor_id} exited 1")
         return produced
@@ -2396,6 +2409,69 @@ def test_an_unreadable_note_is_recorded_and_the_cell_kept(
     ]
     assert outcome.disclosure_tally["gemini-baseline"].flags_unreadable == 1
     assert "gemini-baseline" in {b.id for b in outcome.backtesters}
+
+
+def test_a_note_off_the_vocabulary_is_read_not_unreadable(
+    fixture_corpus: FixtureCorpus,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    # The cell workflows normalise a note like this one; the replay reads it
+    # the same way, so an off-vocabulary severity is a flag, not "unreadable".
+    note = json.dumps(
+        {"flags": [{"category": "data_quality", "severity": "low", "message": _EXPOSURE_NOTES[1]}]}
+    )
+    items, outcome = _replay_with(
+        fixture_corpus, tmp_path, monkeypatch, _FlaggingRunner({}, raw={"codex-baseline": note})
+    )
+    (codex,) = outcome.disclosures
+    assert (codex.predictor_id, codex.case_id, codex.unreadable) == (
+        "codex-baseline",
+        items[0].features.case_id,
+        False,
+    )
+    # The agent's one flag, coerced; the harness's account of it is not counted.
+    assert [(f.category, f.severity, f.outcome_exposure_candidate) for f in codex.flags] == [
+        (FlagCategory.data_quality, FlagSeverity.info, True)
+    ]
+    assert outcome.disclosure_tally["codex-baseline"] == CertBacktestDisclosureTally(
+        cells_read=1, cells_flagged=1, flags_unreadable=0, candidates=1
+    )
+    assert "was normalised to validate" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "text",
+    ['"just a string"', '{"flags": [{"category": "other"}]}'],
+    ids=["not-an-object", "nothing-survives"],
+)
+def test_a_note_with_nothing_to_recover_is_unreadable(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, text: str
+) -> None:
+    _items, outcome = _replay_with(
+        fixture_corpus, tmp_path, monkeypatch, _FlaggingRunner({}, raw={"gemini-baseline": text})
+    )
+    assert [(d.predictor_id, d.unreadable, d.flags) for d in outcome.disclosures] == [
+        ("gemini-baseline", True, [])
+    ]
+
+
+def test_an_empty_note_is_read_as_silence(
+    fixture_corpus: FixtureCorpus, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Normalisation fills the missing envelope; a cell that raised nothing is
+    # read, not unreadable.
+    _items, outcome = _replay_with(
+        fixture_corpus,
+        tmp_path,
+        monkeypatch,
+        _FlaggingRunner({}, raw={"gemini-baseline": '{"flags": []}'}),
+    )
+    assert [(d.predictor_id, d.unreadable, d.flags) for d in outcome.disclosures] == [
+        ("gemini-baseline", False, [])
+    ]
+    assert outcome.disclosure_tally["gemini-baseline"].flags_unreadable == 0
 
 
 def test_a_lost_cell_s_note_is_kept_as_unscored(

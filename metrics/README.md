@@ -2019,7 +2019,12 @@ the rendered table) and
   saw is outcome text keyed by case id. It is printed to the run log as each
   cell is read (`flag from <predictor> on <case>`, credential runs redacted,
   candidates marked; `unreadable flags.json from <predictor> on <case>` for
-  a note that does not parse). The review PR names every candidate cell — a
+  a note with nothing to recover). A note is read through the same
+  normalisation the cell workflows apply to `flags.json`, so an
+  off-vocabulary severity or category, an over-long message or a missing
+  envelope field is coerced and the note read as usual; a file that cannot
+  be read, does not parse as a JSON object or list, or none of whose flags
+  survives that normalisation counts as unreadable. The review PR names every candidate cell — a
   lost one in a clause of its own, since it is in no figure but every
   predictor on that petition read the same provisioned inputs — and every
   unreadable note, and marks the headline itself when the headline entry has
