@@ -35,24 +35,26 @@ than measured: its cells run Claude Opus 5.5, priced at the token counts the
 pair recorded on the Fable tier it replaced — a mean of about $1.38 a
 prediction (251 runs) and $1.16 a grading run (118 runs) — on the assumption
 that Opus spends the same tokens, which the first round's `fedcourts
-usage-summary` replaces with a measurement. The other four figures are
+usage-summary` measures; the measured Opus figures below are not yet the
+basis. The other four figures are
 measured means: about $3.04 and $0.58 a prediction and $2.90 and $0.73 a
 grading run for codex and gemini, measured on `gpt-6-astra` and
 `gemini-3.1-pro-preview`. The codex and gemini engine defaults are
 `gpt-6.1-sol` and `gemini-4-argon`, and their first measured cells on
 `main` (at `38802b537`, 2026-10-21) are few: 5 predictions and 18 grading
-runs each. Codex measures about $0.43 a prediction and $0.34 a grading run,
-in line with the $0.44 and $0.42 that re-pricing its earlier cells at Sol's
-rate projected. Gemini measures about $1.06 and $0.64 at Argon's introductory
+runs each. Codex measures about $0.43 a prediction, in line with the $0.44
+that re-pricing its earlier cells at Sol's rate projected, and $0.34 a
+grading run, below the projected $0.42. Gemini measures about $1.06 and $0.64 at Argon's introductory
 rate ($2 / $10, $0.10 cached), against a projected $0.46 and $0.55: its
 predictions read about 2.8 times the uncached input of the earlier model's.
-The rate doubles from 2026-12-01, which at equal tokens adds about $1.70 to
-gemini's share of an event. On those figures a fully predicted and evaluated
+The rate doubles from 2026-12-01, which at equal tokens, and with the cached
+rate assumed to double too, adds about $1.70 to gemini's share of an event. On those figures a fully predicted and evaluated
 event comes to about $5.00 with the claude pair at its priced figure, and
-about $3.70 with it at the first measured Opus 5.5 rounds on the same
+about $3.75 with it at the first measured Opus 5.5 rounds on the same
 commit (54 predictions at about $0.62, 47 grading runs at about $0.65). Both samples are
 small. The $10 figure and everything below that scales from it stay on the
-measured basis until the rounds on the new models are re-anchored.
+measured basis until the rates are re-anchored on the rounds on the new
+models.
 The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled
 up by `fedcourts usage-summary`), so the rates can be re-anchored from

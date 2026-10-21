@@ -18645,15 +18645,15 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         + "purposes. "
         + "The ~+20% level gap to the 410-cell pre-freeze ledger is an UPPER "
         + "BOUND on any level effect, not a measurement of one.",
-        "The codex and gemini rows are PRE-CUTOVER. The codex row projects "
-        + "HIGH: it was measured on gpt-5.6-sol ($5/$30 per MTok) while that "
-        + "engine's default is now gpt-6.1-sol ($2/$10), roughly a third of "
-        + "the cost at equal token counts. The gemini row projects LOW: it "
-        + "was measured on gemini-3.1-pro-preview, and the first "
-        + "gemini-4-argon cells measure about $1.06 a prediction against "
-        + "the row's $0.64, reading about 2.8x the uncached input; Argon's "
-        + "rate doubles to $4/$20 on 2026-12-01, widening the gap. Only a "
-        + "deliberate re-anchor of the pinned rows moves them.",
+        "The codex and gemini rows are PRE-CUTOVER, measured on gpt-5.6-sol "
+        + "and gemini-3.1-pro-preview, and the first cells on the current "
+        + "defaults are few (5 predictions each). The codex row projects "
+        + "HIGH: gpt-6.1-sol measures about $0.43 a prediction against the "
+        + "row's $1.88. The gemini row projects LOW: gemini-4-argon measures "
+        + "about $1.06 against the row's $0.64, reading about 2.8x the "
+        + "uncached input, and Argon's rate doubles to $4/$20 on 2026-12-01, "
+        + "widening the gap. Only a deliberate re-anchor of the pinned rows "
+        + "moves them.",
     ],
     "evaluate": [
         "An ASSUMPTION, not a measurement: these rates scale a pre-freeze "

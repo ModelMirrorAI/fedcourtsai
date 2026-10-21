@@ -12090,7 +12090,8 @@ freeze commit is recorded here.
   **With both `proc-v10` windows holding counted cells.** The same command
   over `origin/main` at `38802b537`, after the first two predict rounds on the
   new models (runs `20261020T190956Z` and `20261021T170410Z`), prints the same
-  closed-window and split lines, and adds:
+  closed-window and split lines, and these three grading lines, the first
+  changed from its 81 and 0 at the stamp and the other two new:
 
   ```
     codex-baseline: 5 successor-counted event(s); earlier window proc-v8: 0 failed, 0 uncounted cell, 0 missing, 5 not reached before the close
@@ -12100,7 +12101,7 @@ freeze commit is recorded here.
     graded by gemini-judge @ sha256:6a88d3dc…: 50 grading(s), 50 at or after the instant
   ```
 
-  with the other four grading lines unchanged. Every successor-counted event
+  with the other five grading lines unchanged. Every successor-counted event
   so far is one the closed window had not reached; none follows a failed
   attempt, an uncounted cell or a missing one. The 50 gradings each judge
   made at or after the instant are of closed-window cells, `codex-judge` and
@@ -12113,8 +12114,8 @@ freeze commit is recorded here.
   with it. So the codex-against-gemini combination and the
   claude-`proc-v8`-against-either combination both read 0. A later round can
   still make one, where codex or gemini first counts under `proc-v10` on an
-  event `claude-baseline` counted only under `proc-v8`, so a figure over the
-  cut quotes the count at its own commit.
+  event that `claude-baseline` or the other engine counted only under
+  `proc-v8`, so a figure over the cut quotes the count at its own commit.
 
   **The `proc-v9` buckets, refreshed.** `--closed proc-v8 --successor
   proc-v9` at `38802b537` reads `claude-baseline: 54 successor-counted
@@ -12129,10 +12130,16 @@ freeze commit is recorded here.
   moves by re-pricing earlier token counts and said so. The first measured
   cells (`estimated_cost_usd` in `usage.json`, at `38802b537`):
   - `codex-baseline`, 5 predictions on `gpt-6.1-sol`: about $0.43, against
-    the priced $0.44; `codex-judge`, 18 gradings: about $0.34, against $0.42.
+    the priced $0.44; `codex-judge`, 18 grading runs: about $0.34, against
+    $0.42.
   - `gemini-baseline`, 5 predictions on `gemini-4-argon`: about $1.06,
-    against the priced $0.46; `gemini-judge`, 18 gradings: about $0.64,
+    against the priced $0.46; `gemini-judge`, 18 grading runs: about $0.64,
     against $0.55.
+
+  A grading run is one `usage.json`, one judge on one event, and can grade
+  several cells, so these 18 runs and the 50 gradings per digest counted
+  above are in different units. The `proc-v10` entry's 153 and 174
+  "gradings" are grading runs in this sense.
 
   The gemini predictions read a mean of about 394,000 uncached input tokens
   and 13,600 output tokens, against about 141,000 and 7,700 across the 527
