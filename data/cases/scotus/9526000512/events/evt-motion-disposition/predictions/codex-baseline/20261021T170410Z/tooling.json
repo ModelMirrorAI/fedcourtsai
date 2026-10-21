@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000512",
+  "run_id": "20261021T170410Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot and context", "provisioned application text", "committed interim statpack", "web search and official PDF retrieval attempts", "fedcourts paths", "fedcourts validate"],
+  "helpful": ["Arrival-position snapshot and explicit escalation signals", "Complete extracted application with truncation metadata", "Per-Term interim counts for the strictly-prior baseline"],
+  "gaps": ["Separately linked lower-court appendix was not provisioned", "No provisioned opposition to test applicants' operational account", "Committed statpack lacks an explicit build timestamp", "All general-precedent web attempts returned no readable content"],
+  "notes": "No live target-case retrieval was needed. The default uv cache was read-only; directing the cache to temporary storage allowed the CLI to run. The forecast rests on provisioned material and the committed statpack, without independently retrieved precedent text."
+}

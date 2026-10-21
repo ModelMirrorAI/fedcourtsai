@@ -1,0 +1,53 @@
+{
+  "actor_id": "claude-baseline",
+  "cache_creation_input_tokens": 77899,
+  "cache_read_input_tokens": 762865,
+  "case_id": "scotus/9526000512",
+  "created_at": "2026-10-21T17:04:10Z",
+  "engine": "claude-code",
+  "engine_version": "2.1.289",
+  "engine_version_discrepancy": null,
+  "estimated_cost_usd": 0.655924,
+  "event_id": "evt-motion-disposition",
+  "input_tokens": 24,
+  "model": "claude-opus-5-5",
+  "output_tokens": 5688,
+  "pipeline_sha": "9a5ed6e347b4d726489fdb96a413677e0b36a493",
+  "post_run_poll": {
+    "docket_number": "26A512",
+    "polled_at": "2026-10-21T17:13:51.788239Z",
+    "reason": null,
+    "signals": {
+      "cvsg": null,
+      "referred_to_court": {
+        "entry_date": null,
+        "present": false
+      },
+      "response_requested": {
+        "entry_date": "2026-10-15",
+        "present": true
+      }
+    },
+    "state": "open"
+  },
+  "pre_mint_poll": {
+    "docket_number": "26A512",
+    "polled_at": "2026-10-21T17:11:26.331768Z",
+    "reason": null,
+    "signals": {
+      "cvsg": null,
+      "referred_to_court": {
+        "entry_date": null,
+        "present": false
+      },
+      "response_requested": {
+        "entry_date": "2026-10-15",
+        "present": true
+      }
+    },
+    "state": "open"
+  },
+  "role": "predictor",
+  "run_id": "20261021T170410Z",
+  "schema_version": "1.0"
+}

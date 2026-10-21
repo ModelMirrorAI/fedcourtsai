@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000512",
+  "gaps": [
+    "No provisioned opposition or separately linked lower-court appendix",
+    "Web requests returned no usable source content",
+    "Citation-only MCP search returned an unrelated reporter match; case-name and court filters resolved it"
+  ],
+  "helpful": [
+    "Frozen interim escalation signals and dated snapshot",
+    "Complete extracted application with a document manifest",
+    "Prior-Term interim counts in the committed statpack",
+    "CourtListener access to the Purcell lead opinion"
+  ],
+  "notes": "Forecast uses the response-requested interim contract, not cert salience. No current-case live retrieval was performed. The initial CLI invocation encountered a read-only default cache; using a temporary cache resolved it without changing project files.",
+  "role": "predictor",
+  "run_id": "20261021T170410Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "web.run",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

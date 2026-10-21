@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000512",
+  "run_id": "20261021T170410Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_read_document",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Provisioned application.txt in record/documents/ provided the complete 18-page stay application.",
+    "CourtListener MCP RECAP search and read_document surfaced the District of New Hampshire's Sept. 1, Oct. 2, Oct. 5, and Oct. 7 orders as well as the Coalition's Oct. 13 First Circuit response and the RNC amicus brief.",
+    "The interim docket table in metrics/statpack.md made it straightforward to compute the 10-Term strictly-prior substantive grant base rate (51/547 = 9.3%) and inspect the escalation-ladder distribution."
+  ],
+  "gaps": [
+    "A --application-kind filter on fedcourts query (e.g., --application-kind substantive) would make it easier to retrieve resolved substantive stay applications without extension applications dominating the result set."
+  ],
+  "notes": "All provisioned inputs were complete and well-formed."
+}

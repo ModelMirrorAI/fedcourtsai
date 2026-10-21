@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000499",
+  "gaps": [
+    "Generic web calls returned no usable content.",
+    "The committed interim rate is not conditioned on vacatur requests or the response-filed moment."
+  ],
+  "helpful": [
+    "Both substantive briefs were provisioned as available, untruncated text.",
+    "Frozen interim escalation signals and prior-Term substantive counts made the conditioning and anchor explicit."
+  ],
+  "notes": "The default uv cache was read-only; a writable temporary cache allowed the CLI to run. No credentials or live corpus payloads were needed.",
+  "role": "predictor",
+  "run_id": "20261021T170410Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "committed statpack",
+    "web search/open attempts",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

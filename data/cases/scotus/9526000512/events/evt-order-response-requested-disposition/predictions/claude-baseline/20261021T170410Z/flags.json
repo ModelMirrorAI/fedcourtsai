@@ -1,0 +1,17 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/9526000512",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "Harness check: this cell's logged tool calls named a committed predictions/ or evaluations/ path other than this cell's own run directory (another predictor's output, an earlier run, or a glob over them): 1 call(s), e.g. 'predictions/claude-baseline/*'. Read from retrieval_log.json, which records that a call named the path, not what it returned; check the transcript before treating it as a read.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261021T170410Z",
+  "schema_version": "1.0"
+}
