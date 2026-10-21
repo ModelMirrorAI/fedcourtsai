@@ -156,9 +156,9 @@ on:
           `offline-gate` is that same suite with both engine families
           dropped: token-free end to end, and accepted as whole-suite
           freshness evidence only under the engine-smoke skip — the
-          `promote` dispatch input for the pre-flight, the
-          `promote:skip-engine-smoke` label for the promotion PR's required
-          check. It is also the DEFAULT, so an unqualified dispatch spends
+          `promote` dispatch input for the pre-flight; for the promotion PR's
+          required check, a batch main's cell-reach classifier calls
+          cell-inert or the `promote:skip-engine-smoke` label. It is also the DEFAULT, so an unqualified dispatch spends
           nothing and the paid suite is always a typed choice.
           `all` runs EVERY scenario below, the dispatch-only ones included —
           `gate`'s legs plus `codex-application-repro` and

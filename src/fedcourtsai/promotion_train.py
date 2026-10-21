@@ -28,7 +28,8 @@ action                when                                              does
                       at that tip
 ``dispatch_gate``     no dispatched integration-test run of any kind    dispatch integration-test
                       at the head and ref, the registry gate passes,    ``gate`` (``offline-gate``
-                      and today's paid-dispatch cap is not reached      under the waiver label)
+                      and today's paid-dispatch cap is not reached      when the smokes are
+                                                                        waived)
 ``mark_ready``        green evidence at the head and the PR is a        mark ready, request the
                       draft the train has not marked before             approvers' review; the
                                                                         body edit re-fires CI
@@ -43,13 +44,21 @@ action                when                                              does
 ``report``            a human has to act                                nothing (body refresh)
 ====================  ================================================  =========================
 
+The engine smokes are waived — ``offline-gate`` dispatched and accepted in
+place of ``gate`` — when ``main``'s cell-reach classifier
+(``scripts/cell_reach.py``) calls the batch cell-inert, or the candidate carries
+the ``promote:skip-engine-smoke`` label; the ``promote:require-engine-smoke``
+label overrides both, and an unread verdict waives nothing
+(:func:`smokes_waived`). ci.yml's ``promotion-gate`` decides the same way, so
+the train and the required check agree on the evidence.
+
 Green evidence is a green ``gate`` run at the head and ref (an ``offline-gate``
-one under the ``promote:skip-engine-smoke`` label), or the promotion gate's own
-freshness stage passing there — per-scenario runs a maintainer dispatched
-count. Everything unreadable resolves to ``wait``, never to an act. The paid
-suite runs at most once per candidate: the dispatch is refused while *any*
-dispatched integration run sits at the head, whatever its title, so a renamed
-title can never read as "no run yet"; a failed or unrecognised run is reported
+one when the smokes are waived), or the promotion gate's own freshness stage
+passing there — per-scenario runs a maintainer dispatched count. Everything
+unreadable resolves to ``wait``, never to an act. The paid suite runs at most
+once per candidate: the dispatch is refused while *any* dispatched integration
+run sits at the head, whatever its title, so a renamed title can never read as
+"no run yet"; a failed or unrecognised run is reported
 and never re-dispatched, and a daily cap bounds the train's paid dispatches
 across candidates. Candidate branches are never deleted, so a branch already
 at the staging tip means that tip was cut before: a candidate the maintainer
@@ -111,8 +120,14 @@ GATE_TITLE = "integration-test: gate @ staging"
 OFFLINE_GATE_TITLE = "integration-test: offline-gate @ staging"
 
 #: The label under which the promotion gate accepts an `offline-gate` run, and
-#: under which the train dispatches that token-free suite instead of `gate`.
+#: under which the train dispatches that token-free suite instead of `gate`,
+#: whatever the batch touches: the maintainer's manual waiver.
 WAIVER_LABEL = "promote:skip-engine-smoke"
+
+#: The label that demands the engine smokes on a batch the classifier calls
+#: cell-inert: the maintainer's manual override the other way. It wins over
+#: the waiver label too, so the two together are strict.
+REQUIRE_LABEL = "promote:require-engine-smoke"
 
 #: The required check the train may re-fire by a body edit.
 PROMOTION_GATE_CHECK = "promotion-gate"
@@ -230,7 +245,7 @@ class TrainStep(BaseModel):
     #: Whose review a ``mark_ready`` requests: the configured approvers.
     reviewers: tuple[str, ...] = ()
     #: The integration suite a ``dispatch_gate`` starts: ``gate``, or
-    #: ``offline-gate`` under the waiver label.
+    #: ``offline-gate`` when :func:`smokes_waived` waives the engine smokes.
     scenario: str | None = None
 
 
@@ -279,8 +294,11 @@ class Observed:
     quiescent: bool | None = None
     registry_ok: bool | None = None
     #: The promotion gate's freshness stage at the head and ref, read live
-    #: (under the waiver label when the candidate carries it).
+    #: (waived as :func:`smokes_waived` decides).
     freshness_ok: bool | None = None
+    #: `main`'s cell-reach verdict on the candidate's batch: true for
+    #: cell-inert, false for engine-relevant, unknown when it was not read.
+    cell_inert: bool | None = None
 
 
 def _mapping(value: object) -> Mapping[str, Any]:
@@ -404,14 +422,33 @@ class GateEvidence(StrEnum):
     UNRECOGNISED = "unrecognised"
 
 
+def smokes_waived(labels: Iterable[str], cell_inert: bool | None) -> tuple[bool, str]:
+    """Whether the candidate's engine smokes are waived, and why.
+
+    The require label wins over everything; then the waiver label; then the
+    classifier's verdict. Only an affirmative cell-inert verdict waives: an
+    engine-relevant or unread one leaves the full suite owed.
+    """
+    present = set(labels)
+    if REQUIRE_LABEL in present:
+        return False, f"the {REQUIRE_LABEL} label demands the engine smokes"
+    if WAIVER_LABEL in present:
+        return True, f"the {WAIVER_LABEL} label waives the engine smokes"
+    if cell_inert is True:
+        return True, "the batch cannot reach a cell, so the engine smokes are not owed"
+    if cell_inert is False:
+        return False, "the batch can reach a cell, so the engine smokes are owed"
+    return False, "the batch's cell reach was not read, so the engine smokes are owed"
+
+
 def gate_evidence(
     runs: Iterable[Mapping[str, Any]], *, ref: str, sha: str, waived: bool
 ) -> tuple[GateEvidence, Mapping[str, Any] | None]:
     """The state of the candidate's integration runs, and the run that decides it.
 
     Only a dispatched run at exactly ``sha`` from exactly ``ref`` counts. A
-    green ``gate`` run (or, under the waiver label, a green ``offline-gate``
-    run) is evidence; otherwise such a run in flight is waited for; otherwise a
+    green ``gate`` run (or, with the smokes ``waived``, a green
+    ``offline-gate`` run) is evidence; otherwise such a run in flight is waited for; otherwise a
     concluded one is a failure the train reports. Any *other* dispatched run at
     the head — a per-scenario run, or a whole-suite run whose title this code
     does not recognise because the candidate's workflow titles it differently
@@ -704,7 +741,7 @@ def _candidate_step(  # noqa: PLR0911, PLR0912 - one return per outcome, each na
         )
     if observed.runs is None:
         return step(TrainAction.WAIT, "the integration runs at the head could not be read")
-    waived = WAIVER_LABEL in candidate.labels
+    waived, why = smokes_waived(candidate.labels, observed.cell_inert)
     scenario = "offline-gate" if waived else "gate"
     evidence, run = gate_evidence(
         observed.runs, ref=candidate.ref, sha=candidate.sha, waived=waived
@@ -735,7 +772,7 @@ def _candidate_step(  # noqa: PLR0911, PLR0912 - one return per outcome, each na
             return step(
                 TrainAction.DISPATCH_GATE,
                 f"dispatched the integration {scenario} suite at {candidate.sha[:9]} "
-                + f"(`{_dispatch_command(candidate.ref, scenario)}`)",
+                + f"(`{_dispatch_command(candidate.ref, scenario)}`): {why}",
             ).model_copy(update={"scenario": scenario})
         if evidence is GateEvidence.RUNNING:
             return step(TrainAction.WAIT, f"the integration gate is running ({run_url})")

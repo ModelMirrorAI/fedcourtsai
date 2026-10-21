@@ -42,6 +42,10 @@
 /scripts/gate.sh @modelmirror
 /scripts/ci_lane.py @modelmirror
 /tests/test_ci_lane.py @modelmirror
+# Whether a promotion batch owes the engine smokes: an inert verdict merges it
+# on the token-free suite.
+/scripts/cell_reach.py @modelmirror
+/tests/test_cell_reach.py @modelmirror
 /tests/lane_guard.py @modelmirror
 /tests/conftest.py @modelmirror
 # The gate's Python halves: the required-contexts and ruleset checks

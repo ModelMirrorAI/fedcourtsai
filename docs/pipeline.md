@@ -1849,36 +1849,57 @@ The mechanics:
   whole-suite acceptance the skip unlocks is decided before the required set is
   read, so keeping one family required while accepting an `offline-gate` run —
   which ran neither — would satisfy that requirement without exercising it.
-  Unsound, not stricter. Whether that evidence
-  is worth its tokens for a given batch is the maintainer's risk call; the
-  default at every gate surface is the full required set — what a dispatch
-  costs by default changes nothing about what the gate asks for — and a batch
-  that cannot affect a cell — docs, analytics, non-cell code — is the clear
-  case for waiving. The other case is scoped to a *delta* rather than a batch:
-  a head that moved after a green `gate` run, where what the move added cannot
-  reach a cell (*When the head moves after a green `gate`* in the operator's
-  path below).
-  It takes **two separate acts**, because a pre-flight and a merge are
-  different decisions:
+  Unsound, not stricter. What dispatching costs by default changes nothing
+  about what the gate asks for: every gate surface starts from the full
+  required set, and only the three acts below narrow it.
+  - **A batch that cannot reach a cell waives itself.** ci.yml's
+    `promotion-gate` job — the required check — classifies the batch, the
+    three-dot diff of the head over `main`, with `main`'s copy of
+    `scripts/cell_reach.py`, never the batch's own. The verdict is *inert*
+    only when every changed path is on its allow-list of paths no cell runs:
+    prose (the docs lane's), `data/`, `metrics/`, `tests/`, the gate and lane
+    scripts, the configs of the train and the corpus-check lane, and the
+    `src/` modules no cell path imports — the promotion gate
+    and train, the settings checks, the metrics and public-update writers and
+    the predict chain's dispatch decision (a test pins that nothing in the
+    package but `cli.py` and the other listed modules imports one, and that no
+    script or workflow names one; the cell workflows' own commands reach
+    none). Everything else is *engine*: the
+    workflows, composites and pinned engine CLIs under `.github/`, the
+    prompts, `config/predictors.yaml` and `config/evaluators.yaml`,
+    `pyproject.toml` and `uv.lock`, the schemas, every other `src/` module
+    (`pricing.py`'s default models, provisioning, retrieval, the MCP code,
+    the round planners' spend arithmetic and `cli.py` among them), every other script, any agent instruction or config
+    path at any depth, and any path new to the tree. So does every doubt — an
+    empty diff, a symlink, a diff git cannot compute, a `main` with no
+    classifier. An inert verdict drops the six for that batch, and the
+    promotion train dispatches `offline-gate` for it rather than `gate`.
+  - the **`promote:skip-engine-smoke` label** on the promotion PR drops them
+    from the required check for that batch whatever the classifier says —
+    the maintainer's risk call on a batch the allow-list does not cover, such
+    as a head that moved after a green `gate` run where what the move added
+    cannot reach a cell (*When the head moves after a green `gate`* in the
+    operator's path below). The **`promote:require-engine-smoke` label**
+    demands them whatever the classifier says, and wins over the skip label
+    too. `main`'s ruleset still has no bypass for the check itself (the data
+    App's deterministic writers are its only bypass actor), so the labels and
+    `main`'s classifier are the whole of the discretion: every other gate
+    stays strict, and only a promotion changes what the classifier waives.
   - `promote`'s **`skip_engine_smoke` input** drops all six from that
     dispatch's freshness check and accepts a token-free `scenario=offline-gate`
     run as whole-suite evidence. It buys a cheap answer to *is anything else
     missing* before paying for them, and decides nothing about the merge.
-  - the **`promote:skip-engine-smoke` label** on the promotion PR drops them
-    from ci.yml's `promotion-gate` job — the required check — for that batch
-    only. `main`'s ruleset still has no bypass for the check itself (the data
-    App's deterministic writers are its only bypass actor), so the label is
-    the whole of the discretion: every other gate stays strict, and the next
-    promotion starts strict again.
 
-  The label is read from the API when the check runs, not from the event
+  The labels are read from the API when the check runs, not from the event
   payload, so the documented practice — re-run `promotion-gate` immediately
-  before merging — picks it up without `labeled`/`unlabeled` on ci.yml's
-  trigger, which would re-run the whole suite on every label edit to every PR.
-  A waived run says so three ways: the gate script names the dropped entries
-  in its log, and the check annotates the PR and writes what was traded away
-  into its run summary — so a batch that merged without real-engine evidence
-  is legible as such from the promotion's own record.
+  before merging — picks them up without `labeled`/`unlabeled` on ci.yml's
+  trigger, which would re-run the whole suite on every label edit to every PR;
+  a label read that fails leaves the check strict, since it could hide the
+  require label. A waived run says so three ways: the gate script names the
+  dropped entries in its log, and the check annotates the PR and writes why
+  it waived — the label, or the classifier's verdict — and what was traded
+  away into its run summary, so a batch that merged without real-engine
+  evidence is legible as such from the promotion's own record.
 - **The promotion train.** `promotion-prep` runs on the maintainer's
   dispatch, which alone cuts, and hourly (:26), and takes one step per tick, decided by the tested `fedcourts
   promotion-train-step` (`src/fedcourtsai/promotion_train.py`), from a
@@ -1903,8 +1924,8 @@ The mechanics:
   | step | when | does |
   | --- | --- | --- |
   | cut | the tick is a dispatch; no promotion PR open; staging holds `main`'s last promotion merge, and since their merge-base `main` changed nothing outside the writer lanes' paths (`data/`, `metrics/`, the corpus pointer) — so staging is synced with every promotion and its record — while staging changed something; no `promote/` branch already sits at staging's tip | create the branch at the tip (dev App) and open a **draft** PR into `main`, the batch in its body |
-  | dispatch the gate | no dispatched integration run of any title at the head and ref yet (queued, running or concluded), the registry gate passes, and the train is under its daily dispatch cap | `integration-test` `scenario=gate` at the branch — `offline-gate` under the `promote:skip-engine-smoke` label — (dispatch App), **once per head** |
-  | mark ready | green evidence at the head: the `gate` run succeeded (under the label, an `offline-gate` run), or the promotion gate's freshness stage passes there — per-scenario runs a maintainer dispatched count | mark the PR ready, request the approvers' review, refresh the body — the edit re-fires `promotion-gate` |
+  | dispatch the gate | no dispatched integration run of any title at the head and ref yet (queued, running or concluded), the registry gate passes, and the train is under its daily dispatch cap | `integration-test` `scenario=gate` at the branch — `offline-gate` when `main`'s classifier calls the batch cell-inert or the `promote:skip-engine-smoke` label is on, never under `promote:require-engine-smoke` (*The engine-smoke skip* above) — (dispatch App), **once per head** |
+  | mark ready | green evidence at the head: the `gate` run succeeded (with the smokes waived, an `offline-gate` run), or the promotion gate's freshness stage passes there — per-scenario runs a maintainer dispatched count | mark the PR ready, request the approvers' review, refresh the body — the edit re-fires `promotion-gate` |
   | re-fire | approved, quiescent, registry clean, freshness passing, every other required check green, `promotion-gate` red or missing — at most three times after the approval, then report | refresh the body, which re-runs `promotion-gate` |
   | merge | an approver in `config/promotion-train.yaml` approved **exactly this head**, no change requested since (every page of the reviews), GitHub reports the PR mergeable, every required check green, the registry gate clean and no fan-out in flight, read live | merge with a **merge commit**, pinned to the head (dev App), after re-reading the PR, the reviews, quiescence and the registry just before the call |
   | wait / report | anything else: the gate running, checks pending, mergeability not yet computed, a fan-out in flight, approval pending; or a human must act — the gate failed, an integration run the train does not recognise sits at the head, the candidate conflicts with `main`, changes requested, the registry refuses, the daily cap is reached | refresh the body's status line |
@@ -1978,15 +1999,20 @@ The full path of a change, operator's view:
    merge.
 3. Read the candidate PR: the batch, its stated effect checks, the gate's
    stages. Approve it to promote; request changes or close it to stop. The
-   train dispatches its suite at the first tick after the cut, so the
-   `promote:skip-engine-smoke` label (*The engine-smoke skip* above) does two
-   different things depending on when it lands. On the draft before that
-   tick — the cut's tick opens it, the next one dispatches — it makes the
-   train dispatch the token-free `offline-gate` instead of the paid `gate`.
-   After a paid `gate` failed for an engine-side reason on a cell-inert batch,
-   it lets you dispatch `offline-gate` at the candidate yourself (`gh workflow
-   run integration-test.yml --ref promote/<date> -f scenario=offline-gate`);
-   the train and the required check both accept that run under the label.
+   train picks the suite itself at the first tick after the cut: the
+   token-free `offline-gate` for a batch `main`'s classifier calls
+   cell-inert, the paid `gate` otherwise (the dispatch's line in the body
+   says which, and why). The labels (*The engine-smoke skip* above) do two
+   different things depending on when they land. On the draft before that
+   tick — the cut's tick opens it, the next one dispatches —
+   `promote:skip-engine-smoke` makes the train dispatch `offline-gate` for a
+   batch the classifier calls engine-relevant, and
+   `promote:require-engine-smoke` makes it dispatch `gate` for one it calls
+   inert. After a paid `gate` failed for an engine-side reason on a batch you
+   judge cell-inert, the skip label lets you dispatch `offline-gate` at the
+   candidate yourself (`gh workflow run integration-test.yml --ref
+   promote/<date> -f scenario=offline-gate`); the train and the required
+   check both accept that run under the label.
 4. The train merges at the next tick on which everything holds (or merge it
    yourself, with a merge commit). Its body says what it waits for.
 
@@ -2011,11 +2037,12 @@ The full path of a change, operator's view:
    candidate's head never moves). The gate's rule is
    mechanical and does not read the delta: the green `gate` run sits at the
    old sha, so at the new one nothing satisfies the twelve, and the choice is
-   to re-dispatch `gate` or to dispatch `offline-gate` at the new head and take
-   the skip's **two acts** — `promote -f skip_engine_smoke=true` for the
-   pre-flight, the `promote:skip-engine-smoke` label on the promotion PR for
-   the required check — which is the gate's only path to accepting a
-   token-free whole-suite run. The second course is
+   to re-dispatch `gate` or to dispatch `offline-gate` at the new head. Where
+   the whole batch is cell-inert the required check accepts the second on
+   the classifier's verdict alone; otherwise it takes the skip's **two acts**
+   — `promote -f skip_engine_smoke=true` for the pre-flight, the
+   `promote:skip-engine-smoke` label on the promotion PR for the required
+   check. The second course is
    a risk call, not a shortcut, and it is the maintainer's to make on the
    delta the head move introduced: where that delta cannot reach a cell — a
    data commit the sync brought over, docs, analytics — the engine evidence

@@ -290,8 +290,9 @@ def _next_step(batch: Batch) -> list[str]:
         lines.append(
             f"- run the integration gate at this head: `gh workflow run integration-test.yml"
             f" --ref staging -f scenario=gate` (staging `{batch.staging_sha[:9]}`), or"
-            " `offline-gate` plus the `promote:skip-engine-smoke` label for a batch that"
-            " cannot affect a cell."
+            " `offline-gate` for a batch that cannot affect a cell — which `main`'s"
+            " `scripts/cell_reach.py` accepts on its own when the whole batch is on its"
+            " allow-list, and the `promote:skip-engine-smoke` label otherwise."
         )
     lines.append("- then edit the body once to re-run `promotion-gate`, and merge with a")
     lines.append("  **merge commit**.")

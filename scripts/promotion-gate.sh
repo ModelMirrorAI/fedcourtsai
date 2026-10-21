@@ -119,29 +119,33 @@
 #   * `promote.yml`'s `skip_engine_smoke` dispatch input, which narrows one
 #     pre-flight — a cheap answer to "is anything else missing" before paying
 #     for the smokes;
-#   * `ci.yml`'s `promotion-gate` job, when the promotion PR carries the
-#     `promote:skip-engine-smoke` label, which narrows what that batch merges
-#     on;
-#   * the promotion train's plan job (`promotion-prep.yml`), on the same label
-#     on its candidate, so the train reads freshness exactly as the required
-#     check will.
+#   * `ci.yml`'s `promotion-gate` job, when `main`'s cell-reach classifier
+#     (scripts/cell_reach.py) calls the batch cell-inert or the promotion PR
+#     carries the `promote:skip-engine-smoke` label — and never while it
+#     carries `promote:require-engine-smoke` — which narrows what that batch
+#     merges on;
+#   * the promotion train's plan job (`promotion-prep.yml`), on the same
+#     decision for its candidate, so the train reads freshness exactly as the
+#     required check will.
 #
-# All are per-act and leave a record — a dispatch input on one run, a label on
-# one PR — so a skip is never standing configuration that outlives the batch
-# that wanted it. Only the exact value `1` enables it; anything else, a typo
-# included, leaves the gate strict.
+# None is standing configuration a batch can switch on for itself: a dispatch
+# input covers one run, a label one PR, and the classifier that runs is
+# `main`'s copy — an allow-list of paths no cell runs, failing closed on every
+# doubt — so a batch never grades itself, and only a promotion changes what
+# it waives.
 #
 # What it trades away is every piece of evidence that real engines still run at
 # the sha being promoted: that a cell completes in the production posture
 # (engine-smoke), and that each engine's own invocation block is still accepted
 # by the surface that receives it (engine-actions-smoke) — the second being the
 # class an action version bump breaks, silently, on the very promotion that
-# carries it. Whether that evidence is worth its tokens for a given batch is
-# the maintainer's risk call — a batch that cannot affect a cell (docs,
-# analytics, non-cell code) is the easy yes, and when in doubt run the full
-# suite. What the gate owes in return is that a waived batch says so: this
-# script names the dropped entries on every run under the skip, and `ci.yml`'s
-# waiver step annotates the PR and writes the trade into the run summary.
+# carries it. A batch that cannot affect a cell (docs, data, tests, the gate,
+# promotion and reporting machinery) owes neither, and the classifier says so
+# without anyone asking; anything else waived is the maintainer's risk call,
+# made with the label, and when in doubt run the full suite. What the gate
+# owes in return is that a waived batch says so: this script names the dropped
+# entries on every run under the skip, and `ci.yml`'s waiver step annotates
+# the PR and writes the reason and the trade into the run summary.
 set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner --jq .nameWithOwner)}"

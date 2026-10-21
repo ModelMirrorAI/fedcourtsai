@@ -211,9 +211,11 @@ integration-test.yml --ref staging` runs it — so spending model tokens takes a
 typed `-f scenario=gate` (or `all`), which a promotion pays once per batch at
 the head it will promote (*Promotion: staging → main* in
 [pipeline.md](pipeline.md)). The promotion train dispatches exactly that: one
-`gate` run per frozen `promote/<date>` candidate, dispatched once and never
-re-dispatched — a failed one is reported on the candidate for the maintainer to
-re-run or close — so a candidate costs one paid suite. That default is a spend
+`gate` run per frozen `promote/<date>` candidate that can reach a cell
+(`offline-gate` for one `main`'s `scripts/cell_reach.py` calls cell-inert),
+dispatched once and never re-dispatched — a failed one is reported on the
+candidate for the maintainer to re-run or close — so a candidate costs at most
+one paid suite. That default is a spend
 decision as much as a safety
 one: a paid `scenario=gate` spends three real cells plus the boot probes, on the
 order of $8 a run (an `all` run adds an evaluate cell and the labeler's cents),
@@ -637,12 +639,14 @@ required set is read, so keeping one family required while accepting an
 `offline-gate` run — which ran neither — would satisfy that requirement without
 exercising it. Unsound, not stricter. It decides
 nothing about the merge:
-waiving them at the required check is a second, separate act, the
-`promote:skip-engine-smoke` label on the promotion PR, and the batch that
-carries it merges with no evidence at its head sha that a real cell runs or
-that its invocation block is still accepted (*Promotion:
-staging → main* in [pipeline.md](pipeline.md) carries the trade). Unlabelled —
-the default — the twelve stand between a batch and `main`.
+the required check waives them only for a batch `main`'s
+`scripts/cell_reach.py` calls cell-inert — every changed path one no cell runs,
+every doubt engine-relevant — or one carrying the `promote:skip-engine-smoke`
+label, and never one carrying `promote:require-engine-smoke`. A waived batch
+merges with no evidence at its head sha that a real cell runs or that its
+invocation block is still accepted (*Promotion: staging → main* in
+[pipeline.md](pipeline.md) carries the trade and the allow-list). For every
+other batch the twelve stand between it and `main`.
 
 > **Status.** The deterministic core and the gate above, the engine seam (with the
 > offline `stub` and `replay` backends), the fixture corpus, the stub cascade that
