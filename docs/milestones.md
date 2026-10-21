@@ -28,7 +28,9 @@ Public releases are anchored to the Court's calendar, so predictions publish
   First populated leaderboard, plus the pre-registered salience ranking and
   big-case scores.
 - **Release 3 — end-of-Term retrospective (~June–July 2027).** The full merits
-  docket resolves; the first complete Term of calibration and cost data.
+  docket resolves; the first complete Term of calibration and cost data
+  ([release-ot2026-merits.md](release-ot2026-merits.md) is the skeleton and
+  evidence plan for its merits part).
 
 None of the releases depends on the funding below. Funding changes how much of
 the docket, how many moments, and how many models each release covers.

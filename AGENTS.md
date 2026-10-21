@@ -540,4 +540,5 @@ task-specific instructions: the prompt file named in your run
 | How do I test this, and what does CI run? | `docs/testing.md` |
 | What does a run cost, and where is the project headed? | `docs/budget.md`, `docs/milestones.md` |
 | What must the long-conference release write-up state, and what produces each number? (filled from the metrics refresh and its export, each figure beside the command that produced it; awaits the `results/ot2026-longconf` tag) | `docs/release-ot2026-long-conference.md` |
+| What must the end-of-Term release state about the merits docket, and what produces each number? (a skeleton written before any merits outcome; its unbuilt evidence is marked owed in place) | `docs/release-ot2026-merits.md` |
 | What does the release's public page show, and from where is each figure copied? (a template committed before the conference, now filled from the audit write-up and the export; awaits the `results/ot2026-longconf` tag) | `docs/release-ot2026-public-summary.md` |
