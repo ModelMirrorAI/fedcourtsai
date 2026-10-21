@@ -1,10 +1,10 @@
 {
-  "cases": 310,
+  "cases": 311,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 276,
+      "cases": 277,
       "n": 3
     },
     {
@@ -16,18 +16,18 @@
       "n": 1
     }
   ],
-  "current_reads": 928,
+  "current_reads": 931,
   "declared_no_view": 20,
   "frozen_process": {
     "digests": [
       "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
-      "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
-      "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
       "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
-      "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
-      "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f"
+      "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+      "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4",
+      "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+      "sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434"
     ],
-    "since": "2026-10-11T12:00:00Z",
+    "since": "2026-10-20T15:24:42Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -38,7 +38,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-20T15:24:42Z",
         "digest": "sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
@@ -46,7 +46,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-20T15:24:42Z",
         "digest": "sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
         "label": "proc-v8",
         "opens": "2026-09-16T00:26:04Z",
@@ -59,6 +59,22 @@
         "label": "proc-v9",
         "opens": "2026-10-11T12:00:00Z",
         "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4",
+        "label": "proc-v10",
+        "opens": "2026-10-20T15:24:42Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434",
+        "label": "proc-v10",
+        "opens": "2026-10-20T15:24:42Z",
+        "predictor_id": "gemini-baseline",
         "revoked_at": null
       }
     ]
@@ -81,9 +97,10 @@
     "leakage_note": "A leakage-flagged read is worse here than on a board that drops it. A stakes read is partly a read of the disposition, so a predictor that saw its own outcome may have read the stakes off it too \u2014 and on this board that cell is not one point inside a coefficient, it is the published number. Every read and every row carries `leakage_suspected`, set where any committed grading of that run recorded the bit. Read a marked row as evidence about the cell, not about the case. The **row** mark is moment-scoped like every other row figure: it covers the reads the row publishes, so a flagged read on an earlier moment leaves the row unmarked while staying visible, and marked, under its own event.",
     "no_time_series": "The committed ledger spans a boundary at which `big_case_score` became required with an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two populations \u2014 the ask changed, so which cells carry a read changed with it \u2014 and **this build spans it**, so the board publishes no trend and no history. Nor is a movement between two consecutive builds a measurement: a row's mean, `n` and rank also move when its `moment` does, which is the **docket** advancing and the whole panel switching question at once, not a predictor changing its mind. A movement across any of these boundaries measures nothing.",
     "population": "Every case in the committed ledger carrying at least one **in-scope** scored read on its current moment, pending and decided alike. `cases_without_score` counts the predicted cases whose in-scope reads carry no number at all and which are therefore absent \u2014 including a case whose current moment drew only declining reads whilst an earlier moment carried scores, which are history here and never promoted back into a row. The list is the predictions', never the corpus's \u2014 and the predictions' list is the salience gate's deliberately non-representative selection (`docs/salience.md`), so the board inherits that gate and is **not** a sample of the docket or of any conference. `status` says only whether a committed `outcome.json` sits on the case's predicted events: `pending` means the ledger records no outcome, which is not a statement about what the Court has done.",
-    "process_label": "proc-v9",
+    "process_label": "proc-v10",
     "rank_resolution": "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer together than the predictors inside a single row sit to each other, so the difference between two adjacent ranks is smaller than the disagreement the ranks are built from. `median_adjacent_gap` and `median_score_range` are published beside each other so that comparison can be made rather than assumed. The moment-first collapse sharpens this rather than settling it: each row is one moment, so a row's mean **is** comparable across its own predictors, but two rows on different moments are not comparable to each other and the `#` column orders across moments anyway. The panel reads stakes systematically higher at later moments, so a row's position reflects which question its panel answered as well as how big its case is.",
     "reading_rule": "A stakes read is neither scored nor ranked: it resolves against nothing, so no **stakes** figure here is an accuracy, a calibration or an ordering of predictors, and none may be quoted as one. The per-cell `probability` carried beside it **is** a forecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and it is not a claimable one either; scored forecast performance lives on the leaderboard and nowhere else. Like the leaderboard's big-case views, this board reads the ledger directly, so neither the forward-claim exclusion nor the leakage exclusion applies; it is wider still than those, since it also reads cells no judge has graded and every process version. A wider population than the scored boards, deliberately, and a caveat that has to travel with a quoted number. The mean is a panel opinion about which cases matter, and it says nothing about how likely any of them is to be granted.",
+    "schedule_rule": "`scheduled` is joined by case id from the committed `data/schedule/schedule.json`, which the live poll writes from the conference each pending public docket's newest 'DISTRIBUTED for Conference of ...' entry names. It is null where the case is not on the schedule (decided, never distributed, or not read by the live channel) and where the conference had already passed on the day the schedule was built. The row carries no build day, so the board moves only when a case's date does; a reader rendering on a later day drops a date that has since passed rather than show it as upcoming. A schedule moves on every relist, so the field is display-only and never a ledger record: nothing predicts, evaluates or scores on it, and no cell is provisioned with it.",
     "short_caption_rule": "`short_caption` is derived from `caption` by a fixed rule and is null wherever the rule is not sure, because a null costs a reader nothing (the full caption stands) while a wrong short form misnames a case. Each side of the single ` v. ` (an `In re` caption has one side) is reduced to its first-named party \u2014 the text before the first comma, everything after it being description. `United States` and a state or territory stand as written. An organisation \u2014 a corporate form, an institutional noun, an alias segment (`dba`, `fka`, `aka`), or any name not shaped like a person's \u2014 keeps its name with a leading `The`, a parenthetical and trailing corporate forms dropped (kept where the rest is initials only); a federal agency the Court's own case names abbreviate takes that acronym (CFPB, EEOC, EPA, FBI, FCC, FDA, FEC, FERC, FTC, NLRB, SEC), and a federal trial or appellate court named with its seat keeps the court's name. An organisation name still longer than 6 words is null, since its conventional short form is an acronym or phrase only a reader knows. A person is their surname, the last word; a name of initials only stands whole, and so does a name of exactly 3 full words, whose last two may be one surname; a name with a surname particle or longer than 3 words is null, since the caption cannot say where the surname starts. Either side null makes the short caption null. Display-only: nothing predicts, evaluates or scores on it.",
     "version_scope": "`process_scope: \"all\"` \u2014 **version-blind, and that is the default**: every committed run is eligible as a current read, shakedown, pre-freeze, de-counted-digest and unstamped cells included, because the board is a census of what the panel said rather than a measurement of how well it said it, and a stakes read resolves against nothing for a partition to protect. `--process-scope frozen` rebuilds it as the **comparison build**, admitting only runs that are their predictor's counted forecast of their event \u2014 a harness stamp inside a counting window (the predicate the performance boards scope on; the record it keys on is published in `frozen_process` on every build, this one included). That build is not this board with fewer rows: it holds out a systematically different population \u2014 see *Population*, the `population` field. `process_label` is what a prediction minted today would stamp and is a filter on nothing here; `process_scope` is the filter. **No count, mean, rate or spread statistic is differenced across a scope change.** A row's own mean and `n` move when a predictor's read falls outside the scope, and every denominator moves at once, so a coverage rate that rises at `frozen` rises by construction \u2014 the older cells the rate's numerator was missing are the cells the scope removed \u2014 and is never the pre-registered coverage rise `docs/freeze-record.md` describes."
   },
@@ -203,6 +220,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.97,
       "score_min": 0.94,
       "score_range": 0.03,
@@ -319,6 +337,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.96,
       "score_min": 0.95,
       "score_range": 0.01,
@@ -535,6 +554,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.97,
       "score_min": 0.94,
       "score_range": 0.03,
@@ -656,6 +676,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.97,
       "score_min": 0.93,
       "score_range": 0.04,
@@ -772,6 +793,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.95,
       "score_range": 0.0,
@@ -888,6 +910,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.97,
       "score_min": 0.9,
       "score_range": 0.07,
@@ -1043,6 +1066,10 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.95,
       "score_min": 0.92,
       "score_range": 0.03,
@@ -1248,6 +1275,7 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.94,
       "score_min": 0.92,
       "score_range": 0.02,
@@ -1364,6 +1392,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.9,
       "score_range": 0.05,
@@ -1480,6 +1509,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.9,
       "score_range": 0.05,
@@ -1601,6 +1631,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.9,
       "score_range": 0.05,
@@ -1772,6 +1803,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.97,
       "score_min": 0.85,
       "score_range": 0.12,
@@ -1893,6 +1925,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.9,
       "score_range": 0.0,
@@ -2009,6 +2042,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.85,
       "score_range": 0.1,
@@ -2125,6 +2159,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.85,
       "score_range": 0.1,
@@ -2341,6 +2376,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.88,
       "score_range": 0.02,
@@ -2512,6 +2548,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.85,
       "score_range": 0.05,
@@ -2628,6 +2665,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.78,
       "score_range": 0.17,
@@ -2794,6 +2832,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.8,
       "score_range": 0.15,
@@ -2910,6 +2949,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.85,
       "score_range": 0.05,
@@ -3076,6 +3116,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.94,
       "score_min": 0.78,
       "score_range": 0.16,
@@ -3197,6 +3238,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.75,
       "score_range": 0.15,
@@ -3313,6 +3355,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.7,
       "score_range": 0.25,
@@ -3429,6 +3472,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.94,
       "score_min": 0.7,
       "score_range": 0.24,
@@ -3600,6 +3644,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.86,
       "score_min": 0.8,
       "score_range": 0.06,
@@ -3716,6 +3761,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.86,
       "score_min": 0.8,
       "score_range": 0.06,
@@ -3882,6 +3928,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.75,
       "score_range": 0.15,
@@ -3998,6 +4045,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.75,
       "score_range": 0.15,
@@ -4114,6 +4162,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.75,
       "score_range": 0.15,
@@ -4230,6 +4279,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.75,
       "score_range": 0.1,
@@ -4401,6 +4451,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.8,
       "score_range": 0.05,
@@ -4517,6 +4568,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.84,
       "score_min": 0.8,
       "score_range": 0.04,
@@ -4688,6 +4740,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.82,
       "score_min": 0.8,
       "score_range": 0.02,
@@ -4804,6 +4857,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.75,
       "score_range": 0.1,
@@ -4959,6 +5013,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.92,
       "score_min": 0.6,
       "score_range": 0.32,
@@ -5075,6 +5130,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.72,
       "score_range": 0.18,
@@ -5291,6 +5347,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.75,
       "score_range": 0.1,
@@ -5407,6 +5464,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.91,
       "score_min": 0.7,
       "score_range": 0.21,
@@ -5573,6 +5631,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.72,
       "score_range": 0.13,
@@ -5694,6 +5753,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.8,
       "score_min": 0.78,
       "score_range": 0.02,
@@ -5810,6 +5870,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.7,
       "score_range": 0.2,
@@ -5915,6 +5976,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.72,
       "score_range": 0.18,
@@ -6031,6 +6093,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.75,
       "score_range": 0.1,
@@ -6147,6 +6210,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.7,
       "score_range": 0.15,
@@ -6363,6 +6427,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.55,
       "score_range": 0.4,
@@ -6479,6 +6544,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.7,
       "score_range": 0.15,
@@ -6595,6 +6661,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.7,
       "score_range": 0.15,
@@ -6766,6 +6833,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.9,
       "score_min": 0.6,
       "score_range": 0.3,
@@ -6882,6 +6950,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.65,
       "score_range": 0.2,
@@ -6998,6 +7067,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.6,
       "score_range": 0.25,
@@ -7214,6 +7284,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.95,
       "score_min": 0.55,
       "score_range": 0.4,
@@ -7330,6 +7401,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.7,
       "score_range": 0.15,
@@ -7496,6 +7568,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.9,
       "score_min": 0.6,
       "score_range": 0.3,
@@ -7662,6 +7738,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.8,
       "score_min": 0.72,
       "score_range": 0.08,
@@ -7778,6 +7855,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.88,
       "score_min": 0.5,
       "score_range": 0.38,
@@ -7894,6 +7972,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.65,
       "score_range": 0.2,
@@ -8110,6 +8189,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.6,
       "score_range": 0.25,
@@ -8226,6 +8306,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.6,
       "score_range": 0.25,
@@ -8342,6 +8423,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.6,
       "score_range": 0.25,
@@ -8458,6 +8540,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.6,
       "score_range": 0.25,
@@ -8574,6 +8657,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.8,
       "score_min": 0.62,
       "score_range": 0.18,
@@ -8740,6 +8824,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.85,
       "score_min": 0.6,
       "score_range": 0.25,
@@ -8906,6 +8994,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
       "score_range": 0.4,
@@ -9022,6 +9111,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.68,
       "score_range": 0.07,
@@ -9177,6 +9267,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.55,
       "score_range": 0.3,
@@ -9293,6 +9384,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.55,
       "score_range": 0.3,
@@ -9409,6 +9501,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.6,
       "score_range": 0.25,
@@ -9525,6 +9618,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.5,
       "score_range": 0.35,
@@ -9641,6 +9735,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.78,
       "score_min": 0.55,
       "score_range": 0.23,
@@ -9807,6 +9902,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.8,
       "score_min": 0.6,
       "score_range": 0.2,
@@ -9973,6 +10069,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.62,
       "score_range": 0.13,
@@ -10089,6 +10186,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.76,
       "score_min": 0.6,
       "score_range": 0.16,
@@ -10260,6 +10358,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.73,
       "score_min": 0.65,
       "score_range": 0.08,
@@ -10376,6 +10475,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
       "score_range": 0.4,
@@ -10492,6 +10592,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
       "score_range": 0.4,
@@ -10597,6 +10698,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.82,
       "score_min": 0.55,
       "score_range": 0.27,
@@ -10713,6 +10815,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.5,
       "score_range": 0.35,
@@ -10829,6 +10932,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
       "score_range": 0.4,
@@ -11045,6 +11149,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.79,
       "score_min": 0.55,
       "score_range": 0.24,
@@ -11161,6 +11266,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.55,
       "score_range": 0.2,
@@ -11277,6 +11383,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
       "score_range": 0.4,
@@ -11443,6 +11550,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.8,
       "score_min": 0.52,
       "score_range": 0.28,
@@ -11559,6 +11667,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
       "score_range": 0.15,
@@ -11675,6 +11784,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.75,
       "score_min": 0.55,
       "score_range": 0.2,
@@ -11846,6 +11959,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.6,
       "score_range": 0.1,
@@ -12012,6 +12126,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.55,
       "score_range": 0.2,
@@ -12128,6 +12243,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
       "score_range": 0.15,
@@ -12244,6 +12360,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.5,
       "score_range": 0.22,
@@ -12410,6 +12527,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
       "score_range": 0.15,
@@ -12581,6 +12699,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.68,
       "score_min": 0.6,
       "score_range": 0.08,
@@ -12697,6 +12816,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
       "score_range": 0.15,
@@ -12818,6 +12938,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.55,
       "score_range": 0.17,
@@ -12934,6 +13055,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
       "score_range": 0.15,
@@ -13050,6 +13172,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
       "score_range": 0.15,
@@ -13271,6 +13394,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.6,
       "score_range": 0.05,
@@ -13437,6 +13561,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.45,
       "score_range": 0.4,
@@ -13553,6 +13678,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.68,
       "score_min": 0.55,
       "score_range": 0.13,
@@ -13669,6 +13795,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.67,
       "score_min": 0.55,
       "score_range": 0.12,
@@ -13785,6 +13912,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.55,
       "score_range": 0.15,
@@ -14006,6 +14134,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.66,
       "score_min": 0.55,
       "score_range": 0.11,
@@ -14122,6 +14251,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.55,
       "score_range": 0.1,
@@ -14238,6 +14368,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.35,
       "score_range": 0.5,
@@ -14393,6 +14524,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.35,
       "score_range": 0.5,
@@ -14498,6 +14630,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.5,
       "score_range": 0.2,
@@ -14614,6 +14747,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.68,
       "score_min": 0.55,
       "score_range": 0.13,
@@ -14780,6 +14914,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.45,
       "score_range": 0.3,
@@ -14896,6 +15031,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.45,
       "score_range": 0.25,
@@ -15001,6 +15137,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.55,
       "score_range": 0.1,
@@ -15172,6 +15309,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.5,
       "score_range": 0.2,
@@ -15288,6 +15426,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.78,
       "score_min": 0.4,
       "score_range": 0.38,
@@ -15404,6 +15543,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.7,
       "score_min": 0.4,
       "score_range": 0.3,
@@ -15520,6 +15663,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.45,
       "score_range": 0.2,
@@ -15625,6 +15769,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.64,
       "score_min": 0.55,
       "score_range": 0.09,
@@ -15741,6 +15886,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.8,
       "score_min": 0.35,
       "score_range": 0.45,
@@ -15857,6 +16003,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.45,
       "score_range": 0.2,
@@ -15973,6 +16120,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.4,
       "score_range": 0.3,
@@ -16089,6 +16237,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.4,
       "score_range": 0.3,
@@ -16260,6 +16409,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.42,
       "score_range": 0.23,
@@ -16376,6 +16526,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.42,
       "score_range": 0.28,
@@ -16542,6 +16693,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.45,
       "score_range": 0.25,
@@ -16658,6 +16810,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.5,
       "score_range": 0.15,
@@ -16824,6 +16977,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.45,
       "score_range": 0.2,
@@ -16940,6 +17094,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.35,
       "score_range": 0.4,
@@ -17056,6 +17211,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.45,
       "score_range": 0.25,
@@ -17172,6 +17328,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.68,
       "score_min": 0.45,
       "score_range": 0.23,
@@ -17288,6 +17445,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.45,
       "score_range": 0.2,
@@ -17404,6 +17562,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.85,
       "score_min": 0.35,
       "score_range": 0.5,
@@ -17575,6 +17734,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.4,
       "score_range": 0.32,
@@ -17680,6 +17840,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.4,
       "score_range": 0.32,
@@ -17796,6 +17957,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.45,
       "score_range": 0.15,
@@ -17912,6 +18074,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.45,
       "score_range": 0.15,
@@ -18091,6 +18254,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.55,
       "score_range": 0.0,
@@ -18262,6 +18426,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.42,
       "score_range": 0.23,
@@ -18378,6 +18543,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.4,
       "score_range": 0.25,
@@ -18494,6 +18660,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.67,
       "score_min": 0.4,
       "score_range": 0.27,
@@ -18610,6 +18777,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.4,
       "score_range": 0.3,
@@ -18726,6 +18894,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.35,
       "score_range": 0.35,
@@ -18842,6 +19011,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.4,
       "score_range": 0.25,
@@ -19008,6 +19178,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.7,
       "score_min": 0.35,
       "score_range": 0.35,
@@ -19113,6 +19284,7 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.62,
       "score_min": 0.45,
       "score_range": 0.17,
@@ -19229,6 +19401,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.4,
       "score_range": 0.25,
@@ -19395,6 +19568,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.4,
       "score_range": 0.2,
@@ -19511,6 +19685,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.6,
       "score_min": 0.35,
       "score_range": 0.25,
@@ -19627,6 +19805,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.65,
       "score_min": 0.35,
       "score_range": 0.3,
@@ -19748,6 +19930,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
       "score_range": 0.25,
@@ -19864,6 +20047,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
       "score_range": 0.25,
@@ -19980,6 +20164,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
       "score_range": 0.25,
@@ -20196,6 +20381,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.62,
       "score_min": 0.3,
       "score_range": 0.32,
@@ -20367,6 +20553,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.45,
       "score_range": 0.1,
@@ -20538,6 +20725,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.42,
       "score_range": 0.16,
@@ -20709,6 +20897,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.3,
       "score_range": 0.3,
@@ -20825,6 +21014,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.63,
       "score_min": 0.4,
       "score_range": 0.23,
@@ -20941,6 +21131,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.4,
       "score_range": 0.17,
@@ -21046,6 +21237,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.62,
       "score_min": 0.4,
       "score_range": 0.22,
@@ -21162,6 +21354,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
       "score_range": 0.25,
@@ -21328,6 +21521,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.35,
       "score_range": 0.23,
@@ -21444,6 +21638,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.35,
       "score_range": 0.25,
@@ -21610,6 +21805,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.4,
       "score_range": 0.15,
@@ -21726,6 +21922,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.38,
       "score_range": 0.27,
@@ -21842,6 +22039,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.75,
       "score_min": 0.2,
       "score_range": 0.55,
@@ -21958,6 +22156,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.35,
       "score_range": 0.22,
@@ -22074,6 +22273,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.66,
       "score_min": 0.35,
       "score_range": 0.31,
@@ -22190,6 +22390,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.56,
       "score_min": 0.35,
       "score_range": 0.21,
@@ -22306,6 +22510,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.3,
       "score_range": 0.35,
@@ -22422,6 +22627,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.58,
       "score_min": 0.35,
       "score_range": 0.23,
@@ -22527,6 +22736,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.35,
       "score_range": 0.22,
@@ -22643,6 +22853,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.4,
       "score_range": 0.06,
@@ -22759,6 +22970,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.72,
       "score_min": 0.15,
       "score_range": 0.57,
@@ -22875,6 +23087,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.2,
       "score_range": 0.4,
@@ -22991,6 +23204,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.3,
       "score_range": 0.28,
@@ -23107,6 +23321,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.68,
       "score_min": 0.2,
       "score_range": 0.48,
@@ -23223,6 +23438,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.35,
       "score_range": 0.23,
@@ -23339,6 +23555,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.3,
       "score_range": 0.27,
@@ -23455,6 +23672,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.3,
       "score_range": 0.27,
@@ -23571,6 +23789,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.2,
       "score_range": 0.45,
@@ -23687,6 +23906,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.3,
       "score_range": 0.3,
@@ -23803,6 +24023,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.65,
       "score_min": 0.15,
       "score_range": 0.5,
@@ -23919,6 +24140,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.64,
       "score_min": 0.3,
       "score_range": 0.34,
@@ -24035,6 +24257,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.35,
       "score_range": 0.11,
@@ -24151,6 +24374,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.56,
       "score_min": 0.3,
       "score_range": 0.26,
@@ -24267,6 +24491,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.35,
       "score_range": 0.1,
@@ -24383,6 +24608,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.5,
       "score_min": 0.3,
       "score_range": 0.2,
@@ -24499,6 +24725,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.49,
       "score_min": 0.35,
       "score_range": 0.14,
@@ -24615,6 +24842,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.3,
       "score_range": 0.18,
@@ -24731,6 +24959,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.3,
       "score_range": 0.18,
@@ -24847,6 +25076,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.55,
       "score_min": 0.2,
       "score_range": 0.35,
@@ -24963,6 +25196,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.3,
       "score_range": 0.16,
@@ -25068,6 +25302,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.56,
       "score_min": 0.3,
       "score_range": 0.26,
@@ -25184,6 +25419,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.3,
       "score_range": 0.16,
@@ -25300,6 +25536,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.3,
       "score_range": 0.16,
@@ -25416,6 +25653,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.2,
       "score_range": 0.35,
@@ -25532,6 +25770,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.3,
       "score_range": 0.15,
@@ -25648,6 +25887,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.58,
       "score_min": 0.2,
       "score_range": 0.38,
@@ -25764,6 +26004,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.35,
       "score_range": 0.07,
@@ -25880,6 +26121,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.62,
       "score_min": 0.2,
       "score_range": 0.42,
@@ -25996,6 +26241,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.1,
       "score_range": 0.47,
@@ -26112,6 +26358,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.3,
       "score_range": 0.16,
@@ -26228,6 +26475,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.2,
       "score_range": 0.35,
@@ -26344,6 +26592,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.44,
       "score_min": 0.25,
       "score_range": 0.19,
@@ -26460,6 +26709,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.43,
       "score_min": 0.25,
       "score_range": 0.18,
@@ -26565,6 +26815,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.22,
       "score_range": 0.24,
@@ -26670,6 +26921,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.52,
       "score_min": 0.25,
       "score_range": 0.27,
@@ -26786,6 +27038,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.25,
       "score_range": 0.17,
@@ -26957,6 +27210,7 @@
           "side": "disturbed"
         }
       ],
+      "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.25,
       "score_range": 0.21,
@@ -27073,6 +27327,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.6,
       "score_min": 0.15,
       "score_range": 0.45,
@@ -27189,6 +27444,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.2,
       "score_range": 0.35,
@@ -27305,6 +27561,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.2,
       "score_range": 0.28,
@@ -27421,6 +27678,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.3,
       "score_range": 0.12,
@@ -27526,6 +27784,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.2,
       "score_range": 0.35,
@@ -27642,6 +27901,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.43,
       "score_min": 0.25,
       "score_range": 0.18,
@@ -27758,6 +28018,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.2,
       "score_range": 0.25,
@@ -27874,6 +28135,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.1,
       "score_range": 0.35,
@@ -27990,6 +28252,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.55,
       "score_min": 0.1,
       "score_range": 0.45,
@@ -28106,6 +28369,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.32,
       "score_min": 0.3,
       "score_range": 0.02,
@@ -28272,6 +28536,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.2,
       "score_range": 0.22,
@@ -28388,6 +28653,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.2,
       "score_range": 0.22,
@@ -28504,6 +28770,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.46,
       "score_min": 0.15,
       "score_range": 0.31,
@@ -28620,6 +28887,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.1,
       "score_range": 0.35,
@@ -28736,6 +29004,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.48,
       "score_min": 0.1,
       "score_range": 0.38,
@@ -28852,6 +29121,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.1,
       "score_range": 0.3,
@@ -28968,6 +29238,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.2,
       "score_range": 0.2,
@@ -29084,6 +29355,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.43,
       "score_min": 0.2,
       "score_range": 0.23,
@@ -29200,6 +29472,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.1,
       "score_range": 0.35,
@@ -29293,6 +29566,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.36,
       "score_min": 0.2,
       "score_range": 0.16,
@@ -29409,6 +29683,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.57,
       "score_min": 0.1,
       "score_range": 0.47,
@@ -29575,10 +29850,128 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.1,
       "score_range": 0.35,
       "short_caption": "Indian Harbor Insurance v. One Lakeside Plaza",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Lane Douglas Mitchell",
+      "caption": "Lane Douglas Mitchell v. Mississippi",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000526",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A recurring but narrow Double Jeopardy characterization question (what counts as an acquittal after a mid-trial constitutional dismissal) in a single state attempted-murder prosecution; doctrinally tidy-up territory after Evans v. Michigan, low public salience.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261020T190956Z"
+        },
+        {
+          "big_case_rationale": "A significant protection against repeated criminal trials, but presented through a fact-specific compulsory-process dismissal rather than a broad change to criminal procedure.",
+          "big_case_score": 0.39,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261020T190956Z"
+        },
+        {
+          "big_case_rationale": "Routine state criminal double-jeopardy dispute arising from an idiosyncratic mid-trial dismissal for an alleged compulsory-process violation; if granted, it would clarify the line between United States v. Scott procedural dismissals and Evans v. Michigan substantive acquittals.",
+          "big_case_score": 0.25,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261020T190956Z"
+        }
+      ],
+      "docket_id": 9026000526,
+      "docket_number": "26-526",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-526.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring but narrow Double Jeopardy characterization question (what counts as an acquittal after a mid-trial constitutional dismissal) in a single state attempted-murder prosecution; doctrinally tidy-up territory after Evans v. Michigan, low public salience.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261020T190956Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261020T190956Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.035,
+              "run_id": "20261020T190956Z"
+            },
+            {
+              "big_case_rationale": "A significant protection against repeated criminal trials, but presented through a fact-specific compulsory-process dismissal rather than a broad change to criminal procedure.",
+              "big_case_score": 0.39,
+              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261020T190956Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261020T190956Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.04,
+              "run_id": "20261020T190956Z"
+            },
+            {
+              "big_case_rationale": "Routine state criminal double-jeopardy dispute arising from an idiosyncratic mid-trial dismissal for an alleged compulsory-process violation; if granted, it would clarify the line between United States v. Scott procedural dismissals and Evans v. Michigan substantive acquittals.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261020T190956Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000526/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261020T190956Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.04,
+              "run_id": "20261020T190956Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Lane Douglas Mitchell v. Mississippi"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2633,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-20",
+      "n": 3,
+      "other_party": "Mississippi",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Lane Douglas Mitchell's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Lane Douglas Mitchell's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.39,
+      "score_min": 0.15,
+      "score_range": 0.24,
+      "short_caption": "Lane Douglas Mitchell v. Mississippi",
       "status": "pending"
     },
     {
@@ -29691,6 +30084,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.15,
       "score_range": 0.3,
@@ -29807,6 +30201,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.43,
       "score_min": 0.12,
       "score_range": 0.31,
@@ -29923,6 +30318,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.2,
       "score_range": 0.15,
@@ -30039,6 +30435,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.15,
       "score_range": 0.25,
@@ -30155,6 +30552,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.15,
       "score_range": 0.3,
@@ -30271,6 +30669,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.34,
       "score_min": 0.15,
       "score_range": 0.19,
@@ -30387,6 +30786,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.28,
       "score_min": 0.2,
       "score_range": 0.08,
@@ -30553,6 +30953,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.38,
       "score_min": 0.08,
       "score_range": 0.3,
@@ -30669,6 +31073,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.38,
       "score_min": 0.1,
       "score_range": 0.28,
@@ -30785,6 +31190,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.12,
       "score_range": 0.23,
@@ -30901,6 +31307,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.1,
       "score_range": 0.35,
@@ -31017,6 +31424,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.38,
       "score_min": 0.08,
       "score_range": 0.3,
@@ -31133,6 +31541,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.1,
       "score_range": 0.25,
@@ -31249,6 +31658,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.1,
       "score_range": 0.3,
@@ -31415,6 +31825,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.4,
       "score_min": 0.1,
       "score_range": 0.3,
@@ -31531,6 +31945,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.1,
       "score_range": 0.3,
@@ -31686,6 +32101,10 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.44,
       "score_min": 0.08,
       "score_range": 0.36,
@@ -31802,6 +32221,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.01,
       "score_range": 0.44,
@@ -31918,6 +32338,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.1,
       "score_range": 0.25,
@@ -32034,6 +32455,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.05,
       "score_range": 0.4,
@@ -32150,6 +32572,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.45,
       "score_min": 0.0,
       "score_range": 0.45,
@@ -32266,6 +32689,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.34,
       "score_min": 0.08,
       "score_range": 0.26,
@@ -32382,6 +32806,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.4,
       "score_min": 0.05,
       "score_range": 0.35,
@@ -32548,6 +32973,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.38,
       "score_min": 0.05,
       "score_range": 0.33,
@@ -32664,6 +33093,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.32,
       "score_min": 0.1,
       "score_range": 0.22,
@@ -32780,6 +33210,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.42,
       "score_min": 0.0,
       "score_range": 0.42,
@@ -32896,6 +33327,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.26,
       "score_min": 0.1,
       "score_range": 0.16,
@@ -33012,6 +33444,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.1,
       "score_range": 0.2,
@@ -33128,6 +33561,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.28,
       "score_min": 0.05,
       "score_range": 0.23,
@@ -33244,6 +33678,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.27,
       "score_min": 0.1,
       "score_range": 0.17,
@@ -33360,6 +33795,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.35,
       "score_min": 0.01,
       "score_range": 0.34,
@@ -33476,6 +33912,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.28,
       "score_min": 0.1,
       "score_range": 0.18,
@@ -33592,6 +34029,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.05,
       "score_range": 0.25,
@@ -33758,6 +34196,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.32,
       "score_min": 0.05,
       "score_range": 0.27,
@@ -33874,6 +34313,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.28,
       "score_min": 0.08,
       "score_range": 0.2,
@@ -33990,6 +34430,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.05,
       "score_range": 0.25,
@@ -34156,6 +34597,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.25,
       "score_min": 0.05,
       "score_range": 0.2,
@@ -34272,6 +34714,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.26,
       "score_min": 0.08,
       "score_range": 0.18,
@@ -34388,6 +34831,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.25,
       "score_min": 0.04,
       "score_range": 0.21,
@@ -34504,6 +34951,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.05,
       "score_range": 0.25,
@@ -34620,6 +35068,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.04,
       "score_range": 0.16,
@@ -34736,6 +35185,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.05,
       "score_range": 0.17,
@@ -34902,6 +35352,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.3,
       "score_min": 0.05,
       "score_range": 0.25,
@@ -35018,6 +35472,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.25,
       "score_min": 0.01,
       "score_range": 0.24,
@@ -35134,6 +35589,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.25,
       "score_min": 0.05,
       "score_range": 0.2,
@@ -35300,6 +35756,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.22,
       "score_min": 0.04,
       "score_range": 0.18,
@@ -35416,6 +35876,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.03,
       "score_range": 0.19,
@@ -35532,6 +35993,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.03,
       "score_range": 0.19,
@@ -35648,6 +36110,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.03,
       "score_range": 0.17,
@@ -35753,6 +36216,7 @@
       "n": 3,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.3,
       "score_min": 0.01,
       "score_range": 0.29,
@@ -35869,6 +36333,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.24,
       "score_min": 0.05,
       "score_range": 0.19,
@@ -36035,6 +36500,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.24,
       "score_min": 0.05,
       "score_range": 0.19,
@@ -36151,6 +36617,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.23,
       "score_min": 0.05,
       "score_range": 0.18,
@@ -36267,6 +36734,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.28,
       "score_min": 0.001,
       "score_range": 0.279,
@@ -36383,6 +36854,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.24,
       "score_min": 0.04,
       "score_range": 0.2,
@@ -36499,6 +36971,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.05,
       "score_range": 0.15,
@@ -36615,6 +37088,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.01,
       "score_range": 0.21,
@@ -36731,6 +37205,10 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.1,
       "score_min": 0.08,
       "score_range": 0.02,
@@ -36897,6 +37375,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.22,
       "score_min": 0.01,
       "score_range": 0.21,
@@ -37013,6 +37492,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.16,
       "score_min": 0.03,
       "score_range": 0.13,
@@ -37179,6 +37659,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.01,
       "score_range": 0.19,
@@ -37295,6 +37776,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.01,
       "score_range": 0.19,
@@ -37411,6 +37893,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.2,
       "score_min": 0.0,
       "score_range": 0.2,
@@ -37527,6 +38010,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.01,
       "score_range": 0.17,
@@ -37643,6 +38127,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.0,
       "score_range": 0.18,
@@ -37759,6 +38244,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.01,
       "score_range": 0.17,
@@ -37875,6 +38361,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.0,
       "score_range": 0.18,
@@ -37991,6 +38478,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.12,
       "score_min": 0.03,
       "score_range": 0.09,
@@ -38157,6 +38645,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.18,
       "score_min": 0.0,
       "score_range": 0.18,
@@ -38273,6 +38762,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.15,
       "score_min": 0.01,
       "score_range": 0.14,
@@ -38389,6 +38879,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.15,
       "score_min": 0.0,
       "score_range": 0.15,
@@ -38505,6 +38996,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.15,
       "score_min": 0.0,
       "score_range": 0.15,
@@ -38621,6 +39113,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.13,
       "score_min": 0.01,
       "score_range": 0.12,
@@ -38737,6 +39230,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.05,
       "score_min": 0.02,
       "score_range": 0.03,
@@ -38853,6 +39347,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.05,
       "score_min": 0.02,
       "score_range": 0.03,
@@ -38969,6 +39464,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.08,
       "score_min": 0.0,
       "score_range": 0.08,
@@ -39074,6 +39570,7 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.04,
       "score_min": 0.02,
       "score_range": 0.02,
@@ -39190,6 +39687,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.03,
       "score_min": 0.01,
       "score_range": 0.02,
@@ -39306,6 +39804,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.02,
       "score_range": 0.0,
@@ -39411,6 +39910,7 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.01,
       "score_range": 0.01,
@@ -39527,6 +40027,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.03,
       "score_min": 0.0,
       "score_range": 0.03,
@@ -39643,6 +40144,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.01,
       "score_range": 0.01,
@@ -39748,6 +40250,7 @@
       "n": 2,
       "other_party": null,
       "outcome_lines": null,
+      "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.01,
       "score_range": 0.01,
@@ -39864,6 +40367,7 @@
           "side": "not-granted"
         }
       ],
+      "scheduled": null,
       "score_max": 0.02,
       "score_min": 0.0,
       "score_range": 0.02,
@@ -39872,6 +40376,6 @@
     }
   ],
   "rows_with_leakage_flag": 4,
-  "schema_version": "1.2",
-  "scored_reads": 894
+  "schema_version": "1.3",
+  "scored_reads": 897
 }
