@@ -493,6 +493,17 @@ selection. The rules:
   States files.
 - **A lead that does not serve** is warned into the run log and read as no lead:
   the member's own documents are stored without it.
+- **The briefed date.** The member's own docket never carries its respondent's
+  merits brief, so its `merits_brief_filed` stays null and the briefed merits
+  moment does not open for it. The live poll reads the date off the lead
+  instead: on a granted member with neither that column nor
+  `merits_brief_on_lead` set and no merits judgment, one more lead GET dates
+  the first respondent brief the attribution reads as the member's, after the
+  member's own grant (`documents.member_respondent_brief_date`), into
+  `merits_brief_on_lead`. A self-represented party on the lead does not refuse
+  it, since a date carries no contact details. No mint reads the column: the
+  briefed moment's dating is registered, so opening it for members is a
+  re-bless decision, and the column accrues until then.
 
 The **lead's own** selection reads the same attribution the other way round. A
 lead docket — one whose consolidation entry names its own number — carries

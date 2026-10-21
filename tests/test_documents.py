@@ -50,6 +50,7 @@ from fedcourtsai.pipeline.documents import (
     extract_questions_presented,
     fetch_case_documents,
     fetch_consolidation_lead,
+    member_respondent_brief_date,
     merits_entry_matched,
     party_contact_values,
     questions_presented_extract,
@@ -1473,6 +1474,25 @@ def test_a_lead_filing_from_before_the_members_grant_is_not_borrowed() -> None:
     assert KIND_MERITS_BRIEF_PETITIONER not in refs  # Jun 01, before the member's grant
     assert KIND_MERITS_BRIEF_RESPONDENT in refs  # Jul 13, after it
     assert KIND_MERITS_REPLY_PETITIONER in refs
+
+
+def test_a_members_respondent_brief_is_dated_off_its_lead() -> None:
+    """The briefed date a member's own docket never carries, read where the brief was filed."""
+    member = _member_payload()
+    assert member_respondent_brief_date(_lead_payload(*_LEAD_BRIEFS), member) == date(2026, 7, 13)
+    # A brief the Clerk marked for another docket of the group is not the member's.
+    other = _entry(
+        "Jul 13 2026",
+        "Brief of respondent Coastal Freight Lines filed (as to 25-502).",
+        url="https://www.supremecourt.gov/DocketPDF/25/25-500/other-resp.pdf",
+    )
+    assert member_respondent_brief_date(_lead_payload(other), member) is None
+    # Nothing on the lead yet dates nothing.
+    assert member_respondent_brief_date(_lead_payload(), member) is None
+    # A member whose grant cannot be dated has no merits stage to date a brief in.
+    ungranted = _member_payload()
+    ungranted["ProceedingsandOrder"][2] = {"Date": "", "Text": "Petition GRANTED.", "Links": []}  # type: ignore[index]
+    assert member_respondent_brief_date(_lead_payload(*_LEAD_BRIEFS), ungranted) is None
 
 
 def test_a_lead_with_a_self_represented_party_lends_nothing() -> None:

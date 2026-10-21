@@ -4001,6 +4001,52 @@ def test_provision_documents_reads_a_consolidated_members_briefs_off_its_lead(
     assert "Petitioners say reverse." in stored["merits-brief-petitioner"].text
 
 
+def test_the_poll_latches_a_consolidated_members_brief_off_its_lead(tmp_path: Path) -> None:
+    """One lead GET dates the member's respondent brief into the withheld column, once."""
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        return httpx.Response(200, json=_lead_payload(*_LEAD_BRIEFS))
+
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    case_id = "scotus/9025000501"
+    stored = corpus.CorpusRow(case_id=case_id, court="scotus", docket_number="25-501")
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [stored])
+    with _client(handler) as client:
+        filed = live_module.latch_member_brief_on_lead(client, db, stored, _member_payload())
+    assert filed == date(2026, 7, 13)
+    assert [url for url in asked if url.endswith("/25-500.json")] == asked
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, case_id)
+    assert row is not None
+    assert row.merits_brief_on_lead == date(2026, 7, 13)
+    # The briefed moment still reads the member's own docket alone.
+    assert row.merits_brief_filed is None
+    # A later upsert that does not carry the fact keeps it.
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [stored])
+        again = corpus.get_row(conn, case_id)
+    assert again is not None and again.merits_brief_on_lead == date(2026, 7, 13)
+
+    # Once dated, decided, or briefed on its own docket, a member costs no request,
+    # and neither does a docket that is not a consolidated member.
+    asked.clear()
+    with _client(handler) as client:
+        for settled in (
+            row,
+            stored.model_copy(update={"merits_judgment": "affirmed"}),
+            stored.model_copy(update={"merits_brief_filed": date(2026, 7, 1)}),
+        ):
+            assert (
+                live_module.latch_member_brief_on_lead(client, db, settled, _member_payload())
+                is None
+            )
+        assert live_module.latch_member_brief_on_lead(client, db, stored, _payload()) is None
+    assert asked == []
+
+
 # --- the corpus `resolved` flag has one writer -----------------------------------
 
 

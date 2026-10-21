@@ -57,7 +57,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 
@@ -84,6 +84,7 @@ from .document_backfill import (
 from .documents import (
     fetch_case_documents,
     fetch_consolidation_lead,
+    member_respondent_brief_date,
     select_documents,
     unheld_document_kinds,
 )
@@ -372,6 +373,41 @@ def provision_documents(
         return 0
     with corpus.connect(corpus_db_path) as conn:
         return corpus.upsert_documents(conn, documents)
+
+
+def latch_member_brief_on_lead(
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    row: corpus.CorpusRow,
+    payload: Mapping[str, Any],
+) -> date | None:
+    """Read a consolidated member's respondent brief off its lead and latch the date.
+
+    Consolidation moves the member's later filings to the lead docket, so the
+    respondent's merits brief never reaches the member's own payload and its
+    ``merits_brief_filed`` stays empty. This costs one paced GET for the lead
+    (:func:`~fedcourtsai.pipeline.documents.fetch_consolidation_lead`), and only
+    on a granted member whose brief no read has dated yet: the member's own
+    ``merits_brief_filed`` and the latched ``merits_brief_on_lead`` are both
+    empty and no merits judgment is stored. Every other docket costs nothing.
+    The date lands in ``merits_brief_on_lead``, which no mint reads: the briefed
+    moment's dating is registered, so opening it for members is a re-bless
+    decision, and the column accrues until then.
+    """
+    if (
+        row.merits_brief_filed is not None
+        or row.merits_brief_on_lead is not None
+        or row.merits_judgment is not None
+    ):
+        return None
+    lead = fetch_consolidation_lead(client, row.case_id, payload).payload
+    if lead is None:
+        return None
+    filed = member_respondent_brief_date(lead, payload)
+    if filed is not None:
+        with corpus.connect(corpus_db_path) as conn:
+            corpus.latch_merits_brief_on_lead(conn, row.case_id, filed)
+    return filed
 
 
 @dataclass(frozen=True)
@@ -795,6 +831,7 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
             )
             continue
         result = ingest_live_payload(corpus_db_path, data_root, payload, docket_id, today=today)
+        latch_member_brief_on_lead(client, corpus_db_path, row, payload)
         transitioned = _distribution_transition(row, result)
         # The queue decision is made here so provisioning follows it: a
         # transition on a petition the salience latch defers spends neither

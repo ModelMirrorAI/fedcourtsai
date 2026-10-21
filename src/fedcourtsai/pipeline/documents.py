@@ -128,6 +128,7 @@ from .merits_signals import (
     is_petitioner_merits_reply,
     is_respondent_merits_brief_document,
     is_respondent_merits_reply,
+    respondent_brief_date,
 )
 from .prefetch import prefetch_by_case
 
@@ -1238,6 +1239,24 @@ def _lead_for_member(lead: Mapping[str, Any], member: Mapping[str, Any]) -> dict
             for side in sides
         ),
     )
+
+
+def member_respondent_brief_date(lead: Mapping[str, Any], member: Mapping[str, Any]) -> date | None:
+    """When a consolidated member's own respondent filed its merits brief on the lead.
+
+    :func:`~fedcourtsai.pipeline.merits_signals.respondent_brief_date` over the
+    lead's entries cut to the member's own filings (:func:`_lead_for_member`),
+    bounded by the **member's** grant: the same parse that dates an
+    unconsolidated case's briefed moment, read where consolidation moved the
+    filing. ``None`` where the member serves no number, its grant cannot be
+    dated, or no attributed brief is on the lead yet. Unlike the document
+    borrow, a self-represented party on the lead does not refuse it: that guard
+    keeps a filer's contact details out of staged text, and a date carries none.
+    """
+    own_filings = _lead_for_member(lead, member)
+    if own_filings is None:
+        return None
+    return respondent_brief_date(own_filings, granted_on=cert_grant_date(member))
 
 
 def _merits_entries_kept(

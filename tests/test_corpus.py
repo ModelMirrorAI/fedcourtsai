@@ -3632,6 +3632,7 @@ def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
                     cvsg_date=date(2026, 5, 1),
                     sg_brief_filed=date(2026, 9, 2),
                     call_for_response_at=date(2026, 8, 12),
+                    merits_brief_on_lead=date(2026, 7, 13),
                     distribution_count=2,
                     application_kind="substantive",
                     sample_weight=10,
@@ -3662,6 +3663,7 @@ def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
     assert kept.cvsg_date == date(2026, 5, 1)  # fill-in latch
     assert kept.sg_brief_filed == date(2026, 9, 2)  # fill-in latch
     assert kept.call_for_response_at == date(2026, 8, 12)  # fill-in latch
+    assert kept.merits_brief_on_lead == date(2026, 7, 13)  # fill-in latch
     assert kept.distribution_count == 2  # max-latch
     assert kept.application_kind == "extension"  # a real reading replaces
     assert kept.sample_weight == 1  # min-latch
