@@ -469,7 +469,8 @@ same PR.
   The re-run refusal has a standing consequence, because some required checks
   read live state at check time rather than from the event payload — the
   promotion gate reads quiescence, integration-run freshness, and the
-  `promote:skip-engine-smoke` label that way. To make such a check re-read
+  `promote:skip-engine-smoke` and `promote:require-engine-smoke` labels that
+  way. To make such a check re-read
   without a re-run, **edit the pull request body**: ci.yml's `pull_request`
   trigger lists `edited`, so a body edit re-fires the workflow. Prefer it to an
   empty commit, which moves the branch head and so invalidates every

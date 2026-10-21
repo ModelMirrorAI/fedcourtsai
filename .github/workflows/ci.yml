@@ -321,7 +321,8 @@ jobs:
           # whole-line label match leaves `skip` unset, and the gate script
           # honours only the literal `1`. Whole-line (-Fx) so a label that
           # merely contains one of these cannot waive or require anything.
-          if ! labels=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
+          # Every page: a require label past the first would otherwise go unseen.
+          if ! labels=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
             --jq '.[].name'); then
             echo "the labels could not be read; the full required set stands"
             exit 0
@@ -340,7 +341,7 @@ jobs:
             classifier="${RUNNER_TEMP}/cell_reach.py"
             reach=''
             if git show origin/main:scripts/cell_reach.py >"$classifier" 2>/dev/null; then
-              reach=$(python3 -I "$classifier" --base origin/main --head "$HEAD_SHA" \
+              reach=$(python3 -I -S "$classifier" --base origin/main --head "$HEAD_SHA" \
                 2>"${RUNNER_TEMP}/cell-reach.log") || reach=''
               cat "${RUNNER_TEMP}/cell-reach.log"
             else

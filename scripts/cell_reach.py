@@ -29,22 +29,26 @@ models, the provisioning, retrieval and MCP code, and ``cli.py`` itself among
 them — and every script not named in :data:`INERT_FILES`. A path new to the
 tree is ``engine`` until someone lists it here.
 
-An inert ``src/`` module is one no cell path imports: ``tests/test_cell_reach.py``
-pins that nothing in ``src/fedcourtsai/`` but ``cli.py`` and the other listed
-modules imports one. ``cli.py`` imports every module at load, so a module that
+An inert ``src/`` module is one no module but ``cli.py`` and the other listed
+modules imports, and that no script or workflow names: ``tests/test_cell_reach.py``
+pins both. ``cli.py`` is engine-relevant, and none of the commands a cell
+workflow runs reaches a listed module; the round planners' spend arithmetic
+(``spend``, ``planning_rates``, ``review_hold``) is left off for that reason,
+since ``predict-matrix`` and ``evaluate-matrix`` decide with it which cells
+exist. ``cli.py`` imports every module at load, so a module that
 fails to import breaks every command, cells included; the offline suite runs
 those commands and catches that without an engine.
 
 Which diff: the batch is the three-dot diff ``<base>...<head>``, what the head
 changed since its merge-base with ``main``, so the writer lanes' commits to
 ``main`` are never read as the batch's. The promotion train and ci.yml's
-``promotion-gate`` job both run ``main``'s copy of this file, never the
-candidate's, so a batch cannot grade itself inert; a ``main`` that has no copy
-yet leaves the gate strict.
+``promotion-gate`` job both extract ``main``'s copy of this file from
+``origin/main`` and run that, never the candidate's, so a batch cannot grade
+itself inert; a ``main`` that has no copy yet leaves the gate strict.
 
 Standard library only, so it needs no environment. Usage::
 
-    python3 -I scripts/cell_reach.py --base origin/main --head <sha>
+    python3 -I -S scripts/cell_reach.py --base origin/main --head <sha>
 
 prints ``reach=<verdict>`` and writes the reason to stderr. Exit 0 whatever
 the verdict.
@@ -73,14 +77,14 @@ NOT_DOCS = frozenset({"SECURITY.md"})
 DOCS_SUFFIXES = frozenset({".md", ".png", ".svg"})
 
 # Whole trees no cell runs: committed data and derived metrics (the writer
-# lanes' paths), the test suite, and the corpus-check lane's scripts.
+# lanes' paths), the test suite, and the corpus-check lane's scripts. The
+# corpus pointer is not among them: the engine legs read the corpus it names.
 INERT_PREFIXES = ("data/", "metrics/", "tests/", "scripts/checks/")
 
 # Single files no cell runs: the gate and lane machinery, and the configs of
-# the promotion train, the review hold and the corpus-check lane.
+# the promotion train and the corpus-check lane.
 INERT_FILES = frozenset(
     {
-        "corpus/corpus.db.ref",
         "scripts/cell_reach.py",
         "scripts/ci_lane.py",
         "scripts/gate.sh",
@@ -88,13 +92,13 @@ INERT_FILES = frozenset(
         "scripts/promotion-gate.sh",
         "config/corpus-check.yaml",
         "config/promotion-train.yaml",
-        "config/review-hold.yaml",
     }
 )
 
-# src/fedcourtsai/ modules no cell path imports: the promotion gate and train,
-# the settings checks, the metrics, reporting and public-update writers, and
-# the review hold's spend arithmetic. Every other module is engine-relevant.
+# src/fedcourtsai/ modules no cell path imports: the promotion gate and train
+# with the predict chain's dispatch decision, the settings checks, and the
+# metrics, reporting and public-update writers. Every other module is
+# engine-relevant.
 INERT_SOURCE = frozenset(
     {
         "buttondown",
@@ -106,16 +110,13 @@ INERT_SOURCE = frozenset(
         "environment_checks",
         "metrics_refresh",
         "ops",
-        "planning_rates",
         "promotion_body",
         "promotion_train",
         "public_update",
         "registry_gate",
         "release_sensitivity",
         "required_checks",
-        "review_hold",
         "ruleset_checks",
-        "spend",
     }
 )
 SOURCE_DIR = "src/fedcourtsai/"
@@ -209,11 +210,14 @@ def classify(paths: Iterable[str]) -> tuple[str, str]:
         if pure.is_absolute() or ".." in pure.parts or path != path.strip():
             return ENGINE, f"unexpected path {path!r}; the engine legs are owed"
         if _is_agent_context(path):
-            return ENGINE, f"{path} names an agent instruction or config path"
+            return ENGINE, f"{path!r} names an agent instruction or config path"
     reaching = [p for p in changed if not is_inert(p)]
     if reaching:
         more = f" and {len(reaching) - 1} more" if len(reaching) > 1 else ""
-        return ENGINE, f"{reaching[0]}{more} can reach a cell"
+        # repr, never the raw name: the reason reaches a workflow log, where a
+        # name carrying a newline could start a line the runner reads as a
+        # workflow command.
+        return ENGINE, f"{reaching[0]!r}{more} can reach a cell"
     return INERT, f"{len(changed)} path(s), none of which a cell runs"
 
 

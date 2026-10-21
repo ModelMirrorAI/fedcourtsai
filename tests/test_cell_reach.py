@@ -45,15 +45,15 @@ ci_lane = _load("_ci_lane_for_cell_reach", ROOT / "scripts" / "ci_lane.py")
     [
         ["docs/freeze-record.md"],
         ["docs/pipeline.md", "README.md", "CITATION.cff", "metrics/README.md"],
-        ["data/cases/scotus/1/events/e/outcome.json", "corpus/corpus.db.ref"],
+        ["data/cases/scotus/1/events/e/outcome.json", "data/scope/latch.json"],
         ["metrics/leaderboard.json"],
         ["tests/test_promotion_train.py", "tests/fixtures/corpus/case.json"],
         ["src/fedcourtsai/promotion_train.py", "tests/test_promotion_train.py"],
         ["src/fedcourtsai/metrics_refresh.py", "src/fedcourtsai/public_update.py"],
         ["scripts/promotion-gate.sh", "scripts/ci_lane.py", "scripts/gate.sh"],
         ["scripts/checks/count_something.py"],
-        ["config/promotion-train.yaml", "config/review-hold.yaml"],
-        ["src/fedcourtsai/review_hold.py", "src/fedcourtsai/spend.py", "docs/budget.md"],
+        ["config/promotion-train.yaml", "config/corpus-check.yaml"],
+        ["src/fedcourtsai/dispatch_chain.py", "docs/budget.md"],
     ],
 )
 def test_batches_no_cell_runs_are_inert(paths: list[str]) -> None:
@@ -86,6 +86,12 @@ def test_batches_no_cell_runs_are_inert(paths: list[str]) -> None:
         ["scripts/gemini-cell.sh"],
         ["scripts/engine-watchdog.sh"],
         ["config/dispatchers.json"],
+        # The round planners decide with these which cells exist.
+        ["src/fedcourtsai/spend.py"],
+        ["src/fedcourtsai/planning_rates.py"],
+        ["config/review-hold.yaml"],
+        # The engine legs read the corpus the pointer names.
+        ["corpus/corpus.db.ref"],
         # Agent instruction files, which an engine in a cell may load, even
         # where the docs lane would otherwise call them prose.
         ["AGENTS.md"],
@@ -120,8 +126,17 @@ def test_every_doubt_is_engine(paths: list[str]) -> None:
 def test_the_reason_names_what_reaches_a_cell() -> None:
     verdict, reason = cell_reach.classify(["docs/a.md", "src/fedcourtsai/provision.py", "uv.lock"])
     assert verdict == "engine"
-    assert "src/fedcourtsai/provision.py" in reason
+    assert "'src/fedcourtsai/provision.py'" in reason
     assert "1 more" in reason
+
+
+def test_a_name_cannot_start_a_line_in_the_reason() -> None:
+    # The reason is printed to a workflow log; a raw newline in a path would
+    # let the batch start a line the runner reads as a workflow command.
+    for paths in (["src/a\n::set-output name=skip::1"], [".github/x\n::add-mask::y"]):
+        verdict, reason = cell_reach.classify(paths)
+        assert verdict == "engine"
+        assert "\n" not in reason
 
 
 def test_the_agent_name_sets_are_the_path_jails() -> None:
@@ -208,12 +223,32 @@ def test_the_import_reader_sees_every_spelling(tmp_path: Path) -> None:
     module.write_text(
         "from .. import spend\n"
         + "from ..ops import x\n"
-        + "import fedcourtsai.review_hold\n"
+        + "import fedcourtsai.registry_gate\n"
         + "from fedcourtsai.public_update import y\n"
         + "def f():\n    from fedcourtsai import buttondown\n"
     )
     found = _imported_modules(module, tmp_path / "src")
-    assert {"spend", "ops", "review_hold", "public_update", "buttondown"} <= found
+    assert {"spend", "ops", "registry_gate", "public_update", "buttondown"} <= found
+
+
+def test_no_script_or_workflow_names_an_inert_module() -> None:
+    # A step or script a cell runs could import a listed module directly,
+    # around cli.py; none may name one. The gate and lane scripts on the
+    # allow-list, and the corpus-check lane's, are themselves inert.
+    names = {f"fedcourtsai.{stem}" for stem in cell_reach.INERT_SOURCE}
+    surfaces = [
+        *(ROOT / "scripts").glob("*"),
+        *(ROOT / ".github" / "workflows").glob("*.yml"),
+        *(ROOT / ".github" / "actions").glob("*/action.yml"),
+    ]
+    offenders = []
+    for path in sorted(p for p in surfaces if p.is_file()):
+        rel = path.relative_to(ROOT).as_posix()
+        if rel in cell_reach.INERT_FILES:
+            continue
+        text = path.read_text(encoding="utf-8")
+        offenders += [f"{rel}: {name}" for name in sorted(names) if name in text]
+    assert offenders == []
 
 
 # --- changed_paths / main against real git ------------------------------------
@@ -307,14 +342,14 @@ def test_the_reason_goes_to_stderr(repo: Path, capsys: pytest.CaptureFixture[str
     assert cell_reach.main(["--base", "main", "--head", head]) == 0
     captured = capsys.readouterr()
     assert captured.out.strip() == "reach=engine"
-    assert "src/fedcourtsai/provision.py can reach a cell" in captured.err
+    assert "'src/fedcourtsai/provision.py' can reach a cell" in captured.err
 
 
 def test_the_script_runs_isolated_with_no_environment(repo: Path) -> None:
     # The workflows run it as `python3 -I <copy>`: standard library only.
     head = _candidate(repo, {"docs/a.md": "b\n"})
     result = subprocess.run(
-        ["python3", "-I", str(SCRIPT), "--base", "main", "--head", head],
+        ["python3", "-I", "-S", str(SCRIPT), "--base", "main", "--head", head],
         cwd=repo,
         check=True,
         capture_output=True,

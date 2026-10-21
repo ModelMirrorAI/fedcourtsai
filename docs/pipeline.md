@@ -1858,16 +1858,18 @@ The mechanics:
     `scripts/cell_reach.py`, never the batch's own. The verdict is *inert*
     only when every changed path is on its allow-list of paths no cell runs:
     prose (the docs lane's), `data/`, `metrics/`, `tests/`, the gate and lane
-    scripts, the configs of the train, the review hold and the corpus-check
-    lane, and the `src/` modules no cell path imports — the promotion gate
+    scripts, the configs of the train and the corpus-check lane, and the
+    `src/` modules no cell path imports — the promotion gate
     and train, the settings checks, the metrics and public-update writers and
-    the review hold's arithmetic (a test pins that nothing else in the
-    package but `cli.py` imports one). Everything else is *engine*: the
+    the predict chain's dispatch decision (a test pins that nothing in the
+    package but `cli.py` and the other listed modules imports one, and that no
+    script or workflow names one; the cell workflows' own commands reach
+    none). Everything else is *engine*: the
     workflows, composites and pinned engine CLIs under `.github/`, the
     prompts, `config/predictors.yaml` and `config/evaluators.yaml`,
     `pyproject.toml` and `uv.lock`, the schemas, every other `src/` module
-    (`pricing.py`'s default models, provisioning, retrieval, the MCP code and
-    `cli.py` among them), every other script, any agent instruction or config
+    (`pricing.py`'s default models, provisioning, retrieval, the MCP code,
+    the round planners' spend arithmetic and `cli.py` among them), every other script, any agent instruction or config
     path at any depth, and any path new to the tree. So does every doubt — an
     empty diff, a symlink, a diff git cannot compute, a `main` with no
     classifier. An inert verdict drops the six for that batch, and the

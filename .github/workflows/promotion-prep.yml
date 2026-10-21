@@ -253,15 +253,20 @@ jobs:
           # as ci.yml's promotion-gate decides it, so the freshness read is the
           # one the required check will make: the require label is strict;
           # else the waiver label waives; else main's cell-reach classifier
-          # (this checkout is main) waives a batch it calls cell-inert. Every
-          # other answer, a failed classification included, is strict.
+          # waives a batch it calls cell-inert — origin/main's copy, as ci.yml
+          # runs it, whatever ref this run was dispatched from. Every other
+          # answer, a failed classification included, is strict.
           # promotion_train.smokes_waived is the same rule for the dispatch.
           skip=''
           reach=''
           if [ -n "$number" ]; then
-            reach=$(python3 -I scripts/cell_reach.py --base origin/main --head "$sha" \
-              2> cell-reach.log) || reach=''
-            cat cell-reach.log
+            if git show origin/main:scripts/cell_reach.py > "${RUNNER_TEMP}/cell_reach.py"; then
+              reach=$(python3 -I -S "${RUNNER_TEMP}/cell_reach.py" --base origin/main \
+                --head "$sha" 2> cell-reach.log) || reach=''
+              cat cell-reach.log
+            else
+              echo "main has no cell-reach classifier yet"
+            fi
             case "$reach" in
               reach=inert) args+=(--cell-inert yes) ;;
               reach=engine) args+=(--cell-inert no) ;;

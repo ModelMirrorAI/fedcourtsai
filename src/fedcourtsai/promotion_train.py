@@ -245,7 +245,7 @@ class TrainStep(BaseModel):
     #: Whose review a ``mark_ready`` requests: the configured approvers.
     reviewers: tuple[str, ...] = ()
     #: The integration suite a ``dispatch_gate`` starts: ``gate``, or
-    #: ``offline-gate`` under the waiver label.
+    #: ``offline-gate`` when :func:`smokes_waived` waives the engine smokes.
     scenario: str | None = None
 
 

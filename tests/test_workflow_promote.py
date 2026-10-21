@@ -1226,9 +1226,12 @@ def test_the_train_sets_the_skip_as_the_required_check_decides() -> None:
     waiver = text.index("grep -Fqx 'promote:skip-engine-smoke' <<<\"$labels\"")
     verdict = text.index('[ "$reach" = reach=inert ]')
     assert require < waiver < verdict
-    # The plan job's checkout is main, so this is main's classifier, run
-    # isolated over the three-dot batch, and only its affirmative verdict waives.
-    assert 'python3 -I scripts/cell_reach.py --base origin/main --head "$sha"' in text
+    # main's classifier, extracted from origin/main whatever ref the run was
+    # dispatched from, run isolated over the three-dot batch; only its
+    # affirmative verdict waives.
+    assert "git show origin/main:scripts/cell_reach.py" in text
+    assert 'python3 -I -S "${RUNNER_TEMP}/cell_reach.py" --base origin/main' in text
+    assert "python3 -I scripts/cell_reach.py" not in text
     assert "reach=inert) args+=(--cell-inert yes)" in text
     assert 'PROMOTION_SKIP_SMOKE="$skip" scripts/promotion-gate.sh freshness' in text
     assert "skip=1" in text
@@ -1486,7 +1489,12 @@ def _run_waiver_step(
     if labels is None:
         gh.write_text("#!/bin/sh\nexit 1\n")
     else:
-        gh.write_text("#!/bin/sh\nprintf '%s\\n' " + " ".join(f"'{x}'" for x in labels) + "\n")
+        # The stub serves only a read that asks for every page.
+        gh.write_text(
+            "#!/bin/sh\n[ \"$2\" = --paginate ] || exit 1\nprintf '%s\\n' "
+            + " ".join(f"'{x}'" for x in labels)
+            + "\n"
+        )
     gh.chmod(0o755)
     temp = tmp_path / "runner-temp"
     temp.mkdir(exist_ok=True)
