@@ -147,7 +147,7 @@ idempotent on. Its own issue for the same reason the daily digest gets one: a
 digest is a thing to read and close, so the open issues under the label are the
 unread backlog.
 
-Four blocks, in the order a reader needs them:
+Five blocks, in the order a reader needs them:
 
 - **Produced this week** — cells landed by role and stage, how many events they
   covered, and the week's measured spend, all over one window and one set of
@@ -173,13 +173,36 @@ Four blocks, in the order a reader needs them:
   again, so the Term is the period it is worth reading beside. A frozen scope
   with nothing scored in either stratum is named as the shakedown state rather
   than shown as a bare zero.
-- **Backtest results** — the historical replay **per court**, with each court's
+- **Forward performance** — the scored forward record, off the committed
+  `metrics/leaderboard.json` with its vintage. The rows are the ranked cert
+  board's **paired** figure — every engine over the same events, which is what
+  its ranks are read off — never an entry's own forward stratum, which spans
+  events no other engine shares; a predictor outside the paired events is named
+  as unranked. The block states the paired event count and the realized
+  grant-family outcomes among them; per predictor, accuracy per event against
+  the always-deny floor over the same events, the lift in points and in events
+  (at a handful of realized grants one call moves it by whole points), and,
+  grading-weighted, the mean Brier and the Brier skill against the
+  strictly-prior segment base rate beside its grading count — the figure to
+  read. Under the table, the gradings the build dropped for suspected leakage
+  (by predictor) or set aside as not shown to be forward, counted across every
+  stage and so not subtractable from the cert figures. It leads the scored
+  blocks because it is the program's output; the back-tests after it are
+  iteration instruments.
+- **Backtest results** — the historical replay **per court**, with each row's
   own always-deny floor beside its accuracy and the pooled row labelled as the
   mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a
-  court-of-appeals docket, and the pooled floor mixes an ~80% one with near-zero
+  court-of-appeals docket, and the pooled floor mixes a high one with near-zero
   ones, so a pooled lift can be bought entirely on a docket this pipeline never
-  predicts); the salience-gate replay with the scorer version that produced
-  it named (a per-band figure means something only under the function that
+  predicts). The SCOTUS row is printed by docket class — cert petitions,
+  applications, other dockets — because one SCOTUS slice mixes the same two
+  vocabularies: an application's `granted` is the relief asked, applications
+  are mostly granted while cert petitions are mostly denied, and an application
+  back-fill would otherwise move the floor with nothing about a predictor
+  changed. The cert row is the floor over every modern cert petition, IFP
+  included; the salience-gated population the cert stage predicts is the cert
+  back-test's. Then the salience-gate replay with the scorer version that
+  produced it named (a per-band figure means something only under the function that
   assigned the band, so an older version's numbers are history rather than a
   current reading); and the cert back-test, which says plainly that **no report
   has landed** where none has — `metrics/cert-backtest.json` is not regenerated

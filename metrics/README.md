@@ -386,6 +386,17 @@ stays outside the gate:
   learn. There is nothing there to retrieve on. What it still measures on SCOTUS
   is calibration: P(granted) and the Brier score.
 
+  **SCOTUS is also cut by docket class** (`docket_classes`): `cert` (the
+  Term-prefixed petition form the cert stage predicts), `application` (an
+  interim application in any spelling) and `other` (original, miscellaneous,
+  pre-1925 or unparseable numbers), read off the docket number. The court row mixes them,
+  and the mix is not stable: cert petitions are overwhelmingly denied while
+  applications are mostly granted — an application's `granted` is the relief
+  asked, not cert — so an application back-fill moves the court row's floor
+  with nothing about any predictor changed. The `cert` row is the floor over
+  every modern cert petition, IFP included; the floor over the salience-gated
+  population the cert stage predicts is `cert-backtest.json`'s.
+
   **Read the per-court cut, not the pooled row.** The pooled figure is dominated by
   whichever court supplies the most resolved events, and that court's floor may be
   near zero, so a pooled lift can average away a severe failure on the population
@@ -2146,11 +2157,11 @@ the rendered table) and
   retrieve a prior's post-clock opinion, citations, summary, citing count,
   termination date, merits-brief date, conference date and tracking stamps
   — post-clock facts about the priors, never about the petition itself. No
-  **engine row's** series spans either boundary. The committed
-  `cert-backtest.json` (run `20261003T115301Z`, its engine rows at `n=10`
-  each, 0.700 against the 0.600 always-deny floor, one petition of lift) ran before the
-  decision-record mask, so its engine rows may not pool with a report run
-  after it; its `prior-vote` (0.600) and `constant-denied` rows may. Provenance agreement cannot see them. The always-deny
+  **engine row's** series spans either boundary. The report from run
+  `20261003T115301Z` (engine rows at `n=10` each, 0.700 against the 0.600
+  always-deny floor, one petition of lift) ran before the decision-record mask,
+  so its engine rows may not pool with a report run after it; its `prior-vote`
+  (0.600) and `constant-denied` rows may. Provenance agreement cannot see them. The always-deny
   floor (a property of the labels) and the offline `prior-vote` row are
   unaffected and compare across both as before: `prior-vote` votes on
   dispositions, and passes no citation filter, so the citation gate its

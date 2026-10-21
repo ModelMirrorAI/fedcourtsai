@@ -15,7 +15,9 @@ from fedcourtsai.backtest import (
     PriorIndex,
     PriorVoteBacktester,
     ReplayClock,
+    backtest_features,
     default_backtesters,
+    docket_class,
     parse_decided_before,
     run_backtest,
     select_backtest_set,
@@ -81,6 +83,8 @@ def test_select_features_hide_the_outcome(tmp_path: Path) -> None:
         "judges",
         "date_filed",
         "year",
+        # Read off the docket number, fixed at filing.
+        "docket_class",
     }
 
 
@@ -702,3 +706,63 @@ def test_courts_are_id_ordered_and_cover_every_scored_court() -> None:
     ).entries[0]
     assert [c.court for c in entry.courts] == ["ca1", "ca9", "scotus"]
     assert sum(c.events_scored for c in entry.courts) == entry.events_scored
+
+
+# --- the SCOTUS slice, by docket class -------------------------------------------
+#
+# One SCOTUS row mixes cert petitions with interim applications, and `granted`
+# is cert on one and the relief asked on the other, so their floors differ
+# several-fold and a back-fill of either moves the court row on its own.
+
+
+@pytest.mark.parametrize(
+    ("court", "docket_number", "expected"),
+    [
+        ("scotus", "23-1234", "cert"),
+        ("scotus", "23-5678", "cert"),
+        ("scotus", "23A456", "application"),
+        ("scotus", "A-706", "application"),
+        ("scotus", "22O141", "other"),
+        ("scotus", "1234", "other"),
+        ("ca9", "23-1234", None),
+    ],
+)
+def test_docket_class_reads_the_docket_number(
+    court: str, docket_number: str, expected: str | None
+) -> None:
+    row = _row(f"{court}/1", Disposition.denied, court=court, docket_number=docket_number)
+    assert docket_class(row) == expected
+    assert backtest_features(row).docket_class == expected
+
+
+def _class_item(docket: int, klass: str, actual: Disposition) -> BacktestItem:
+    return BacktestItem(
+        features=_features(f"scotus/{docket}", court="scotus", docket_class=klass),
+        actual_disposition=actual,
+    )
+
+
+def test_the_scotus_row_is_split_by_docket_class_with_each_classs_own_floor() -> None:
+    # 10 cert petitions at a 0.9 floor and 10 applications at a 0.2 floor: the
+    # court row reads 0.55, which is neither population's floor.
+    items = [_class_item(i, "cert", Disposition.denied) for i in range(9)]
+    items.append(_class_item(9, "cert", Disposition.granted))
+    items += [_class_item(100 + i, "application", Disposition.granted) for i in range(8)]
+    items += [_class_item(200 + i, "application", Disposition.denied) for i in range(2)]
+    items.append(_court_item("ca9", 1, Disposition.denied))
+
+    entry = run_backtest(
+        [ConstantBacktester(id="constant-denied", disposition=Disposition.denied)], items
+    ).entries[0]
+
+    by_court = {c.court: c for c in entry.courts}
+    assert by_court["scotus"].always_denied_accuracy == pytest.approx(0.55)
+    assert [(c.docket_class, c.events_scored) for c in entry.docket_classes] == [
+        ("cert", 10),
+        ("application", 10),
+    ]
+    floors = {c.docket_class: c.always_denied_accuracy for c in entry.docket_classes}
+    assert floors == {"cert": pytest.approx(0.9), "application": pytest.approx(0.2)}
+    assert all(c.court == "scotus" for c in entry.docket_classes)
+    # The classes partition the court's events; no other court is split.
+    assert sum(c.events_scored for c in entry.docket_classes) == by_court["scotus"].events_scored

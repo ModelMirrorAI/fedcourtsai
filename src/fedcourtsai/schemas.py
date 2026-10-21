@@ -6098,6 +6098,42 @@ class BacktestCourtScore(_Strict):
     )
 
 
+#: The SCOTUS docket classes the historical replay scores apart. A cert petition
+#: (the Term-prefixed ``YY-NNNN`` form), an interim application (``YYAnnn`` in any
+#: spelling), and every other SCOTUS docket (original, miscellaneous, pre-1925,
+#: unparseable) carry
+#: different outcome vocabularies — `granted` is cert on a petition and the relief
+#: asked on an application — so one SCOTUS floor over all three moves with the mix
+#: rather than with anything a predictor did.
+BacktestDocketClass = Literal["cert", "application", "other"]
+
+
+class BacktestDocketClassScore(BacktestCourtScore):
+    """One predictor's standings over one docket class of one court's slice.
+
+    The same scores as the court row it refines, over the events of that court
+    whose docket is of ``docket_class``. Emitted for SCOTUS only, the one court
+    whose slice mixes classes with different outcome vocabularies; the classes
+    partition the court's events, so their counts sum to its row's.
+    """
+
+    events_scored: int = Field(
+        ge=0, description="Events replayed for this predictor in this docket class"
+    )
+    always_denied_accuracy: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="This docket class's always-deny floor — the fraction of its scored "
+        "events whose disposition is `denied`. The base rate that makes the accuracy readable",
+    )
+
+    docket_class: BacktestDocketClass = Field(
+        description="`cert` — a modern discretionary-cert petition (the population the "
+        "cert stage predicts); `application` — an interim application; `other` — any other "
+        "docket of the court (original, miscellaneous, pre-1925 or unparseable numbers)"
+    )
+
+
 class BacktestEntry(_Strict):
     """One predictor's standings over the historical back-test set."""
 
@@ -6141,6 +6177,14 @@ class BacktestEntry(_Strict):
         default_factory=list,
         description="Per-court breakdown, court-id ordered — the grain at which the floor and "
         "the lift are actually comparable",
+    )
+    docket_classes: list[BacktestDocketClassScore] = Field(
+        default_factory=list,
+        description="The SCOTUS row split by docket class, in `cert`, `application`, `other` "
+        "order, classes with no events omitted. The SCOTUS slice mixes cert petitions with "
+        "interim applications, whose `denied` share differs several-fold, so the cert floor "
+        "and lift are read on the `cert` row, not the court row. Empty where no SCOTUS "
+        "event was scored",
     )
 
 

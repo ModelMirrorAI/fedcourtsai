@@ -69,6 +69,86 @@
       "title": "BacktestCourtScore",
       "type": "object"
     },
+    "BacktestDocketClassScore": {
+      "additionalProperties": false,
+      "description": "One predictor's standings over one docket class of one court's slice.\n\nThe same scores as the court row it refines, over the events of that court\nwhose docket is of ``docket_class``. Emitted for SCOTUS only, the one court\nwhose slice mixes classes with different outcome vocabularies; the classes\npartition the court's events, so their counts sum to its row's.",
+      "properties": {
+        "accuracy": {
+          "description": "Fraction whose predicted disposition matched the known label",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Accuracy",
+          "type": "number"
+        },
+        "always_denied_accuracy": {
+          "description": "This docket class's always-deny floor \u2014 the fraction of its scored events whose disposition is `denied`. The base rate that makes the accuracy readable",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Always Denied Accuracy",
+          "type": "number"
+        },
+        "court": {
+          "title": "Court",
+          "type": "string"
+        },
+        "docket_class": {
+          "description": "`cert` \u2014 a modern discretionary-cert petition (the population the cert stage predicts); `application` \u2014 an interim application; `other` \u2014 any other docket of the court (original, miscellaneous, pre-1925 or unparseable numbers)",
+          "enum": [
+            "cert",
+            "application",
+            "other"
+          ],
+          "title": "Docket Class",
+          "type": "string"
+        },
+        "events_scored": {
+          "description": "Events replayed for this predictor in this docket class",
+          "minimum": 0,
+          "title": "Events Scored",
+          "type": "integer"
+        },
+        "granted_accuracy": {
+          "description": "Fraction whose binary granted/denied projection matched the outcome",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Granted Accuracy",
+          "type": "number"
+        },
+        "lift_over_always_denied": {
+          "description": "Disposition accuracy minus this court's always-deny floor. Zero means the predictor matched the base rate and added nothing; the same convention the cert back-test uses, so the two instruments are read the same way",
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "title": "Lift Over Always Denied",
+          "type": "number"
+        },
+        "mean_brier_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean Brier score of P(granted) vs the realized outcome (lower is better)",
+          "title": "Mean Brier Score"
+        }
+      },
+      "required": [
+        "court",
+        "events_scored",
+        "accuracy",
+        "granted_accuracy",
+        "always_denied_accuracy",
+        "lift_over_always_denied",
+        "docket_class"
+      ],
+      "title": "BacktestDocketClassScore",
+      "type": "object"
+    },
     "BacktestEntry": {
       "additionalProperties": false,
       "description": "One predictor's standings over the historical back-test set.",
@@ -101,6 +181,14 @@
             "$ref": "#/$defs/BacktestCourtScore"
           },
           "title": "Courts",
+          "type": "array"
+        },
+        "docket_classes": {
+          "description": "The SCOTUS row split by docket class, in `cert`, `application`, `other` order, classes with no events omitted. The SCOTUS slice mixes cert petitions with interim applications, whose `denied` share differs several-fold, so the cert floor and lift are read on the `cert` row, not the court row. Empty where no SCOTUS event was scored",
+          "items": {
+            "$ref": "#/$defs/BacktestDocketClassScore"
+          },
+          "title": "Docket Classes",
           "type": "array"
         },
         "events_scored": {
