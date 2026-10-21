@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import public_update, set_aside
+from fedcourtsai import cli, public_update, set_aside
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.public_update import (
@@ -434,6 +434,15 @@ def test_archive_cli_reports_what_it_wrote(tmp_path: Path, monkeypatch: pytest.M
     base = _base()
     week = _week_of(base.date())
     monkeypatch.setattr(public_update, "ARCHIVE_FIRST_WEEK", week)
+
+    class _WeekLater(datetime):
+        """The CLI's clock, a week past ``base``, so ``base``'s week is complete."""
+
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> _WeekLater:
+            return cls.fromtimestamp((base + timedelta(days=7)).timestamp(), tz)
+
+    monkeypatch.setattr(cli, "datetime", _WeekLater)
     _event(data, 621, "Rho v. Sigma")
     _forecast(data, 621, at=base, probability=0.6)
 
