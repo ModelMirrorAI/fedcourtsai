@@ -12053,3 +12053,98 @@ freeze commit is recorded here.
   `uv run pytest tests/test_corpus.py tests/test_store.py
   tests/test_missed_forecasts.py tests/test_salience.py -k "ifp or
   selection_plan_equals"` is green.
+
+- **Readings the `proc-v10` entry owes, recorded 2026-10-21.** No rule moves
+  here. The `proc-v10` entry (dated 2026-10-18), carried to `main` by
+  `promotion/2026-10-20` (merge `7d4f2c6c5`) and tagged `prereg/proc-v10`,
+  registered three readings as owed: its `successor-disclosures` lines re-run
+  once the carrying merge had stamped the registry, the per-engine partition
+  of the successor's counted events once both `proc-v10` windows held counted
+  cells, and the split-event counts. That entry is not otherwise edited.
+
+  **At the stamp.** `uv run fedcourts successor-disclosures --closed proc-v8
+  --successor proc-v10` over `origin/main` at `329a1f19f`, the
+  promotion-record commit that stamped the registry for that merge, prints
+  (digests shortened here):
+
+  ```
+  successor proc-v10 closes proc-v8 at 2026-10-20T15:24:42+00:00
+    closed proc-v8 claude-baseline: 252 counted event(s) — 110 resolved, 142 pending at close
+    closed proc-v8 codex-baseline: 301 counted event(s) — 155 resolved, 146 pending at close
+    closed proc-v8 gemini-baseline: 300 counted event(s) — 154 resolved, 146 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    graded by claude-judge @ sha256:167b7d71…: 81 grading(s), 0 at or after the instant
+    graded by claude-judge @ sha256:fbc0e9c3…: 329 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:18a76b93…: 81 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:9670e1c1…: 329 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:22558044…: 81 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:dbdc9064…: 329 grading(s), 0 at or after the instant
+  ```
+
+  Against the entry's provisional lines (296 codex events, 138 resolved; 295
+  gemini, 137), the two closed windows end at 301 and 300 counted events, of
+  which 155 and 154 had resolved at the close: cells and outcomes kept landing
+  up to the instant. The `claude-baseline` line is still the window `proc-v9`
+  closed, at its own close.
+
+  **With both `proc-v10` windows holding counted cells.** The same command
+  over `origin/main` at `38802b537`, after the first two predict rounds on the
+  new models (runs `20261020T190956Z` and `20261021T170410Z`), prints the same
+  closed-window and split lines, and these three grading lines, the first
+  changed from its 81 and 0 at the stamp and the other two new:
+
+  ```
+    codex-baseline: 5 successor-counted event(s); earlier window proc-v8: 0 failed, 0 uncounted cell, 0 missing, 5 not reached before the close
+    gemini-baseline: 5 successor-counted event(s); earlier window proc-v8: 0 failed, 0 uncounted cell, 0 missing, 5 not reached before the close
+    graded by claude-judge @ sha256:167b7d71…: 131 grading(s), 50 at or after the instant
+    graded by codex-judge @ sha256:a8610eec…: 50 grading(s), 50 at or after the instant
+    graded by gemini-judge @ sha256:6a88d3dc…: 50 grading(s), 50 at or after the instant
+  ```
+
+  with the other five grading lines unchanged. Every successor-counted event
+  so far is one the closed window had not reached; none follows a failed
+  attempt, an uncounted cell or a missing one. The 50 gradings each judge
+  made at or after the instant are of closed-window cells, `codex-judge` and
+  `gemini-judge` on their `proc-v10` digests; they pool with the earlier
+  gradings as the entry states.
+
+  **Split events: 0 in both combinations, at this commit.** The count takes
+  every event with a counted cell in any closed `proc-v8` window,
+  `claude-baseline`'s included, and one in a `proc-v10` window that never ran
+  with it. So the codex-against-gemini combination and the
+  claude-`proc-v8`-against-either combination both read 0. A later round can
+  still make one, where codex or gemini first counts under `proc-v10` on an
+  event that `claude-baseline` or the other engine counted only under
+  `proc-v8`, so a figure over the cut quotes the count at its own commit.
+
+  **The `proc-v9` buckets, refreshed.** `--closed proc-v8 --successor
+  proc-v9` at `38802b537` reads `claude-baseline: 54 successor-counted
+  event(s); earlier window proc-v8: 0 failed, 0 uncounted cell, 6 missing,
+  48 not reached before the close`, against the 44, 6 and 38 the `proc-v10`
+  entry quoted at `c5ba7a273`. This is the reading the `proc-v9` entry owes.
+  That entry owed it before any figure over the `proc-v9` window was
+  published; this records the reading and does not establish whether that
+  ordering held.
+
+  **Measured cost on the new models.** The entry priced the codex and gemini
+  moves by re-pricing earlier token counts and said so. The first measured
+  cells (`estimated_cost_usd` in `usage.json`, at `38802b537`):
+  - `codex-baseline`, 5 predictions on `gpt-6.1-sol`: about $0.43, against
+    the priced $0.44; `codex-judge`, 18 grading runs: about $0.34, against
+    $0.42.
+  - `gemini-baseline`, 5 predictions on `gemini-4-argon`: about $1.06,
+    against the priced $0.46; `gemini-judge`, 18 grading runs: about $0.64,
+    against $0.55.
+
+  A grading run is one `usage.json`, one judge on one event, and can grade
+  several cells, so these 18 runs and the 50 gradings per digest counted
+  above are in different units. The `proc-v10` entry's 153 and 174
+  "gradings" are grading runs in this sense.
+
+  The gemini predictions read a mean of about 394,000 uncached input tokens
+  and 13,600 output tokens, against about 141,000 and 7,700 across the 527
+  `gemini-3.1-pro-preview` predictions, so the entry's equal-token assumption
+  fails for gemini on the predict seam. Its statement that the gemini move is
+  not a cost move holds more strongly: at the introductory rate the measured
+  prediction is about 1.8 times the recorded $0.58 of the model it replaces.
+  Five cells is a small sample, and no rate table is re-anchored here.
