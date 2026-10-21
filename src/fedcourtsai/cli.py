@@ -18648,12 +18648,12 @@ _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
         "The codex and gemini rows are PRE-CUTOVER. The codex row projects "
         + "HIGH: it was measured on gpt-5.6-sol ($5/$30 per MTok) while that "
         + "engine's default is now gpt-6.1-sol ($2/$10), roughly a third of "
-        + "the cost at equal token counts. The gemini row was measured on "
-        + "gemini-3.1-pro-preview ($2/$12); gemini-4-argon lists at $2/$10 "
-        + "until 2026-12-01, when the row projects HIGH by about a fifth, and "
-        + "$4/$20 after, when it projects LOW by about a third. Both are "
-        + "list-price projections, and only the first measured post-cutover "
-        + "runs re-anchor the rows.",
+        + "the cost at equal token counts. The gemini row projects LOW: it "
+        + "was measured on gemini-3.1-pro-preview, and the first "
+        + "gemini-4-argon cells measure about $1.06 a prediction against "
+        + "the row's $0.64, reading about 2.8x the uncached input; Argon's "
+        + "rate doubles to $4/$20 on 2026-12-01, widening the gap. Only a "
+        + "deliberate re-anchor of the pinned rows moves them.",
     ],
     "evaluate": [
         "An ASSUMPTION, not a measurement: these rates scale a pre-freeze "
