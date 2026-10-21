@@ -16,10 +16,11 @@ still ahead of the implementation, it says so in place.
 
 **One predicted stream sits outside this gate entirely.** A cert grant opens a
 merits event, and that event is forecastable on its own terms — no salience
-score, no rank, and no reserve, because the case was already selected once as a
-petition and the grant cohort is self-limiting at the Court's own volume. The
-gate below governs which *petitions* and which *applications* earn cells; the
-merits cell rides the grant. Its per-cell cost rides the same rate table as a
+score, no rank, and no reserve, because the Court itself selected the case and
+the grant cohort is self-limiting at the Court's own volume. The gate below
+governs which *petitions* and which *applications* earn cells; the merits cell
+rides the grant — an in-forma-pauperis grant's included, since the Tier-0 IFP
+rule below stops at the grant. Its per-cell cost rides the same rate table as a
 cert cell's, which conditions on seam and engine rather than on the moment — the
 ~+$1.2-an-event merits separation sits in that table's caveats
 (`src/fedcourtsai/cli.py`) — and its scoring contract is in
@@ -63,7 +64,12 @@ Selection is a funnel, cheap filters first:
   decision** — a named rule in `OUT_OF_SCOPE_RULES` carrying its own reason
   string, not a silent drop: IFP grants are rare but non-zero (Gideon arrived
   IFP), so excluding them is a deliberate, recorded choice, not a claim that
-  IFP cases never matter. A Tier-0 exclusion means *never predict, and prune any
+  IFP cases never matter. The rule is a cert-stage funding decision and holds
+  only up to the grant (`corpus.is_ungranted_ifp_petition`): a grant that opens
+  a merits proceeding readmits the docket, whose merits events are then
+  forecast like any paid grant's, while a GVR or summary reversal stays
+  excluded. The grant resolves the petition, so readmission owes no cert cell.
+  A Tier-0 exclusion means *never predict, and prune any
   prediction already committed* — the same destructive-on-purpose semantics
   every hard-scope rule already carries.
 - **Tier 1 — salience scoring (cheap, over all eligible).** A deterministic score
@@ -108,7 +114,8 @@ the statpack numbers in force.
   documented per-circuit weight.
 
 Fee class (paid vs IFP) deliberately does **not** enter the score: IFP petitions
-are Tier-0-excluded, leaving the scored set paid-only.
+are Tier-0-excluded, and the selection pass skips the granted IFP dockets that
+rule readmits for their merits events, leaving the scored set paid-only.
 
 Deferred, each with a stated reason:
 

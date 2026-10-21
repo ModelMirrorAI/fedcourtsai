@@ -42,9 +42,11 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   matching — one latched for **staleness**, a **bare published-opinion
   import**, an undecided **disbarment** docket, a **consolidated** parent
   whose members later resolve, or an **application** whose ask a later poll
-  latches as substantive. The purely **form-keyed** exclusions (IFP
-  serial, original jurisdiction) are permanent by construction —
-  the docket form never changes, so they never release. Because the corpus keys a case by
+  latches as substantive. The **IFP** exclusion releases at a grant that
+  opens a merits proceeding, readmitting the docket for its merits events, and
+  re-latches if the docket is later re-resolved off the grant family. The
+  purely **form-keyed** exclusion (original jurisdiction) is permanent by
+  construction — the docket form never changes, so it never releases. Because the corpus keys a case by
   `<court>/<docket>`, a case's SCOTUS docket and its originating
   court-of-appeals docket are **separate rows**: only the SCOTUS row is
   predicted, and the lower-court link columns (`originating_court` /

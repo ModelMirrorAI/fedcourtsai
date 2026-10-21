@@ -212,7 +212,8 @@ def _sal_v1_score(row: corpus.CorpusRow) -> float:
     rates — relist bucket and (if present) CVSG — nudged by a small fraction of its
     originating circuit's grant rate. Monotone in each feature. Fee class does not
     enter: IFP petitions are excluded at Tier 0 (the ``OUT_OF_SCOPE_RULES``
-    predicate), leaving the scored set paid-only (see
+    predicate), and the selection pass skips the IFP grants that rule readmits
+    at the merits stage, leaving the scored set paid-only (see
     ``docs/salience.md``). A pure function of the row's features, so a rescoring
     reproduces the same value.
     """
@@ -1125,8 +1126,11 @@ def _planned_selection(
         (
             row
             for row in corpus.iter_rows(conn, court="scotus")
-            # Tier-0 excluded (incl. IFP): not scored, not selected.
+            # Tier-0 excluded, and every IFP docket — the granted ones the
+            # IFP rule readmits belong to the merits stream, which this
+            # cert-stage gate does not fund: not scored, not selected.
             if corpus.out_of_scope_reason_full(conn, row) is None
+            and not corpus.is_ifp_petition(row)
         ),
         config,
         released=released,
@@ -1286,7 +1290,7 @@ def _unlatch_scan(
     spared_undistributed = 0
     for row in corpus.iter_rows(conn, court="scotus"):
         pending = corpus.resolution_date(row) is None
-        if corpus.out_of_scope_reason_full(conn, row) is not None:
+        if corpus.is_ifp_petition(row) or corpus.out_of_scope_reason_full(conn, row) is not None:
             if row.salience_selected and pending:
                 spared_out_of_scope += 1
             continue

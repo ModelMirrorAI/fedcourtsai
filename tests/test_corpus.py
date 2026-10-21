@@ -3161,6 +3161,30 @@ def test_ifp_petition_is_out_of_predict_scope() -> None:
     assert corpus.is_ifp_petition(_row(court="ca9", docket_number="5005")) is False
 
 
+def test_ifp_grant_that_opens_a_merits_proceeding_returns_to_predict_scope() -> None:
+    # The IFP rule is a cert-stage funding decision: it stops at a grant that
+    # opens a merits proceeding, and the fee-class reading stays IFP.
+    granted = _row(
+        case_id="scotus/1",
+        court="scotus",
+        docket_number="25-5005",
+        disposition=Disposition.granted,
+        date_cert_granted=date(2026, 1, 9),
+    )
+    assert corpus.is_ifp_petition(granted) is True
+    assert corpus.is_ungranted_ifp_petition(granted) is False
+    assert corpus.out_of_scope_reason(granted) is None
+    # A GVR rides the cert order and opens no merits proceeding: still excluded.
+    gvr = granted.model_copy(update={"disposition": Disposition.gvr})
+    assert corpus.is_ungranted_ifp_petition(gvr) is True
+    assert corpus.out_of_scope_reason(gvr) == (
+        "in-forma-pauperis petition — a documented predict-scope exclusion"
+    )
+    # A pending IFP petition stays excluded.
+    pending = granted.model_copy(update={"disposition": None, "date_cert_granted": None})
+    assert corpus.is_ungranted_ifp_petition(pending) is True
+
+
 def test_is_salience_deferred_is_fail_open() -> None:
     # Unscored (no version) → treated as selected (fail-open), never deferred.
     assert corpus.is_salience_deferred(_row(salience_version=None)) is False

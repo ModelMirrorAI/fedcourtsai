@@ -1738,9 +1738,10 @@ there is no baseline,
 no skill score, and no substitute rate. Three things travel with any merits
 figure. The baseline's population is the section's population is the scored
 population — up to predict scope: the section admits every grant that opens
-a merits proceeding while the forecast side further excludes IFP,
-consolidated-out-of-scope, and date-inconsistent rows, a small residue now
-that the guard removes the (mostly IFP) stale-labeled vacaturs. The two
+a merits proceeding while the forecast side further excludes
+consolidated-out-of-scope and date-inconsistent rows, a small residue now
+that the guard removes the (mostly IFP) stale-labeled vacaturs. IFP grants are
+on both sides: the Tier-0 IFP rule stops at the grant. The two
 procedural
 exits count as undisturbed (a DIG and an equally divided affirmance leave
 the judgment below standing) exactly as the outcome writer scores them, and

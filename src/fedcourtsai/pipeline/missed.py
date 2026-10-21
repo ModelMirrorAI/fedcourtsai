@@ -385,6 +385,14 @@ def _classify(  # noqa: PLR0911 - one early return per declared rule
     scope_reason = corpus.out_of_scope_reason_full(conn, row)
     if scope_reason is not None:
         return Verdict.declined, DeclineReason.out_of_scope, scope_reason
+    if event.stage != Stage.merits and corpus.is_ifp_petition(row):
+        # A merits grant readmits an IFP docket to scope, but only its merits
+        # events: its petition-stage events stay under the IFP exclusion.
+        return (
+            Verdict.declined,
+            DeclineReason.out_of_scope,
+            "in-forma-pauperis petition — excluded below the merits stage",
+        )
     if not is_forecastable_moment(event, row):
         return (
             Verdict.declined,

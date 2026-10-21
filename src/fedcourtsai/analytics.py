@@ -321,8 +321,9 @@ def _fee_class_key(row: CorpusRow) -> str | None:
 def _is_scored_segment_row(row: CorpusRow) -> bool:
     """True for the population the salience scorer scores: paid modern-cert petitions.
 
-    The salience gate excludes IFP petitions at Tier 0, so the scored (and thus
-    predicted) segment is paid-only; the segment base rate must be conditioned on
+    The salience gate excludes IFP petitions at Tier 0 (a merits grant readmits
+    only the docket's merits events), so the scored and cert-predicted segment
+    is paid-only; the segment base rate must be conditioned on
     the same population it will anchor. ``is_modern_cert`` already implies a
     Term-prefixed SCOTUS docket, and the paid fee class narrows it to the scored set.
     """

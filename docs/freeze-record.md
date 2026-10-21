@@ -11976,3 +11976,80 @@ freeze commit is recorded here.
   -k "plenary or direct_appeal or postponed or noted_appeal or docket_numbered"`
   is green, and `uv run fedcourts process-digest --all` prints the same label
   and six digests as at its first parent.
+
+- **The IFP scope rule stops at a merits grant; recorded 2026-10-21.** A
+  **membership-rules** entry under unchanged digests: no prompt byte, registry
+  digest field or `salience_version` moves, and `uv run fedcourts
+  process-digest --all` at this change prints `proc-v10` and the six digests
+  it prints at its parent (`605201bd…`, `7ab92dd4…`, `bee46e92…`,
+  `167b7d71…`, `a8610eec…`, `6a88d3dc…`). What moves is which merits events
+  earn cells. The carrying merge writes nothing to the corpus or the ledger.
+
+  **The rule change** (`src/fedcourtsai/corpus.py`). The Tier-0 predict-scope
+  rule reads `is_ungranted_ifp_petition` instead of `is_ifp_petition`: an
+  in-forma-pauperis docket stays out of scope at every point up to a grant
+  that opens a merits proceeding (`opens_merits_proceeding`), and returns to
+  scope from there. A GVR or summary reversal on an IFP docket opens no merits
+  proceeding and stays excluded. `is_ifp_petition` is unchanged and remains
+  the fee-class reading every stratum and cut keys on. Two readers that must
+  stay cert-stage key on it directly: the salience selection pass skips every
+  IFP docket, so the scored set and its `eligible` count stay paid-only, and
+  the predictionless-resolution monitor (`pipeline/missed.py`) declines a
+  readmitted docket's petition-stage events as out of scope.
+
+  **What it moves, and what it does not.**
+  - *Merits cells.* A granted IFP docket's merits events
+    (`evt-order-judgment`, `evt-brief-judgment`) become forecastable, and the
+    live merits mint no longer refuses one as out of scope. The merits
+    baseline does not move: the statpack merits section already pooled IFP
+    grants in `parsed`. The forecast population does move at this change, to
+    include the criminal/habeas end of the docket. Frozen-scope merits
+    figures therefore pool paid-only cells from before it with cells from
+    after it, and no merits figure is cut by fee class.
+  - *Cert cells.* None. A grant resolves the petition, so no cert cell is owed
+    on a readmitted docket. Pending IFP petitions stay excluded, the cert
+    baselines read the paid fee-class cut rather than this rule, and
+    `cert-backtest --scope paid` keys on fee class. No cert figure moves.
+  - *Scope latch.* At the vintage below, the first scope reconcile after
+    promotion clears `predict_excluded` on 86 granted IFP rows. Most of them
+    are long decided and carry no open merits event, so they earn no cell.
+    They do re-enter the pull rotation's and the OCR sweep's scope reads, and
+    the next `data/scope/scope.json` regeneration drops their exclusion
+    reason.
+  - *Pruning.* No committed prediction sits on an IFP row (the rule refused
+    every one), so the cleanup sweep prunes nothing new. The rule is two-way:
+    a readmitted docket later re-resolved to `gvr` leaves scope again, and its
+    merits cells become prunable in a cleanup PR.
+
+  **Which dockets earn cells.** Cells fan out only from open merits events. At
+  the corpus vintage of 2026-10-21 (newest pull 2026-10-20, read with the
+  ranged backend), exactly four IFP dockets carry one, and none has cells:
+  - 25-5343 (`scotus/73277583`): granted 2026-04-20, briefed, argued
+    2026-10-13;
+  - 25-5930 (`scotus/73281102`): granted 2026-06-01;
+  - 25-6623 (`scotus/73282277`): granted 2026-06-15, briefed;
+  - 25-7026 (`scotus/73283862`): granted 2026-10-13.
+
+  A stale-labelled IFP GVR (a `granted` label on a summary disposition) does
+  not earn a cell through this change. It earns one only where it already
+  carries an open merits event. The live mint labels a forward GVR `gvr` and
+  latches a summary judgment on the same read, and the merits-event migration
+  mints only after its snapshot pendency guard. One such row (23-6573,
+  `scotus/69560850`, granted 2025-01-21, no judgment latched) is
+  `granted`-labelled with no merits event; that is a labelling gap for the
+  disposition review, not a cell.
+
+  **Late cells.** These four dockets' first cells are owed on the first
+  predict round after the promotion. Each is a forward cell provisioned at its
+  moment's cutoff, with unrestricted retrieval, made after the moment opened.
+  For 25-5343 that is after argument, which is the post-argument retrieval
+  `metrics/README.md` already states for merits forward cells. They are not
+  set aside.
+
+  **Effect check, after promotion.** The next scope reconcile clears
+  `predict_excluded` on the four rows above. `uv run fedcourts predict-plan`
+  then lists their open merits events, and after the round
+  `fedcourts big-cases` shows rows for them. Before it, at the carrying merge,
+  `uv run pytest tests/test_corpus.py tests/test_store.py
+  tests/test_missed_forecasts.py tests/test_salience.py -k "ifp or
+  selection_plan_equals"` is green.
