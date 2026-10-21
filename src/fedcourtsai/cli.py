@@ -329,6 +329,7 @@ from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
 from .pipeline.live import live_poll_all
+from .pipeline.merits_coverage import merits_coverage
 from .pipeline.missed import (
     MISSED_LOOKBACK_DAYS,
     DeclineReason,
@@ -4307,6 +4308,62 @@ def decision_census_cmd(
     terminations = ", ".join(f"{k} {v}" for k, v in census.terminations.items()) or "none"
     typer.echo(f"pending {census.pending}; terminated: {terminations}", err=True)
     typer.echo(census.model_dump_json())
+
+
+@app.command("merits-coverage")
+def merits_coverage_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First grant Term to report.")
+    ] = 2025,
+    last_term: Annotated[
+        int | None,
+        typer.Option("--last-term", help="Last grant Term to report (default: the current Term)."),
+    ] = None,
+) -> None:
+    """Census every plenary merits grant against its forecast, read-only.
+
+    Over every SCOTUS modern cert docket whose grant opens a merits proceeding,
+    keyed to the October Term of its grant date (`pipeline/merits_coverage.py`):
+    a grant whose judgment rode the cert order is counted apart as
+    `order_riding`, and every other grant gets one status — `forecast` (a
+    committed merits prediction), `owed` (an open forecastable event awaiting a
+    round), `out_of_scope`, `terminated`, `decided_unforecast`, `stale`, or one
+    of the two holes, `no_event` and `not_forecastable`. Lists every grant
+    without a prediction, with its status. Reads the corpus index and the
+    committed predictions under the data root; reads no snapshot and writes
+    nothing. Prints one line per Term to stderr and the census JSON to stdout;
+    exits 1 when the census finds a hole, so a scheduled caller can alarm on
+    it. Fails loud if the corpus is absent.
+    """
+    today = date.today()
+    last = last_term if last_term is not None else october_term_year(today)
+    if first_term > last:
+        typer.echo("merits-coverage: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the merits coverage census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        census = merits_coverage(
+            conn, settings.data_root, first_term=first_term, last_term=last, today=today
+        )
+    for term in census.terms:
+        statuses = ", ".join(f"{k} {v}" for k, v in term.statuses.items()) or "-"
+        typer.echo(
+            f"OT{term.term}: plenary grants {term.plenary_grants}, "
+            f"order-riding {term.order_riding}; {statuses}",
+            err=True,
+        )
+    typer.echo(f"uncovered {len(census.uncovered)}; holes {census.gaps}", err=True)
+    typer.echo(census.model_dump_json())
+    if census.gaps:
+        raise typer.Exit(code=1)
 
 
 @app.command("merits-lineups")
