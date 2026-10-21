@@ -291,6 +291,15 @@ def test_percentages_never_round_to_certainty(tmp_path: Path) -> None:
     assert "100%" not in text
 
 
+def test_footer_links_the_results_page(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    _event(data, 811, "Tau v. Upsilon")
+    _forecast(data, 811, at=base, probability=0.3)
+    text = render_public_update(build_public_update(data, _week_of(base.date())))
+    assert "[Results page](https://fedcourts.ai/results/)" in text
+
+
 def test_a_predictor_that_re_ran_in_its_window_shows_once_with_its_latest_cell(
     tmp_path: Path,
 ) -> None:

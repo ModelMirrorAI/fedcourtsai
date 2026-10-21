@@ -136,8 +136,9 @@ _FOOTER: Final = (
     "Every forecast above is a committed file in a public git ledger, made before "
     "the outcome existed; its timestamp in the ledger is the proof. A forecast is "
     "not an accuracy claim: scored results, and the rules for reading them, are on "
-    "the Results page. Each predictor is a frontier model given the same prompt and "
-    "the same provisioned case record, though not at the same moment."
+    "the [Results page](https://fedcourts.ai/results/). Each predictor is a "
+    "frontier model given the same prompt and the same provisioned case record, "
+    "though not at the same moment."
 )
 
 #: The two halves of a group's outcome count, by stage: the stage's usual
