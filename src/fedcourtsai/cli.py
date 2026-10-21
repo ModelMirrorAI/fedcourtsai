@@ -18640,29 +18640,31 @@ def evaluate_matrix_cmd(
 #: here use three).
 _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
     "predict": [
-        "Measured, but over one stamped fan-out (81 cells, 27 events) that "
+        "The claude-code and codex rows are measured, but over one stamped "
+        + "fan-out (81 cells, 27 events) that "
         + "predates the current freeze instant — a shakedown figure for claims "
         + "purposes. "
         + "The ~+20% level gap to the 410-cell pre-freeze ledger is an UPPER "
         + "BOUND on any level effect, not a measurement of one.",
-        "The codex and gemini rows are PRE-CUTOVER, measured on gpt-5.6-sol "
-        + "and gemini-3.1-pro-preview, and the first cells on the current "
-        + "defaults are few (5 predictions each). The codex row projects "
-        + "HIGH: gpt-6.1-sol measures about $0.43 a prediction against the "
-        + "row's $1.88. The gemini row projects LOW: gemini-4-argon measures "
-        + "about $1.06 against the row's $0.64, reading about 2.8x the "
-        + "uncached input, and Argon's rate doubles to $4/$20 on 2026-12-01, "
-        + "widening the gap. Only a deliberate re-anchor of the pinned rows "
-        + "moves them.",
+        "The codex row is PRE-CUTOVER, measured on gpt-5.6-sol, and projects "
+        + "HIGH: gpt-6.1-sol measures about $0.43 a prediction (5 cells) against the "
+        + "row's $1.88. The gemini row prices gemini-4-argon from its first "
+        + "few cells (5 predictions, about $1.06 each at the introductory "
+        + "$2/$10) doubled for the $4/$20 rate in force from 2026-12-01, so "
+        + "until then it projects about twice the measured cost. Only a deliberate "
+        + "re-anchor of the pinned rows moves them.",
     ],
     "evaluate": [
-        "An ASSUMPTION, not a measurement: these rates scale a pre-freeze "
+        "An ASSUMPTION, not a measurement: the claude-code and codex rates scale a pre-freeze "
         + "anchor by the whole predict move (~+22%). The anchor they use "
         + "is the `proc-v2` grading — THREE graded events, the process-stamped "
         + "subset of the four pre-freeze gradings — taken as the better-matched "
         + "of the two pre-freeze anchors; the pooled four-grading figure is the "
         + "more cautious one and is NOT what these rates carry. All four are "
-        + "cert-stage, so the anchor is stage-narrow either way.",
+        + "cert-stage, so the anchor is stage-narrow either way. The gemini "
+        + "row does not use that anchor: it prices gemini-4-argon's first 18 "
+        + "grading runs (about $0.64 each at the introductory $2/$10) doubled "
+        + "for the $4/$20 rate in force from 2026-12-01.",
         "An evaluate measurement EXISTS outside the frozen partition, and these "
         + "rates do not use "
         + "it: two runs independently graded one six-event INTERIM population "
@@ -18693,8 +18695,8 @@ def _shared_spend_caveats(seam: str) -> list[str]:
         "measured n (~+$1.2 an event, on 11 events against 12); the rest sit "
         "within noise of each other, so conditioning on them would fit noise. "
         "The merits separation is real and is deliberately not applied here, so "
-        "an all-merits plan reads ~10% LOW ($7.47 an event against the $6.79 "
-        "whole-run rate these figures use)."
+        "an all-merits event measures ~10% above the whole-run mean the "
+        "claude-code and codex rows were set from ($7.47 against $6.79)."
     )
     if seam == "evaluate":
         moment += (
@@ -18746,8 +18748,8 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
     """Price a would-mint cell set at the per-(seam, engine) rates, with its basis.
 
     Summed cell by cell rather than multiplied by one blended rate, because the
-    engines differ by ~7x within a seam: a plan narrowed to one engine priced at
-    the design-mix average is wrong by up to 4x in either direction, and a
+    engines differ by up to ~4.6x within a seam: a plan narrowed to one engine
+    priced at the design-mix average is wrong by up to ~2.2x in either direction, and a
     narrowed plan is exactly the shape a backfill re-queue takes. A cell whose
     engine the table does not name falls back to the design-mix rate and is
     counted, so an unrecognized engine shows up as a stated approximation rather
@@ -18786,13 +18788,15 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
             "source": (
                 "fedcourtsai.planning_rates.PLANNING_RATES_USD_PER_CELL — the predict "
                 "whole-run measurement, and the evaluate pre-freeze cert-stage "
-                "anchor (the proc-v2 grading, scaled by the predict move)"
+                "anchor (the proc-v2 grading, scaled by the predict move), with "
+                "the gemini rows at gemini-4-argon's measured cells repriced "
+                "for its 2026-12-01 rate"
             ),
             "seam": seam,
             "rates_usd_per_cell": dict(rates),
             "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
             "fallback_source": (
-                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$15 per "
+                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$17 per "
                 "fully-tournamented case over a six-cell design mix)"
             ),
             "cells_at_fallback_rate": at_fallback,

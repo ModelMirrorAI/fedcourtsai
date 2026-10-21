@@ -25,8 +25,9 @@
 # (src/fedcourtsai/planning_rates.py), taken over both the plan's would-mint
 # cells and the matrix the round actually minted, the larger of the two; a
 # summarize round's is its plan's upper estimate, one call per case, which
-# leaves out a rejected response's retry. Those rates price some engines low,
-# and retries spend more than a cell's rate, so actual spend can exceed the
+# leaves out a rejected response's retry. Those rates sit at or above each
+# engine's measured mean, but a cell's spend varies around its mean and
+# retries spend more than a cell's rate, so actual spend can exceed the
 # estimate. The budget is a projection over a ledger that lags — a manually
 # released round in flight, an auto-released round whose collect PR is still
 # open more than 24 hours on, an unmerged summaries PR (except in the
