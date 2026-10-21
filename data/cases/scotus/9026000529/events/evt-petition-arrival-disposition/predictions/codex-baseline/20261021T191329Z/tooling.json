@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000529",
+  "gaps": [
+    "Appendix truncation interrupts the appellate analysis of the very evidentiary exclusion presented for review.",
+    "General-law web requests returned no usable content."
+  ],
+  "helpful": [
+    "Arrival context explicitly distinguishes zero distributions from a missing procedural record.",
+    "Exact statpack risk-set fields permit denominator-weighted pooling across prior Terms.",
+    "CourtListener opinion snippets supplied general precedent without retrieving the target case."
+  ],
+  "notes": "No corpus query or target-case live lookup. Provisioned petition and appendix support a reasoned forecast despite the central appendix truncation. The shell's default uv cache was read-only; using a temporary cache allowed repository commands to run.",
+  "role": "predictor",
+  "run_id": "20261021T191329Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "web.run",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
