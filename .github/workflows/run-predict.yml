@@ -1145,7 +1145,7 @@ jobs:
         # everything. The watchdog armed above fires a margin earlier, and is
         # what ends a step whose tree will not die on the runner's own timeout.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
-        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        uses: anthropics/claude-code-action@5eb090f3c3afd701a0672cd32981197ca27688f6 # v1.0.253
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
