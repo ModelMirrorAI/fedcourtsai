@@ -102,6 +102,7 @@ source.
 | `distribution_count`  | integer         | distinct conferences distributed for (relists = count − 1, floored at 0); null = never live-parsed, 0 = parsed, never distributed |
 | `cvsg_date`           | date            | when the Court called for the views of the Solicitor General (live-parsed) |
 | `call_for_response_at` | date          | when the Court called for a response to a cert petition — the first `Response Requested` entry before any disposition (`pipeline.cert_signals.call_for_response_date`); opens the cert call-for-response moment; distinct from `response_requested_at`, the interim request on an application; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = no call yet, or not parsed |
+| `merits_brief_on_lead` | date | a consolidated member's own respondent brief on the merits as filed on the group's lead docket — the first lead entry after both the member's grant and the lead's that the member attribution reads as filed for it (`pipeline.documents.member_respondent_brief_date`); consolidation moves the member's later filings to the lead, so its own `merits_brief_filed` stays null; written by the live poll from the lead's newest stored live snapshot (no request), fill-in latched; read by no mint (the briefed moment still opens on `merits_brief_filed` alone); withheld from the `query` retrieval rows; null = not a consolidated member, not yet filed, the lead not stored, or a member that left the poll rotation before the column existed |
 | `sg_brief_filed`      | date            | when the Solicitor General filed the brief the CVSG invited — the first United States amicus brief after the invitation and before any disposition (`pipeline.cert_signals.sg_brief_date`); opens the cert sg-brief moment; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = not yet filed, or not parsed |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
 | `sample_weight`       | integer         | inverse inclusion probability (1 where the corpus can show the row stands only for itself; 10 on a denial the earlier sampled walk kept whose block is still stored one row in ten); null = no channel weighted the row |
@@ -203,7 +204,7 @@ value — and `application_kind` gets the TEXT twin of that latch: a real readin
 (`extension` / `substantive`) is never wiped by a degraded parse's confident
 `unknown`, which only ever fills a genuine gap. The dated signals beside these
 families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`,
-`sg_brief_filed`, `call_for_response_at`),
+`sg_brief_filed`, `call_for_response_at`, `merits_brief_on_lead`),
 and the merits decision record (`merits_argued`, `merits_decision_method`),
 fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
 rather than a confident sentinel, so no other writer may blank a reading the live
