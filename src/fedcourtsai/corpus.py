@@ -414,6 +414,17 @@ class CorpusRow(BaseModel):
         "the live channel. None asserts 'no CVSG observed' only where "
         "`distribution_count` is not None (the proceedings were parsed at all).",
     )
+    call_for_response_at: date | None = Field(
+        default=None,
+        description="When the Court called for a response to the petition "
+        "(`pipeline.cert_signals.call_for_response_date`): the first `Response "
+        "Requested` entry before any disposition — the cert stage's "
+        "call-for-response forecast moment. Distinct from `response_requested_at`, "
+        "the interim stage's request for a response to an application. Written by "
+        "the live poll at ingest; fill-in latched. Withheld from the retrieval "
+        "surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = no call, not yet, or not "
+        "parsed — on a decided row polled before the column existed, never parsed.",
+    )
     sg_brief_filed: date | None = Field(
         default=None,
         description="When the Solicitor General filed the brief the Court invited "
@@ -940,7 +951,13 @@ CREATE TABLE IF NOT EXISTS cases (
     -- pipeline/cert_signals.py): the date that opens the cert stage's
     -- sg-brief moment. Written by the live poll at ingest; fill-in latched.
     -- Withheld from the retrieval surface. NULL = not yet filed, or not parsed.
-    sg_brief_filed      TEXT
+    sg_brief_filed      TEXT,
+    -- The Court's call for a response to a cert petition (see CorpusRow and
+    -- pipeline/cert_signals.py): the date that opens the cert stage's
+    -- call-for-response moment. Written by the live poll at ingest; fill-in
+    -- latched. Withheld from the retrieval surface. NULL = no call yet, or not
+    -- parsed.
+    call_for_response_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1116,6 +1133,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "merits_argued": "TEXT",
     "merits_decision_method": "TEXT",
     "sg_brief_filed": "TEXT",
+    "call_for_response_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1812,6 +1830,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "merits_argued": row.merits_argued.isoformat() if row.merits_argued else None,
         "merits_decision_method": row.merits_decision_method,
         "sg_brief_filed": row.sg_brief_filed.isoformat() if row.sg_brief_filed else None,
+        "call_for_response_at": (
+            row.call_for_response_at.isoformat() if row.call_for_response_at else None
+        ),
         "capital_case": int(row.capital_case),
     }
 
@@ -1927,6 +1948,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         merits_argued=_optional_date(record, "merits_argued"),
         merits_decision_method=_optional_str(record, "merits_decision_method"),
         sg_brief_filed=_optional_date(record, "sg_brief_filed"),
+        call_for_response_at=_optional_date(record, "call_for_response_at"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -1938,8 +1960,9 @@ def _update_clause(column: str) -> str:
     special: channel-supplied facts (``last_pulled``, the opinion-enrichment
     walk's ``opinion_enrich_attempted_at`` cursor, the document back-fill's
     ``document_floor_probed_at`` floor probe, and the fill-in slice of
-    the live-parsed signals — the conference, CVSG and invited-brief dates, the dated
-    interim/merits signals beside them, and the merits decision record)
+    the live-parsed signals — the conference, CVSG, invited-brief and
+    call-for-response dates, the dated interim/merits signals beside them, and
+    the merits decision record)
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
@@ -1982,6 +2005,7 @@ def _update_clause(column: str) -> str:
         "merits_argued",
         "merits_decision_method",
         "sg_brief_filed",
+        "call_for_response_at",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -3823,7 +3847,7 @@ def opinion_body(row: CorpusRow) -> str | None:
 
 
 #: Columns a ``query`` prior never carries, though the row stores them. The
-#: invited-brief date is a mint trigger, and the
+#: invited-brief and call-for-response dates are mint triggers, and the
 #: merits decision record is an analytics surface — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
 #: it to what a predict or
@@ -3835,7 +3859,7 @@ def opinion_body(row: CorpusRow) -> str | None:
 #: post-clock fact. A process change that wants the argued date in front of a
 #: cell admits it by removing it from this set, under its own re-bless.
 RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
-    {"merits_argued", "merits_decision_method", "sg_brief_filed"}
+    {"merits_argued", "merits_decision_method", "sg_brief_filed", "call_for_response_at"}
 )
 
 

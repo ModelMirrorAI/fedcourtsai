@@ -3095,7 +3095,8 @@ _BIG_CASE_COLLAPSE_RULE = (
     "with the one fallback named below, where the docket gives no date at all: the newest "
     "**predicted** event by its `opened_at`, which lags the docket wherever no cell has been "
     "dispatched on a newer event; ties broken by the docket's stage progression — the "
-    "petition's arrival, then its distribution, then the interim application's arrival, the "
+    "petition's arrival, then its distribution and any call for a response to it, then the "
+    "interim application's arrival, the "
     "response requested on it and the response filed, then the CVSG and the Solicitor "
     "General's invited brief, then the merits moments "
     "— and then by event id, so a date collision never inverts the order a case is actually "
@@ -3453,6 +3454,7 @@ def _is_leakage_flagged(row: LedgerPrediction, leakage: _Leakage) -> bool:
 _BIG_CASE_MOMENT_ORDER: Final[tuple[tuple[Stage, Moment], ...]] = (
     (Stage.cert, Moment.arrival),
     (Stage.cert, Moment.distribution),
+    (Stage.cert, Moment.response_requested),
     (Stage.interim, Moment.arrival),
     (Stage.interim, Moment.response_requested),
     (Stage.interim, Moment.response_filed),

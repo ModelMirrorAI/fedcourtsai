@@ -2750,7 +2750,8 @@ the rendered table) and
   **docket** rather than from run times — with the one fallback below, where the
   docket gives no date at all: the newest **predicted** event by its
   `opened_at`, ties broken by the docket's stage progression — the petition's
-  arrival, then its distribution, then the interim application's arrival, the
+  arrival, then its distribution and any call for a response to it, then the
+  interim application's arrival, the
   response requested on it and the response filed, then the CVSG and the
   Solicitor General's invited brief, then the merits moments — and then by
   event id, so a date collision never inverts the

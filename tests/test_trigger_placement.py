@@ -24,6 +24,7 @@ _RESPONSE_REQUESTED = "evt-order-response-requested-disposition"
 _RESPONSE_FILED = "evt-brief-response-disposition"
 _CVSG = "evt-order-cvsg-disposition"
 _SG_BRIEF = "evt-brief-sg-disposition"
+_CALL_FOR_RESPONSE = "evt-order-call-for-response-disposition"
 
 _APPLICATION = "Application (26A477) for an administrative stay, submitted to Justice Kavanaugh."
 _REQUEST = "Response to application (26A477) requested by Justice Kavanaugh, due October 10, 2026."
@@ -221,6 +222,19 @@ def test_the_sg_brief_moment_needs_the_brief() -> None:
 
     cutoff, read = _read(_SG_BRIEF, brief_day, after, (brief_day, after))
     assert _place(_SG_BRIEF, cutoff, read).provenance == "dated"
+
+
+def test_the_cert_call_for_response_moment_needs_the_call() -> None:
+    called = date(2026, 8, 12)
+    head = [("Aug 01 2026", "DISTRIBUTED for Conference of 9/29/2026.")]
+    before = _live(head, "26-120")
+    after = _live(
+        [*head, ("Aug 12 2026", "Response Requested. (Due September 11, 2026)")], "26-120"
+    )
+    cutoff, read = _read(_CALL_FOR_RESPONSE, called, after, (called, before))
+    assert _place(_CALL_FOR_RESPONSE, cutoff, read).provenance == "truncated"
+    cutoff, read = _read(_CALL_FOR_RESPONSE, called, after, (called, after))
+    assert _place(_CALL_FOR_RESPONSE, cutoff, read).provenance == "dated"
 
 
 def test_the_rest_shape_is_read_too() -> None:

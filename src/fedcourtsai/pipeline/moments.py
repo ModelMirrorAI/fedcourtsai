@@ -66,8 +66,9 @@ class MomentSpec:
     date *is* the transition this moment is declared at, which is what lets
     provisioning cut a forward cell's snapshot to the moment's information set.
     True for every moment a mint seam opens at its own trigger — the CVSG
-    invitation, the Solicitor General's invited brief, the cert grant, the
-    response request, the arrival of a petition or an application. False for
+    invitation, the Solicitor General's invited brief, the cert call for a
+    response, the cert grant, the interim response request, the arrival of a
+    petition or an application. False for
     the cert petition baseline, whose ``opened_at`` is docketing: the moment
     it declares is the **distribution**, so a cut at docketing would delete
     the distribution and relist history the declared information set is made
@@ -152,6 +153,24 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         description=(
             "Disposition of the petition, forecast once the Solicitor General has "
             "filed the brief the Court invited."
+        ),
+        claim_set_version=CLAIM_SET_CERT_V2,
+        forecastable=False,
+    ),
+    MomentSpec(
+        # The cert stage's call for a response, typically after the respondent
+        # waived: the Court's first sign that a petition has a reader. It shares
+        # the interim moment's name, as `arrival` does, because the moment is the
+        # same act at a different stage; aggregation keys on the pair. Declared
+        # but switched off until the predict prompt names it.
+        event_id=ids.event_id(EventKind.order.value, "call-for-response-disposition"),
+        kind=EventKind.order,
+        stage=Stage.cert,
+        moment=Moment.response_requested,
+        ordinal=4,
+        decision_target="disposition",
+        description=(
+            "Disposition of the petition, forecast after the Court called for a response to it."
         ),
         claim_set_version=CLAIM_SET_CERT_V2,
         forecastable=False,
@@ -260,12 +279,13 @@ def minted_moment_ids() -> frozenset[str]:
     ids a corpus row without its ledger file is a half-landed mint — the shape
     ``validate-corpus``'s corpus→ledger check fails on.
 
-    A case-level baseline is recognized by its id rather than listed: it is the bare
-    ``disposition`` id of its kind (``evt-<kind>-disposition``), which is what
-    the ingest projection synthesizes, while every later moment carries a
-    qualifying label (``arrival-``, ``cvsg-``, ``sg-``, ``response-``) or a different
-    decision target (``judgment``). Registering a moment therefore needs no
-    edit here; what would is a new stage whose baseline is *not* the bare
+    A case-level baseline is recognized by its id rather than listed: it is
+    the bare ``disposition`` id of its kind (``evt-<kind>-disposition``),
+    which is what the ingest projection synthesizes, while every later moment
+    carries a qualifying label (``arrival-``, ``cvsg-``, ``sg-``, ``call-``,
+    ``response-``) or a different decision target (``judgment``). Registering
+    a moment therefore needs no edit here; what would is a new stage whose
+    baseline is *not* the bare
     ``evt-<kind>-disposition`` shape — the merits precedent, whose first
     position is a minted moment rather than a first-touch baseline.
     """

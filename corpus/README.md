@@ -101,6 +101,7 @@ source.
 | `distributed_for_conference` | date     | the conference this petition is currently distributed for (live-parsed) |
 | `distribution_count`  | integer         | distinct conferences distributed for (relists = count − 1, floored at 0); null = never live-parsed, 0 = parsed, never distributed |
 | `cvsg_date`           | date            | when the Court called for the views of the Solicitor General (live-parsed) |
+| `call_for_response_at` | date          | when the Court called for a response to a cert petition — the first `Response Requested` entry before any disposition (`pipeline.cert_signals.call_for_response_date`); opens the cert call-for-response moment; distinct from `response_requested_at`, the interim request on an application; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = no call yet, or not parsed |
 | `sg_brief_filed`      | date            | when the Solicitor General filed the brief the CVSG invited — the first United States amicus brief after the invitation and before any disposition (`pipeline.cert_signals.sg_brief_date`); opens the cert sg-brief moment; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = not yet filed, or not parsed |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
 | `sample_weight`       | integer         | inverse inclusion probability (1 where the corpus can show the row stands only for itself; 10 on a denial the earlier sampled walk kept whose block is still stored one row in ten); null = no channel weighted the row |
@@ -202,7 +203,7 @@ value — and `application_kind` gets the TEXT twin of that latch: a real readin
 (`extension` / `substantive`) is never wiped by a degraded parse's confident
 `unknown`, which only ever fills a genuine gap. The dated signals beside these
 families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`,
-`sg_brief_filed`),
+`sg_brief_filed`, `call_for_response_at`),
 and the merits decision record (`merits_argued`, `merits_decision_method`),
 fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
 rather than a confident sentinel, so no other writer may blank a reading the live

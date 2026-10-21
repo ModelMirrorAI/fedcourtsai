@@ -220,6 +220,10 @@ def _sg_brief_trigger(payload: Mapping[str, Any]) -> date | None:
     return cert_signals.sg_brief_date(payload)
 
 
+def _call_for_response_trigger(payload: Mapping[str, Any]) -> date | None:
+    return cert_signals.call_for_response_date(payload)
+
+
 def _response_requested_trigger(payload: Mapping[str, Any]) -> date | None:
     return interim_signals.response_requested_date(cert_signals.proceedings_entries(payload))
 
@@ -251,6 +255,7 @@ TRIGGER_READERS: Mapping[tuple[Stage, Moment], TriggerReader] = MappingProxyType
     {
         (Stage.cert, Moment.cvsg): _cvsg_trigger,
         (Stage.cert, Moment.sg_brief): _sg_brief_trigger,
+        (Stage.cert, Moment.response_requested): _call_for_response_trigger,
         (Stage.interim, Moment.response_requested): _response_requested_trigger,
         (Stage.interim, Moment.response_filed): _response_filed_trigger,
     }

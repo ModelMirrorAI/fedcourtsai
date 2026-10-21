@@ -2223,6 +2223,35 @@ def test_from_live_docket_latches_the_invited_brief_date() -> None:
     assert uninvited.sg_brief_filed is None
 
 
+def test_from_live_docket_latches_the_call_for_response() -> None:
+    """The cert call-for-response trigger: the first `Response Requested` before a disposition."""
+    filing = _payload()["ProceedingsandOrder"][0]
+    waiver = {"Date": "Aug 01 2026", "Text": "Waiver of right of respondent X to respond filed."}
+    called = {"Date": "Aug 12 2026", "Text": "Response Requested. (Due September 11, 2026)"}
+    row = from_live_docket(
+        _payload(proceedings=[filing, waiver, _DISTRIBUTED_SEP, called]),
+        live_docket_id(25, 104),
+    )
+    assert row.call_for_response_at == date(2026, 8, 12)
+    # The interim columns stay the application branch's.
+    assert row.response_requested_at is None and row.response_requested is None
+    denied = {"Date": "Oct 06 2026", "Text": "Petition DENIED."}
+    late = from_live_docket(_payload(proceedings=[filing, denied, called]), live_docket_id(25, 105))
+    assert late.call_for_response_at is None
+    # A denied motion is not the petition's disposition, so the scan reads past it.
+    motion = {"Date": "Aug 05 2026", "Text": "Motion to extend the time to file DENIED."}
+    past_motion = from_live_docket(
+        _payload(proceedings=[filing, motion, called]), live_docket_id(25, 106)
+    )
+    assert past_motion.call_for_response_at == date(2026, 8, 12)
+    # The first call decides: an undated one dates nothing, not a later call.
+    undated = {"Date": "", "Text": "Response Requested. (Due July 1, 2026)"}
+    first_undated = from_live_docket(
+        _payload(proceedings=[filing, undated, called]), live_docket_id(25, 107)
+    )
+    assert first_undated.call_for_response_at is None
+
+
 def test_ingest_live_payload_lands_weight_one_and_observed_zero_signals(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     result = ingest_live_payload(

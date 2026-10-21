@@ -229,6 +229,16 @@ those, so a null on a decided row polled before the column existed means
 (`corpus.RETRIEVAL_WITHHELD_COLUMNS`): a cell reads the brief itself, not a
 column admitted to its retrieval surface without a re-bless.
 
+`call_for_response_at` is the same shape for the Court's call for a response to
+a cert petition: the first `Response Requested` entry before any disposition
+(`cert_signals.call_for_response_date`), the entry-initial reading that also
+takes a petition off its conference. It opens the cert stage's
+call-for-response moment and is kept apart from `response_requested_at`, the
+interim stage's request for a response to an application, which the interim
+response-requested moment reads. Live poll only, fill-in latched, withheld
+from the `query` rows, and null on a decided row polled before the column
+existed.
+
 On a granted docket the same parse also lands the **merits decision record**
 (`pipeline/decision_record.py`), over every grant — the GVR and the summary
 reversal included, where the merits pair (`merits_judgment` / `merits_decided`)
