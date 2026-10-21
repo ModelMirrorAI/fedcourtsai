@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000531",
+  "run_id": "20261021T211131Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "provisioned petition and QP text"],
+  "helpful": ["The salience-band table's bracketed reached rate for baseline gave a direct arrival anchor for a private petitioner."],
+  "gaps": ["The band table could show a pooled prior-Term reached rate per band, so a cell does not have to compute it by hand."],
+  "notes": "The petition text alone was enough for a weak COA-denial petition; corpus priors would not have moved the number."
+}
