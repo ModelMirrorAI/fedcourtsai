@@ -28,6 +28,7 @@ axes the cert task demands:
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import sqlite3
 import sys
@@ -41,6 +42,7 @@ from pathlib import Path
 from typing import Any, Literal, TextIO
 
 from . import corpus
+from .agent_flags import CellCoordinates, normalise_flags
 from .analytics import _is_scored_segment_row
 from .backtest import (
     Backtester,
@@ -83,7 +85,6 @@ from .provision import truncate_snapshot
 from .registry import enabled_predictors
 from .schemas import (
     CERT_BACKTEST_ARMS,
-    AgentFlags,
     CalibrationBin,
     CertBacktest,
     CertBacktestArm,
@@ -101,6 +102,7 @@ from .schemas import (
     CertBacktestSegment,
     Disposition,
     EventKind,
+    FlagSource,
     PredictableEvent,
     Prediction,
     PredictorConfig,
@@ -743,14 +745,21 @@ def outcome_exposure_candidate(message: str) -> bool:
 
 
 def _read_replayed_flags(
-    flags_path: Path, *, predictor_id: str, case_id: str, scored: bool
+    flags_path: Path, *, predictor_id: str, case_id: str, run_id: str, scored: bool
 ) -> CertBacktestDisclosure | None:
     """Read one replayed cell's ``flags.json`` into the report's disclosure record.
 
-    ``None`` where the cell left none. A file that does not parse is recorded
-    as ``unreadable`` rather than dropped: the cell tried to say something,
-    and a reader should know that an unread note exists. The cell stays in the
-    scores either way — nothing here is a filter.
+    ``None`` where the cell left none. The file is read the way the cell
+    workflows read it, through :func:`normalise_flags`, so a note with an
+    off-vocabulary severity or category, an over-long message or a missing
+    envelope field is read and scored like any other. Only a file with nothing
+    to recover is recorded as ``unreadable`` — one that does not parse as a
+    JSON object or list, or none of whose flags survives normalisation —
+    rather than dropped: the cell tried to say something, and a reader should
+    know that an unread note exists, as is one that cannot be read off disk.
+    A ``harness``-sourced flag — the normaliser's own account of its
+    coercions — is not one of the cell's notes and is not counted. The cell
+    stays in the scores either way — nothing here is a filter.
 
     The messages themselves go to stderr, credential-shaped runs redacted,
     and never into the returned record: the report is committed under
@@ -761,15 +770,35 @@ def _read_replayed_flags(
     """
     if not flags_path.is_file():
         return None
-    try:
-        raised = AgentFlags.model_validate_json(flags_path.read_text())
-    except (OSError, ValueError) as exc:
-        _say(f"unreadable flags.json from {predictor_id} on {case_id}: {type(exc).__name__}")
+
+    def unreadable(reason: str) -> CertBacktestDisclosure:
+        _say(f"unreadable flags.json from {predictor_id} on {case_id}: {reason}")
         return CertBacktestDisclosure(
             predictor_id=predictor_id, case_id=case_id, scored=scored, unreadable=True
         )
+
+    try:
+        text = flags_path.read_text()
+    except (OSError, ValueError) as exc:
+        return unreadable(type(exc).__name__)
+    try:
+        structure = json.loads(text)
+    except (ValueError, RecursionError):
+        return unreadable("does not parse as JSON")
+    if not isinstance(structure, dict | list):
+        return unreadable("is not a JSON object")
+    where = CellCoordinates(
+        case_id=case_id, run_id=run_id, role=UsageRole.predictor, actor_id=predictor_id
+    )
+    normalised = normalise_flags(text, where)
+    raised = [flag for flag in normalised.flags.flags if flag.source != FlagSource.harness]
+    if normalised.changed:
+        items = structure.get("flags") if isinstance(structure, dict) else structure
+        if not raised and items not in (None, []):
+            return unreadable("no flag survives normalisation")
+        _say(f"flags.json from {predictor_id} on {case_id} was normalised to validate")
     flags: list[CertBacktestFlag] = []
-    for flag in raised.flags:
+    for flag in raised:
         message = redact_credentials(flag.message)
         candidate = outcome_exposure_candidate(message)
         flags.append(
@@ -907,6 +936,7 @@ def _replay_item_cells(
             cell.event_paths.prediction_flags(predictor_id, cell.run_id),
             predictor_id=predictor_id,
             case_id=case_id,
+            run_id=cell.run_id,
             scored=scored,
         )
         if found is not None:

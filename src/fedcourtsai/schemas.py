@@ -7092,8 +7092,11 @@ class CertBacktestDisclosure(_Strict):
     )
     unreadable: bool = Field(
         default=False,
-        description="The cell wrote a `flags.json` that does not parse as `AgentFlags`, "
-        "so what it disclosed is unknown and `flags` is empty. The cell stays scored: "
+        description="The cell wrote a `flags.json` with nothing to recover: it cannot be "
+        "read, does not parse as a JSON object or list, or none of its flags survives the "
+        "normalisation the cell workflows apply (an off-vocabulary severity or category is "
+        "coerced and read, not unreadable). What it disclosed is unknown and `flags` is "
+        "empty. The cell stays scored: "
         "a formatting fault is not evidence of exposure, and an unread note may still "
         "have been one",
     )
@@ -7121,7 +7124,9 @@ class CertBacktestDisclosureTally(_Strict):
         ge=0, description="Of those, the cells that left a readable `flags.json`"
     )
     flags_unreadable: int = Field(
-        ge=0, description="Of those, the cells whose `flags.json` did not parse"
+        ge=0,
+        description="Of those, the cells whose `flags.json` had nothing to recover "
+        "(`unreadable` on the disclosure)",
     )
     candidates: int = Field(
         ge=0,
