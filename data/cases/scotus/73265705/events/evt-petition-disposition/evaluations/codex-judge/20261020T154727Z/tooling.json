@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73265705",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "jq", "rg", "apply_patch", "python", "read-only subagent"],
+  "helpful": [
+    "Blinded prediction bundles preserve a common grading surface without predictor identities.",
+    "Result-capture markers distinguish unobserved retrieval results from empty results.",
+    "Provisioned docket chronology allows assessment of distribution-versus-relist reasoning.",
+    "Committed statpack explains the limitations of distribution-based relist counts."
+  ],
+  "gaps": [
+    "One candidate's call results are all unobserved, limiting independent confirmation of retrieved content."
+  ],
+  "notes": "All three predictions carry frozen cert salience bands, so baseline pooling and skill are left to the harness. The statpack was used for methodological context, not to supply a second anchor. No external retrieval was needed."
+}

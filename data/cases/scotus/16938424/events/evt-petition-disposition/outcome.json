@@ -1,17 +1,18 @@
 {
-  "actual_disposition": "denied",
-  "actual_granted": 0,
+  "actual_disposition": "granted",
+  "actual_granted": 1,
   "case_id": "scotus/16938424",
   "disposition_basis": "standard",
+  "disposition_route": null,
   "event_id": "evt-petition-disposition",
+  "interim_signals": null,
   "judgment": null,
-  "resolved_at": "2019-02-07",
+  "noted_dissent_from_denial": null,
+  "resolved_at": "2019-10-04",
   "schema_version": "1.0",
-  "signals": {
-    "cvsg_date": null,
-    "distribution_count": 2
-  },
+  "signals": null,
   "source": null,
   "vote_provenance": null,
-  "votes": []
+  "votes": [],
+  "writing_roles": null
 }

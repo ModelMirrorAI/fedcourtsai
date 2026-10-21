@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "A state AG petition to reinstate a narrow Missouri Halloween sign-posting mandate for registered sex offenders struck down as compelled speech by CA8; 16 States as amici and a compelled-speech/factual-disclosure boundary question give it some doctrinal interest, but the closest sister circuit (CA11, McClendon) agrees with the decision below, the injunction runs to one respondent, and the Court denied (with a noted dissent). Modest stakes."
+  },
+  "brier_score": 0.0625,
+  "brier_skill_score": -0.13562391592694611,
+  "case_id": "scotus/9026000034",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.23459715639810427,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": -0.007464174209923402
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.5,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": 0.35400225479143177,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 1,
+        "probability": 0.4,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.007464174209923402,
+    "total": -0.007464174209923402
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T16:50:31Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (prediction 2026-10-13, resolution 2026-10-19). Log shows only reads of provisioned inputs, the statpack, and the candidate's own output directory; every call captured; no web or corpus retrieval and no post-resolution material. Reasoning explicitly notes the 10/16 conference had not occurred.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261013T174813Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T16:51:14.931926Z"
+  },
+  "reasoning_quality": 0.75,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.23459715639810427,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

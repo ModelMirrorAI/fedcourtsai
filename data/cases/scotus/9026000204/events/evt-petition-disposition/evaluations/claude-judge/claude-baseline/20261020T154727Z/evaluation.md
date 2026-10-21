@@ -1,0 +1,9 @@
+# Evaluation: claude-baseline
+
+**Cell.** Cert stage (`event.yaml` `stage: cert`), forward. The outcome is `granted` (plenary route, resolved 2026-10-19 after two distributions), and `actual_granted` = 1. The scored prediction froze `context.band: federal` under `sal-v4`, so the segment base rate, the Brier skill score and the basis are the harness's risk-set stamp. I left all three null and compute no rate of my own; comparisons below refer to "the stamped segment base rate". Votes are not scored at the cert stage. This is not a merits cell, so there is no `semantic_grades` block. The harness computes `claim_scores`.
+
+**Result.** Predicted `granted` at P = 0.92, which is correct. Brier = (0.92 − 1)² = 0.0064.
+
+**Reasoning quality: 0.82.** The analysis is well grounded. It anchors on the sal-v4 federal band pooled strictly before OT2026 (≈0.71), then makes the correct upward adjustments: a court of appeals invalidated a federal statute, there is an acknowledged split with CA6 *Ream*, and the brief in opposition actually supports a grant. It verified the two lower-court opinions and checked the companion *Ream* docket, which was set for the same October 9 conference. Its main residual risk is that the Court takes *Ream* as the lead vehicle and holds this petition. It models that branch explicitly (hold, then GVR or deny), which is the right structural risk to identify. The outcome partly bears it out: the petition was granted after a relist rather than at the first conference, which its 0.70 relist call anticipated. I deduct mainly for calibration. The 0.92 sits a little low given the near-unanimous signals, and the hold-branch arithmetic is somewhat ad hoc. The companion-docket context is also honestly disclosed. That counts for the cell, not against it.
+
+**Leakage.** Not applicable (forward). I confirmed no outcome material about this petition was retrieved; see `leakage.notes`.

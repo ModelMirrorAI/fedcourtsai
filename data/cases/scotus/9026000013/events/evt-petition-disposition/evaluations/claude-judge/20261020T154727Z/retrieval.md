@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. (Read the event, outcome, record/context.json, the three blinded candidates' staged files, and the caption of the sal-v4 salience-band table in the committed metrics/statpack.md; no corpus query, CourtListener or web lookup.)

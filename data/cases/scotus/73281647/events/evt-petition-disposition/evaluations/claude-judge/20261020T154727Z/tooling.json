@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/73281647",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell (cat/python/jq over provisioned inputs and blinded candidates)"
+  ],
+  "helpful": [
+    "Blinded retrieval_log.json with result_capture markers made the forward leakage check quick",
+    "Case-level snapshot with the post-prediction docket entries confirmed the two relists and the denial"
+  ],
+  "gaps": [],
+  "notes": "Cert cell with a frozen band on every candidate, so the base rate and skill are left to the harness stamp; no corpus or statpack lookup was needed."
+}

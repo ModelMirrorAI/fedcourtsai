@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281394",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "run_shell_command",
+    "write_file"
+  ],
+  "helpful": [
+    "Provisioned blinded candidate directories with full retrieval_log.json and case documents",
+    "Committed metrics/statpack.md for checking candidates' sal-v4 state risk-set pooling explanations"
+  ],
+  "gaps": [],
+  "notes": "All three candidates carried a frozen sal-v4 state band on a forward cert cell, so segment_base_rate, base_rate_basis, and brier_skill_score were left null for harness stamping."
+}

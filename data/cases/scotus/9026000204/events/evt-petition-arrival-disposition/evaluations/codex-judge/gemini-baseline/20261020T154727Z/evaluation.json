@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v3",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.65,
+    "notes": "The question presented concerns Necessary and Proper Clause limits on Congress's taxing power, with conflicting circuit rulings and a federal statute invalidated below. That gives it substantial doctrinal importance, although the immediate statutory setting is the narrower home-distilling location restriction; the cert grant does not settle the merits."
+  },
+  "brier_score": 0.0025000000000000044,
+  "brier_skill_score": 0.9711,
+  "case_id": "scotus/9026000204",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.7058823529411765,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.95,
+        "score": 0.08400519031141866
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": null,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.01,
+        "score": null
+      },
+      {
+        "baseline": 0.35400225479143177,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.12281759639741777
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.3,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.20682278670883641,
+    "total": 0.20682278670883641
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T17:00:37Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-arrival-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All logged calls occurred August 20, before the supplied October 19 resolution, and forward mode permitted contemporaneous retrieval. The log includes an own-case CourtListener query for Scott McNutt, but every result is unobserved (capture coverage 0.0); the candidate's report of zero results cannot independently establish absence of returned material. Neither the query timing nor the rationale shows this petition already disposed of, so there is no affirmative leakage evidence.",
+    "retrieved_outcome_material": null
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260820T181919Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T17:02:28.789008Z"
+  },
+  "reasoning_quality": 0.82,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.7058823529411765,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

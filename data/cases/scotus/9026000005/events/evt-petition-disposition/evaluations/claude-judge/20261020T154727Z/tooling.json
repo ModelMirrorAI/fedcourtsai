@@ -1,0 +1,17 @@
+{
+  "case_id": "scotus/9026000005",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "The blinded staging included retrieval_log.json with result_capture markers, so I could grade forward leakage without guessing."
+  ],
+  "gaps": [],
+  "notes": "Every candidate froze a band, so the base rate and skill score come from the harness stamp. I did not need the statpack."
+}

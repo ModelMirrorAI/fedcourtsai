@@ -1,0 +1,16 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/73266074",
+  "gaps": [],
+  "helpful": [
+    "provisioned documents and blinded candidate staging"
+  ],
+  "notes": "All needed materials (event.yaml, outcome.json, context.json, questions-presented.txt, snapshot, and blinded candidate directories with retrieval_log.json) were cleanly staged in the record.",
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "tool_manifest": null,
+  "tools_used": [],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

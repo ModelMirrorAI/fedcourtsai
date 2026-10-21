@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000204",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "run_shell_command",
+    "write_file"
+  ],
+  "helpful": [
+    "Provisioned blinded candidate directories with captured retrieval_log.json",
+    "Provisioned case documents (questions-presented.txt, brief-in-opposition.txt, cert-reply.txt)"
+  ],
+  "gaps": [],
+  "notes": "All three predictions froze context.band = federal under sal-v4, so segment_base_rate and brier_skill_score are left null for harness stamping."
+}

@@ -1,11 +1,18 @@
 {
-  "actual_disposition": "dismissed",
-  "actual_granted": 0,
+  "actual_disposition": "gvr",
+  "actual_granted": 1,
   "case_id": "scotus/72468943",
   "disposition_basis": "standard",
+  "disposition_route": null,
   "event_id": "evt-petition-disposition",
-  "resolved_at": "2020-10-08",
+  "interim_signals": null,
+  "judgment": null,
+  "noted_dissent_from_denial": null,
+  "resolved_at": "2021-06-28",
   "schema_version": "1.0",
+  "signals": null,
   "source": null,
-  "votes": []
+  "vote_provenance": null,
+  "votes": [],
+  "writing_roles": null
 }

@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73266074",
+  "gaps": [
+    "Captured result digests do not expose result bodies for independent content inspection."
+  ],
+  "helpful": [
+    "Blinded prediction and prose artifacts preserved the identity boundary.",
+    "Per-call capture markers distinguished missing telemetry from observed results.",
+    "Provisioned questions presented, filings, and docket chronology supported analysis without external retrieval."
+  ],
+  "notes": "Scored all three aliases from provisioned inputs only. No corpus, CourtListener, web, or committed statpack lookup was performed by this evaluator. Frozen-band baseline, skill, and mechanical claim scoring remain harness-owned. Unobserved retrieval results were assessed from query slices rather than treated as empty.",
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local-file-reading",
+    "jq",
+    "apply_patch",
+    "python-schema-validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

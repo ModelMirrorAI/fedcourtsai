@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000013",
+  "gaps": [
+    "The staged audit summaries expose queries and digests, not full retrieved result text; all gemini-baseline results are unobserved."
+  ],
+  "helpful": [
+    "Blinded prediction, rationale and forecast files keep identity separate from grading.",
+    "Per-call result-capture markers distinguish unavailable results from empty returns.",
+    "Frozen prediction context prevents substituting terminal salience for the forecast's information state."
+  ],
+  "notes": "Scored only provisioned material. No web, CourtListener or corpus lookup was performed. Did not consult the committed statpack or independently pool baselines: every candidate froze a cert band, so the harness owns the segment baseline and skill.",
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "local schema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

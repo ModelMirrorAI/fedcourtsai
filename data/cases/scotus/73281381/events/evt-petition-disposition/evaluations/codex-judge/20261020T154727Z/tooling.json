@@ -1,0 +1,22 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281381",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate bundles preserve probabilities, frozen context and rationale without exposing predictor identity.",
+    "Per-call result-capture markers distinguish missing telemetry from an observed empty response.",
+    "Provisioned filings permit checking the facial-challenge vehicle objection without external retrieval."
+  ],
+  "notes": "No corpus, CourtListener or web retrieval was needed. Baseline stamping is harness-owned for all three frozen-band cert predictions. Result-unobserved calls were assessed from queries without treating null dates as evidence of empty results.",
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "pydantic validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

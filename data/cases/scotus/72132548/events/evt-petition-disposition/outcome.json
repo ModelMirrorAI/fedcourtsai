@@ -1,6 +1,6 @@
 {
-  "actual_disposition": "dismissed",
-  "actual_granted": 0,
+  "actual_disposition": "granted",
+  "actual_granted": 1,
   "case_id": "scotus/72132548",
   "disposition_basis": "standard",
   "disposition_route": null,
@@ -8,15 +8,61 @@
   "interim_signals": null,
   "judgment": null,
   "noted_dissent_from_denial": null,
-  "resolved_at": "2025-06-02",
+  "resolved_at": "2025-06-16",
   "schema_version": "1.0",
-  "signals": {
-    "cvsg_date": null,
-    "distribution_count": 4,
-    "distribution_parse": "dist-v2"
-  },
+  "signals": null,
   "source": null,
-  "vote_provenance": null,
+  "vote_provenance": {
+    "complete": false,
+    "documents": [
+      "https://www.supremecourt.gov/orders/courtorders/061625zor_4g25.pdf"
+    ],
+    "grammars": [
+      {
+        "grammar": "scotus-order-notations",
+        "version": 3
+      }
+    ],
+    "participating": 9,
+    "source": "supremecourt-orders"
+  },
   "votes": [],
-  "writing_roles": null
+  "writing_roles": [
+    {
+      "justice": "Thomas",
+      "writing": "none"
+    },
+    {
+      "justice": "Roberts",
+      "writing": "none"
+    },
+    {
+      "justice": "Alito",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "writing": "none"
+    },
+    {
+      "justice": "Kagan",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "writing": "none"
+    },
+    {
+      "justice": "Kavanaugh",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "writing": "none"
+    }
+  ]
 }

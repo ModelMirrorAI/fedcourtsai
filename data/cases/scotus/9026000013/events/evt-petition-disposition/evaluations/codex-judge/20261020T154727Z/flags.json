@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000013",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned questions-presented.txt expressly marks the petition CAPITAL CASE, while record/snapshots/2026-10-19.json records bCapitalCase as false. This is a capital-metadata discrepancy, not an outcome mismatch. All candidates' frozen sal-v4 baseline contexts were retained; no source record or prediction was changed. Details appear in each evaluation.md."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73281394",
+  "gaps": [
+    "gemini-baseline retrieval results are wholly unobserved; assessment rests on query slices and prose."
+  ],
+  "helpful": [
+    "Blinded prediction and rationale pairs",
+    "Captured retrieval query slices and result-capture coverage",
+    "Provisioned outcome and underlying briefing",
+    "Local output schemas"
+  ],
+  "notes": "Scored only the three supplied aliases. No external retrieval or independent statpack pooling was needed; frozen-band baselines and quantitative claim scores remain harness-owned.",
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local file reads",
+    "JSON schema validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

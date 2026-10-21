@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000164",
+  "run_id": "20261020T154727Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read", "jq"],
+  "helpful": ["Blinded candidate staging with retrieval_log.json made the forward-mode leakage check quick", "Frozen-band context made the base-rate ownership unambiguous (harness stamp)"],
+  "gaps": [],
+  "notes": "Frozen-band cert cell: base rate left to the harness stamp, so the statpack was not consulted."
+}

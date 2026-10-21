@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000034",
+  "flags": [
+    {
+      "category": "scope",
+      "event_id": "evt-petition-disposition",
+      "message": "gemini-baseline has an unobserved file-search at 2026-10-13T18:00:40.542Z for circuit|conflict|split with no explicit search root and an empty exclusion pattern. The captured parameters do not establish whether the search stayed within provisioned documents, and the unobserved result cannot establish which files it searched or returned. No reviewed query or rationale reveals this petition's eventual outcome, so this is an audit-scope uncertainty, not a finding of forbidden-file access or outcome leakage; leakage_suspected remains false. Consider capturing effective search roots or enforcing provisioned-input scope for such searches.",
+      "severity": "warning"
+    }
+  ],
+  "role": "evaluator",
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.6,
+    "notes": "The questions concern constitutional limits on municipal confiscation and retention of vehicle value for traffic debt, with potential significance beyond Chicago. The facial challenge and ordinance-specific setting constrain the vehicle's reach; denial establishes no merits rule."
+  },
+  "brier_score": 0.010000000000000002,
+  "brier_skill_score": 0.6629285909432415,
+  "case_id": "scotus/73281381",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.17224199288256228,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": 0.019667304112156635
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.22,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": 0.3538083538083538,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.35,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 1,
+        "probability": 0.12,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.019667304112156635,
+    "total": 0.019667304112156635
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T16:22:04Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The log contains 28 calls, 25 result-captured and three web calls unobserved. The latter target Rule 10, an identified July 9 reply, and unrelated Pung context; their null results cannot verify the prose's no-content claim. Captured reads concern the September snapshot, filings, schemas and aggregate context. Nothing shows this petition's October 19 denial was known during its September 16 forward prediction.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260916T170237Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T16:23:50.476974Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.17224199288256228,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

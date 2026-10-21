@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.85,
+    "notes": "Plenary cert grant resolving a mature 2-2 circuit split on a marquee post-SFFA equal-protection question: whether Arlington Heights requires threshold proof of aggregate group-level disparate impact relative to the applicant pool to challenge a facially race-neutral school admissions policy. The ruling will govern intentional-discrimination and racial-proxy challenges to public school admissions nationwide."
+  },
+  "brier_score": 0.12249999999999998,
+  "brier_skill_score": 0.8228290516285575,
+  "case_id": "scotus/9026000012",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.16848174247277387,
+        "claim_id": "disposition",
+        "outcome": 1,
+        "probability": 0.65,
+        "score": 0.5689226126011145
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.5,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.15,
+        "score": null
+      },
+      {
+        "baseline": 0.35400225479143177,
+        "claim_id": "summary-disposition-route",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": 0.12281759639741777
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.85,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": 0.6917402089985323,
+    "total": 0.6917402089985323
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T15:52:00Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward-mode prediction run on 2026-09-27, more than three weeks before the October 19, 2026 grant order. Tool calls in retrieval_log.json (unobserved result capture, coverage 0.0) were restricted to reading the provisioned inputs (event.yaml, context.json, snapshot, questions-presented.txt, and excerpts of petition.txt), metrics/statpack.md, and a single bounded fedcourts query call (--decided-before 2026-09-27).",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260927T182226Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T16:52:39.728522Z"
+  },
+  "reasoning_quality": 0.64,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.16848174247277387,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

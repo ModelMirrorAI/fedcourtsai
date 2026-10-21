@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.8,
+    "notes": "The petition sought review of the D.C. Circuit's mandamus vacating enforcement of the 9/11 military-commission plea agreements: about as nationally salient as a criminal docket gets, with capital exposure and executive control of the commissions at stake. Its doctrinal reach (government mandamus where no statutory appeal lies, under the sui generis commission scheme) is narrower than its public profile, and the Court denied without noted dissent on 2026-10-19 after three distributions, so the read sits below the very top of the scale."
+  },
+  "brier_score": 0.0025000000000000005,
+  "brier_skill_score": -0.000465892760696196,
+  "case_id": "scotus/9026000013",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.04998835674920438,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": -1.1641895142737446e-06
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 1,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": 0.35400225479143177,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -1.1641895142737446e-06,
+    "total": -1.1641895142737446e-06
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T16:47:18Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; log mode forward. Calls: provisioned-file reads, statpack read, one corpus query, one hosted web search for case background (unobserved; query predates resolution and targets background, not the disposition). No retrieved_doc_date at or after the 2026-10-19 resolution, no data/qp-topics access. The case was pending when predicted (2026-09-19), so no outcome existed to leak.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260919T192714Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T16:48:08.149051Z"
+  },
+  "reasoning_quality": 0.55,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.04998835674920438,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

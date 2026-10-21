@@ -1,0 +1,86 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:f6c3af155898c161beb3ba174781949a02784094085267d79a074680a859b1ba",
+  "big_case": {
+    "evaluator_score": 0.55,
+    "notes": "Nationally reported Afghan-orphan adoption dispute raising the Smith v. OFFER reservation (procedural due-process interest of nonparent caretakers). The legal question is real and recurring, but this vehicle carried a contested waiver ground and fact-bound kinship/fraud disputes, and the Court denied without noted dissent; significance is mostly the dispute's notoriety rather than a doctrinal moment the Court took up."
+  },
+  "brier_score": 0.2025,
+  "brier_skill_score": -6.133773836545274,
+  "case_id": "scotus/9026000164",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.16848174247277387,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.45,
+        "score": -0.1741139024533379
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.3,
+        "score": null
+      },
+      {
+        "baseline": 0.35400225479143177,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": 0,
+        "probability": 0.35,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.1741139024533379,
+    "total": -0.1741139024533379
+  },
+  "correct": 1,
+  "created_at": "2026-10-20T16:54:58Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (snapshot 2026-09-30, resolution 2026-10-19). Log: one corpus query bounded to decisions before 2026-09-30; result capture is 0.0 (engine standing shape), graded on query. No web or MCP retrieval, no qp-topics read, nothing outcome-revealing.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260930T191800Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v10",
+    "pipeline_sha": "16f7cc4b92caae0a781bd8ed25b2b9c681d96a35",
+    "stamped_at": "2026-10-20T16:55:51.021151Z"
+  },
+  "reasoning_quality": 0.4,
+  "run_id": "20261020T154727Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.16848174247277387,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
