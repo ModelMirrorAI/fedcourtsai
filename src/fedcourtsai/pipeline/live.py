@@ -82,6 +82,7 @@ from .document_backfill import (
     is_predict_relevant,
 )
 from .documents import (
+    consolidation_lead,
     fetch_case_documents,
     fetch_consolidation_lead,
     member_respondent_brief_date,
@@ -376,37 +377,43 @@ def provision_documents(
 
 
 def latch_member_brief_on_lead(
-    client: SupremeCourtClient,
-    corpus_db_path: Path,
-    row: corpus.CorpusRow,
-    payload: Mapping[str, Any],
+    corpus_db_path: Path, case_id: str, payload: Mapping[str, Any]
 ) -> date | None:
-    """Read a consolidated member's respondent brief off its lead and latch the date.
+    """Date a consolidated member's respondent brief off its lead's stored docket.
 
     Consolidation moves the member's later filings to the lead docket, so the
     respondent's merits brief never reaches the member's own payload and its
-    ``merits_brief_filed`` stays empty. This costs one paced GET for the lead
-    (:func:`~fedcourtsai.pipeline.documents.fetch_consolidation_lead`), and only
-    on a granted member whose brief no read has dated yet: the member's own
-    ``merits_brief_filed`` and the latched ``merits_brief_on_lead`` are both
-    empty and no merits judgment is stored. Every other docket costs nothing.
-    The date lands in ``merits_brief_on_lead``, which no mint reads: the briefed
-    moment's dating is registered, so opening it for members is a re-bless
-    decision, and the column accrues until then.
+    ``merits_brief_filed`` stays empty. Called after the poll's ingest, on a
+    member (:func:`~fedcourtsai.pipeline.documents.consolidation_lead`) whose
+    row as just ingested has neither ``merits_brief_filed`` nor
+    ``merits_brief_on_lead`` and no merits judgment, this reads the lead's
+    newest stored live snapshot — the lead is a corpus case in the same
+    rotation, so it costs no request, at most one rotation stale — and latches
+    the first respondent brief the attribution reads as the member's
+    (:func:`~fedcourtsai.pipeline.documents.member_respondent_brief_date`). A
+    lead the corpus does not hold dates nothing. The date lands in
+    ``merits_brief_on_lead``, which no mint reads: the briefed moment's dating
+    is registered, so opening it for members is a re-bless decision, and the
+    column accrues until then.
     """
-    if (
-        row.merits_brief_filed is not None
-        or row.merits_brief_on_lead is not None
-        or row.merits_judgment is not None
-    ):
-        return None
-    lead = fetch_consolidation_lead(client, row.case_id, payload).payload
+    lead = consolidation_lead(payload)
     if lead is None:
         return None
-    filed = member_respondent_brief_date(lead, payload)
-    if filed is not None:
-        with corpus.connect(corpus_db_path) as conn:
-            corpus.latch_merits_brief_on_lead(conn, row.case_id, filed)
+    with corpus.connect(corpus_db_path) as conn:
+        row = corpus.get_row(conn, case_id)
+        if row is None or (
+            row.merits_brief_filed is not None
+            or row.merits_brief_on_lead is not None
+            or row.merits_judgment is not None
+        ):
+            return None
+        lead_case = corpus.scotus_case_id_by_docket_number(conn, f"{lead[0]:02d}-{lead[1]}")
+        stored = None if lead_case is None else corpus.latest_live_snapshot(conn, lead_case)
+        if stored is None:
+            return None
+        filed = member_respondent_brief_date(stored[1], payload)
+        if filed is not None:
+            corpus.latch_merits_brief_on_lead(conn, case_id, filed)
     return filed
 
 
@@ -831,7 +838,7 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
             )
             continue
         result = ingest_live_payload(corpus_db_path, data_root, payload, docket_id, today=today)
-        latch_member_brief_on_lead(client, corpus_db_path, row, payload)
+        latch_member_brief_on_lead(corpus_db_path, result.case_id, payload)
         transitioned = _distribution_transition(row, result)
         # The queue decision is made here so provisioning follows it: a
         # transition on a petition the salience latch defers spends neither

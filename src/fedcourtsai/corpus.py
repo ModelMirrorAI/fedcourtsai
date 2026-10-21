@@ -430,12 +430,14 @@ class CorpusRow(BaseModel):
         description="When a consolidated member's own respondent filed its brief on "
         "the merits on the group's **lead** docket "
         "(`pipeline.documents.member_respondent_brief_date`): the first such entry "
-        "after the member's own grant that the member attribution reads as filed for "
-        "it. Consolidation moves every later filing to the lead, so the member's own "
-        "`merits_brief_filed` stays empty. Written by the live poll; fill-in latched. "
+        "after both the member's grant and the lead's that the member attribution "
+        "reads as filed for it. Consolidation moves every later filing to the lead, "
+        "so the member's own `merits_brief_filed` stays empty. Written by the live "
+        "poll from the lead's "
+        "newest stored live snapshot; fill-in latched. "
         "Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`) and read "
         "by no mint: the briefed moment still opens on `merits_brief_filed` alone. "
-        "None = not a consolidated member, not yet filed, or not read.",
+        "None = not a consolidated member, not yet filed, or the lead not stored.",
     )
     sg_brief_filed: date | None = Field(
         default=None,
@@ -3522,9 +3524,11 @@ def latch_merits_brief_on_lead(conn: sqlite3.Connection, case_id: str, filed: da
 
     The live poll's writer for a consolidated member, whose respondent brief is
     read off the lead docket rather than the member's own payload, so it lands
-    beside the row upsert rather than through it. Fill-in only, like the column's
-    upsert clause: the first brief the attribution reads is the moment, and a
-    later read never moves it.
+    beside the row upsert rather than through it. Stricter than the column's
+    upsert clause, which lets an incoming date replace a stored one: here the
+    first brief the attribution reads is the moment, and a later read never
+    moves it. Like the ``set_*`` writers, a direct ``UPDATE`` of the index and
+    never the casestore mirror.
     """
     with conn:
         conn.execute(
@@ -3889,7 +3893,7 @@ def opinion_body(row: CorpusRow) -> str | None:
 
 #: Columns a ``query`` prior never carries, though the row stores them. The
 #: invited-brief and call-for-response dates are mint triggers, a consolidated
-#: member's lead-filed respondent brief dates a moment no process reads yet, and the
+#: member's lead-filed respondent brief dates a moment no mint reads yet, and the
 #: merits decision record is an analytics surface — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
 #: it to what a predict or

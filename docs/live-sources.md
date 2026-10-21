@@ -496,11 +496,12 @@ selection. The rules:
 - **The briefed date.** The member's own docket never carries its respondent's
   merits brief, so its `merits_brief_filed` stays null and the briefed merits
   moment does not open for it. The live poll reads the date off the lead
-  instead: on a granted member with neither that column nor
-  `merits_brief_on_lead` set and no merits judgment, one more lead GET dates
-  the first respondent brief the attribution reads as the member's, after the
-  member's own grant (`documents.member_respondent_brief_date`), into
-  `merits_brief_on_lead`. A self-represented party on the lead does not refuse
+  instead: on a member with neither that column nor `merits_brief_on_lead` set
+  and no merits judgment, it reads the lead's newest stored live snapshot (the
+  lead is a corpus case in the same rotation, so this costs no request) and
+  dates the first respondent brief the attribution reads as the member's, after
+  both the member's grant and the lead's (`documents.member_respondent_brief_date`),
+  into `merits_brief_on_lead`. A lead the corpus does not hold dates nothing. A self-represented party on the lead does not refuse
   it, since a date carries no contact details. No mint reads the column: the
   briefed moment's dating is registered, so opening it for members is a
   re-bless decision, and the column accrues until then.

@@ -4001,50 +4001,82 @@ def test_provision_documents_reads_a_consolidated_members_briefs_off_its_lead(
     assert "Petitioners say reverse." in stored["merits-brief-petitioner"].text
 
 
-def test_the_poll_latches_a_consolidated_members_brief_off_its_lead(tmp_path: Path) -> None:
-    """One lead GET dates the member's respondent brief into the withheld column, once."""
+def test_the_poll_latches_a_consolidated_members_brief_off_its_stored_lead(
+    tmp_path: Path,
+) -> None:
+    """The member's poll dates its respondent brief off the lead's stored docket, no GET."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    lead_id, member_id = live_docket_id(25, 500), live_docket_id(25, 501)
+    member_case = f"scotus/{member_id}"
+    member = to_corpus_row(
+        from_live_docket(_member_payload(), member_id), last_live_polled=date(2026, 7, 1)
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [member])
+        due = corpus.get_row(conn, member_case)
+    assert due is not None
+
+    # No lead stored yet: the poll dates nothing, and still asks only for the member.
     asked: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        asked.append(str(request.url))
-        return httpx.Response(200, json=_lead_payload(*_LEAD_BRIEFS))
+        asked.append(request.url.path)
+        return httpx.Response(200, json=_member_payload())
 
-    db = corpus.corpus_db_path(tmp_path / "corpus")
-    case_id = "scotus/9025000501"
-    stored = corpus.CorpusRow(case_id=case_id, court="scotus", docket_number="25-501")
-    with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, [stored])
     with _client(handler) as client:
-        filed = live_module.latch_member_brief_on_lead(client, db, stored, _member_payload())
-    assert filed == date(2026, 7, 13)
-    assert [url for url in asked if url.endswith("/25-500.json")] == asked
+        poll_live_cases(client, db, data_root, [due], today=date(2026, 7, 20))
+    assert [path for path in asked if path.endswith(".json")] == [
+        path for path in asked if path.endswith("25-501.json")
+    ]
     with corpus.connect(db) as conn:
-        row = corpus.get_row(conn, case_id)
-    assert row is not None
-    assert row.merits_brief_on_lead == date(2026, 7, 13)
+        polled = corpus.get_row(conn, member_case)
+    assert polled is not None and polled.merits_brief_on_lead is None
+
+    # Once the lead's docket is stored, the next poll reads the brief off it.
+    ingest_live_payload(
+        db, data_root, _lead_payload(*_LEAD_BRIEFS), lead_id, today=date(2026, 7, 20)
+    )
+    with _client(handler) as client:
+        poll_live_cases(client, db, data_root, [polled], today=date(2026, 7, 21))
+    assert not any(path.endswith("25-500.json") for path in asked)
+    with corpus.connect(db) as conn:
+        latched = corpus.get_row(conn, member_case)
+    assert latched is not None
+    assert latched.merits_brief_on_lead == date(2026, 7, 13)
     # The briefed moment still reads the member's own docket alone.
-    assert row.merits_brief_filed is None
+    assert latched.merits_brief_filed is None
     # A later upsert that does not carry the fact keeps it.
     with corpus.connect(db) as conn:
-        corpus.upsert_rows(conn, [stored])
-        again = corpus.get_row(conn, case_id)
+        corpus.upsert_rows(conn, [member])
+        again = corpus.get_row(conn, member_case)
     assert again is not None and again.merits_brief_on_lead == date(2026, 7, 13)
 
-    # Once dated, decided, or briefed on its own docket, a member costs no request,
-    # and neither does a docket that is not a consolidated member.
-    asked.clear()
-    with _client(handler) as client:
-        for settled in (
-            row,
-            stored.model_copy(update={"merits_judgment": "affirmed"}),
-            stored.model_copy(update={"merits_brief_filed": date(2026, 7, 1)}),
-        ):
-            assert (
-                live_module.latch_member_brief_on_lead(client, db, settled, _member_payload())
-                is None
-            )
-        assert live_module.latch_member_brief_on_lead(client, db, stored, _payload()) is None
-    assert asked == []
+
+def test_the_lead_brief_latch_skips_settled_and_unconsolidated_rows(tmp_path: Path) -> None:
+    """A member already dated, decided or briefed on its own docket is left as it is."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    ingest_live_payload(
+        db,
+        tmp_path / "data",
+        _lead_payload(*_LEAD_BRIEFS),
+        live_docket_id(25, 500),
+        today=date(2026, 7, 20),
+    )
+    base = corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="25-501")
+    dated = base.model_copy(update={"merits_brief_on_lead": date(2026, 7, 1)})
+    decided = base.model_copy(update={"case_id": "scotus/2", "merits_judgment": "affirmed"})
+    briefed = base.model_copy(
+        update={"case_id": "scotus/3", "merits_brief_filed": date(2026, 7, 1)}
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [dated, decided, briefed])
+    for case_id in ("scotus/1", "scotus/2", "scotus/3", "scotus/4"):
+        assert live_module.latch_member_brief_on_lead(db, case_id, _member_payload()) is None
+    assert live_module.latch_member_brief_on_lead(db, "scotus/2", _payload()) is None
+    with corpus.connect(db) as conn:
+        kept = corpus.get_row(conn, "scotus/1")
+    assert kept is not None and kept.merits_brief_on_lead == date(2026, 7, 1)
 
 
 # --- the corpus `resolved` flag has one writer -----------------------------------
