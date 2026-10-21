@@ -366,13 +366,13 @@ salience:
   # Bootstrapping-sized, and sized to BIND. Raw paid cohorts run a median 34
   # petitions (p90 82, max 369), so a cap of 150 would cut just 8 of 251
   # cohorts and select ~95% of the paid docket — a ranking, not a spend
-  # control: at the ~$15-per-event planning rate (docs/budget.md) that is on
-  # the order of $24K a Term, about twice what the shipped cap of 12 costs
+  # control: at the ~$17-per-event planning rate (docs/milestones.md) that is
+  # on the order of $27K a Term, about twice what the shipped cap of 12 costs
   # (derived below). At 12 the
   # gate measures 495-522 selections a Term (OT2022-24 replay: capped rank
   # fill 398-413 plus uncapped carve-outs 97-115), which with the other
-  # stages' moments lands the escalation program at ~$11.1-11.5K — ~$12.6-13.0K
-  # with the arrival cohort beside it.
+  # stages' moments lands the escalation program at ~$12.4-12.9K — ~$14.1-14.6K
+  # with the arrival cohort beside it, at the same planning rate.
   #
   # It costs coverage, and the trade is stated rather than hidden: the
   # selection keeps 0.76-0.81 of the Term's replay-reconstructable
@@ -399,7 +399,7 @@ salience:
   # Sized to the
   # slice's real purpose, the unbiased predicted population whose forward
   # skill transfers to live use: 1-in-20 over ~1,500 paid arrivals/Term is
-  # ~75 cases (~$1,125 at the $15/case planning rate), publishable as n=75 with its
+  # ~75 cases (~$1,275 at the $17/case planning rate), publishable as n=75 with its
   # ±5.9pp interval (Wilson 95% at the pooled 6.67% arrival grant rate).
   # Class rates are census quantities at the population's own n and never
   # size this knob. Effectively

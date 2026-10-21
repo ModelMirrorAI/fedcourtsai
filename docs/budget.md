@@ -60,7 +60,15 @@ Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled
 up by `fedcourts usage-summary`), so the rates can be re-anchored from
 measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
 rate table the plans price against, never a drift: the figures move when someone
-moves them.
+moves them. That table (`src/fedcourtsai/planning_rates.py`) prices a fully
+predicted and evaluated event at about $16.80, well above the measured
+figures. Pricing high errs toward holding: the review hold's per-round
+auto-release reads the table, and a round priced above
+`auto_release_usd_per_round` waits for a release. Its claude-code
+and codex rows are set from the pre-cutover measurements and anchors; its gemini rows,
+$2.12 a prediction and $1.29 a grading run, are the measured Argon cells
+doubled for the rate in force from 2026-12-01, so they hold across that
+change. [milestones.md](milestones.md) prices its plan at the table.
 
 **The plain-language case summaries also spend outside `events × cost per
 event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic
