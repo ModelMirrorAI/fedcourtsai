@@ -190,17 +190,6 @@ written before the columns existed are back-filled from their stored live
 snapshots at the historical walker's start (`backfill_live_signals` —
 deterministic, idempotent, correct across corpus-blob rollbacks).
 
-`sg_brief_filed` dates the brief a CVSG asks for: the first entry the
-`sg-invited-brief` document arm below would store, read by the one parse both
-share (`cert_signals.sg_brief_date`), so the document and the date never name
-different entries. It opens the cert stage's sg-brief moment. The live poll is
-its only writer, fill-in latched; nothing back-fills it, because the moment
-opens only on an undecided petition and the rotation re-polls every one of
-those, so a null on a decided row polled before the column existed means
-*never parsed*. It is withheld from the `query` retrieval rows
-(`corpus.RETRIEVAL_WITHHELD_COLUMNS`): a cell reads the brief itself, not a
-column admitted to its retrieval surface without a re-bless.
-
 `capital_case` is a fourth column of this family — in practice live-channel
 fed, since only supremecourt.gov serves the marking, though the ingest raise
 is channel-agnostic by design — read not from the
@@ -228,6 +217,17 @@ standing sweep on run-seed's daily window and as run-repair's
 rather than a failure, because rows written before the write site stripped the
 marking carry one until something reaches them, and the verdict must not be red
 for the whole interval.
+
+`sg_brief_filed` dates the brief a CVSG asks for: the entry the
+`sg-invited-brief` document arm below stores from, located once for both
+(`cert_signals.sg_invited_brief_position`), so the document and the date never
+name different entries. It opens the cert stage's sg-brief moment. The live poll is
+its only writer, fill-in latched; nothing back-fills it, because the moment
+opens only on an undecided petition and the rotation re-polls every one of
+those, so a null on a decided row polled before the column existed means
+*never parsed*. It is withheld from the `query` retrieval rows
+(`corpus.RETRIEVAL_WITHHELD_COLUMNS`): a cell reads the brief itself, not a
+column admitted to its retrieval surface without a re-bless.
 
 On a granted docket the same parse also lands the **merits decision record**
 (`pipeline/decision_record.py`), over every grant — the GVR and the summary
@@ -371,7 +371,9 @@ the docket form, so one function serves both lanes:
   United States and nothing after it, so an amicus whose name merely opens with
   those words ("United States Conference of …") is not read as one, and the entry
   must say "amicus", so the United States filing as a party stays with the
-  opposition. It is the one amicus filing any arm selects: the Court asked for
+  opposition. The entry is the one the sg-brief moment is dated from, so a first
+  brief that posts no `Main Document` link stores nothing rather than a later
+  brief standing in for it. It is the one amicus filing any arm selects: the Court asked for
   it, and on an invited petition it is most often the filing that decides it.
 - **`merits-brief-petitioner`** / **`merits-brief-respondent`** — each side's
   brief on the merits, one row per side and one URL per row, taken from the

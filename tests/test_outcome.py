@@ -2293,6 +2293,70 @@ def test_the_arrival_moment_resolves_with_the_petition() -> None:
     assert len(facts) == 1
 
 
+def test_the_sg_brief_moment_resolves_with_the_petition() -> None:
+    """A brief-kind event still resolves on the cert disposition: the register decides."""
+    row = from_api_docket(DECIDED_DOCKET)
+    open_ids = [
+        "evt-petition-disposition",
+        "evt-order-cvsg-disposition",
+        "evt-brief-sg-disposition",
+    ]
+    resolution = detect_resolution(
+        row,
+        "ca9",
+        64512345,
+        open_ids,
+        stages=dict.fromkeys(open_ids, Stage.cert),
+    )
+    assert not resolution.unrecorded
+    assert set(resolution.outcomes) == set(open_ids)
+
+
+def test_the_sg_brief_moment_is_minted_but_never_forecast(tmp_path: Path) -> None:
+    """The live seam writes both halves of the event; the fan-out offers no cell for it.
+
+    Declared with ``forecastable=False`` until the predict prompt names the
+    moment, so the event accrues from the poll while no predictor is asked.
+    """
+    db = _db(tmp_path)
+    row = CorpusRow(
+        case_id="scotus/9524000210",
+        court="scotus",
+        docket_id=9524000210,
+        source="live",
+        docket_number="24-210",
+        cvsg_date=date(2025, 5, 12),
+        sg_brief_filed=date(2025, 11, 20),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/9524000210", court="scotus", docket_number="24-210")],
+        )
+    minted = mint_moment_events(
+        db,
+        tmp_path,
+        "scotus",
+        9524000210,
+        row,
+        Resolution(),
+        ["evt-petition-disposition"],
+    )
+    assert "evt-brief-sg-disposition" in minted
+    event = read_model(
+        CasePaths(tmp_path, "scotus", 9524000210).event("evt-brief-sg-disposition").event_file,
+        PredictableEvent,
+    )
+    assert (event.stage, event.moment, event.opened_at) == (
+        Stage.cert,
+        Moment.sg_brief,
+        date(2025, 11, 20),
+    )
+    with corpus.connect(db) as conn:
+        offered = forecastable_event_ids(conn, "scotus", 9524000210, today=date(2025, 11, 25))
+    assert "evt-brief-sg-disposition" not in offered
+
+
 # --- applications: every moment resolves from the one disposition -------------
 
 _INTERIM_MOMENTS = [

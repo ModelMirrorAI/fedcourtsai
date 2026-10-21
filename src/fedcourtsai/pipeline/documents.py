@@ -93,15 +93,15 @@ from .caption import _scored_segment
 # closes a cycle; `ingest`, which holds the same grant reading for the corpus
 # row, would.
 #
-# The invitation and disposition readings bound the two cert-stage arms that are
-# not opposition briefs — the Solicitor General's invited brief and the reply —
-# in docket order: the CVSG entry opens the first, and the first entry carrying
-# a machine-readable cert disposition closes both.
+# The disposition reading bounds the cert-stage reply in docket order: the first
+# entry carrying a machine-readable cert disposition closes it. The Solicitor
+# General's invited brief is located by `cert_signals` itself, between the CVSG
+# entry and that same disposition, because the sg-brief moment is dated off the
+# same entry.
 from .cert_signals import (
-    CVSG_RE,
     cert_grant_date,
-    is_sg_invited_brief_entry,
     match_disposition_signal,
+    sg_invited_brief_position,
 )
 from .cert_signals import entry_date as _parse_entry_date
 
@@ -749,13 +749,13 @@ def select_documents(
       link alone. The merits reply arm below reads the same words after the
       grant; the date is the only thing between them.
     - The **Solicitor General's invited brief**
-      (:func:`cert_signals.is_sg_invited_brief_entry`), stored as
+      (:func:`cert_signals.sg_invited_brief_position`), stored as
       ``sg-invited-brief``: the first brief for the United States as amicus
       curiae entered after the Court's invitation
       (:data:`cert_signals.CVSG_RE`) and before any disposition entry, from its
-      ``Main Document`` link alone — the entry
-      :func:`cert_signals.sg_brief_date` dates the sg-brief moment from. No
-      other amicus brief is selected by any arm.
+      ``Main Document`` link alone — the entry the sg-brief moment is dated
+      from. A first brief posting no such link stores nothing; a later one is
+      never taken in its place. No other amicus brief is selected by any arm.
     - The **petitioner's brief on the merits**
       (:func:`merits_signals.is_petitioner_merits_brief`) and the
       **respondent's** (:func:`~merits_signals.is_respondent_merits_brief_document`),
@@ -825,15 +825,19 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     application_reply: DocumentRef | None = None
     bios: list[DocumentRef] = []
     seen_bio_urls: set[str] = set()
-    # Docket-order stage markers for the reply and invited-brief arms: whether
-    # the Court has invited the Solicitor General yet, and whether the petition
-    # has been disposed of. Both are updated *after* an entry is read, so the
-    # entry that disposes of the petition is itself never a filing here.
-    invited = False
+    # Docket-order stage marker for the reply arm: whether the petition has been
+    # disposed of, updated *after* an entry is read, so the entry that disposes
+    # of the petition is itself never a filing here.
     disposed = False
+    # The invited brief is located once, by the parse that also dates the
+    # sg-brief moment, so the stored document and the moment are one entry.
+    # Positions count the mapping entries alone, as `proceedings_entries` does.
+    sg_position = sg_invited_brief_position(payload)
+    position = -1
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
             continue
+        position += 1
         text = str(entry.get("Text") or "")
         entry_date = str(entry.get("Date") or "") or None
         filed = _parse_entry_date(entry_date)
@@ -883,13 +887,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on)
         ):
             cert_reply = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
-        elif (
-            sg_brief is None
-            and invited
-            and not disposed
-            and is_sg_invited_brief_entry(text)
-            and not _is_post_grant(filed, granted_on)
-        ):
+        elif position == sg_position:
             sg_brief = _merits_filing_ref(entry, KIND_SG_INVITED_BRIEF, entry_date)
         elif (
             merits_petitioner is None
@@ -915,7 +913,6 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             and is_respondent_merits_reply(text)
         ):
             reply_respondent = _merits_filing_ref(entry, KIND_MERITS_REPLY_RESPONDENT, entry_date)
-        invited = invited or CVSG_RE.search(text) is not None
         disposed = disposed or match_disposition_signal(text) is not None
     return [
         ref

@@ -201,7 +201,8 @@ application's life, so a degraded parse's confident 0 never regresses a stored
 value — and `application_kind` gets the TEXT twin of that latch: a real reading
 (`extension` / `substantive`) is never wiped by a degraded parse's confident
 `unknown`, which only ever fills a genuine gap. The dated signals beside these
-families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`),
+families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`,
+`sg_brief_filed`),
 and the merits decision record (`merits_argued`, `merits_decision_method`),
 fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
 rather than a confident sentinel, so no other writer may blank a reading the live

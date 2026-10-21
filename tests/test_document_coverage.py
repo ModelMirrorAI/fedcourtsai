@@ -267,6 +267,28 @@ def test_other_amicus_and_united_states_filings_are_not_the_invited_brief(words:
     assert sg_brief_date(payload) is None
 
 
+def test_a_first_invited_brief_without_its_document_is_not_replaced() -> None:
+    """The document and the moment are one entry: a later brief never stands in."""
+    words = "Brief for the United States as amicus curiae filed."
+    linkless = {"Date": "Sep 15 2026", "Text": words, "Links": []}
+    payload = _docket(
+        _BIO,
+        _INVITATION,
+        linkless,
+        _entry("Oct 02 2026", words, url="https://www.supremecourt.gov/sg2.pdf"),
+    )
+    assert KIND_SG_INVITED_BRIEF not in _kinds(payload)
+    assert sg_brief_date(payload) == date(2026, 9, 15)
+    undated = _docket(
+        _BIO,
+        _INVITATION,
+        _entry("", words, url=_SG_URL),
+        _entry("Oct 02 2026", words, url="https://www.supremecourt.gov/sg2.pdf"),
+    )
+    assert _kinds(undated)[KIND_SG_INVITED_BRIEF] == _SG_URL
+    assert sg_brief_date(undated) is None
+
+
 def test_the_sg_brief_moment_opens_at_the_first_invited_brief() -> None:
     """A second United States amicus brief does not move the moment's date."""
     words = "Brief for the United States as amicus curiae filed."

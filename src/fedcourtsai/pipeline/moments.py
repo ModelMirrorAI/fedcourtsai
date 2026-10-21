@@ -342,7 +342,7 @@ def moments_for(stage: Stage) -> tuple[MomentSpec, ...]:
     Registry order, not chronology: the first position is the stage's
     baseline — the spec the open-first-moment guards and the resolution fan
     key on — and a later registration may be chronologically earlier (the
-    cert arrival moment precedes every distribution while carrying the last
+    cert arrival moment precedes every distribution while carrying a later
     ordinal). A caller wanting time order reads each spec's description.
     """
     return tuple(

@@ -3447,7 +3447,7 @@ def _is_leakage_flagged(row: LedgerPrediction, leakage: _Leakage) -> bool:
 #: in a docket's life than a cert CVSG, and the order a reader checks the rule
 #: against is the order the docket walks. It is not
 #: :data:`fedcourtsai.pipeline.moments.DECLARED_MOMENTS`' own ordering, which is
-#: registry order (the cert arrival moment carries the last cert ordinal while
+#: registry order (the cert arrival moment carries a later cert ordinal while
 #: preceding every distribution) — a test pins the two against each other, so a newly
 #: registered moment cannot arrive without a position here.
 _BIG_CASE_MOMENT_ORDER: Final[tuple[tuple[Stage, Moment], ...]] = (
