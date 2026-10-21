@@ -1489,18 +1489,12 @@ def test_a_members_respondent_brief_is_dated_off_its_lead() -> None:
     assert member_respondent_brief_date(_lead_payload(other), member) is None
     # The later of the two grants bounds it, as the document borrow is bounded.
     late = _member_payload()
-    late["ProceedingsandOrder"][2] = {
-        "Date": "Jul 20 2026",
-        "Text": "Petition GRANTED.",
-        "Links": [],
-    }  # type: ignore[index]
+    late_grant = {"Date": "Jul 20 2026", "Text": "Petition GRANTED.", "Links": []}
+    late["ProceedingsandOrder"][2] = late_grant  # type: ignore[index]
     assert member_respondent_brief_date(_lead_payload(*_LEAD_BRIEFS), late) is None
     ungranted_lead = _lead_payload(*_LEAD_BRIEFS)
-    ungranted_lead["ProceedingsandOrder"][1] = {
-        "Date": "",
-        "Text": "Petition GRANTED.",
-        "Links": [],
-    }  # type: ignore[index]
+    undated_grant = {"Date": "", "Text": "Petition GRANTED.", "Links": []}
+    ungranted_lead["ProceedingsandOrder"][1] = undated_grant  # type: ignore[index]
     assert member_respondent_brief_date(ungranted_lead, member) is None
     # Nothing on the lead yet dates nothing.
     assert member_respondent_brief_date(_lead_payload(), member) is None
