@@ -897,6 +897,85 @@ def snapshot_cvsg_date(payload: Mapping[str, Any]) -> str | None:
     return None
 
 
+# The Solicitor General's **invited brief**, filed in answer to the Court's call
+# for the views of the United States (:data:`CVSG_RE`):
+#
+#   "Brief amicus curiae of United States filed."
+#   "Brief for the United States as amicus curiae filed."
+#   "Brief of the United States as Amicus Curiae filed."
+#
+# Start-anchored on the filer, and the filer must be the United States **and
+# nothing after it** — the lookahead admits only "as …", the verb, a parenthesis
+# or punctuation — because "United States" also opens the names of amici that
+# are not the government ("Brief amicus curiae of United States Conference of
+# Catholic Bishops filed.", "Brief of United States Senators …"). The word
+# "amicus" is required as well, so the United States filing as a **party** — a
+# federal respondent's opposition — is never read as the invited brief.
+_SG_BRIEF_RE = re.compile(
+    r"^\s*brief\s+(?:amicus\s+curiae\s+)?(?:of|for)\s+(?:the\s+)?united\s+states"
+    r"(?=\s*(?:as\b|filed\b|submitted\b|\(|[.,;]|$))",
+    re.IGNORECASE,
+)
+_SG_AMICUS_RE = re.compile(r"\bamicus\b", re.IGNORECASE)
+_SG_FILED_RE = re.compile(r"\b(?:filed|submitted)\b", re.IGNORECASE)
+
+
+def is_sg_invited_brief_entry(text: str) -> bool:
+    """Whether an entry is the brief for the United States as amicus curiae.
+
+    Text alone; :func:`sg_invited_brief_position` supplies the stage — an entry
+    counts only after the Court's invitation and before the first disposition,
+    in docket order — so an uninvited filing by the United States as amicus (a
+    merits-stage amicus brief supporting a party, say) is never read as the
+    invited one.
+    """
+    return bool(
+        _SG_BRIEF_RE.search(text) and _SG_AMICUS_RE.search(text) and _SG_FILED_RE.search(text)
+    )
+
+
+def sg_invited_brief_position(payload: Mapping[str, Any]) -> int | None:
+    """Where the Solicitor General's invited brief sits in the docket, or ``None``.
+
+    The one locator of the entry, as a position in :func:`proceedings_entries`:
+    the **first** entry :func:`is_sg_invited_brief_entry` reads, in docket order,
+    after the invitation (:data:`CVSG_RE`) and before the first disposition
+    entry (:func:`match_disposition_signal`). Both stage markers update *after*
+    an entry is read, so neither the invitation entry nor the disposing entry is
+    itself the brief.
+
+    The document selector stores the ``sg-invited-brief`` filing from this entry
+    and :func:`sg_brief_date` dates the sg-brief moment from it, so the document
+    a cell reads and the moment it is filed under are the same entry. A later
+    brief never stands in for the first: an entry with no usable link or no
+    readable date leaves the document or the moment absent rather than moved.
+    """
+    invited = False
+    for position, (text, _raw) in enumerate(proceedings_entries(payload)):
+        if invited and is_sg_invited_brief_entry(text):
+            return position
+        if match_disposition_signal(text) is not None:
+            return None
+        invited = invited or CVSG_RE.search(text) is not None
+    return None
+
+
+def sg_brief_date(payload: Mapping[str, Any]) -> date | None:
+    """The date the Solicitor General's invited brief was filed, or ``None``.
+
+    The trigger of the cert stage's sg-brief moment: the strict date
+    (:func:`entry_date`) of the entry :func:`sg_invited_brief_position`
+    locates. Ingest latches it and provisioning re-reads it to check a placed
+    snapshot carries the entry, both through this function. An undated brief
+    yields ``None``, since a moment opened at the wrong entry is worse than one
+    not opened.
+    """
+    position = sg_invited_brief_position(payload)
+    if position is None:
+        return None
+    return entry_date(proceedings_entries(payload)[position][1])
+
+
 #: A distribution of the petition itself: the entry-initial parse, which leaves out
 #: an ancillary paper's distribution ("Motion (…) DISTRIBUTED for Conference of …").
 _PETITION_DISTRIBUTED_RE = distribution_pattern("dist-v2")

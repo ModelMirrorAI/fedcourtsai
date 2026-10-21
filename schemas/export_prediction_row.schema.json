@@ -42,6 +42,7 @@
       "enum": [
         "distribution",
         "cvsg",
+        "sg-brief",
         "arrival",
         "response-requested",
         "response-filed",

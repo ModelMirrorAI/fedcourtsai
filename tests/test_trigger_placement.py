@@ -23,6 +23,7 @@ from fedcourtsai.schemas import Moment, Stage
 _RESPONSE_REQUESTED = "evt-order-response-requested-disposition"
 _RESPONSE_FILED = "evt-brief-response-disposition"
 _CVSG = "evt-order-cvsg-disposition"
+_SG_BRIEF = "evt-brief-sg-disposition"
 
 _APPLICATION = "Application (26A477) for an administrative stay, submitted to Justice Kavanaugh."
 _REQUEST = "Response to application (26A477) requested by Justice Kavanaugh, due October 10, 2026."
@@ -197,6 +198,29 @@ def test_the_cvsg_moment_needs_the_invitation() -> None:
 
     cutoff, read = _read(_CVSG, cvsg_day, after, (cvsg_day, after))
     assert _place(_CVSG, cutoff, read).provenance == "dated"
+
+
+def test_the_sg_brief_moment_needs_the_brief() -> None:
+    brief_day = date(2026, 9, 15)
+    head = [
+        ("Mar 02 2026", "DISTRIBUTED for Conference of 3/20/2026."),
+        ("Mar 23 2026", _CVSG_TEXT),
+    ]
+    before = _live([*head, ("Sep 15 2026", "Brief amicus curiae of X filed.")], "25-100")
+    after = _live(
+        [
+            *head,
+            ("Sep 15 2026", "Brief amicus curiae of X filed."),
+            ("Sep 15 2026", "Brief amicus curiae of United States filed."),
+        ],
+        "25-100",
+    )
+    cutoff, read = _read(_SG_BRIEF, brief_day, after, (brief_day, before))
+    placement = _place(_SG_BRIEF, cutoff, read)
+    assert placement.provenance == "truncated"
+
+    cutoff, read = _read(_SG_BRIEF, brief_day, after, (brief_day, after))
+    assert _place(_SG_BRIEF, cutoff, read).provenance == "dated"
 
 
 def test_the_rest_shape_is_read_too() -> None:

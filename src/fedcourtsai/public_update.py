@@ -122,6 +122,7 @@ _MERITS_WORDS: Final[dict[Judgment, str]] = {
 _MOMENT_WORDS: Final[dict[Moment, str]] = {
     Moment.distribution: "at its distribution for conference",
     Moment.cvsg: "after the Court invited the Solicitor General's views",
+    Moment.sg_brief: "after the Solicitor General filed the invited brief",
     Moment.arrival: "when it was filed",
     Moment.response_requested: "after the Court requested a response",
     Moment.response_filed: "after the response was filed",
