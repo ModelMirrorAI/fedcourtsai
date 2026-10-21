@@ -1044,38 +1044,61 @@ def relisted_past(payload: Mapping[str, Any], run_day: date) -> bool:
     return any(conference <= run_day for _filed, conference in distributions[:-1])
 
 
+#: How long after a conference a relist entry may be docketed and still be that
+#: conference's relist. The Clerk enters a relist in the days after the conference
+#: that passed on the petition, ahead of the next one; a redistribution entered
+#: months later follows something else (a petition held for another case, or a
+#: call for the Solicitor General's views and the brief that answered it) and is
+#: not the signal the moment forecasts from.
+RELIST_ENTRY_WINDOW = timedelta(days=14)
+
+
 def first_relist_date(payload: Mapping[str, Any]) -> date | None:
     """When the Court first relisted the petition, or ``None``.
 
     The trigger of the cert stage's relist moment: the strict date
     (:func:`entry_date`) of the first **petition** distribution (the
     entry-initial ``dist-v2`` parse, so an ancillary paper's distribution never
-    counts) that names a later conference than the one before it, filed after
-    that earlier conference **sat on the petition** as
-    :func:`considering_conference` reads it the day before. A distribution
-    entered before the earlier conference, or after a call for response or a
-    bare reschedule took the petition off it, moves the petition without the
-    Court having considered it, and is not a relist. Read only up to the first
-    disposition entry, so nothing distributed after the petition was decided
-    (a rehearing, a post-grant paper) stands in for it. Only the first relist
-    opens the moment; a later one is the same signal again.
+    counts) that names a later conference than the one before it, docketed after
+    that earlier conference and within :data:`RELIST_ENTRY_WINDOW` of it, where
+    the earlier conference **sat on the petition**: no call for response or bare
+    reschedule follows its distribution in docket order dated on or before the
+    conference day. Docket order rather than date decides which distribution an
+    off entry follows, so a reschedule and the new distribution entered on one
+    day read as the move they are. A redistribution entered before
+    the earlier conference, after something took the petition off it, or long
+    after it moves the petition without being a relist. A relist entry dated on
+    the conference day itself is not read as one, since the day alone cannot
+    say whether the conference had sat. Read only up to the first disposition
+    entry, so nothing distributed after the petition was decided stands in for
+    it. Only the first relist opens the moment; a later one is the same signal
+    again.
     """
-    previous: date | None = None
+    previous: date | None = None  # the conference the latest distribution named
+    taken_off = False  # whether an entry after that distribution took it off
     for text, raw in proceedings_entries(payload):
         if match_disposition_signal(text) is not None:
             return None
+        if _RESPONSE_REQUESTED_RE.search(text) or _RESCHEDULED_RE.search(text):
+            taken = entry_date(raw)
+            if previous is not None and taken is not None and taken <= previous:
+                taken_off = True
+            continue
         match = _PETITION_DISTRIBUTED_RE.search(text)
+        if match is None:
+            continue
         filed = entry_date(raw)
-        if match is None or filed is None:
-            continue
         conference = conference_date(match.group(1))
-        if conference is None:
+        if filed is None or conference is None:
             continue
-        if previous is not None and conference > previous and previous < filed:
-            sat, reading = considering_conference(payload, filed, filed - timedelta(days=1))
-            if reading == "sat" and sat == previous:
-                return filed
-        previous = conference
+        if (
+            previous is not None
+            and conference > previous
+            and not taken_off
+            and previous < filed <= previous + RELIST_ENTRY_WINDOW
+        ):
+            return filed
+        previous, taken_off = conference, False
     return None
 
 

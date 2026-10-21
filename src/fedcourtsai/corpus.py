@@ -429,8 +429,8 @@ class CorpusRow(BaseModel):
         default=None,
         description="When the Court first relisted the petition "
         "(`pipeline.cert_signals.first_relist_date`): the first petition "
-        "distribution for a later conference, filed after the earlier conference "
-        "sat on the petition, before any disposition — the cert stage's relist "
+        "distribution for a later conference, docketed within two weeks after the "
+        "earlier conference sat on the petition, before any disposition — the cert stage's relist "
         "forecast moment. Written by the live poll at ingest; fill-in latched. "
         "Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = "
         "no relist, not yet, or not parsed — on a decided row polled before the "

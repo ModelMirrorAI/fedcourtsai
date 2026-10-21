@@ -361,7 +361,7 @@ class Moment(StrEnum):
 
     #: cert — the petition is first distributed for conference.
     distribution = "distribution"
-    #: cert — the Court relists the petition after a conference considered it.
+    #: cert — the Court first relists the petition after a conference considered it.
     relist = "relist"
     #: cert — the Court calls for the Solicitor General's views.
     cvsg = "cvsg"

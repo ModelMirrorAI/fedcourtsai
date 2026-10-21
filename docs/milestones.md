@@ -99,7 +99,7 @@ with the one the public cares about most:
 - **Late-Term authorship elimination** — a fixed calendar date on which every
   still-undecided argued case is re-forecast, once the pattern of who has
   written from each sitting is visible (~25).
-- **Relist re-forecast** and **call for response** — the strongest public
+- **First-relist re-forecast** and **call for response** — the strongest public
   cert-stage signals. Both are declared, parsed and minted, and switched off
   on the same terms as the SG brief: the call for response
   (`evt-order-call-for-response-disposition`, moment `response-requested` on
