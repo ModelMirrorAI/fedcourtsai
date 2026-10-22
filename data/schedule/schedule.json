@@ -492,6 +492,13 @@
       "stale_reason": "conference_passed"
     },
     {
+      "case_id": "scotus/9026000094",
+      "distributed_for_conference": "2026-11-06",
+      "last_live_polled": "2026-10-22",
+      "next_conference": "2026-11-06",
+      "stale_reason": null
+    },
+    {
       "case_id": "scotus/9026000107",
       "distributed_for_conference": "2026-09-28",
       "last_live_polled": "2026-10-17",
