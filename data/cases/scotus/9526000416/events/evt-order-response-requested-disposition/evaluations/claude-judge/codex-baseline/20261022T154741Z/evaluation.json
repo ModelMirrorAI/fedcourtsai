@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.7,
+    "notes": "Emergency application by the Solicitor General to stay a class-wide PLRA preliminary injunction / APA section 705 stay against BOP's nationwide gender-dysphoria treatment policy. National policy stakes and concrete harm to a federal inmate class, but an interim order on a 90-day injunction with the merits pending in the D.C. Circuit; the denial (only Justices Thomas and Alito noted they would grant) is a notable government loss on the emergency docket, but it settles nothing on the merits."
+  },
+  "brier_score": 0.4624000000000001,
+  "brier_skill_score": -52.19271111111111,
+  "case_id": "scotus/9526000416",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.09323583180987204,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.68,
+        "score": -0.45370707966672136
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.96,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.8,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.45370707966672136,
+    "total": -0.45370707966672136
+  },
+  "correct": 0,
+  "created_at": "2026-10-22T16:00:21Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (predicted 2026-09-29, resolved 2026-10-21). Retrieval: statpack, CourtListener lookups of general authorities (Hollingsworth, Wages & White Lion, Hoffer, Skrmetti), and web searches on general law (unobserved; graded on their queries, none case-specific). The one find command excluded data/qp-topics via -not -path, which opens no file there. No outcome material.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260929T212928Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v10",
+    "pipeline_sha": "e8d8df932e28a45cd52ae25887b584fd8474bc89",
+    "stamped_at": "2026-10-22T16:00:49.741074Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261022T154741Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.09323583180987204,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

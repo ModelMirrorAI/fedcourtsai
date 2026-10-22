@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.58,
+    "notes": "Solicitor General emergency stay application challenging a classwide preliminary injunction and 5 U.S.C. 705 stay against BOP Program Statement 5260.01 (implementing Executive Order 14168 section 4(c) on gender-dysphoria care for roughly 1,000 federal inmates). High institutional and human stakes for an emergency application, drawing multistate amicus support and noted dissents from Justices Thomas and Alito, but bounded by its interlocutory APA record-adequacy and 90-day PLRA posture and the Court's bare denial without opinion."
+  },
+  "brier_score": 0.5184,
+  "brier_skill_score": -58.63473494809687,
+  "case_id": "scotus/9526000416",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.09323583180987204,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.72,
+        "score": -0.5097070796667212
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 1.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.93,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.88,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.5097070796667212,
+    "total": -0.5097070796667212
+  },
+  "correct": 0,
+  "created_at": "2026-10-22T16:07:00Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created 2026-09-29T21:47:14Z against the 2026-09-28 snapshot, three weeks before the October 21, 2026 disposition. retrieval_log.json (result_capture_coverage = 1.0, 29 calls, 0 throttled) shows reads of provisioned cell files, metrics/statpack.md, four fedcourts query calls on SCOTUS applications, and four CourtListener MCP lookups of D.D.C. (1:25-cv-00691) and D.C. Circuit (26-5236, 26-5310) dockets with latest retrieved_doc_date 2026-09-22. No outcome material existed or was retrieved.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260929T212928Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+    "label": "proc-v10",
+    "pipeline_sha": "e8d8df932e28a45cd52ae25887b584fd8474bc89",
+    "stamped_at": "2026-10-22T16:19:26.878682Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261022T154741Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.09323583180987204,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

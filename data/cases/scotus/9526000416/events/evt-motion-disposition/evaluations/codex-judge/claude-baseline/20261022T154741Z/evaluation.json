@@ -1,0 +1,80 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.75,
+    "notes": "A nationwide federal-prison treatment policy presents substantial stakes for affected inmates and important administrative-law and prison-remedy questions. This emergency stay decision is consequential but does not itself establish a final merits rule."
+  },
+  "brier_score": 0.4624000000000001,
+  "brier_skill_score": -52.19271111111111,
+  "case_id": "scotus/9526000416",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.09323583180987204,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.68,
+        "score": -0.45370707966672136
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "mask_reason": "signal-before-run",
+        "outcome": null,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.94,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.93,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.45370707966672136,
+    "total": -0.45370707966672136
+  },
+  "correct": 0,
+  "created_at": "2026-10-22T16:01:27Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The September 29 forward run precedes the October 21 denial. Target-docket retrieval revealed a September 28 response request, not a disposition; the candidate explicitly discloses this post-baseline but legitimate forward signal. The log's dated lower-court material is September 28 or earlier, and its corpus row dated September 29 also predates resolution. No target-outcome material is shown.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260929T212928Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+    "label": "proc-v10",
+    "pipeline_sha": "e8d8df932e28a45cd52ae25887b584fd8474bc89",
+    "stamped_at": "2026-10-22T16:02:20.634903Z"
+  },
+  "reasoning_quality": 0.78,
+  "run_id": "20261022T154741Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.09323583180987204,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

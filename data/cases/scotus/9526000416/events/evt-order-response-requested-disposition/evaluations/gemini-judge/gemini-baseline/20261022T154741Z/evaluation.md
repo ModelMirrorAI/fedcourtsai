@@ -1,0 +1,25 @@
+# Evaluation of `gemini-baseline` — `scotus/9526000416` (`evt-order-response-requested-disposition`)
+
+## Stage & Quantitative Summary
+
+- **Stage:** `interim` (order moment `response-requested`, opened `2026-09-28`, resolved `2026-10-21`).
+- **Outcome:** `actual_disposition = "denied"`, `actual_granted = 0` (the application was referred to the full Court after two amicus briefs and a reply were filed, and denied on October 21, 2026, with Justices Thomas and Alito noting they would grant the application for stay).
+- **Prediction:** `predicted_disposition = "granted"`, `granted = 1`, `probability = 0.75`.
+- **Accuracy & Brier Score:** `correct = 0`, `brier_score = (0.75 - 0)^2 = 0.5625`.
+- **Baseline & Skill (`segment_base_rate`, `brier_skill_score`, `base_rate_basis`):** This cell is an `interim` event, so `segment_base_rate` and `brier_skill_score` are not evaluator-written and `base_rate_basis` is left `null` (neither `risk_set` nor `terminal` applies because interim applications carry no salience band). The harness (`stamp-cell --role evaluator`) pools the committed statpack's interim substantive slice over application Terms strictly prior to Term 2026 and stamps the segment base rate and Brier skill score directly. Similarly, `claim_scores` for the declared `interim-v1` set is computed in code by the harness, and no `semantic_grades` or `vote_accuracy` block applies to an interim cell.
+
+## Reasoning Quality (`0.42`)
+
+`gemini-baseline`'s `reasoning.md` is a single 186-word paragraph that earns a `0.42` on `reasoning_quality`:
+
+1. **Superficial engagement with the record:** While `gemini-baseline` correctly noted the rough ~10% interim substantive baseline and identified the broad headline features favoring the government (a Solicitor General stay application, an Executive Order policy on prison administration, a classwide preliminary injunction, the PLRA, the Chief Justice's response request, and *Skrmetti*), it did not engage the actual legal or factual posture disclosed in `application.txt`.
+2. **Missing analysis of the APA defect, partial-grant risk, and equities:** `gemini-baseline` did not mention that the district court's and D.C. Circuit's rulings rested on an APA arbitrary-and-capricious finding that BOP failed to examine its own 30-year record of providing hormone therapy in federal prisons, nor did it address the circuit majority's observation on PLRA preservation, the 90-day expiration of the PLRA preliminary injunction, the concrete irreparable-harm findings on tapering ongoing hormone treatment, or the risk of a partial stay (which resolves as ungranted under the interim binary contract).
+3. **Uncalibrated jump to `0.75`:** Without weighing any countervailing factors or decomposing probability mass across full grant, partial grant, and denial, `gemini-baseline` jumped straight from the ~10% baseline to the highest probability in the cohort (`0.75`), resulting in the worst Brier score (`0.5625`) when the Court denied the application on October 21, 2026 over only two noted dissents (Justices Thomas and Alito).
+
+## Big-Case Assessment (`evaluator_score = 0.58`)
+
+Our independent assessment of the case's significance is `0.58`. As a Solicitor General emergency application seeking to stay a classwide preliminary injunction and 5 U.S.C. § 705 stay against BOP Program Statement 5260.01 (implementing Executive Order 14168 § 4(c) across roughly 1,000 federal inmates with gender dysphoria), the application carried substantial institutional and human stakes on the emergency docket, attracting two amicus briefs and noted dissents from Justices Thomas and Alito, but its broader legal significance is bounded by its interlocutory APA/PLRA posture and the Court's bare denial without opinion. `gemini-baseline`'s `big_case_score` of `0.90` and one-sentence generic rationale ("High-profile case challenging a nationwide executive branch policy affecting federal prisons, likely to draw significant public and media attention") overstate the stakes of an interim stay order by placing it near landmark merits territory.
+
+## Leakage Assessment (`mode = "forward"`, `influenced_prediction = "not_applicable"`, `leakage_suspected = false`)
+
+`gemini-baseline` ran in `forward` mode on `2026-09-29T21:42Z–21:43Z` against the `2026-09-28.json` snapshot, more than three weeks before the October 21, 2026 disposition. In `retrieval_log.json`, `result_capture_coverage` is `0.0` (all 24 logged calls carry `result_capture = "unobserved"` because that engine's transcript format did not record tool responses). Judging from the logged query strings and `retrieval.md`, `gemini-baseline` read only the provisioned cell files, `metrics/statpack.md`, and two `fedcourts query` commands (`uv run fedcourts query --court scotus --era roberts-barrett --limit 3` and `uv run fedcourts query --court scotus --era 2020s --include-applications --limit 3`, listing the latter in `retrieval.md`). No outcome material existed at prediction time or was accessed.

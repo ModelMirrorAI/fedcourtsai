@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs. I read only the committed `metrics/statpack.md` (the interim docket section), for context on the stamped baseline. I made no corpus query, no CourtListener lookup, and no web search.

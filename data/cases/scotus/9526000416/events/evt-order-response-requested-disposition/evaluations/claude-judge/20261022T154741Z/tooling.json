@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000416",
+  "run_id": "20261022T154741Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Blinded retrieval logs with result_capture markers made the forward-leakage check quick", "The decided docket snapshot's order text gave the disposition and noted votes directly"],
+  "gaps": [],
+  "notes": "Interim cell: baseline and skill are harness-stamped, so the statpack was not consulted."
+}

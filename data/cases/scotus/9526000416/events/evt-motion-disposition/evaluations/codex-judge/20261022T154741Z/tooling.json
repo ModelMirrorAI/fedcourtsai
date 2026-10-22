@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000416",
+  "gaps": [
+    "Unobserved candidate retrieval results limit independent verification of what was returned."
+  ],
+  "helpful": [
+    "Blinded prediction bundles preserve the grading inputs without exposing predictor identities.",
+    "Frozen contexts and captured retrieval metadata distinguish legitimate forward signals from outcome leakage.",
+    "The committed interim statpack identifies whether the harness baseline has adequate prior-Term support."
+  ],
+  "notes": "Evaluated all three staged aliases using supplied records only. No external case retrieval was needed; result-capture limitations were not treated as retrieval failures.",
+  "role": "evaluator",
+  "run_id": "20261022T154741Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

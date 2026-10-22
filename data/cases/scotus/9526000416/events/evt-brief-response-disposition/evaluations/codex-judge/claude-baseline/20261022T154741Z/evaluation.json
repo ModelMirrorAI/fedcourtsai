@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.72,
+    "notes": "Systemwide federal-prison medical treatment and the scope of judicial constraints on executive policy create substantial human and institutional stakes. This is an interlocutory stay application, not a plenary decision resolving the underlying treatment or statutory questions."
+  },
+  "brier_score": 0.39690000000000003,
+  "brier_skill_score": -44.657843944636674,
+  "case_id": "scotus/9526000416",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.09323583180987204,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.63,
+        "score": -0.3882070796667213
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 1.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.92,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.5,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.3882070796667213,
+    "total": -0.3882070796667213
+  },
+  "correct": 0,
+  "created_at": "2026-10-22T15:58:44Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The 47-call log places the prediction work on October 9, before the October 21 resolution, with result_capture_coverage 1.0. It records pre-decision filings, lower-court proceedings, other-case precedents and policy trackers. The reasoning and retrieval note report this application still pending on the official docket. No entry shows this application's eventual denial. Forward docket checks were permitted; null document dates alone do not establish what a result contained.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261009T143059Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+    "label": "proc-v10",
+    "pipeline_sha": "e8d8df932e28a45cd52ae25887b584fd8474bc89",
+    "stamped_at": "2026-10-22T16:01:15.651220Z"
+  },
+  "reasoning_quality": 0.83,
+  "run_id": "20261022T154741Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.09323583180987204,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000416",
+  "run_id": "20261022T154741Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell (cat/python over the provisioned record and blinded staging)"
+  ],
+  "helpful": [
+    "The decided snapshot's ProceedingsandOrder text showed the denial was outright, with Thomas and Alito noted as would-grant, so it was not a partial grant collapsed to denied"
+  ],
+  "gaps": [],
+  "notes": "Interim cell, so the baseline and skill are stamped by the harness. Graded from the provisioned inputs only."
+}
