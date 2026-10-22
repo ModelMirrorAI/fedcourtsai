@@ -1,0 +1,68 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4be08602b352e6c1",
+      "query": "{\"cmd\": \"jq 'keys' metrics/statpack.json; rg -n 'sal-v4|bracket|reached|relist|CVSG|terminal|increment|2017|2025|2026' metrics/statpack.md\", \"max_output_tokens\": 6500}",
+      "result_capture": "captured",
+      "result_digest": "8f1fad3755e89310",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-22T10:33:19.102Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "85f488b4ccb4025b",
+      "query": "{\"cmd\": \"sed -n '1,28p' metrics/statpack.md; sed -n '95,125p' metrics/statpack.md; sed -n '155,202p' metrics/statpack.md; jq '.terms | type, (if type == \\\"object\\\" then keys else .[0] end)' metrics/statpack.json\", \"max_output_tokens\": 6300}",
+      "result_capture": "captured",
+      "result_digest": "b513ddff484c2980",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-22T10:33:24.244Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "681951675b4f00f4",
+      "query": "{\"cmd\": \"jq '[.terms[] | select(.term >= 2017 and .term <= 2025) | . as $term | .segments[] | select(.band == \\\"baseline\\\") | {term: $term.term, version: $term.salience_version, weighted_resolved: .prefix_weighted_resolved, rate: .prefix_est_grant_rate, implied_grants: (.prefix_est_grant_rate * .prefix_weighted_resolved)}] | sort_by(.term) | . as $rows | {rows: $rows, terms: length, estimated_grants: (map(.implied_grants) | add), weighted_resolved: (map(.weighted_resolved) | add), pooled_percent",
+      "result_capture": "captured",
+      "result_digest": "6369580e7901e9fe",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-22T10:33:31.528Z",
+      "tool": "exec_command"
+    }
+  ],
+  "case_id": "scotus/9026000457",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261022T031334Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

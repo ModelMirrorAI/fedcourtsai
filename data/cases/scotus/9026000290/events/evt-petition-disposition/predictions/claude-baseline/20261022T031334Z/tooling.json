@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000290",
+  "run_id": "20261022T031334Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "record/documents/petition.txt", "record/documents/questions-presented.txt"],
+  "helpful": ["Salience band table with reached-denominator rates", "Provisioned petition text with QP cut"],
+  "gaps": ["No pro-se-vs-counseled cut in the statpack's paid segment, which is the dominant signal for petitions like this one"],
+  "notes": "Clear-deny case; retrieval would not have moved the number."
+}

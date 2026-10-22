@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000457",
+  "gaps": [
+    "No opposition text; the snapshot records a response waiver",
+    "No build or corpus-vintage timestamp in the committed statpack files",
+    "Web requests returned no usable content"
+  ],
+  "helpful": [
+    "Frozen salience band and distribution count",
+    "Complete petition and provisioned appellate opinion",
+    "Machine-readable reached-band denominators",
+    "CourtListener access to the actual precedent"
+  ],
+  "notes": "The default uv cache location was read-only; commands use a temporary writable cache and the existing environment. CourtListener's citation-only search returned an unrelated case; adding court and case-name filters found the correct precedent. No live case-docket retrieval was needed.",
+  "role": "predictor",
+  "run_id": "20261022T031334Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned record and documents",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "web search and open attempts",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
