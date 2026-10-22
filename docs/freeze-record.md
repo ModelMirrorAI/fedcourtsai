@@ -12332,7 +12332,7 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
+  Carried to `main` by `promotion/2026-10-22` (merge commit `<FILL: merge
   commit>`, merged `<FILL: merge time, UTC>`).
 
   The runnable effect check once it is live:
@@ -12446,7 +12446,7 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
+  Carried to `main` by `promotion/2026-10-22` (merge commit `<FILL: merge
   commit>`, merged `<FILL: merge time, UTC>`).
 
   The runnable effect check once it is live:
