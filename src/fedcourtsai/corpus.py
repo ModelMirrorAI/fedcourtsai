@@ -4554,6 +4554,37 @@ def docket_number_rowids(conn: ReadConnection, docket_number: str, court: str | 
     return _rowids_matching(conn.execute(sql, params), want)
 
 
+def live_scotus_case_id_by_docket_number(conn: ReadConnection, docket_number: str) -> str | None:
+    """The live-slice SCOTUS row for ``docket_number``, or ``None``, never walking history.
+
+    :func:`docket_number_rowids`'s first read alone, for a caller that asks
+    about a docket the supremecourt.gov channel would follow (a companion or a
+    cross-petition linked from a live docket): a miss costs the live index and
+    not a walk of every SCOTUS row. Without the index the read is refused as a
+    miss rather than walked, since the walk is the cost this exists to avoid.
+    Two matches resolve to the lowest docket id, as the identity join does.
+    """
+    want = normalize_docket_number(docket_number)
+    if want is None or not _has_index(conn, LIVE_DOCKET_INDEX):
+        return None
+    rowids = _rowids_matching(
+        conn.execute(
+            f"SELECT rowid AS rid, docket_number FROM cases INDEXED BY {LIVE_DOCKET_INDEX} "
+            "WHERE court = ? AND last_live_polled IS NOT NULL",
+            ("scotus",),
+        ),
+        want,
+    )
+    if not rowids:
+        return None
+    marks = ",".join("?" for _ in rowids)
+    found = [
+        str(record["case_id"])
+        for record in conn.execute(f"SELECT case_id FROM cases WHERE rowid IN ({marks})", rowids)
+    ]
+    return min(found, key=lambda case_id: int(case_id.rsplit("/", 1)[1])) if found else None
+
+
 def _term_bar_refuses_number(query: PriorQuery) -> bool:
     """Whether the Term bar refuses a SCOTUS number before any row is read.
 

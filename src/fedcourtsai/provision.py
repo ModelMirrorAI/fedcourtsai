@@ -20,8 +20,9 @@ payload and documents a cell actually receives.
 
 *What lands on disk.* :func:`write_cell_record` writes that placement to the
 gitignored ``record/`` — the dated snapshot, the ``context.json`` conditioning
-stamp, and ``documents/`` with its manifest, both staged copies through the
-contact-detail scrubs. One writer, because a cell's record is one thing: the
+stamp, ``documents/`` with its manifest, and ``related/`` with the
+``Vide``-linked dockets cut to the same moment (:func:`place_related`), every
+staged copy through the contact-detail scrubs. One writer, because a cell's record is one thing: the
 ``provision-snapshot`` command and the local cascade both reach it here, so
 neither can hand an agent a record shaped differently from the other's.
 """
@@ -34,10 +35,10 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from . import casestore
-from .corpus import CaseDocument, CorpusEvent, CorpusRow
+from .corpus import CaseDocument, CorpusEvent, CorpusRow, normalize_docket_number
 from .paths import CasePaths
 from .pipeline import arrival_cut, cell_context, cert_signals, interim_signals, moments
 from .pipeline.documents import (
@@ -70,6 +71,21 @@ class UnanchorableMoment(ProvisionError):
 
 
 @dataclass(frozen=True)
+class RelatedRead:
+    """One ``Vide``-linked docket as the cell's read found it.
+
+    ``case_id`` is ``None`` where no corpus row carries the number, and
+    ``latest`` where the row has no stored snapshot; either way the link is
+    still recorded in the manifest, so a cell can tell a docket the corpus does
+    not hold from one the Court never linked.
+    """
+
+    docket_number: str
+    case_id: str | None
+    latest: tuple[date, dict[str, Any]] | None
+
+
+@dataclass(frozen=True)
 class CellRead:
     """Everything one backend read hands a cell's provisioning.
 
@@ -81,7 +97,9 @@ class CellRead:
     ``row`` is present only where the terminal gate needs it, and ``cutoff`` /
     ``dated`` only where the cell's event declares a moment to be placed at —
     ``cutoff`` is where that moment falls, ``dated`` the stored snapshot from
-    before it, if the corpus kept one.
+    before it, if the corpus kept one. ``related`` holds the ``Vide``-linked
+    dockets (:func:`vide_docket_numbers`), read only for a cell that names an
+    event.
     """
 
     latest: tuple[date, dict[str, Any]] | None
@@ -90,6 +108,7 @@ class CellRead:
     row: CorpusRow | None
     cutoff: date | None
     dated: tuple[date, dict[str, Any]] | None
+    related: tuple[RelatedRead, ...] = ()
 
 
 class CasestoreSource:
@@ -680,6 +699,113 @@ def place_at_moment(
     )
 
 
+#: The relation the Court's docket JSON writes on a linked docket in its
+#: ``RelatedCaseNumber`` list: a cross-petition, a companion case, or the
+#: petition this one is held for, linked on both sides.
+VIDE_RELATION: Final = "Vide"
+
+#: At most this many linked dockets are staged, in the order the Court lists
+#: them. Each costs a corpus lookup and a snapshot read on the cell's one
+#: connection, and a docket linked to more than a handful is a group whose
+#: lead the cell's own snapshot already names.
+MAX_RELATED_DOCKETS: Final = 4
+
+
+def vide_docket_numbers(payload: Mapping[str, Any]) -> tuple[str, ...]:
+    """The docket numbers ``payload`` links as ``Vide``, normalized, in served order.
+
+    Read off ``RelatedCaseNumber``, the list the Court's JSON carries on both
+    sides of the link (``{"DisplayCaseNumber": "25-1323", "RelatedType":
+    "Vide"}``). Any other relation type is skipped, as are the docket's own
+    number and a repeat, and the list stops at :data:`MAX_RELATED_DOCKETS`.
+    """
+    linked = payload.get("RelatedCaseNumber")
+    if not isinstance(linked, list):
+        return ()
+    own = normalize_docket_number(str(payload.get("CaseNumber") or ""))
+    numbers: list[str] = []
+    for item in linked:
+        if not isinstance(item, Mapping):
+            continue
+        if str(item.get("RelatedType") or "").strip().lower() != VIDE_RELATION.lower():
+            continue
+        number = normalize_docket_number(str(item.get("DisplayCaseNumber") or ""))
+        if number is None or number == own or number in numbers:
+            continue
+        numbers.append(number)
+    return tuple(numbers[:MAX_RELATED_DOCKETS])
+
+
+@dataclass(frozen=True)
+class RelatedPlacement:
+    """One linked docket as a cell receives it, or the reason it receives none.
+
+    ``payload`` is ``None`` exactly when ``reason`` is set. Every staged one is
+    reconstructed by the date rule, so ``snapshot_date`` is the bound it was cut
+    to, or its own pull date where that is earlier.
+    """
+
+    docket_number: str
+    case_id: str | None
+    snapshot_date: date | None
+    payload: dict[str, Any] | None
+    reason: str | None
+
+
+def place_related(
+    related: RelatedRead, cutoff: date | None, *, mode: str, vintage: date
+) -> RelatedPlacement:
+    """Cut one linked docket to what the cell's own docket could show.
+
+    Bounded strictly before the cell's ``cutoff`` where it has one, so a
+    companion is read as it stood when the cell's moment opened. Without one, a
+    forward cell's companion is bounded strictly before ``vintage``, the date of
+    the cell's own snapshot: the companion's stored pull can be newer than the
+    cell's, and an order disposing of both dockets entered in between would
+    reach the cell through the companion after the cell's own terminal gate
+    read a docket without it. Both are the date rule
+    (:func:`truncate_snapshot` and :func:`cut_dated_fields`), which fails closed
+    on an undated entry exactly as the cell's own cut does. A replay cell with no
+    cutoff gets none: nothing bounds it by its event date.
+    """
+
+    def withheld(reason: str) -> RelatedPlacement:
+        return RelatedPlacement(related.docket_number, related.case_id, None, None, reason)
+
+    if related.case_id is None:
+        return withheld("not in the corpus")
+    if related.latest is None:
+        return withheld("no stored snapshot")
+    if cutoff is None and mode == "replay":
+        return withheld("a replay cell with no cutoff")
+    bound = cutoff if cutoff is not None else vintage
+    stored_on, payload = related.latest
+    cut, _ = truncate_snapshot(payload, bound)
+    return RelatedPlacement(
+        related.docket_number,
+        related.case_id,
+        min(stored_on, bound),
+        cut_dated_fields(cut, bound),
+        None,
+    )
+
+
+def related_manifest(placed: Sequence[RelatedPlacement]) -> list[dict[str, Any]]:
+    """The ``related.json`` rows: every link, staged or not, and why not."""
+    return [
+        {
+            "docket_number": item.docket_number,
+            "relation": VIDE_RELATION,
+            "case_id": item.case_id,
+            "staged": item.payload is not None,
+            "file": f"{item.docket_number}.json" if item.payload is not None else None,
+            "snapshot_date": item.snapshot_date.isoformat() if item.snapshot_date else None,
+            "reason": item.reason,
+        }
+        for item in placed
+    ]
+
+
 def staged_scrub(text: str, values: tuple[str, ...], sides: tuple[str, ...]) -> ScrubbedText | None:
     """One staged document's contact scrub on a docket read as self-represented on ``sides``.
 
@@ -716,6 +842,7 @@ class RecordWrite:
     unrepresented: tuple[str, ...]
     snapshot_scrub: ScrubbedSnapshot | None
     staged: tuple[tuple[CaseDocument, ScrubbedText | None], ...]
+    related: tuple[RelatedPlacement, ...] = ()
 
 
 def write_cell_record(
@@ -726,6 +853,7 @@ def write_cell_record(
     mode: str,
     cutoff: date | None,
     snapshot_dest: Path | None = None,
+    related: Sequence[RelatedPlacement] = (),
 ) -> RecordWrite:
     """Materialize one cell's whole ``record/`` from its placement.
 
@@ -762,6 +890,7 @@ def write_cell_record(
     if snapshot_dest is None:
         _clear_dir(paths.snapshots_dir)
         _clear_dir(paths.documents_dir)
+        _clear_dir(paths.related_dir)
         clear_opinion_slot(paths)
     payload = placement.payload
     dest = snapshot_dest or paths.snapshot(placement.snapshot_date.isoformat())
@@ -827,11 +956,27 @@ def write_cell_record(
         for kind, (doc, scrubbed) in zip(kinds, staged, strict=True):
             write_text(paths.document(kind), doc.text if scrubbed is None else scrubbed.text)
         write_raw_json(paths.documents_manifest, document_manifest(staged))
+    if related and snapshot_dest is None:
+        # Each linked docket's snapshot through the same contact scrub as the
+        # cell's own, on its own docket-level reading: a companion's
+        # self-represented filer is withheld on the companion's blocks.
+        for item in related:
+            if item.payload is None:
+                continue
+            related_scrub = (
+                scrub_snapshot_contacts(item.payload) if unrepresented_sides(item.payload) else None
+            )
+            write_raw_json(
+                paths.related_snapshot(item.docket_number),
+                item.payload if related_scrub is None else related_scrub.payload,
+            )
+        write_raw_json(paths.related_manifest, related_manifest(related))
     return RecordWrite(
         snapshot=dest,
         unrepresented=unrepresented,
         snapshot_scrub=snapshot_scrub,
         staged=tuple(staged),
+        related=tuple(related) if snapshot_dest is None else (),
     )
 
 

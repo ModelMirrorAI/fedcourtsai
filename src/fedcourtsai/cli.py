@@ -14578,6 +14578,7 @@ def _read_cell_inputs(
     *,
     want_row: bool,
     cut: bool,
+    related: bool = False,
 ) -> provision.CellRead:
     """One backend read of everything a cell's provisioning decides on.
 
@@ -14597,13 +14598,19 @@ def _read_cell_inputs(
     property of the moment the cell forecasts rather than of the gate — and for
     neither otherwise, which is the evaluate path: an unread list is egress this
     command's single-connection design exists to account for.
+
+    ``related`` reads each ``Vide``-linked docket's latest snapshot on the same
+    connection (:func:`provision.vide_docket_numbers`), resolving its number
+    through the index. The content store has no index to resolve a number
+    through, so under that backend every link is recorded as not in the corpus.
     """
     if backend == "casestore":
         source = _casestore_source()
         events = source.events_for_case(case) if want_row or cut else []
         cutoff = provision.moment_cutoff(event, events) if cut else None
+        latest = source.latest_snapshot(case)
         return provision.CellRead(
-            latest=source.latest_snapshot(case),
+            latest=latest,
             documents=source.documents_for_case(case),
             events=events,
             # The casestore exposes events but no rows; `_casestore_row_refusal`
@@ -14611,20 +14618,47 @@ def _read_cell_inputs(
             row=None,
             cutoff=cutoff,
             dated=source.snapshot_at(case, before=cutoff) if cutoff is not None else None,
+            related=tuple(
+                provision.RelatedRead(number, None, None)
+                for number in (
+                    provision.vide_docket_numbers(latest[1])
+                    if related and latest is not None
+                    else ()
+                )
+            ),
         )
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         events = corpus.events_for_case(conn, case) if want_row or cut else []
         cutoff = provision.moment_cutoff(event, events) if cut else None
+        latest = corpus.latest_snapshot(conn, case)
         read = provision.CellRead(
-            latest=corpus.latest_snapshot(conn, case),
+            latest=latest,
             documents=corpus.documents_for_case(conn, case),
             events=events,
             row=corpus.get_row(conn, case) if want_row else None,
             cutoff=cutoff,
             dated=corpus.snapshot_at(conn, case, before=cutoff) if cutoff is not None else None,
+            related=_read_related(conn, latest) if related else (),
         )
         _echo_read_stats(conn)
     return read
+
+
+def _read_related(
+    conn: corpus.ReadConnection, latest: tuple[date, dict[str, Any]] | None
+) -> tuple[provision.RelatedRead, ...]:
+    """Each ``Vide``-linked docket's row and latest snapshot, on the cell's connection."""
+    if latest is None:
+        return ()
+    reads: list[provision.RelatedRead] = []
+    for number in provision.vide_docket_numbers(latest[1]):
+        linked = corpus.live_scotus_case_id_by_docket_number(conn, number)
+        reads.append(
+            provision.RelatedRead(
+                number, linked, corpus.latest_snapshot(conn, linked) if linked else None
+            )
+        )
+    return tuple(reads)
 
 
 def _place_at_moment(
@@ -14914,6 +14948,11 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # exact conditioning the forward path refuses — and the interim arrival
         # bound would be skipped with it.
         cut=moment_cutoff and bool(event),
+        # A predict cell's companions: the dockets the Court links to this one,
+        # read for a cell that names its event. An evaluate cell grades against
+        # the resolved docket, and a case-baseline cell has no moment to cut a
+        # companion to, so neither reads them.
+        related=bool(event),
     )
     found = read.latest
     documents = read.documents
@@ -14986,7 +15025,16 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     # be written differently.
     try:
         written = provision.write_cell_record(
-            paths, case, placement, mode=mode, cutoff=cutoff, snapshot_dest=out
+            paths,
+            case,
+            placement,
+            mode=mode,
+            cutoff=cutoff,
+            snapshot_dest=out,
+            related=[
+                provision.place_related(item, cutoff, mode=mode, vintage=placement.snapshot_date)
+                for item in read.related
+            ],
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)
@@ -15007,6 +15055,16 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             f"withheld on {written.snapshot_scrub.blocks} "
             f"{_sides_named(written.unrepresented)}-side block(s)"
         )
+    if written.related:
+        # Numbers and reasons only: the linked dockets are public, their text stays
+        # in the record.
+        linked = ", ".join(
+            item.docket_number
+            if item.payload is not None
+            else f"{item.docket_number} ({item.reason})"
+            for item in written.related
+        )
+        typer.echo(f"{case} related ({linked}) -> {paths.related_dir}")
     if written.staged:
         kinds = ", ".join(doc.kind for doc, _ in written.staged)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")

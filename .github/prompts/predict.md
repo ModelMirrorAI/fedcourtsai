@@ -96,6 +96,15 @@ the output directory you will write to.
    the petition had text but its questions-presented section could not be
    usably cut. Otherwise their absence just means
    the pipeline had nothing to fetch — predict from the snapshot as before.
+
+   Where the Court's docket links this case to another as `Vide` (a
+   cross-petition, a companion, the petition this one asks to be held for),
+   `record/related/` holds that docket's snapshot as `<docket number>.json`,
+   cut by the same date rule to strictly before your cutoff, or before your
+   own snapshot's date where you have none. `related.json` lists every link,
+   staged or not, and why not (`reason`). Read a companion's distribution,
+   grant or hold there rather than fetching it, and say in `reasoning.md` where
+   your forecast rests on it. Its absence means the docket links none.
 6. `record/context.json` — your cell's **mode** (`forward` or `replay`) and the
    **conditioning state** the harness froze for you: `band` (your
    grant-likelihood tier under the salience version named beside it in
