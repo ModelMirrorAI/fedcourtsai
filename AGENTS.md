@@ -430,6 +430,16 @@ same PR.
   corpus and answers a question); permissions are scoped per *job*, so a task
   earns its own workflow only for a different trigger class or risk class.
   See `docs/pipeline.md`.
+- **The public site reads this repository.** fedcourts.ai
+  (`ModelMirrorAI/fedcourts.ai`) builds daily from `main` and fails closed:
+  it reads `metrics/*.json`, `metrics/updates/*.md`,
+  `data/qp-topics/qp-topics.json`, the `event.yaml`, `outcome.json`,
+  `prediction.json` and `evaluation.json` records and the case summaries under
+  `data/cases/`, the release manifest `docs/releases.json`, and each release
+  document at its tag. A change to the shape of any of these needs a matching
+  PR on the site repository, opened alongside it and linked from both
+  descriptions; otherwise the site keeps its last good deploy until the site
+  is fixed.
 - **Docs and code describe the current design, not its history.** No issue
   numbers, no changelog, no "we used to / now we" — on *every committed
   surface*: docs, docstrings, code/workflow/config comments, and prose that
