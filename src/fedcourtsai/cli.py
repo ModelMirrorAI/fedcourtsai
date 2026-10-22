@@ -4692,6 +4692,8 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
             err=True,
         )
         return
+    # The sweep's class and its read documents, set only on a sweep's apply.
+    found = planned = 0
     try:
         if from_plan is not None:
             plan = _read_handoff_or_exit(
