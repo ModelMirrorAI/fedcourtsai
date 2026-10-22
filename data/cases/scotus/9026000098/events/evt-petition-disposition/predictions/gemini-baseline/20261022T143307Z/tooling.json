@@ -1,0 +1,28 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000098",
+  "gaps": [
+    "Party or counsel substring filter in `fedcourts query` (e.g., `--party` or `--attorney`) to directly look up prior petitions by the same repeat-player litigant in the local corpus."
+  ],
+  "helpful": [
+    "metrics/statpack.md salience-band risk-set table and relist/circuit cuts",
+    "Provisioned petition.txt including full Ninth Circuit opinion and district court orders",
+    "CourtListener MCP search and read_document for locating companion circuit opinions and prior cert denials in Nos. 25-379 and 25-437"
+  ],
+  "notes": "Used `fedcourts query` for 2020s SCOTUS priors and `metrics/statpack.md` for `sal-v4` `baseline` risk-set and terminal base rates. Used CourtListener MCP to examine the circuit split on 52 U.S.C. § 20507(i)(1) and verify the March 2, 2026 certiorari denials in PILF's Third and Sixth Circuit petitions.",
+  "role": "predictor",
+  "run_id": "20261022T143307Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_call_endpoint"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
