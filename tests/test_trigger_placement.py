@@ -270,6 +270,9 @@ def test_every_declared_moment_is_bounded_by_some_rule() -> None:
         (Stage.cert, Moment.arrival),
         (Stage.merits, Moment.grant),
         (Stage.merits, Moment.briefed),
+        # Dated off the Court's transcript list, which no docket entry carries;
+        # the argument entry the docket does carry falls on the same day.
+        (Stage.merits, Moment.argued),
     }
     for spec in moments.DECLARED_MOMENTS:
         key = (spec.stage, spec.moment)

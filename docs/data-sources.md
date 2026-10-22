@@ -32,6 +32,10 @@ ingestion channels (**pull**, **live**, **historical**, **enrich** —
   pipeline-extracted text; one possible later direction — a direction, not a
   commitment — is landing the historical documents (motions, opinions) on the
   same access-gated S3 store as raw PDFs rather than extracted text only.
+  The same terms cover the Court's **oral argument transcripts**: the per-Term
+  transcript list and the transcript PDFs it links, prepared by the Court's
+  contract reporter and posted by the Court on its own site, read by the live
+  poll's transcript pass and stored as extracted text in the same corpus.
 
 A further channel is planned but not yet adopted: Free Law Project's commercial
 **database replication** offering, the intended eventual upstream for the

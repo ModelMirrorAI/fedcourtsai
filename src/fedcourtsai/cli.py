@@ -311,6 +311,7 @@ from .pipeline.documents import (
     FETCH_LOSS_NOT_SELECTED,
     FETCH_LOSS_OFF_HOST,
     FETCH_LOSS_UNAVAILABLE,
+    KIND_ARGUMENT_TRANSCRIPT,
     KIND_PETITION,
     OTHER_LIST,
     SCRUB_PASS_SHAPE,
@@ -14783,10 +14784,17 @@ def summarize_plan_cmd(
         if found.latest is None:
             return None
         day, payload = found.latest
+        # The argument transcript is a post-argument cell's input alone
+        # (`provision.documents_for_moment`); a summary is written from the
+        # record every predict cell shares.
         return summaries.CaseRecord(
             snapshot=day,
             payload=payload,
-            documents=[(doc.kind, doc.text) for doc in found.documents],
+            documents=[
+                (doc.kind, doc.text)
+                for doc in found.documents
+                if doc.kind != KIND_ARGUMENT_TRANSCRIPT
+            ],
         )
 
     plan = summaries.plan_summaries(settings.data_root, eligible, read, config, limit=limit)
@@ -16378,6 +16386,12 @@ def live_poll(
         typer.echo(
             "Document freshness: "
             + ", ".join(f"{key}={value}" for key, value in queues.document_freshness.items())
+            + "."
+        )
+    if queues.argument_transcripts:
+        typer.echo(
+            "Argument transcripts: "
+            + ", ".join(f"{key}={value}" for key, value in queues.argument_transcripts.items())
             + "."
         )
     # The window's document-fetch ledger. Last, after the queue counts, because
