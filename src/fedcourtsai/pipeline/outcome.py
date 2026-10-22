@@ -89,7 +89,9 @@ from ..store import merits_event_forecastable, open_events
 from . import moments
 from .cert_signals import (
     DEFAULT_DISTRIBUTION_PARSE,
+    direct_appeal_exit_gates,
     dissent_from_denial,
+    docket_disposition_signals,
     match_disposition_signal,
     mootness_disposition,
     proceedings_entries,
@@ -635,8 +637,10 @@ def forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> st
       administrative notations ("Application ... denied as moot") that hide it
       from the latest-entry rule, and the cert-before-judgment grant / merits
       judgment the resolver omits, are still caught;
-    - the resolver (:func:`match_disposition_signal`) over *every* entry, which
-      adds the plain cert grant/denial orders that are not terminal-shaped;
+    - the resolver over *every* entry, read at the docket level
+      (:func:`docket_disposition_signals`), which adds the plain cert
+      grant/denial orders that are not terminal-shaped and a direct appeal's
+      summary affirmance or dismissal;
     - on an application-form docket, the high-recall interim disposal scan
       (:func:`interim_disposal_signal`) — the cert-shaped checks above match no
       application phrasing, and the interim resolver's exact vocabulary can
@@ -662,8 +666,7 @@ def forward_leakage(payload: Mapping[str, Any], court: str, event_id: str) -> st
     if terminal is None and court == "scotus" and corpus.is_scotus_application_form(payload_number):
         terminal = interim_disposal_signal(payload)
     if terminal is None:
-        for text in entry_descriptions(payload):
-            matched = match_disposition_signal(text)
+        for matched in docket_disposition_signals(entry_descriptions(payload)):
             if matched is not None:
                 return f"snapshot carries a disposition order: {matched[2]!r}"
     return terminal
@@ -717,11 +720,15 @@ def disposition_basis(docket: Mapping[str, Any]) -> Literal["standard", "mootnes
     the leaderboard's procedural stratum. On the REST shape the recorded
     disposition can come from upstream fields or cert dates rather than entry
     text, so the basis attaches to the first disposition-bearing *entry* — the
-    same first-entry rule the live resolver applies.
+    same first-entry rule the live resolver applies, read at the same docket
+    level (:func:`docket_disposition_signals`), so a direct appeal dismissed as
+    moot carries the mootness basis.
     """
-    for text in entry_descriptions(docket):
-        if match_disposition_signal(text) is not None:
-            return "mootness" if mootness_disposition(text) else "standard"
+    texts = entry_descriptions(docket)
+    gates = direct_appeal_exit_gates(texts)
+    for text, gate in zip(texts, gates, strict=True):
+        if match_disposition_signal(text, direct_appeal_exit=gate) is not None:
+            return "mootness" if mootness_disposition(text, direct_appeal_exit=gate) else "standard"
     return "standard"
 
 

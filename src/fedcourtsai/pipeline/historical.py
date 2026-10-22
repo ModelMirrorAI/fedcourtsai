@@ -27,7 +27,7 @@ forward frontier prober:
   list of docket numbers through the same ingest seam and moving no cursor.
 - **It ingests every decided petition.** Each served record's disposition is
   read from its proceedings text
-  (:func:`~fedcourtsai.pipeline.cert_signals.match_disposition_signal`, the same
+  (:func:`~fedcourtsai.pipeline.cert_signals.docket_disposition_signals`, the same
   patterns ingest-time resolution runs) and every decided one is kept. The walk
   probes each serial regardless, so declining to store a denial never saved a
   fetch — it only discarded a row already in hand, and cost every rate computed
@@ -80,7 +80,7 @@ from ..config import HistoricalConfig
 from ..matrix import event_has_predictions
 from ..schemas import Disposition
 from ..supremecourt import IFP_SERIAL_BASE, SupremeCourtClient, parse_scotus_docket_number
-from .cert_signals import match_disposition_signal
+from .cert_signals import docket_disposition_signals
 from .ingest import UNSAMPLED_WEIGHT, backfill_live_signals
 from .live import _resolve_identity, ingest_live_payload, provision_documents
 
@@ -225,14 +225,18 @@ def reset_walk(
 def _payload_disposition(payload: Mapping[str, Any]) -> Disposition | None:
     """The cert disposition the record's proceedings text carries, or ``None``.
 
-    First match in docket order over the same entry text ingest-time resolution
-    reads, so the keep/skip decision always agrees with the label the ingested
-    row will land with.
+    First match in docket order over the same entry text, read at the same
+    docket level (:func:`docket_disposition_signals`), as ingest-time
+    resolution, so the keep/skip decision always agrees with the label the
+    ingested row will land with — a direct appeal's summary affirmance or
+    dismissal included.
     """
-    for entry in payload.get("ProceedingsandOrder") or []:
-        if not isinstance(entry, Mapping):
-            continue
-        matched = match_disposition_signal(str(entry.get("Text") or ""))
+    texts = [
+        str(entry.get("Text") or "")
+        for entry in payload.get("ProceedingsandOrder") or []
+        if isinstance(entry, Mapping)
+    ]
+    for matched in docket_disposition_signals(texts):
         if matched is not None:
             return matched[0]
     return None

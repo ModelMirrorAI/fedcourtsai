@@ -69,13 +69,17 @@ class Disposition(StrEnum):
     the parse gap and so needs no calendar. On mandatory-jurisdiction direct
     appeals the convention is grant-side for plenary review, and the
     denied/dismissed side for summary affirmance and dismissal for want of a
-    substantial federal question. The resolver reads the grant side: the
+    substantial federal question. The resolver reads both sides: the
     vacatur-remand form as ``gvr``, and probable jurisdiction noted — or further
     consideration of jurisdiction postponed to the hearing on the merits, which
     sets the appeal for the same briefing and argument — as ``granted``, which
-    opens the merits proceeding a cert grant does. Summary affirmance and
-    want-of-a-question are deliberate resolver misses that reach maintainer
-    triage.
+    opens the merits proceeding a cert grant does; a summary affirmance as
+    ``denied``, since the Court declines plenary review and the judgment below
+    stands, as on a cert denial; and a dismissal for want of a substantial
+    federal question, for want of jurisdiction or as moot as ``dismissed``, the
+    Court's own word for an appeal it disposes of without reaching the merits. A
+    summary affirmance opens no merits proceeding and latches no merits
+    judgment.
     """
 
     granted = "granted"
