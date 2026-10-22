@@ -975,9 +975,9 @@ half of the case a forecast is least able to guess. The one shape left out is a
 multi-respondent opposition, stored as a single row whose URL is the canonical
 join of every brief fetched into it — a set key, not a link to re-fetch. Its
 per-brief headings are themselves text, so such a row is not empty by the
-coverage report's test either: it reads as covered while carrying no argument,
-and neither surface sizes it. It is the only pass here that installs a
-binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
+coverage report's per-kind test either: it reads as covered there while
+carrying no argument, so the report sizes it on a line of its own. It is the
+only pass here that installs a binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
 from the runner image's own archive), and one of the two whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
 page-by-page recognition, and runner minutes are the whole cost. That makes the

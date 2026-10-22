@@ -43,6 +43,7 @@ from fedcourtsai.pipeline.documents import (
     LeadFetch,
     _qp_stored_is_fragment,
     backfill_questions_presented,
+    bio_block_texts,
     consolidation_lead,
     document_fetch_losses,
     document_text_coverage,
@@ -3724,6 +3725,98 @@ def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Pa
     assert coverage.cases_read == 5
     # And it is still counted as a distributed case holding no petition.
     assert coverage.distributed_without_petition == 3
+
+
+def _set_keyed_bio(case_id: str, *bodies: str) -> corpus.CaseDocument:
+    """A multi-respondent opposition, stored the way the combiner writes one."""
+    stem = case_id.rsplit("/", 1)[-1]
+    urls = [f"https://www.supremecourt.gov/{stem}-bio-{n}.pdf" for n in range(len(bodies))]
+    blocks = [
+        f"=== Brief of respondent {n} in opposition filed. (Jul 0{n + 1} 2026) ===\n{body}"
+        for n, body in enumerate(bodies)
+    ]
+    return corpus.CaseDocument(
+        case_id=case_id,
+        kind=KIND_BRIEF_IN_OPPOSITION,
+        url=BIO_URL_JOIN.join(sorted(urls)),
+        entry_date="Jul 01 2026",
+        fetched_at=date(2026, 7, 2),
+        pages=40,
+        text="\n\n".join(blocks),
+    )
+
+
+def test_bio_block_texts_strips_the_per_brief_headers() -> None:
+    combined = _set_keyed_bio("scotus/1", "Deny the petition.", "  \n").text
+    assert [body.strip() for body in bio_block_texts(combined)] == ["Deny the petition.", ""]
+    # A lone opposition is stored raw, with no header: one body, the whole text.
+    assert bio_block_texts("Deny the petition.") == ["Deny the petition."]
+
+
+def test_document_text_coverage_sizes_the_heading_only_oppositions(tmp_path: Path) -> None:
+    """A multi-respondent opposition of scans reads as covered; this sizes it.
+
+    Its per-brief headings are text, so the `empty_text` test never fires on it,
+    and its key is a set rather than a URL, so OCR recovery never reaches it.
+    The count reads it body by body instead.
+    """
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                # Queued, and every brief a scan: the residual the issue names.
+                _set_keyed_bio("scotus/10", "", "  \n"),
+                # Both briefs carry text: a set key, and nothing missing.
+                _set_keyed_bio("scotus/11", "Deny.", "Deny as well."),
+                # One brief read, one a scan.
+                _set_keyed_bio("scotus/15", "Deny.", ""),
+                # A group of two that fetched one: a single link, but still the
+                # header, and the one brief a scan.
+                _set_keyed_bio("scotus/12", "  ").model_copy(
+                    update={"url": "https://www.supremecourt.gov/12-bio-0.pdf"}
+                ),
+            ],
+        )
+        coverage = document_text_coverage(conn, tmp_path / "data")
+    assert coverage.combined_oppositions == 4
+    assert coverage.heading_only_oppositions == 2
+    assert coverage.heading_only_oppositions_queued == 1
+    assert coverage.partly_empty_oppositions == 1
+    assert coverage.partly_empty_oppositions_queued == 0
+    assert coverage.heading_only_opposition_cases == ["scotus/10", "scotus/12"]
+    assert coverage.partly_empty_opposition_cases == ["scotus/15"]
+    # Still covered by the per-kind test, which is why it needs its own count.
+    assert "scotus/10" in coverage.empty_documents
+    assert KIND_BRIEF_IN_OPPOSITION not in coverage.empty_documents["scotus/10"]
+
+
+@pytest.mark.reads_data
+def test_corpus_info_text_coverage_prints_the_heading_only_oppositions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn, [_set_keyed_bio("scotus/11", "", ""), _set_keyed_bio("scotus/10", "Deny.", "")]
+        )
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(app, ["corpus-info", "--text-coverage"])
+    assert result.exit_code == 0, result.output
+    assert (
+        "(1 of 2 combined multi-respondent brief(s) in opposition carry nothing beyond "
+        "their "
+        "per-brief headings, 0 of them on a queued-or-predicted case, and 1 more "
+        "carry some briefs with no text, 1 of them on a queued-or-predicted case."
+    ) in result.stdout
+    # Joined to the empty-text ledger under its own label, so the case count
+    # there takes it in and no new header reaches the run summary.
+    assert "empty text (4 case(s)):" in result.stdout
+    assert "scotus/11: brief-in-opposition (headings only)" in result.stdout
+    assert (
+        "scotus/10: petition, questions-presented, brief-in-opposition (some briefs empty)"
+        in result.stdout
+    )
 
 
 def test_document_text_coverage_share_is_none_over_an_unread_cut(tmp_path: Path) -> None:

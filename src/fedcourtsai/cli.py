@@ -313,6 +313,7 @@ from .pipeline.documents import (
     FETCH_LOSS_OFF_HOST,
     FETCH_LOSS_UNAVAILABLE,
     KIND_ARGUMENT_TRANSCRIPT,
+    KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
     OTHER_LIST,
     SCRUB_PASS_SHAPE,
@@ -2595,9 +2596,9 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
     fetched into it — an idempotency key, not something to GET. Such a row also
     carries its per-brief headings as text, so it is not empty by the coverage
     report's test and reads there as covered while carrying no argument at all;
-    neither surface sizes that residual, and the ledger's `set_keyed` tally is
-    the guard against a set key that somehow did read empty rather than a count
-    of it. Each candidate is
+    ``corpus-info --text-coverage`` sizes that residual on its own line, and the
+    ledger's `set_keyed` tally is the guard against a set key that somehow did
+    read empty rather than a count of it. Each candidate is
     re-fetched by its own stored URL on supremecourt.gov, free and
     politeness-capped, so the pass spends none of the CourtListener budget; and
     its pages go through the extractor with the OCR seam supplied, which reads a
@@ -11870,6 +11871,19 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         "Read off the stored payload, so a case upstream has since posted a link "
         "for is counted here until that pass fetches it.)"
     )
+    # The one emptiness the per-kind cuts cannot see: a multi-respondent
+    # opposition is stored under per-brief headings, which are text, so a row of
+    # scans reads as covered there, and OCR recovery leaves it out because its key
+    # is not a URL to fetch. Sized here so the residual has a number.
+    typer.echo(
+        f"  ({coverage.heading_only_oppositions} of {coverage.combined_oppositions} "
+        "combined multi-respondent brief(s) in opposition carry nothing beyond their "
+        f"per-brief headings, {coverage.heading_only_oppositions_queued} of them on "
+        f"a queued-or-predicted case, and {coverage.partly_empty_oppositions} more "
+        f"carry some briefs with no text, {coverage.partly_empty_oppositions_queued} "
+        "of them on a queued-or-predicted case. The cuts below count these rows as "
+        "covered, and OCR recovery does not reach them.)"
+    )
     typer.echo(
         f"text frame: the pass read documents for {coverage.cases_read} of the "
         f"{coverage.cases} live-slice case(s) it walked — a reach count, not a "
@@ -11907,10 +11921,20 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
     # The triage list an extraction fix works from, untruncated for the reason
     # the questions-presented backfill prints its whole ledger: the count says
     # whether to act, the ids are what acting operates on.
-    if coverage.empty_documents:
-        typer.echo(f"empty text ({len(coverage.empty_documents)} case(s)):")
-        for case_id, kinds in coverage.empty_documents.items():
-            typer.echo(f"  {case_id}: {', '.join(kinds)}")
+    # The heading-only oppositions join it under their own label rather than a
+    # ledger of their own: they are the same repair question, and this header is
+    # the one the run summary is cut at, so a new header would publish its list.
+    empty_ledger = {case_id: list(kinds) for case_id, kinds in coverage.empty_documents.items()}
+    for case_id in coverage.heading_only_opposition_cases:
+        empty_ledger.setdefault(case_id, []).append(f"{KIND_BRIEF_IN_OPPOSITION} (headings only)")
+    for case_id in coverage.partly_empty_opposition_cases:
+        empty_ledger.setdefault(case_id, []).append(
+            f"{KIND_BRIEF_IN_OPPOSITION} (some briefs empty)"
+        )
+    if empty_ledger:
+        typer.echo(f"empty text ({len(empty_ledger)} case(s)):")
+        for case_id in sorted(empty_ledger):
+            typer.echo(f"  {case_id}: {', '.join(empty_ledger[case_id])}")
     # The second ledger, for the failure mode no extraction fix reaches. Printed
     # for the reason the first is: a repair here is a per-case route question —
     # a case whose documents were never provisioned reads the same as one whose

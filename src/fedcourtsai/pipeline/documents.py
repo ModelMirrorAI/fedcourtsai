@@ -44,6 +44,7 @@ extractor fix onto the rows an unchanged petition URL would otherwise freeze.
 
 from __future__ import annotations
 
+import dataclasses
 import io
 import logging
 import re
@@ -3552,6 +3553,26 @@ def bio_set_key(refs: Sequence[DocumentRef]) -> str:
     return BIO_URL_JOIN.join(sorted(ref.url for ref in refs))
 
 
+# The per-brief header :func:`_combine_bio_documents` writes above each
+# constituent of a multi-brief opposition row, on a line of its own.
+_BIO_BLOCK_HEADER_RE = re.compile(r"^=== .* ===$", re.MULTILINE)
+
+
+def bio_block_texts(text: str) -> list[str]:
+    """The constituent bodies of a combined opposition row, headers stripped.
+
+    One entry per ``=== <docket entry> ===`` header, in stored order, so a row
+    whose every brief was a scan reads back as a list of blank bodies while its
+    text as a whole is not blank — the headers are text. A row with no header (a
+    lone brief, stored raw) reads back as its whole text, one body.
+    """
+    parts = _BIO_BLOCK_HEADER_RE.split(text)
+    if len(parts) == 1:
+        return parts
+    # Whatever precedes the first header is not a brief: the combiner writes none.
+    return parts[1:]
+
+
 def unheld_document_kinds(refs: Sequence[DocumentRef], stored_urls: Mapping[str, str]) -> list[str]:
     """The selected kinds the stored set does not hold at the selected link, in ``refs`` order.
 
@@ -4380,6 +4401,52 @@ class TextCoverage(BaseModel):
         "`extract_pdf_text`'s could-not-open branch rather than a page count with "
         "no text layer, so OCR is not the repair for them",
     )
+    combined_oppositions: int = Field(
+        default=0,
+        ge=0,
+        description="Stored brief-in-opposition rows written as a combination of "
+        "briefs: a key that is a set of more than one brief's link, or text under a "
+        "per-brief header, which a group stored with only one of its briefs fetched "
+        "keeps under a single link. Outside OCR recovery either way: a set key is "
+        "not a URL to fetch, and a headed row is not whitespace-empty. A row of "
+        "this shape whose whole text is whitespace is counted here and left to the "
+        "per-kind empty count",
+    )
+    heading_only_oppositions: int = Field(
+        default=0,
+        ge=0,
+        description="Of the combined oppositions, the ones whose every constituent "
+        "body is empty: nothing beyond the per-brief headings. Not empty by the "
+        "`empty_text` test, because the headings are text, so the per-kind cuts "
+        "count these as covered while they carry no argument. A row the "
+        "document cap truncated reads only the briefs it kept",
+    )
+    heading_only_oppositions_queued: int = Field(
+        default=0,
+        ge=0,
+        description="Of the heading-only oppositions, the ones on a queued-or-"
+        "predicted case — where the missing argument costs a cell",
+    )
+    partly_empty_oppositions: int = Field(
+        default=0,
+        ge=0,
+        description="Of the combined oppositions, the ones where some constituent "
+        "bodies are empty and some are not: a respondent's brief lost to a scan "
+        "inside a row that reads as covered",
+    )
+    partly_empty_oppositions_queued: int = Field(
+        default=0,
+        ge=0,
+        description="Of the partly empty oppositions, the ones on a queued-or-predicted case",
+    )
+    heading_only_opposition_cases: list[str] = Field(
+        default_factory=list,
+        description="The heading-only opposition cases themselves, in case_id order",
+    )
+    partly_empty_opposition_cases: list[str] = Field(
+        default_factory=list,
+        description="The partly empty opposition cases themselves, in case_id order",
+    )
     offloaded: bool = Field(
         description="Whether the payload reads were served by the per-case content "
         "store (the corpus-split shape) rather than by the blob's own tables"
@@ -4444,6 +4511,38 @@ def _stored_payload_floor(conn: corpus.ReadConnection, case_id: str, *, kind: st
     if any(ref.kind == kind for ref in select_documents(payload)):
         return False
     return primary_entry_matched(payload, kind=kind)
+
+
+@dataclass
+class _CombinedOppositions:
+    """The combined opposition rows one coverage pass reads, body by body.
+
+    A multi-respondent opposition is never empty by the ``empty_text`` test —
+    its per-brief headings are text — so a row of scans needs its own reading:
+    each constituent body (:func:`bio_block_texts`) is tested on its own.
+    """
+
+    combined: int = 0
+    heading_only_queued: int = 0
+    partly_empty_queued: int = 0
+    heading_only_cases: list[str] = dataclasses.field(default_factory=list)
+    partly_empty_cases: list[str] = dataclasses.field(default_factory=list)
+
+    def read(self, case_id: str, url: str, text: str, *, queued: bool) -> None:
+        # Read off the text as well as the key: a group stored with one brief
+        # fetched keeps that brief's single link but still writes its header.
+        if BIO_URL_JOIN not in url and not _BIO_BLOCK_HEADER_RE.search(text):
+            return  # a lone brief, stored raw: the per-kind test already reads it
+        self.combined += 1
+        if not text.strip():
+            return  # already counted empty by the per-kind test
+        blank = [not body.strip() for body in bio_block_texts(text)]
+        if all(blank):
+            self.heading_only_cases.append(case_id)
+            self.heading_only_queued += queued
+        elif any(blank):
+            self.partly_empty_cases.append(case_id)
+            self.partly_empty_queued += queued
 
 
 def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> TextCoverage:
@@ -4562,6 +4661,7 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
     queued_without_petition_cases: list[str] = []
     queued_without_application_cases: list[str] = []
     cases_read = unopened_petitions = 0
+    oppositions = _CombinedOppositions()
     distributed_without_petition = queued_without_petition = queued_without_application = 0
     # Materialized before the fetch: `iter_rows` rides `conn`, which under the
     # offloaded schedule must not be walked while readers are in flight.
@@ -4607,6 +4707,8 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
                 has_petition = has_petition or document.kind == KIND_PETITION
                 has_application = has_application or document.kind == KIND_APPLICATION
                 tally[0] += 1
+                if document.kind == KIND_BRIEF_IN_OPPOSITION:
+                    oppositions.read(case_id, document.url, document.text, queued=case_id in queued)
                 if not document.text.strip():
                     tally[1] += 1
                     empty_documents.setdefault(case_id, []).append(document.kind)
@@ -4662,6 +4764,13 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
         queued_without_petition_floor=petition_floor,
         queued_without_application_floor=application_floor,
         unopened_petitions=unopened_petitions,
+        combined_oppositions=oppositions.combined,
+        heading_only_oppositions=len(oppositions.heading_only_cases),
+        heading_only_oppositions_queued=oppositions.heading_only_queued,
+        partly_empty_oppositions=len(oppositions.partly_empty_cases),
+        partly_empty_oppositions_queued=oppositions.partly_empty_queued,
+        heading_only_opposition_cases=oppositions.heading_only_cases,
+        partly_empty_opposition_cases=oppositions.partly_empty_cases,
         offloaded=corpus.payload_reads_offloaded(),
         # Zero-filled and ordered by construction (kind within segment), so the
         # report is the same shape whatever the corpus held.
