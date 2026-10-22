@@ -3334,8 +3334,14 @@ def test_an_exception_inside_a_bound_clears_it(tmp_path: Path) -> None:
     """The bound is process-wide, so one left behind would re-date every later read."""
     with corpus.connect(tmp_path / "corpus.db") as conn:
         _seed_three_snapshots(conn)
-        with pytest.raises(ValueError), corpus.snapshots_as_of(date(2026, 6, 15)):
-            raise ValueError("boom")
+
+        def read_then_fail() -> None:
+            with corpus.snapshots_as_of(date(2026, 6, 15)):
+                corpus.latest_snapshot(conn, "scotus/1")
+                raise ValueError("boom")
+
+        with pytest.raises(ValueError):
+            read_then_fail()
         found = corpus.latest_snapshot(conn, "scotus/1")
         assert found is not None
         assert found[0] == date(2026, 6, 25)
