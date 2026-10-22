@@ -104,6 +104,7 @@ source.
 | `call_for_response_at` | date          | when the Court called for a response to a cert petition — the first `Response Requested` entry before any disposition (`pipeline.cert_signals.call_for_response_date`); opens the cert call-for-response moment; distinct from `response_requested_at`, the interim request on an application; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = no call yet, or not parsed |
 | `relisted_at` | date | when the Court first relisted a cert petition — the first petition distribution for a later conference, docketed within two weeks after the earlier conference sat on the petition, before any disposition (`pipeline.cert_signals.first_relist_date`); opens the cert relist moment, once per petition; narrower than the relist count `distribution_count − 1`, which also counts a reschedule; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = no relist yet, or not parsed |
 | `merits_brief_on_lead` | date | a consolidated member's own respondent brief on the merits as filed on the group's lead docket — the first lead entry after both the member's grant and the lead's that the member attribution reads as filed for it (`pipeline.documents.member_respondent_brief_date`); consolidation moves the member's later filings to the lead, so its own `merits_brief_filed` stays null; written by the live poll from the lead's newest stored live snapshot (no request), fill-in latched; read by no mint (the briefed moment still opens on `merits_brief_filed` alone); withheld from the `query` retrieval rows; null = not a consolidated member, not yet filed, the lead not stored, or a member that left the poll rotation before the column existed |
+| `argument_transcript_at` | date | the argument day of the first oral argument transcript stored for the docket — the date the Court's per-Term transcript list gives beside the transcript link (`supremecourt.parse_transcript_listing`); opens the merits post-argument moment; written by the live poll's transcript pass (`pipeline.live.fetch_argument_transcripts`) when the transcript it stores carries text, fill-in latched, so a reargument never moves it; withheld from the `query` retrieval rows; null = not argued, no transcript listed yet, or not read |
 | `sg_brief_filed`      | date            | when the Solicitor General filed the brief the CVSG invited — the first United States amicus brief after the invitation and before any disposition (`pipeline.cert_signals.sg_brief_date`); opens the cert sg-brief moment; written by the live poll at ingest, fill-in latched; withheld from the `query` retrieval rows; null = not yet filed, or not parsed |
 | `originating_court_name` | text         | raw `LowerCourt` name — keeps state courts identifiable where `originating_court` is null |
 | `sample_weight`       | integer         | inverse inclusion probability (1 where the corpus can show the row stands only for itself; 10 on a denial the earlier sampled walk kept whose block is still stored one row in ten); null = no channel weighted the row |
@@ -205,7 +206,8 @@ value — and `application_kind` gets the TEXT twin of that latch: a real readin
 (`extension` / `substantive`) is never wiped by a degraded parse's confident
 `unknown`, which only ever fills a genuine gap. The dated signals beside these
 families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`,
-`sg_brief_filed`, `call_for_response_at`, `relisted_at`, `merits_brief_on_lead`),
+`sg_brief_filed`, `call_for_response_at`, `relisted_at`, `merits_brief_on_lead`,
+`argument_transcript_at`),
 and the merits decision record (`merits_argued`, `merits_decision_method`),
 fill-in latch for `cvsg_date`'s reason instead: a missing parse leaves each null
 rather than a confident sentinel, so no other writer may blank a reading the live
@@ -330,8 +332,9 @@ for a case the pipeline never forecast. Written only by
 whole or not at all, and a recorded row is never changed. So a new version of
 the counting rule or of a reader reaches stored rows only through a pass built
 to replace them, which does not exist yet; `word_rule` and `lineup` say which
-version each row was read under. Its one reader outside its writer is `fedcourts merits-lineups`,
-which derives each decision's per-Justice votes from it; it is read by no `query`
+version each row was read under. Its readers outside its writer are `fedcourts merits-lineups`,
+which derives each decision's per-Justice votes from it, and `fedcourts authorship-tally`,
+which reads each lead opinion's author against its argument sitting; it is read by no `query`
 retrieval row, provisioning step, outcome, mint or scoring gate, so nothing a
 predict or evaluate cell sees includes it; a test pins which modules may name
 it. It is metadata, not payload, so it stays in the index blob under the
@@ -389,6 +392,27 @@ provisioning step, outcome, mint or score, and kept in the index blob.
 | `took_no_part`   | text (JSON)  | the bench members the syllabus says took no part; null with `bench` |
 | `lineup`         | text         | `<reader>/<version>` of the syllabus grammar the bench was read with |
 | `read_at`        | timestamp    | when the row was written |
+
+## Argument sittings (`argument_sittings`)
+
+One row per argument sitting, as the Court heads it on its transcript list for
+the Term ("Argument Session: October 06, 2025 - October 15, 2025",
+`supremecourt.parse_argument_sittings`). Written by the live cycle's transcript
+pass on every list it reads, the Term today falls in and the one before it,
+each heading upserted by its Term and first day, so a sitting the Court later
+widens takes its new last day. A heading the Court drops or re-dates is not
+deleted, and can overlap its replacement. A Term the pass has never listed has
+no rows.
+Its one reader is `fedcourts authorship-tally` (`pipeline/authorship.py`), which
+groups a Term's argued cases by sitting; it is read by no `query` retrieval row,
+provisioning step, outcome, mint or scoring gate. Kept in the index blob.
+
+| Column    | Type          | Notes |
+|-----------|---------------|-------|
+| `term`    | integer (PK)  | October Term, four-digit |
+| `start`   | date (PK)     | the sitting's first day, as headed |
+| `end`     | date          | its last day, as headed |
+| `read_at` | date          | the day the heading was last read |
 
 ## Working with it locally
 

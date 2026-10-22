@@ -264,6 +264,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     application_backfill,
+    authorship,
     granted_noted,
     historical,
     liveprobe,
@@ -311,6 +312,7 @@ from .pipeline.documents import (
     FETCH_LOSS_NOT_SELECTED,
     FETCH_LOSS_OFF_HOST,
     FETCH_LOSS_UNAVAILABLE,
+    KIND_ARGUMENT_TRANSCRIPT,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
     OTHER_LIST,
@@ -4365,6 +4367,88 @@ def merits_coverage_cmd(
     typer.echo(census.model_dump_json())
     if census.gaps:
         raise typer.Exit(code=3)
+
+
+@app.command("authorship-tally")
+def authorship_tally_cmd(
+    term: Annotated[int, typer.Option("--term", help="October Term to tally, four-digit.")],
+    as_of: Annotated[
+        str | None,
+        typer.Option(
+            "--as-of", help="Read the record as it stood on this day (YYYY-MM-DD); today."
+        ),
+    ] = None,
+) -> None:
+    """Tally who has written from each argument sitting of a Term, as of a day. Read-only.
+
+    The pattern a late-Term authorship forecast is conditioned on
+    (`pipeline/authorship.py`): each sitting the Court's transcript list heads
+    (`argument_sittings`), its cases (granted cases argued in it, and every
+    recorded lead opinion argued in it), the author of each case decided by the
+    day, and the bench's Justices who have written for it nothing yet. Decisions
+    dated after the day are not read; argument days and sittings are as stored.
+    Writes nothing. Prints one line per sitting to stderr
+    and the tally as JSON to stdout. Fails loud if the corpus is absent.
+    """
+    try:
+        day = date.fromisoformat(as_of) if as_of else date.today()
+    except ValueError as exc:
+        raise typer.BadParameter(f"not a YYYY-MM-DD date: {as_of!r}", param_hint="--as-of") from exc
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before tallying authorship.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        try:
+            tally = authorship.authorship_tally(conn, term=term, as_of=day)
+        except ValueError as exc:
+            typer.echo(f"OT{term}: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    if not tally:
+        typer.echo(f"OT{term}: no argument sittings stored by {day.isoformat()}.", err=True)
+    for sitting in tally:
+        typer.echo(
+            f"{sitting.sitting.start.isoformat()}..{sitting.sitting.end.isoformat()}: "
+            f"{len(sitting.cases)} case(s), {len(sitting.undecided)} undecided, "
+            f"{len(sitting.unrecorded)} decided with no opinion recorded; "
+            f"written: {', '.join(sitting.authors) or '-'}; "
+            f"yet to write: {', '.join(sitting.yet_to_write) or '-'}",
+            err=True,
+        )
+    typer.echo(
+        json.dumps(
+            {
+                "term": term,
+                "as_of": day.isoformat(),
+                "sittings": [
+                    {
+                        "start": sitting.sitting.start.isoformat(),
+                        "end": sitting.sitting.end.isoformat(),
+                        "bench": list(sitting.bench),
+                        "yet_to_write": list(sitting.yet_to_write),
+                        "cases": [
+                            {
+                                "key": case.key,
+                                "docket": case.docket,
+                                "argued": case.argued.isoformat(),
+                                "decided": case.decided.isoformat() if case.decided else None,
+                                "author": case.author,
+                                "recorded": case.recorded,
+                            }
+                            for case in sitting.cases
+                        ],
+                    }
+                    for sitting in tally
+                ],
+            },
+            indent=2,
+        )
+    )
 
 
 @app.command("merits-lineups")
@@ -14807,10 +14891,17 @@ def summarize_plan_cmd(
         if found.latest is None:
             return None
         day, payload = found.latest
+        # The argument transcript is a post-argument cell's input alone
+        # (`provision.documents_for_moment`); a summary is written from the
+        # record every predict cell shares.
         return summaries.CaseRecord(
             snapshot=day,
             payload=payload,
-            documents=[(doc.kind, doc.text) for doc in found.documents],
+            documents=[
+                (doc.kind, doc.text)
+                for doc in found.documents
+                if doc.kind != KIND_ARGUMENT_TRANSCRIPT
+            ],
         )
 
     plan = summaries.plan_summaries(settings.data_root, eligible, read, config, limit=limit)
@@ -16402,6 +16493,12 @@ def live_poll(
         typer.echo(
             "Document freshness: "
             + ", ".join(f"{key}={value}" for key, value in queues.document_freshness.items())
+            + "."
+        )
+    if queues.argument_transcripts:
+        typer.echo(
+            "Argument transcripts: "
+            + ", ".join(f"{key}={value}" for key, value in queues.argument_transcripts.items())
             + "."
         )
     # The window's document-fetch ledger. Last, after the queue counts, because

@@ -41,6 +41,7 @@ from .corpus import CaseDocument, CorpusEvent, CorpusRow
 from .paths import CasePaths
 from .pipeline import arrival_cut, cell_context, cert_signals, interim_signals, moments
 from .pipeline.documents import (
+    KIND_ARGUMENT_TRANSCRIPT,
     KIND_DESCRIPTIONS,
     OTHER_LIST,
     ScrubbedSnapshot,
@@ -251,10 +252,11 @@ def _response_filed_trigger(payload: Mapping[str, Any]) -> date | None:
 #: Moments absent here keep the day rule in :func:`shows_the_moment`. The interim
 #: arrival moment has the anchor bound instead (:mod:`.pipeline.arrival_cut`),
 #: which already refuses a snapshot without its opening entry; the cert arrival
-#: moment opens at docketing, which no entry dates; and the two merits moments
-#: are dated at ingest by readers that do not take a bare payload — the grant
-#: off the resolution, the briefed moment off a brief bounded by that grant — so
-#: reading them here would be a second parse that can disagree with the first.
+#: moment opens at docketing, which no entry dates; and the three merits moments
+#: are dated by readers that do not take a bare payload — the grant off the
+#: resolution, the briefed moment off a brief bounded by that grant, the
+#: post-argument moment off the Court's transcript list — so reading them here
+#: would be a second parse that can disagree with the first.
 TRIGGER_READERS: Mapping[tuple[Stage, Moment], TriggerReader] = MappingProxyType(
     {
         (Stage.cert, Moment.cvsg): _cvsg_trigger,
@@ -471,6 +473,23 @@ def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
     return str(raw) if raw else None
 
 
+def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> list[CaseDocument]:
+    """The documents a cell for ``event_id`` may be handed at all, before any date cut.
+
+    The argument transcript belongs to the post-argument moment alone. The date
+    rule already keeps it from a grant or briefed cell, which are cut before the
+    argument; this keeps it from the cells no date rule reaches — an uncut cell
+    (:func:`moment_cutoff` returning ``None``) reads every stored document — so
+    a document kind added for one moment changes no other moment's information
+    set.
+    """
+    spec = moments.spec_for(event_id)
+    argued = spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
+    return [
+        document for document in documents if argued or document.kind != KIND_ARGUMENT_TRANSCRIPT
+    ]
+
+
 def documents_before(documents: Iterable[CaseDocument], cutoff: date) -> list[CaseDocument]:
     """The documents on the docket strictly before ``cutoff``.
 
@@ -550,7 +569,9 @@ def place_at_moment(
 ) -> Placement:
     """Cut a cell's snapshot and documents to the moment its event declares.
 
-    ``cutoff is None`` is the no-cut case and passes everything through as read.
+    ``cutoff is None`` is the no-cut case and passes everything through as read,
+    except the documents that belong to another moment (:func:`documents_for_moment`),
+    which no cell outside that moment receives under either branch.
     Otherwise two bounds compose, in this order and no other. The **anchor bound**
     (:mod:`fedcourtsai.pipeline.arrival_cut`, on the interim arrival moment only)
     runs on the payload as the corpus served it, so the anchor index it records is
@@ -570,8 +591,11 @@ def place_at_moment(
     whichever branch built it.
     """
     provenance: Literal["as-stored", "dated", "truncated"] = "as-stored"
+    admitted = documents_for_moment(documents, event)
+    withheld = len(documents) - len(admitted)
+    documents = admitted
     if cutoff is None:
-        return Placement(snapshot_date, payload, documents, provenance, None, 0, 0)
+        return Placement(snapshot_date, payload, documents, provenance, None, 0, withheld)
     # Nothing is removed from a `dated` payload by the DATE rule: it is what the
     # docket served. The anchor bound below can still remove from it.
     dropped_entries = 0
@@ -652,7 +676,7 @@ def place_at_moment(
         provenance,
         boundary,
         dropped_entries,
-        len(documents) - len(kept),
+        withheld + len(documents) - len(kept),
     )
 
 

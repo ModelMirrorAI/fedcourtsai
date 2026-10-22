@@ -388,6 +388,12 @@ class LiveConfig(BaseModel):
     # selects. A spend cap on filing downloads, not a refusal — a case past it
     # is owed again at its next poll. 0 disables the pass.
     document_freshness_per_run: int = Field(default=20, ge=0)
+    # Transcripts per cycle the argument-transcript pass may download
+    # (`live.fetch_argument_transcripts`): the oral argument transcripts the
+    # Court lists for the current and previous October Term that the corpus does
+    # not hold. A spend cap, not a refusal — a transcript past it is owed again
+    # next cycle. 0 disables the pass.
+    argument_transcripts_per_run: int = Field(default=5, ge=0)
     # Days after the July docket-number roll during which discovery also probes
     # the *outgoing* Term (`supremecourt.current_docket_term`). At the roll new
     # filings take the incoming Term's prefix, so the primary probe leaves the

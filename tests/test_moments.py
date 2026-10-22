@@ -79,7 +79,7 @@ def test_the_minted_set_is_every_declared_moment_but_the_two_case_level_baseline
     so the corpus holds one for nearly every case and its ledger half is owed
     only at first touch or resolution. Everything else in the register is
     minted, and a mint owes both halves at once — so the set must be exactly
-    the nine non-baseline moments, and must stay derived from the id shape
+    the ten non-baseline moments, and must stay derived from the id shape
     rather than drifting into a hand-maintained list.
     """
     minted = moments.minted_moment_ids()
@@ -93,6 +93,7 @@ def test_the_minted_set_is_every_declared_moment_but_the_two_case_level_baseline
         "evt-brief-response-disposition",
         "evt-order-judgment",
         "evt-brief-judgment",
+        "evt-argument-judgment",
     }
     baselines = {spec.event_id for spec in moments.DECLARED_MOMENTS} - minted
     assert baselines == {"evt-petition-disposition", "evt-motion-disposition"}

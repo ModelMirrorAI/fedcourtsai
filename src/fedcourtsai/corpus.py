@@ -69,6 +69,7 @@ from .schemas import (
 )
 from .supremecourt import (
     IFP_SERIAL_BASE,
+    ArgumentSitting,
     parse_scotus_application_number,
     parse_scotus_docket_number,
 )
@@ -435,6 +436,16 @@ class CorpusRow(BaseModel):
         "Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = "
         "no relist, not yet, or not parsed — on a decided row polled before the "
         "column existed, never parsed.",
+    )
+    argument_transcript_at: date | None = Field(
+        default=None,
+        description="The argument day of the first oral argument transcript the "
+        "Court's per-Term transcript list gave for this docket and the live poll's "
+        "transcript pass stored (`pipeline.live.fetch_argument_transcripts`) — the "
+        "merits stage's post-argument forecast moment. Fill-in latched: a later "
+        "reargument never moves it. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = not argued, no transcript listed "
+        "yet, or not read.",
     )
     merits_brief_on_lead: date | None = Field(
         default=None,
@@ -992,7 +1003,13 @@ CREATE TABLE IF NOT EXISTS cases (
     -- pipeline/cert_signals.py): the date that opens the cert stage's relist
     -- moment. Written by the live poll at ingest; fill-in latched. Withheld from
     -- the retrieval surface. NULL = no relist yet, or not parsed.
-    relisted_at TEXT
+    relisted_at TEXT,
+    -- The argument day of the first oral argument transcript stored for the
+    -- docket (see CorpusRow and pipeline/live.py): the date that opens the merits
+    -- stage's post-argument moment. Written by the live poll's transcript pass;
+    -- fill-in latched. Withheld from the retrieval surface. NULL = no transcript
+    -- stored yet.
+    argument_transcript_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1171,6 +1188,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "call_for_response_at": "TEXT",
     "merits_brief_on_lead": "TEXT",
     "relisted_at": "TEXT",
+    "argument_transcript_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1411,6 +1429,80 @@ def _migrate_opinion_benches(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE opinion_benches ADD COLUMN {column} {ddl}")
 
 
+# Per-column DDL for `argument_sittings`: one row per argument session of an
+# October Term, as the Court's transcript list heads it, keyed by the Term and
+# the session's first day. Written by the live poll's transcript pass, which
+# re-reads the current and previous Term's headings every cycle and upserts each
+# by its key, so a widened heading takes its new last day and ``read_at`` is the
+# last read. Metadata, not payload: it stays in the index blob under the
+# corpus-split mode.
+ARGUMENT_SITTINGS_COLUMN_DDL: dict[str, str] = {
+    "term": "INTEGER NOT NULL",
+    "start": "TEXT NOT NULL",
+    "end": "TEXT NOT NULL",
+    "read_at": "TEXT NOT NULL",
+}
+
+
+def _migrate_argument_sittings(conn: sqlite3.Connection) -> None:
+    """Create `argument_sittings` from its DDL map, and add any column added since.
+
+    Idempotent, and reached only by a writer's connection: a read-only open of
+    a blob written before the table existed reads it as empty
+    (:func:`argument_sittings`).
+    """
+    columns = ", ".join(f"{name} {ddl}" for name, ddl in ARGUMENT_SITTINGS_COLUMN_DDL.items())
+    conn.execute(
+        f"CREATE TABLE IF NOT EXISTS argument_sittings ({columns}, PRIMARY KEY (term, start))"
+    )
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(argument_sittings)")}
+    for column, ddl in ARGUMENT_SITTINGS_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE argument_sittings ADD COLUMN {column} {ddl}")
+
+
+def upsert_argument_sittings(
+    conn: sqlite3.Connection, sittings: Iterable[ArgumentSitting], *, read_at: date
+) -> int:
+    """Insert or replace each sitting by ``(term, start)``; returns rows written."""
+    rows = [
+        (sitting.term, sitting.start.isoformat(), sitting.end.isoformat(), read_at.isoformat())
+        for sitting in sittings
+    ]
+    with conn:
+        conn.executemany(
+            'INSERT OR REPLACE INTO argument_sittings (term, start, "end", read_at) '
+            "VALUES (?, ?, ?, ?)",
+            rows,
+        )
+    return len(rows)
+
+
+def argument_sittings(conn: ReadConnection, *, term: int | None = None) -> list[ArgumentSitting]:
+    """The stored sittings, earliest first, of one Term or of all.
+
+    A blob written before the table existed reads as holding none.
+    """
+    sql = 'SELECT term, start, "end" FROM argument_sittings'
+    params: tuple[int, ...] = ()
+    if term is not None:
+        sql += " WHERE term = ?"
+        params = (term,)
+    try:
+        rows = conn.execute(sql + " ORDER BY start", params).fetchall()
+    except Exception as exc:
+        # sqlite3's OperationalError locally, the ranged backend's own error type remotely.
+        if "no such table" not in str(exc).lower():
+            raise
+        return []
+    return [
+        ArgumentSitting(
+            term=int(row[0]), start=date.fromisoformat(row[1]), end=date.fromisoformat(row[2])
+        )
+        for row in rows
+    ]
+
+
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
 # A display annotation the Court appends to some docket numbers, most often
@@ -1543,6 +1635,7 @@ def _apply_schema(conn: sqlite3.Connection) -> None:
     _migrate_documents(conn)
     _migrate_opinions(conn)
     _migrate_opinion_benches(conn)
+    _migrate_argument_sittings(conn)
 
 
 def _schema_entries(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:
@@ -1874,6 +1967,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
             row.merits_brief_on_lead.isoformat() if row.merits_brief_on_lead else None
         ),
         "relisted_at": row.relisted_at.isoformat() if row.relisted_at else None,
+        "argument_transcript_at": (
+            row.argument_transcript_at.isoformat() if row.argument_transcript_at else None
+        ),
         "capital_case": int(row.capital_case),
     }
 
@@ -1992,6 +2088,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         call_for_response_at=_optional_date(record, "call_for_response_at"),
         merits_brief_on_lead=_optional_date(record, "merits_brief_on_lead"),
         relisted_at=_optional_date(record, "relisted_at"),
+        argument_transcript_at=_optional_date(record, "argument_transcript_at"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -2005,8 +2102,8 @@ def _update_clause(column: str) -> str:
     ``document_floor_probed_at`` floor probe, and the fill-in slice of
     the live-parsed signals — the conference, CVSG, invited-brief,
     call-for-response and first-relist dates, the dated interim/merits signals beside them (a
-    consolidated member's lead-filed respondent brief among them), and
-    the merits decision record)
+    consolidated member's lead-filed respondent brief and the post-argument
+    transcript's argument day among them), and the merits decision record)
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
@@ -2052,6 +2149,7 @@ def _update_clause(column: str) -> str:
         "call_for_response_at",
         "merits_brief_on_lead",
         "relisted_at",
+        "argument_transcript_at",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -3558,6 +3656,24 @@ def latch_merits_brief_on_lead(conn: sqlite3.Connection, case_id: str, filed: da
         )
 
 
+def latch_argument_transcript_at(conn: sqlite3.Connection, case_id: str, argued: date) -> None:
+    """Fill in ``argument_transcript_at`` on one case, keeping a date already stored.
+
+    The live poll's transcript pass is the writer: the transcript comes off the
+    Court's per-Term list rather than the docket payload, so it lands beside the
+    row upsert rather than through it, as :func:`latch_merits_brief_on_lead` does
+    and for the same reason. The first transcript stored opens the moment, so a
+    reargument's later transcript never moves it. A direct ``UPDATE`` of the
+    index and never the casestore mirror.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET argument_transcript_at = COALESCE(argument_transcript_at, ?) "
+            "WHERE case_id = ?",
+            (argued.isoformat(), case_id),
+        )
+
+
 def unlatch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -> None:
     """Clear ``salience_selected`` on each case — the latch's one sanctioned exception.
 
@@ -3912,7 +4028,8 @@ def opinion_body(row: CorpusRow) -> str | None:
 
 
 #: Columns a ``query`` prior never carries, though the row stores them. The
-#: invited-brief, call-for-response and first-relist dates are mint triggers, a consolidated
+#: invited-brief, call-for-response, first-relist and argument-transcript dates are mint
+#: triggers, a consolidated
 #: member's lead-filed respondent brief dates a moment no mint reads yet, and the
 #: merits decision record is an analytics surface — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
@@ -3932,6 +4049,7 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "call_for_response_at",
         "merits_brief_on_lead",
         "relisted_at",
+        "argument_transcript_at",
     }
 )
 

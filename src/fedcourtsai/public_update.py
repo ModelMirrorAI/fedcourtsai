@@ -129,6 +129,7 @@ _MOMENT_WORDS: Final[dict[Moment, str]] = {
     Moment.response_filed: "after the response was filed",
     Moment.grant: "after cert was granted",
     Moment.briefed: "after briefing closed",
+    Moment.argued: "after the oral argument",
 }
 
 _MOMENT_VALUES: Final = frozenset(m.value for m in Moment)

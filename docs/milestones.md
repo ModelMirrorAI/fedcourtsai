@@ -91,14 +91,27 @@ Add the moments where a case's information set materially changes, starting
 with the one the public cares about most:
 
 - **Post-oral-argument** — every argued case, after the transcript is out
-  (~60 events a Term). First to be built.
+  (~60 events a Term). Declared, minted and switched off on the same terms as
+  the SG brief (`evt-argument-judgment`, moment `argued` on the merits stage).
+  The live poll already stores each transcript the Court lists, as the
+  `argument-transcript` document only this moment's cells are handed.
 - **SG brief after a CVSG** — the Solicitor General's recommendation (~20).
   Declared, parsed and minted (`evt-brief-sg-disposition`, moment `sg-brief`),
   and switched off: no cell is filed under it until the process version whose
   predict prompt names it.
 - **Late-Term authorship elimination** — a fixed calendar date on which every
   still-undecided argued case is re-forecast, once the pattern of who has
-  written from each sitting is visible (~25).
+  written from each sitting is visible (~25). The pattern is read but not yet
+  declared as a moment: the live poll stores the Court's argument sittings, and
+  `fedcourts authorship-tally` reads each sitting's authors and undecided cases
+  as of a day from the per-opinion record. That record is written for
+  OT2020–OT2025 only, and sittings are stored for the current and previous Term,
+  so OT2025 is the one Term the tally reads whole today; the current Term's
+  authors still need a standing sweep before a cell could be handed the tally.
+  The tally is context, not a claim: declaring the moment still owes the
+  eight tests in [outcome-decomposition.md](outcome-decomposition.md), which
+  the authorship claims have failed so far for want of a committed resolution
+  channel and a strictly-prior baseline ([decision-model.md](decision-model.md)).
 - **First-relist re-forecast** and **call for response** — the strongest public
   cert-stage signals. Both are declared, parsed and minted, and switched off
   on the same terms as the SG brief: the call for response

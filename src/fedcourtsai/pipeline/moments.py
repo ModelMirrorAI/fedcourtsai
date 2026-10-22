@@ -67,7 +67,8 @@ class MomentSpec:
     provisioning cut a forward cell's snapshot to the moment's information set.
     True for every moment a mint seam opens at its own trigger — the CVSG
     invitation, the Solicitor General's invited brief, the cert call for a
-    response, the first relist, the cert grant, the interim response request, the arrival of a
+    response, the first relist, the cert grant, the argument transcript, the interim
+    response request, the arrival of a
     petition or an application. False for
     the cert petition baseline, whose ``opened_at`` is docketing: the moment
     it declares is the **distribution**, so a cut at docketing would delete
@@ -247,6 +248,25 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "briefs are on the record."
         ),
         claim_set_version=CLAIM_SET_MERITS_V1,
+    ),
+    MomentSpec(
+        # Opened by the argument transcript rather than by a docket entry: the
+        # Court posts it the day the case is argued, on a per-Term list the
+        # docket does not link. Declared but switched off: the transcript is a
+        # cell input the predict prompt has to describe, so a cell here waits for
+        # the process version whose prompt names it.
+        event_id=ids.event_id(EventKind.argument.value, "judgment"),
+        kind=EventKind.argument,
+        stage=Stage.merits,
+        moment=Moment.argued,
+        ordinal=2,
+        decision_target="judgment",
+        description=(
+            "Disposition of the judgment below, forecast once the transcript of the "
+            "oral argument is posted."
+        ),
+        claim_set_version=CLAIM_SET_MERITS_V1,
+        forecastable=False,
     ),
 )
 

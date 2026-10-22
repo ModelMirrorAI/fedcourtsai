@@ -626,6 +626,67 @@ rotations just polled:
   already provisions on the triggers; nothing new holds a credential, and no
   cell or dev checkout fetches.
 
+**Argument transcripts.** The oral argument transcript is the one stored
+document no docket entry links. The Court posts it the day the case is argued,
+on one page per October Term
+(`supremecourt.gov/oral_arguments/argument_transcript/<year>`), each row a docket
+number linking the transcript PDF beside the date it was argued
+(`supremecourt.parse_transcript_listing`). The live cycle reads it in its own
+pass, after document freshness (`live.fetch_argument_transcripts`):
+
+- **List.** Two paced GETs a cycle, the Term today falls in and the one before
+  it, so the spring sittings survive the October roll and the last Term is
+  back-filled. A row is kept only where the link text is a Term-form docket
+  number and the link resolves to the Court's own host; an application argued
+  on the interim docket has no merits stage, and a row whose date cannot be read
+  is left out. A docket listed twice in one Term keeps its later row.
+- **Match.** Each row is matched to a corpus case by its docket number. A case
+  with `argument_transcript_at` latched is held without a store read; any other
+  case owes the transcript unless its stored `argument-transcript` row already
+  holds the listed link. A consolidated member the list does not name gets nothing: the list names
+  the docket the argument was heard under.
+- **Fetch and store.** Newest argument first, at most
+  `live.argument_transcripts_per_run` a cycle and within the soft deadline. The
+  text is read up to ten times the cap, which is the whole of any transcript,
+  and then cleaned (`documents.extract_transcript_text`): the margin line
+  numbers, page numbers, running headers and footers, and the word index after
+  the reporter's closing line are dropped. Measured on the OT2025 *Sripetch v.
+  SEC* transcript (97 pages), that takes the text from 219,076 characters to
+  79,488, under the cap; a longer one is head-cut and flagged. The row is stored
+  under the argument day, which is what places it against a cell's cutoff.
+- **Latch.** A transcript that carries text latches its argument day into
+  `argument_transcript_at`, fill-in. A latched case is never fetched again, so
+  the stored transcript stays the one whose date opened the moment: a
+  reargument's later transcript, or the same one re-posted at a new link, is
+  not taken. That date opens the merits
+  post-argument moment (`evt-argument-judgment`) at the case's next poll, behind
+  the briefed moment's guards: a merits proceeding, no judgment, the grant
+  moment still open. The moment is declared and switched off, so no cell is
+  filed under it yet.
+- **Who reads it.** Only a cell of the post-argument moment
+  (`provision.documents_for_moment`). The date rule keeps the transcript from a
+  grant or briefed cell already, since both are cut before the argument; the
+  kind rule keeps it from an uncut cell, which reads every stored document.
+  The case-summary plan leaves it out of the record it digests and summarizes.
+  Every argued case is stored, decided or not, because the transcript is a fact
+  of the case and costs one download.
+- **Sittings.** Each list also heads its rows by argument sitting
+  ("Argument Session: <first day> - <last day>"), and the pass stores those
+  headings in `argument_sittings` (`supremecourt.parse_argument_sittings`). The
+  sitting is the Court's own grouping, which a reading of gaps between argument
+  days does not reproduce: the Court widens a heading to take in a special
+  session (OT2023's February sitting opens on its February 8 special session,
+  OT2024's April sitting runs to its May 15 add-on). `fedcourts authorship-tally`
+  reads them; no cell does.
+- **Ledger.** The `Argument transcripts:` line carries listed, unmatched, held,
+  owed, stored (empty among them), unavailable, failed, deferred and sittings
+  counts. The
+  pass is failure-isolated as document freshness is.
+
+One residual: a transcript stored with no text latches nothing, and the OCR
+recovery pass does not cover this kind, so its case never opens the moment.
+The Court posts its transcripts as born-digital PDFs, so this should not arise.
+
 **The appendix-aware cut.** The `petition`, `application` and `appendix` rows
 are not head-cut at the cap, because on a filing that carries an appendix a head
 cut loses the wrong half: the cap lands inside the appendix, and everything
