@@ -69,6 +69,7 @@ from .schemas import (
 )
 from .supremecourt import (
     IFP_SERIAL_BASE,
+    ArgumentSitting,
     parse_scotus_application_number,
     parse_scotus_docket_number,
 )
@@ -1428,6 +1429,80 @@ def _migrate_opinion_benches(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE opinion_benches ADD COLUMN {column} {ddl}")
 
 
+# Per-column DDL for `argument_sittings`: one row per argument session of an
+# October Term, as the Court's transcript list heads it, keyed by the Term and
+# the session's first day. Written by the live poll's transcript pass, which
+# re-reads the current and previous Term's headings every cycle and upserts each
+# by its key, so a widened heading takes its new last day and ``read_at`` is the
+# last read. Metadata, not payload: it stays in the index blob under the
+# corpus-split mode.
+ARGUMENT_SITTINGS_COLUMN_DDL: dict[str, str] = {
+    "term": "INTEGER NOT NULL",
+    "start": "TEXT NOT NULL",
+    "end": "TEXT NOT NULL",
+    "read_at": "TEXT NOT NULL",
+}
+
+
+def _migrate_argument_sittings(conn: sqlite3.Connection) -> None:
+    """Create `argument_sittings` from its DDL map, and add any column added since.
+
+    Idempotent, and reached only by a writer's connection: a read-only open of
+    a blob written before the table existed reads it as empty
+    (:func:`argument_sittings`).
+    """
+    columns = ", ".join(f"{name} {ddl}" for name, ddl in ARGUMENT_SITTINGS_COLUMN_DDL.items())
+    conn.execute(
+        f"CREATE TABLE IF NOT EXISTS argument_sittings ({columns}, PRIMARY KEY (term, start))"
+    )
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(argument_sittings)")}
+    for column, ddl in ARGUMENT_SITTINGS_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE argument_sittings ADD COLUMN {column} {ddl}")
+
+
+def upsert_argument_sittings(
+    conn: sqlite3.Connection, sittings: Iterable[ArgumentSitting], *, read_at: date
+) -> int:
+    """Insert or replace each sitting by ``(term, start)``; returns rows written."""
+    rows = [
+        (sitting.term, sitting.start.isoformat(), sitting.end.isoformat(), read_at.isoformat())
+        for sitting in sittings
+    ]
+    with conn:
+        conn.executemany(
+            'INSERT OR REPLACE INTO argument_sittings (term, start, "end", read_at) '
+            "VALUES (?, ?, ?, ?)",
+            rows,
+        )
+    return len(rows)
+
+
+def argument_sittings(conn: ReadConnection, *, term: int | None = None) -> list[ArgumentSitting]:
+    """The stored sittings, earliest first, of one Term or of all.
+
+    A blob written before the table existed reads as holding none.
+    """
+    sql = 'SELECT term, start, "end" FROM argument_sittings'
+    params: tuple[int, ...] = ()
+    if term is not None:
+        sql += " WHERE term = ?"
+        params = (term,)
+    try:
+        rows = conn.execute(sql + " ORDER BY start", params).fetchall()
+    except Exception as exc:
+        # sqlite3's OperationalError locally, the ranged backend's own error type remotely.
+        if "no such table" not in str(exc).lower():
+            raise
+        return []
+    return [
+        ArgumentSitting(
+            term=int(row[0]), start=date.fromisoformat(row[1]), end=date.fromisoformat(row[2])
+        )
+        for row in rows
+    ]
+
+
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
 # A display annotation the Court appends to some docket numbers, most often
@@ -1560,6 +1635,7 @@ def _apply_schema(conn: sqlite3.Connection) -> None:
     _migrate_documents(conn)
     _migrate_opinions(conn)
     _migrate_opinion_benches(conn)
+    _migrate_argument_sittings(conn)
 
 
 def _schema_entries(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:

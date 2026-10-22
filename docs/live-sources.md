@@ -670,8 +670,17 @@ pass, after document freshness (`live.fetch_argument_transcripts`):
   The case-summary plan leaves it out of the record it digests and summarizes.
   Every argued case is stored, decided or not, because the transcript is a fact
   of the case and costs one download.
+- **Sittings.** Each list also heads its rows by argument sitting
+  ("Argument Session: <first day> - <last day>"), and the pass stores those
+  headings in `argument_sittings` (`supremecourt.parse_argument_sittings`). The
+  sitting is the Court's own grouping, which a reading of gaps between argument
+  days does not reproduce: the Court widens a heading to take in a special
+  session (OT2023's February sitting opens on its February 8 special session,
+  OT2024's April sitting runs to its May 15 add-on). `fedcourts authorship-tally`
+  reads them; no cell does.
 - **Ledger.** The `Argument transcripts:` line carries listed, unmatched, held,
-  owed, stored (empty among them), unavailable, failed and deferred counts. The
+  owed, stored (empty among them), unavailable, failed, deferred and sittings
+  counts. The
   pass is failure-isolated as document freshness is.
 
 One residual: a transcript stored with no text latches nothing, and the OCR

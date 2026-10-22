@@ -31,8 +31,11 @@ from fedcourtsai.serialize import read_model
 from fedcourtsai.store import forecastable_event_ids
 from fedcourtsai.supremecourt import (
     TRANSCRIPT_LISTING_URL,
+    ArgumentSitting,
     ArgumentTranscript,
     SupremeCourtClient,
+    TranscriptListing,
+    parse_argument_sittings,
     parse_transcript_listing,
 )
 from tests.test_documents import _pdf
@@ -54,8 +57,15 @@ def _listing_row(docket: str, href: str, argued: str) -> str:
     )
 
 
-def _listing(*rows: str) -> str:
-    return "<table><tr><th>Oral Argument</th><th>Date Argued</th></tr>" + "".join(rows) + "</table>"
+def _listing(*rows: str, session: str = "April 20, 2026 - April 29, 2026") -> str:
+    return (
+        "<h4><a href='#cell'>Argument Session: "
+        + session
+        + "</a></h4>"
+        + "<table><tr><th>Oral Argument</th><th>Date Argued</th></tr>"
+        + "".join(rows)
+        + "</table>"
+    )
 
 
 # --- the list ------------------------------------------------------------------
@@ -107,11 +117,32 @@ def test_the_client_reads_one_terms_list_or_none() -> None:
     html = _listing(_listing_row("25-466", "../argument_transcripts/2025/25-466.pdf", "04/20/26"))
     client, asked = _client({_PAGE: html})
     with client:
-        assert client.get_transcript_listing(2025) == [
-            ArgumentTranscript("25-466", f"{_HOST}/2025/25-466.pdf", date(2026, 4, 20))
-        ]
+        assert client.get_transcript_listing(2025) == TranscriptListing(
+            transcripts=[
+                ArgumentTranscript("25-466", f"{_HOST}/2025/25-466.pdf", date(2026, 4, 20))
+            ],
+            sittings=[ArgumentSitting(2025, date(2026, 4, 20), date(2026, 4, 29))],
+        )
         assert client.get_transcript_listing(2026) is None
     assert asked == [_PAGE, TRANSCRIPT_LISTING_URL.format(term=2026)]
+
+
+def test_the_sittings_are_the_courts_own_headings() -> None:
+    html = (
+        _listing(session="February 08, 2024 - February 28, 2024")
+        + _listing(session="October 02, 2023 - October 11, 2023")
+        + _listing(session="October 02, 2023 - October 11, 2023")
+        # Unreadable, or ending before it starts: left out.
+        + _listing(session="Sometime, 2024 - April 25, 2024")
+        + _listing(session="April 25, 2024 - April 15, 2024")
+    )
+    assert parse_argument_sittings(html, term=2023) == [
+        ArgumentSitting(2023, date(2023, 10, 2), date(2023, 10, 11)),
+        ArgumentSitting(2023, date(2024, 2, 8), date(2024, 2, 28)),
+    ]
+    sitting = ArgumentSitting(2023, date(2024, 2, 8), date(2024, 2, 28))
+    assert sitting.holds(date(2024, 2, 8)) and sitting.holds(date(2024, 2, 28))
+    assert not sitting.holds(date(2024, 3, 1))
 
 
 # --- the text --------------------------------------------------------------------
@@ -179,6 +210,7 @@ def _served() -> dict[str, Any]:
         _LIST_2026: _listing(
             _listing_row("25-170", "../argument_transcripts/2026/25-170.pdf", "10/05/26"),
             _listing_row("25-999", "../argument_transcripts/2026/25-999.pdf", "10/06/26"),
+            session="October 05, 2026 - October 14, 2026",
         ),
         _LIST_2025: _listing(
             _listing_row("25-466", "../argument_transcripts/2025/25-466.pdf", "04/20/26"),
@@ -204,6 +236,7 @@ def test_the_pass_stores_each_listed_transcript_once_and_latches_its_day(
     # the corpus does not hold is counted and left.
     assert ledger == {
         "listed": 4,
+        "sittings": 2,
         "unmatched": 1,
         "held": 0,
         "owed": 3,
@@ -217,6 +250,10 @@ def test_the_pass_stores_each_listed_transcript_once_and_latches_its_day(
     with corpus.connect(db) as conn:
         stored = {d.kind: d for d in corpus.documents_for_case(conn, cases["25-170"])}
         row = corpus.get_row(conn, cases["25-170"])
+        assert corpus.argument_sittings(conn) == [
+            ArgumentSitting(2025, date(2026, 4, 20), date(2026, 4, 29)),
+            ArgumentSitting(2026, date(2026, 10, 5), date(2026, 10, 14)),
+        ]
     document = stored[KIND_ARGUMENT_TRANSCRIPT]
     assert (document.entry_date, document.text) == ("2026-10-05", "JUSTICE ALITO: Counsel.")
     assert row is not None and row.argument_transcript_at == date(2026, 10, 5)
