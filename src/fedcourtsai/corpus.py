@@ -3923,13 +3923,15 @@ class PriorQuery(BaseModel):
     court: str | None = None
     docket_number: str | None = Field(
         default=None,
+        max_length=64,
         description="Look up one docket by its number rather than its CourtListener "
         "id: rows whose `docket_number` normalizes (`normalize_docket_number`) to "
         "this value's normal form, so `No. 25-1323`, `25-1323` and an en-dash "
         "spelling are one lookup, as are `26A477` and `No. 26A477`. Stored "
         "normalized. An exact-match filter like `court`, and like every filter "
         "it sits under the replay clock: a docket the clock does not admit is "
-        "not returned.",
+        "not returned. Requires `court`, since a number is only unique within one "
+        "court and a miss walks the scope.",
     )
     topic: str | None = Field(default=None, description="Exact nature-of-suit / subject topic.")
     judges: list[str] = Field(
@@ -4026,6 +4028,13 @@ class PriorQuery(BaseModel):
         if normal is None:
             raise ValueError(f"docket_number {value!r} names no docket number")
         return normal
+
+    @model_validator(mode="after")
+    def _docket_number_needs_court(self) -> PriorQuery:
+        """Refuse a court-less number: its miss would walk every court's rows."""
+        if self.docket_number is not None and self.court is None:
+            raise ValueError("a docket_number lookup needs a court (e.g. court='scotus')")
+        return self
 
 
 def opinion_body(row: CorpusRow) -> str | None:
@@ -4543,6 +4552,20 @@ def docket_number_rowids(conn: ReadConnection, docket_number: str, court: str | 
     return _rowids_matching(conn.execute(sql, params), want)
 
 
+def _term_bar_refuses_number(query: PriorQuery) -> bool:
+    """Whether the Term bar refuses a SCOTUS number before any row is read.
+
+    A SCOTUS row's Term is read off its own docket number (:func:`case_year`),
+    so a number at or past ``decided_before`` can only ever be screened out.
+    Answering it before the read keeps a withheld docket from costing, or
+    timing, any differently from one the corpus does not hold.
+    """
+    if query.court != "scotus" or query.decided_before is None or query.docket_number is None:
+        return False
+    term = scotus_term_year(query.docket_number)
+    return term is not None and term >= query.decided_before
+
+
 def _rank_scored(records: Iterable[Any], query: PriorQuery, limit: int) -> list[CorpusRow]:
     """The scored ranking over a candidate stream: relevance, then recency, then case id.
 
@@ -4634,6 +4657,8 @@ def retrieve_priors(
         # instead of steering a scope walk. They then take the scored path
         # below, so the derived screens, the replay mask and the ranking are
         # the ones every other query gets.
+        if _term_bar_refuses_number(query):
+            return []
         rowids = docket_number_rowids(conn, query.docket_number, query.court)
         if not rowids:
             return []

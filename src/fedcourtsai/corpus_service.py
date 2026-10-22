@@ -138,13 +138,24 @@ class QueryResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+#: Why ``open-events`` refuses a replay clock: it lists a docket's current open
+#: events, which no clock masks, so a clocked caller reads the docket's masked
+#: row through ``query --docket-number`` instead.
+OPEN_EVENTS_CLOCK_REFUSAL = (
+    "open-events lists a docket's current events, which the replay clock cannot "
+    + "mask; under a clock, read the docket's masked row with "
+    + "`query --docket-number` instead"
+)
+
+
 class OpenEventsRequest(BaseModel):
     """One forwarded ``fedcourts open-events`` invocation.
 
     The case is named by exactly one of ``docket`` (the CourtListener id) and
-    ``docket_number``; the clock fields bound a ``docket_number`` lookup the way
-    they bound ``query`` (:func:`store.resolve_docket_number`) and are refused
-    beside a bare ``docket``, which has no lookup for them to bound.
+    ``docket_number``. The clock fields are named so that a clocked request is
+    refused with the reason (:data:`OPEN_EVENTS_CLOCK_REFUSAL`) rather than as
+    an unknown field: the events listed are the docket's current state, which
+    no clock masks.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -152,7 +163,7 @@ class OpenEventsRequest(BaseModel):
     schema_version: Literal["1.0"]
     court: str
     docket: int | None = None
-    docket_number: str | None = None
+    docket_number: str | None = Field(default=None, max_length=64)
     decided_before: int | None = None
     decided_before_day: date | None = None
 
@@ -161,8 +172,10 @@ class OpenEventsRequest(BaseModel):
         if (self.docket is None) == (self.docket_number is None):
             raise ValueError("name the case by exactly one of docket and docket_number")
         clocked = self.decided_before is not None or self.decided_before_day is not None
-        if self.docket is not None and clocked:
-            raise ValueError("the replay clock bounds a docket_number lookup only")
+        if clocked:
+            # The listed events are the docket's current state, which no clock
+            # masks; a clocked caller reads the masked row through `query`.
+            raise ValueError(OPEN_EVENTS_CLOCK_REFUSAL)
         if (
             self.docket_number is not None
             and corpus.normalize_docket_number(self.docket_number) is None

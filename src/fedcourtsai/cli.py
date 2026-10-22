@@ -13837,6 +13837,21 @@ def _docket_number_or_refuse(raw: str) -> str:
     return normal
 
 
+def _scoped_docket_number(raw: str, court: str) -> str:
+    """``raw`` in its normal form for a ``query`` lookup, which needs a court.
+
+    A number is unique only within one court, and a court-less miss would walk
+    every court's rows, so the pair is refused rather than read.
+    """
+    normal = _docket_number_or_refuse(raw)
+    if not court:
+        raise ValueError(
+            "--docket-number needs --court (e.g. --court scotus): a number is "
+            "unique only within one court"
+        )
+    return normal
+
+
 def _echo_docket_number_clock(normal: str | None, term: int | None, raw_arg: str) -> None:
     """Say that a docket-number lookup took its Term bar from the environment."""
     if normal is None or term is None or raw_arg.strip():
@@ -14038,7 +14053,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
             else parse_decided_before(decided_before)
         )
         cutoff_day, cutoff_source = _replay_cutoff_day(clock)
-        normal_number = _docket_number_or_refuse(docket_number) if docket_number else None
+        normal_number = _scoped_docket_number(docket_number, court) if docket_number else None
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         typer.echo(_query_interface_help(), err=True)
@@ -16137,16 +16152,18 @@ def open_events_cmd(
         typer.Option(
             help="The case's docket number instead of its id — 25-1323, "
             "'No. 25-1323', 26A477. The id it resolved to is said on stderr. "
-            "Resolved under the replay clock `query` applies: --decided-before, "
-            "else the DECIDED_BEFORE environment variable, and REPLAY_CUTOFF; a "
-            "docket the clock withholds resolves to nothing."
+            "Refused under a replay clock (--decided-before, the DECIDED_BEFORE "
+            "environment variable, or REPLAY_CUTOFF): the events listed are the "
+            "docket's current state, which no clock masks, so a clocked caller "
+            "reads the docket's masked row with `query --docket-number`."
         ),
     ] = "",
     decided_before: Annotated[
         str,
         typer.Option(
-            help="Replay clock for a --docket-number lookup, spelled as on `query` "
-            "(a Term year or an ISO date)."
+            help="A replay clock, spelled as on `query` (a Term year or an ISO "
+            "date). Given with --docket-number it is refused, as the DECIDED_BEFORE "
+            "fallback is; `0` clears that fallback for an unclocked lookup."
         ),
     ] = "",
     corpus_backend: CorpusBackendOption = "",
@@ -16189,13 +16206,14 @@ def _open_events_by_number(
     try:
         normal = _docket_number_or_refuse(docket_number)
         clock = _docket_number_clock(decided_before)
-        cutoff_day, cutoff_source = _replay_cutoff_day(clock)
+        cutoff_day, _ = _replay_cutoff_day(clock)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=2) from exc
     term = clock.term if clock is not None and clock.day is None else None
-    _echo_replay_cutoff(cutoff_day, cutoff_source)
-    _echo_docket_number_clock(normal, term, decided_before)
+    if term is not None or cutoff_day is not None:
+        typer.echo(corpus_service.OPEN_EVENTS_CLOCK_REFUSAL + ".", err=True)
+        raise typer.Exit(code=2)
     if backend == "service":
         try:
             response = corpus_service.client_open_events(
@@ -16219,12 +16237,7 @@ def _open_events_by_number(
             decided_before_day=cutoff_day,
         )
     if resolved is None:
-        clocked = term is not None or cutoff_day is not None
-        typer.echo(
-            f"note: docket number {normal} resolved to no {court} docket"
-            + (" the replay clock admits" if clocked else " in the corpus"),
-            err=True,
-        )
+        typer.echo(f"note: docket number {normal} resolved to no {court} docket", err=True)
         return
     typer.echo(f"note: docket number {normal} -> {ids.case_id(court, resolved)}", err=True)
     for eid in event_ids:

@@ -184,8 +184,10 @@ def resolve_docket_number(
     so the lookup is the ``query`` one — normalized spelling, open dockets and
     the SCOTUS letter forms included — and sits under the same replay clock: a
     docket the clock would withhold from ``query`` does not resolve here either.
-    Where two rows carry the number, the lowest docket id wins, the identity
-    join's rule (:func:`corpus.scotus_case_id_by_docket_number`).
+    Where the lookup returns two rows for the number, the lowest docket id among
+    them wins. That is the identity join's tie-break
+    (:func:`corpus.scotus_case_id_by_docket_number`) over the rows returned, and
+    a live hit returns no non-live duplicate (:func:`corpus.docket_number_rowids`).
 
     ``ValueError`` (pydantic's) on a number that normalizes to nothing.
     """

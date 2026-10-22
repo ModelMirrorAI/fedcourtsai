@@ -496,12 +496,12 @@ def test_open_events_by_docket_number_round_trip(fixture_corpus: FixtureCorpus) 
     with _running_server(fixture_corpus.db_path) as url:
         by_id = corpus_service.client_open_events(url, "scotus", 305)
         by_number = corpus_service.client_open_events(url, "scotus", docket_number="24-12")
-        clocked = corpus_service.client_open_events(
-            url, "scotus", docket_number="24-12", decided_before=2000
-        )
+        with pytest.raises(corpus_service.CorpusServiceError, match="cannot mask"):
+            corpus_service.client_open_events(
+                url, "scotus", docket_number="24-12", decided_before=2000
+            )
     assert by_id.docket == by_number.docket == 305
     assert by_number.event_ids == by_id.event_ids and by_id.event_ids
-    assert clocked.docket is None and clocked.event_ids == []
 
 
 @pytest.mark.parametrize(
@@ -510,7 +510,9 @@ def test_open_events_by_docket_number_round_trip(fixture_corpus: FixtureCorpus) 
         {},
         {"docket": 305, "docket_number": "24-12"},
         {"docket": 305, "decided_before": 2024},
+        {"docket_number": "24-12", "decided_before": 2024},
         {"docket_number": "   "},
+        {"docket_number": "2" * 65},
     ],
 )
 def test_open_events_request_needs_one_case_key(fields: dict[str, object]) -> None:
