@@ -2595,8 +2595,8 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
     carries its per-brief headings as text, so it is not empty by the coverage
     report's test and reads there as covered while carrying no argument at all;
     ``corpus-info --text-coverage`` sizes that residual on its own line, and the
-    ledger's `set_keyed` tally is the guard against a set key that somehow did read empty rather than a count
-    of it. Each candidate is
+    ledger's `set_keyed` tally is the guard against a set key that somehow did
+    read empty rather than a count of it. Each candidate is
     re-fetched by its own stored URL on supremecourt.gov, free and
     politeness-capped, so the pass spends none of the CourtListener budget; and
     its pages go through the extractor with the OCR seam supplied, which reads a
@@ -11792,8 +11792,8 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
     # scans reads as covered there, and OCR recovery leaves it out because its key
     # is not a URL to fetch. Sized here so the residual has a number.
     typer.echo(
-        f"  ({coverage.heading_only_oppositions} of {coverage.set_keyed_oppositions} "
-        "multi-respondent brief(s) in opposition carry nothing beyond their "
+        f"  ({coverage.heading_only_oppositions} of {coverage.combined_oppositions} "
+        "combined multi-respondent brief(s) in opposition carry nothing beyond their "
         f"per-brief headings, {coverage.heading_only_oppositions_queued} of them on "
         f"a queued-or-predicted case, and {coverage.partly_empty_oppositions} more "
         f"carry some briefs with no text, {coverage.partly_empty_oppositions_queued} "

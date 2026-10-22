@@ -3771,15 +3771,20 @@ def test_document_text_coverage_sizes_the_heading_only_oppositions(tmp_path: Pat
                 _set_keyed_bio("scotus/11", "Deny.", "Deny as well."),
                 # One brief read, one a scan.
                 _set_keyed_bio("scotus/15", "Deny.", ""),
+                # A group of two that fetched one: a single link, but still the
+                # header, and the one brief a scan.
+                _set_keyed_bio("scotus/12", "  ").model_copy(
+                    update={"url": "https://www.supremecourt.gov/12-bio-0.pdf"}
+                ),
             ],
         )
         coverage = document_text_coverage(conn, tmp_path / "data")
-    assert coverage.set_keyed_oppositions == 3
-    assert coverage.heading_only_oppositions == 1
+    assert coverage.combined_oppositions == 4
+    assert coverage.heading_only_oppositions == 2
     assert coverage.heading_only_oppositions_queued == 1
     assert coverage.partly_empty_oppositions == 1
     assert coverage.partly_empty_oppositions_queued == 0
-    assert coverage.heading_only_opposition_cases == ["scotus/10"]
+    assert coverage.heading_only_opposition_cases == ["scotus/10", "scotus/12"]
     assert coverage.partly_empty_opposition_cases == ["scotus/15"]
     # Still covered by the per-kind test, which is why it needs its own count.
     assert "scotus/10" in coverage.empty_documents
@@ -3799,7 +3804,8 @@ def test_corpus_info_text_coverage_prints_the_heading_only_oppositions(
     result = runner.invoke(app, ["corpus-info", "--text-coverage"])
     assert result.exit_code == 0, result.output
     assert (
-        "(1 of 2 multi-respondent brief(s) in opposition carry nothing beyond their "
+        "(1 of 2 combined multi-respondent brief(s) in opposition carry nothing beyond "
+        "their "
         "per-brief headings, 0 of them on a queued-or-predicted case, and 1 more "
         "carry some briefs with no text, 1 of them on a queued-or-predicted case."
     ) in result.stdout

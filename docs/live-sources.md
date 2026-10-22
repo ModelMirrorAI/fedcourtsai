@@ -1074,12 +1074,14 @@ is not empty by the coverage report's per-kind test, because its per-brief
 headings are text: a multi-respondent opposition of nothing but scans reads
 there as *covered* while carrying no argument at all, and it is outside this
 pass on top of that. So the report sizes it on a line of its own, reading each
-row brief by brief: how many set-keyed oppositions carry nothing beyond their
-headings, how many carry some briefs with no text, and how many of each sit on
-a queued-or-predicted case, with the cases named in the empty-text ledger. On
-the blob read locally on 2026-10-22 (pull stamp 2026-10-22, newest stored
-snapshot 2026-07-13, documents served by the content store), **0 of 250**
-set-keyed oppositions are headings only and **3** carry some briefs with no
+combined row brief by brief: how many carry nothing beyond their headings, how
+many carry some briefs with no text, and how many of each sit on a
+queued-or-predicted case, with the cases named in the empty-text ledger. A row
+counts as combined when its key is a set or its text carries a per-brief
+header, which a group stored with only one brief fetched keeps under a single
+link. On the blob read locally on 2026-10-22 (pull stamp 2026-10-22, newest
+stored snapshot 2026-07-13, documents served by the content store), **0 of 250**
+combined oppositions are headings only and **3** carry some briefs with no
 text, none of the three on a queued-or-predicted case. That is the measured
 floor, and it is too small to justify a fetching-lane re-combine, so the class
 stays out of recovery by design. The pass's `set_keyed` tally is still the

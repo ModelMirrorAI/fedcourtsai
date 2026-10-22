@@ -4338,21 +4338,25 @@ class TextCoverage(BaseModel):
         "`extract_pdf_text`'s could-not-open branch rather than a page count with "
         "no text layer, so OCR is not the repair for them",
     )
-    set_keyed_oppositions: int = Field(
+    combined_oppositions: int = Field(
         default=0,
         ge=0,
-        description="Stored brief-in-opposition rows whose key is a set of more than "
-        "one brief's link — the multi-respondent opposition, stored as one combined "
-        "row under a per-brief header. Outside OCR recovery by construction, since "
-        "the key is not a URL to fetch",
+        description="Stored brief-in-opposition rows written as a combination of "
+        "briefs: a key that is a set of more than one brief's link, or text under a "
+        "per-brief header, which a group stored with only one of its briefs fetched "
+        "keeps under a single link. Outside OCR recovery either way: a set key is "
+        "not a URL to fetch, and a headed row is not whitespace-empty. A row of "
+        "this shape whose whole text is whitespace is counted here and left to the "
+        "per-kind empty count",
     )
     heading_only_oppositions: int = Field(
         default=0,
         ge=0,
-        description="Of the set-keyed oppositions, the ones whose every constituent "
+        description="Of the combined oppositions, the ones whose every constituent "
         "body is empty: nothing beyond the per-brief headings. Not empty by the "
         "`empty_text` test, because the headings are text, so the per-kind cuts "
-        "count these as covered while they carry no argument",
+        "count these as covered while they carry no argument. A row the "
+        "document cap truncated reads only the briefs it kept",
     )
     heading_only_oppositions_queued: int = Field(
         default=0,
@@ -4363,7 +4367,7 @@ class TextCoverage(BaseModel):
     partly_empty_oppositions: int = Field(
         default=0,
         ge=0,
-        description="Of the set-keyed oppositions, the ones where some constituent "
+        description="Of the combined oppositions, the ones where some constituent "
         "bodies are empty and some are not: a respondent's brief lost to a scan "
         "inside a row that reads as covered",
     )
@@ -4447,24 +4451,28 @@ def _stored_payload_floor(conn: corpus.ReadConnection, case_id: str, *, kind: st
 
 
 @dataclass
-class _SetKeyedOppositions:
-    """The set-keyed opposition rows one coverage pass reads, body by body.
+class _CombinedOppositions:
+    """The combined opposition rows one coverage pass reads, body by body.
 
     A multi-respondent opposition is never empty by the ``empty_text`` test —
     its per-brief headings are text — so a row of scans needs its own reading:
     each constituent body (:func:`bio_block_texts`) is tested on its own.
     """
 
-    set_keyed: int = 0
+    combined: int = 0
     heading_only_queued: int = 0
     partly_empty_queued: int = 0
     heading_only_cases: list[str] = dataclasses.field(default_factory=list)
     partly_empty_cases: list[str] = dataclasses.field(default_factory=list)
 
     def read(self, case_id: str, url: str, text: str, *, queued: bool) -> None:
-        if BIO_URL_JOIN not in url:  # a lone brief: the per-kind test already reads it
-            return
-        self.set_keyed += 1
+        # Read off the text as well as the key: a group stored with one brief
+        # fetched keeps that brief's single link but still writes its header.
+        if BIO_URL_JOIN not in url and not _BIO_BLOCK_HEADER_RE.search(text):
+            return  # a lone brief, stored raw: the per-kind test already reads it
+        self.combined += 1
+        if not text.strip():
+            return  # already counted empty by the per-kind test
         blank = [not body.strip() for body in bio_block_texts(text)]
         if all(blank):
             self.heading_only_cases.append(case_id)
@@ -4590,7 +4598,7 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
     queued_without_petition_cases: list[str] = []
     queued_without_application_cases: list[str] = []
     cases_read = unopened_petitions = 0
-    oppositions = _SetKeyedOppositions()
+    oppositions = _CombinedOppositions()
     distributed_without_petition = queued_without_petition = queued_without_application = 0
     # Materialized before the fetch: `iter_rows` rides `conn`, which under the
     # offloaded schedule must not be walked while readers are in flight.
@@ -4636,6 +4644,8 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
                 has_petition = has_petition or document.kind == KIND_PETITION
                 has_application = has_application or document.kind == KIND_APPLICATION
                 tally[0] += 1
+                if document.kind == KIND_BRIEF_IN_OPPOSITION:
+                    oppositions.read(case_id, document.url, document.text, queued=case_id in queued)
                 if not document.text.strip():
                     tally[1] += 1
                     empty_documents.setdefault(case_id, []).append(document.kind)
@@ -4643,8 +4653,6 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
                     # not a page count with no text layer: a different repair.
                     if document.kind == KIND_PETITION and not document.pages:
                         unopened_petitions += 1
-                elif document.kind == KIND_BRIEF_IN_OPPOSITION:
-                    oppositions.read(case_id, document.url, document.text, queued=case_id in queued)
             # Counted kinds, not any document: the reach number must stay the
             # population the cuts are computed over as new kinds are stored.
             if counted:
@@ -4693,7 +4701,7 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
         queued_without_petition_floor=petition_floor,
         queued_without_application_floor=application_floor,
         unopened_petitions=unopened_petitions,
-        set_keyed_oppositions=oppositions.set_keyed,
+        combined_oppositions=oppositions.combined,
         heading_only_oppositions=len(oppositions.heading_only_cases),
         heading_only_oppositions_queued=oppositions.heading_only_queued,
         partly_empty_oppositions=len(oppositions.partly_empty_cases),
