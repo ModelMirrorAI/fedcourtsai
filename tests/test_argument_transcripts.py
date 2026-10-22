@@ -390,7 +390,7 @@ def test_only_a_post_argument_cell_is_handed_the_transcript() -> None:
 
 
 def test_a_latched_case_keeps_its_first_transcript(tmp_path: Path) -> None:
-    """A reargument's transcript, or a re-posted link, never replaces the one that opened the moment."""
+    """A reargument's transcript, or a re-posted link, never replaces the moment's own."""
     db = corpus.corpus_db_path(tmp_path / "corpus")
     cases = _seed(db, "25-466")
     with corpus.connect(db) as conn:
