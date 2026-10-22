@@ -86,8 +86,9 @@ Each of these is stated, with its reason, where the code makes the choice:
   keeps that cut (live-sources.md, *Document freshness*).
 - **A combined opposition is never OCR'd.** Its URL is a set key, not a link to
   fetch. An all-scan combined opposition still carries its per-brief headings,
-  so the coverage report counts it as having text (live-sources.md, *How
-  large the degradation is*).
+  so the coverage report's per-kind cuts count it as having text. The report
+  sizes it on a separate line, which reads it brief by brief (live-sources.md,
+  *How large the degradation is*).
 - **The residual check reads only part of a document.** The detector reads a
   document's opening and closing, not its middle, and does not run where only
   the value pass ran. A document it flags is still staged to the cell

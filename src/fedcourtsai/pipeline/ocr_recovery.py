@@ -623,8 +623,8 @@ class ScannedDocumentScan:
     guard rather than the measurement: a combined opposition's per-brief headers
     are themselves text, so a multi-respondent row of nothing but scans is not
     whitespace-empty and never reaches this count — it reads as *covered* in the
-    coverage report while carrying no argument at all, and neither surface sizes
-    that residual. What this does report is a set-keyed row that somehow did
+    coverage report's per-kind cuts while carrying no argument at all, which is
+    why that report sizes it on a line of its own. What this does report is a set-keyed row that somehow did
     read empty, which is a corpus shape nobody should have to infer from a
     candidate count that is one short.
     """

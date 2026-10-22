@@ -1069,13 +1069,21 @@ idempotency key and not a link to GET — recovering it would mean re-fetching
 and re-combining a set, which is the fetching lane's work, not this pass's —
 and text recovered there would in any case be discarded the next time a
 co-respondent's brief joined that key. A lone opposition joins to itself, so it
-stores one link and is recovered like any other filing. What that leaves
-unsized is the combined row itself: its per-brief headings are text, so a
-multi-respondent opposition of nothing but scans is not empty by the coverage
-report's test and reads there as *covered* while carrying no argument at all —
-and it is outside this pass on top of that. Neither surface counts it, and the
-pass's `set_keyed` tally is the guard against a set key that somehow did read
-empty rather than a measurement of the residual. And recurrence: a scanned filing
+stores one link and is recovered like any other filing. The combined row itself
+is not empty by the coverage report's per-kind test, because its per-brief
+headings are text: a multi-respondent opposition of nothing but scans reads
+there as *covered* while carrying no argument at all, and it is outside this
+pass on top of that. So the report sizes it on a line of its own, reading each
+row brief by brief: how many set-keyed oppositions carry nothing beyond their
+headings, how many carry some briefs with no text, and how many of each sit on
+a queued-or-predicted case, with the cases named in the empty-text ledger. On
+the blob read locally on 2026-10-22 (pull stamp 2026-10-22, newest stored
+snapshot 2026-07-13, documents served by the content store), **0 of 250**
+set-keyed oppositions are headings only and **3** carry some briefs with no
+text, none of the three on a queued-or-predicted case. That is the measured
+floor, and it is too small to justify a fetching-lane re-combine, so the class
+stays out of recovery by design. The pass's `set_keyed` tally is still the
+guard against a set key that somehow did read empty. And recurrence: a scanned filing
 that arrives after a pass enters the class. A forward cell runs once, usually
 within days of the filing it reads, so a recovery that waits for a dispatch
 reaches it after the cell has run. The **OCR sweep** on run-seed's windows is
