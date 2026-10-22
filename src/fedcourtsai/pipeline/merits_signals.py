@@ -6,17 +6,19 @@ work, and the docket records it. This module reads the parties' merits filings:
 the document selector fetches them, and **when** the respondent filed its brief
 — the one milestone the pipeline forecasts from, which is the point at which
 both sides' arguments are on the record and the case is substantively ready to
-be decided. Where the respondent confesses error, the side defending the
-judgment is a Court-appointed amicus, and its brief is the one read.
+be decided. The side defending the judgment is read, whichever brief reaches
+the record first: the respondent's own, an adverse co-respondent's where one
+respondent confesses error, or a Court-appointed amicus's.
 
 **Why that milestone and not another.** Measured over 139 granted OT2021-OT2023
 petitions, the respondent's merits brief appears on **96.4%** of them, lands a
 median **84 days** after the grant, and precedes the judgment by a median
 **159 days** — never fewer than 44, and never on or after it. Those figures
-were measured before a respondent's brief "in partial support of" the
-petitioner was excluded from the respondent arm, which can only lower the
-coverage, move the brief later after the grant and bring it closer to the
-judgment. So a forecast
+were measured before two later readings and are not re-measured. Excluding a
+respondent's brief "in partial support of" the petitioner, or one confessing
+error, can only lower the coverage and move the brief later. Reading a
+Court-appointed amicus's brief can raise the coverage and move it earlier. So
+the minimum can now fall below 44 days. So a forecast
 taken here is both well-covered and genuinely prospective, which is more than
 can be said for most later docket signals: argument and circulation cluster
 much closer to the decision.
@@ -173,6 +175,12 @@ _NOT_THE_PETITIONER_MERITS_FILING_RE = re.compile(
     re.I,
 )
 
+# The respondent arm's side exclusion alone, for the appointed amicus, which the
+# arm's "amicus" exclusion would otherwise refuse outright.
+_NOT_THE_RESPONDENT_SIDE_RE = re.compile(
+    r"\b(?:in\s+(?:partial\s+)?support\s+of|supporting)\s+(?:the\s+)?petitioners?\b", re.I
+)
+
 # A respondent **confessing error**: "Brief of respondent United States
 # supporting vacatur filed.", "Brief of respondent in support of reversal and
 # remand filed." The posture of a respondent in support of the petitioner,
@@ -185,12 +193,9 @@ _NOT_THE_PETITIONER_MERITS_FILING_RE = re.compile(
 # brief as the respondent's, because a confession of error is the strongest
 # merits signal a docket carries, and its stored description is the entry's own
 # text, which says which way the respondent argues. Respondent-only, because a
-# petitioner's brief asks for reversal or vacatur by definition.
-# The respondent arm's side exclusion alone, for the appointed amicus, which the
-# arm's "amicus" exclusion would otherwise refuse outright.
-_NOT_THE_RESPONDENT_SIDE_RE = re.compile(
-    r"\b(?:in\s+(?:partial\s+)?support\s+of|supporting)\s+(?:the\s+)?petitioners?\b", re.I
-)
+# petitioner's brief asks for reversal or vacatur by definition. A partial
+# confession ("supporting reversal in part and affirmance in part") is refused
+# with the rest, an accepted residual: the opposing argument it leaves is partial.
 _CONFESSION_OF_ERROR_RE = re.compile(
     r"\b(?:in\s+support\s+of|supporting)\s+(?:the\s+)?(?:reversal|vacatur)\b", re.I
 )

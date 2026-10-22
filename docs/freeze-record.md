@@ -12270,18 +12270,38 @@ freeze commit is recorded here.
   **How a stored date moves.** As the `merits-brief-partial-support` entry
   states it: the live poll re-derives `merits_brief_filed` on a pending
   docket, a fresh non-null parse overwrites it, and the events upsert takes
-  the new `opened_at` on an open event. `backfill-response-signals` never
-  revisits a row that already carries a date. So on a pending docket the date
-  moves at the first post-change poll. On a decided docket nothing polls it,
-  and the stored date stays. Those rows open no moment, since the mint is
-  forward-only, but a replay cell that reads a decided prior's
-  `merits_brief_filed` reads the old date. Correcting them is a corpus
-  mutation and would be a `run-repair` pass, decided separately; this entry
-  does not owe it. Unlike the partial-support change, this one can move a
-  date earlier: on 24-362 the appointed amicus filed a day before the
-  respondent.
+  the new `opened_at` on an open event. So on a pending docket the date moves
+  at the first post-change poll. A decided docket is not polled, and
+  `backfill-response-fields`, which run-seed sweeps daily, fills only a row
+  whose `merits_brief_filed` is null. So the decided dockets split:
+  - the eight that move from none to a date are filled by that sweep without
+    anyone acting;
+  - the ten that move from one date to another keep the old stored date.
 
-  **The population.** Measured read-only over the pulled blob, sha256
+  None of them opens a moment, since the mint refuses a row with a latched
+  judgment, but a replay cell that reads a decided prior's
+  `merits_brief_filed` reads a mixed population: new dates on the eight, old
+  ones on the ten. Correcting the ten is a corpus mutation and would be a
+  `run-repair` pass, decided separately; this entry does not owe it. Unlike
+  the partial-support change, this one can move a date earlier: on 24-362 the
+  appointed amicus filed a day before the respondent. An appointed amicus's
+  brief dates the moment on any docket where it is the first defending brief,
+  not only after a confession of error.
+
+  **What a post-change cell reads.** On an affected docket:
+  - after a confession of error, a briefed cell placed after the defending
+    brief, so it holds both sides' briefs;
+  - on a 24-362-shape docket, a briefed cell placed before the respondent's
+    own brief, with the appointed amicus's defense on the record;
+  - on 25-5930, a newly owed briefed cell opening at `2026-09-18`.
+
+  No skill movement is predicted, and a movement in **either** direction
+  across this boundary may not be read as a model effect.
+
+  **The population.** Measured read-only over the pulled blob, with the
+  script in the carrying PR's description, and re-run on the branch's final
+  predicates with the same result. The blob is `origin/main`'s pointer at
+  `6d56d6a9f`, sha256
   `6701546c9b6a49fa75bf5afc9ef3c0602730bf122ae429f3b32885a5741bed0c`. Its
   newest pull stamp is 2026-10-22 and its newest stored snapshot row is
   2026-07-13. The content store is in split mode, and 1,261 of the 1,267
@@ -12291,7 +12311,8 @@ freeze commit is recorded here.
   20 dockets, and no selector predicate moves on any:
   - **Two pending dockets.** 25-5343 (`scotus/73277583`) moves from
     `2026-06-30` to `2026-08-25`. Its minted `evt-brief-judgment` has no
-    committed cell, so only its `opened_at` moves. 25-5930
+    committed cell on `origin/main` at `4037f3a9e`, so only its `opened_at`
+    moves. 25-5930
     (`scotus/73281102`) moves from none to `2026-09-18`, the appointed
     amicus's brief. Its respondent filed "Brief for the respondent …
     supporting vacatur", which the moment's narrower opening never read, so
@@ -12315,12 +12336,16 @@ freeze commit is recorded here.
   commit>`, merged `<FILL: merge time, UTC>`).
 
   The runnable effect check once it is live:
-  - `uv run pytest tests/test_merits_signals.py -k "confessing_error or
-    appointed_amicus"` is green;
-  - on the first live poll after the promotion,
-    `uv run fedcourts query --court scotus --docket-number 25-5930` shows
-    `merits_brief_filed` `2026-09-18`, and 25-5343's shows `2026-08-25`;
+  - `uv run pytest tests/test_merits_signals.py tests/test_documents.py -k
+    "confess or appointed"` is green;
+  - `uv run fedcourts process-digest --all` still prints `proc-v10` and the
+    six digests above;
+  - after the first post-promotion poll or run-seed window, over a fresh
+    `fedcourts corpus-pull` with no replay clock set, `uv run fedcourts query
+    --court scotus --docket-number 25-5930` shows `merits_brief_filed`
+    `2026-09-18`, and 25-5343's shows `2026-08-25`, quoted beside the
+    `fedcourts corpus-info` vintage;
   - on `main` once the promotion that carries the fill PR has merged, `uv run
     python -c "from fedcourtsai.process_version
-    import HARNESS_BOUNDARIES as H; print([b.name for b in H][-1])"` prints
-    `merits-brief-confession-of-error`.
+    import HARNESS_BOUNDARIES as H; print('merits-brief-confession-of-error'
+    in {b.name for b in H})"` prints `True`.
