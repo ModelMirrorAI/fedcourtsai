@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import boto3
@@ -15,6 +16,7 @@ from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.fixture import build_fixture_corpus
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.cascade import run_cascade
 from fedcourtsai.provision import (
     MAX_RELATED_DOCKETS,
     RelatedRead,
@@ -353,3 +355,54 @@ def test_the_casestore_backend_stages_the_same_companions(
     store = tree("casestore", tmp_path / "cs")
     assert set(blob) == {"24-99.json", "related.json"}
     assert blob == store
+
+
+def test_a_refused_cell_reads_no_companion(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(fixture_corpus)
+    decided = {
+        **_CELL,
+        "docket_entries": [
+            *_CELL["docket_entries"],
+            {"id": 3, "date_filed": "2026-06-30", "description": "Judgment REVERSED."},
+        ],
+    }
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 7, 22), decided)
+
+    def _no_lookup(*_args: object) -> None:
+        raise AssertionError("a refused cell resolved its companions")
+
+    monkeypatch.setattr(corpus, "live_scotus_case_ids_by_docket_numbers", _no_lookup)
+
+    result = _provision("--event", "evt-order-judgment", "--refuse-terminal")
+
+    assert result.exit_code == 3, result.output
+    assert not CasePaths(fixture_corpus.data_root, "scotus", 305).related_dir.exists()
+
+
+def test_the_local_cascade_stages_the_companion(
+    fixture_corpus: FixtureCorpus, tmp_path: Any
+) -> None:
+    _seed(fixture_corpus)
+
+    report = run_cascade(
+        corpus_db_path=fixture_corpus.db_path,
+        data_root=fixture_corpus.data_root,
+        config_root=Path("config"),
+        court="scotus",
+        docket=305,
+        event="evt-order-judgment",
+        run_id="20260720T120000Z",
+    )
+
+    assert report.valid, report.problems
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    manifest = json.loads(paths.related_manifest.read_text())
+    assert [(row["docket_number"], row["staged"]) for row in manifest] == [
+        ("24-99", True),
+        ("24-777", False),
+    ]
+    staged = json.loads(paths.related_snapshot("24-99").read_text())
+    assert _descriptions(staged) == ["Cross-petition filed.", "Petition GRANTED."]

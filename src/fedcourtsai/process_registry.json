@@ -446,6 +446,22 @@
       "gradual": true
     },
     {
+      "name": "merits-brief-confession-of-error",
+      "merge": "76323ef6e884a97d42fbd41aac078312d7b4e167",
+      "at": "2026-10-22T22:40:22Z",
+      "predictors": null,
+      "reach": "granted dockets",
+      "gradual": true
+    },
+    {
+      "name": "vide-related-dockets",
+      "merge": "76323ef6e884a97d42fbd41aac078312d7b4e167",
+      "at": "2026-10-22T22:40:22Z",
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
+    },
+    {
       "name": "direct-appeal-summary-exit",
       "merge": null,
       "at": null,

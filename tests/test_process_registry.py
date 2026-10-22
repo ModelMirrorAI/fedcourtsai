@@ -128,6 +128,7 @@ _PROMOTION_1011_2 = "c432a95a9073bcae6651eb6b75fddd30aefbd8d8"
 _PROMOTION_1016 = "1c1cd1f257e1bcbcd4f5339173fff2dab68ed317"
 _PROMOTION_1018 = "dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c"
 _PROMOTION_1020 = "7d4f2c6c58e01b22f17adb850b5203418f71925e"
+_PROMOTION_1022 = "76323ef6e884a97d42fbd41aac078312d7b4e167"
 _SR: BoundaryReach = "self-represented dockets"
 
 GOLDEN_BOUNDARIES = (
@@ -268,6 +269,21 @@ GOLDEN_BOUNDARIES = (
     ),
     HarnessBoundary(
         "direct-appeal-plenary-review-grant", _PROMOTION_1020, _V10, None, "all", gradual=True
+    ),
+    HarnessBoundary(
+        "merits-brief-confession-of-error",
+        _PROMOTION_1022,
+        datetime(2026, 10, 22, 22, 40, 22, tzinfo=UTC),
+        None,
+        "granted dockets",
+        gradual=True,
+    ),
+    HarnessBoundary(
+        "vide-related-dockets",
+        _PROMOTION_1022,
+        datetime(2026, 10, 22, 22, 40, 22, tzinfo=UTC),
+        None,
+        "all",
     ),
 )
 
