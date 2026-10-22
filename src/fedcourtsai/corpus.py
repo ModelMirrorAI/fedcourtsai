@@ -39,7 +39,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # `CorpusBackend` is defined in `config` because this module imports that one,
 # and re-exported here because `corpus.CorpusBackend` is where every caller
@@ -3921,6 +3921,18 @@ class PriorQuery(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
     court: str | None = None
+    docket_number: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Look up one docket by its number rather than its CourtListener "
+        "id: rows whose `docket_number` normalizes (`normalize_docket_number`) to "
+        "this value's normal form, so `No. 25-1323`, `25-1323` and an en-dash "
+        "spelling are one lookup, as are `26A477` and `No. 26A477`. Stored "
+        "normalized. An exact-match filter like `court`, and like every filter "
+        "it sits under the replay clock: a docket the clock does not admit is "
+        "not returned. Requires `court`, since a number is only unique within one "
+        "court and a miss walks the scope.",
+    )
     topic: str | None = Field(default=None, description="Exact nature-of-suit / subject topic.")
     judges: list[str] = Field(
         default_factory=list, description="Match cases sharing any of these judges."
@@ -4001,6 +4013,28 @@ class PriorQuery(BaseModel):
         "the same single-form bar the predicate itself draws. Flip it off to "
         "retrieve the whole letter-form docket.",
     )
+
+    @field_validator("docket_number")
+    @classmethod
+    def _normalize_docket_number(cls, value: str | None) -> str | None:
+        """Hold ``docket_number`` in its normal form, refusing one with none.
+
+        Refused rather than dropped: a blank number that fell through to "no
+        filter" would answer a one-docket lookup with a sweep of the scope.
+        """
+        if value is None:
+            return None
+        normal = normalize_docket_number(value)
+        if normal is None:
+            raise ValueError(f"docket_number {value!r} names no docket number")
+        return normal
+
+    @model_validator(mode="after")
+    def _docket_number_needs_court(self) -> PriorQuery:
+        """Refuse a court-less number: its miss would walk every court's rows."""
+        if self.docket_number is not None and self.court is None:
+            raise ValueError("a docket_number lookup needs a court (e.g. court='scotus')")
+        return self
 
 
 def opinion_body(row: CorpusRow) -> str | None:
@@ -4463,6 +4497,106 @@ def _overlap_scan(
     return "cases", where
 
 
+#: The covering partial index over the live slice's ``(court, docket_number)``,
+#: which the docket-number lookup reads before it pays for a scope walk.
+LIVE_DOCKET_INDEX = "idx_cases_live_docket"
+
+
+def _rowids_matching(records: Iterable[Any], want: str) -> list[int]:
+    return [
+        int(record["rid"])
+        for record in records
+        if normalize_docket_number(str(record["docket_number"] or "")) == want
+    ]
+
+
+def docket_number_rowids(conn: ReadConnection, docket_number: str, court: str | None) -> list[int]:
+    """The ``cases`` rowids whose docket number normalizes to ``docket_number``'s form.
+
+    Two reads, cheapest first. The live slice — every docket the supremecourt.gov
+    channel follows, which is where a pending companion or cross-petition sits —
+    is answered off :data:`LIVE_DOCKET_INDEX` alone: the index carries both
+    columns, so the read never touches the table. Only when that finds nothing
+    does the lookup walk the scope's rows (pinned to the court index, so the
+    walk runs in rowid order), which is what reaches a bulk-ingested historical
+    docket. A live hit therefore ends the lookup, and a non-live duplicate of
+    the same number — the pre-guard historical case the identity join's
+    lowest-docket-id rule exists for — is not returned beside it.
+
+    The comparison is :func:`normalize_docket_number` on both sides, applied in
+    Python rather than through the ``norm_dn`` SQL function, which the ranged
+    backend's connection does not register. No other filter applies here:
+    the caller narrows the rowids with the rest of its query.
+    """
+    want = normalize_docket_number(docket_number)
+    if want is None:
+        return []
+    params: list[object] = [court] if court is not None else []
+    if _has_index(conn, LIVE_DOCKET_INDEX):
+        court_clause = "court = ? AND " if court is not None else ""
+        live = _rowids_matching(
+            conn.execute(
+                f"SELECT rowid AS rid, docket_number FROM cases INDEXED BY {LIVE_DOCKET_INDEX} "
+                f"WHERE {court_clause}last_live_polled IS NOT NULL",
+                params,
+            ),
+            want,
+        )
+        if live:
+            return live
+    if court is not None:
+        sql = "SELECT rowid AS rid, docket_number FROM cases INDEXED BY idx_cases_court "
+        sql += "WHERE court = ?"
+    else:
+        sql = "SELECT rowid AS rid, docket_number FROM cases"
+    return _rowids_matching(conn.execute(sql, params), want)
+
+
+def _term_bar_refuses_number(query: PriorQuery) -> bool:
+    """Whether the Term bar refuses a SCOTUS number before any row is read.
+
+    A SCOTUS row's Term is read off its own docket number (:func:`case_year`),
+    so a number at or past ``decided_before`` can only ever be screened out.
+    Answering it before the read keeps a withheld docket from costing, or
+    timing, any differently from one the corpus does not hold.
+    """
+    if query.court != "scotus" or query.decided_before is None or query.docket_number is None:
+        return False
+    term = scotus_term_year(query.docket_number)
+    return term is not None and term >= query.decided_before
+
+
+def _rank_scored(records: Iterable[Any], query: PriorQuery, limit: int) -> list[CorpusRow]:
+    """The scored ranking over a candidate stream: relevance, then recency, then case id.
+
+    Screens each record through the derived filters, masks it for the replay
+    clock, requires the overlap filters where given, and keeps the best
+    ``limit``.
+    """
+    want_judges = set(query.judges)
+    want_citations = set(query.citations)
+    scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
+    for record in records:
+        stored = _from_record(record)
+        if not _screen_derived(stored, query):
+            continue
+        # Overlap reads what the cell will be handed, so a clocked citation
+        # match never returns a prior whose cite postdates the clock; the
+        # recency order reads the stored row, as the fast path's SQL does.
+        row = _mask_for_replay_clock(stored, query)
+        judge_overlap = want_judges & set(row.judges)
+        citation_overlap = want_citations & set(row.citations)
+        # Overlap filters are required when given: skip a row that shares none.
+        if want_judges and not judge_overlap:
+            continue
+        if want_citations and not citation_overlap:
+            continue
+        score = len(judge_overlap) + len(citation_overlap)
+        scored.append((-score, recency_key(stored), row.case_id, row))
+    scored.sort(key=lambda item: (item[0], item[1], item[2]))
+    return [row for *_, row in scored[:limit]]
+
+
 def retrieve_priors(
     conn: ReadConnection,
     query: PriorQuery,
@@ -4485,6 +4619,10 @@ def retrieve_priors(
     carries the partial index over the populated rows: an empty ``citations``
     cannot overlap a non-empty want-set, so that index holds every row the
     filter can match and the scan is bounded to it rather than to the scope.
+
+    A ``docket_number`` lookup resolves its rows first
+    (:func:`docket_number_rowids`) and narrows them by primary key, then ranks
+    them on the scored path, under the same screens and replay mask.
 
     The derived screens run in Python on either path: ``era`` /
     ``decided_before``, and the ``exclude_non_cert`` default that keeps the
@@ -4513,39 +4651,34 @@ def retrieve_priors(
         clauses.append("(disposition IS NOT NULL OR date_decided IS NOT NULL)")
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
 
-    want_judges = set(query.judges)
-    want_citations = set(query.citations)
-    # The fast path needs its ORDER BY to be cheap: either the LIMIT is
-    # pushable (no derived screen, so SQLite top-Ns without a full sort) or a
-    # court equality lets the recency index serve the ordering outright. A
-    # screened, court-less query has neither — an unbounded sort that spills
-    # to a temp file the ranged backend's VFS refuses to open — so that shape
-    # keeps the Python ranking, which scans exactly as it always did.
-    sortable = not _screens_in_python(query) or query.court is not None
-    if not want_judges and not want_citations and sortable:
-        return _retrieve_priors_ranked(conn, query, where, params, limit)
+    if query.docket_number is not None:
+        # A one-docket lookup: the number resolves to a handful of rowids
+        # first, and the rest of the query narrows those rows by primary key
+        # instead of steering a scope walk. They then take the scored path
+        # below, so the derived screens, the replay mask and the ranking are
+        # the ones every other query gets.
+        if _term_bar_refuses_number(query):
+            return []
+        rowids = docket_number_rowids(conn, query.docket_number, query.court)
+        if not rowids:
+            return []
+        marks = ",".join("?" for _ in rowids)
+        source, where = "cases", f" WHERE {' AND '.join([*clauses, f'rowid IN ({marks})'])}"
+        params = [*params, *rowids]
+    else:
+        # The fast path needs its ORDER BY to be cheap: either the LIMIT is
+        # pushable (no derived screen, so SQLite top-Ns without a full sort) or
+        # a court equality lets the recency index serve the ordering outright.
+        # A screened, court-less query has neither — an unbounded sort that
+        # spills to a temp file the ranged backend's VFS refuses to open — so
+        # that shape keeps the Python ranking, which scans exactly as it always
+        # did.
+        sortable = not _screens_in_python(query) or query.court is not None
+        if not query.judges and not query.citations and sortable:
+            return _retrieve_priors_ranked(conn, query, where, params, limit)
+        source, where = _overlap_scan(conn, query, clauses, want_citations=bool(query.citations))
 
-    scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
-    source, where = _overlap_scan(conn, query, clauses, want_citations=bool(want_citations))
-    for record in conn.execute(f"SELECT * FROM {source}{where}", params):
-        stored = _from_record(record)
-        if not _screen_derived(stored, query):
-            continue
-        # Overlap reads what the cell will be handed, so a clocked citation
-        # match never returns a prior whose cite postdates the clock; the
-        # recency order reads the stored row, as the fast path's SQL does.
-        row = _mask_for_replay_clock(stored, query)
-        judge_overlap = want_judges & set(row.judges)
-        citation_overlap = want_citations & set(row.citations)
-        # Overlap filters are required when given: skip a row that shares none.
-        if want_judges and not judge_overlap:
-            continue
-        if want_citations and not citation_overlap:
-            continue
-        score = len(judge_overlap) + len(citation_overlap)
-        scored.append((-score, recency_key(stored), row.case_id, row))
-    scored.sort(key=lambda item: (item[0], item[1], item[2]))
-    return [row for *_, row in scored[:limit]]
+    return _rank_scored(conn.execute(f"SELECT * FROM {source}{where}", params), query, limit)
 
 
 def _scope_coverage(
@@ -4649,6 +4782,31 @@ def sparse_citation_notice(conn: ReadConnection, query: PriorQuery) -> str | Non
     )
 
 
+def docket_number_miss_note(query: PriorQuery) -> str:
+    """The word said when a docket-number lookup comes back empty.
+
+    Static on purpose. Telling "the corpus does not hold this number" from
+    "a filter screened it" would cost the lookup a second time on exactly the
+    path that has already paid the slow half of it, and under a replay clock
+    the distinction would say whether a docket the clock withholds exists at
+    all. So the note names every reason the lookup can come back empty, and
+    only an unclocked lookup is pointed at the open docket: a clocked one is a
+    replay cell's, which must not go looking for what the clock withholds.
+    """
+    scope = query.court if query.court is not None else "any court"
+    head = f"docket-number lookup: no row for {query.docket_number} ({scope})"
+    if query.decided_before is not None or query.decided_before_day is not None:
+        return (
+            f"{head} — the corpus holds no such number in scope, the other filters "
+            "screened it, or the replay clock does not admit it (a docket of the "
+            "clock's own Term or later is never returned)"
+        )
+    return (
+        f"{head} — the corpus holds no such number in scope, or the other filters "
+        "screened it; the CourtListener MCP server can look a docket up by number"
+    )
+
+
 def sparse_filter_coverage(
     conn: ReadConnection, query: PriorQuery, *, skip_citations: bool = False
 ) -> list[str]:
@@ -4662,7 +4820,9 @@ def sparse_filter_coverage(
     shapes. For each sparse filter the query uses, count how many rows in its
     court scope carry the column at all and render one note; empty when no
     sparse filter is in use. Callers surface the notes only on empty results,
-    so the two count queries are paid on the already-wasted path.
+    so the two count queries are paid on the already-wasted path. A
+    docket-number lookup that came back empty gets
+    :func:`docket_number_miss_note`, which counts nothing.
 
     ``skip_citations`` is for the caller that already said it: the citation
     sentinel (:func:`sparse_citation_notice`) reads the same population before
@@ -4692,6 +4852,8 @@ def sparse_filter_coverage(
             "cases-citing-this-authority graph) — an empty result here usually means "
             "missing data, not no match"
         )
+    if query.docket_number is not None:
+        notes.append(docket_number_miss_note(query))
     if query.topic is not None:
         populated, total = _scope_coverage(conn, "topic IS NOT NULL", where, params)
         notes.append(

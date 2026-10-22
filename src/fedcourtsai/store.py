@@ -164,6 +164,94 @@ def open_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -
     return [event.event_id for event in events if not event.resolved]
 
 
+# How many rows one docket-number lookup may return before the lowest docket id
+# is picked. A number names one docket; more than a couple of rows is a
+# duplicate history, and this only bounds the read.
+_DOCKET_NUMBER_ROWS = 50
+
+
+def resolve_docket_number(
+    conn: corpus.ReadConnection,
+    court_id: str,
+    docket_number: str,
+    *,
+    decided_before: int | None = None,
+    decided_before_day: date | None = None,
+) -> int | None:
+    """The docket id one court's docket number names, or ``None``.
+
+    Read through :func:`corpus.retrieve_priors` with a ``docket_number`` filter,
+    so the lookup is the ``query`` one — normalized spelling, open dockets and
+    the SCOTUS letter forms included — and sits under the same replay clock: a
+    docket the clock would withhold from ``query`` does not resolve here either.
+    Where the lookup returns two rows for the number, the lowest docket id among
+    them wins. That is the identity join's tie-break
+    (:func:`corpus.scotus_case_id_by_docket_number`) over the rows returned, and
+    a live hit returns no non-live duplicate (:func:`corpus.docket_number_rowids`).
+
+    ``ValueError`` (pydantic's) on a number that normalizes to nothing.
+    """
+    query = corpus.PriorQuery(
+        court=court_id,
+        docket_number=docket_number,
+        decided_before=decided_before,
+        decided_before_day=decided_before_day,
+        resolved_only=False,
+        exclude_non_cert=False,
+    )
+    rows = corpus.retrieve_priors(conn, query, limit=_DOCKET_NUMBER_ROWS)
+    dockets = [pair[1] for row in rows if (pair := _case_pair(row.case_id)) is not None]
+    return min(dockets) if dockets else None
+
+
+def open_events_for_docket_number(
+    corpus_db_path: Path,
+    court_id: str,
+    docket_number: str,
+    *,
+    backend: corpus.CorpusBackend | None = None,
+    decided_before: int | None = None,
+    decided_before_day: date | None = None,
+) -> tuple[int | None, list[str]]:
+    """:func:`open_events` keyed on a docket number: ``(docket id, open event ids)``.
+
+    The docket id is :func:`resolve_docket_number`'s, ``None`` (with no events)
+    where the number resolves to nothing under the clock given.
+    """
+    choice = corpus.resolve_backend(backend)
+    if choice == "local" and not corpus_db_path.exists():
+        return None, []
+    with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
+        return open_event_ids_for_docket_number(
+            conn,
+            court_id,
+            docket_number,
+            decided_before=decided_before,
+            decided_before_day=decided_before_day,
+        )
+
+
+def open_event_ids_for_docket_number(
+    conn: corpus.ReadConnection,
+    court_id: str,
+    docket_number: str,
+    *,
+    decided_before: int | None = None,
+    decided_before_day: date | None = None,
+) -> tuple[int | None, list[str]]:
+    """:func:`open_events_for_docket_number` over an already-open connection."""
+    docket_id = resolve_docket_number(
+        conn,
+        court_id,
+        docket_number,
+        decided_before=decided_before,
+        decided_before_day=decided_before_day,
+    )
+    if docket_id is None:
+        return None, []
+    return docket_id, open_event_ids(conn, court_id, docket_id)
+
+
 # The event kinds the forward tournament forecasts unconditionally: the
 # case-baseline disposition events. Three stage-keyed admissions sit beside
 # this set in `forecastable_event_ids` — the cert-stage CVSG order minted on a

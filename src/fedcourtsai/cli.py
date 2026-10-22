@@ -512,6 +512,7 @@ from .store import (
     ledger_cell_counts,
     load_predicted_event,
     open_events,
+    open_events_for_docket_number,
     prediction_counts,
     resolved_events,
     scored_prediction,
@@ -13696,6 +13697,9 @@ rejected as an extra argument. Say what you want in flags.
 
 Filters — every one optional, none of them positional:
   --court TEXT           one CourtListener court id, e.g. scotus
+  --docket-number TEXT   one docket by number (25-1323, 'No. 25-1323',
+                         26A477), open or resolved — a companion, cross or
+                         held petition's row; still under the replay clock
   --topic TEXT           nature-of-suit / subject, matched EXACTLY; the
                          values come off the `topic` field of returned rows
   --judge TEXT           repeatable; ranks on shared judges
@@ -13791,6 +13795,74 @@ def _replay_cutoff_day(clock: ReplayClock | None) -> tuple[date | None, str | No
         ) from exc
 
 
+#: The cell env var carrying a replay cell's docket Term — the value the prompt
+#: contract has it pass as `--decided-before "$DECIDED_BEFORE"` on `query`.
+DECIDED_BEFORE_VAR = "DECIDED_BEFORE"
+
+
+def _docket_number_clock(raw: str) -> ReplayClock | None:
+    """The replay clock a docket-number lookup runs under.
+
+    The argument where one is given; otherwise the cell's own Term from
+    ``DECIDED_BEFORE``. The lookup reads the environment for itself because it
+    is the one read a replay cell is likely to make without the flag — the
+    frozen prompt spells ``--decided-before`` on ``query`` calls only, and a
+    companion's row is precisely what a replay clock must be able to withhold
+    — so a lookup that forgot the flag is bounded rather than unmasked. A
+    forward cell's environment carries no ``DECIDED_BEFORE``, and nothing
+    changes for it.
+
+    ``ValueError`` on an unparseable value, either source: a clock that fell
+    through to "none" would unmask the lookup while looking bounded.
+    """
+    if raw.strip():
+        return parse_decided_before(raw)
+    env = (os.environ.get(DECIDED_BEFORE_VAR) or "").strip()
+    if not env:
+        return None
+    try:
+        return parse_decided_before(env)
+    except ValueError as exc:
+        raise ValueError(
+            f"{DECIDED_BEFORE_VAR}={env!r}: {exc}; it carries this replay cell's "
+            "Term and cannot be guessed at"
+        ) from exc
+
+
+def _docket_number_or_refuse(raw: str) -> str:
+    """``raw`` in its normal form, or ``ValueError`` for one that names nothing."""
+    normal = corpus.normalize_docket_number(raw)
+    if normal is None:
+        raise ValueError(f"--docket-number {raw!r} names no docket number")
+    return normal
+
+
+def _scoped_docket_number(raw: str, court: str) -> str:
+    """``raw`` in its normal form for a ``query`` lookup, which needs a court.
+
+    A number is unique only within one court, and a court-less miss would walk
+    every court's rows, so the pair is refused rather than read.
+    """
+    normal = _docket_number_or_refuse(raw)
+    if not court:
+        raise ValueError(
+            "--docket-number needs --court (e.g. --court scotus): a number is "
+            "unique only within one court"
+        )
+    return normal
+
+
+def _echo_docket_number_clock(normal: str | None, term: int | None, raw_arg: str) -> None:
+    """Say that a docket-number lookup took its Term bar from the environment."""
+    if normal is None or term is None or raw_arg.strip():
+        return
+    typer.echo(
+        f"note: docket-number lookup bounded by replay Term {term} (from "
+        f"{DECIDED_BEFORE_VAR}) — a docket of that Term or later is not returned",
+        err=True,
+    )
+
+
 def _query_interface_help() -> str:
     """:data:`_QUERY_INTERFACE_HELP` with the current filter vocabularies in it."""
 
@@ -13850,6 +13922,18 @@ class _TeachingQueryCommand(TyperCommand):
 def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query filters
     *,
     court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
+    docket_number: Annotated[
+        str,
+        typer.Option(
+            help="Look up one docket by its number — 25-1323, 'No. 25-1323' and "
+            "26A477 all work — to read a companion, cross or held petition's row "
+            "(its distribution, conference, CVSG and disposition fields). Returns "
+            "the docket open or resolved, cert petition or application, so "
+            "--include-open / --include-applications are implied. Pair with "
+            "--court scotus. The replay clock still applies: --decided-before, "
+            "else the DECIDED_BEFORE environment variable, and REPLAY_CUTOFF."
+        ),
+    ] = "",
     topic: Annotated[str, typer.Option(help="Exact nature-of-suit / subject topic.")] = "",
     judge: Annotated[
         list[str] | None,
@@ -13963,8 +14047,13 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     # the unmasked corpus while looking like it had been masked. Both halves —
     # the argument, and the cutoff day the cell's environment carries.
     try:
-        clock = parse_decided_before(decided_before)
+        clock = (
+            _docket_number_clock(decided_before)
+            if docket_number
+            else parse_decided_before(decided_before)
+        )
         cutoff_day, cutoff_source = _replay_cutoff_day(clock)
+        normal_number = _scoped_docket_number(docket_number, court) if docket_number else None
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         typer.echo(_query_interface_help(), err=True)
@@ -13979,6 +14068,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         raise typer.Exit(code=1)
     q = corpus.PriorQuery(
         court=court or None,
+        docket_number=normal_number,
         topic=topic or None,
         judges=judge or [],
         citations=citation or [],
@@ -13989,10 +14079,14 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         # screens ignore on the query, and on the sidecar wire.
         decided_before=clock.term if clock is not None and clock.day is None else None,
         decided_before_day=cutoff_day,
-        resolved_only=not include_open,
-        exclude_non_cert=not include_applications,
+        # A docket-number lookup names one docket, and the companion it is
+        # for is as often pending, or an application, as not: the two
+        # priors-shaped defaults would hide exactly the row asked for.
+        resolved_only=not include_open and normal_number is None,
+        exclude_non_cert=not include_applications and normal_number is None,
     )
     _echo_replay_cutoff(cutoff_day, cutoff_source)
+    _echo_docket_number_clock(normal_number, q.decided_before, decided_before)
     if backend == "service":
         try:
             response = corpus_service.client_query(
@@ -16052,23 +16146,101 @@ def materialize_event(
 @app.command("open-events")
 def open_events_cmd(
     court: Annotated[str, typer.Option()],
-    docket: Annotated[int, typer.Option()],
+    docket: Annotated[int | None, typer.Option(help="The case's CourtListener docket id.")] = None,
+    docket_number: Annotated[
+        str,
+        typer.Option(
+            help="The case's docket number instead of its id — 25-1323, "
+            "'No. 25-1323', 26A477. The id it resolved to is said on stderr. "
+            "Refused under a replay clock (--decided-before, the DECIDED_BEFORE "
+            "environment variable, or REPLAY_CUTOFF): the events listed are the "
+            "docket's current state, which no clock masks, so a clocked caller "
+            "reads the docket's masked row with `query --docket-number`."
+        ),
+    ] = "",
+    decided_before: Annotated[
+        str,
+        typer.Option(
+            help="A replay clock, spelled as on `query` (a Term year or an ISO "
+            "date). Given with --docket-number it is refused, as the DECIDED_BEFORE "
+            "fallback is; `0` clears that fallback for an unclocked lookup."
+        ),
+    ] = "",
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
-    """Print unresolved (predictable) event ids for a case, one per line."""
+    """Print unresolved (predictable) event ids for a case, one per line.
+
+    Name the case by ``--docket`` (its CourtListener id) or ``--docket-number``.
+    """
     settings = get_settings()
+    if (docket is None) == (not docket_number):
+        typer.echo("Name the case by exactly one of --docket and --docket-number.", err=True)
+        raise typer.Exit(code=2)
+    if docket is not None and decided_before.strip():
+        typer.echo("--decided-before bounds a --docket-number lookup only.", err=True)
+        raise typer.Exit(code=2)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
+    if docket is not None:
+        if backend == "service":
+            try:
+                response = corpus_service.client_open_events(_service_url_or_exit(), court, docket)
+            except corpus_service.CorpusServiceError as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(code=1) from exc
+            event_ids = response.event_ids
+        else:
+            event_ids = open_events(
+                corpus.corpus_db_path(settings.corpus_root), court, docket, backend=backend
+            )
+        for eid in event_ids:
+            typer.echo(eid)
+        return
+    _open_events_by_number(court, docket_number, decided_before, backend)
+
+
+def _open_events_by_number(
+    court: str, docket_number: str, decided_before: str, backend: corpus.CorpusBackend
+) -> None:
+    """``open-events --docket-number``: resolve the number under the clock, then list."""
+    settings = get_settings()
+    try:
+        normal = _docket_number_or_refuse(docket_number)
+        clock = _docket_number_clock(decided_before)
+        cutoff_day, _ = _replay_cutoff_day(clock)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    term = clock.term if clock is not None and clock.day is None else None
+    if term is not None or cutoff_day is not None:
+        typer.echo(corpus_service.OPEN_EVENTS_CLOCK_REFUSAL + ".", err=True)
+        raise typer.Exit(code=2)
     if backend == "service":
         try:
-            response = corpus_service.client_open_events(_service_url_or_exit(), court, docket)
+            response = corpus_service.client_open_events(
+                _service_url_or_exit(),
+                court,
+                docket_number=normal,
+                decided_before=term,
+                decided_before_day=cutoff_day,
+            )
         except corpus_service.CorpusServiceError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=1) from exc
-        for eid in response.event_ids:
-            typer.echo(eid)
+        resolved, event_ids = response.docket, response.event_ids
+    else:
+        resolved, event_ids = open_events_for_docket_number(
+            corpus.corpus_db_path(settings.corpus_root),
+            court,
+            normal,
+            backend=backend,
+            decided_before=term,
+            decided_before_day=cutoff_day,
+        )
+    if resolved is None:
+        typer.echo(f"note: docket number {normal} resolved to no {court} docket", err=True)
         return
-    db = corpus.corpus_db_path(settings.corpus_root)
-    for eid in open_events(db, court, docket, backend=backend):
+    typer.echo(f"note: docket number {normal} -> {ids.case_id(court, resolved)}", err=True)
+    for eid in event_ids:
         typer.echo(eid)
 
 

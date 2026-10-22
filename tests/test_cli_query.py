@@ -559,3 +559,250 @@ def test_query_service_backend_relays_the_citation_sentinel(
     err = _flat(result.stderr)
     assert "only 0 row(s) in scope (ca5) carry any reporter citation" in err
     assert err.count("citations filter:") == 1
+
+
+def _year_of_305(fixture_corpus: FixtureCorpus) -> int:
+    """The best-known year of the fixture's pending live petition, the clock's anchor."""
+    with corpus.connect_readonly(fixture_corpus.db_path, backend="local") as conn:
+        row = corpus.get_row(conn, "scotus/305")
+    assert row is not None
+    year = corpus.case_year(row)
+    assert year is not None
+    return year
+
+
+@pytest.fixture
+def _no_replay_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DECIDED_BEFORE", raising=False)
+    monkeypatch.delenv("REPLAY_CUTOFF", raising=False)
+
+
+@pytest.mark.usefixtures("_no_replay_env")
+@pytest.mark.parametrize("spelling", ["24-12", "No. 24-12", "no. 24\N{EN DASH}12", " 24-12 "])
+def test_query_docket_number_finds_a_pending_live_row(
+    fixture_corpus: FixtureCorpus, spelling: str
+) -> None:
+    # scotus/305 is pending (no disposition) and on the live slice: the lookup
+    # returns it although the priors defaults would screen an open row out,
+    # carrying the cert-stage signal fields a companion read is for.
+    result = runner.invoke(app, ["query", "--court", "scotus", "--docket-number", spelling])
+    assert result.exit_code == 0, result.output
+    rows = _rows(result.stdout)
+    assert [r["case_id"] for r in rows] == ["scotus/305"]
+    assert rows[0]["docket_number"] == "24-12"
+    assert rows[0]["cvsg_date"] == "2025-06-02"
+    assert rows[0]["distribution_count"] == 1
+    assert rows[0]["disposition"] is None
+
+
+@pytest.mark.usefixtures("_no_replay_env")
+def test_query_docket_number_reaches_an_extension_application(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # The non-cert letter forms are screened from a priors sweep; a lookup by
+    # number names the docket, so it comes back.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/350",
+                    court="scotus",
+                    docket_number="26A40",
+                    application_kind="extension",
+                    disposition=Disposition.granted,
+                    date_filed=date(2026, 7, 20),
+                    date_decided=date(2026, 7, 22),
+                )
+            ],
+        )
+    result = runner.invoke(app, ["query", "--court", "scotus", "--docket-number", "26a40"])
+    assert result.exit_code == 0, result.output
+    assert [r["case_id"] for r in _rows(result.stdout)] == ["scotus/350"]
+
+
+@pytest.mark.usefixtures("_no_replay_env")
+def test_query_docket_number_walks_the_scope_off_the_live_slice(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # ca1/201 carries no live-poll stamp, so the live index cannot answer it:
+    # the scope walk does. A court-less number is refused: its miss would walk
+    # every court's rows.
+    scoped = runner.invoke(app, ["query", "--court", "ca1", "--docket-number", "No. 23-1380"])
+    unscoped = runner.invoke(app, ["query", "--docket-number", "23-1380"])
+    wrong_court = runner.invoke(app, ["query", "--court", "ca9", "--docket-number", "23-1380"])
+    assert scoped.exit_code == wrong_court.exit_code == 0
+    assert unscoped.exit_code == 2
+    assert "--docket-number needs --court" in unscoped.stderr
+    assert [r["case_id"] for r in _rows(scoped.stdout)] == ["ca1/201"]
+    assert not _rows(wrong_court.stdout)
+    assert "docket-number lookup: no row for 23-1380 (ca9)" in wrong_court.stderr
+    assert "CourtListener MCP" in wrong_court.stderr
+
+
+@pytest.mark.usefixtures("_no_replay_env")
+def test_query_docket_number_stays_under_the_replay_clock(fixture_corpus: FixtureCorpus) -> None:
+    year = _year_of_305(fixture_corpus)
+    admitted = runner.invoke(
+        app,
+        [
+            "query",
+            "--court",
+            "scotus",
+            "--docket-number",
+            "24-12",
+            "--decided-before",
+            str(year + 1),
+        ],
+    )
+    withheld = runner.invoke(
+        app,
+        ["query", "--court", "scotus", "--docket-number", "24-12", "--decided-before", str(year)],
+    )
+    assert admitted.exit_code == withheld.exit_code == 0
+    assert [r["case_id"] for r in _rows(admitted.stdout)] == ["scotus/305"]
+    # The clocked row is masked like any clocked prior: its tracking stamps go.
+    assert _rows(admitted.stdout)[0]["last_live_polled"] is None
+    assert not _rows(withheld.stdout)
+    assert "replay clock does not admit it" in withheld.stderr
+    # A clocked miss points nowhere outside the corpus.
+    assert "CourtListener MCP" not in withheld.stderr
+
+
+@pytest.mark.usefixtures("_no_replay_env")
+def test_query_docket_number_reads_the_cell_term_from_the_environment(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A replay cell that forgets --decided-before on a lookup is bounded by its
+    # own Term anyway; a priors sweep's behaviour is unchanged by the variable.
+    year = _year_of_305(fixture_corpus)
+    monkeypatch.setenv("DECIDED_BEFORE", str(year))
+    lookup = runner.invoke(app, ["query", "--court", "scotus", "--docket-number", "24-12"])
+    assert lookup.exit_code == 0, lookup.output
+    assert not _rows(lookup.stdout)
+    assert f"bounded by replay Term {year} (from DECIDED_BEFORE)" in lookup.stderr
+    # An explicit argument wins over the variable.
+    explicit = runner.invoke(
+        app,
+        ["query", "--court", "scotus", "--docket-number", "24-12", "--decided-before", "0"],
+    )
+    assert [r["case_id"] for r in _rows(explicit.stdout)] == ["scotus/305"]
+    monkeypatch.setenv("DECIDED_BEFORE", "not-a-term")
+    refused = runner.invoke(app, ["query", "--court", "scotus", "--docket-number", "24-12"])
+    assert refused.exit_code == 2
+    assert "DECIDED_BEFORE='not-a-term'" in refused.stderr
+
+
+@pytest.mark.usefixtures("_no_replay_env")
+def test_query_blank_docket_number_is_refused(fixture_corpus: FixtureCorpus) -> None:
+    result = runner.invoke(app, ["query", "--docket-number", "   "])
+    assert result.exit_code == 2
+    assert "names no docket number" in result.stderr
+
+
+@pytest.mark.usefixtures("_no_replay_env")
+def test_open_events_by_docket_number(fixture_corpus: FixtureCorpus) -> None:
+    by_id = runner.invoke(app, ["open-events", "--court", "scotus", "--docket", "305"])
+    by_number = runner.invoke(
+        app, ["open-events", "--court", "scotus", "--docket-number", "No. 24-12"]
+    )
+    assert by_id.exit_code == by_number.exit_code == 0, by_number.output
+    assert by_id.stdout.strip()  # the fixture's pending petition has an open event
+    assert by_number.stdout == by_id.stdout
+    assert "docket number 24-12 -> scotus/305" in by_number.stderr
+
+
+@pytest.mark.usefixtures("_no_replay_env")
+def test_open_events_docket_number_refuses_a_replay_clock(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The events listed are the docket's current state, which no clock masks,
+    # so a clocked lookup is refused whichever source the clock came from.
+    year = _year_of_305(fixture_corpus)
+    flagged = runner.invoke(
+        app,
+        [
+            "open-events",
+            "--court",
+            "scotus",
+            "--docket-number",
+            "24-12",
+            "--decided-before",
+            str(year),
+        ],
+    )
+    monkeypatch.setenv("DECIDED_BEFORE", str(year))
+    from_env = runner.invoke(app, ["open-events", "--court", "scotus", "--docket-number", "24-12"])
+    for result in (flagged, from_env):
+        assert result.exit_code == 2, result.output
+        assert not result.stdout.strip()
+        assert "read the docket's masked row with `query --docket-number`" in result.stderr
+
+
+@pytest.mark.usefixtures("_no_replay_env")
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--court", "scotus"],
+        ["--court", "scotus", "--docket", "305", "--docket-number", "24-12"],
+        ["--court", "scotus", "--docket", "305", "--decided-before", "2024"],
+        ["--court", "scotus", "--docket-number", "   "],
+    ],
+)
+def test_open_events_refuses_an_ambiguous_case_key(
+    fixture_corpus: FixtureCorpus, args: list[str]
+) -> None:
+    result = runner.invoke(app, ["open-events", *args])
+    assert result.exit_code == 2
+
+
+def test_a_number_the_term_bar_refuses_reads_nothing(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A SCOTUS row's Term is its own number's, so a number at or past the bar
+    # is answered before any read: a withheld docket costs what a missing one does.
+    def no_read(*_: object) -> list[int]:
+        raise AssertionError("the lookup read the corpus")
+
+    monkeypatch.setattr(corpus, "docket_number_rowids", no_read)
+    with corpus.connect_readonly(fixture_corpus.db_path, backend="local") as conn:
+        rows = corpus.retrieve_priors(
+            conn,
+            corpus.PriorQuery(
+                court="scotus", docket_number="24-12", decided_before=2024, resolved_only=False
+            ),
+        )
+    assert rows == []
+
+
+def test_a_docket_number_lookup_needs_a_court() -> None:
+    with pytest.raises(ValueError, match="needs a court"):
+        corpus.PriorQuery(docket_number="24-12")
+
+
+def test_docket_number_rowids_reads_the_live_index_before_the_scope(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    # A non-live row carrying the same number as the live scotus/305: the live
+    # index answers first and ends the lookup; a blob without that index walks
+    # the scope and finds both.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_rows(
+            conn,
+            [corpus.CorpusRow(case_id="scotus/200", court="scotus", docket_number="No. 24-12")],
+        )
+    with corpus.connect_readonly(fixture_corpus.db_path, backend="local") as conn:
+        live = corpus.docket_number_rowids(conn, "24-12", "scotus")
+    with sqlite3.connect(fixture_corpus.db_path) as raw:
+        raw.execute(f"DROP INDEX {corpus.LIVE_DOCKET_INDEX}")
+    with corpus.connect_readonly(fixture_corpus.db_path, backend="local", migrate=False) as conn:
+        walked = corpus.docket_number_rowids(conn, "24-12", "scotus")
+        cases = {
+            str(record["case_id"])
+            for record in conn.execute(
+                f"SELECT case_id FROM cases WHERE rowid IN ({','.join('?' for _ in walked)})",
+                walked,
+            )
+        }
+    assert len(live) == 1
+    assert cases == {"scotus/200", "scotus/305"}

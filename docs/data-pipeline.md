@@ -672,7 +672,12 @@ not a new surface: rows are shaped by the same `corpus.prior_payload` on both
 paths (byte-identical output, pinned by tests), and each response carries the
 ranged connection's per-request `GET`/byte delta, from which `query` prints
 the same `ranged corpus reads:` stderr evidence line (`open-events` stays
-silent on both paths, as it always has). A warm sidecar cache honestly
+silent on both paths, as it always has). A docket-number lookup is resolved
+sidecar-side, where the corpus is, under the replay clock the request carries:
+`query`'s rides its `PriorQuery`, and an `open-events` request names its case
+by exactly one of the docket id and the docket number, and carries no clock:
+the events it lists are the docket's current state, which no clock masks, so
+a clocked request is refused and points at `query`. A warm sidecar cache honestly
 reports `0 GET(s)` — the held connection keeps the ranged block cache warm
 across a cell's whole query budget, so egress *drops* relative to
 one-connection-per-invocation. The startup transfer is charged to whichever
@@ -1143,7 +1148,11 @@ shared with the ledger models.
   `fedcourts query` (and `corpus.retrieve_priors`) — exact-match filters on
   court / topic / disposition plus overlap filters on judges and citations,
   ranked, defaulting to resolved cases and screening out the non-cert SCOTUS
-  letter forms (`--include-applications` returns them).
+  letter forms (`--include-applications` returns them). `--docket-number`
+  looks up one docket by its normalized number instead (open or resolved,
+  under the replay clock), and `open-events --docket-number` lists that
+  docket's open events for an unclocked caller — the read for a companion,
+  cross or held petition's state.
   Semantic / embedding similarity lands on the same query seam once embeddings
   are stored.
 
