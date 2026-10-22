@@ -14656,6 +14656,11 @@ def _read_related(
                     _echo_read_stats(conn)
                     return found
             except (OSError, corpus_ranged.RangedBackendError):
+                typer.echo(
+                    "::warning::companion links recorded unresolved: the corpus index "
+                    "did not answer from the casestore path",
+                    err=True,
+                )
                 return None
 
         return provision.read_related(

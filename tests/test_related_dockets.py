@@ -262,6 +262,7 @@ def test_a_companion_loses_its_undated_outcome_markers() -> None:
         "AttorneyHeaderOther": "Other",
         "Petitioner": [{"Attorney": "Self", "Email": "self@example.com"}],
         "PetitionerTitle": "Acme Corp.",
+        "RelatedCaseNumber": [{"DisplayCaseNumber": "24-500", "RelatedType": "Vide"}],
         "docket_entries": [*_COMPANION["docket_entries"], {"id": 4, "description": "Undated."}],
     }
     placed = place_related(
@@ -275,6 +276,7 @@ def test_a_companion_loses_its_undated_outcome_markers() -> None:
     for key in ("QPLink", "Other", "AttorneyHeaderOther", "Petitioner"):
         assert key not in placed.payload
     assert placed.payload["PetitionerTitle"] == "Acme Corp."
+    assert "RelatedCaseNumber" not in placed.payload
     assert "Undated." not in _descriptions(placed.payload)
 
 

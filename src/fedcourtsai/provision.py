@@ -920,7 +920,14 @@ def place_related(
         related.docket_number,
         related.case_id,
         min(stored_on, bound),
-        redact_snapshot(cut_dated_fields(cut, bound)),
+        {
+            key: value
+            for key, value in redact_snapshot(cut_dated_fields(cut, bound)).items()
+            # The companion's own links are undated too, so they would name
+            # links the Court added after the cell's moment; the cell reads
+            # its own docket's.
+            if key != "RelatedCaseNumber"
+        },
         None,
     )
 
