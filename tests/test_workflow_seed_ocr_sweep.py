@@ -184,7 +184,13 @@ def test_the_chain_is_non_blocking_every_window_and_gated_on_step_outputs() -> N
     assert "needs.ocr-sweep-projection.outputs.worklist == 'written'" in _norm(
         jobs["ocr-sweep-parse"]["if"]
     )
-    assert own_needs(jobs["ocr-sweep"]) == ["seed", "ocr-sweep-projection", "ocr-sweep-parse"]
+    # After the opinion-record sweep's writer, the run's other post-walk blob push.
+    assert own_needs(jobs["ocr-sweep"]) == [
+        "seed",
+        "ocr-sweep-projection",
+        "ocr-sweep-parse",
+        "opinion-record",
+    ]
     assert "needs.ocr-sweep-parse.outputs.plan == 'written'" in _norm(jobs["ocr-sweep"]["if"])
     # An empty artifact id downloads every artifact of the run, so no consumer
     # starts without the id it downloads by.

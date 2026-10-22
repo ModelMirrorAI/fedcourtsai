@@ -1057,3 +1057,189 @@ def test_an_honest_planned_bench_is_applied(_corpus: Path, tmp_path: Path) -> No
     plan_file.write_text(json.dumps(raw))
     done = _apply(_corpus, plan_file, max_rows=3)
     assert done.applied and _benches(_corpus) == {"1": (list(BENCH), ["Jackson"])}
+
+
+# --- the standing sweep -------------------------------------------------------------
+
+
+def _decided(number: str, docket: str, day: date) -> OpinionListing:
+    return OpinionListing(
+        term=25,
+        number=number,
+        decided=day,
+        docket=docket,
+        name=f"Case {number}",
+        url=f"https://www.supremecourt.gov/opinions/25pdf/{docket}_x.pdf",
+        author_code="EK",
+    )
+
+
+def test_a_sweep_slice_reads_the_newest_decisions_and_defers_the_rest(_corpus: Path) -> None:
+    rows = [
+        _decided("1", "25-1", date(2026, 3, 4)),
+        _decided("2", "25-2", date(2026, 6, 30)),
+        _decided("3", "25-3", date(2026, 5, 1)),
+    ]
+    fetcher = _Fetcher(rows)
+    result = opinion_record.read_opinion_record(
+        fetcher, terms=[2025], recorded={(2025, "3")}, max_documents=1
+    )
+    assert [r.listing_number for r in result.readings] == ["2"]
+    assert result.deferred == 1 and result.already_recorded == 1 and result.listed == 3
+    assert fetcher.fetched == [rows[1].url]
+    whole = opinion_record.read_opinion_record(_Fetcher(rows), terms=[2025], recorded=set())
+    assert whole.deferred == 0 and len(whole.readings) == 3
+
+
+def test_a_sweep_plan_above_its_slice_is_refused_and_its_class_counts_the_deferred() -> None:
+    plan = opinion_record.OpinionRecordPlan(
+        terms=[2025], listed=40, already_recorded=10, failures=[], readings=[]
+    )
+    assert opinion_record.sweep_class(plan, cap=5) == 30
+    refused = opinion_record._base(_listing("1", "25-1"), status="refused", reason="no text")
+    skipped = opinion_record._base(_listing("2", "25-2"), status="skipped", reason="volume")
+    # A skip is not a fetch, so it takes no slot of the slice.
+    assert opinion_record.sweep_class(
+        plan.model_copy(update={"readings": [refused, skipped]}), cap=1
+    )
+    two = plan.model_copy(update={"readings": [refused, refused]})
+    with pytest.raises(HandoffRefused, match="above the sweep's slice of 1"):
+        opinion_record.sweep_class(two, cap=1)
+
+
+@pytest.mark.parametrize(
+    ("args", "message"),
+    [
+        (("--sweep", "--first-term", "2025", "--projection", "p"), "takes no --first-term"),
+        (("--sweep", "--docket", "25-1", "--projection", "p"), "takes no --first-term"),
+        (("--sweep", "--from-plan", "p", "--apply", "--max-rows", "5"), "takes no --max-rows"),
+        (("--sweep",), "--sweep runs split"),
+        (("--sweep", "--apply"), "--sweep runs split"),
+    ],
+)
+def test_the_sweep_refuses_what_it_does_not_combine_with(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, args: tuple[str, ...], message: str
+) -> None:
+    result = _cli(tmp_path, monkeypatch, *args)
+    assert result.exit_code == 2
+    assert message in " ".join(result.output.split())
+
+
+def test_the_sweep_runs_the_split_over_the_current_and_previous_term(
+    _corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("fedcourtsai.cli.october_term_year", lambda day: 2026)
+    seen: list[int] = []
+
+    def listing(self: object, term: int) -> list[OpinionListing]:
+        seen.append(term)
+        return [_listing("1", "25-1")] if term == 25 else []
+
+    monkeypatch.setattr(OpinionFetcher, "listing", listing)
+    monkeypatch.setattr(OpinionFetcher, "opinion", lambda self, url: b"%PDF")
+    projection, plan = tmp_path / "p.json", tmp_path / "plan.json"
+    emitted = _cli(tmp_path, monkeypatch, "--sweep", "--emit-corpus-projection", str(projection))
+    assert emitted.exit_code == 0, emitted.output
+    assert "OT2025-OT2026" in emitted.output
+    planned = _cli(
+        tmp_path, monkeypatch, "--sweep", "--projection", str(projection), "--plan-out", str(plan)
+    )
+    assert planned.exit_code == 0, planned.output
+    assert seen == [25, 26]
+    applied = _cli(tmp_path, monkeypatch, "--sweep", "--from-plan", str(plan), "--apply")
+    assert applied.exit_code == 0, applied.output
+    assert "inserted 3 of 3" in applied.output
+    assert "would fill 1; filled 1; remaining 0 (cap 15)" in applied.output
+    # A plan read for other Terms is not this sweep's.
+    monkeypatch.setattr("fedcourtsai.cli.october_term_year", lambda day: 2027)
+    stale = _cli(tmp_path, monkeypatch, "--sweep", "--from-plan", str(plan), "--apply")
+    assert stale.exit_code == 1 and "refusing the handoff whole" in stale.output
+
+
+def test_the_sweep_writes_nothing_for_a_class_above_its_ceiling(
+    _corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("fedcourtsai.cli.october_term_year", lambda day: 2026)
+    plan = tmp_path / "plan.json"
+    write_handoff(
+        plan,
+        opinion_record.OpinionRecordPlan(
+            terms=[2025, 2026], listed=500, already_recorded=0, failures=[], readings=[]
+        ),
+    )
+    result = _cli(tmp_path, monkeypatch, "--sweep", "--from-plan", str(plan), "--apply")
+    assert result.exit_code == 1
+    text = " ".join(result.output.split())
+    assert "would fill 500; filled 0; remaining 500" in text
+    assert "above its ceiling of 200" in text
+    assert _rows(_corpus) == []
+
+
+def test_the_sweep_apply_refuses_rows_beyond_its_per_document_bound(
+    _corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("fedcourtsai.cli.october_term_year", lambda day: 2026)
+    monkeypatch.setattr(
+        OpinionFetcher, "listing", lambda self, term: [_listing("1", "25-1")] if term == 25 else []
+    )
+    monkeypatch.setattr(OpinionFetcher, "opinion", lambda self, url: b"%PDF")
+    projection, plan = tmp_path / "p.json", tmp_path / "plan.json"
+    emitted = _cli(tmp_path, monkeypatch, "--sweep", "--emit-corpus-projection", str(projection))
+    assert emitted.exit_code == 0, emitted.output
+    planned = _cli(
+        tmp_path, monkeypatch, "--sweep", "--projection", str(projection), "--plan-out", str(plan)
+    )
+    assert planned.exit_code == 0, planned.output
+    monkeypatch.setattr(opinion_record, "SWEEP_ROWS_PER_DOCUMENT", 0)
+    refused = _cli(tmp_path, monkeypatch, "--sweep", "--from-plan", str(plan), "--apply")
+    assert refused.exit_code == 1
+    assert "refusing to insert 3 rows (the sweep's 0" in " ".join(refused.output.split())
+    assert _rows(_corpus) == []
+
+
+def test_a_sweep_slice_rotates_its_last_third_and_spends_no_slot_on_a_skip() -> None:
+    rows = [_decided(str(n), f"25-{n}", date(2026, 6, n)) for n in range(1, 7)]
+    volume = OpinionListing(
+        term=25,
+        number="V",
+        decided=date(2026, 6, 30),
+        docket="25-99",
+        name="Volume",
+        url="https://www.supremecourt.gov/opinions/preliminaryprint/25-01.pdf",
+        author_code="",
+    )
+    assert volume.volume_linked
+
+    def numbers(rotation: int) -> list[str]:
+        result = opinion_record.read_opinion_record(
+            _Fetcher([volume, *rows]),
+            terms=[2025],
+            recorded=set(),
+            max_documents=3,
+            rotation=rotation,
+        )
+        assert result.deferred == 3
+        return [r.listing_number for r in result.readings]
+
+    # The skip, the two newest decisions, then one older row turned per window.
+    assert numbers(0) == ["V", "6", "5", "4"]
+    assert numbers(1) == ["V", "6", "5", "3"]
+    assert numbers(4) == ["V", "6", "5", "4"]
+
+
+def test_the_sweep_ledger_goes_to_stderr_beside_the_counts(
+    _corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The workflow swaps the streams and keeps stderr's ledger lines for the run summary."""
+    monkeypatch.setattr("fedcourtsai.cli.october_term_year", lambda day: 2026)
+    plan = tmp_path / "plan.json"
+    write_handoff(
+        plan,
+        opinion_record.OpinionRecordPlan(
+            terms=[2025, 2026], listed=4, already_recorded=4, failures=[], readings=[]
+        ),
+    )
+    result = _cli(tmp_path, monkeypatch, "--sweep", "--from-plan", str(plan), "--apply")
+    assert result.exit_code == 0, result.output
+    assert "sweep ledger" in result.stderr and "sweep ledger" not in result.stdout
+    assert json.loads(result.stdout) == []

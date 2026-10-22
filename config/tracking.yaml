@@ -268,6 +268,14 @@ historical:
     # the cap holds the spend. The class held 10 on the index blob of
     # 2026-10-17 (sha 7c62d6e4), so one window drains it.
     ocr: 10
+    # `backfill-opinion-record --sweep` (split jobs beside the daily window):
+    # opinion documents read into the per-opinion record, two thirds newest
+    # decision first and the rest rotated through the older rows, sliced in
+    # the parse because each is a fetch from the Court's site (about four
+    # seconds). The Court issues at most about ten on a June day;
+    # the 57 OT2025 documents still owed a bench row or a reading on the index
+    # blob of 2026-10-22 drain in four windows.
+    opinion_record: 15
     # Ceilings, each well above the fill class a converged corpus holds. Upper
     # bounds on that class, on the index blob of 2026-10-02 (sha 2b356dbd):
     # 0 marked rows, 179 response candidates, 54 decision-record candidates.
@@ -284,6 +292,10 @@ historical:
     # Far above the 10 scanned filings of 2026-10-17: a class that size is an
     # extractor or fetch regression emptying stored text, not scans to read.
     ocr_ceiling: 500
+    # Above two Terms' listings (about 70 documents a Term): a class that size
+    # is a Term newly in reach or an emptied record, which the dispatched
+    # `opinion-record` pass applies under a maintainer's bound.
+    opinion_record_ceiling: 200
 
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope"). Restricts only the agentic

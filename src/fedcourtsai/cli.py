@@ -3855,7 +3855,7 @@ def _refuse_bound_with_sweep(command: str, bound_flag: str, bound: int | None) -
 
 
 def _echo_sweep_ledger(
-    command: str, *, written: bool, planned: int, deferred: int, cap: int
+    command: str, *, written: bool, planned: int, deferred: int, cap: int, err: bool = False
 ) -> None:
     """The one ledger line a fill sweep tees to the run summary, and its refusal.
 
@@ -3868,7 +3868,8 @@ def _echo_sweep_ledger(
     filled = planned if written else 0
     typer.echo(
         f"sweep ledger — {command}: would fill {found}; filled {filled}; "
-        f"remaining {found - filled} (cap {cap})"
+        f"remaining {found - filled} (cap {cap})",
+        err=err,
     )
 
 
@@ -4520,11 +4521,13 @@ def merits_lineups_cmd(
 @app.command("backfill-opinion-record")
 def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a CLI entrypoint; options map 1:1 to inputs
     first_term: Annotated[
-        int, typer.Option("--first-term", help="First October Term to read (four-digit).")
-    ] = 2025,
+        int | None,
+        typer.Option("--first-term", help="First October Term to read (four-digit; default 2025)."),
+    ] = None,
     last_term: Annotated[
-        int, typer.Option("--last-term", help="Last October Term to read (four-digit).")
-    ] = 2025,
+        int | None,
+        typer.Option("--last-term", help="Last October Term to read (four-digit; default 2025)."),
+    ] = None,
     docket: Annotated[
         str,
         typer.Option(help="Comma-separated docket numbers to read (e.g. 24-43); all if empty."),
@@ -4558,6 +4561,17 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
     projection: Annotated[Path | None, typer.Option("--projection", help=_PROJECTION_HELP)] = None,
     plan_out: Annotated[Path | None, typer.Option("--plan-out", help=_PLAN_OUT_HELP)] = None,
     from_plan: Annotated[Path | None, typer.Option("--from-plan", help=_FROM_PLAN_HELP)] = None,
+    sweep: Annotated[
+        bool,
+        typer.Option(
+            "--sweep",
+            help="Standing-sweep mode (run-seed's daily window): read the current and previous "
+            "October Term, the parse at most `historical.sweep_caps.opinion_record` documents "
+            "(two thirds newest decision first, the rest rotated); an apply refuses a class above "
+            "`opinion_record_ceiling` "
+            "in place of --max-rows.",
+        ),
+    ] = False,
 ) -> None:
     """Build the per-opinion record — type, author, joiners, word count — from the Court's opinions.
 
@@ -4581,18 +4595,46 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
     leaves untouched.
     ``--apply`` refuses above ``--max-rows``, which counts the opinion rows and
     bench rows it would insert; the apply half belongs in run-repair's `opinion-record` pass,
-    which on an apply holds the corpus-write credentials. Nothing a predict or
+    which on an apply holds the corpus-write credentials. ``--sweep`` is the
+    standing half on run-seed's daily window, so each decision of the current
+    Term is recorded within a day or so of its issue: every mode reads the
+    current and previous October Term, the parse reads at most the window's
+    slice of documents (two thirds newest decision first, the rest rotated
+    through the older rows) and counts the rest as deferred,
+    and the apply takes the slice and the class ceiling in place of a bound.
+    Nothing a predict or
     evaluate cell sees reads the table. Prints the readings of the unrecorded
     listing rows as one JSON array on stdout and a per-Term count on stderr.
     Fails loud if the corpus is absent.
     """
+    caps = load_historical_config(get_settings().config_root).sweep_caps if sweep else None
+    if sweep:
+        if first_term is not None or last_term is not None or docket:
+            typer.echo(
+                "backfill-opinion-record: --sweep reads the current and previous October Term "
+                "whole and takes no --first-term, --last-term or --docket.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        _refuse_bound_with_sweep("backfill-opinion-record", "--max-rows", max_rows)
+        if emit_corpus_projection is None and projection is None and from_plan is None:
+            typer.echo(
+                "backfill-opinion-record: --sweep runs split, as the daily window's jobs do: "
+                "--emit-corpus-projection, then --projection, then --from-plan.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        current = october_term_year(date.today())
+        first_term, last_term = current - 1, current
+    first_term = 2025 if first_term is None else first_term
+    last_term = 2025 if last_term is None else last_term
     if first_term > last_term:
         typer.echo("backfill-opinion-record: --first-term must not exceed --last-term.", err=True)
         raise typer.Exit(code=2)
     if throttle <= 0:
         typer.echo("--throttle must be positive", err=True)
         raise typer.Exit(code=2)
-    if apply and max_rows is None:
+    if apply and max_rows is None and not sweep:
         typer.echo(
             "backfill-opinion-record: --apply requires an explicit --max-rows. "
             "Read the dry run first and pass the count you are approving.",
@@ -4650,11 +4692,35 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
             err=True,
         )
         return
+    # The sweep's class and its read documents, set only on a sweep's apply.
+    found = planned = 0
     try:
         if from_plan is not None:
             plan = _read_handoff_or_exit(
                 "backfill-opinion-record", from_plan, opinion_record.OpinionRecordPlan
             )
+            if caps is not None:
+                if list(plan.terms) != terms:
+                    raise HandoffRefused(f"the plan was read for Terms {plan.terms}, not {terms}")
+                found = opinion_record.sweep_class(plan, cap=caps.opinion_record)
+                planned = sum(1 for reading in plan.readings if reading.status == "read")
+                if found > caps.opinion_record_ceiling:
+                    _echo_sweep_ledger(
+                        "backfill-opinion-record",
+                        written=False,
+                        planned=planned,
+                        deferred=found - planned,
+                        cap=caps.opinion_record,
+                        err=True,
+                    )
+                    _refuse_sweep_above_ceiling(
+                        "backfill-opinion-record",
+                        refused=True,
+                        found=found,
+                        ceiling=caps.opinion_record_ceiling,
+                    )
+            if caps is not None:
+                max_rows = caps.opinion_record * opinion_record.SWEEP_ROWS_PER_DOCUMENT
             if apply:
                 with corpus.connect(db_path) as conn:
                     result = opinion_record.apply_opinion_record_plan(
@@ -4685,6 +4751,8 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                     recorded=recorded,
                     rebench=opinion_record.projected_rebench(handed),
                     dockets=dockets,
+                    max_documents=None if caps is None else caps.opinion_record,
+                    rotation=date.today().toordinal(),
                 )
         else:
             with SupremeCourtClient(throttle_seconds=throttle) as client:
@@ -4735,13 +4803,28 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
     typer.echo(
         f"backfill-opinion-record ({'applied' if result.applied else 'dry-run'}): "
         f"{done} row(s) — {result.rows} opinion row(s), {result.benches} bench row(s); "
-        f"{result.already_recorded} listing row(s) already recorded",
+        f"{result.already_recorded} listing row(s) already recorded"
+        + (f"; {result.deferred} deferred to a later window" if result.deferred else ""),
         err=True,
     )
+    if caps is not None and from_plan is not None:
+        _echo_sweep_ledger(
+            "backfill-opinion-record",
+            written=result.applied,
+            planned=planned,
+            deferred=found - planned,
+            cap=caps.opinion_record,
+            err=True,
+        )
     if result.refused:
         typer.echo(
             f"backfill-opinion-record: refusing to insert {total} rows "
-            f"(--max-rows {max_rows}). Triage the dry run before raising the bound.",
+            + (
+                f"(--max-rows {max_rows}). Triage the dry run before raising the bound."
+                if caps is None
+                else f"(the sweep's {max_rows}: {opinion_record.SWEEP_ROWS_PER_DOCUMENT} a "
+                "document of its slice). An honest slice stays far under it."
+            ),
             err=True,
         )
         raise typer.Exit(code=1)

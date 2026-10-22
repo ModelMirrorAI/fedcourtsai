@@ -1413,7 +1413,9 @@ or network.
      half of that record — each opinion's kind, author, joiners and word count —
      is the corpus `opinions` table ([corpus/README.md](../corpus/README.md)),
      built by `backfill-opinion-record` from the Court's opinions, applied on
-     run-repair's `opinion-record` pass, and held corpus-side on the same terms.
+     run-repair's `opinion-record` pass and, for the current and previous
+     Term, as a standing sweep on run-seed's daily window, and held corpus-side
+     on the same terms.
      So is the per-Justice vote half for a case the pipeline never forecast:
      `fedcourts merits-lineups` derives each decision's lineup from those rows
      and the pass's `opinion_benches` (who sat), read-only and never stored, by
@@ -1578,6 +1580,16 @@ three-job credential split this workflow uses (below), with the writer in
 window, oldest order date first, and a class above `order_votes_ceiling`
 refused whole. The sweep never replaces a record; `replace-differing` stays a
 maintainer's call on this pass.
+
+A fifth is `opinion-record`, for the same reason: the Court issues opinions
+through a Term, so the current Term's record never stays drained. run-seed's
+daily window runs it as the same split over the current and previous October
+Term (`backfill-opinion-record --sweep`), slicing in the parse, where the
+fetches are: at most `historical.sweep_caps.opinion_record` documents a window,
+two thirds newest decision first and the rest rotated through the older rows,
+and a class above `opinion_record_ceiling` refused
+whole by the writer. The dispatched pass stays pinned to OT2020–OT2025 under a
+maintainer's bound.
 
 **One pass per dispatch, dry-run first.** `repair` is a single choice, so no
 two passes can arm each other, which makes the documented procedure structural
