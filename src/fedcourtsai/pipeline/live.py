@@ -69,6 +69,7 @@ from ..registry import enabled_predictors
 from ..store import event_has_claimable_prediction, forecastable_events, petition_distributed
 from ..supremecourt import (
     IFP_SERIAL_BASE,
+    ArgumentSitting,
     ArgumentTranscript,
     SupremeCourtClient,
     current_docket_term,
@@ -609,7 +610,9 @@ def fetch_argument_transcripts(
     So the pass reads that list for the Term ``today`` falls in and the one
     before it — two paced GETs a cycle, the earlier Term covering the spring
     sittings across the October roll and the back-fill of the last Term — and
-    matches each row to a corpus case by docket number. A matched case whose
+    matches each row to a corpus case by docket number. The sittings heading
+    each list are stored as they read (:func:`~fedcourtsai.corpus.upsert_argument_sittings`),
+    the Court's own grouping of the Term's argument days. A matched case whose
     stored ``argument-transcript`` row is missing or holds another URL owes the
     transcript; owed rows are fetched newest argument first, at most ``cap`` a
     cycle and within the deadline, extracted by
@@ -629,6 +632,7 @@ def fetch_argument_transcripts(
     ledger: dict[str, object] = dict.fromkeys(
         (
             "listed",
+            "sittings",
             "unmatched",
             "held",
             "owed",
@@ -642,9 +646,18 @@ def fetch_argument_transcripts(
     )
     if cap <= 0 or (deadline is not None and time_fn() >= deadline):
         return ledger
-    listed, failed = _listed_transcripts(client, today)
+    listed, sittings, failed = _listed_transcripts(client, today)
+    if sittings:
+        with corpus.connect(corpus_db_path) as conn:
+            corpus.upsert_argument_sittings(conn, sittings, read_at=today)
     owed, unmatched, held = _owed_transcripts(corpus_db_path, listed)
-    ledger.update(listed=len(listed), unmatched=unmatched, held=held, owed=len(owed))
+    ledger.update(
+        listed=len(listed),
+        sittings=len(sittings),
+        unmatched=unmatched,
+        held=held,
+        owed=len(owed),
+    )
     outcomes: Counter[str] = Counter()
     deferred = 0
     for case_id, row in owed:
@@ -673,23 +686,26 @@ def fetch_argument_transcripts(
 
 def _listed_transcripts(
     client: SupremeCourtClient, today: date
-) -> tuple[list[ArgumentTranscript], int]:
-    """The transcripts listed for the October Term ``today`` is in and the one before.
+) -> tuple[list[ArgumentTranscript], list[ArgumentSitting], int]:
+    """The transcripts and sittings listed for the October Term ``today`` is in and the one before.
 
     Returns them with the count of lists that failed to load; a list the Court
     does not serve contributes nothing.
     """
     term = october_term_year(today)
     listed: list[ArgumentTranscript] = []
+    sittings: list[ArgumentSitting] = []
     failed = 0
     for listing_term in (term, term - 1):
         try:
-            rows = client.get_transcript_listing(listing_term)
+            listing = client.get_transcript_listing(listing_term)
         except httpx.HTTPError:
             failed += 1
             continue
-        listed.extend(rows or [])
-    return listed, failed
+        if listing is not None:
+            listed.extend(listing.transcripts)
+            sittings.extend(listing.sittings)
+    return listed, sittings, failed
 
 
 def _owed_transcripts(

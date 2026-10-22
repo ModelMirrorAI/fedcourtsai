@@ -292,6 +292,59 @@ class ArgumentTranscript:
     argued: date
 
 
+@dataclass(frozen=True)
+class ArgumentSitting:
+    """One argument session of an October Term, as the Court's transcript list heads it.
+
+    ``start`` and ``end`` are the first and last argument days the heading
+    names, inclusive. The Court's own grouping, not a reading of the argument
+    dates: the Court widens a heading to take in a special session (a case
+    added in February or May), which no gap rule over the dates reproduces.
+    """
+
+    term: int
+    start: date
+    end: date
+
+    def holds(self, day: date) -> bool:
+        """Whether ``day`` falls within the sitting, both ends included."""
+        return self.start <= day <= self.end
+
+
+@dataclass(frozen=True)
+class TranscriptListing:
+    """One Term's transcript list: its transcripts and the sittings that head them."""
+
+    transcripts: list[ArgumentTranscript]
+    sittings: list[ArgumentSitting]
+
+
+# A sitting's heading on the transcript list: "Argument Session: April 20, 2026 -
+# April 29, 2026".
+_SITTING_RE = re.compile(
+    r"argument\s+session:\s*([a-z]+\s+\d{1,2},\s*\d{4})\s*-\s*([a-z]+\s+\d{1,2},\s*\d{4})",
+    re.IGNORECASE,
+)
+
+
+def parse_argument_sittings(html: str, *, term: int) -> list[ArgumentSitting]:
+    """The sittings a Term's transcript list is headed by, earliest first.
+
+    A heading whose dates do not read, or whose end precedes its start, is left
+    out rather than guessed at; one heading printed twice is one sitting.
+    """
+    found: set[ArgumentSitting] = set()
+    for first, last in _SITTING_RE.findall(html):
+        try:
+            start = datetime.strptime(" ".join(first.replace(",", " ").split()), "%B %d %Y").date()
+            end = datetime.strptime(" ".join(last.replace(",", " ").split()), "%B %d %Y").date()
+        except ValueError:
+            continue
+        if start <= end:
+            found.add(ArgumentSitting(term=term, start=start, end=end))
+    return sorted(found, key=lambda sitting: sitting.start)
+
+
 # One listing row: the transcript link, whose text is the docket number, then the
 # cell holding the argued date as MM/DD/YY. Read row by row so a link is paired
 # only with the date in its own row.
@@ -470,17 +523,21 @@ class SupremeCourtClient:
         url = DOCKET_JSON_URL.format(docket=scotus_docket_slug(term, serial, form=form))
         return self._fetch(url)
 
-    def get_transcript_listing(self, term: int) -> list[ArgumentTranscript] | None:
-        """The October Term ``term``'s argument transcripts, or ``None`` when no list is served.
+    def get_transcript_listing(self, term: int) -> TranscriptListing | None:
+        """The October Term ``term``'s transcript list, or ``None`` when no list is served.
 
-        One paced GET of :data:`TRANSCRIPT_LISTING_URL`, parsed by
-        :func:`parse_transcript_listing` against the URL it was served from.
+        One paced GET of :data:`TRANSCRIPT_LISTING_URL`, read for its transcripts
+        (:func:`parse_transcript_listing`, against the URL it was served from)
+        and its sitting headings (:func:`parse_argument_sittings`).
         """
         url = TRANSCRIPT_LISTING_URL.format(term=term)
         response = self._fetch(url)
         if response is None:
             return None
-        return parse_transcript_listing(response.text, page_url=str(response.url))
+        return TranscriptListing(
+            transcripts=parse_transcript_listing(response.text, page_url=str(response.url)),
+            sittings=parse_argument_sittings(response.text, term=term),
+        )
 
     def get_document(self, url: str) -> bytes | None:
         """Fetch one linked document (a filed PDF), or ``None`` when not served.

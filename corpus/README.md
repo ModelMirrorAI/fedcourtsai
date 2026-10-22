@@ -332,8 +332,9 @@ for a case the pipeline never forecast. Written only by
 whole or not at all, and a recorded row is never changed. So a new version of
 the counting rule or of a reader reaches stored rows only through a pass built
 to replace them, which does not exist yet; `word_rule` and `lineup` say which
-version each row was read under. Its one reader outside its writer is `fedcourts merits-lineups`,
-which derives each decision's per-Justice votes from it; it is read by no `query`
+version each row was read under. Its readers outside its writer are `fedcourts merits-lineups`,
+which derives each decision's per-Justice votes from it, and `fedcourts authorship-tally`,
+which reads each lead opinion's author against its argument sitting; it is read by no `query`
 retrieval row, provisioning step, outcome, mint or scoring gate, so nothing a
 predict or evaluate cell sees includes it; a test pins which modules may name
 it. It is metadata, not payload, so it stays in the index blob under the
@@ -391,6 +392,27 @@ provisioning step, outcome, mint or score, and kept in the index blob.
 | `took_no_part`   | text (JSON)  | the bench members the syllabus says took no part; null with `bench` |
 | `lineup`         | text         | `<reader>/<version>` of the syllabus grammar the bench was read with |
 | `read_at`        | timestamp    | when the row was written |
+
+## Argument sittings (`argument_sittings`)
+
+One row per argument sitting, as the Court heads it on its transcript list for
+the Term ("Argument Session: October 06, 2025 - October 15, 2025",
+`supremecourt.parse_argument_sittings`). Written by the live cycle's transcript
+pass on every list it reads, the Term today falls in and the one before it,
+each heading upserted by its Term and first day, so a sitting the Court later
+widens takes its new last day. A heading the Court drops or re-dates is not
+deleted, and can overlap its replacement. A Term the pass has never listed has
+no rows.
+Its one reader is `fedcourts authorship-tally` (`pipeline/authorship.py`), which
+groups a Term's argued cases by sitting; it is read by no `query` retrieval row,
+provisioning step, outcome, mint or scoring gate. Kept in the index blob.
+
+| Column    | Type          | Notes |
+|-----------|---------------|-------|
+| `term`    | integer (PK)  | October Term, four-digit |
+| `start`   | date (PK)     | the sitting's first day, as headed |
+| `end`     | date          | its last day, as headed |
+| `read_at` | date          | the day the heading was last read |
 
 ## Working with it locally
 

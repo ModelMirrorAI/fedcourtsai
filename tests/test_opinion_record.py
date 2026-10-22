@@ -549,7 +549,12 @@ def test_only_the_record_s_own_modules_touch_the_table() -> None:
     is shown — can read them without this test changing.
     """
     root = Path(__file__).resolve().parents[1] / "src" / "fedcourtsai"
-    allowed = {"corpus.py", "pipeline/opinion_record.py", "pipeline/merits_lineups.py"}
+    allowed = {
+        "corpus.py",
+        "pipeline/opinion_record.py",
+        "pipeline/merits_lineups.py",
+        "pipeline/authorship.py",
+    }
     naming = re.compile(r"\b(?:from|into|table|update|exists) opinion(?:s|_benches)\b")
     touching: set[str] = set()
     for path in root.rglob("*.py"):
