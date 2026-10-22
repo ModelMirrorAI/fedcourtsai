@@ -688,7 +688,7 @@ def _last_observed(row: corpus.CorpusRow) -> date | None:
 #:   application lane's three moments, each keyed on a docket transition that
 #:   has already happened rather than on a date ahead.
 #:
-#: Two families are excluded, and each for its own reason:
+#: Every other declared moment is excluded, each for its own reason:
 #:
 #: * **cert / arrival** — its whole contract is "forecast at docketing, before
 #:   any distribution or docket-acquired signal exists"
@@ -696,11 +696,18 @@ def _last_observed(row: corpus.CorpusRow) -> date | None:
 #:   distributed or is about to be, so a cell minted now is not a late forecast
 #:   of that moment but a forecast of a different one. The moment is gone; only
 #:   the original cell ever observed it.
-#: * **merits / grant, briefed** — the moment stays genuinely open (these
-#:   resolve months out), so the rule *would* apply. They are held out because a
-#:   merits re-predict is spend now for a board population that arrives a Term
-#:   later, which is a funding decision rather than a correctness one. Adding
-#:   either pair here is the whole change needed to take them.
+#: * **merits / grant, briefed, argued** — the moment stays genuinely open
+#:   (these resolve months out), so the rule *would* apply. They are held out
+#:   because a merits re-predict is spend now for a board population that
+#:   arrives a Term later, which is a funding decision rather than a correctness
+#:   one. Adding a pair here is the whole change needed to take it.
+#: * **cert / relist, sg_brief** — each forecasts the next conference, and the
+#:   fan-out stops admitting a first cell once that conference has sat
+#:   (:func:`fedcourtsai.store._conference_bounded_cell_closed`). A re-predict
+#:   would be spend on a cohort that has not yet run under any process version,
+#:   and would need that bound in :func:`_reopenable_moment` too; adding the
+#:   pairs and the bound is the whole change once one has.
+#: * **cert / response_requested** — switched off, so no cell exists to re-owe.
 REPREDICT_MOMENTS: frozenset[tuple[Stage, Moment]] = frozenset(
     {
         (Stage.cert, Moment.distribution),

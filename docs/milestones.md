@@ -91,14 +91,13 @@ Add the moments where a case's information set materially changes, starting
 with the one the public cares about most:
 
 - **Post-oral-argument** — every argued case, after the transcript is out
-  (~60 events a Term). Declared, minted and switched off on the same terms as
-  the SG brief (`evt-argument-judgment`, moment `argued` on the merits stage).
+  (~60 events a Term). Declared, minted and forecast (`evt-argument-judgment`,
+  moment `argued` on the merits stage).
   The live poll already stores each transcript the Court lists, as the
   `argument-transcript` document only this moment's cells are handed.
 - **SG brief after a CVSG** — the Solicitor General's recommendation (~20).
-  Declared, parsed and minted (`evt-brief-sg-disposition`, moment `sg-brief`),
-  and switched off: no cell is filed under it until the process version whose
-  predict prompt names it.
+  Declared, parsed, minted and forecast (`evt-brief-sg-disposition`, moment
+  `sg-brief`).
 - **Late-Term authorship elimination** — a fixed calendar date on which every
   still-undecided argued case is re-forecast, once the pattern of who has
   written from each sitting is visible (~25). The pattern is read but not yet
@@ -113,11 +112,13 @@ with the one the public cares about most:
   the authorship claims have failed so far for want of a committed resolution
   channel and a strictly-prior baseline ([decision-model.md](decision-model.md)).
 - **First-relist re-forecast** and **call for response** — the strongest public
-  cert-stage signals. Both are declared, parsed and minted, and switched off
-  on the same terms as the SG brief: the call for response
+  cert-stage signals. Both are declared, parsed and minted. The first relist
+  (`evt-order-relist-disposition`, moment `relist`), which fires once per
+  petition rather than at every relist, is forecast. The call for response
   (`evt-order-call-for-response-disposition`, moment `response-requested` on
-  the cert stage) and the first relist (`evt-order-relist-disposition`, moment
-  `relist`), which fires once per petition rather than at every relist.
+  the cert stage) is switched off: no cell is filed under it until the process
+  version whose predict prompt names it, because its first polls open events
+  for petitions called long before, and how those count is not yet decided.
 
 These add a few hundred events at most, mainly on the low-volume merits track,
 so the cost is engineering rather than inference: each moment is a

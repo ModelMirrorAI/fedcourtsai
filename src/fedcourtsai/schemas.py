@@ -9973,8 +9973,8 @@ class BigCaseBoard(_Strict):
         "`cases_without_score` counts in-scope decliners alone and is not comparable to the "
         "`all` build's. The held-out set is selected rather than sampled (a resolved case "
         "is never re-predicted, so one whose reads predate the freeze can never be refilled "
-        "into scope; and the re-predict rule re-owes neither the cert arrival moment nor "
-        "either merits moment), so it is never read as a random thinning",
+        "into scope; and the re-predict rule re-owes no cert arrival, sg-brief or relist "
+        "moment and no merits moment), so it is never read as a random thinning",
     )
     predictors: list[str] = Field(
         default_factory=list,

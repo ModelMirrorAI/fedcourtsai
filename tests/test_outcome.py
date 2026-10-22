@@ -2314,12 +2314,8 @@ def test_the_sg_brief_moment_resolves_with_the_petition() -> None:
     assert set(resolution.outcomes) == set(open_ids)
 
 
-def test_the_sg_brief_moment_is_minted_but_never_forecast(tmp_path: Path) -> None:
-    """The live seam writes both halves of the event; the fan-out offers no cell for it.
-
-    Declared with ``forecastable=False`` until the predict prompt names the
-    moment, so the event accrues from the poll while no predictor is asked.
-    """
+def test_the_sg_brief_moment_is_minted_and_forecast(tmp_path: Path) -> None:
+    """The live seam writes both halves of the event, and the fan-out offers its cell."""
     db = _db(tmp_path)
     row = CorpusRow(
         case_id="scotus/9524000210",
@@ -2355,8 +2351,12 @@ def test_the_sg_brief_moment_is_minted_but_never_forecast(tmp_path: Path) -> Non
         date(2025, 11, 20),
     )
     with corpus.connect(db) as conn:
+        # No conference since the trigger has sat, so the moment is still open.
+        corpus.upsert_snapshot(
+            conn, "scotus/9524000210", date(2025, 11, 21), {"ProceedingsandOrder": []}
+        )
         offered = forecastable_event_ids(conn, "scotus", 9524000210, today=date(2025, 11, 25))
-    assert "evt-brief-sg-disposition" not in offered
+    assert "evt-brief-sg-disposition" in offered
 
 
 def test_the_call_for_response_moment_is_minted_but_never_forecast(tmp_path: Path) -> None:
@@ -2406,8 +2406,8 @@ def test_the_call_for_response_moment_is_minted_but_never_forecast(tmp_path: Pat
     assert "evt-order-call-for-response-disposition" not in offered
 
 
-def test_the_relist_moment_is_minted_but_never_forecast(tmp_path: Path) -> None:
-    """A first relist mints its event, and the fan-out offers no cell for it."""
+def test_the_relist_moment_is_minted_and_forecast(tmp_path: Path) -> None:
+    """A first relist mints its event, and the fan-out offers its cell."""
     db = _db(tmp_path)
     row = CorpusRow(
         case_id="scotus/9524000212",
@@ -2442,8 +2442,19 @@ def test_the_relist_moment_is_minted_but_never_forecast(tmp_path: Path) -> None:
         date(2025, 3, 3),
     )
     with corpus.connect(db) as conn:
+        # The relist entry names a conference still ahead, so the moment is open.
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/9524000212",
+            date(2025, 3, 4),
+            {
+                "ProceedingsandOrder": [
+                    {"Date": "Mar 03 2025", "Text": "DISTRIBUTED for Conference of 3/20/2025."}
+                ]
+            },
+        )
         offered = forecastable_event_ids(conn, "scotus", 9524000212, today=date(2025, 3, 10))
-    assert "evt-order-relist-disposition" not in offered
+    assert "evt-order-relist-disposition" in offered
 
 
 # --- applications: every moment resolves from the one disposition -------------

@@ -361,16 +361,11 @@ def test_the_sg_brief_moment_mints_only_while_the_petition_is_open() -> None:
     assert sg_brief_event_for(circuit, [baseline]) is None
 
 
-def test_the_sg_brief_moment_is_declared_but_switched_off() -> None:
-    """No cell is filed under the moment until the prompt describing it is registered.
-
-    The predict prompt names each cert moment a cell can be filed under, and a
-    prompt edit moves every predictor's digest, so the moment is minted now and
-    switched on with the process version whose prompt names it.
-    """
+def test_the_sg_brief_moment_is_declared_and_switched_on() -> None:
+    """The predict prompt names the moment, so the fan-out files cells under it."""
     spec = moments.spec_for("evt-brief-sg-disposition")
     assert spec is not None
-    assert (spec.stage, spec.moment, spec.forecastable) == (Stage.cert, Moment.sg_brief, False)
+    assert (spec.stage, spec.moment, spec.forecastable) == (Stage.cert, Moment.sg_brief, True)
     assert spec.opened_at_is_the_moment
     assert "evt-brief-sg-disposition" in moments.minted_moment_ids()
 
@@ -435,7 +430,7 @@ def test_the_cert_relist_moment_mints_only_on_an_open_petition() -> None:
     application = row.model_copy(update={"docket_number": "26A121"})
     assert relist_event_for(application, [baseline]) is None
     spec = moments.spec_for("evt-order-relist-disposition")
-    assert spec is not None and not spec.forecastable
+    assert spec is not None and spec.forecastable
 
 
 def test_every_cert_moment_declares_the_same_claim_set() -> None:
@@ -624,3 +619,21 @@ def test_the_arrival_moment_mints_on_selection_while_the_petition_is_open() -> N
     # A circuit docket carries no cert stage at all.
     circuit = row.model_copy(update={"court": "ca9", "case_id": "ca9/42"})
     assert arrival_event_for(circuit, [baseline]) is None
+
+
+_PREDICT_PROMPT = Path(__file__).resolve().parents[1] / ".github" / "prompts" / "predict.md"
+
+
+@pytest.mark.reads_docs
+def test_every_forecastable_moment_is_named_by_the_predict_prompt() -> None:
+    """A moment is switched on only with the prompt that tells a cell what it is.
+
+    The predict prompt describes each moment a cell can be filed under, by its
+    ``moment:`` value and its event id, so a moment that fans out with no such
+    line would put a cell in front of a model that has no account of it, and
+    one the prompt names while switched off promises cells that never come.
+    """
+    prompt = _PREDICT_PROMPT.read_text(encoding="utf-8")
+    for spec in moments.DECLARED_MOMENTS:
+        named = f"`moment: {spec.moment.value}`" in prompt and f"`{spec.event_id}`" in prompt
+        assert named is spec.forecastable, (spec.event_id, spec.moment.value)

@@ -336,10 +336,10 @@ def test_the_post_argument_moment_mints_only_on_an_open_merits_proceeding() -> N
     gvr = _granted(disposition=Disposition.gvr)
     assert argued_merits_event_for(gvr, [MERITS_EVENT_ID], argued) is None
     spec = moments.spec_for("evt-argument-judgment")
-    assert spec is not None and not spec.forecastable
+    assert spec is not None and spec.forecastable
 
 
-def test_the_post_argument_moment_mints_off_the_stored_row_but_is_never_forecast(
+def test_the_post_argument_moment_mints_off_the_stored_row_and_is_forecast(
     tmp_path: Path,
 ) -> None:
     """The poll's own row carries no transcript; the stored one the pass latched does."""
@@ -374,7 +374,7 @@ def test_the_post_argument_moment_mints_off_the_stored_row_but_is_never_forecast
     )
     with corpus.connect(db) as conn:
         offered = forecastable_event_ids(conn, "scotus", 9525000466, today=date(2026, 4, 27))
-    assert "evt-argument-judgment" not in offered
+    assert "evt-argument-judgment" in offered
 
 
 # --- provisioning ----------------------------------------------------------------
