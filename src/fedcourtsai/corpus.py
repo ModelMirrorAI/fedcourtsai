@@ -5949,7 +5949,10 @@ def _live_snapshot_on_or_before(
 
     Walks back through :func:`snapshot_at`, skipping each REST-shaped row the way
     :func:`latest_live_snapshot` does, so it needs nothing of the read source
-    beyond the point-in-time read every backend already serves.
+    beyond the point-in-time read every backend already serves. That read gives
+    no date for a stored day whose body is missing, so where the unbounded
+    store reader steps past such a day this walk stops and answers ``None``:
+    the replay reads the case as unsnapshotted rather than guessing.
     """
     before = as_of + timedelta(days=1)
     while (found := snapshot_at(conn, case_id, before=before)) is not None:
