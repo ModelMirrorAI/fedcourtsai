@@ -296,48 +296,46 @@ def _possessive(name: str) -> str:
 
 def _cert_granted(sides: AskingSides) -> str:
     return (
-        f"The Court takes up {_possessive(_name(sides.asking))} case; "
-        "a grant alone decides nothing yet about who is right."
+        f"The Court takes up {_possessive(_name(sides.asking))} case. "
+        "A grant alone decides nothing yet about who is right."
     )
 
 
 def _cert_denied(sides: AskingSides) -> str:
     return (
         f"{_possessive(_name(sides.asking, start=True))} petition ends and the lower "
-        "court's decision stands; that is not a ruling that the lower court was right."
+        "court's decision stands. That is not a ruling that the lower court was right."
     )
 
 
 def _interim_granted(sides: AskingSides) -> str:
     return (
-        f"{_name(sides.asking, start=True)} gets the relief requested, for now; "
-        "the case continues in the lower courts."
+        f"{_name(sides.asking, start=True)} gets the relief requested for now, "
+        "while the case continues in the lower courts."
     )
 
 
 def _interim_denied(sides: AskingSides) -> str:
     return (
-        f"{_name(sides.asking, start=True)} does not get the relief requested, for now; "
+        f"{_name(sides.asking, start=True)} does not get the relief requested for now, and "
         "things stay as the lower courts left them while the case continues."
     )
 
 
 def _merits_reversed(sides: AskingSides) -> str:
     return (
-        f"{_name(sides.asking, start=True)} wins in the Court; the lower court's "
-        "decision is overturned, and any remaining issues go back to it."
+        f"{_name(sides.asking, start=True)} wins: the lower court's decision is "
+        "overturned, and any remaining issues go back to that court."
     )
 
 
 def _merits_affirmed(sides: AskingSides) -> str:
-    return (
-        f"{_name(sides.other, start=True)} wins in the Court; the lower court's decision is upheld."
-    )
+    return f"{_name(sides.other, start=True)} wins: the lower court's decision is upheld."
 
 
 def _merits_vacated(_sides: AskingSides) -> str:
     return (
-        "The lower court's decision is set aside and the case goes back to it, "
+        "The lower court's decision is set aside and the case goes back to that court, "
         "without the Court deciding it for either side."
     )
 

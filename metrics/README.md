@@ -2925,7 +2925,7 @@ the rendered table) and
   gets *granted*: the asking side gets the relief requested, for now, and the
   case continues in the lower courts; and *denied*: it does not, for now, and
   things stay as the lower courts left them. A merits case gets *reversed*: the
-  asking side wins in the Court, and any remaining issues go back to the lower
+  asking side wins, and any remaining issues go back to the lower
   court; *affirmed*: the other side wins; and *vacated*: the decision below is
   set aside and the case goes back, without the Court deciding it for either
   side. The lines state consequences only, never likelihood, and give each
@@ -2943,7 +2943,7 @@ the rendered table) and
   complement. Neither side is one line: the mixed affirmed-in-part outcome is
   disturbed and has no line, and a dismissal as improvidently granted or an
   equally divided affirmance is undisturbed and has none either. So a site
-  never puts "Apple wins in the Court" beside the merits probability as though
+  never puts "Apple wins" beside the merits probability as though
   that number were P(reversed).
 
   The three fields are null together, and `asking_declined` says why. The

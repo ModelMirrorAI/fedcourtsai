@@ -23,6 +23,7 @@ from fedcourtsai.public_update import (
 from fedcourtsai.schemas import (
     Disposition,
     EventKind,
+    Moment,
     Outcome,
     PredictableEvent,
     Prediction,
@@ -65,6 +66,7 @@ def _event(
     *,
     kind: EventKind = EventKind.petition,
     stage: Stage | None = None,
+    moment: Moment | None = None,
 ) -> None:
     write_yaml(
         CasePaths(data_root, "scotus", docket).event(event_id).event_file,
@@ -73,6 +75,7 @@ def _event(
             case_id=f"scotus/{docket}",
             kind=kind,
             stage=stage,
+            moment=moment,
             title=title,
             decision_target="disposition",
             resolved=False,
@@ -221,11 +224,11 @@ def test_render_puts_the_unusual_outcome_first_and_escapes_captions(tmp_path: Pa
     resolved = text.split("## Resolved this week")[1].split("## New forecasts")[0]
     assert resolved.index("Zebra") < resolved.index("Aardvark")
     assert r"Zebra \*Corp\* v. \[Smith\]" in text
-    assert "claude-baseline 25%" in text
-    assert "2 resolved: 1 not denied, 1 denied." in text
+    assert "Claude 25%" in text
+    assert "2 resolved: 1 denied, 1 another outcome." in text
     assert "(GVR) counts as a grant" in text
     assert "Each percentage is a model's committed chance of a grant." in text
-    assert "not an accuracy claim" in text
+    assert "not a claim of accuracy" in text
     assert render_public_update(build_public_update(data, _week_of(resolved_on))) == text
 
 
@@ -285,10 +288,53 @@ def test_percentages_never_round_to_certainty(tmp_path: Path) -> None:
     _forecast(data, 801, at=base, probability=0.001, predictor_id="claude-baseline")
     _forecast(data, 801, at=base, probability=0.999, predictor_id="codex-baseline")
     text = render_public_update(build_public_update(data, _week_of(base.date())))
-    assert "claude-baseline <1%" in text
-    assert "codex-baseline >99%" in text
+    assert "Claude <1%" in text
+    assert "Codex >99%" in text
     assert " 0%" not in text
     assert "100%" not in text
+
+
+def test_a_half_percent_still_reads_as_less_than_one(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    _event(data, 802, "Rho v. Sigma")
+    _forecast(data, 802, at=base, probability=0.005, predictor_id="claude-baseline")
+    _forecast(data, 802, at=base, probability=0.995, predictor_id="codex-baseline")
+    text = render_public_update(build_public_update(data, _week_of(base.date())))
+    assert "Claude <1%" in text
+    assert "Codex >99%" in text
+
+
+def test_a_predictor_outside_the_known_families_keeps_its_id(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    _event(data, 821, "Phi v. Chi")
+    _forecast(data, 821, at=base, probability=0.3, predictor_id="claude-variant")
+    _forecast(data, 821, at=base, probability=0.4, predictor_id="gemini-baseline")
+    text = render_public_update(build_public_update(data, _week_of(base.date())))
+    assert "claude-variant 30%" in text
+    assert "Gemini 40%" in text
+
+
+def test_the_reading_note_is_given_once_per_stage_and_a_lone_event_gets_no_count(
+    tmp_path: Path,
+) -> None:
+    data = tmp_path / "data"
+    base = _base()
+    resolved_on = (base + timedelta(days=2)).date()
+    _event(data, 831, "Psi v. Omega")
+    _forecast(data, 831, at=base, probability=0.2)
+    _outcome(data, 831, on=resolved_on, disposition=Disposition.denied)
+    arrival = "evt-petition-arrival-disposition"
+    _event(data, 832, "Alpha v. Beta", arrival, moment=Moment.arrival)
+    _forecast(data, 832, at=base, probability=0.1, event_id=arrival)
+    _outcome(data, 832, on=resolved_on, disposition=Disposition.denied, event_id=arrival)
+
+    text = render_public_update(build_public_update(data, _week_of(resolved_on)))
+    resolved = text.split("## Resolved this week")[1].split("## New forecasts")[0]
+    assert resolved.count("### Will the Court take the case?") == 2
+    assert resolved.count("Each percentage is a model's committed chance of a grant.") == 1
+    assert "1 resolved" not in resolved
 
 
 def test_footer_links_the_results_page(tmp_path: Path) -> None:
