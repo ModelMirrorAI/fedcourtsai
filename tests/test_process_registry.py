@@ -44,14 +44,18 @@ _REGISTRY_FILE = _SRC.with_name("process_registry.json")
 _V8 = datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC)
 _V9_MERGE = datetime(2026, 10, 11, 0, 12, 2, tzinfo=UTC)
 _V9_SINCE = datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC)
+_V10 = datetime(2026, 10, 20, 15, 24, 42, tzinfo=UTC)
 _CODEX_AND_GEMINI = frozenset({"codex-baseline", "gemini-baseline"})
 
-# proc-v10 replaces the codex and gemini pairs' blessings with its own four,
-# which are pending and so in no bless map until its merge stamps them; the
-# claude pair's two carry forward.
+# proc-v10 replaces the codex and gemini pairs' blessings with its own four;
+# the claude pair's two carry forward from proc-v9.
 GOLDEN_DIGESTS = {
     "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734": _V9_MERGE,
+    "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4": _V10,
+    "sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434": _V10,
     "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": _V9_MERGE,
+    "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac": _V10,
+    "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4": _V10,
 }
 
 GOLDEN_WINDOWS = (
@@ -67,18 +71,32 @@ GOLDEN_WINDOWS = (
         digest="sha256:70fee158526caa6870d43ace70c3781db39f644379c86c363538ebdefa57547c",
         predictor_id="codex-baseline",
         opens=_V8,
+        closes=_V10,
     ),
     CountingWindow(
         label="proc-v8",
         digest="sha256:a9033e56819e775e561b802dec24bae437c17c751e5a7f5fa4b3eeb31383951f",
         predictor_id="gemini-baseline",
         opens=_V8,
+        closes=_V10,
     ),
     CountingWindow(
         label="proc-v9",
         digest="sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
         predictor_id="claude-baseline",
         opens=_V9_SINCE,
+    ),
+    CountingWindow(
+        label="proc-v10",
+        digest="sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4",
+        predictor_id="codex-baseline",
+        opens=_V10,
+    ),
+    CountingWindow(
+        label="proc-v10",
+        digest="sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434",
+        predictor_id="gemini-baseline",
+        opens=_V10,
     ),
 )
 
@@ -104,6 +122,7 @@ _PROMOTION_1010 = "6460e93061a0f4d6a06c14b5b1526346aba7a353"
 _PROMOTION_1011_2 = "c432a95a9073bcae6651eb6b75fddd30aefbd8d8"
 _PROMOTION_1016 = "1c1cd1f257e1bcbcd4f5339173fff2dab68ed317"
 _PROMOTION_1018 = "dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c"
+_PROMOTION_1020 = "7d4f2c6c58e01b22f17adb850b5203418f71925e"
 _SR: BoundaryReach = "self-represented dockets"
 
 GOLDEN_BOUNDARIES = (
@@ -230,6 +249,21 @@ GOLDEN_BOUNDARIES = (
         "all",
         gradual=True,
     ),
+    HarnessBoundary("scrub-ohio-reporter-citation", _PROMOTION_1020, _V10, None, _SR),
+    HarnessBoundary(
+        "merits-judgment-parser-summary-ruling-consolidated",
+        _PROMOTION_1020,
+        _V10,
+        None,
+        "granted dockets",
+        gradual=True,
+    ),
+    HarnessBoundary(
+        "cert-exit-guard-and-plural-nouns", _PROMOTION_1020, _V10, None, "all", gradual=True
+    ),
+    HarnessBoundary(
+        "direct-appeal-plenary-review-grant", _PROMOTION_1020, _V10, None, "all", gradual=True
+    ),
 )
 
 
@@ -240,7 +274,11 @@ GOLDEN_BOUNDARIES = (
 #: later merge stamped put back to pending: each known row still compares
 #: exactly, and only rows a carrying merge has stamped since are let through.
 _GOLDEN_MERGES = frozenset(
-    {"545e26e2b753ac79701a4fd638689a8d48654bce", "6460e93061a0f4d6a06c14b5b1526346aba7a353"}
+    {
+        "545e26e2b753ac79701a4fd638689a8d48654bce",
+        "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "7d4f2c6c58e01b22f17adb850b5203418f71925e",
+    }
 )
 
 
@@ -273,9 +311,9 @@ def test_the_bless_map_reproduces_its_golden_values_in_order() -> None:
 
 
 def test_the_counting_instant_reproduces_its_golden_value() -> None:
-    assert counting_instant(_as_the_goldens_know_it()) == _V9_SINCE
+    assert counting_instant(_as_the_goldens_know_it()) == _V10
     assert FROZEN_SINCE is not None and FROZEN_SINCE.tzinfo is UTC
-    assert FROZEN_SINCE >= _V9_SINCE
+    assert FROZEN_SINCE >= _V10
 
 
 def test_the_counting_windows_reproduce_their_golden_values_in_order() -> None:

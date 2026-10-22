@@ -218,6 +218,46 @@ rather than a failure, because rows written before the write site stripped the
 marking carry one until something reaches them, and the verdict must not be red
 for the whole interval.
 
+`sg_brief_filed` dates the brief a CVSG asks for: the entry the
+`sg-invited-brief` document arm below stores from, located once for both
+(`cert_signals.sg_invited_brief_position`), so the document and the date never
+name different entries. It opens the cert stage's sg-brief moment. The live poll is
+its only writer, fill-in latched; nothing back-fills it, because the moment
+opens only on an undecided petition and the rotation re-polls every one of
+those, so a null on a decided row polled before the column existed means
+*never parsed*. It is withheld from the `query` retrieval rows
+(`corpus.RETRIEVAL_WITHHELD_COLUMNS`): a cell reads the brief itself, not a
+column admitted to its retrieval surface without a re-bless.
+
+`call_for_response_at` is the same shape for the Court's call for a response to
+a cert petition: the first `Response Requested` entry before any disposition
+(`cert_signals.call_for_response_date`), the entry-initial reading that also
+takes a petition off its conference. It opens the cert stage's
+call-for-response moment and is kept apart from `response_requested_at`, the
+interim stage's request for a response to an application, which the interim
+response-requested moment reads. Live poll only, fill-in latched, withheld
+from the `query` rows, and null on a decided row polled before the column
+existed.
+
+`relisted_at` is the same shape for the petition's **first relist**: the first
+petition distribution (the entry-initial `dist-v2` reading, so an ancillary
+paper's distribution never counts) naming a later conference than the one
+before it, docketed after that earlier conference and within two weeks of it
+(`cert_signals.RELIST_ENTRY_WINDOW`), where no call for response or bare
+reschedule follows the earlier distribution in docket order on or before its
+conference day, and before any disposition (`cert_signals.first_relist_date`).
+A redistribution entered before the earlier conference, after a call for
+response or a reschedule took the petition off it, or months later (a petition
+held for another case, or redistributed after the Solicitor General's invited
+brief) is not the relist signal and does not open the moment. An entry dated on
+the conference day itself is not read as a relist. That makes the trigger narrower than the salience
+relist count (`distribution_count − 1`, every further distinct conference,
+reschedules included), so a petition can sit in a relist band without ever
+opening the moment. It opens the cert stage's relist moment, once per
+petition: a later relist repeats the same signal. Live poll only, fill-in latched, withheld
+from the `query` rows, and null on a decided row polled before the column
+existed.
+
 On a granted docket the same parse also lands the **merits decision record**
 (`pipeline/decision_record.py`), over every grant — the GVR and the summary
 reversal included, where the merits pair (`merits_judgment` / `merits_decided`)
@@ -360,7 +400,9 @@ the docket form, so one function serves both lanes:
   United States and nothing after it, so an amicus whose name merely opens with
   those words ("United States Conference of …") is not read as one, and the entry
   must say "amicus", so the United States filing as a party stays with the
-  opposition. It is the one amicus filing any arm selects: the Court asked for
+  opposition. The entry is the one the sg-brief moment is dated from, so a first
+  brief that posts no `Main Document` link stores nothing rather than a later
+  brief standing in for it. It is the one amicus filing any arm selects: the Court asked for
   it, and on an invited petition it is most often the filing that decides it.
 - **`merits-brief-petitioner`** / **`merits-brief-respondent`** — each side's
   brief on the merits, one row per side and one URL per row, taken from the
@@ -392,7 +434,15 @@ the docket form, so one function serves both lanes:
   respondent side the wider reading is the selector's alone: the briefed merits
   moment is still dated by the narrower "Brief of respondent …" reading, since
   which document a cell is given and when its moment opens are separate
-  questions.
+  questions. The two readings part once more over a respondent **confessing
+  error** ("Brief of respondent United States supporting vacatur filed."): the
+  selector stores it as the respondent's brief, its description saying which
+  way it argues, but it does not date the briefed moment. That moment opens on
+  the brief that defends the judgment instead, an adverse co-respondent's or a
+  Court-appointed amicus's ("Brief of Court-appointed amicus curiae in support
+  of the judgment below filed."), whichever is filed first. An appointed
+  amicus's brief dates the moment on any docket where it is the first brief
+  defending the judgment, ahead of the respondent's own if it is filed first.
 - **`merits-reply-petitioner`** / **`merits-reply-respondent`** — each side's
   *reply* on the merits, the last word on the argument and the one filing that
   answers what the other side actually argued. A distinct entry family ("Reply
@@ -470,6 +520,18 @@ selection. The rules:
   States files.
 - **A lead that does not serve** is warned into the run log and read as no lead:
   the member's own documents are stored without it.
+- **The briefed date.** The member's own docket never carries its respondent's
+  merits brief, so its `merits_brief_filed` stays null and the briefed merits
+  moment does not open for it. The live poll reads the date off the lead
+  instead: on a member with neither that column nor `merits_brief_on_lead` set
+  and no merits judgment, it reads the lead's newest stored live snapshot (the
+  lead is a corpus case in the same rotation, so this costs no request) and
+  dates the first respondent brief the attribution reads as the member's, after
+  both the member's grant and the lead's (`documents.member_respondent_brief_date`),
+  into `merits_brief_on_lead`. A lead the corpus does not hold dates nothing. A self-represented party on the lead does not refuse
+  it, since a date carries no contact details. No mint reads the column: the
+  briefed moment's dating is registered, so opening it for members is a
+  re-bless decision, and the column accrues until then.
 
 The **lead's own** selection reads the same attribution the other way round. A
 lead docket — one whose consolidation entry names its own number — carries
@@ -571,6 +633,67 @@ rotations just polled:
 - **Writer.** It runs inside `run-pull`'s live job, the corpus writer that
   already provisions on the triggers; nothing new holds a credential, and no
   cell or dev checkout fetches.
+
+**Argument transcripts.** The oral argument transcript is the one stored
+document no docket entry links. The Court posts it the day the case is argued,
+on one page per October Term
+(`supremecourt.gov/oral_arguments/argument_transcript/<year>`), each row a docket
+number linking the transcript PDF beside the date it was argued
+(`supremecourt.parse_transcript_listing`). The live cycle reads it in its own
+pass, after document freshness (`live.fetch_argument_transcripts`):
+
+- **List.** Two paced GETs a cycle, the Term today falls in and the one before
+  it, so the spring sittings survive the October roll and the last Term is
+  back-filled. A row is kept only where the link text is a Term-form docket
+  number and the link resolves to the Court's own host; an application argued
+  on the interim docket has no merits stage, and a row whose date cannot be read
+  is left out. A docket listed twice in one Term keeps its later row.
+- **Match.** Each row is matched to a corpus case by its docket number. A case
+  with `argument_transcript_at` latched is held without a store read; any other
+  case owes the transcript unless its stored `argument-transcript` row already
+  holds the listed link. A consolidated member the list does not name gets nothing: the list names
+  the docket the argument was heard under.
+- **Fetch and store.** Newest argument first, at most
+  `live.argument_transcripts_per_run` a cycle and within the soft deadline. The
+  text is read up to ten times the cap, which is the whole of any transcript,
+  and then cleaned (`documents.extract_transcript_text`): the margin line
+  numbers, page numbers, running headers and footers, and the word index after
+  the reporter's closing line are dropped. Measured on the OT2025 *Sripetch v.
+  SEC* transcript (97 pages), that takes the text from 219,076 characters to
+  79,488, under the cap; a longer one is head-cut and flagged. The row is stored
+  under the argument day, which is what places it against a cell's cutoff.
+- **Latch.** A transcript that carries text latches its argument day into
+  `argument_transcript_at`, fill-in. A latched case is never fetched again, so
+  the stored transcript stays the one whose date opened the moment: a
+  reargument's later transcript, or the same one re-posted at a new link, is
+  not taken. That date opens the merits
+  post-argument moment (`evt-argument-judgment`) at the case's next poll, behind
+  the briefed moment's guards: a merits proceeding, no judgment, the grant
+  moment still open. The moment is declared and switched off, so no cell is
+  filed under it yet.
+- **Who reads it.** Only a cell of the post-argument moment
+  (`provision.documents_for_moment`). The date rule keeps the transcript from a
+  grant or briefed cell already, since both are cut before the argument; the
+  kind rule keeps it from an uncut cell, which reads every stored document.
+  The case-summary plan leaves it out of the record it digests and summarizes.
+  Every argued case is stored, decided or not, because the transcript is a fact
+  of the case and costs one download.
+- **Sittings.** Each list also heads its rows by argument sitting
+  ("Argument Session: <first day> - <last day>"), and the pass stores those
+  headings in `argument_sittings` (`supremecourt.parse_argument_sittings`). The
+  sitting is the Court's own grouping, which a reading of gaps between argument
+  days does not reproduce: the Court widens a heading to take in a special
+  session (OT2023's February sitting opens on its February 8 special session,
+  OT2024's April sitting runs to its May 15 add-on). `fedcourts authorship-tally`
+  reads them; no cell does.
+- **Ledger.** The `Argument transcripts:` line carries listed, unmatched, held,
+  owed, stored (empty among them), unavailable, failed, deferred and sittings
+  counts. The
+  pass is failure-isolated as document freshness is.
+
+One residual: a transcript stored with no text latches nothing, and the OCR
+recovery pass does not cover this kind, so its case never opens the moment.
+The Court posts its transcripts as born-digital PDFs, so this should not arise.
 
 **The appendix-aware cut.** The `petition`, `application` and `appendix` rows
 are not head-cut at the cap, because on a filing that carries an appendix a head
@@ -1015,13 +1138,23 @@ idempotency key and not a link to GET — recovering it would mean re-fetching
 and re-combining a set, which is the fetching lane's work, not this pass's —
 and text recovered there would in any case be discarded the next time a
 co-respondent's brief joined that key. A lone opposition joins to itself, so it
-stores one link and is recovered like any other filing. What that leaves
-unsized is the combined row itself: its per-brief headings are text, so a
-multi-respondent opposition of nothing but scans is not empty by the coverage
-report's test and reads there as *covered* while carrying no argument at all —
-and it is outside this pass on top of that. Neither surface counts it, and the
-pass's `set_keyed` tally is the guard against a set key that somehow did read
-empty rather than a measurement of the residual. And recurrence: a scanned filing
+stores one link and is recovered like any other filing. The combined row itself
+is not empty by the coverage report's per-kind test, because its per-brief
+headings are text: a multi-respondent opposition of nothing but scans reads
+there as *covered* while carrying no argument at all, and it is outside this
+pass on top of that. So the report sizes it on a line of its own, reading each
+combined row brief by brief: how many carry nothing beyond their headings, how
+many carry some briefs with no text, and how many of each sit on a
+queued-or-predicted case, with the cases named in the empty-text ledger. A row
+counts as combined when its key is a set or its text carries a per-brief
+header, which a group stored with only one brief fetched keeps under a single
+link. On the blob read locally on 2026-10-22 (pull stamp 2026-10-22, newest
+stored snapshot 2026-07-13, documents served by the content store), **0 of 250**
+combined oppositions are headings only and **3** carry some briefs with no
+text, none of the three on a queued-or-predicted case. That is the measured
+floor, and it is too small to justify a fetching-lane re-combine, so the class
+stays out of recovery by design. The pass's `set_keyed` tally is still the
+guard against a set key that somehow did read empty. And recurrence: a scanned filing
 that arrives after a pass enters the class. A forward cell runs once, usually
 within days of the filing it reads, so a recovery that waits for a dispatch
 reaches it after the cell has run. The **OCR sweep** on run-seed's windows is

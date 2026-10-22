@@ -156,9 +156,9 @@ on:
           `offline-gate` is that same suite with both engine families
           dropped: token-free end to end, and accepted as whole-suite
           freshness evidence only under the engine-smoke skip — the
-          `promote` dispatch input for the pre-flight, the
-          `promote:skip-engine-smoke` label for the promotion PR's required
-          check. It is also the DEFAULT, so an unqualified dispatch spends
+          `promote` dispatch input for the pre-flight; for the promotion PR's
+          required check, a batch main's cell-reach classifier calls
+          cell-inert or the `promote:skip-engine-smoke` label. It is also the DEFAULT, so an unqualified dispatch spends
           nothing and the paid suite is always a typed choice.
           `all` runs EVERY scenario below, the dispatch-only ones included —
           `gate`'s legs plus `codex-application-repro` and
@@ -2040,7 +2040,7 @@ jobs:
         # bound that tight is what keeps a hung invocation from eating the job
         # budget.
         timeout-minutes: ${{ fromJSON(env.ENGINE_DEADLINE_MINUTES) }}
-        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        uses: anthropics/claude-code-action@5eb090f3c3afd701a0672cd32981197ca27688f6 # v1.0.253
         with:
           allowed_bots: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -2982,7 +2982,7 @@ jobs:
         # and AGENTS.md — plus five short rows with margin; the job cap at 25
         # holds the setup steps beside it.
         timeout-minutes: 15
-        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        uses: anthropics/claude-code-action@5eb090f3c3afd701a0672cd32981197ca27688f6 # v1.0.253
         env:
           QP_TEXTS: ${{ runner.temp }}/qp-io/qp-texts.json
           LABELS_OUT: ${{ runner.temp }}/qp-io/qp-labels.jsonl

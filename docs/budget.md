@@ -35,28 +35,40 @@ than measured: its cells run Claude Opus 5.5, priced at the token counts the
 pair recorded on the Fable tier it replaced — a mean of about $1.38 a
 prediction (251 runs) and $1.16 a grading run (118 runs) — on the assumption
 that Opus spends the same tokens, which the first round's `fedcourts
-usage-summary` replaces with a measurement. The other four figures are
+usage-summary` measures; the measured Opus figures below are not yet the
+basis. The other four figures are
 measured means: about $3.04 and $0.58 a prediction and $2.90 and $0.73 a
 grading run for codex and gemini, measured on `gpt-6-astra` and
 `gemini-3.1-pro-preview`. The codex and gemini engine defaults are
-`gpt-6.1-sol` and `gemini-4-argon`. Priced over the token counts of every
-committed codex and gemini cell on those earlier models (296 and 153 codex,
-522 and 174 gemini, on `main` at 2026-10-18), codex comes to about
-$0.44 a prediction and $0.42 a grading run, and gemini to about $0.46 and
-$0.55 at Argon's introductory rate ($2 / $10, $0.10 cached), or $0.92 and
-$1.11 from 2026-12-01, when that rate doubles. That puts a fully predicted and evaluated event near $4.50,
-or $5.50 from December, but it is a projection that assumes each new model
-spends the same tokens, and it carries the claude pair at its priced figure:
-the first measured Opus 5.5 rounds on `main` (44 predictions at about $0.62,
-29 grading runs at about $0.64) come in near half of it, a small sample that
-would put the event nearer $3.10. The $10 figure and everything below that scales from
-it stay on the measured basis until the first rounds on the new models are
-measured. The evaluator count holds at 3 as `P` grows.
+`gpt-6.1-sol` and `gemini-4-argon`, and their first measured cells on
+`main` (at `38802b537`, 2026-10-21) are few: 5 predictions and 18 grading
+runs each. Codex measures about $0.43 a prediction, in line with the $0.44
+that re-pricing its earlier cells at Sol's rate projected, and $0.34 a
+grading run, below the projected $0.42. Gemini measures about $1.06 and $0.64 at Argon's introductory
+rate ($2 / $10, $0.10 cached), against a projected $0.46 and $0.55: its
+predictions read about 2.8 times the uncached input of the earlier model's.
+The rate doubles from 2026-12-01, which at equal tokens, and with the cached
+rate assumed to double too, adds about $1.70 to gemini's share of an event. On those figures a fully predicted and evaluated
+event comes to about $5.00 with the claude pair at its priced figure, and
+about $3.75 with it at the first measured Opus 5.5 rounds on the same
+commit (54 predictions at about $0.62, 47 grading runs at about $0.65). Both samples are
+small. The $10 figure and everything below that scales from it stay on the
+measured basis until the rates are re-anchored on the rounds on the new
+models.
+The evaluator count holds at 3 as `P` grows.
 Per-run token usage and cost are recorded on the ledger (`usage.json`, rolled
 up by `fedcourts usage-summary`), so the rates can be re-anchored from
 measurement rather than assumed. Re-anchoring is a deliberate edit to the pinned
 rate table the plans price against, never a drift: the figures move when someone
-moves them.
+moves them. That table (`src/fedcourtsai/planning_rates.py`) prices a fully
+predicted and evaluated event at about $16.80, well above the measured
+figures. Pricing high errs toward holding: the review hold's per-round
+auto-release reads the table, and a round priced above
+`auto_release_usd_per_round` waits for a release. Its claude-code
+and codex rows are set from the pre-cutover measurements and anchors; its gemini rows,
+$2.12 a prediction and $1.29 a grading run, are the measured Argon cells
+doubled for the rate in force from 2026-12-01, so they hold across that
+change. [milestones.md](milestones.md) prices its plan at the table.
 
 **The plain-language case summaries also spend outside `events × cost per
 event`** ([case-summaries.md](case-summaries.md)). It is one non-agentic

@@ -986,6 +986,11 @@ class OpinionRecordResult(BaseModel):
         description="Apply was asked for but the rows exceed the bound; nothing written",
     )
     failures: list[str] = Field(default_factory=list, description="Listings that could not be read")
+    deferred: int = Field(
+        default=0,
+        ge=0,
+        description="Listing rows left unread for a later window by a sweep's per-window slice",
+    )
 
 
 def read_opinion_record(
@@ -995,6 +1000,8 @@ def read_opinion_record(
     recorded: set[tuple[int, str]],
     rebench: Container[tuple[int, str]] = frozenset(),
     dockets: Sequence[str] = (),
+    max_documents: int | None = None,
+    rotation: int = 0,
 ) -> OpinionRecordResult:
     """Fetch and read every listing row of ``terms`` not in ``recorded``, as a dry run.
 
@@ -1005,9 +1012,19 @@ def read_opinion_record(
     ``rebench`` document's opinion rows are stored already, so its reading
     counts toward the bench rows alone. Case ids are left unresolved; the
     caller holding the corpus resolves them.
+
+    ``max_documents`` is a sweep's per-window slice of the rows that need a
+    fetch: at most that many are read and the rest are counted in ``deferred``
+    for a later window. A row skipped unfetched (volume-linked) costs nothing
+    and is always reported. Two thirds of the slice go newest decision first,
+    so a decision is read the window after it issues; the last third goes to
+    the older rows rotated by ``rotation`` (a window index), so a run of rows
+    the reader refuses, each unrecorded and offered again every window, cannot
+    hold the rest back for good.
     """
     result = OpinionRecordResult(applied=False, terms=list(terms))
     wanted = {n for d in dockets if (n := corpus.normalize_docket_number(d)) is not None}
+    owed: list[OpinionListing] = []
     for term in terms:
         try:
             listing = fetcher.listing(term % 100)
@@ -1022,7 +1039,11 @@ def read_opinion_record(
             if _row_key(term, entry.number) in recorded:
                 result.already_recorded += 1
                 continue
-            result.readings.append(read_listing_entry(entry, fetcher))
+            owed.append(entry)
+    if max_documents is not None:
+        owed = _sweep_slice(owed, max_documents, rotation)
+        result.deferred = result.listed - result.already_recorded - len(owed)
+    result.readings = [read_listing_entry(entry, fetcher) for entry in owed]
     result.rows = sum(
         len(r.opinions)
         for r in result.readings
@@ -1030,6 +1051,22 @@ def read_opinion_record(
     )
     result.benches = sum(1 for r in result.readings if _seats(r))
     return result
+
+
+def _sweep_slice(owed: Sequence[OpinionListing], cap: int, rotation: int) -> list[OpinionListing]:
+    """A sweep window's rows: every unfetched skip, then ``cap`` fetches (see the caller)."""
+    skipped = [entry for entry in owed if skip_reason(entry) is not None]
+    fetched = sorted(
+        (entry for entry in owed if skip_reason(entry) is None),
+        key=lambda entry: (entry.decided, entry.term, entry.number),
+        reverse=True,
+    )
+    newest = cap - cap // 3
+    head, tail = fetched[:newest], fetched[newest:]
+    if tail:
+        start = rotation % len(tail)
+        tail = (tail[start:] + tail[:start])[: cap - len(head)]
+    return [*skipped, *head, *tail]
 
 
 def _seats(reading: OpinionDocumentReading) -> bool:
@@ -1376,6 +1413,29 @@ def apply_opinion_record_plan(
         failures=list(plan.failures),
     )
     return _land(conn, result, apply=apply, max_rows=max_rows, write=write)
+
+
+#: A sweep apply's row bound per document of its slice: opinion rows plus the
+#: bench row. A decision prints one lead opinion and a handful of separate
+#: writings, so an honest slice stays far under it, and a plan padding its
+#: readings with invented rows is refused whole rather than inserted.
+SWEEP_ROWS_PER_DOCUMENT: Final = 20
+
+
+def sweep_class(plan: OpinionRecordPlan, *, cap: int) -> int:
+    """The class a sweep's plan found: every listing row it left unrecorded, read or deferred.
+
+    An honest sweep parse fetches at most ``cap`` documents, so a plan carrying
+    more fetched readings refuses whole with :class:`HandoffRefused`; a row
+    skipped unfetched is not one. The caller weighs the returned class against
+    its ceiling.
+    """
+    fetched = sum(1 for reading in plan.readings if reading.status != "skipped")
+    if fetched > cap:
+        raise HandoffRefused(
+            f"the plan reads {fetched} listing rows, above the sweep's slice of {cap}"
+        )
+    return max(len(plan.readings), plan.listed - plan.already_recorded)
 
 
 _INSERT_COLUMNS: Final = tuple(corpus.OPINIONS_COLUMN_DDL)

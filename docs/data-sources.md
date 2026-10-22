@@ -32,6 +32,10 @@ ingestion channels (**pull**, **live**, **historical**, **enrich** —
   pipeline-extracted text; one possible later direction — a direction, not a
   commitment — is landing the historical documents (motions, opinions) on the
   same access-gated S3 store as raw PDFs rather than extracted text only.
+  The same terms cover the Court's **oral argument transcripts**: the per-Term
+  transcript list and the transcript PDFs it links, prepared by the Court's
+  contract reporter and posted by the Court on its own site, read by the live
+  poll's transcript pass and stored as extracted text in the same corpus.
 
 A further channel is planned but not yet adopted: Free Law Project's commercial
 **database replication** offering, the intended eventual upstream for the
@@ -143,8 +147,10 @@ opinion in a decided case — its order in the document, kind, author, joiners
 and length — for the opinion-authorship and opinion-length figures a Term's
 statistics count per opinion rather than per case. It is a historical record,
 held corpus-side and read by nothing a predict or evaluate cell sees. Its
-apply runs as run-repair's `opinion-record` pass over OT2020–OT2025, fetching
-in a job that holds no credential ([data-pipeline.md](data-pipeline.md#maintenance-passes)).
+apply runs as run-repair's `opinion-record` pass over OT2020–OT2025, and as a
+standing sweep on run-seed's daily window over the current and previous Term,
+each fetching in a job that holds no credential
+([data-pipeline.md](data-pipeline.md#maintenance-passes)).
 
 - **Source and scope.** Every row of a Term's opinions listing, read through
   the same client: the signed merits opinions, the per curiams (summary

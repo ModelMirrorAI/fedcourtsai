@@ -365,9 +365,13 @@ def granted_in_set(report: CertBacktest) -> int | None:
     ranking is noise. So every surface that quotes the floor — the review PR,
     and the weekly digest's own line — says how many there were.
 
-    The always-deny floor cannot answer it: that is the **denied** share, and a
-    dismissal is neither denied nor granted, so ``1 - floor`` overstates the
-    granted side by the dismissal-bearing draws. The calibration view can:
+    The headline floor answers it directly: always-deny is right on the granted
+    axis exactly where the petition was not granted, so the granted count is
+    ``1 - always_not_granted_accuracy`` times the set. The exact-disposition
+    floor cannot: that is the **denied** share, and a dismissal is neither
+    denied nor granted, so ``1 - floor`` overstates the granted side by the
+    dismissal-bearing draws. On a report written before the headline floor
+    was recorded, the calibration view can:
     every replayed petition lands in exactly one probability bin, so a bin's
     ``predictions x observed_granted_rate`` is its granted count and the sum
     over bins is the set's. It has to come from an entry that scored the **whole
@@ -378,6 +382,8 @@ def granted_in_set(report: CertBacktest) -> int | None:
     ``None`` where no entry accounts for the whole set, so a caller states
     nothing rather than a wrong number.
     """
+    if report.always_not_granted_accuracy is not None:
+        return round((1 - report.always_not_granted_accuracy) * report.events_scored)
     for entry in report.entries:
         bins = entry.calibration
         if bins and sum(one.predictions for one in bins) == report.events_scored:
@@ -402,8 +408,8 @@ class OutcomeMix:
     ``other`` is what is neither denied nor grant-family — a dismissal or a
     withdrawal (the replay only takes petitions with a machine-readable
     disposition). Stated, not left as ``n - denied - granted``, because the
-    always-deny floor is the denied share and ``1 - floor`` is not the granted
-    share whenever this is non-zero.
+    exact-disposition floor is the denied share and ``1 - floor`` is not the
+    granted share whenever this is non-zero.
     """
 
     denied: int
@@ -480,23 +486,59 @@ def arm_mix_text(report: CertBacktest) -> str:
     return text
 
 
+def _arm_calls(arm: CertBacktestArm) -> tuple[int, int]:
+    """An arm's headline correct count and its lift in petitions over always-deny.
+
+    On the granted axis always-deny is right on every petition not granted, so
+    the lift is ``granted_correct - (events_scored - granted)``. A report written
+    before that axis was the headline carries only the disposition count, whose
+    lift is ``correct - denied``.
+    """
+    if arm.granted_correct is not None:
+        return arm.granted_correct, arm.granted_correct - (arm.events_scored - arm.granted)
+    return arm.correct, arm.correct - arm.denied
+
+
 def arm_score_text(arm: CertBacktestArm) -> str:
     """One entry's score on one arm: correct over n, and its lift in petitions.
 
-    The lift is ``correct - denied`` — what the entry got right beyond what
-    always-deny gets right on that arm — so the arms' lifts add up to the
-    entry's pooled lift in petitions.
+    The lift is what the entry got right beyond what always-deny gets right on
+    that arm (:func:`_arm_calls`), so the arms' lifts add up to the entry's
+    pooled lift in petitions.
     """
-    return f"{arm.correct}/{arm.events_scored} ({arm.correct - arm.denied:+d})"
+    correct, lift = _arm_calls(arm)
+    return f"{correct}/{arm.events_scored} ({lift:+d})"
+
+
+def headline_lift(entry: CertBacktestEntry) -> float:
+    """The lift the board ranks by: the granted axis, or the disposition one on an older report."""
+    if entry.granted_lift_over_always_denied is not None:
+        return entry.granted_lift_over_always_denied
+    return entry.lift_over_always_denied
+
+
+def _headline_accuracy(entry: CertBacktestEntry) -> float:
+    """The accuracy :func:`headline_lift` is a lift of."""
+    if entry.granted_lift_over_always_denied is not None:
+        return entry.granted_accuracy
+    return entry.accuracy
+
+
+def headline_floor(report: CertBacktest) -> float:
+    """The floor :func:`headline_lift` is measured against over the whole set."""
+    if report.always_not_granted_accuracy is not None:
+        return report.always_not_granted_accuracy
+    return report.always_denied_accuracy
 
 
 def _lift_text(entry: CertBacktestEntry) -> str:
     """A lift in percentage points, and in petitions when the entry's n is small."""
     n = entry.events_scored
-    pp = f"{entry.lift_over_always_denied * 100:+.1f} pp"
+    lift = headline_lift(entry)
+    pp = f"{lift * 100:+.1f} pp"
     if n >= SMALL_N:
         return pp
-    petitions = round(entry.lift_over_always_denied * n)
+    petitions = round(lift * n)
     noun = "petition" if abs(petitions) == 1 else "petitions"
     return f"{pp} ({petitions:+d} {noun} of {n})"
 
@@ -625,7 +667,7 @@ def _arm_carrier(entry: CertBacktestEntry) -> str | None:
     petition — and the headline says so in place, since a caveat in the table
     below does not travel when the headline is quoted.
     """
-    lifts = [(arm, arm.correct - arm.denied) for arm in entry.arms]
+    lifts = [(arm, _arm_calls(arm)[1]) for arm in entry.arms]
     pooled = sum(lift for _, lift in lifts)
     positive = [(arm, lift) for arm, lift in lifts if lift > 0]
     if pooled <= 0 or len(positive) != 1 or positive[0][1] < pooled:
@@ -651,16 +693,17 @@ def _top_line(report: CertBacktest, full: list[CertBacktestEntry]) -> str:
     """
     n = report.events_scored
     best = full[0]
-    correct = round(best.accuracy * n)
-    tied = [e for e in full if round(e.accuracy * n) == correct]
+    correct = round(_headline_accuracy(best) * n)
+    tied = [e for e in full if round(_headline_accuracy(e) * n) == correct]
     carriers = {_arm_carrier(e) for e in tied}
     carrier = next(iter(carriers)) if len(carriers) == 1 else None
     where = f" — {'for each, ' if len(tied) > 1 else ''}{carrier}" if carrier else ""
+    axis = "granted-or-not " if best.granted_lift_over_always_denied is not None else ""
     if len(tied) == 1:
         runner_up = next((e for e in full[1:]), None)
         lead = ""
         if runner_up is not None and n < SMALL_N:
-            margin = correct - round(runner_up.accuracy * n)
+            margin = correct - round(_headline_accuracy(runner_up) * n)
             noun = "petition" if margin == 1 else "petitions"
             lead = (
                 f"; leads the next whole-set entry by {margin} {noun}, an ordering at "
@@ -668,7 +711,7 @@ def _top_line(report: CertBacktest, full: list[CertBacktestEntry]) -> str:
             )
         return (
             f"top predictor `{best.predictor_id}`: lift **{_lift_text(best)}** over "
-            f"always-deny{where} (accuracy {correct}/{n}, Brier "
+            f"always-deny{where} ({axis}accuracy {correct}/{n}, Brier "
             f"{best.mean_brier_score:.3f}{lead})" + _headline_disclosures(report, best.predictor_id)
         )
     names = ", ".join(f"`{e.predictor_id}`" for e in tied)
@@ -709,11 +752,22 @@ def _backtest_arms_lines(report: CertBacktest) -> str:
         cells = " | ".join(arm_score_text(by_arm[key]) if key in by_arm else "—" for key in keys)
         rows.append(f"  | `{entry.predictor_id}` | {cells} |")
     return (
-        lines + "- per-arm scores — correct/n on the arm, and in brackets the lift in "
+        lines + "- per-arm scores — correct/n on the arm on the headline's axis, and in "
+        "brackets the lift in "
         "petitions over that arm's always-deny (an arm of a few petitions is a count, "
         "not a rate; the arms' brackets sum to the pooled lift):\n\n"
         f"  | predictor | {header} |\n"
         f"  |---|{'---|' * len(keys)}\n" + "\n".join(rows) + "\n\n"
+    )
+
+
+def _floor_axis(report: CertBacktest) -> str:
+    """Which axis the floor beside it is on, and the other axis's floor where both exist."""
+    if report.always_not_granted_accuracy is None:
+        return ", on exact disposition"
+    return (
+        ", on granted vs not; on exact disposition, which counts a dismissal or "
+        f"withdrawal as a miss for every forecaster, it is {report.always_denied_accuracy:.0%}"
     )
 
 
@@ -776,8 +830,8 @@ def render_backtest_pr(
         "grant/deny. Retrospective by construction — iteration signal, never "
         "claimable performance.\n\n"
         f"- {headline}\n"
-        f"- always-deny floor: **{report.always_denied_accuracy:.0%}** over this set"
-        f"{granted_line}\n"
+        f"- always-deny floor: **{headline_floor(report):.0%}** over this set"
+        f"{granted_line}{_floor_axis(report)}\n"
         f"{_backtest_arms_lines(report)}"
         f"- predictors on the board: {report.predictors_evaluated}\n"
         f"{_backtest_losses_line(report)}"

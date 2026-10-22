@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from types import MappingProxyType
 from typing import Any, Literal
 
@@ -897,6 +897,85 @@ def snapshot_cvsg_date(payload: Mapping[str, Any]) -> str | None:
     return None
 
 
+# The Solicitor General's **invited brief**, filed in answer to the Court's call
+# for the views of the United States (:data:`CVSG_RE`):
+#
+#   "Brief amicus curiae of United States filed."
+#   "Brief for the United States as amicus curiae filed."
+#   "Brief of the United States as Amicus Curiae filed."
+#
+# Start-anchored on the filer, and the filer must be the United States **and
+# nothing after it** — the lookahead admits only "as …", the verb, a parenthesis
+# or punctuation — because "United States" also opens the names of amici that
+# are not the government ("Brief amicus curiae of United States Conference of
+# Catholic Bishops filed.", "Brief of United States Senators …"). The word
+# "amicus" is required as well, so the United States filing as a **party** — a
+# federal respondent's opposition — is never read as the invited brief.
+_SG_BRIEF_RE = re.compile(
+    r"^\s*brief\s+(?:amicus\s+curiae\s+)?(?:of|for)\s+(?:the\s+)?united\s+states"
+    r"(?=\s*(?:as\b|filed\b|submitted\b|\(|[.,;]|$))",
+    re.IGNORECASE,
+)
+_SG_AMICUS_RE = re.compile(r"\bamicus\b", re.IGNORECASE)
+_SG_FILED_RE = re.compile(r"\b(?:filed|submitted)\b", re.IGNORECASE)
+
+
+def is_sg_invited_brief_entry(text: str) -> bool:
+    """Whether an entry is the brief for the United States as amicus curiae.
+
+    Text alone; :func:`sg_invited_brief_position` supplies the stage — an entry
+    counts only after the Court's invitation and before the first disposition,
+    in docket order — so an uninvited filing by the United States as amicus (a
+    merits-stage amicus brief supporting a party, say) is never read as the
+    invited one.
+    """
+    return bool(
+        _SG_BRIEF_RE.search(text) and _SG_AMICUS_RE.search(text) and _SG_FILED_RE.search(text)
+    )
+
+
+def sg_invited_brief_position(payload: Mapping[str, Any]) -> int | None:
+    """Where the Solicitor General's invited brief sits in the docket, or ``None``.
+
+    The one locator of the entry, as a position in :func:`proceedings_entries`:
+    the **first** entry :func:`is_sg_invited_brief_entry` reads, in docket order,
+    after the invitation (:data:`CVSG_RE`) and before the first disposition
+    entry (:func:`match_disposition_signal`). Both stage markers update *after*
+    an entry is read, so neither the invitation entry nor the disposing entry is
+    itself the brief.
+
+    The document selector stores the ``sg-invited-brief`` filing from this entry
+    and :func:`sg_brief_date` dates the sg-brief moment from it, so the document
+    a cell reads and the moment it is filed under are the same entry. A later
+    brief never stands in for the first: an entry with no usable link or no
+    readable date leaves the document or the moment absent rather than moved.
+    """
+    invited = False
+    for position, (text, _raw) in enumerate(proceedings_entries(payload)):
+        if invited and is_sg_invited_brief_entry(text):
+            return position
+        if match_disposition_signal(text) is not None:
+            return None
+        invited = invited or CVSG_RE.search(text) is not None
+    return None
+
+
+def sg_brief_date(payload: Mapping[str, Any]) -> date | None:
+    """The date the Solicitor General's invited brief was filed, or ``None``.
+
+    The trigger of the cert stage's sg-brief moment: the strict date
+    (:func:`entry_date`) of the entry :func:`sg_invited_brief_position`
+    locates. Ingest latches it and provisioning re-reads it to check a placed
+    snapshot carries the entry, both through this function. An undated brief
+    yields ``None``, since a moment opened at the wrong entry is worse than one
+    not opened.
+    """
+    position = sg_invited_brief_position(payload)
+    if position is None:
+        return None
+    return entry_date(proceedings_entries(payload)[position][1])
+
+
 #: A distribution of the petition itself: the entry-initial parse, which leaves out
 #: an ancillary paper's distribution ("Motion (…) DISTRIBUTED for Conference of …").
 _PETITION_DISTRIBUTED_RE = distribution_pattern("dist-v2")
@@ -904,6 +983,29 @@ _PETITION_DISTRIBUTED_RE = distribution_pattern("dist-v2")
 _RESPONSE_REQUESTED_RE = re.compile(r"^\s*response\s+requested\b", re.I)
 #: A bare reschedule entry: takes a petition off the conference it was distributed for.
 _RESCHEDULED_RE = re.compile(r"^\s*rescheduled\b", re.I)
+
+
+def call_for_response_date(payload: Mapping[str, Any]) -> date | None:
+    """When the Court called for a response to the petition, or ``None``.
+
+    The trigger of the cert stage's call-for-response moment: the strict date
+    (:func:`entry_date`) of the **first** ``Response Requested`` entry
+    (:data:`_RESPONSE_REQUESTED_RE`, the same entry-initial reading that takes a
+    petition off its conference in :func:`considering_conference`) before the
+    first disposition entry, in docket order. The disposition bound keeps a
+    response requested on a post-grant paper — a motion, an application riding
+    the merits docket — off the cert stage. The first match decides: an undated
+    first request yields ``None`` rather than a later request's date.
+
+    Distinct from the interim stage's response request, which reads the Court's
+    request for a response to an *application* and lands in its own columns.
+    """
+    for text, raw in proceedings_entries(payload):
+        if _RESPONSE_REQUESTED_RE.search(text):
+            return entry_date(raw)
+        if match_disposition_signal(text) is not None:
+            return None
+    return None
 
 
 def petition_distributions(payload: Mapping[str, Any], *, through: date) -> list[tuple[date, date]]:
@@ -940,6 +1042,64 @@ def relisted_past(payload: Mapping[str, Any], run_day: date) -> bool:
     if not distributions or distributions[-1][1] <= run_day:
         return False
     return any(conference <= run_day for _filed, conference in distributions[:-1])
+
+
+#: How long after a conference a relist entry may be docketed and still be that
+#: conference's relist. The Clerk enters a relist in the days after the conference
+#: that passed on the petition, ahead of the next one; a redistribution entered
+#: months later follows something else (a petition held for another case, or a
+#: call for the Solicitor General's views and the brief that answered it) and is
+#: not the signal the moment forecasts from.
+RELIST_ENTRY_WINDOW = timedelta(days=14)
+
+
+def first_relist_date(payload: Mapping[str, Any]) -> date | None:
+    """When the Court first relisted the petition, or ``None``.
+
+    The trigger of the cert stage's relist moment: the strict date
+    (:func:`entry_date`) of the first **petition** distribution (the
+    entry-initial ``dist-v2`` parse, so an ancillary paper's distribution never
+    counts) that names a later conference than the one before it, docketed after
+    that earlier conference and within :data:`RELIST_ENTRY_WINDOW` of it, where
+    the earlier conference **sat on the petition**: no call for response or bare
+    reschedule follows its distribution in docket order dated on or before the
+    conference day. Docket order rather than date decides which distribution an
+    off entry follows, so a reschedule and the new distribution entered on one
+    day read as the move they are. A redistribution entered before
+    the earlier conference, after something took the petition off it, or long
+    after it moves the petition without being a relist. A relist entry dated on
+    the conference day itself is not read as one, since the day alone cannot
+    say whether the conference had sat. Read only up to the first disposition
+    entry, so nothing distributed after the petition was decided stands in for
+    it. Only the first relist opens the moment; a later one is the same signal
+    again.
+    """
+    previous: date | None = None  # the conference the latest distribution named
+    taken_off = False  # whether an entry after that distribution took it off
+    for text, raw in proceedings_entries(payload):
+        if match_disposition_signal(text) is not None:
+            return None
+        if _RESPONSE_REQUESTED_RE.search(text) or _RESCHEDULED_RE.search(text):
+            taken = entry_date(raw)
+            if previous is not None and taken is not None and taken <= previous:
+                taken_off = True
+            continue
+        match = _PETITION_DISTRIBUTED_RE.search(text)
+        if match is None:
+            continue
+        filed = entry_date(raw)
+        conference = conference_date(match.group(1))
+        if filed is None or conference is None:
+            continue
+        if (
+            previous is not None
+            and conference > previous
+            and not taken_off
+            and previous < filed <= previous + RELIST_ENTRY_WINDOW
+        ):
+            return filed
+        previous, taken_off = conference, False
+    return None
 
 
 ConferenceReading = Literal["sat", "ahead", "off", "undistributed", "unknown"]

@@ -71,7 +71,7 @@ max-args = 8
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["src", "tests", "scripts/ci_lane.py"]
+files = ["src", "tests", "scripts/ci_lane.py", "scripts/cell_reach.py"]
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]

@@ -73,10 +73,13 @@ About **330 words in total**:
   open with one short clause saying which side asked, or is asking, the Court
   to act — the side the docket's caption labels Petitioner, Applicant,
   Appellant or Plaintiff, usually the side named first; in an "In re" caption
-  only that side is named, so take the other side from the filings. A reader
-  who sees only "granted" or "denied" cannot otherwise tell whom either word
-  helps. Then say what each action the Court could take at the stage "Where it
-  stands" describes would do for these parties, concretely — which side's
+  only that side is named, so take the other side from the filings. Once the
+  Court has agreed to hear the case, say which side is asking it to overturn
+  the lower court's decision, not that this side asked the Court to take the
+  case. A reader who sees only "granted" or "denied" cannot otherwise tell
+  whom either word helps. Then say what each action the Court could take at
+  the stage "Where it stands" describes would do for these parties,
+  concretely — which side's
   position prevails where the action decides anything, and what happens next,
   as the record shows who petitioned and who won below. In this section, name
   the parties by the short names the caption and filings use rather than by

@@ -393,7 +393,15 @@ def test_the_upsert_fills_in_and_never_clears(tmp_path: Path) -> None:
 def test_the_decision_record_never_reaches_the_retrieval_surface() -> None:
     """A query row a cell retrieves carries no decision-record column."""
     row = _row(merits_argued=_ARGUED, merits_decision_method="argued-signed")
-    withheld = {"merits_argued", "merits_decision_method"}
+    withheld = {
+        "merits_argued",
+        "merits_decision_method",
+        "sg_brief_filed",
+        "call_for_response_at",
+        "merits_brief_on_lead",
+        "relisted_at",
+        "argument_transcript_at",
+    }
     assert withheld == corpus.RETRIEVAL_WITHHELD_COLUMNS
     every_other = set(corpus.CorpusRow.model_fields) - withheld
     assert set(corpus.prior_payload(row, full=True)) == every_other | {"era"}

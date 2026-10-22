@@ -16,8 +16,8 @@ declared **merits** moment only, and only against a complete vote record, the
 two gates below; the leaderboard's `mean_vote_accuracy` (with its
 `vote_cells_scored` count) averages a whole-bench recomputation of the same
 comparison, `bench_vote_accuracy`. Event definitions carry a nullable
-`stage` — stamped on **all eight declared moments** (`cert` on the three cert
-moments, `interim` on the three interim moments, `merits` on the two merits
+`stage` — stamped on **all twelve declared moments** (`cert` on the six cert
+moments, `interim` on the three interim moments, `merits` on the three merits
 moments) and on the SCOTUS entry-pinned stay/injunction motions the interim
 standard also covers, absent
 everywhere the writers do not classify one. The merits **cell contract** is

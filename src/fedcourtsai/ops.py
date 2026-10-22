@@ -47,6 +47,7 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     Backtest,
+    BacktestCourtScore,
     BacktestEntry,
     CertBacktest,
     CostEstimate,
@@ -57,6 +58,8 @@ from .schemas import (
     FlagSeverity,
     FlagSource,
     ForwardClaimRecord,
+    Leaderboard,
+    LeaderboardStratum,
     LeakageDigest,
     LeakageExclusionRecord,
     LiveFrontier,
@@ -679,9 +682,10 @@ class Vintaged[T]:
 
 @dataclass(frozen=True)
 class WeeklyAnalytics:
-    """The committed replay artifacts the weekly digest's back-test block reports.
+    """The committed metrics artifacts the weekly digest's scored blocks report.
 
-    Each is vintaged: none of them is refreshed on the digest's own schedule, so a
+    The forward block reads ``leaderboard``; the back-test block reads the three
+    replays. Each is vintaged: none of them is refreshed on the digest's own schedule, so a
     figure without the vintage of the artifact it came from silently claims to be
     this week's.
 
@@ -696,6 +700,7 @@ class WeeklyAnalytics:
     salience_replay: Vintaged[SalienceReplay]
     cert_backtest: Vintaged[CertBacktest]
     salience_version_in_force: str
+    leaderboard: Vintaged[Leaderboard]
 
 
 @dataclass(frozen=True)
@@ -885,19 +890,49 @@ def _brier(value: float | None) -> str:
     return "—" if value is None else f"{value:.4f}"
 
 
+#: How each SCOTUS docket class is named in the digest's court column.
+_DOCKET_CLASS_LABELS: dict[str, str] = {
+    "cert": "cert petitions",
+    "application": "applications",
+    "other": "other dockets",
+}
+
+
+def _backtest_slice_row(predictor_id: str, label: str, score: BacktestCourtScore) -> str:
+    return (
+        f"| {_cell(predictor_id)} | {label} | {score.events_scored:,} "
+        f"| {_pct(score.accuracy)} | {_pct(score.always_denied_accuracy)} "
+        f"| {_signed_pct(score.lift_over_always_denied)} | {_brier(score.mean_brier_score)} |"
+    )
+
+
 def _backtest_rows(entry: BacktestEntry) -> list[str]:
     """One predictor's rows: its predicted court first, then the pooled figure.
 
-    The pooled row is labelled as a mixture rather than left to read as the
-    predictor's score, because it is the row a reader quotes.
+    The predicted court is published by docket class where the artifact carries
+    the split, because its one row mixes cert petitions with interim
+    applications whose `denied` share differs several-fold: that row's floor
+    moves with the mix — an application back-fill moves it — while the cert
+    floor beside it does not. Where the artifact carries no class rows the
+    court row is printed instead. The pooled row is labelled as a mixture rather than left
+    to read as the predictor's score, because it is the row a reader quotes.
     """
-    rows = [
-        f"| {_cell(entry.predictor_id)} | {_cell(court.court)} | {court.events_scored:,} "
-        f"| {_pct(court.accuracy)} | {_pct(court.always_denied_accuracy)} "
-        f"| {_signed_pct(court.lift_over_always_denied)} | {_brier(court.mean_brier_score)} |"
-        for court in entry.courts
-        if court.court == _BACKTEST_HEADLINE_COURT
-    ]
+    classes = [score for score in entry.docket_classes if score.court == _BACKTEST_HEADLINE_COURT]
+    if classes:
+        rows = [
+            _backtest_slice_row(
+                entry.predictor_id,
+                f"{_cell(score.court)} — {_DOCKET_CLASS_LABELS[score.docket_class]}",
+                score,
+            )
+            for score in classes
+        ]
+    else:
+        rows = [
+            _backtest_slice_row(entry.predictor_id, _cell(court.court), court)
+            for court in entry.courts
+            if court.court == _BACKTEST_HEADLINE_COURT
+        ]
     rows.append(
         f"| {_cell(entry.predictor_id)} | _all courts pooled_ | {entry.events_scored:,} "
         f"| {_pct(entry.accuracy)} | {_pct(entry.always_denied_accuracy)} "
@@ -909,9 +944,10 @@ def _backtest_rows(entry: BacktestEntry) -> list[str]:
 def _backtest_lines(vintaged: Vintaged[Backtest]) -> list[str]:
     """The broad replay board: accuracy is unreadable without its own court's floor.
 
-    Published per court rather than as the ranked pooled row, because the pooled
+    Published per court (SCOTUS by docket class) rather than as the ranked pooled
+    row, because the pooled
     row is the one that misleads: a constant predictor scores its slice's base
-    rate exactly, the pooled floor mixes an ~82% SCOTUS floor with ~1% appellate
+    rate exactly, the pooled floor mixes a high SCOTUS floor with ~1% appellate
     ones, and a pooled lift can therefore be bought entirely on a docket this
     pipeline never predicts. ``metrics/README.md`` says to read the per-court cut;
     pointing the reader at the artifact is not enough when the digest is the
@@ -938,12 +974,25 @@ def _backtest_lines(vintaged: Vintaged[Backtest]) -> list[str]:
     ]
     for entry in board.entries:
         lines += _backtest_rows(entry)
+    split = any(entry.docket_classes for entry in board.entries)
+    scotus = (
+        "The SCOTUS rows split cert petitions from interim applications because `granted` "
+        + "is cert on one and the relief asked on the other, and their floors differ "
+        + "several-fold. The cert row is the floor over every modern cert petition, IFP "
+        + "included; the salience-gated population the cert stage predicts is the cert "
+        + "back-test's."
+        if split
+        else "This artifact carries no docket-class split, so its SCOTUS row still mixes "
+        + "cert petitions with interim applications — `granted` is cert on one and the "
+        + "relief asked on the other — and its floor is neither population's."
+    )
     lines += [
         "",
-        "Read a lift only against its own court's floor. The pooled row mixes outcome "
-        + "vocabularies — `granted` is cert on a SCOTUS row and a motion granted on a "
-        + "court-of-appeals docket — and mixes an ~80% floor with near-zero ones, so a "
-        + "pooled lift can be produced entirely by a court this pipeline does not predict.",
+        "Read a lift only against its own row's floor. "
+        + scotus
+        + " The pooled row mixes those vocabularies with a motion granted on a "
+        + "court-of-appeals docket, and a high floor with near-zero ones, so a pooled lift "
+        + "can be produced entirely by a court this pipeline does not predict.",
     ]
     return lines
 
@@ -993,7 +1042,7 @@ def _cert_backtest_dispatch(report: CertBacktest) -> str:
     — a ``--engine stub`` rehearsal writes entries named for real predictors —
     so a quoted line without it cannot say whether a number cost anything.
     ``scope``/``spread``/``limit`` are the population definition, and the
-    always-deny floor is the replayed set's own denial rate, so it moves with
+    always-deny floor is a share of the replayed set's own labels, so it moves with
     them: two differently dispatched reports are scored against two different
     floors, which is a reading rule that has to travel with the quoted line
     rather than sit in the artifact. A report without a `provenance` block says
@@ -1179,6 +1228,22 @@ def _cert_backtest_disclosures(report: CertBacktest) -> str:
     )
 
 
+def _cert_backtest_floor(report: CertBacktest) -> str:
+    """The headline floor with its axis named, and the exact-disposition one beside it.
+
+    The board ranks on the granted-or-not axis, where a dismissal is a correct
+    call for always-deny; on exact disposition it is a miss for every
+    forecaster. A report written before the granted axis was the headline
+    carries the disposition floor alone.
+    """
+    if report.always_not_granted_accuracy is None:
+        return f"{report.always_denied_accuracy:.1%} on exact disposition"
+    return (
+        f"{report.always_not_granted_accuracy:.1%} on granted vs not "
+        f"({report.always_denied_accuracy:.1%} on exact disposition)"
+    )
+
+
 def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
     """The cert back-test, whose absence is the honest thing to report."""
     report = vintaged.value
@@ -1213,14 +1278,122 @@ def _cert_backtest_lines(vintaged: Vintaged[CertBacktest]) -> list[str]:
     return [
         f"- **Cert back-test** ({where}): {_cert_backtest_predictors(report)} over "
         f"{report.events_scored:,} petition(s), banded by `{report.salience_version}`; "
-        f"{grants}always-deny floor "
-        f"{report.always_denied_accuracy:.1%}. `{report.stratum}` by construction — "
+        f"{grants}always-deny floor {_cert_backtest_floor(report)}. "
+        f"`{report.stratum}` by construction — "
         "recall and calibration over known history, never foresight, and an **iteration "
         "instrument**: nothing here is a claimable performance figure "
         f"(`metrics/README.md`).{_cert_backtest_dispatch(report)}"
         f"{_cert_backtest_provisioning(report)}{_cert_backtest_losses(report)}"
         f"{_cert_backtest_disclosures(report)}"
     ]
+
+
+def _forward_row(predictor_id: str, block: LeaderboardStratum) -> str:
+    """One predictor's forward cert record, each figure beside its own denominator."""
+    lift = block.event_accuracy_lift
+    lift_events = (
+        "" if lift is None else f" ({round(lift * block.accuracy_events_scored):+d} events)"
+    )
+    skill = (
+        "—"
+        if block.population_brier_skill_score is None
+        else f"{block.population_brier_skill_score:+.2f} ({block.skill_scored:,} gradings)"
+    )
+    return (
+        f"| {_cell(predictor_id)} | {_pct(block.event_accuracy)} "
+        f"| {_pct(block.event_always_deny_accuracy)} "
+        f"| {_signed_pct(lift)}{lift_events} | {_brier(block.mean_brier_score)} | {skill} |"
+    )
+
+
+def _left_out_line(board: Leaderboard) -> list[str]:
+    """What the build dropped before any figure above was taken, stage-blind."""
+    left_out = []
+    leakage = board.leakage_exclusion
+    if leakage is not None and leakage.excluded:
+        who = ", ".join(f"`{_cell(p)}` {n}" for p, n in sorted(leakage.by_predictor.items()))
+        left_out.append(
+            f"{leakage.excluded} excluded for suspected leakage" + (f" ({who})" if who else "")
+        )
+    if board.set_aside is not None and board.set_aside.excluded:
+        left_out.append(f"{board.set_aside.excluded} set aside as not shown to be forward")
+    if not left_out:
+        return []
+    return [
+        "",
+        "The build also dropped, across the cert board and every stage block together "
+        "(grading counts, not subtractable from the figures above): " + "; ".join(left_out) + ".",
+    ]
+
+
+def _forward_lines(vintaged: Vintaged[Leaderboard]) -> list[str]:
+    """The live record: each engine's forward cert figure over the board's paired events.
+
+    The back-tests below are iteration instruments; this is the scored forward
+    record the program exists to produce, so it leads. The rows are the board's
+    **paired** figure — every engine over the same events, the figure its ranks
+    are read off — never an entry's own ``forward``, which spans events no other
+    engine shares; a predictor outside the paired set is named as unranked
+    rather than printed among the ranked rows. Accuracy, floor and lift are per
+    event, the lift also counted in events (at a handful of realized grants one
+    call moves it by whole points); the mean Brier and the Brier skill against
+    the strictly-prior segment base rate — the leakage-safe baseline and the
+    board's primary measure — are grading-weighted, with the skill's own grading
+    count. The exclusions the build applied ride under the table.
+    """
+    board = vintaged.value
+    where = _sourced("leaderboard.json", vintaged)
+    heading = ["", "## Forward performance", ""]
+    if board is None:
+        return [*heading, "_`metrics/leaderboard.json` has never landed._"]
+    paired = board.paired
+    by_engine = {
+        engine.predictor_id: engine.forward
+        for engine in (paired.entries if paired is not None else [])
+        if engine.forward is not None and engine.forward.accuracy_events_scored
+    }
+    if paired is None or not paired.events or not by_engine:
+        return [
+            *heading,
+            f"_No forward cert event is scored by every engine on the board yet ({where}, "
+            f"`{board.process_scope}` process scope)._",
+            *_left_out_line(board),
+        ]
+    # The board's own rank order, then any paired engine the board does not list.
+    order = [e.predictor_id for e in board.entries if e.predictor_id in by_engine]
+    order += sorted(set(by_engine) - set(order))
+    grants = {by_engine[p].grants_realized for p in order}
+    grant_text = (
+        f", **{next(iter(grants))}** of them realized grant-family outcome(s)"
+        if len(grants) == 1 and None not in grants
+        else ""
+    )
+    lines = [
+        *heading,
+        f"The ranked cert board ({where}, `{board.process_scope}` process scope), over its "
+        f"**{paired.events}** paired forward event(s) — the events every engine below holds "
+        f"a scored cell on{grant_text}. Accuracy, floor and lift are per event; mean Brier "
+        "and Brier skill are per grading (one per cell per judge). Brier skill is against "
+        "each cell's strictly-prior segment base rate (positive beats it) and is the figure "
+        "to read. Interim and merits figures are the board's per-stage blocks.",
+        "",
+        "| Predictor | Accuracy | Always-deny floor | Lift | Mean Brier | Brier skill |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        *[_forward_row(p, by_engine[p]) for p in order],
+    ]
+    unranked = [
+        e.predictor_id
+        for e in board.entries
+        if e.predictor_id not in by_engine and e.forward is not None
+    ]
+    if unranked:
+        lines += [
+            "",
+            "Unranked, outside the paired events: "
+            + ", ".join(f"`{_cell(p)}`" for p in unranked)
+            + ".",
+        ]
+    return [*lines, *_left_out_line(board)]
 
 
 def _render_backtests(analytics: WeeklyAnalytics) -> list[str]:
@@ -1296,19 +1469,21 @@ def render_weekly_digest(
 ) -> str:
     """The weekly performance digest: the week's substance, on its own issue.
 
-    Four blocks, in the order a reader needs them. **Produced this week** counts
+    Five blocks, in the order a reader needs them. **Produced this week** counts
     the cells that ran and what they cost, over one window and one set of
     ``usage.json`` records. **Produced this month** is the same shape over the
     trailing window the ex-post spend backstop uses, and closes with that
     backstop's own verdict — the census and the verdict beside it then cover
     exactly one period. **Produced this term** is the same shape again over the
     October Term to date, closing with the forward cells scored under the process
-    in force, which is the period that count is worth reading over. **Backtest
+    in force, which is the period that count is worth reading over. **Forward
+    performance** reports each predictor's scored forward record off the ranked
+    cert board, the program's output, ahead of the iteration instruments. **Backtest
     results** reports the replays, and says plainly that the cert back-test has
     never been run rather than leaving its absence to be inferred from a missing
     line.
 
-    Every figure in the back-test block carries the vintage of the artifact it
+    Every figure in the scored blocks (forward and back-test) carries the vintage of the artifact it
     came from, because none of those artifacts is refreshed on this schedule: a
     board is byte-stable, so a figure without its vintage silently claims to be
     this week's. The production blocks need none — they are computed from the
@@ -1331,6 +1506,7 @@ def render_weekly_digest(
         lines += _render_produced(production.term)
         lines += _frozen_cells_line(report.substance)
     if analytics is not None:
+        lines += _forward_lines(analytics.leaderboard)
         lines += _render_backtests(analytics)
     # The marker line stays verbatim; everything below it is defused in one pass,
     # exactly as the daily digest's body is. Almost all of this document is

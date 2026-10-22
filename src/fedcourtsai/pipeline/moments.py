@@ -66,11 +66,14 @@ class MomentSpec:
     date *is* the transition this moment is declared at, which is what lets
     provisioning cut a forward cell's snapshot to the moment's information set.
     True for every moment a mint seam opens at its own trigger — the CVSG
-    invitation, the cert grant, the response request, the arrival of a petition
-    or an application. False for the cert petition baseline, whose ``opened_at``
-    is docketing: the moment it declares is the **distribution**, so a cut at
-    docketing would delete the distribution and relist history the declared
-    information set is made of.
+    invitation, the Solicitor General's invited brief, the cert call for a
+    response, the first relist, the cert grant, the argument transcript, the interim
+    response request, the arrival of a
+    petition or an application. False for
+    the cert petition baseline, whose ``opened_at`` is docketing: the moment
+    it declares is the **distribution**, so a cut at docketing would delete
+    the distribution and relist history the declared information set is made
+    of.
     """
 
     event_id: str
@@ -137,6 +140,61 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         claim_set_version=CLAIM_SET_CERT_V2,
     ),
     MomentSpec(
+        # Chronologically after the CVSG moment it follows: the invitation opens
+        # that one, and the brief it asked for opens this one, typically months
+        # later. Declared but switched off: the predict prompt describes the
+        # cert moments a cell can be filed under, so a cell here waits for the
+        # process version whose prompt names it.
+        event_id=ids.event_id(EventKind.brief.value, "sg-disposition"),
+        kind=EventKind.brief,
+        stage=Stage.cert,
+        moment=Moment.sg_brief,
+        ordinal=3,
+        decision_target="disposition",
+        description=(
+            "Disposition of the petition, forecast once the Solicitor General has "
+            "filed the brief the Court invited."
+        ),
+        claim_set_version=CLAIM_SET_CERT_V2,
+        forecastable=False,
+    ),
+    MomentSpec(
+        # The cert stage's call for a response, typically after the respondent
+        # waived: the Court's first sign that a petition has a reader. It shares
+        # the interim moment's name, as `arrival` does, because the moment is the
+        # same act at a different stage; aggregation keys on the pair. Declared
+        # but switched off until the predict prompt names it.
+        event_id=ids.event_id(EventKind.order.value, "call-for-response-disposition"),
+        kind=EventKind.order,
+        stage=Stage.cert,
+        moment=Moment.response_requested,
+        ordinal=4,
+        decision_target="disposition",
+        description=(
+            "Disposition of the petition, forecast after the Court called for a response to it."
+        ),
+        claim_set_version=CLAIM_SET_CERT_V2,
+        forecastable=False,
+    ),
+    MomentSpec(
+        # The cert stage's first relist: a conference considered the petition and
+        # the Court listed it again rather than deciding it. Only the first relist
+        # opens it; a later one repeats the same signal. Declared but switched off
+        # until the predict prompt names it.
+        event_id=ids.event_id(EventKind.order.value, "relist-disposition"),
+        kind=EventKind.order,
+        stage=Stage.cert,
+        moment=Moment.relist,
+        ordinal=5,
+        decision_target="disposition",
+        description=(
+            "Disposition of the petition, forecast after the Court first relisted it "
+            "for another conference."
+        ),
+        claim_set_version=CLAIM_SET_CERT_V2,
+        forecastable=False,
+    ),
+    MomentSpec(
         event_id=ids.event_id(EventKind.motion.value, "disposition"),
         kind=EventKind.motion,
         stage=Stage.interim,
@@ -191,6 +249,25 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ),
         claim_set_version=CLAIM_SET_MERITS_V1,
     ),
+    MomentSpec(
+        # Opened by the argument transcript rather than by a docket entry: the
+        # Court posts it the day the case is argued, on a per-Term list the
+        # docket does not link. Declared but switched off: the transcript is a
+        # cell input the predict prompt has to describe, so a cell here waits for
+        # the process version whose prompt names it.
+        event_id=ids.event_id(EventKind.argument.value, "judgment"),
+        kind=EventKind.argument,
+        stage=Stage.merits,
+        moment=Moment.argued,
+        ordinal=2,
+        decision_target="judgment",
+        description=(
+            "Disposition of the judgment below, forecast once the transcript of the "
+            "oral argument is posted."
+        ),
+        claim_set_version=CLAIM_SET_MERITS_V1,
+        forecastable=False,
+    ),
 )
 
 _BY_EVENT_ID: Mapping[str, MomentSpec] = MappingProxyType(
@@ -240,12 +317,13 @@ def minted_moment_ids() -> frozenset[str]:
     ids a corpus row without its ledger file is a half-landed mint — the shape
     ``validate-corpus``'s corpus→ledger check fails on.
 
-    A case-level baseline is recognized by its id rather than listed: it is the bare
-    ``disposition`` id of its kind (``evt-<kind>-disposition``), which is what
-    the ingest projection synthesizes, while every later moment carries a
-    qualifying label (``arrival-``, ``cvsg-``, ``response-``) or a different
-    decision target (``judgment``). Registering a moment therefore needs no
-    edit here; what would is a new stage whose baseline is *not* the bare
+    A case-level baseline is recognized by its id rather than listed: it is
+    the bare ``disposition`` id of its kind (``evt-<kind>-disposition``),
+    which is what the ingest projection synthesizes, while every later moment
+    carries a qualifying label (``arrival-``, ``cvsg-``, ``sg-``, ``call-``,
+    ``relist-``, ``response-``) or a different decision target (``judgment``). Registering
+    a moment therefore needs no edit here; what would is a new stage whose
+    baseline is *not* the bare
     ``evt-<kind>-disposition`` shape — the merits precedent, whose first
     position is a minted moment rather than a first-touch baseline.
     """
@@ -322,7 +400,7 @@ def moments_for(stage: Stage) -> tuple[MomentSpec, ...]:
     Registry order, not chronology: the first position is the stage's
     baseline — the spec the open-first-moment guards and the resolution fan
     key on — and a later registration may be chronologically earlier (the
-    cert arrival moment precedes every distribution while carrying the last
+    cert arrival moment precedes every distribution while carrying a later
     ordinal). A caller wanting time order reads each spec's description.
     """
     return tuple(

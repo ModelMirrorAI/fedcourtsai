@@ -248,11 +248,15 @@ jobs:
     # can differ. PROMOTION_SCENARIOS is set by nothing: an arbitrary required
     # set is a local re-check narrowing, never a merge gate. PROMOTION_SKIP_SMOKE
     # has three sanctioned setters — promote.yml's `skip_engine_smoke` input,
-    # which narrows one pre-flight, the `promote:skip-engine-smoke` label
-    # below, which narrows this check for one batch, and the promotion train,
-    # which reads freshness under that same label as this check will. Whether real-engine
-    # evidence is worth its tokens for what a given batch contains is the
-    # maintainer's risk call; the label is where they record having made it.
+    # which narrows one pre-flight, the waiver step below, which narrows this
+    # check for one batch, and the promotion train, which reads freshness
+    # under the same decision as this check will. The waiver step drops the
+    # engine smokes for a batch `main`'s cell-reach classifier
+    # (scripts/cell_reach.py) calls cell-inert — one that changes nothing a
+    # cell runs — or one the maintainer labels `promote:skip-engine-smoke`;
+    # `promote:require-engine-smoke` demands them whatever the classifier says.
+    # The labels are where the maintainer records overriding the default; the
+    # run summary is where every waiver records why it fired.
     #
     # Read from the API at check time, not from `github.event.pull_request`.
     # A re-run replays the original event payload, so a payload read would go
@@ -289,6 +293,7 @@ jobs:
       # Named once, and read by name everywhere below: the label, the warning,
       # and the summary can never disagree about which label was checked.
       WAIVER_LABEL: promote:skip-engine-smoke
+      REQUIRE_LABEL: promote:require-engine-smoke
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -311,30 +316,57 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          # Fails closed on every path: a failed read, an empty body, or any
-          # value but a whole-line match leaves `skip` unset, and the gate
-          # script honours only the literal `1`. Whole-line (-Fx) so a label
-          # that merely contains this one cannot waive anything.
-          labels=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
-            --jq '.[].name' || true)
-          if ! grep -Fqx "$WAIVER_LABEL" <<<"$labels"; then
-            echo "no ${WAIVER_LABEL} label; the full required set stands"
+          # Fails closed on every path: a failed label read, the require
+          # label, an engine-relevant or unread verdict, or any value but a
+          # whole-line label match leaves `skip` unset, and the gate script
+          # honours only the literal `1`. Whole-line (-Fx) so a label that
+          # merely contains one of these cannot waive or require anything.
+          # Every page: a require label past the first would otherwise go unseen.
+          if ! labels=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/labels" \
+            --jq '.[].name'); then
+            echo "the labels could not be read; the full required set stands"
             exit 0
+          fi
+          if grep -Fqx "$REQUIRE_LABEL" <<<"$labels"; then
+            echo "${REQUIRE_LABEL} is on this PR; the full required set stands"
+            exit 0
+          fi
+          if grep -Fqx "$WAIVER_LABEL" <<<"$labels"; then
+            why="\`${WAIVER_LABEL}\` is on this PR"
+          else
+            # main's copy of the classifier, never the batch's own, so a batch
+            # cannot grade itself inert; a main without one leaves the gate
+            # strict. It reads the batch as the three-dot diff from main, which
+            # this full-history checkout holds.
+            classifier="${RUNNER_TEMP}/cell_reach.py"
+            reach=''
+            if git show origin/main:scripts/cell_reach.py >"$classifier" 2>/dev/null; then
+              reach=$(python3 -I -S "$classifier" --base origin/main --head "$HEAD_SHA" \
+                2>"${RUNNER_TEMP}/cell-reach.log") || reach=''
+              cat "${RUNNER_TEMP}/cell-reach.log"
+            else
+              echo "main has no cell-reach classifier yet"
+            fi
+            if [ "$reach" != reach=inert ]; then
+              echo "the batch is not classified cell-inert; the full required set stands"
+              exit 0
+            fi
+            why="main's cell-reach classifier calls this batch cell-inert: $(cat "${RUNNER_TEMP}/cell-reach.log")"
           fi
           echo "skip=1" >>"$GITHUB_OUTPUT"
           # The waiver's whole cost is that it removes evidence, so it has to
           # be the loudest thing this check says. The annotation lands on the
           # PR; the summary survives in the run record the promotion is
           # audited from.
-          echo "::warning::promotion-gate: engine scenarios waived by the ${WAIVER_LABEL} label — this batch may merge with no real-engine evidence at ${HEAD_SHA}"
+          echo "::warning::promotion-gate: engine scenarios waived (${why}) — this batch may merge with no real-engine evidence at ${HEAD_SHA}"
           {
             echo "## Engine scenarios waived on this batch"
             echo
-            echo "\`${WAIVER_LABEL}\` is on this PR, so the six token-spending engine entries — three \`engine-smoke\` and three \`engine-actions-smoke\` — left the required set and a token-free \`scenario=offline-gate\` run counts as whole-suite evidence at \`${HEAD_SHA}\`."
+            echo "${why}, so the six token-spending engine entries — three \`engine-smoke\` and three \`engine-actions-smoke\` — left the required set and a token-free \`scenario=offline-gate\` run counts as whole-suite evidence at \`${HEAD_SHA}\`."
             echo
             echo "What that trades away, for \`claude-code\`, \`codex\` and \`gemini\` alike: that a real cell still runs in the production posture at the sha being promoted, and that each engine's own invocation block is still accepted by the surface that receives it. The second is the one an action version bump breaks — silently, on the promotion carrying the bump. Every other gate is unchanged and still strict."
             echo
-            echo "Remove the label and re-run this check to demand them."
+            echo "Add \`${REQUIRE_LABEL}\` and re-run this check to demand them."
           } >>"$GITHUB_STEP_SUMMARY"
       - name: Quiescence, provenance, freshness, the process registry and the contexts-due verdict at the PR head
         env:

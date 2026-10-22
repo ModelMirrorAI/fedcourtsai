@@ -34,12 +34,12 @@ import tempfile
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, timedelta
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 # `CorpusBackend` is defined in `config` because this module imports that one,
 # and re-exported here because `corpus.CorpusBackend` is where every caller
@@ -69,6 +69,7 @@ from .schemas import (
 )
 from .supremecourt import (
     IFP_SERIAL_BASE,
+    ArgumentSitting,
     parse_scotus_application_number,
     parse_scotus_docket_number,
 )
@@ -414,6 +415,64 @@ class CorpusRow(BaseModel):
         "the live channel. None asserts 'no CVSG observed' only where "
         "`distribution_count` is not None (the proceedings were parsed at all).",
     )
+    call_for_response_at: date | None = Field(
+        default=None,
+        description="When the Court called for a response to the petition "
+        "(`pipeline.cert_signals.call_for_response_date`): the first `Response "
+        "Requested` entry before any disposition — the cert stage's "
+        "call-for-response forecast moment. Distinct from `response_requested_at`, "
+        "the interim stage's request for a response to an application. Written by "
+        "the live poll at ingest; fill-in latched. Withheld from the retrieval "
+        "surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = no call, not yet, or not "
+        "parsed — on a decided row polled before the column existed, never parsed.",
+    )
+    relisted_at: date | None = Field(
+        default=None,
+        description="When the Court first relisted the petition "
+        "(`pipeline.cert_signals.first_relist_date`): the first petition "
+        "distribution for a later conference, docketed within two weeks after the "
+        "earlier conference sat on the petition, before any disposition — the cert stage's relist "
+        "forecast moment. Written by the live poll at ingest; fill-in latched. "
+        "Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = "
+        "no relist, not yet, or not parsed — on a decided row polled before the "
+        "column existed, never parsed.",
+    )
+    argument_transcript_at: date | None = Field(
+        default=None,
+        description="The argument day of the first oral argument transcript the "
+        "Court's per-Term transcript list gave for this docket and the live poll's "
+        "transcript pass stored (`pipeline.live.fetch_argument_transcripts`) — the "
+        "merits stage's post-argument forecast moment. Fill-in latched: a later "
+        "reargument never moves it. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = not argued, no transcript listed "
+        "yet, or not read.",
+    )
+    merits_brief_on_lead: date | None = Field(
+        default=None,
+        description="When a consolidated member's own respondent filed its brief on "
+        "the merits on the group's **lead** docket "
+        "(`pipeline.documents.member_respondent_brief_date`): the first such entry "
+        "after both the member's grant and the lead's that the member attribution "
+        "reads as filed for it. Consolidation moves every later filing to the lead, "
+        "so the member's own `merits_brief_filed` stays empty. Written by the live "
+        "poll from the lead's "
+        "newest stored live snapshot; fill-in latched. "
+        "Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`) and read "
+        "by no mint: the briefed moment still opens on `merits_brief_filed` alone. "
+        "None = not a consolidated member, not yet filed, or the lead not stored.",
+    )
+    sg_brief_filed: date | None = Field(
+        default=None,
+        description="When the Solicitor General filed the brief the Court invited "
+        "(`pipeline.cert_signals.sg_brief_date`): the first brief for the United "
+        "States as amicus curiae after the CVSG and before any disposition — the "
+        "cert stage's sg-brief forecast moment. Written by the live poll at "
+        "ingest alone, which reaches every row the moment can still open on (the "
+        "rotation serves the undecided slice); fill-in latched. Withheld from the "
+        "retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = not yet filed, "
+        "or not parsed — on a decided row polled before the column existed, "
+        "never parsed; a coverage gap, never an observed absence.",
+    )
     originating_court_name: str | None = Field(
         default=None,
         description="The raw lower-court name the live docket JSON carries "
@@ -652,7 +711,9 @@ class CorpusRow(BaseModel):
         default=None,
         description="When the respondent filed its brief on the merits "
         "(`pipeline.merits_signals.respondent_brief_date`) — the point at which "
-        "both sides' arguments are on the record. Opens the merits stage's "
+        "both sides' arguments are on the record. Where the respondent confesses "
+        "error, the brief defending the judgment dates it instead: an adverse "
+        "co-respondent's or a Court-appointed amicus's. Opens the merits stage's "
         "second forecast moment. None = not yet filed, or not parsed: the case "
         "is pending, unsnapshotted, or its briefing is recorded in a shape the "
         "pattern misses — a coverage gap, never an observed absence.",
@@ -923,7 +984,34 @@ CREATE TABLE IF NOT EXISTS cases (
     -- by `backfill-decision-record`; fill-in latched. Withheld from the
     -- retrieval surface. NULL = not argued / unclassified, or not yet parsed.
     merits_argued       TEXT,
-    merits_decision_method TEXT
+    merits_decision_method TEXT,
+    -- The Solicitor General's invited brief (see CorpusRow and
+    -- pipeline/cert_signals.py): the date that opens the cert stage's
+    -- sg-brief moment. Written by the live poll at ingest; fill-in latched.
+    -- Withheld from the retrieval surface. NULL = not yet filed, or not parsed.
+    sg_brief_filed      TEXT,
+    -- The Court's call for a response to a cert petition (see CorpusRow and
+    -- pipeline/cert_signals.py): the date that opens the cert stage's
+    -- call-for-response moment. Written by the live poll at ingest; fill-in
+    -- latched. Withheld from the retrieval surface. NULL = no call yet, or not
+    -- parsed.
+    call_for_response_at TEXT,
+    -- A consolidated member's own respondent brief on the merits, as filed on
+    -- the lead docket (see CorpusRow and pipeline/documents.py). Written by the
+    -- live poll; fill-in latched. Withheld from the retrieval surface and read
+    -- by no mint. NULL = not a consolidated member, not yet filed, or not read.
+    merits_brief_on_lead TEXT,
+    -- The Court's first relist of a cert petition (see CorpusRow and
+    -- pipeline/cert_signals.py): the date that opens the cert stage's relist
+    -- moment. Written by the live poll at ingest; fill-in latched. Withheld from
+    -- the retrieval surface. NULL = no relist yet, or not parsed.
+    relisted_at TEXT,
+    -- The argument day of the first oral argument transcript stored for the
+    -- docket (see CorpusRow and pipeline/live.py): the date that opens the merits
+    -- stage's post-argument moment. Written by the live poll's transcript pass;
+    -- fill-in latched. Withheld from the retrieval surface. NULL = no transcript
+    -- stored yet.
+    argument_transcript_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1098,6 +1186,11 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "document_floor_probed_at": "TEXT",
     "merits_argued": "TEXT",
     "merits_decision_method": "TEXT",
+    "sg_brief_filed": "TEXT",
+    "call_for_response_at": "TEXT",
+    "merits_brief_on_lead": "TEXT",
+    "relisted_at": "TEXT",
+    "argument_transcript_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1338,6 +1431,80 @@ def _migrate_opinion_benches(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE opinion_benches ADD COLUMN {column} {ddl}")
 
 
+# Per-column DDL for `argument_sittings`: one row per argument session of an
+# October Term, as the Court's transcript list heads it, keyed by the Term and
+# the session's first day. Written by the live poll's transcript pass, which
+# re-reads the current and previous Term's headings every cycle and upserts each
+# by its key, so a widened heading takes its new last day and ``read_at`` is the
+# last read. Metadata, not payload: it stays in the index blob under the
+# corpus-split mode.
+ARGUMENT_SITTINGS_COLUMN_DDL: dict[str, str] = {
+    "term": "INTEGER NOT NULL",
+    "start": "TEXT NOT NULL",
+    "end": "TEXT NOT NULL",
+    "read_at": "TEXT NOT NULL",
+}
+
+
+def _migrate_argument_sittings(conn: sqlite3.Connection) -> None:
+    """Create `argument_sittings` from its DDL map, and add any column added since.
+
+    Idempotent, and reached only by a writer's connection: a read-only open of
+    a blob written before the table existed reads it as empty
+    (:func:`argument_sittings`).
+    """
+    columns = ", ".join(f"{name} {ddl}" for name, ddl in ARGUMENT_SITTINGS_COLUMN_DDL.items())
+    conn.execute(
+        f"CREATE TABLE IF NOT EXISTS argument_sittings ({columns}, PRIMARY KEY (term, start))"
+    )
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(argument_sittings)")}
+    for column, ddl in ARGUMENT_SITTINGS_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE argument_sittings ADD COLUMN {column} {ddl}")
+
+
+def upsert_argument_sittings(
+    conn: sqlite3.Connection, sittings: Iterable[ArgumentSitting], *, read_at: date
+) -> int:
+    """Insert or replace each sitting by ``(term, start)``; returns rows written."""
+    rows = [
+        (sitting.term, sitting.start.isoformat(), sitting.end.isoformat(), read_at.isoformat())
+        for sitting in sittings
+    ]
+    with conn:
+        conn.executemany(
+            'INSERT OR REPLACE INTO argument_sittings (term, start, "end", read_at) '
+            "VALUES (?, ?, ?, ?)",
+            rows,
+        )
+    return len(rows)
+
+
+def argument_sittings(conn: ReadConnection, *, term: int | None = None) -> list[ArgumentSitting]:
+    """The stored sittings, earliest first, of one Term or of all.
+
+    A blob written before the table existed reads as holding none.
+    """
+    sql = 'SELECT term, start, "end" FROM argument_sittings'
+    params: tuple[int, ...] = ()
+    if term is not None:
+        sql += " WHERE term = ?"
+        params = (term,)
+    try:
+        rows = conn.execute(sql + " ORDER BY start", params).fetchall()
+    except Exception as exc:
+        # sqlite3's OperationalError locally, the ranged backend's own error type remotely.
+        if "no such table" not in str(exc).lower():
+            raise
+        return []
+    return [
+        ArgumentSitting(
+            term=int(row[0]), start=date.fromisoformat(row[1]), end=date.fromisoformat(row[2])
+        )
+        for row in rows
+    ]
+
+
 _DN_LABEL = re.compile(r"^NOS?\.?\s+")  # a leading "No." / "Nos." / "No " docket-number label
 _DN_WHITESPACE = re.compile(r"\s+")
 # A display annotation the Court appends to some docket numbers, most often
@@ -1470,6 +1637,7 @@ def _apply_schema(conn: sqlite3.Connection) -> None:
     _migrate_documents(conn)
     _migrate_opinions(conn)
     _migrate_opinion_benches(conn)
+    _migrate_argument_sittings(conn)
 
 
 def _schema_entries(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:
@@ -1793,6 +1961,17 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "merits_terminated": row.merits_terminated,
         "merits_argued": row.merits_argued.isoformat() if row.merits_argued else None,
         "merits_decision_method": row.merits_decision_method,
+        "sg_brief_filed": row.sg_brief_filed.isoformat() if row.sg_brief_filed else None,
+        "call_for_response_at": (
+            row.call_for_response_at.isoformat() if row.call_for_response_at else None
+        ),
+        "merits_brief_on_lead": (
+            row.merits_brief_on_lead.isoformat() if row.merits_brief_on_lead else None
+        ),
+        "relisted_at": row.relisted_at.isoformat() if row.relisted_at else None,
+        "argument_transcript_at": (
+            row.argument_transcript_at.isoformat() if row.argument_transcript_at else None
+        ),
         "capital_case": int(row.capital_case),
     }
 
@@ -1907,6 +2086,11 @@ def _from_record(record: RecordRow) -> CorpusRow:
         merits_terminated=_optional_str(record, "merits_terminated"),
         merits_argued=_optional_date(record, "merits_argued"),
         merits_decision_method=_optional_str(record, "merits_decision_method"),
+        sg_brief_filed=_optional_date(record, "sg_brief_filed"),
+        call_for_response_at=_optional_date(record, "call_for_response_at"),
+        merits_brief_on_lead=_optional_date(record, "merits_brief_on_lead"),
+        relisted_at=_optional_date(record, "relisted_at"),
+        argument_transcript_at=_optional_date(record, "argument_transcript_at"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -1918,8 +2102,10 @@ def _update_clause(column: str) -> str:
     special: channel-supplied facts (``last_pulled``, the opinion-enrichment
     walk's ``opinion_enrich_attempted_at`` cursor, the document back-fill's
     ``document_floor_probed_at`` floor probe, and the fill-in slice of
-    the live-parsed signals — the conference and CVSG dates, the dated
-    interim/merits signals beside them, and the merits decision record)
+    the live-parsed signals — the conference, CVSG, invited-brief,
+    call-for-response and first-relist dates, the dated interim/merits signals beside them (a
+    consolidated member's lead-filed respondent brief and the post-argument
+    transcript's argument day among them), and the merits decision record)
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
@@ -1961,6 +2147,11 @@ def _update_clause(column: str) -> str:
         "merits_brief_filed",
         "merits_argued",
         "merits_decision_method",
+        "sg_brief_filed",
+        "call_for_response_at",
+        "merits_brief_on_lead",
+        "relisted_at",
+        "argument_transcript_at",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -3015,10 +3206,13 @@ def is_ifp_petition(row: CorpusRow) -> bool:
     the IFP docket from ``IFP_SERIAL_BASE`` (5001), so a modern Term-form number
     whose serial is at or above the base is an IFP petition. A documented scope
     decision (see ``docs/salience.md``): IFP petitions are excluded from the
-    predict tournament — the salience gate spends the fundable slice on the paid
-    cert docket. IFP grants are rare but non-zero (Gideon arrived IFP), so this is
-    a deliberate, recorded choice, not a claim IFP cases never matter; relaxing it
-    is additive. Keyed on the parsed serial, so it fires only on a genuine cert
+    predict tournament up to a merits grant — the salience gate spends the
+    fundable slice on the paid cert docket, and the scope rule itself is
+    :func:`is_ungranted_ifp_petition`, which readmits the granted ones. IFP
+    grants are rare but non-zero (Gideon arrived IFP), so this is a deliberate,
+    recorded choice, not a claim IFP cases never matter. This predicate stays
+    the fee-class reading every stratum and cut keys on, grant or no grant.
+    Keyed on the parsed serial, so it fires only on a genuine cert
     docket (applications / original / miscellaneous forms do not parse). SCOTUS-only.
 
     Strips a display annotation before parsing: an annotated number parses as
@@ -3030,6 +3224,29 @@ def is_ifp_petition(row: CorpusRow) -> bool:
         return False
     parsed = parse_scotus_docket_number(strip_docket_annotation(row.docket_number))
     return parsed is not None and parsed[1] >= IFP_SERIAL_BASE
+
+
+def is_ungranted_ifp_petition(row: CorpusRow) -> bool:
+    """Whether an IFP cert docket stays outside predict scope: every one but a merits grant.
+
+    The predict-scope reading of :func:`is_ifp_petition`. The exclusion is a
+    cert-stage funding decision — the salience gate spends the fundable slice on
+    the paid petition docket — so it holds for an IFP petition at every point
+    up to the grant, and stops holding once the grant opens a merits proceeding
+    (:func:`opens_merits_proceeding`). From there the case is the Court's own
+    selection, the merits stream sits outside the salience gate, and the merits
+    baseline already pools IFP grants in its ``parsed`` denominator, so
+    excluding them would score a paid-only forecast population against a
+    pooled rate. A GVR or summary reversal on an IFP docket opens no merits
+    proceeding and stays excluded.
+
+    Readmitting the case leaves its cert stage untouched: a grant resolves the
+    petition, so no cert cell is ever owed on it, and the cert-stage baselines
+    read the paid fee-class cut rather than this rule. The rule is two-way like
+    every row predicate here — a docket re-resolved off the grant family leaves
+    scope again on the next scope reconcile.
+    """
+    return is_ifp_petition(row) and not opens_merits_proceeding(row)
 
 
 def is_salience_deferred(row: CorpusRow) -> bool:
@@ -3272,7 +3489,7 @@ OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
         + "not a predictable form",
     ),
     (
-        is_ifp_petition,
+        is_ungranted_ifp_petition,
         "in-forma-pauperis petition — a documented predict-scope exclusion",
     ),
     (
@@ -3419,6 +3636,43 @@ def latch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -
         conn.executemany(
             "UPDATE cases SET salience_selected = 1 WHERE case_id = ?",
             [(case_id,) for case_id in case_ids],
+        )
+
+
+def latch_merits_brief_on_lead(conn: sqlite3.Connection, case_id: str, filed: date) -> None:
+    """Fill in ``merits_brief_on_lead`` on one case, keeping a date already stored.
+
+    The live poll's writer for a consolidated member, whose respondent brief is
+    read off the lead docket rather than the member's own payload, so it lands
+    beside the row upsert rather than through it. Stricter than the column's
+    upsert clause, which lets an incoming date replace a stored one: here the
+    first brief the attribution reads is the moment, and a later read never
+    moves it. Like the ``set_*`` writers, a direct ``UPDATE`` of the index and
+    never the casestore mirror.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET merits_brief_on_lead = COALESCE(merits_brief_on_lead, ?) "
+            "WHERE case_id = ?",
+            (filed.isoformat(), case_id),
+        )
+
+
+def latch_argument_transcript_at(conn: sqlite3.Connection, case_id: str, argued: date) -> None:
+    """Fill in ``argument_transcript_at`` on one case, keeping a date already stored.
+
+    The live poll's transcript pass is the writer: the transcript comes off the
+    Court's per-Term list rather than the docket payload, so it lands beside the
+    row upsert rather than through it, as :func:`latch_merits_brief_on_lead` does
+    and for the same reason. The first transcript stored opens the moment, so a
+    reargument's later transcript never moves it. A direct ``UPDATE`` of the
+    index and never the casestore mirror.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET argument_transcript_at = COALESCE(argument_transcript_at, ?) "
+            "WHERE case_id = ?",
+            (argued.isoformat(), case_id),
         )
 
 
@@ -3669,6 +3923,18 @@ class PriorQuery(BaseModel):
     model_config = ConfigDict(extra="forbid", use_enum_values=True)
 
     court: str | None = None
+    docket_number: str | None = Field(
+        default=None,
+        max_length=64,
+        description="Look up one docket by its number rather than its CourtListener "
+        "id: rows whose `docket_number` normalizes (`normalize_docket_number`) to "
+        "this value's normal form, so `No. 25-1323`, `25-1323` and an en-dash "
+        "spelling are one lookup, as are `26A477` and `No. 26A477`. Stored "
+        "normalized. An exact-match filter like `court`, and like every filter "
+        "it sits under the replay clock: a docket the clock does not admit is "
+        "not returned. Requires `court`, since a number is only unique within one "
+        "court and a miss walks the scope.",
+    )
     topic: str | None = Field(default=None, description="Exact nature-of-suit / subject topic.")
     judges: list[str] = Field(
         default_factory=list, description="Match cases sharing any of these judges."
@@ -3750,6 +4016,28 @@ class PriorQuery(BaseModel):
         "retrieve the whole letter-form docket.",
     )
 
+    @field_validator("docket_number")
+    @classmethod
+    def _normalize_docket_number(cls, value: str | None) -> str | None:
+        """Hold ``docket_number`` in its normal form, refusing one with none.
+
+        Refused rather than dropped: a blank number that fell through to "no
+        filter" would answer a one-docket lookup with a sweep of the scope.
+        """
+        if value is None:
+            return None
+        normal = normalize_docket_number(value)
+        if normal is None:
+            raise ValueError(f"docket_number {value!r} names no docket number")
+        return normal
+
+    @model_validator(mode="after")
+    def _docket_number_needs_court(self) -> PriorQuery:
+        """Refuse a court-less number: its miss would walk every court's rows."""
+        if self.docket_number is not None and self.court is None:
+            raise ValueError("a docket_number lookup needs a court (e.g. court='scotus')")
+        return self
+
 
 def opinion_body(row: CorpusRow) -> str | None:
     """The row's opinion body, from whichever half of the estate keeps it.
@@ -3776,6 +4064,9 @@ def opinion_body(row: CorpusRow) -> str | None:
 
 
 #: Columns a ``query`` prior never carries, though the row stores them. The
+#: invited-brief, call-for-response, first-relist and argument-transcript dates are mint
+#: triggers, a consolidated
+#: member's lead-filed respondent brief dates a moment no mint reads yet, and the
 #: merits decision record is an analytics surface — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
 #: it to what a predict or
@@ -3786,7 +4077,17 @@ def opinion_body(row: CorpusRow) -> str | None:
 #: clock (:func:`_mask_post_clock_merits`) from having to learn to hide a new
 #: post-clock fact. A process change that wants the argued date in front of a
 #: cell admits it by removing it from this set, under its own re-bless.
-RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset({"merits_argued", "merits_decision_method"})
+RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
+    {
+        "merits_argued",
+        "merits_decision_method",
+        "sg_brief_filed",
+        "call_for_response_at",
+        "merits_brief_on_lead",
+        "relisted_at",
+        "argument_transcript_at",
+    }
+)
 
 
 def prior_payload(row: CorpusRow, *, full: bool = False) -> dict[str, object]:
@@ -4198,6 +4499,153 @@ def _overlap_scan(
     return "cases", where
 
 
+#: The covering partial index over the live slice's ``(court, docket_number)``,
+#: which the docket-number lookup reads before it pays for a scope walk.
+LIVE_DOCKET_INDEX = "idx_cases_live_docket"
+
+
+def _rowids_matching(records: Iterable[Any], want: str) -> list[int]:
+    return [
+        int(record["rid"])
+        for record in records
+        if normalize_docket_number(str(record["docket_number"] or "")) == want
+    ]
+
+
+def docket_number_rowids(conn: ReadConnection, docket_number: str, court: str | None) -> list[int]:
+    """The ``cases`` rowids whose docket number normalizes to ``docket_number``'s form.
+
+    Two reads, cheapest first. The live slice — every docket the supremecourt.gov
+    channel follows, which is where a pending companion or cross-petition sits —
+    is answered off :data:`LIVE_DOCKET_INDEX` alone: the index carries both
+    columns, so the read never touches the table. Only when that finds nothing
+    does the lookup walk the scope's rows (pinned to the court index, so the
+    walk runs in rowid order), which is what reaches a bulk-ingested historical
+    docket. A live hit therefore ends the lookup, and a non-live duplicate of
+    the same number — the pre-guard historical case the identity join's
+    lowest-docket-id rule exists for — is not returned beside it.
+
+    The comparison is :func:`normalize_docket_number` on both sides, applied in
+    Python rather than through the ``norm_dn`` SQL function, which the ranged
+    backend's connection does not register. No other filter applies here:
+    the caller narrows the rowids with the rest of its query.
+    """
+    want = normalize_docket_number(docket_number)
+    if want is None:
+        return []
+    params: list[object] = [court] if court is not None else []
+    if _has_index(conn, LIVE_DOCKET_INDEX):
+        court_clause = "court = ? AND " if court is not None else ""
+        live = _rowids_matching(
+            conn.execute(
+                f"SELECT rowid AS rid, docket_number FROM cases INDEXED BY {LIVE_DOCKET_INDEX} "
+                f"WHERE {court_clause}last_live_polled IS NOT NULL",
+                params,
+            ),
+            want,
+        )
+        if live:
+            return live
+    if court is not None:
+        sql = "SELECT rowid AS rid, docket_number FROM cases INDEXED BY idx_cases_court "
+        sql += "WHERE court = ?"
+    else:
+        sql = "SELECT rowid AS rid, docket_number FROM cases"
+    return _rowids_matching(conn.execute(sql, params), want)
+
+
+def live_scotus_case_ids_by_docket_numbers(
+    conn: ReadConnection, docket_numbers: Sequence[str]
+) -> dict[str, str] | None:
+    """The live-slice SCOTUS row for each of ``docket_numbers``, keyed by normalized number.
+
+    :func:`docket_number_rowids`'s first read alone, in one scan for every
+    number, for a caller asking about dockets the supremecourt.gov channel
+    would follow (a companion or a cross-petition linked from a live docket): a
+    miss costs the live index and never a walk of every SCOTUS row. A number no
+    live row carries is absent from the answer. ``None`` where the blob carries
+    no live index, which is not the same answer as a miss: the walk it would
+    take instead is the cost this exists to avoid, so nothing was looked up.
+    Two rows on one number resolve to the lowest docket id, as the identity
+    join does.
+    """
+    wanted = {norm for raw in docket_numbers if (norm := normalize_docket_number(raw))}
+    if not _has_index(conn, LIVE_DOCKET_INDEX):
+        return None
+    if not wanted:
+        return {}
+    matched: dict[int, str] = {}
+    for record in conn.execute(
+        f"SELECT rowid AS rid, docket_number FROM cases INDEXED BY {LIVE_DOCKET_INDEX} "
+        "WHERE court = ? AND last_live_polled IS NOT NULL",
+        ("scotus",),
+    ):
+        norm = normalize_docket_number(str(record["docket_number"] or ""))
+        if norm in wanted:
+            matched[int(record["rid"])] = norm
+    if not matched:
+        return {}
+    marks = ",".join("?" for _ in matched)
+    found: dict[str, str] = {}
+    for record in conn.execute(
+        f"SELECT rowid AS rid, case_id FROM cases WHERE rowid IN ({marks})", list(matched)
+    ):
+        norm, case_id = matched[int(record["rid"])], str(record["case_id"])
+        held = found.get(norm)
+        if held is None or _docket_id_of(case_id) < _docket_id_of(held):
+            found[norm] = case_id
+    return found
+
+
+def _docket_id_of(case_id: str) -> int:
+    return int(case_id.rsplit("/", 1)[1])
+
+
+def _term_bar_refuses_number(query: PriorQuery) -> bool:
+    """Whether the Term bar refuses a SCOTUS number before any row is read.
+
+    A SCOTUS row's Term is read off its own docket number (:func:`case_year`),
+    so a number at or past ``decided_before`` can only ever be screened out.
+    Answering it before the read keeps a withheld docket from costing, or
+    timing, any differently from one the corpus does not hold.
+    """
+    if query.court != "scotus" or query.decided_before is None or query.docket_number is None:
+        return False
+    term = scotus_term_year(query.docket_number)
+    return term is not None and term >= query.decided_before
+
+
+def _rank_scored(records: Iterable[Any], query: PriorQuery, limit: int) -> list[CorpusRow]:
+    """The scored ranking over a candidate stream: relevance, then recency, then case id.
+
+    Screens each record through the derived filters, masks it for the replay
+    clock, requires the overlap filters where given, and keeps the best
+    ``limit``.
+    """
+    want_judges = set(query.judges)
+    want_citations = set(query.citations)
+    scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
+    for record in records:
+        stored = _from_record(record)
+        if not _screen_derived(stored, query):
+            continue
+        # Overlap reads what the cell will be handed, so a clocked citation
+        # match never returns a prior whose cite postdates the clock; the
+        # recency order reads the stored row, as the fast path's SQL does.
+        row = _mask_for_replay_clock(stored, query)
+        judge_overlap = want_judges & set(row.judges)
+        citation_overlap = want_citations & set(row.citations)
+        # Overlap filters are required when given: skip a row that shares none.
+        if want_judges and not judge_overlap:
+            continue
+        if want_citations and not citation_overlap:
+            continue
+        score = len(judge_overlap) + len(citation_overlap)
+        scored.append((-score, recency_key(stored), row.case_id, row))
+    scored.sort(key=lambda item: (item[0], item[1], item[2]))
+    return [row for *_, row in scored[:limit]]
+
+
 def retrieve_priors(
     conn: ReadConnection,
     query: PriorQuery,
@@ -4220,6 +4668,10 @@ def retrieve_priors(
     carries the partial index over the populated rows: an empty ``citations``
     cannot overlap a non-empty want-set, so that index holds every row the
     filter can match and the scan is bounded to it rather than to the scope.
+
+    A ``docket_number`` lookup resolves its rows first
+    (:func:`docket_number_rowids`) and narrows them by primary key, then ranks
+    them on the scored path, under the same screens and replay mask.
 
     The derived screens run in Python on either path: ``era`` /
     ``decided_before``, and the ``exclude_non_cert`` default that keeps the
@@ -4248,39 +4700,34 @@ def retrieve_priors(
         clauses.append("(disposition IS NOT NULL OR date_decided IS NOT NULL)")
     where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
 
-    want_judges = set(query.judges)
-    want_citations = set(query.citations)
-    # The fast path needs its ORDER BY to be cheap: either the LIMIT is
-    # pushable (no derived screen, so SQLite top-Ns without a full sort) or a
-    # court equality lets the recency index serve the ordering outright. A
-    # screened, court-less query has neither — an unbounded sort that spills
-    # to a temp file the ranged backend's VFS refuses to open — so that shape
-    # keeps the Python ranking, which scans exactly as it always did.
-    sortable = not _screens_in_python(query) or query.court is not None
-    if not want_judges and not want_citations and sortable:
-        return _retrieve_priors_ranked(conn, query, where, params, limit)
+    if query.docket_number is not None:
+        # A one-docket lookup: the number resolves to a handful of rowids
+        # first, and the rest of the query narrows those rows by primary key
+        # instead of steering a scope walk. They then take the scored path
+        # below, so the derived screens, the replay mask and the ranking are
+        # the ones every other query gets.
+        if _term_bar_refuses_number(query):
+            return []
+        rowids = docket_number_rowids(conn, query.docket_number, query.court)
+        if not rowids:
+            return []
+        marks = ",".join("?" for _ in rowids)
+        source, where = "cases", f" WHERE {' AND '.join([*clauses, f'rowid IN ({marks})'])}"
+        params = [*params, *rowids]
+    else:
+        # The fast path needs its ORDER BY to be cheap: either the LIMIT is
+        # pushable (no derived screen, so SQLite top-Ns without a full sort) or
+        # a court equality lets the recency index serve the ordering outright.
+        # A screened, court-less query has neither — an unbounded sort that
+        # spills to a temp file the ranged backend's VFS refuses to open — so
+        # that shape keeps the Python ranking, which scans exactly as it always
+        # did.
+        sortable = not _screens_in_python(query) or query.court is not None
+        if not query.judges and not query.citations and sortable:
+            return _retrieve_priors_ranked(conn, query, where, params, limit)
+        source, where = _overlap_scan(conn, query, clauses, want_citations=bool(query.citations))
 
-    scored: list[tuple[int, tuple[int, int], str, CorpusRow]] = []
-    source, where = _overlap_scan(conn, query, clauses, want_citations=bool(want_citations))
-    for record in conn.execute(f"SELECT * FROM {source}{where}", params):
-        stored = _from_record(record)
-        if not _screen_derived(stored, query):
-            continue
-        # Overlap reads what the cell will be handed, so a clocked citation
-        # match never returns a prior whose cite postdates the clock; the
-        # recency order reads the stored row, as the fast path's SQL does.
-        row = _mask_for_replay_clock(stored, query)
-        judge_overlap = want_judges & set(row.judges)
-        citation_overlap = want_citations & set(row.citations)
-        # Overlap filters are required when given: skip a row that shares none.
-        if want_judges and not judge_overlap:
-            continue
-        if want_citations and not citation_overlap:
-            continue
-        score = len(judge_overlap) + len(citation_overlap)
-        scored.append((-score, recency_key(stored), row.case_id, row))
-    scored.sort(key=lambda item: (item[0], item[1], item[2]))
-    return [row for *_, row in scored[:limit]]
+    return _rank_scored(conn.execute(f"SELECT * FROM {source}{where}", params), query, limit)
 
 
 def _scope_coverage(
@@ -4384,6 +4831,31 @@ def sparse_citation_notice(conn: ReadConnection, query: PriorQuery) -> str | Non
     )
 
 
+def docket_number_miss_note(query: PriorQuery) -> str:
+    """The word said when a docket-number lookup comes back empty.
+
+    Static on purpose. Telling "the corpus does not hold this number" from
+    "a filter screened it" would cost the lookup a second time on exactly the
+    path that has already paid the slow half of it, and under a replay clock
+    the distinction would say whether a docket the clock withholds exists at
+    all. So the note names every reason the lookup can come back empty, and
+    only an unclocked lookup is pointed at the open docket: a clocked one is a
+    replay cell's, which must not go looking for what the clock withholds.
+    """
+    scope = query.court if query.court is not None else "any court"
+    head = f"docket-number lookup: no row for {query.docket_number} ({scope})"
+    if query.decided_before is not None or query.decided_before_day is not None:
+        return (
+            f"{head} — the corpus holds no such number in scope, the other filters "
+            "screened it, or the replay clock does not admit it (a docket of the "
+            "clock's own Term or later is never returned)"
+        )
+    return (
+        f"{head} — the corpus holds no such number in scope, or the other filters "
+        "screened it; the CourtListener MCP server can look a docket up by number"
+    )
+
+
 def sparse_filter_coverage(
     conn: ReadConnection, query: PriorQuery, *, skip_citations: bool = False
 ) -> list[str]:
@@ -4397,7 +4869,9 @@ def sparse_filter_coverage(
     shapes. For each sparse filter the query uses, count how many rows in its
     court scope carry the column at all and render one note; empty when no
     sparse filter is in use. Callers surface the notes only on empty results,
-    so the two count queries are paid on the already-wasted path.
+    so the two count queries are paid on the already-wasted path. A
+    docket-number lookup that came back empty gets
+    :func:`docket_number_miss_note`, which counts nothing.
 
     ``skip_citations`` is for the caller that already said it: the citation
     sentinel (:func:`sparse_citation_notice`) reads the same population before
@@ -4427,6 +4901,8 @@ def sparse_filter_coverage(
             "cases-citing-this-authority graph) — an empty result here usually means "
             "missing data, not no match"
         )
+    if query.docket_number is not None:
+        notes.append(docket_number_miss_note(query))
     if query.topic is not None:
         populated, total = _scope_coverage(conn, "topic IS NOT NULL", where, params)
         notes.append(
@@ -5588,7 +6064,14 @@ def latest_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str,
     has never been snapshotted (the onboarding signal for ``pull``). Under the
     corpus-split mode the snapshots live in the content store, so the read is
     served from there (``conn`` is unused) — see :func:`_payload_read_source`.
+
+    Inside :func:`snapshots_as_of` "most recent" means most recent dated on or
+    before the bound's date, and the read is recorded on the bound.
     """
+    if (bound := _active_snapshot_bound()) is not None:
+        found = snapshot_at(conn, case_id, before=bound.as_of + timedelta(days=1))
+        bound.record(case_id, "any", found)
+        return found
     if (source := _payload_read_source()) is not None:
         return source.latest_snapshot(case_id)
     cur = conn.execute(
@@ -5648,7 +6131,14 @@ def latest_live_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict
     proceedings (the signal backfill) must skip past any newer REST snapshot a
     later ``pull`` stored, not just take the newest row. Under the corpus-split
     mode the snapshots live in the content store, so it is served from there.
+
+    Inside :func:`snapshots_as_of` "most recent" means most recent dated on or
+    before the bound's date, and the read is recorded on the bound.
     """
+    if (bound := _active_snapshot_bound()) is not None:
+        found = _live_snapshot_on_or_before(conn, case_id, bound.as_of)
+        bound.record(case_id, "live", found)
+        return found
     if (source := _payload_read_source()) is not None:
         return source.latest_live_snapshot(case_id)
     cur = conn.execute(
@@ -5661,6 +6151,105 @@ def latest_live_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict
         if "ProceedingsandOrder" in payload:
             return date.fromisoformat(record["snapshot_date"]), payload
     return None
+
+
+def _live_snapshot_on_or_before(
+    conn: ReadConnection, case_id: str, as_of: date
+) -> tuple[date, dict[str, Any]] | None:
+    """The newest live-shaped snapshot dated on or before ``as_of``, or ``None``.
+
+    Walks back through :func:`snapshot_at`, skipping each REST-shaped row the way
+    :func:`latest_live_snapshot` does, so it needs nothing of the read source
+    beyond the point-in-time read every backend already serves. That read gives
+    no date for a stored day whose body is missing, so where the unbounded
+    store reader steps past such a day this walk stops and answers ``None``:
+    the replay reads the case as unsnapshotted rather than guessing.
+    """
+    before = as_of + timedelta(days=1)
+    while (found := snapshot_at(conn, case_id, before=before)) is not None:
+        if "ProceedingsandOrder" in found[1]:
+            return found
+        before = found[0]
+    return None
+
+
+#: Which reader a recorded bounded read came through: ``any`` for
+#: :func:`latest_snapshot`, ``live`` for :func:`latest_live_snapshot`.
+SnapshotShape = Literal["any", "live"]
+
+
+class SnapshotBound:
+    """An as-of date the newest-snapshot reads are bounded by, and what they read.
+
+    The content store is not versioned with the blob: it keeps every dated
+    snapshot, so "the case's newest snapshot" answers with whatever the store
+    holds when the read runs, which can postdate the blob a plan was derived
+    from. Bounding those reads to the blob's vintage is what lets a derivation
+    over a content-addressed blob replay what the round read.
+
+    ``reads`` maps each ``(case_id, shape)`` asked to the date of the snapshot
+    that answered, or ``None`` where none was stored on or before ``as_of``.
+    """
+
+    def __init__(self, as_of: date) -> None:
+        self.as_of = as_of
+        self.reads: dict[tuple[str, SnapshotShape], date | None] = {}
+        self._lock = threading.Lock()
+
+    def record(
+        self, case_id: str, shape: SnapshotShape, found: tuple[date, dict[str, Any]] | None
+    ) -> None:
+        """Note which snapshot answered one bounded read."""
+        with self._lock:
+            self.reads[(case_id, shape)] = None if found is None else found[0]
+
+    def as_json(self) -> dict[str, Any]:
+        """The bound and its reads, sorted, in the shape a plan document carries."""
+        with self._lock:
+            reads = sorted(self.reads.items())
+        return {
+            "as_of": self.as_of.isoformat(),
+            "reads": [
+                {
+                    "case_id": case_id,
+                    "shape": shape,
+                    "snapshot_date": None if found is None else found.isoformat(),
+                }
+                for (case_id, shape), found in reads
+            ],
+        }
+
+
+_SNAPSHOT_BOUND: dict[str, SnapshotBound] = {}
+
+
+def _active_snapshot_bound() -> SnapshotBound | None:
+    """The bound :func:`snapshots_as_of` has set, or ``None`` outside one."""
+    return _SNAPSHOT_BOUND.get("bound")
+
+
+@contextmanager
+def snapshots_as_of(as_of: date) -> Iterator[SnapshotBound]:
+    """Bound :func:`latest_snapshot` and :func:`latest_live_snapshot` to ``as_of``.
+
+    Within the block each answers with the newest snapshot dated **on or before**
+    ``as_of`` rather than the newest stored, on whichever backend serves it, and
+    records what it read on the yielded :class:`SnapshotBound`. Process-wide
+    rather than per-thread, so a read a caller fans across worker threads is
+    bounded too. It is for read-only replay (``predict-plan --as-of``): a
+    writer's change detection must compare against the newest stored snapshot,
+    so no writer runs inside one. Outside a block every read is unchanged. Not
+    re-entrant — a nested bound would silently re-date its parent's reads — so a
+    second one is refused.
+    """
+    if _active_snapshot_bound() is not None:
+        raise RuntimeError("snapshots_as_of is already active; bounds do not nest")
+    bound = SnapshotBound(as_of)
+    _SNAPSHOT_BOUND["bound"] = bound
+    try:
+        yield bound
+    finally:
+        _SNAPSHOT_BOUND.pop("bound", None)
 
 
 def snapshot_count(conn: ReadConnection) -> int:

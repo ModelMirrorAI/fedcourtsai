@@ -104,7 +104,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` (`write` job only — the promotion train) | dev | contents, pull-requests | create a `promote/<date>` candidate branch at staging's tip (the one ref write; never an update, force push or deletion), open its draft PR into `main`, mark it ready, request the approvers' review, refresh the generated block of its body — and **merge it**, with a merge commit pinned to the head, using the dev App's `main: require approval` bypass. The merge runs only after the job re-reads, on the ambient token before minting, that the PR is open, ready and unchanged at the planned head, that an approver in `config/promotion-train.yaml` approved exactly that head with no change requested since, from every page of the reviews (`fedcourts promotion-train-approval`; a short or failed read is not approved), that no fan-out is in flight, and that the registry gate still passes; `main: require PR`'s required checks still bind the merge. The `plan` job before it decides and renders holding no write credential and no environment |
 | `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. Both read the open PRs into `main` and their reviews first, standing down while a promotion is about to merge, and `chain` also reads its round's collect PR. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
-| `promotion-prep` (`dispatch-gate` job) | dispatch | actions write | start `integration-test` `scenario=gate` (`offline-gate` under the `promote:skip-engine-smoke` label) at a promotion candidate's `promote/<date>` branch, only while no dispatched integration run of any title sits at that head and ref: one paid suite per candidate, never re-dispatched by the train, and at most `max_gate_dispatches_per_day` (`config/promotion-train.yaml`) a UTC day across candidates. The run resolves the `staging` environment, spends staging's engine keys with no review hold, and is side-effect free like every integration run |
+| `promotion-prep` (`dispatch-gate` job) | dispatch | actions write | start `integration-test` `scenario=gate` (`offline-gate` when `main`'s `scripts/cell_reach.py` calls the batch cell-inert or the `promote:skip-engine-smoke` label is on, never under `promote:require-engine-smoke`) at a promotion candidate's `promote/<date>` branch, only while no dispatched integration run of any title sits at that head and ref: one paid suite per candidate, never re-dispatched by the train, and at most `max_gate_dispatches_per_day` (`config/promotion-train.yaml`) a UTC day across candidates. The run resolves the `staging` environment, spends staging's engine keys with no review hold, and is side-effect free like every integration run |
 | `corpus-check` (post job only) | none — the job's own token | pull-requests write | the one result comment on the PR the plan picked, its body's sha256 recorded in the job's run summary — since any workflow's comment-capable token posts as the same bot, that digest is what marks the lane's result. The ambient token, not an App's: the comment must start nothing, and the job runs no PR code, binds no environment and holds no `id-token`. The `run` job, which runs the PR's code, holds `contents: read` and `id-token` only, and runs that code as an account that can reach neither; `run-auto`, which runs `main`'s, holds the same |
 | `sync-staging` | dev | contents, pull-requests | open the main→staging sync PR and arm auto-merge. Deliberately the dev App, not the data App: an unattended scheduled job must not hold the one identity that bypasses `main: require PR`, and it needs no `main` write at all |
 
@@ -959,8 +959,8 @@ either is missing routes every request to the approval.
 
 **`corpus-write` holds the production read-write role for the corpus
 writers alone.** Every job that assumes the read-write role binds it —
-`run-pull`'s `pull`, `live` and `enrich`, `run-seed`'s `seed` and
-`ocr-sweep`, and `run-repair`'s corpus (`repair`), `applications`,
+`run-pull`'s `pull`, `live` and `enrich`, `run-seed`'s `seed`,
+`ocr-sweep` and `opinion-record`, and `run-repair`'s corpus (`repair`), `applications`,
 `decision-record` and `opinion-record` jobs — and no other job may:
 `tests/test_workflow_corpus_write.py` holds every job naming the read-write
 role to the literal `corpus-write`, and refuses the environment to every
@@ -1566,6 +1566,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-repair` — `handoff-parse` job | none | every fetch from supremecourt.gov and every parse of what it served: no environment, no `id-token: write`, no secret, and a step asserts the AWS and OIDC variables are absent first; its only output is the dry-run ledger and, on an apply, the plan artifact |
 | `run-repair` — votes writer | none | on an apply only: re-validates the plan against the ledger and stamps `outcome.json`; no corpus, no role, no `id-token` — the data App token pushes the commit |
 | `run-seed` — `order-votes-projection`, `order-votes-parse`, `order-votes` jobs | read-only, none, none | the order-list vote sweep: the same three-job split as run-repair's `order-votes` pass on the daily window — a projection job with the read-only role (a full index `corpus-pull`, then each population case's docket number), a parse job holding no credential (no environment, no `id-token`, no secret, and the same AWS/OIDC guard), and a writer holding only the data App token, minted after the planned stamps are applied |
+| `run-seed` — `opinion-record-projection`, `opinion-record-parse`, `opinion-record` jobs | read-only, none, read-write | the opinion-record sweep: the same three-job split as run-repair's `opinion-record` pass on the daily window, over the current and previous Term — a projection job with the read-only role (the record's listing keys), a parse job holding no credential (the same AWS/OIDC guard) that reads at most the window's slice of documents, and a writer under `corpus-write` that pulls fresh, re-validates and inserts, pushes the blob, and mints the data App token only after the push |
 | `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied, `corpus-push`, then the pointer commit — no fetch, no PDF parse |
 | `run-repair` — corpus job | read-only on a dry run, read-write on an apply | a dry run pulls the index, applies the dedupe (and, for the overhang clear, the scope reconcile) to the runner's copy alone and tees the pass's ledger: no App token, no `corpus-write` lock, the remote-writes switch off, no push. An apply holds the lock, the read-write role and the App token for the whole job, re-assumed for the OCR pass. The dry run narrows what is held, not what is reachable: the job still binds `corpus-write` with `id-token: write`, so any step, the OCR and document back-fill dry runs' PDF parsing among them, can still mint the read-write role |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
@@ -1704,8 +1705,9 @@ maintainer's to confirm. With the default grant:
   staging's engine keys, and reaches `main` only through the maintainer's
   promotion review.
 - **The gate's live reads and the PR record**: it could set or remove a
-  label the gate reads at check time, such as `promote:skip-engine-smoke`,
-  and edit a pull request's body, which re-fires `ci.yml`.
+  label the gate reads at check time — add `promote:skip-engine-smoke`, or
+  remove a `promote:require-engine-smoke` that held a cell-inert batch to the
+  engine smokes — and edit a pull request's body, which re-fires `ci.yml`.
 - **Branches**: it could push to any branch no ruleset protects. A push
   that changes a workflow file needs the `workflows` permission as well,
   presumed absent from the grant; the maintainer should verify it is.
@@ -2033,7 +2035,19 @@ lane and the questions-presented re-derivation read them. Its reach as a
 prompt-injection vector is bounded by the cells' data-not-instructions
 guard and by the binding to the worklist; it is **pending the maintainer's
 acceptance**, which merging the sweep's jobs gives, with the carve-out it
-rides on. The plan is the
+rides on. run-seed's opinion-record sweep has no dry run and no bound either:
+its slice (`historical.sweep_caps.opinion_record`, 15 documents a window) and
+a row bound of twenty a document of the slice stand in for them, so a
+compromised parse could insert up to 300 invented rows each window, each
+passing the reader's own checks (roster names, consistent counts, the Court's
+own URL). The ceiling (`opinion_record_ceiling`, 200) is no control against
+such a parse, which writes the class count it is weighed on; it stops an
+honest parse whose class has widened. Those rows go to the corpus index, not git, so no diff
+review sees them, and the record is fill-only, so a forged row stays until a
+pass built to replace rows exists. Nothing a predict or evaluate cell sees
+reads the table; its readers are the analytic `merits-lineups` and
+`authorship-tally`. That residual is likewise **pending the maintainer's
+acceptance**, which merging the sweep's jobs gives. The plan is the
 Court's word only as far as the parse job can be trusted; what the split
 removes is that job's reach to any credential. The parse job's steps run as
 one user on one runner, so a parse that

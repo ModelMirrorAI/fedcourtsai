@@ -758,14 +758,51 @@ def test_forecastable_events_refuses_a_merits_event_on_a_cert_order_grant(
 def test_forecastable_events_refuses_a_merits_event_out_of_predict_scope(
     tmp_path: Path,
 ) -> None:
-    # An IFP docket serial is a documented predict-scope exclusion, and a
-    # granted IFP petition opens a merits proceeding like any other — so the
-    # scope rules, not the merits predicate, are what keep its cell out.
+    # A date-inconsistent row opens a merits proceeding like any other grant,
+    # so the scope rules, not the merits predicate, are what keep its cell out.
     db = corpus.corpus_db_path(tmp_path)
-    _granted_case(db, 14, disposition=Disposition.granted, docket_number="24-5001")
+    _granted_case(db, 14, disposition=Disposition.granted)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET date_filed = '2025-06-01', date_decided = '2025-01-01' "
+            + "WHERE case_id = 'scotus/14'"
+        )
+        conn.commit()
+        row = corpus.get_row(conn, "scotus/14")
+    assert row is not None
+    assert corpus.is_date_inconsistent(row)
 
     assert forecastable_events(db, "scotus", 14) == []
     assert open_events(db, "scotus", 14) == ["evt-order-judgment"]
+
+
+def test_forecastable_events_admits_the_merits_event_of_an_ifp_grant(tmp_path: Path) -> None:
+    # The IFP scope rule is a cert-stage funding decision and stops at the
+    # grant: a granted IFP docket's merits events are forecast like a paid
+    # grant's, while its resolved petition owes no cert cell.
+    db = corpus.corpus_db_path(tmp_path)
+    _granted_case(db, 18, disposition=Disposition.granted, docket_number="24-5001")
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_briefed_event("scotus/18")])
+
+    assert set(forecastable_events(db, "scotus", 18)) == {
+        "evt-order-judgment",
+        "evt-brief-judgment",
+    }
+
+
+def test_forecastable_events_refuses_the_merits_event_of_an_ifp_gvr(tmp_path: Path) -> None:
+    # A GVR opens no merits proceeding, so the IFP rule still holds on it.
+    db = corpus.corpus_db_path(tmp_path)
+    _granted_case(db, 19, disposition=Disposition.gvr, docket_number="24-5002")
+
+    assert forecastable_events(db, "scotus", 19) == []
+    with corpus.connect(db) as conn:
+        row = corpus.get_row(conn, "scotus/19")
+    assert row is not None
+    assert corpus.out_of_scope_reason(row) == (
+        "in-forma-pauperis petition — a documented predict-scope exclusion"
+    )
 
 
 def test_forecastable_events_refuses_a_merits_event_whose_judgment_is_latched(

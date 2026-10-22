@@ -94,6 +94,20 @@
           "title": "Granted",
           "type": "integer"
         },
+        "granted_correct": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of those, the petitions whose granted-or-not projection the entry called \u2014 the headline axis. Always-deny gets ``events_scored - granted`` right here, so the arm's headline lift **in petitions** is ``granted_correct - (events_scored - granted)``. Null on reports written before the granted-axis headline",
+          "title": "Granted Correct"
+        },
         "lift_over_always_denied": {
           "description": "`accuracy` minus this arm's own always-deny floor (`denied` over `events_scored`) \u2014 the per-petition share of ``correct - denied``",
           "maximum": 1.0,
@@ -288,7 +302,7 @@
         },
         "unreadable": {
           "default": false,
-          "description": "The cell wrote a `flags.json` that does not parse as `AgentFlags`, so what it disclosed is unknown and `flags` is empty. The cell stays scored: a formatting fault is not evidence of exposure, and an unread note may still have been one",
+          "description": "The cell wrote a `flags.json` with nothing to recover: it cannot be read, does not parse as a JSON object or list, or none of its flags survives the normalisation the cell workflows apply (an off-vocabulary severity or category is coerced and read, not unreadable). What it disclosed is unknown and `flags` is empty. The cell stays scored: a formatting fault is not evidence of exposure, and an unread note may still have been one",
           "title": "Unreadable",
           "type": "boolean"
         }
@@ -324,7 +338,7 @@
           "type": "integer"
         },
         "flags_unreadable": {
-          "description": "Of those, the cells whose `flags.json` did not parse",
+          "description": "Of those, the cells whose `flags.json` had nothing to recover (`unreadable` on the disclosure)",
           "minimum": 0,
           "title": "Flags Unreadable",
           "type": "integer"
@@ -490,14 +504,29 @@
           "type": "integer"
         },
         "granted_accuracy": {
-          "description": "Fraction whose binary granted/denied projection matched the outcome",
+          "description": "Fraction whose binary granted-or-not projection matched the outcome (a GVR is granted; a dismissal or withdrawal is not) \u2014 the headline accuracy, the target the Brier score scores",
           "maximum": 1.0,
           "minimum": 0.0,
           "title": "Granted Accuracy",
           "type": "number"
         },
+        "granted_lift_over_always_denied": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The headline: `granted_accuracy` minus always-deny's over the petitions **this entry was scored on**, which is their not-granted share \u2014 the honest signal under cert's structural denial skew, where raw accuracy is cheap, and what the board ranks by. That floor is the report's `always_not_granted_accuracy` whenever `events_scored` is the whole set, and the scored subset's own not-granted share where cells were lost. Null on reports written before the granted-axis headline, which ranked by `lift_over_always_denied`",
+          "title": "Granted Lift Over Always Denied"
+        },
         "lift_over_always_denied": {
-          "description": "Disposition accuracy minus the always-deny floor's over the petitions **this entry was scored on** \u2014 the honest signal under cert's structural denial skew, where raw accuracy is cheap. That floor is the report's `always_denied_accuracy` whenever `events_scored` is the whole set, and the scored subset's own denial rate where cells were lost",
+          "description": "Exact-disposition accuracy minus the always-deny floor's over the petitions **this entry was scored on** \u2014 a secondary reading beside the headline, which counts a dismissal or withdrawal as a miss for every forecaster, always-deny included. That floor is the report's `always_denied_accuracy` whenever `events_scored` is the whole set, and the scored subset's own denial rate where cells were lost",
           "maximum": 1.0,
           "minimum": -1.0,
           "title": "Lift Over Always Denied",
@@ -528,7 +557,7 @@
           "type": "string"
         },
         "rank": {
-          "description": "1-based standing; 1 is best. Ordered by lift over the always-deny floor, then Brier, then id \u2014 **among entries scored over the whole set**. An entry short some cells (`provenance.lost_cells`) sorts below every full one whatever its number, because lift is a per-petition mean and a lost petition the predictor would have got wrong both rescales and shifts it upward; the ordering among short entries is the same key over unequal samples, which is a listing rather than a comparison",
+          "description": "1-based standing; 1 is best. Ordered by the headline `granted_lift_over_always_denied`, then Brier, then id \u2014 **among entries scored over the whole set**. An entry short some cells (`provenance.lost_cells`) sorts below every full one whatever its number, because lift is a per-petition mean and a lost petition the predictor would have got wrong both rescales and shifts it upward; the ordering among short entries is the same key over unequal samples, which is a listing rather than a comparison",
           "minimum": 1,
           "title": "Rank",
           "type": "integer"
@@ -794,11 +823,26 @@
   "properties": {
     "always_denied_accuracy": {
       "default": 0.0,
-      "description": "The always-deny floor's disposition accuracy over this set: the denial base rate a lift figure is measured against, and exactly the one every entry that scored the whole set is measured against. An entry short some cells (`provenance.lost_cells`) is floored over its own scored subset instead, which this figure does not give",
+      "description": "The always-deny floor's exact-disposition accuracy over this set: the denial base rate the secondary `lift_over_always_denied` is measured against, and exactly the one every entry that scored the whole set is measured against. An entry short some cells (`provenance.lost_cells`) is floored over its own scored subset instead, which this figure does not give",
       "maximum": 1.0,
       "minimum": 0.0,
       "title": "Always Denied Accuracy",
       "type": "number"
+    },
+    "always_not_granted_accuracy": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The headline floor: always-deny's `granted_accuracy` over this set, its not-granted share (denied, dismissed and withdrawn) \u2014 what every entry's `granted_lift_over_always_denied` is measured against where it scored the whole set. Null on an empty set and on reports written before the granted-axis headline",
+      "title": "Always Not Granted Accuracy"
     },
     "entries": {
       "items": {

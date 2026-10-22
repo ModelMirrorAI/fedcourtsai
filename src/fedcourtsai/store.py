@@ -164,6 +164,94 @@ def open_event_ids(conn: corpus.ReadConnection, court_id: str, docket_id: int) -
     return [event.event_id for event in events if not event.resolved]
 
 
+# How many rows one docket-number lookup may return before the lowest docket id
+# is picked. A number names one docket; more than a couple of rows is a
+# duplicate history, and this only bounds the read.
+_DOCKET_NUMBER_ROWS = 50
+
+
+def resolve_docket_number(
+    conn: corpus.ReadConnection,
+    court_id: str,
+    docket_number: str,
+    *,
+    decided_before: int | None = None,
+    decided_before_day: date | None = None,
+) -> int | None:
+    """The docket id one court's docket number names, or ``None``.
+
+    Read through :func:`corpus.retrieve_priors` with a ``docket_number`` filter,
+    so the lookup is the ``query`` one — normalized spelling, open dockets and
+    the SCOTUS letter forms included — and sits under the same replay clock: a
+    docket the clock would withhold from ``query`` does not resolve here either.
+    Where the lookup returns two rows for the number, the lowest docket id among
+    them wins. That is the identity join's tie-break
+    (:func:`corpus.scotus_case_id_by_docket_number`) over the rows returned, and
+    a live hit returns no non-live duplicate (:func:`corpus.docket_number_rowids`).
+
+    ``ValueError`` (pydantic's) on a number that normalizes to nothing.
+    """
+    query = corpus.PriorQuery(
+        court=court_id,
+        docket_number=docket_number,
+        decided_before=decided_before,
+        decided_before_day=decided_before_day,
+        resolved_only=False,
+        exclude_non_cert=False,
+    )
+    rows = corpus.retrieve_priors(conn, query, limit=_DOCKET_NUMBER_ROWS)
+    dockets = [pair[1] for row in rows if (pair := _case_pair(row.case_id)) is not None]
+    return min(dockets) if dockets else None
+
+
+def open_events_for_docket_number(
+    corpus_db_path: Path,
+    court_id: str,
+    docket_number: str,
+    *,
+    backend: corpus.CorpusBackend | None = None,
+    decided_before: int | None = None,
+    decided_before_day: date | None = None,
+) -> tuple[int | None, list[str]]:
+    """:func:`open_events` keyed on a docket number: ``(docket id, open event ids)``.
+
+    The docket id is :func:`resolve_docket_number`'s, ``None`` (with no events)
+    where the number resolves to nothing under the clock given.
+    """
+    choice = corpus.resolve_backend(backend)
+    if choice == "local" and not corpus_db_path.exists():
+        return None, []
+    with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
+        return open_event_ids_for_docket_number(
+            conn,
+            court_id,
+            docket_number,
+            decided_before=decided_before,
+            decided_before_day=decided_before_day,
+        )
+
+
+def open_event_ids_for_docket_number(
+    conn: corpus.ReadConnection,
+    court_id: str,
+    docket_number: str,
+    *,
+    decided_before: int | None = None,
+    decided_before_day: date | None = None,
+) -> tuple[int | None, list[str]]:
+    """:func:`open_events_for_docket_number` over an already-open connection."""
+    docket_id = resolve_docket_number(
+        conn,
+        court_id,
+        docket_number,
+        decided_before=decided_before,
+        decided_before_day=decided_before_day,
+    )
+    if docket_id is None:
+        return None, []
+    return docket_id, open_event_ids(conn, court_id, docket_id)
+
+
 # The event kinds the forward tournament forecasts unconditionally: the
 # case-baseline disposition events. Three stage-keyed admissions sit beside
 # this set in `forecastable_event_ids` — the cert-stage CVSG order minted on a
@@ -513,19 +601,13 @@ def _merits_forecastable(
     window, and named in ``metrics/README.md`` rather than hidden here.)
 
     The scope rules narrow the forecast population *inside* the baseline's
-    rather than matching it exactly, and the gap is not small: predict scope
-    excludes IFP petitions, consolidated-out-of-scope members, and
-    date-inconsistent rows, while :func:`opens_merits_proceeding` — and so the
-    statpack merits section the baseline is pooled from — admits all of them.
-    The IFP slice alone is roughly an eighth of the committed pack's plain
-    grants, and it is the criminal/habeas end of the docket, whose disturbance
-    rate has no reason to match the paid cohort's. So the merits baseline is
-    measured over a population wider than the one forecast, which is the same
-    shape ``docs/decision-model.md`` invokes to exclude GVRs; the honest
-    resolution is a fee-class cut on the merits section, and until one lands
-    the residue is stated rather than bounded. Admitting the excluded dockets
-    instead is not the alternative — a merits cell on a docket the documented
-    predict-scope exclusion refuses is a scope decision, not a fix.
+    rather than matching it exactly: predict scope excludes
+    consolidated-out-of-scope members and date-inconsistent rows, while
+    :func:`opens_merits_proceeding` — and so the statpack merits section the
+    baseline is pooled from — admits them. IFP grants are on both sides: the
+    IFP scope rule (:func:`fedcourtsai.corpus.is_ungranted_ifp_petition`)
+    stops at the grant, so the criminal/habeas end of the docket, roughly an
+    eighth of the committed pack's plain grants, is forecast as well as pooled.
     """
     return (
         _declares_forecastable(event, Stage.merits)

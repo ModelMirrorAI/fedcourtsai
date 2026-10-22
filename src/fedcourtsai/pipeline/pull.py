@@ -221,6 +221,12 @@ class PullQueues:
     # kinds — or ``{"error": <type>}`` when the pass itself raised and was
     # skipped. Empty when the pass is disabled.
     document_freshness: dict[str, object] = field(default_factory=dict)
+    # Live-channel only: the argument-transcript pass's ledger for the run log
+    # (`live.fetch_argument_transcripts`) — transcripts listed, unmatched to a
+    # corpus case, already held, owed, stored (empty among them), unavailable
+    # upstream, failed, and deferred by the cap or the deadline — or
+    # ``{"error": <type>}`` when the pass itself raised. Empty when disabled.
+    argument_transcripts: dict[str, object] = field(default_factory=dict)
 
 
 def _in_predict_scope(
@@ -1233,6 +1239,10 @@ def _drop_disclosed(
     snapshot keeps its events: provisioning refuses that shape too, but loudly
     and by name (exit 1, no snapshot in the corpus), which a count here would
     turn silent.
+
+    "Latest" is the newest stored, which under the corpus split is the live
+    content store's newest rather than the blob's vintage; a replay bounds it
+    with :func:`~fedcourtsai.corpus.snapshots_as_of` (``predict-plan --as-of``).
     """
     snapshot = corpus.latest_snapshot(conn, case_id)
     if snapshot is None:

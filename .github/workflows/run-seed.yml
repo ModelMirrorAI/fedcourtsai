@@ -27,7 +27,8 @@ name: run-seed
 #
 # What runs here is production only: the walk, and the standing sweeps that
 # converge the corpus toward a state a window can reach on its own (the OCR
-# sweep and the order-list vote sweep each in split jobs of their own, below).
+# sweep, the order-list vote sweep and the opinion-record sweep each in split
+# jobs of their own, below).
 # The `corpus-write` group below is the run's, so the lock is held until the
 # last job ends. With the OCR sweep on every window that is, at worst, its
 # projection (30 min) and parse (50 min) beside the walk's 55, then its
@@ -1732,7 +1733,11 @@ jobs:
   # App token is minted only after the write step has exited; the commit step
   # blanks the AWS session and asserts it.
   ocr-sweep:
-    needs: [authorize, seed, ocr-sweep-projection, ocr-sweep-parse]
+    # After the opinion-record sweep's writer too: both pull, write and push
+    # the one corpus pointer, and the run-level lock does not order jobs
+    # within a run. That writer's chain is shorter than this sweep's
+    # projection and parse, so the wait adds nothing to the lock's hold.
+    needs: [authorize, seed, ocr-sweep-projection, ocr-sweep-parse, opinion-record]
     if: >-
       ${{ !cancelled() && needs.ocr-sweep-parse.outputs.plan == 'written'
       && needs.ocr-sweep-parse.outputs.plan-artifact != ''
@@ -1896,6 +1901,378 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "OCR sweep pointer"
 
+  # The opinion-record sweep: reads each opinion the Court issues into the
+  # per-opinion record (the corpus `opinions` table: kind, author, joiners,
+  # word count) within a day of its issue, rather than only when a maintainer
+  # dispatches run-repair's `opinion-record` pass. That pass is pinned to the
+  # Terms the record began with; this one reads the current and previous
+  # October Term, so the record keeps up through a Term and its last opinions
+  # survive the October roll. It is the read `fedcourts authorship-tally`
+  # stands on, which is read by no cell.
+  #
+  # The same credential split as the vote sweep above, for the same reason:
+  # the step that fetches the Court's PDFs and parses them holds no
+  # credential of any kind.
+  #
+  #   opinion-record-projection  read-only role; writes the (Term, listing
+  #                              number) of each document the record holds
+  #                              whole (public), fetching nothing
+  #   opinion-record-parse       no environment, no `id-token`, no secret;
+  #                              reads at most `historical.sweep_caps.opinion_record`
+  #                              documents, mostly newest decision first, and writes
+  #                              the plan
+  #   opinion-record             the writer: re-validates the plan whole
+  #                              against a fresh pull, inserts fill-only,
+  #                              pushes the blob, and only then mints the App
+  #                              token to commit the pointer
+  #
+  # Daily window only: the Court issues opinions on announced days, and each
+  # document costs a paced fetch from its site.
+  #
+  # Standing-sweep posture: every job is continue-on-error, so a fetch hiccup
+  # converges next window; the writer refuses only a class above
+  # `opinion_record_ceiling`, and each hand-off is a step output. The OCR
+  # sweep's writer, the other job of this run that pushes the blob after the
+  # walk, waits for this one: two at once would race on the one corpus
+  # pointer, and the run-level lock does not order jobs within a run. This
+  # chain (projection 20 min, parse 25, writer 15 after the walk's 55) ends
+  # before the OCR sweep's parse can, so the lock's worst-case hold is
+  # unchanged. The writer starts only when the parse read a document, so a
+  # converged day pulls no corpus.
+  opinion-record-projection:
+    needs: [authorize]
+    if: >-
+      ${{ (!cancelled() && (github.event_name != 'schedule' || github.event.schedule == '31 2 * * *'))
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    # Setup and the read-only corpus pull (about a gigabyte); the projection
+    # is one local query.
+    timeout-minutes: 20
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    outputs:
+      projection: ${{ steps.projection.outputs.projection }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # The projection reads the corpus pointer, which moves with every
+        # writer's commit. The repo is public, so this read-only fetch needs
+        # no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      - name: Write the recorded-documents projection
+        id: projection
+        env:
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+        run: |
+          set -euo pipefail
+          uv run fedcourts backfill-opinion-record --sweep \
+            --emit-corpus-projection "${HANDOFF_PROJECTION}"
+          echo "projection=written" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the projection
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: opinion-record-projection-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff/projection.json
+          if-no-files-found: error
+          overwrite: true
+          # Public Court identifiers only — the listing's own row keys; one
+          # day, because it exists to hand one file to the next job.
+          retention-days: 1
+
+  # The parse: every fetch from the Court's site and every parse of what it
+  # served happens here and nowhere else in the sweep. No `environment:`, no
+  # `id-token`, no App token, and the guard asserts the absence, as on the
+  # vote sweep's parse, whose residual is the same.
+  opinion-record-parse:
+    needs: [authorize, opinion-record-projection]
+    if: >-
+      ${{ !cancelled() && needs.opinion-record-projection.outputs.projection == 'written'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    # The read step's cap plus setup.
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      # Read by the writer, which downloads the plan by this id rather than by
+      # name, so no other job's upload can stand in for it.
+      plan-artifact: ${{ steps.upload-plan.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # The parse runs main's reader. The repo is public, so this read-only
+        # fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      # Neither restores nor saves the uv cache: a cache written after a parse
+      # ran would be built on a runner that parse could have altered.
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+          save-cache: "false"
+
+      - name: Assert no credential reaches the parse
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
+            echo "::error::AWS credential variables reached the parse job"
+            exit 1
+          fi
+          if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::OIDC token minting is reachable from the parse job"
+            exit 1
+          fi
+          echo "no cloud credential in the parse job"
+
+      - name: Download the projection
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: opinion-record-projection-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff
+
+      # About four seconds a document — the 1 req/s pacing plus the PDF parse —
+      # over at most the window's slice, plus the two listing pages. The
+      # handling is run-repair's `opinion-record` parse's: the readings (a JSON
+      # array on stdout) go to the step log, only the command's ledger lines
+      # reach the summary, since stderr also carries pypdf's warnings, which
+      # can quote text from a fetched PDF, and workflow commands are suspended
+      # for the run under a token nothing fetched can know.
+      - name: Read the opinions
+        id: plan
+        timeout-minutes: 15
+        env:
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
+        run: |
+          set -euo pipefail
+          ledger="${RUNNER_TEMP}/opinion-record.stderr"
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
+          uv run fedcourts backfill-opinion-record --sweep \
+            --projection "${HANDOFF_PROJECTION}" --plan-out "${HANDOFF_PLAN}" \
+            3>&1 1>&2 2>&3 3>&- | tee "$ledger" || status=$?
+          echo "::${stop_token}::"
+          grep -E '^(OT[0-9]{4}: |backfill-opinion-record)' "$ledger" \
+            >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$status" -ne 0 ]; then
+            echo "::error::backfill-opinion-record --sweep could not read the opinions (exit ${status}); the step log has its output."
+            exit "$status"
+          fi
+          # Only a document read gives the writer rows to insert: a window whose
+          # slice held only refused or skipped rows pulls no corpus.
+          read="$(jq '[.readings[] | select(.status == "read")] | length' "${HANDOFF_PLAN}")"
+          if [ "${read}" -gt 0 ]; then
+            echo "plan=written" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload the plan
+        id: upload-plan
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: opinion-record-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/handoff/plan.json
+          if-no-files-found: error
+          overwrite: true
+          # Facts read off the Court's own public documents only; one day,
+          # because it exists to hand one file to the writer.
+          retention-days: 1
+
+  # The writer. It takes the read-write role only to pull the blob fresh,
+  # insert and push; the App token that commits the pointer is minted after
+  # the push. It waits for the walk, so its pull carries the walk's commits
+  # and its push follows them.
+  opinion-record:
+    needs: [authorize, seed, opinion-record-parse]
+    if: >-
+      ${{ !cancelled() && needs.opinion-record-parse.outputs.plan == 'written'
+      && needs.opinion-record-parse.outputs.plan-artifact != ''
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    # Setup, the corpus pull (about a gigabyte), a local insert of at most the
+    # slice's rows, the blob push and the commit.
+    timeout-minutes: 15
+    environment: corpus-write
+    env:
+      # Lets this job write the remote corpus estate (see the `seed` job).
+      FEDCOURTS_REMOTE_WRITES: "true"
+    permissions:
+      contents: read
+      id-token: write # the read-write role for the fresh pull and the push
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # After the walk and the OCR sweep: the corpus pointer this job builds
+        # on moves with every writer's commit. The repo is public, so this
+        # read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      # By artifact id, from the parse job's own outputs: a job of this run
+      # that ran a parse can replace an artifact by name, but not another
+      # job's outputs, and a replaced artifact gets a new id.
+      - name: Download the plan
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.opinion-record-parse.outputs.plan-artifact }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/handoff
+
+      # The artifact was uploaded by a job that ran a parse, so what it unpacked
+      # is checked before anything reads it: exactly one regular file, the plan,
+      # and nothing in the checkout changed.
+      - name: Check the downloaded plan
+        run: |
+          set -euo pipefail
+          found="$(find "${RUNNER_TEMP}/handoff" -mindepth 1 -printf '%y %P\n')"
+          if [ "${found}" != "f plan.json" ]; then
+            echo "::error::the plan artifact holds something other than one plan.json file"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the plan artifact changed the checkout"
+            exit 1
+          fi
+
+      # Same read-write (append-only) role as the walk's.
+      - name: Configure AWS credentials (corpus S3 remote, read-write)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-duration-seconds: 3600 # 1h
+          # Bounded for the corpus job's reason (the workflow-traps list in
+          # docs/pipeline.md).
+          action-timeout-s: 120
+
+      # The blob the insert builds on, pulled inside the lock.
+      - name: Pull the current corpus from the remote
+        env:
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts corpus-pull
+
+      # Re-validate the plan whole, refuse a slice it could not honestly hold
+      # or a class above the ceiling, resolve each case id from this corpus,
+      # insert fill-only and push the blob. No GitHub write credential exists
+      # yet.
+      - name: Insert the planned opinion record
+        timeout-minutes: 15
+        env:
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
+        run: |
+          set -euo pipefail
+          # The command prints the plan's readings — text read off fetched
+          # PDFs — so the parse step's handling holds here too. That suspends
+          # the command's own annotations (a ceiling refusal's among them), so
+          # a failure is announced after the resume.
+          ledger="${RUNNER_TEMP}/opinion-record.stderr"
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
+          uv run fedcourts backfill-opinion-record --sweep \
+            --from-plan "${HANDOFF_PLAN}" --apply \
+            3>&1 1>&2 2>&3 3>&- | tee "$ledger" || status=$?
+          echo "::${stop_token}::"
+          grep -E '^(OT[0-9]{4}: |backfill-opinion-record|sweep ledger|::error::backfill-opinion-record)' "$ledger" \
+            >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$status" -ne 0 ]; then
+            echo "::error::backfill-opinion-record --sweep wrote nothing (exit ${status}): a refused plan or a class above opinion_record_ceiling — the run summary has the ledger line and the reason."
+            exit "$status"
+          fi
+          # Blob before pointer commit, as everywhere: readers resolve the
+          # committed pointer, so a push without its commit publishes nothing.
+          uv run fedcourts corpus-push
+
+      - name: Mint app token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DATA_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DATA_APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - name: Configure git identity
+        uses: ./.github/actions/configure-git-identity
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          app-slug: ${{ steps.app-token.outputs.app-slug }}
+
+      # The pointer alone: the sweep writes no `data/` path. The step holding
+      # the App token needs no AWS session, so the read-write session's
+      # variables are blanked and the step asserts it before it runs.
+      - name: Commit the opinion-record pointer
+        env:
+          AWS_ACCESS_KEY_ID: ""
+          AWS_SECRET_ACCESS_KEY: ""
+          AWS_SESSION_TOKEN: ""
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          if env | grep -E '^AWS_' | grep -E '=.+' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
+            echo "::error::AWS credential variables reached the opinion-record sweep commit"
+            exit 1
+          fi
+          gh auth setup-git # persist-credentials is false on checkout
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Every listed opinion already recorded, refused or skipped; nothing to persist."
+            exit 0
+          fi
+          git commit -m "seed: record issued opinions (opinion-record sweep)"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "opinion-record sweep pointer"
+
   # Safety net for the walker. Its own summary step cannot run when the job is
   # cancelled — the hard timeout-minutes kill, an OOM, or a setup step that hangs
   # until the budget is gone — so a cancelled or failed run would otherwise pass
@@ -2015,6 +2392,9 @@ jobs:
       - ocr-sweep-projection
       - ocr-sweep-parse
       - ocr-sweep
+      - opinion-record-projection
+      - opinion-record-parse
+      - opinion-record
       - guard
     if: always()
     runs-on: ubuntu-24.04

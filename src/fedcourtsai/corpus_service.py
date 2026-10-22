@@ -51,12 +51,13 @@ import sqlite3
 import time
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager
+from datetime import date
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Literal, cast
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from . import corpus, corpus_ranged, store
 
@@ -137,22 +138,64 @@ class QueryResponse(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+#: Why ``open-events`` refuses a replay clock: it lists a docket's current open
+#: events, which no clock masks, so a clocked caller reads the docket's masked
+#: row through ``query --docket-number`` instead.
+OPEN_EVENTS_CLOCK_REFUSAL = (
+    "open-events lists a docket's current events, which the replay clock cannot "
+    + "mask; under a clock, read the docket's masked row with "
+    + "`query --docket-number` instead"
+)
+
+
 class OpenEventsRequest(BaseModel):
-    """One forwarded ``fedcourts open-events`` invocation."""
+    """One forwarded ``fedcourts open-events`` invocation.
+
+    The case is named by exactly one of ``docket`` (the CourtListener id) and
+    ``docket_number``. The clock fields are named so that a clocked request is
+    refused with the reason (:data:`OPEN_EVENTS_CLOCK_REFUSAL`) rather than as
+    an unknown field: the events listed are the docket's current state, which
+    no clock masks.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal["1.0"]
     court: str
-    docket: int
+    docket: int | None = None
+    docket_number: str | None = Field(default=None, max_length=64)
+    decided_before: int | None = None
+    decided_before_day: date | None = None
+
+    @model_validator(mode="after")
+    def _one_key(self) -> OpenEventsRequest:
+        if (self.docket is None) == (self.docket_number is None):
+            raise ValueError("name the case by exactly one of docket and docket_number")
+        clocked = self.decided_before is not None or self.decided_before_day is not None
+        if clocked:
+            # The listed events are the docket's current state, which no clock
+            # masks; a clocked caller reads the masked row through `query`.
+            raise ValueError(OPEN_EVENTS_CLOCK_REFUSAL)
+        if (
+            self.docket_number is not None
+            and corpus.normalize_docket_number(self.docket_number) is None
+        ):
+            raise ValueError(f"docket_number {self.docket_number!r} names no docket number")
+        return self
 
 
 class OpenEventsResponse(BaseModel):
-    """A case's unresolved (predictable) event ids."""
+    """A case's unresolved (predictable) event ids.
+
+    ``docket`` is the docket id the request resolved to: the request's own on a
+    ``docket`` request, the lookup's on a ``docket_number`` one, and ``None``
+    when the number resolved to nothing (``event_ids`` is then empty).
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal["1.0"]
+    docket: int | None = None
     event_ids: list[str]
     reads: ReadCounters | None
 
@@ -250,9 +293,21 @@ class CorpusService:
 
     def open_events(self, request: OpenEventsRequest) -> OpenEventsResponse:
         conn, before = self._baseline()
-        event_ids = store.open_event_ids(conn, request.court, request.docket)
+        if request.docket is not None:
+            docket: int | None = request.docket
+            event_ids = store.open_event_ids(conn, request.court, request.docket)
+        else:
+            assert request.docket_number is not None  # the request model admits one key
+            docket, event_ids = store.open_event_ids_for_docket_number(
+                conn,
+                request.court,
+                request.docket_number,
+                decided_before=request.decided_before,
+                decided_before_day=request.decided_before_day,
+            )
         return OpenEventsResponse(
             schema_version=SCHEMA_VERSION,
+            docket=docket,
             event_ids=event_ids,
             reads=self._counters_since(conn, before),
         )
@@ -481,9 +536,27 @@ def client_query(
     return QueryResponse.model_validate_json(_post(base_url, "/v1/query", request).content)
 
 
-def client_open_events(base_url: str, court: str, docket: int) -> OpenEventsResponse:
+def client_open_events(
+    base_url: str,
+    court: str,
+    docket: int | None = None,
+    *,
+    docket_number: str | None = None,
+    decided_before: int | None = None,
+    decided_before_day: date | None = None,
+) -> OpenEventsResponse:
     """Forward one ``open-events`` invocation; raises :class:`CorpusServiceError`."""
-    request = OpenEventsRequest(schema_version=SCHEMA_VERSION, court=court, docket=docket)
+    try:
+        request = OpenEventsRequest(
+            schema_version=SCHEMA_VERSION,
+            court=court,
+            docket=docket,
+            docket_number=docket_number,
+            decided_before=decided_before,
+            decided_before_day=decided_before_day,
+        )
+    except ValidationError as exc:
+        raise CorpusServiceError(f"invalid corpus service request: {exc}") from exc
     return OpenEventsResponse.model_validate_json(
         _post(base_url, "/v1/open-events", request).content
     )

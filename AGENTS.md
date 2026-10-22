@@ -122,7 +122,9 @@ non-interactive** container. Two consequences shape everything you do:
   `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
   which of the gate's checks a change gets: `scripts/gate.sh`,
   `scripts/ci_lane.py`, `tests/test_ci_lane.py`, `tests/lane_guard.py` and its
-  registration in `tests/conftest.py`, and the ruleset and environment checks
+  registration in `tests/conftest.py`, the cell-reach classifier that decides
+  whether a promotion owes the engine smokes, `scripts/cell_reach.py` and
+  `tests/test_cell_reach.py`, and the ruleset and environment checks
   its admin-read stage runs, `src/fedcourtsai/ruleset_checks.py`,
   `src/fedcourtsai/environment_checks.py`, with the verdict on when that stage
   is due, `src/fedcourtsai/contexts_due.py`, and their tests; and the process
@@ -428,6 +430,16 @@ same PR.
   corpus and answers a question); permissions are scoped per *job*, so a task
   earns its own workflow only for a different trigger class or risk class.
   See `docs/pipeline.md`.
+- **The public site reads this repository.** fedcourts.ai
+  (`ModelMirrorAI/fedcourts.ai`) builds daily from `main` and fails closed:
+  it reads `metrics/*.json`, `metrics/updates/*.md`,
+  `data/qp-topics/qp-topics.json`, the `event.yaml`, `outcome.json`,
+  `prediction.json` and `evaluation.json` records and the case summaries under
+  `data/cases/`, the release manifest `docs/releases.json`, and each release
+  document at its tag. A change to the shape of any of these needs a matching
+  PR on the site repository, opened alongside it and linked from both
+  descriptions; otherwise the site keeps its last good deploy until the site
+  is fixed.
 - **Docs and code describe the current design, not its history.** No issue
   numbers, no changelog, no "we used to / now we" — on *every committed
   surface*: docs, docstrings, code/workflow/config comments, and prose that
@@ -467,7 +479,8 @@ same PR.
   The re-run refusal has a standing consequence, because some required checks
   read live state at check time rather than from the event payload — the
   promotion gate reads quiescence, integration-run freshness, and the
-  `promote:skip-engine-smoke` label that way. To make such a check re-read
+  `promote:skip-engine-smoke` and `promote:require-engine-smoke` labels that
+  way. To make such a check re-read
   without a re-run, **edit the pull request body**: ci.yml's `pull_request`
   trigger lists `edited`, so a body edit re-fires the workflow. Prefer it to an
   empty commit, which moves the branch head and so invalidates every
@@ -537,4 +550,5 @@ task-specific instructions: the prompt file named in your run
 | How do I test this, and what does CI run? | `docs/testing.md` |
 | What does a run cost, and where is the project headed? | `docs/budget.md`, `docs/milestones.md` |
 | What must the long-conference release write-up state, and what produces each number? (filled from the metrics refresh and its export, each figure beside the command that produced it; awaits the `results/ot2026-longconf` tag) | `docs/release-ot2026-long-conference.md` |
+| What must the end-of-Term release state about the merits docket, and what produces each number? (a skeleton written before any merits outcome; its unbuilt evidence is marked owed in place) | `docs/release-ot2026-merits.md` |
 | What does the release's public page show, and from where is each figure copied? (a template committed before the conference, now filled from the audit write-up and the export; awaits the `results/ot2026-longconf` tag) | `docs/release-ot2026-public-summary.md` |

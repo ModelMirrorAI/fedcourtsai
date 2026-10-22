@@ -20,6 +20,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from fedcourtsai import corpus, corpus_ranged, corpus_service
 from fedcourtsai.fixture import build_fixture_corpus
@@ -462,3 +463,77 @@ def test_a_client_timeout_names_the_slow_read_not_a_dead_sidecar(
         corpus_service.client_query(
             "http://127.0.0.1:1", corpus.PriorQuery(court="ca9"), limit=5, full=False
         )
+
+
+def test_docket_number_lookup_round_trip_matches_direct_read(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    q = corpus.PriorQuery(
+        court="scotus", docket_number="No. 24-12", resolved_only=False, exclude_non_cert=False
+    )
+    assert q.docket_number == "24-12"  # held in its normal form, so the wire carries that
+    with _running_server(fixture_corpus.db_path) as url:
+        response = corpus_service.client_query(url, q, limit=5, full=False)
+    with corpus.connect_readonly(fixture_corpus.db_path, backend="local") as conn:
+        direct = [corpus.prior_payload(row) for row in corpus.retrieve_priors(conn, q, limit=5)]
+    assert [r["case_id"] for r in direct] == ["scotus/305"]
+    assert [json.dumps(r, sort_keys=True) for r in response.rows] == [
+        json.dumps(r, sort_keys=True) for r in direct
+    ]
+
+
+def test_docket_number_miss_through_the_service_carries_a_note(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    q = corpus.PriorQuery(court="scotus", docket_number="25-9999", resolved_only=False)
+    with _running_server(fixture_corpus.db_path) as url:
+        response = corpus_service.client_query(url, q, limit=5, full=False)
+    assert response.rows == []
+    assert any("docket-number lookup: no row for 25-9999" in note for note in response.notes)
+
+
+def test_open_events_by_docket_number_round_trip(fixture_corpus: FixtureCorpus) -> None:
+    with _running_server(fixture_corpus.db_path) as url:
+        by_id = corpus_service.client_open_events(url, "scotus", 305)
+        by_number = corpus_service.client_open_events(url, "scotus", docket_number="24-12")
+        with pytest.raises(corpus_service.CorpusServiceError, match="cannot mask"):
+            corpus_service.client_open_events(
+                url, "scotus", docket_number="24-12", decided_before=2000
+            )
+    assert by_id.docket == by_number.docket == 305
+    assert by_number.event_ids == by_id.event_ids and by_id.event_ids
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {},
+        {"docket": 305, "docket_number": "24-12"},
+        {"docket": 305, "decided_before": 2024},
+        {"docket_number": "24-12", "decided_before": 2024},
+        {"docket_number": "   "},
+        {"docket_number": "2" * 65},
+    ],
+)
+def test_open_events_request_needs_one_case_key(fields: dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        corpus_service.OpenEventsRequest.model_validate(
+            {"schema_version": "1.0", "court": "scotus", **fields}
+        )
+
+
+def test_docket_number_lookup_over_the_ranged_backend(tmp_path: Path) -> None:
+    """The ranged connection registers no SQL functions, so the lookup must not
+    lean on one: the normalization runs in Python on both reads."""
+    pointer, transport = _ranged_conn(tmp_path)
+    with corpus_ranged.connect_ranged(pointer, REMOTE_URL, transport=transport) as conn:
+        live = corpus.retrieve_priors(
+            conn,
+            corpus.PriorQuery(court="scotus", docket_number="24-12", resolved_only=False),
+            limit=5,
+        )
+        walked = corpus.retrieve_priors(
+            conn, corpus.PriorQuery(court="ca1", docket_number="23-1380"), limit=5
+        )
+    assert [row.case_id for row in live] == ["scotus/305"]
+    assert [row.case_id for row in walked] == ["ca1/201"]

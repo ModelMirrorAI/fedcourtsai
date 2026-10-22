@@ -251,7 +251,9 @@ discretionary-cert docket and off everything that does not fit it:
 
 - **Pro se / in-forma-pauperis petitions** — a deliberate choice to spend the
   fundable slice on the paid cert docket (IFP grants are rare but real, so this is
-  a recorded decision, not a claim they never matter).
+  a recorded decision, not a claim they never matter). The exclusion stops at a
+  grant that opens a merits proceeding: a granted IFP case's merits events are
+  forecast like a paid grant's.
 - **Non-cert docket forms** — original-jurisdiction and miscellaneous matters,
   which resolve as merits rulings or procedural leave rather than a cert
   grant/deny, and the non-substantive slice of the application docket (time

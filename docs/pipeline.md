@@ -147,7 +147,7 @@ idempotent on. Its own issue for the same reason the daily digest gets one: a
 digest is a thing to read and close, so the open issues under the label are the
 unread backlog.
 
-Four blocks, in the order a reader needs them:
+Five blocks, in the order a reader needs them:
 
 - **Produced this week** — cells landed by role and stage, how many events they
   covered, and the week's measured spend, all over one window and one set of
@@ -173,13 +173,36 @@ Four blocks, in the order a reader needs them:
   again, so the Term is the period it is worth reading beside. A frozen scope
   with nothing scored in either stratum is named as the shakedown state rather
   than shown as a bare zero.
-- **Backtest results** — the historical replay **per court**, with each court's
+- **Forward performance** — the scored forward record, off the committed
+  `metrics/leaderboard.json` with its vintage. The rows are the ranked cert
+  board's **paired** figure — every engine over the same events, which is what
+  its ranks are read off — never an entry's own forward stratum, which spans
+  events no other engine shares; a predictor outside the paired events is named
+  as unranked. The block states the paired event count and the realized
+  grant-family outcomes among them; per predictor, accuracy per event against
+  the always-deny floor over the same events, the lift in points and in events
+  (at a handful of realized grants one call moves it by whole points), and,
+  grading-weighted, the mean Brier and the Brier skill against the
+  strictly-prior segment base rate beside its grading count — the figure to
+  read. Under the table, the gradings the build dropped for suspected leakage
+  (by predictor) or set aside as not shown to be forward, counted across every
+  stage and so not subtractable from the cert figures. It leads the scored
+  blocks because it is the program's output; the back-tests after it are
+  iteration instruments.
+- **Backtest results** — the historical replay **per court**, with each row's
   own always-deny floor beside its accuracy and the pooled row labelled as the
   mixture it is (`granted` means cert on a SCOTUS row and a motion granted on a
-  court-of-appeals docket, and the pooled floor mixes an ~80% one with near-zero
+  court-of-appeals docket, and the pooled floor mixes a high one with near-zero
   ones, so a pooled lift can be bought entirely on a docket this pipeline never
-  predicts); the salience-gate replay with the scorer version that produced
-  it named (a per-band figure means something only under the function that
+  predicts). The SCOTUS row is printed by docket class — cert petitions,
+  applications, other dockets — because one SCOTUS slice mixes the same two
+  vocabularies: an application's `granted` is the relief asked, applications
+  are mostly granted while cert petitions are mostly denied, and an application
+  back-fill would otherwise move the floor with nothing about a predictor
+  changed. The cert row is the floor over every modern cert petition, IFP
+  included; the salience-gated population the cert stage predicts is the cert
+  back-test's. Then the salience-gate replay with the scorer version that
+  produced it named (a per-band figure means something only under the function that
   assigned the band, so an older version's numbers are history rather than a
   current reading); and the cert back-test, which says plainly that **no report
   has landed** where none has — `metrics/cert-backtest.json` is not regenerated
@@ -850,6 +873,31 @@ which with this sweep is at worst about 115 minutes: the projection (30) and
 parse (50) beside the walk (55), then the writer (30). A window that fires in
 that time waits in the group.
 
+The daily window runs a third split sweep: the **opinion-record sweep**
+(`fedcourts backfill-opinion-record --sweep`), run-repair's `opinion-record`
+pass on a schedule over the current and previous October Term, so each opinion
+the Court issues reaches the per-opinion record within a day, rather than only
+when a maintainer dispatches the pass, which is pinned to the Terms the record
+began with. `opinion-record-projection` holds the read-only role and writes the
+listing keys the record holds whole. `opinion-record-parse` holds no credential,
+reads both Terms' listings and at most `historical.sweep_caps.opinion_record`
+fetched documents (two thirds newest decision first, the last third rotated
+through the older rows a window at a time), deferring the rest to the next
+window; a volume-linked row is skipped unfetched and costs no slot.
+`opinion-record` starts only when the parse read a document, waits for the
+walk, then re-validates the plan against a fresh pull, refuses a plan above the
+slice, above twenty rows a document of it, or with a class above
+`opinion_record_ceiling`, inserts fill-only, pushes the blob and only then
+mints the App token for the pointer commit. `ocr-sweep` waits for it, since
+both push the one corpus pointer and the run's lock orders no jobs within the
+run; its chain ends before the OCR sweep's parse can, so the lock's worst-case
+hold is unchanged. A row the reader refuses stays unrecorded and is offered
+again each window, so the class never falls below the count of such rows; the
+newest-first share keeps one from holding back a later decision, and the
+rotated share keeps a run of them from holding back an older one.
+Each job reads the Terms off its own day, so a run straddling midnight UTC on
+30 September refuses its plan and the next window converges.
+
 Two further writer steps sit **ahead of the loop** on a dispatch-only footing —
 the `refresh_terms` cursor reset and the `refresh_dockets` targeted re-serve —
 where they precede the walk they change. With `refresh_streams` beside them,
@@ -952,9 +1000,9 @@ half of the case a forecast is least able to guess. The one shape left out is a
 multi-respondent opposition, stored as a single row whose URL is the canonical
 join of every brief fetched into it — a set key, not a link to re-fetch. Its
 per-brief headings are themselves text, so such a row is not empty by the
-coverage report's test either: it reads as covered while carrying no argument,
-and neither surface sizes it. It is the only pass here that installs a
-binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
+coverage report's per-kind test either: it reads as covered there while
+carrying no argument, so the report sizes it on a line of its own. It is the
+only pass here that installs a binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
 from the runner image's own archive), and one of the two whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
 page-by-page recognition, and runner minutes are the whole cost. That makes the
@@ -1849,36 +1897,57 @@ The mechanics:
   whole-suite acceptance the skip unlocks is decided before the required set is
   read, so keeping one family required while accepting an `offline-gate` run —
   which ran neither — would satisfy that requirement without exercising it.
-  Unsound, not stricter. Whether that evidence
-  is worth its tokens for a given batch is the maintainer's risk call; the
-  default at every gate surface is the full required set — what a dispatch
-  costs by default changes nothing about what the gate asks for — and a batch
-  that cannot affect a cell — docs, analytics, non-cell code — is the clear
-  case for waiving. The other case is scoped to a *delta* rather than a batch:
-  a head that moved after a green `gate` run, where what the move added cannot
-  reach a cell (*When the head moves after a green `gate`* in the operator's
-  path below).
-  It takes **two separate acts**, because a pre-flight and a merge are
-  different decisions:
+  Unsound, not stricter. What dispatching costs by default changes nothing
+  about what the gate asks for: every gate surface starts from the full
+  required set, and only the three acts below narrow it.
+  - **A batch that cannot reach a cell waives itself.** ci.yml's
+    `promotion-gate` job — the required check — classifies the batch, the
+    three-dot diff of the head over `main`, with `main`'s copy of
+    `scripts/cell_reach.py`, never the batch's own. The verdict is *inert*
+    only when every changed path is on its allow-list of paths no cell runs:
+    prose (the docs lane's), `data/`, `metrics/`, `tests/`, the gate and lane
+    scripts, the configs of the train and the corpus-check lane, and the
+    `src/` modules no cell path imports — the promotion gate
+    and train, the settings checks, the metrics and public-update writers and
+    the predict chain's dispatch decision (a test pins that nothing in the
+    package but `cli.py` and the other listed modules imports one, and that no
+    script or workflow names one; the cell workflows' own commands reach
+    none). Everything else is *engine*: the
+    workflows, composites and pinned engine CLIs under `.github/`, the
+    prompts, `config/predictors.yaml` and `config/evaluators.yaml`,
+    `pyproject.toml` and `uv.lock`, the schemas, every other `src/` module
+    (`pricing.py`'s default models, provisioning, retrieval, the MCP code,
+    the round planners' spend arithmetic and `cli.py` among them), every other script, any agent instruction or config
+    path at any depth, and any path new to the tree. So does every doubt — an
+    empty diff, a symlink, a diff git cannot compute, a `main` with no
+    classifier. An inert verdict drops the six for that batch, and the
+    promotion train dispatches `offline-gate` for it rather than `gate`.
+  - the **`promote:skip-engine-smoke` label** on the promotion PR drops them
+    from the required check for that batch whatever the classifier says —
+    the maintainer's risk call on a batch the allow-list does not cover, such
+    as a head that moved after a green `gate` run where what the move added
+    cannot reach a cell (*When the head moves after a green `gate`* in the
+    operator's path below). The **`promote:require-engine-smoke` label**
+    demands them whatever the classifier says, and wins over the skip label
+    too. `main`'s ruleset still has no bypass for the check itself (the data
+    App's deterministic writers are its only bypass actor), so the labels and
+    `main`'s classifier are the whole of the discretion: every other gate
+    stays strict, and only a promotion changes what the classifier waives.
   - `promote`'s **`skip_engine_smoke` input** drops all six from that
     dispatch's freshness check and accepts a token-free `scenario=offline-gate`
     run as whole-suite evidence. It buys a cheap answer to *is anything else
     missing* before paying for them, and decides nothing about the merge.
-  - the **`promote:skip-engine-smoke` label** on the promotion PR drops them
-    from ci.yml's `promotion-gate` job — the required check — for that batch
-    only. `main`'s ruleset still has no bypass for the check itself (the data
-    App's deterministic writers are its only bypass actor), so the label is
-    the whole of the discretion: every other gate stays strict, and the next
-    promotion starts strict again.
 
-  The label is read from the API when the check runs, not from the event
+  The labels are read from the API when the check runs, not from the event
   payload, so the documented practice — re-run `promotion-gate` immediately
-  before merging — picks it up without `labeled`/`unlabeled` on ci.yml's
-  trigger, which would re-run the whole suite on every label edit to every PR.
-  A waived run says so three ways: the gate script names the dropped entries
-  in its log, and the check annotates the PR and writes what was traded away
-  into its run summary — so a batch that merged without real-engine evidence
-  is legible as such from the promotion's own record.
+  before merging — picks them up without `labeled`/`unlabeled` on ci.yml's
+  trigger, which would re-run the whole suite on every label edit to every PR;
+  a label read that fails leaves the check strict, since it could hide the
+  require label. A waived run says so three ways: the gate script names the
+  dropped entries in its log, and the check annotates the PR and writes why
+  it waived — the label, or the classifier's verdict — and what was traded
+  away into its run summary, so a batch that merged without real-engine
+  evidence is legible as such from the promotion's own record.
 - **The promotion train.** `promotion-prep` runs on the maintainer's
   dispatch, which alone cuts, and hourly (:26), and takes one step per tick, decided by the tested `fedcourts
   promotion-train-step` (`src/fedcourtsai/promotion_train.py`), from a
@@ -1903,8 +1972,8 @@ The mechanics:
   | step | when | does |
   | --- | --- | --- |
   | cut | the tick is a dispatch; no promotion PR open; staging holds `main`'s last promotion merge, and since their merge-base `main` changed nothing outside the writer lanes' paths (`data/`, `metrics/`, the corpus pointer) — so staging is synced with every promotion and its record — while staging changed something; no `promote/` branch already sits at staging's tip | create the branch at the tip (dev App) and open a **draft** PR into `main`, the batch in its body |
-  | dispatch the gate | no dispatched integration run of any title at the head and ref yet (queued, running or concluded), the registry gate passes, and the train is under its daily dispatch cap | `integration-test` `scenario=gate` at the branch — `offline-gate` under the `promote:skip-engine-smoke` label — (dispatch App), **once per head** |
-  | mark ready | green evidence at the head: the `gate` run succeeded (under the label, an `offline-gate` run), or the promotion gate's freshness stage passes there — per-scenario runs a maintainer dispatched count | mark the PR ready, request the approvers' review, refresh the body — the edit re-fires `promotion-gate` |
+  | dispatch the gate | no dispatched integration run of any title at the head and ref yet (queued, running or concluded), the registry gate passes, and the train is under its daily dispatch cap | `integration-test` `scenario=gate` at the branch — `offline-gate` when `main`'s classifier calls the batch cell-inert or the `promote:skip-engine-smoke` label is on, never under `promote:require-engine-smoke` (*The engine-smoke skip* above) — (dispatch App), **once per head** |
+  | mark ready | green evidence at the head: the `gate` run succeeded (with the smokes waived, an `offline-gate` run), or the promotion gate's freshness stage passes there — per-scenario runs a maintainer dispatched count | mark the PR ready, request the approvers' review, refresh the body — the edit re-fires `promotion-gate` |
   | re-fire | approved, quiescent, registry clean, freshness passing, every other required check green, `promotion-gate` red or missing — at most three times after the approval, then report | refresh the body, which re-runs `promotion-gate` |
   | merge | an approver in `config/promotion-train.yaml` approved **exactly this head**, no change requested since (every page of the reviews), GitHub reports the PR mergeable, every required check green, the registry gate clean and no fan-out in flight, read live | merge with a **merge commit**, pinned to the head (dev App), after re-reading the PR, the reviews, quiescence and the registry just before the call |
   | wait / report | anything else: the gate running, checks pending, mergeability not yet computed, a fan-out in flight, approval pending; or a human must act — the gate failed, an integration run the train does not recognise sits at the head, the candidate conflicts with `main`, changes requested, the registry refuses, the daily cap is reached | refresh the body's status line |
@@ -1978,15 +2047,20 @@ The full path of a change, operator's view:
    merge.
 3. Read the candidate PR: the batch, its stated effect checks, the gate's
    stages. Approve it to promote; request changes or close it to stop. The
-   train dispatches its suite at the first tick after the cut, so the
-   `promote:skip-engine-smoke` label (*The engine-smoke skip* above) does two
-   different things depending on when it lands. On the draft before that
-   tick — the cut's tick opens it, the next one dispatches — it makes the
-   train dispatch the token-free `offline-gate` instead of the paid `gate`.
-   After a paid `gate` failed for an engine-side reason on a cell-inert batch,
-   it lets you dispatch `offline-gate` at the candidate yourself (`gh workflow
-   run integration-test.yml --ref promote/<date> -f scenario=offline-gate`);
-   the train and the required check both accept that run under the label.
+   train picks the suite itself at the first tick after the cut: the
+   token-free `offline-gate` for a batch `main`'s classifier calls
+   cell-inert, the paid `gate` otherwise (the dispatch's line in the body
+   says which, and why). The labels (*The engine-smoke skip* above) do two
+   different things depending on when they land. On the draft before that
+   tick — the cut's tick opens it, the next one dispatches —
+   `promote:skip-engine-smoke` makes the train dispatch `offline-gate` for a
+   batch the classifier calls engine-relevant, and
+   `promote:require-engine-smoke` makes it dispatch `gate` for one it calls
+   inert. After a paid `gate` failed for an engine-side reason on a batch you
+   judge cell-inert, the skip label lets you dispatch `offline-gate` at the
+   candidate yourself (`gh workflow run integration-test.yml --ref
+   promote/<date> -f scenario=offline-gate`); the train and the required
+   check both accept that run under the label.
 4. The train merges at the next tick on which everything holds (or merge it
    yourself, with a merge commit). Its body says what it waits for.
 
@@ -2011,11 +2085,12 @@ The full path of a change, operator's view:
    candidate's head never moves). The gate's rule is
    mechanical and does not read the delta: the green `gate` run sits at the
    old sha, so at the new one nothing satisfies the twelve, and the choice is
-   to re-dispatch `gate` or to dispatch `offline-gate` at the new head and take
-   the skip's **two acts** — `promote -f skip_engine_smoke=true` for the
-   pre-flight, the `promote:skip-engine-smoke` label on the promotion PR for
-   the required check — which is the gate's only path to accepting a
-   token-free whole-suite run. The second course is
+   to re-dispatch `gate` or to dispatch `offline-gate` at the new head. Where
+   the whole batch is cell-inert the required check accepts the second on
+   the classifier's verdict alone; otherwise it takes the skip's **two acts**
+   — `promote -f skip_engine_smoke=true` for the pre-flight, the
+   `promote:skip-engine-smoke` label on the promotion PR for the required
+   check. The second course is
    a risk call, not a shortcut, and it is the maintainer's to make on the
    delta the head move introduced: where that delta cannot reach a cell — a
    data commit the sync brought over, docs, analytics — the engine evidence
@@ -2707,7 +2782,7 @@ the stored snapshot. A second is the **arrival anchor**: an
 interim arrival cell whose opening entry cannot be located in its snapshot exits
 4, since the moment's information set cannot be identified and cutting at the
 date instead would restore the conditioning that bound replaces. A third is a
-**trigger absent**: a `cvsg`, `response-requested` or `response-filed` cell whose
+**trigger absent**: a `cvsg`, interim `response-requested` or `response-filed` cell whose
 trigger entry no stored payload carries exits 5, since a cell placed before its
 own trigger is forecast from the previous moment under this one's name. A later
 round owes it again once a pull stores the entry; unlike a pre-mint refusal it

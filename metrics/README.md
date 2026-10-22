@@ -386,6 +386,17 @@ stays outside the gate:
   learn. There is nothing there to retrieve on. What it still measures on SCOTUS
   is calibration: P(granted) and the Brier score.
 
+  **SCOTUS is also cut by docket class** (`docket_classes`): `cert` (the
+  Term-prefixed petition form the cert stage predicts), `application` (an
+  interim application in any spelling) and `other` (original, miscellaneous,
+  pre-1925 or unparseable numbers), read off the docket number. The court row mixes them,
+  and the mix is not stable: cert petitions are overwhelmingly denied while
+  applications are mostly granted — an application's `granted` is the relief
+  asked, not cert — so an application back-fill moves the court row's floor
+  with nothing about any predictor changed. The `cert` row is the floor over
+  every modern cert petition, IFP included; the floor over the salience-gated
+  population the cert stage predicts is `cert-backtest.json`'s.
+
   **Read the per-court cut, not the pooled row.** The pooled figure is dominated by
   whichever court supplies the most resolved events, and that court's floor may be
   near zero, so a pooled lift can average away a severe failure on the population
@@ -1738,9 +1749,10 @@ there is no baseline,
 no skill score, and no substitute rate. Three things travel with any merits
 figure. The baseline's population is the section's population is the scored
 population — up to predict scope: the section admits every grant that opens
-a merits proceeding while the forecast side further excludes IFP,
-consolidated-out-of-scope, and date-inconsistent rows, a small residue now
-that the guard removes the (mostly IFP) stale-labeled vacaturs. The two
+a merits proceeding while the forecast side further excludes
+consolidated-out-of-scope and date-inconsistent rows, a small residue now
+that the guard removes the (mostly IFP) stale-labeled vacaturs. IFP grants are
+on both sides: the Tier-0 IFP rule stops at the grant. The two
 procedural
 exits count as undisturbed (a DIG and an equally divided affirmance leave
 the judgment below standing) exactly as the outcome writer scores them, and
@@ -1837,7 +1849,21 @@ merits section rather than the cert band, with `base_rate_basis` and
   replayed over decided modern discretionary-cert petitions,
   outcome hidden behind a redacted snapshot, scored on accuracy, Brier, **lift
   over the always-deny floor** (the honest signal under cert's denial skew), and
-  a P(granted) calibration view. The report names the scorer whose bands
+  a P(granted) calibration view. **The headline is the granted-or-not axis**:
+  `granted_accuracy`, its floor `always_not_granted_accuracy` (the set's
+  not-granted share, which is what always-deny scores there) and
+  `granted_lift_over_always_denied`, which the board ranks by, the review PR
+  headlines and the weekly digest's floor leads with. A GVR is granted on that
+  axis and a party dismissal or withdrawal is not, so a Rule 46 dismissal a
+  forecaster called denied is a correct call, as it is for always-deny. That is
+  the target a cert forecast is asked to call and the Brier score scores; no
+  forecaster is asked to call a dismissal, and the draw does not exclude one,
+  since dropping petitions by outcome would choose the sample by its labels.
+  The exact-disposition `accuracy`, `always_denied_accuracy` and
+  `lift_over_always_denied` stay in the report as a secondary reading, on which
+  a dismissal is a miss for every forecaster, the floor included. A report
+  without `always_not_granted_accuracy` is ranked by the disposition lift, and
+  its surfaces say so ("on exact disposition"). The report names the scorer whose bands
   segment it (`salience_version`): a band label means something only under the
   function that assigned it, so a per-band figure is not comparable with one
   produced under another version. Each entry also carries a **per-salience-band
@@ -2007,7 +2033,12 @@ the rendered table) and
   saw is outcome text keyed by case id. It is printed to the run log as each
   cell is read (`flag from <predictor> on <case>`, credential runs redacted,
   candidates marked; `unreadable flags.json from <predictor> on <case>` for
-  a note that does not parse). The review PR names every candidate cell — a
+  a note with nothing to recover). A note is read through the same
+  normalisation the cell workflows apply to `flags.json`, so an
+  off-vocabulary severity or category, an over-long message or a missing
+  envelope field is coerced and the note read as usual; a file that cannot
+  be read, does not parse as a JSON object or list, or none of whose flags
+  survives that normalisation counts as unreadable. The review PR names every candidate cell — a
   lost one in a clause of its own, since it is in no figure but every
   predictor on that petition read the same provisioned inputs — and every
   unreadable note, and marks the headline itself when the headline entry has
@@ -2021,8 +2052,9 @@ the rendered table) and
   trajectory) — and those are three information sets, so a score over their
   union is a score over a mixture: a blind petition cannot observe its own
   relist history, which is most of what a cert forecast turns on. The
-  always-deny floor is not one of the figures the information set moves — it is
-  the replayed set's own denial share, a property of the labels. What moves it
+  always-deny floor is not one of the figures the information set moves — on
+  either axis it is a share of the replayed set's own labels (not granted on
+  the headline, denied on exact disposition). What moves it
   is **composition**: **the blind arm is outcome-selected, in either
   direction.** Both of its causes correlate with the outcome, and the
   direction is not known in advance: a docket with no pre-resolution
@@ -2036,13 +2068,17 @@ the rendered table) and
   its petitions, their outcomes, and each entry's correct calls on them, never
   a rate. `provisioning_denied` gives the floor's side of that: keyed as
   `provisioning` is, a zero stated, it counts each arm's realized denials, so
-  each arm's own always-deny floor is its count there over its count in
+  each arm's own exact-disposition floor is its count there over its count in
   `provisioning`, and the pooled floor is those arm floors weighted by arm
-  size. Each entry's **`arms`** gives the scores' side: per arm the entry
+  size; an arm's headline floor is ``(events_scored - granted) /
+  events_scored`` off a whole-set entry's `arms`. Each entry's **`arms`** gives the scores' side: per arm the entry
   scored, its `events_scored`, its `correct` calls, the arm's `denied` and
-  `granted` counts (the remainder dismissed or withdrawn), and its accuracy and
-  lift against that arm's own floor. The arms add up — their `correct` to the
-  entry's correct count, their ``correct - denied`` to its lift in petitions —
+  `granted` counts (the remainder dismissed or withdrawn), its accuracy and
+  lift against that arm's own floor, and its headline calls `granted_correct`.
+  The arms add up — their `correct` to the entry's correct count, their
+  ``correct - denied`` to its disposition lift in petitions, and their
+  ``granted_correct - (events_scored - granted)`` to its headline lift, the
+  bracketed figure the review PR and the digest print per arm —
   so **read which arm a pooled lift sits on before reading the lift**: a
   ten-petition lift of one petition carried by the one blind petition is a
   statement about that petition, not about the predictor's reading of a
@@ -2145,11 +2181,12 @@ the rendered table) and
   retrieve a prior's post-clock opinion, citations, summary, citing count,
   termination date, merits-brief date, conference date and tracking stamps
   — post-clock facts about the priors, never about the petition itself. No
-  **engine row's** series spans either boundary. The committed
-  `cert-backtest.json` (run `20261003T115301Z`, its engine rows at `n=10`
-  each, 0.700 against the 0.600 always-deny floor, one petition of lift) ran before the
-  decision-record mask, so its engine rows may not pool with a report run
-  after it; its `prior-vote` (0.600) and `constant-denied` rows may. Provenance agreement cannot see them. The always-deny
+  **engine row's** series spans either boundary. The report from run
+  `20261003T115301Z` (engine rows at `n=10` each, 0.700 against the 0.600
+  always-deny floor on exact disposition and 0.800 against 0.700 on granted
+  vs not, one petition of lift either way) ran before the decision-record mask,
+  so its engine rows may not pool with a report run after it; its `prior-vote`
+  (0.600) and `constant-denied` rows may. Provenance agreement cannot see them. The always-deny
   floor (a property of the labels) and the offline `prior-vote` row are
   unaffected and compare across both as before: `prior-vote` votes on
   dispositions, and passes no citation filter, so the citation gate its
@@ -2738,9 +2775,12 @@ the rendered table) and
   **docket** rather than from run times — with the one fallback below, where the
   docket gives no date at all: the newest **predicted** event by its
   `opened_at`, ties broken by the docket's stage progression — the petition's
-  arrival, then its distribution, then the interim application's arrival, the
-  response requested on it and the response filed, then the CVSG, then the
-  merits moments — and then by event id, so a date collision never inverts the
+  arrival, then its distribution, any call for a response to it and its first
+  relist, then the
+  interim application's arrival, the
+  response requested on it and the response filed, then the CVSG and the
+  Solicitor General's invited brief, then the merits moments — and then by
+  event id, so a date collision never inverts the
   order a case is actually walked in; an event whose definition records no
   `opened_at` is ordered by the **day** of its first prediction's harness clock,
   which therefore falls through to the same tie-break. One exception the
@@ -2885,7 +2925,7 @@ the rendered table) and
   gets *granted*: the asking side gets the relief requested, for now, and the
   case continues in the lower courts; and *denied*: it does not, for now, and
   things stay as the lower courts left them. A merits case gets *reversed*: the
-  asking side wins in the Court, and any remaining issues go back to the lower
+  asking side wins, and any remaining issues go back to the lower
   court; *affirmed*: the other side wins; and *vacated*: the decision below is
   set aside and the case goes back, without the Court deciding it for either
   side. The lines state consequences only, never likelihood, and give each
@@ -2903,7 +2943,7 @@ the rendered table) and
   complement. Neither side is one line: the mixed affirmed-in-part outcome is
   disturbed and has no line, and a dismissal as improvidently granted or an
   equally divided affirmance is undisturbed and has none either. So a site
-  never puts "Apple wins in the Court" beside the merits probability as though
+  never puts "Apple wins" beside the merits probability as though
   that number were P(reversed).
 
   The three fields are null together, and `asking_declined` says why. The

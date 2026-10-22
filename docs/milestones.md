@@ -28,7 +28,9 @@ Public releases are anchored to the Court's calendar, so predictions publish
   First populated leaderboard, plus the pre-registered salience ranking and
   big-case scores.
 - **Release 3 — end-of-Term retrospective (~June–July 2027).** The full merits
-  docket resolves; the first complete Term of calibration and cost data.
+  docket resolves; the first complete Term of calibration and cost data
+  ([release-ot2026-merits.md](release-ot2026-merits.md) is the skeleton and
+  evidence plan for its merits part).
 
 None of the releases depends on the funding below. Funding changes how much of
 the docket, how many moments, and how many models each release covers.
@@ -47,12 +49,12 @@ they sit outside the scaling plan.
 
 | Milestone | Model API / yr (cumulative) | Other / yr | **Funding needed / yr** |
 |---|---:|---:|---:|
-| Today — bootstrapping | ≈$15K (of the $24K envelope) | $7K | **≈$31K** |
-| 1. More prediction events | ≈$20K (of the $24K envelope) | $7K | **≈$31K** |
-| 2. The AI-case watchlist | ≈$22K (of the $24K envelope) | $7K | **≈$31K** |
-| 3. All paid cases | ≈$42K | $28K | **≈$70K** |
-| 4. A D.C. Circuit slice | ≈$47K | $28K | **≈$75K** |
-| 5. Seven model developers | ≈$67K | $28K | **≈$95K** |
+| Today — bootstrapping | ≈$17K (of the $24K envelope) | $7K | **≈$31K** |
+| 1. More prediction events | ≈$22K (of the $24K envelope) | $7K | **≈$31K** |
+| 2. The AI-case watchlist | ≈$24K (the whole $24K envelope) | $7K | **≈$31K** |
+| 3. All paid cases | ≈$47K | $28K | **≈$75K** |
+| 4. A D.C. Circuit slice | ≈$52K | $28K | **≈$80K** |
+| 5. Seven model developers | ≈$74K | $28K | **≈$102K** |
 | 6. Prompt lenses | up to $120K | $28K | **≈$148K** |
 
 Every column is cumulative: each row is the whole project's annual run rate
@@ -60,11 +62,15 @@ at that milestone, not the increment over the row above. The first three rows
 sit inside the bootstrapping envelope, so their funding figure is that
 envelope rather than the sum of the row. Other spend is assumed to step from the
 bootstrapping to the scaling level at milestone 3, when volume starts to grow.
-The model-spend column is priced at about $15 per fully evaluated SCOTUS
-event and $30–60 per lower-court event; at the about $10 per SCOTUS event
-[budget.md](budget.md) now gives, today's row is ≈$8.5–11K and milestone 3's
-≈$21–27K. The table keeps the higher rate as the
-planning ceiling until a round of measured cells re-anchors it.
+The model-spend column is priced at about $17 per fully evaluated SCOTUS
+event, the pinned planning table's total, and $30–60 per lower-court event.
+The table prices the gemini pair at `gemini-4-argon`'s first measured cells
+doubled for the rate in force from 2026-12-01, about $3.40 of each event;
+the scaling is rough from milestone 5, where more predictors change each
+engine's share of an event. At milestone 2 the column fills the
+bootstrapping envelope, so any further spend inside it would outgrow it. At the about $10 per SCOTUS event [budget.md](budget.md)
+measures, today's row is ≈$8.5–11K and milestone 3's ≈$21–27K. The table
+stays the planning ceiling until a round of measured cells re-anchors it.
 
 The order is deliberate. New moments are cheap and raise the value of every
 case already covered, so they come first. The AI-case watchlist comes next
@@ -85,14 +91,33 @@ Add the moments where a case's information set materially changes, starting
 with the one the public cares about most:
 
 - **Post-oral-argument** — every argued case, after the transcript is out
-  (~60 events a Term). First to be built.
+  (~60 events a Term). Declared, minted and switched off on the same terms as
+  the SG brief (`evt-argument-judgment`, moment `argued` on the merits stage).
+  The live poll already stores each transcript the Court lists, as the
+  `argument-transcript` document only this moment's cells are handed.
 - **SG brief after a CVSG** — the Solicitor General's recommendation (~20).
+  Declared, parsed and minted (`evt-brief-sg-disposition`, moment `sg-brief`),
+  and switched off: no cell is filed under it until the process version whose
+  predict prompt names it.
 - **Late-Term authorship elimination** — a fixed calendar date on which every
   still-undecided argued case is re-forecast, once the pattern of who has
-  written from each sitting is visible (~25).
-- **Relist re-forecast** and **call for response** — the strongest public
-  cert-stage signals; volumes to be counted from the statpack before
-  committing.
+  written from each sitting is visible (~25). The pattern is read but not yet
+  declared as a moment: the live poll stores the Court's argument sittings, and
+  `fedcourts authorship-tally` reads each sitting's authors and undecided cases
+  as of a day from the per-opinion record. That record holds OT2020–OT2025,
+  and the opinion-record standing sweep on run-seed's daily window keeps the
+  current and previous Term in it; sittings are stored for the current and
+  previous Term, so the tally reads those two.
+  The tally is context, not a claim: declaring the moment still owes the
+  eight tests in [outcome-decomposition.md](outcome-decomposition.md), which
+  the authorship claims have failed so far for want of a committed resolution
+  channel and a strictly-prior baseline ([decision-model.md](decision-model.md)).
+- **First-relist re-forecast** and **call for response** — the strongest public
+  cert-stage signals. Both are declared, parsed and minted, and switched off
+  on the same terms as the SG brief: the call for response
+  (`evt-order-call-for-response-disposition`, moment `response-requested` on
+  the cert stage) and the first relist (`evt-order-relist-disposition`, moment
+  `relist`), which fires once per petition rather than at every relist.
 
 These add a few hundred events at most, mainly on the low-volume merits track,
 so the cost is engineering rather than inference: each moment is a
@@ -134,14 +159,15 @@ What the step adds:
 A case reaches one or two moments in a typical year, so the watchlist is
 roughly 10–40 events a year. Lower-court records are larger than SCOTUS ones,
 so a fully evaluated event is estimated at ≈$30–60, to be re-measured on the
-first events: ≈$1–2K of model spend a year. If every case reached all four
-moments in one year (80 events at $60), it would be ≈$5K and the step would
-outgrow the bootstrapping envelope. Most of these dockets are already well
+first events: ≈$1–2K of model spend a year. At the planning table's rates
+that upper end already fills the bootstrapping envelope, and if every case
+reached all four moments in one year (80 events at $60), it would be ≈$5K
+and the step would outgrow it. Most of these dockets are already well
 covered in RECAP, so document purchases should be rare. Watchlist forecasts
 score in their own stratum and never enter SCOTUS headline figures; the list
 is not a coverage claim.
 
-### 3. All paid cases — ≈$70K / yr
+### 3. All paid cases — ≈$75K / yr
 
 Raise the salience gate's capacity until every paid SCOTUS petition not
 removed by a deterministic filter (such as the in-forma-pauperis exclusion) is
@@ -150,7 +176,7 @@ substantive applications. Roughly 2,100–2,500 events a Term, up from
 ~850–1,100. At this point salience stops being a spend control and survives
 as the public, pre-registered ranking.
 
-### 4. A D.C. Circuit slice — ≈$75K / yr
+### 4. A D.C. Circuit slice — ≈$80K / yr
 
 Forecast a small, pre-registered slice of the U.S. Court of Appeals for the
 D.C. Circuit: on the order of 25–50 argued cases a year, chosen by a rule
@@ -195,7 +221,7 @@ on the first circuit events; the post-argument moment adds about half again,
 plus transcription. Circuit forecasts are scored in their own stratum and never
 enter SCOTUS headline figures.
 
-### 5. Seven model developers — ≈$95K / yr
+### 5. Seven model developers — ≈$102K / yr
 
 Add a baseline predictor for four more developers — **xAI, Moonshot, Meta, and
 Alibaba** — each running its most capable model inside its own coding harness

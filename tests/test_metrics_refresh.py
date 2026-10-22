@@ -546,6 +546,9 @@ def test_the_grant_free_guard_reads_a_full_set_entry_not_the_top_one(
 def test_a_tie_at_the_top_is_named_as_one_not_broken_by_brier(tmp_path: Path) -> None:
     """Three engines on the same correct count are a tie, whatever Brier says.
 
+    The count is on the headline's granted-or-not axis, where the dismissal
+    every engine called denied is a correct call.
+
     Whole-set entries share one floor, so equal accuracy is equal lift; the
     board breaks the tie by Brier only to be a total order. At ten petitions
     naming the Brier winner "top predictor" reads a tie-break as a finding.
@@ -557,7 +560,7 @@ def test_a_tie_at_the_top_is_named_as_one_not_broken_by_brier(tmp_path: Path) ->
     assert "top predictor" not in pr.body
     assert (
         "**3 predictors tie at the top** — `claude-baseline`, `codex-baseline`, "
-        "`gemini-baseline` — each 7/10 correct, lift **+10.0 pp (+1 petition of 10)**"
+        "`gemini-baseline` — each 8/10 correct, lift **+10.0 pp (+1 petition of 10)**"
     ) in pr.body
     assert "a tie-break rather than a ranking at this n" in pr.body
     # Where the lift sits travels with the headline, not only in the table below.
@@ -568,14 +571,15 @@ def test_a_small_n_lead_is_stated_as_its_margin_in_petitions(tmp_path: Path) -> 
     """One petition ahead at ten petitions is an ordering, and the headline says so."""
     report = split_arm_report()
     leader = next(e for e in report.entries if e.predictor_id == "claude-baseline")
-    leader.accuracy, leader.lift_over_always_denied = 0.8, 0.2
+    leader.granted_accuracy, leader.granted_lift_over_always_denied = 0.9, 0.2
     # Its second extra call is on the truncated arm, so no one arm carries it.
     truncated = next(a for a in leader.arms if a.arm == "truncated")
-    truncated.correct, truncated.accuracy, truncated.lift_over_always_denied = 7, 7 / 8, 1 / 8
+    truncated.granted_correct = 8
     write_json(tmp_path / "cert-backtest.json", report)
     pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
     assert pr is not None
     assert "top predictor `claude-baseline`: lift **+20.0 pp (+2 petitions of 10)**" in pr.body
+    assert "(granted-or-not accuracy 9/10," in pr.body
     assert (
         "leads the next whole-set entry by 1 petition, an ordering at this n rather "
         "than a measurement"
@@ -586,16 +590,19 @@ def test_a_small_n_lead_is_stated_as_its_margin_in_petitions(tmp_path: Path) -> 
 def test_the_floor_line_states_the_draw_three_ways_and_by_arm(tmp_path: Path) -> None:
     """Denied, granted and dismissed stated outright, and the mix per arm.
 
-    The floor is the denied share, so neither it nor `1 - floor` gives the
-    granted count once a dismissal is in the draw; and the arms carry different
-    outcome mixes, which is what a pooled lift can hide.
+    The headline floor is the not-granted share and the exact-disposition one
+    the denied share, so neither gives the granted count once a dismissal is
+    in the draw; and the arms carry different outcome mixes, which is what a
+    pooled lift can hide.
     """
     write_json(tmp_path / "cert-backtest.json", split_arm_report())
     pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
     assert pr is not None
     assert (
-        "always-deny floor: **60%** over this set "
-        "(6 denied · 3 granted · 1 dismissed/withdrawn of 10)"
+        "always-deny floor: **70%** over this set "
+        "(6 denied · 3 granted · 1 dismissed/withdrawn of 10), on granted vs not; on "
+        "exact disposition, which counts a dismissal or withdrawal as a miss for every "
+        "forecaster, it is 60%\n"
     ) in pr.body
     assert (
         "- by arm: blind 1 (0 denied · 1 granted · 0 dismissed/withdrawn); "
@@ -610,8 +617,31 @@ def test_the_per_arm_table_shows_which_arm_carries_the_lift(tmp_path: Path) -> N
     pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
     assert pr is not None
     assert "  | predictor | blind | truncated | dated |\n" in pr.body
+    assert "  | `claude-baseline` | 1/1 (+1) | 7/8 (+0) | 0/1 (+0) |\n" in pr.body
+    assert "  | `constant-denied` | 0/1 (+0) | 7/8 (+0) | 0/1 (+0) |\n" in pr.body
+
+
+def test_a_report_before_the_granted_headline_renders_on_its_own_axis(tmp_path: Path) -> None:
+    """A report with no granted-axis fields is read, ranked and floored on disposition.
+
+    Its counts are not re-derived on the other axis: the per-arm binary calls
+    were never recorded, so the body states the axis the report itself used.
+    """
+    raw = json.loads(split_arm_report().model_dump_json())
+    raw.pop("always_not_granted_accuracy")
+    for entry in raw["entries"]:
+        entry.pop("granted_lift_over_always_denied")
+        for arm in entry["arms"]:
+            arm.pop("granted_correct")
+    (tmp_path / "cert-backtest.json").write_text(json.dumps(raw))
+    pr = render_backtest_pr(tmp_path, "RID", limit=10, engine="auto")
+    assert pr is not None
+    assert "each 7/10 correct, lift **+10.0 pp (+1 petition of 10)**" in pr.body
+    assert (
+        "always-deny floor: **60%** over this set "
+        "(6 denied · 3 granted · 1 dismissed/withdrawn of 10), on exact disposition\n"
+    ) in pr.body
     assert "  | `claude-baseline` | 1/1 (+1) | 6/8 (+0) | 0/1 (+0) |\n" in pr.body
-    assert "  | `constant-denied` | 0/1 (+0) | 6/8 (+0) | 0/1 (+0) |\n" in pr.body
 
 
 def test_a_report_without_per_arm_fields_still_renders(tmp_path: Path) -> None:

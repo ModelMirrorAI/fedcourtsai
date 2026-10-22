@@ -42,9 +42,11 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   matching — one latched for **staleness**, a **bare published-opinion
   import**, an undecided **disbarment** docket, a **consolidated** parent
   whose members later resolve, or an **application** whose ask a later poll
-  latches as substantive. The purely **form-keyed** exclusions (IFP
-  serial, original jurisdiction) are permanent by construction —
-  the docket form never changes, so they never release. Because the corpus keys a case by
+  latches as substantive. The **IFP** exclusion releases at a grant that
+  opens a merits proceeding, readmitting the docket for its merits events, and
+  re-latches if the docket is later re-resolved off the grant family. The
+  purely **form-keyed** exclusion (original jurisdiction) is permanent by
+  construction — the docket form never changes, so it never releases. Because the corpus keys a case by
   `<court>/<docket>`, a case's SCOTUS docket and its originating
   court-of-appeals docket are **separate rows**: only the SCOTUS row is
   predicted, and the lower-court link columns (`originating_court` /
@@ -670,7 +672,12 @@ not a new surface: rows are shaped by the same `corpus.prior_payload` on both
 paths (byte-identical output, pinned by tests), and each response carries the
 ranged connection's per-request `GET`/byte delta, from which `query` prints
 the same `ranged corpus reads:` stderr evidence line (`open-events` stays
-silent on both paths, as it always has). A warm sidecar cache honestly
+silent on both paths, as it always has). A docket-number lookup is resolved
+sidecar-side, where the corpus is, under the replay clock the request carries:
+`query`'s rides its `PriorQuery`, and an `open-events` request names its case
+by exactly one of the docket id and the docket number, and carries no clock:
+the events it lists are the docket's current state, which no clock masks, so
+a clocked request is refused and points at `query`. A warm sidecar cache honestly
 reports `0 GET(s)` — the held connection keeps the ranged block cache warm
 across a cell's whole query budget, so egress *drops* relative to
 one-connection-per-invocation. The startup transfer is charged to whichever
@@ -1141,7 +1148,11 @@ shared with the ledger models.
   `fedcourts query` (and `corpus.retrieve_priors`) — exact-match filters on
   court / topic / disposition plus overlap filters on judges and citations,
   ranked, defaulting to resolved cases and screening out the non-cert SCOTUS
-  letter forms (`--include-applications` returns them).
+  letter forms (`--include-applications` returns them). `--docket-number`
+  looks up one docket by its normalized number instead (open or resolved,
+  under the replay clock), and `open-events --docket-number` lists that
+  docket's open events for an unclocked caller — the read for a companion,
+  cross or held petition's state.
   Semantic / embedding similarity lands on the same query seam once embeddings
   are stored.
 
@@ -1402,7 +1413,9 @@ or network.
      half of that record — each opinion's kind, author, joiners and word count —
      is the corpus `opinions` table ([corpus/README.md](../corpus/README.md)),
      built by `backfill-opinion-record` from the Court's opinions, applied on
-     run-repair's `opinion-record` pass, and held corpus-side on the same terms.
+     run-repair's `opinion-record` pass and, for the current and previous
+     Term, as a standing sweep on run-seed's daily window, and held corpus-side
+     on the same terms.
      So is the per-Justice vote half for a case the pipeline never forecast:
      `fedcourts merits-lineups` derives each decision's lineup from those rows
      and the pass's `opinion_benches` (who sat), read-only and never stored, by
@@ -1567,6 +1580,16 @@ three-job credential split this workflow uses (below), with the writer in
 window, oldest order date first, and a class above `order_votes_ceiling`
 refused whole. The sweep never replaces a record; `replace-differing` stays a
 maintainer's call on this pass.
+
+A fifth is `opinion-record`, for the same reason: the Court issues opinions
+through a Term, so the current Term's record never stays drained. run-seed's
+daily window runs it as the same split over the current and previous October
+Term (`backfill-opinion-record --sweep`), slicing in the parse, where the
+fetches are: at most `historical.sweep_caps.opinion_record` documents a window,
+two thirds newest decision first and the rest rotated through the older rows,
+and a class above `opinion_record_ceiling` refused
+whole by the writer. The dispatched pass stays pinned to OT2020–OT2025 under a
+maintainer's bound.
 
 **One pass per dispatch, dry-run first.** `repair` is a single choice, so no
 two passes can arm each other, which makes the documented procedure structural

@@ -51,9 +51,10 @@ name: promote
 #      this workflow is re-dispatched after they land. The `skip_engine_smoke`
 #      input narrows what this pre-flight asks for to the token-free
 #      scenarios — both engine families leave together, since the
-#      `offline-gate` suite it then accepts runs neither. It does not decide what the batch merges on: that is the
-#      `promote:skip-engine-smoke` label on the promotion PR, a separate and
-#      deliberate second act (ci.yml's `promotion-gate` job).
+#      `offline-gate` suite it then accepts runs neither. It does not decide what the batch merges on: that is
+#      ci.yml's `promotion-gate` job, which waives the smokes only for a batch
+#      `main`'s scripts/cell_reach.py calls cell-inert or one carrying the
+#      `promote:skip-engine-smoke` label.
 
 on:
   workflow_dispatch:
@@ -66,13 +67,12 @@ on:
           `scenario=offline-gate` run as whole-suite evidence. It answers "is
           anything else missing" without
           paying for them. It does NOT narrow what the batch merges on:
-          waiving the smokes at the merge gate is a separate act — the
-          `promote:skip-engine-smoke` label on the promotion PR — so that
-          setting this input can never quietly become the merge decision too.
-          Reserve both for batches whose risk you judge not to be worth the
-          smokes' tokens; a batch that cannot affect a cell — docs, analytics,
-          non-cell code — is the clear case, and when in doubt run the full
-          suite.
+          the merge gate waives the smokes only for a batch main's
+          cell-reach classifier calls cell-inert, or one carrying the
+          `promote:skip-engine-smoke` label — so that setting this input can
+          never quietly become the merge decision too. Reserve it for batches
+          whose risk you judge not to be worth the smokes' tokens, and when
+          in doubt run the full suite.
         type: boolean
         default: false
 
@@ -176,7 +176,7 @@ jobs:
               if [ "$suite" = offline-gate ]; then
                 echo "## Pre-flight green at \`${sha}\` — engine scenarios skipped"
                 echo
-                echo "Green on the token-free suite alone, so this says nothing about the engines. The promotion PR's own \`promotion-gate\` check demands them unless that PR carries the \`promote:skip-engine-smoke\` label, and \`main\`'s ruleset has no bypass for the check itself: either dispatch the six engine runs at this sha, or waive them on the PR and accept that the batch merges with no evidence that a real cell runs or that its invocation block is still accepted."
+                echo "Green on the token-free suite alone, so this says nothing about the engines. The promotion PR's own \`promotion-gate\` check demands them unless \`main\`'s cell-reach classifier calls the batch cell-inert or that PR carries the \`promote:skip-engine-smoke\` label, and \`main\`'s ruleset has no bypass for the check itself: either dispatch the six engine runs at this sha, or waive them on the PR and accept that the batch merges with no evidence that a real cell runs or that its invocation block is still accepted."
               else
                 echo "## Promotion gates green at \`${sha}\`"
               fi

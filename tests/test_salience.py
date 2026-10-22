@@ -516,6 +516,11 @@ def test_selection_plan_equals_wrapper_free_plan_cohorts(tmp_path: Path) -> None
         ),
         _petition("scotus/app", docket="25A100"),  # Tier-0 out of scope: filtered
         _petition("scotus/ifp", docket="25-5100"),  # Tier-0 IFP: filtered
+        # A granted IFP docket is back in predict scope for its merits events
+        # only; the cert-stage gate still never scores it.
+        _petition("scotus/ifp-granted", docket="25-5101").model_copy(
+            update={"disposition": Disposition.granted, "date_cert_granted": date(2026, 1, 12)}
+        ),
     ]
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=1, floor=0.28)
@@ -525,10 +530,12 @@ def test_selection_plan_equals_wrapper_free_plan_cohorts(tmp_path: Path) -> None
             row
             for row in corpus.iter_rows(conn, court="scotus")
             if corpus.out_of_scope_reason_full(conn, row) is None
+            and not corpus.is_ifp_petition(row)
         ]
     assert plan_cohorts(eligible, config) == direct
     scores, to_select, eligible_count, conferences = direct
-    assert eligible_count == 8  # the two Tier-0 rows never enter
+    assert eligible_count == 8  # the two Tier-0 rows and the IFP grant never enter
+    assert "scotus/ifp-granted" not in scores
     assert conferences == 2
     # The equivalence above is order-sensitive on both compound members.
     assert list(plan_cohorts(eligible, config)[0]) == list(scores)

@@ -13,7 +13,6 @@ from typer.testing import CliRunner
 
 from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus, supremecourt
-from fedcourtsai.cert_backtest import redact_snapshot
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import live as live_module
@@ -37,7 +36,7 @@ from fedcourtsai.pipeline.live import (
 )
 from fedcourtsai.pipeline.outcome import OutcomeConvergence, UnrecordedOutcome
 from fedcourtsai.pipeline.pull import PullQueues
-from fedcourtsai.provision import truncate_snapshot
+from fedcourtsai.provision import redact_snapshot, truncate_snapshot
 from fedcourtsai.schemas import CellFailure, Disposition, EventKind, Moment, Outcome, Stage
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import forecastable_events, forward_refusal_reason
@@ -2207,6 +2206,127 @@ def test_from_live_docket_parses_distributions_cvsg_and_lower_court_name() -> No
     assert bare.cvsg_date is None
 
 
+def test_from_live_docket_latches_the_invited_brief_date() -> None:
+    """The sg-brief moment's trigger: the first United States amicus brief after the CVSG."""
+    filing = _payload()["ProceedingsandOrder"][0]
+    brief = {"Date": "May 20 2026", "Text": "Brief amicus curiae of United States filed."}
+    row = from_live_docket(
+        _payload(proceedings=[filing, _CVSG_ENTRY, brief, _DISTRIBUTED_SEP]),
+        live_docket_id(25, 102),
+    )
+    assert row.sg_brief_filed == date(2026, 5, 20)
+    # Without the invitation before it, a United States amicus brief opens nothing.
+    uninvited = from_live_docket(
+        _payload(proceedings=[filing, brief, _CVSG_ENTRY]), live_docket_id(25, 103)
+    )
+    assert uninvited.sg_brief_filed is None
+
+
+def test_from_live_docket_latches_the_first_relist() -> None:
+    """The cert relist trigger: a later conference, distributed after the earlier one sat."""
+    filing = _payload()["ProceedingsandOrder"][0]
+    relist = {"Date": "Oct 05 2026", "Text": "DISTRIBUTED for Conference of 10/9/2026."}
+    second = {"Date": "Oct 13 2026", "Text": "DISTRIBUTED for Conference of 10/16/2026."}
+    row = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, relist, second]),
+        live_docket_id(25, 110),
+    )
+    # Only the first relist opens the moment.
+    assert row.relisted_at == date(2026, 10, 5)
+    # A first distribution alone is no relist.
+    once = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP]), live_docket_id(25, 111)
+    )
+    assert once.relisted_at is None
+    # A reschedule before the conference sat moves the petition unconsidered.
+    moved = {"Date": "Sep 22 2026", "Text": "Rescheduled."}
+    rescheduled = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, moved, relist]),
+        live_docket_id(25, 112),
+    )
+    assert rescheduled.relisted_at is None
+    # A redistribution entered before the earlier conference is no relist either.
+    early = {"Date": "Sep 22 2026", "Text": "DISTRIBUTED for Conference of 10/9/2026."}
+    reset = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, early]), live_docket_id(25, 113)
+    )
+    assert reset.relisted_at is None
+    # A reschedule moves the petition; the relist after the new conference sits counts.
+    moved_on = {"Date": "Sep 22 2026", "Text": "DISTRIBUTED for Conference of 10/9/2026."}
+    later = {"Date": "Oct 13 2026", "Text": "DISTRIBUTED for Conference of 10/16/2026."}
+    then_relisted = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, moved, moved_on, later]),
+        live_docket_id(25, 115),
+    )
+    assert then_relisted.relisted_at == date(2026, 10, 13)
+    # A call for response takes the petition off its conference: the
+    # redistribution after the response is no relist.
+    called = {"Date": "Sep 20 2026", "Text": "Response Requested. (Due October 20, 2026)"}
+    answered = {"Date": "Oct 20 2026", "Text": "Brief of respondent in opposition filed."}
+    back = {"Date": "Oct 28 2026", "Text": "DISTRIBUTED for Conference of 11/14/2026."}
+    response = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, called, answered, back]),
+        live_docket_id(25, 116),
+    )
+    assert response.relisted_at is None
+    # A redistribution months after the conference follows something else (here
+    # the Solicitor General's invited brief), not a relist.
+    cvsg = {
+        "Date": "Oct 05 2026",
+        "Text": "The Solicitor General is invited to file a brief in this case "
+        + "expressing the views of the United States.",
+    }
+    months = {"Date": "May 20 2027", "Text": "DISTRIBUTED for Conference of 6/5/2027."}
+    invited = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, cvsg, months]),
+        live_docket_id(25, 117),
+    )
+    assert invited.relisted_at is None
+    # A relist entry dated on the conference day itself is not read as one.
+    same_day = {"Date": "Sep 29 2026", "Text": "DISTRIBUTED for Conference of 10/9/2026."}
+    on_the_day = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, same_day]), live_docket_id(25, 118)
+    )
+    assert on_the_day.relisted_at is None
+    # Nothing distributed after the petition was decided stands in for a relist.
+    denied = {"Date": "Oct 05 2026", "Text": "Petition DENIED."}
+    after = {"Date": "Nov 02 2026", "Text": "DISTRIBUTED for Conference of 11/14/2026."}
+    decided = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, denied, after]),
+        live_docket_id(25, 114),
+    )
+    assert decided.relisted_at is None
+
+
+def test_from_live_docket_latches_the_call_for_response() -> None:
+    """The cert call-for-response trigger: the first `Response Requested` before a disposition."""
+    filing = _payload()["ProceedingsandOrder"][0]
+    waiver = {"Date": "Aug 01 2026", "Text": "Waiver of right of respondent X to respond filed."}
+    called = {"Date": "Aug 12 2026", "Text": "Response Requested. (Due September 11, 2026)"}
+    row = from_live_docket(
+        _payload(proceedings=[filing, waiver, _DISTRIBUTED_SEP, called]),
+        live_docket_id(25, 104),
+    )
+    assert row.call_for_response_at == date(2026, 8, 12)
+    # The interim columns stay the application branch's.
+    assert row.response_requested_at is None and row.response_requested is None
+    denied = {"Date": "Oct 06 2026", "Text": "Petition DENIED."}
+    late = from_live_docket(_payload(proceedings=[filing, denied, called]), live_docket_id(25, 105))
+    assert late.call_for_response_at is None
+    # A denied motion is not the petition's disposition, so the scan reads past it.
+    motion = {"Date": "Aug 05 2026", "Text": "Motion to extend the time to file DENIED."}
+    past_motion = from_live_docket(
+        _payload(proceedings=[filing, motion, called]), live_docket_id(25, 106)
+    )
+    assert past_motion.call_for_response_at == date(2026, 8, 12)
+    # The first call decides: an undated one dates nothing, not a later call.
+    undated = {"Date": "", "Text": "Response Requested. (Due July 1, 2026)"}
+    first_undated = from_live_docket(
+        _payload(proceedings=[filing, undated, called]), live_docket_id(25, 107)
+    )
+    assert first_undated.call_for_response_at is None
+
+
 def test_ingest_live_payload_lands_weight_one_and_observed_zero_signals(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     result = ingest_live_payload(
@@ -3954,6 +4074,84 @@ def test_provision_documents_reads_a_consolidated_members_briefs_off_its_lead(
     assert stored["merits-brief-respondent"].url.endswith("/25-500/lead-resp.pdf")
     assert stored["merits-reply-petitioner"].url.endswith("/25-500/lead-reply.pdf")
     assert "Petitioners say reverse." in stored["merits-brief-petitioner"].text
+
+
+def test_the_poll_latches_a_consolidated_members_brief_off_its_stored_lead(
+    tmp_path: Path,
+) -> None:
+    """The member's poll dates its respondent brief off the lead's stored docket, no GET."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    lead_id, member_id = live_docket_id(25, 500), live_docket_id(25, 501)
+    member_case = f"scotus/{member_id}"
+    member = to_corpus_row(
+        from_live_docket(_member_payload(), member_id), last_live_polled=date(2026, 7, 1)
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [member])
+        due = corpus.get_row(conn, member_case)
+    assert due is not None
+
+    # No lead stored yet: the poll dates nothing, and still asks only for the member.
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        asked.append(request.url.path)
+        return httpx.Response(200, json=_member_payload())
+
+    with _client(handler) as client:
+        poll_live_cases(client, db, data_root, [due], today=date(2026, 7, 20))
+    assert [path for path in asked if path.endswith(".json")] == [
+        path for path in asked if path.endswith("25-501.json")
+    ]
+    with corpus.connect(db) as conn:
+        polled = corpus.get_row(conn, member_case)
+    assert polled is not None and polled.merits_brief_on_lead is None
+
+    # Once the lead's docket is stored, the next poll reads the brief off it.
+    ingest_live_payload(
+        db, data_root, _lead_payload(*_LEAD_BRIEFS), lead_id, today=date(2026, 7, 20)
+    )
+    with _client(handler) as client:
+        poll_live_cases(client, db, data_root, [polled], today=date(2026, 7, 21))
+    assert not any(path.endswith("25-500.json") for path in asked)
+    with corpus.connect(db) as conn:
+        latched = corpus.get_row(conn, member_case)
+    assert latched is not None
+    assert latched.merits_brief_on_lead == date(2026, 7, 13)
+    # The briefed moment still reads the member's own docket alone.
+    assert latched.merits_brief_filed is None
+    # A later upsert that does not carry the fact keeps it.
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [member])
+        again = corpus.get_row(conn, member_case)
+    assert again is not None and again.merits_brief_on_lead == date(2026, 7, 13)
+
+
+def test_the_lead_brief_latch_skips_settled_and_unconsolidated_rows(tmp_path: Path) -> None:
+    """A member already dated, decided or briefed on its own docket is left as it is."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    ingest_live_payload(
+        db,
+        tmp_path / "data",
+        _lead_payload(*_LEAD_BRIEFS),
+        live_docket_id(25, 500),
+        today=date(2026, 7, 20),
+    )
+    base = corpus.CorpusRow(case_id="scotus/1", court="scotus", docket_number="25-501")
+    dated = base.model_copy(update={"merits_brief_on_lead": date(2026, 7, 1)})
+    decided = base.model_copy(update={"case_id": "scotus/2", "merits_judgment": "affirmed"})
+    briefed = base.model_copy(
+        update={"case_id": "scotus/3", "merits_brief_filed": date(2026, 7, 1)}
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [dated, decided, briefed])
+    for case_id in ("scotus/1", "scotus/2", "scotus/3", "scotus/4"):
+        assert live_module.latch_member_brief_on_lead(db, case_id, _member_payload()) is None
+    assert live_module.latch_member_brief_on_lead(db, "scotus/2", _payload()) is None
+    with corpus.connect(db) as conn:
+        kept = corpus.get_row(conn, "scotus/1")
+    assert kept is not None and kept.merits_brief_on_lead == date(2026, 7, 1)
 
 
 # --- the corpus `resolved` flag has one writer -----------------------------------

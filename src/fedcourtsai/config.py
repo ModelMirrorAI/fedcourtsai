@@ -388,6 +388,12 @@ class LiveConfig(BaseModel):
     # selects. A spend cap on filing downloads, not a refusal — a case past it
     # is owed again at its next poll. 0 disables the pass.
     document_freshness_per_run: int = Field(default=20, ge=0)
+    # Transcripts per cycle the argument-transcript pass may download
+    # (`live.fetch_argument_transcripts`): the oral argument transcripts the
+    # Court lists for the current and previous October Term that the corpus does
+    # not hold. A spend cap, not a refusal — a transcript past it is owed again
+    # next cycle. 0 disables the pass.
+    argument_transcripts_per_run: int = Field(default=5, ge=0)
     # Days after the July docket-number roll during which discovery also probes
     # the *outgoing* Term (`supremecourt.current_docket_term`). At the roll new
     # filings take the incoming Term's prefix, so the primary probe leaves the
@@ -422,7 +428,12 @@ class SweepCapsConfig(BaseModel):
     committed outcomes in the same window's split jobs (it fetches the Court's
     orders, so it runs beside the walk rather than inside it). A fifth,
     ``ocr-recover-petitions --sweep``, reads scanned filings by OCR in split jobs
-    of its own on every window, forward-cell candidates first.
+    of its own on every window, forward-cell candidates first. A sixth,
+    ``backfill-opinion-record --sweep``, reads the current and previous Term's
+    opinions into the per-opinion record in the daily window's split jobs,
+    and is sliced in its parse, where the fetches are: its unit is documents
+    fetched, two thirds newest decision first and the rest rotated through the
+    older rows.
     A cap is a **slice**, not a refusal: a window writes at most this many rows of
     its class — the index sweeps in ``case_id`` order, the vote sweep oldest order
     date first, the OCR sweep in the order :mod:`fedcourtsai.pipeline.ocr_sweep`
@@ -450,6 +461,10 @@ class SweepCapsConfig(BaseModel):
     # (`ocr-recover-petitions --sweep`). Its unit is runner minutes, not rows,
     # so it is small. The bound sits below the handoff models' own item limit.
     ocr: int = Field(default=10, ge=1, le=200)
+    # Opinion documents fetched and read per window into the per-opinion
+    # record (`backfill-opinion-record --sweep`). Its unit is fetches from the
+    # Court's site, about four seconds each, so it is small.
+    opinion_record: int = Field(default=15, ge=1, le=200)
     # Each sweep's refusing ceiling on the WHOLE class it finds, before the
     # slice: above it the window writes nothing and the step fails, because a
     # class that size is a widened predicate rather than a backlog to drain.
@@ -458,10 +473,18 @@ class SweepCapsConfig(BaseModel):
     decision_fills_ceiling: int = Field(default=500, ge=1, le=10_000)
     order_votes_ceiling: int = Field(default=1500, ge=1, le=10_000)
     ocr_ceiling: int = Field(default=500, ge=1, le=10_000)
+    opinion_record_ceiling: int = Field(default=200, ge=1, le=10_000)
 
     @model_validator(mode="after")
     def _ceiling_admits_the_cap(self) -> Self:
-        for name in ("docket_markings", "response_fills", "decision_fills", "order_votes", "ocr"):
+        for name in (
+            "docket_markings",
+            "response_fills",
+            "decision_fills",
+            "order_votes",
+            "ocr",
+            "opinion_record",
+        ):
             if getattr(self, f"{name}_ceiling") < getattr(self, name):
                 raise ValueError(f"sweep_caps.{name}_ceiling must be at least sweep_caps.{name}")
         return self
@@ -661,8 +684,8 @@ class SalienceConfig(BaseModel):
     # is what makes forward skill numbers transfer to live prospective use —
     # and it is sized against that purpose, not against class measurement
     # (class rates are census quantities at the full population's n). At the
-    # shipped 0.05 over ~1,500 paid arrivals/Term: ~75 cases (~$1,125 at the
-    # $15/case planning rate), the reviewed sizing. Effectively frozen once
+    # shipped 0.05 over ~1,500 paid arrivals/Term: ~75 cases (~$1,275 at the
+    # $17/case planning rate), the reviewed sizing. Effectively frozen once
     # the cohort begins (a mid-Term change makes the realized population a
     # union across rates); 0 disables the slice (sal-v1 behavior).
     arrival_sample_rate: float = Field(default=0.05, ge=0.0, le=1.0)

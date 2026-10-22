@@ -23,6 +23,9 @@ from fedcourtsai.schemas import Moment, Stage
 _RESPONSE_REQUESTED = "evt-order-response-requested-disposition"
 _RESPONSE_FILED = "evt-brief-response-disposition"
 _CVSG = "evt-order-cvsg-disposition"
+_SG_BRIEF = "evt-brief-sg-disposition"
+_CALL_FOR_RESPONSE = "evt-order-call-for-response-disposition"
+_RELIST = "evt-order-relist-disposition"
 
 _APPLICATION = "Application (26A477) for an administrative stay, submitted to Justice Kavanaugh."
 _REQUEST = "Response to application (26A477) requested by Justice Kavanaugh, due October 10, 2026."
@@ -199,6 +202,53 @@ def test_the_cvsg_moment_needs_the_invitation() -> None:
     assert _place(_CVSG, cutoff, read).provenance == "dated"
 
 
+def test_the_sg_brief_moment_needs_the_brief() -> None:
+    brief_day = date(2026, 9, 15)
+    head = [
+        ("Mar 02 2026", "DISTRIBUTED for Conference of 3/20/2026."),
+        ("Mar 23 2026", _CVSG_TEXT),
+    ]
+    before = _live([*head, ("Sep 15 2026", "Brief amicus curiae of X filed.")], "25-100")
+    after = _live(
+        [
+            *head,
+            ("Sep 15 2026", "Brief amicus curiae of X filed."),
+            ("Sep 15 2026", "Brief amicus curiae of United States filed."),
+        ],
+        "25-100",
+    )
+    cutoff, read = _read(_SG_BRIEF, brief_day, after, (brief_day, before))
+    placement = _place(_SG_BRIEF, cutoff, read)
+    assert placement.provenance == "truncated"
+
+    cutoff, read = _read(_SG_BRIEF, brief_day, after, (brief_day, after))
+    assert _place(_SG_BRIEF, cutoff, read).provenance == "dated"
+
+
+def test_the_cert_call_for_response_moment_needs_the_call() -> None:
+    called = date(2026, 8, 12)
+    head = [("Aug 01 2026", "DISTRIBUTED for Conference of 9/29/2026.")]
+    before = _live(head, "26-120")
+    after = _live(
+        [*head, ("Aug 12 2026", "Response Requested. (Due September 11, 2026)")], "26-120"
+    )
+    cutoff, read = _read(_CALL_FOR_RESPONSE, called, after, (called, before))
+    assert _place(_CALL_FOR_RESPONSE, cutoff, read).provenance == "truncated"
+    cutoff, read = _read(_CALL_FOR_RESPONSE, called, after, (called, after))
+    assert _place(_CALL_FOR_RESPONSE, cutoff, read).provenance == "dated"
+
+
+def test_the_cert_relist_moment_needs_the_relist() -> None:
+    relisted = date(2026, 10, 13)
+    head = [("Sep 15 2026", "DISTRIBUTED for Conference of 10/9/2026.")]
+    before = _live(head, "26-121")
+    after = _live([*head, ("Oct 13 2026", "DISTRIBUTED for Conference of 10/16/2026.")], "26-121")
+    cutoff, read = _read(_RELIST, relisted, after, (relisted, before))
+    assert _place(_RELIST, cutoff, read).provenance == "truncated"
+    cutoff, read = _read(_RELIST, relisted, after, (relisted, after))
+    assert _place(_RELIST, cutoff, read).provenance == "dated"
+
+
 def test_the_rest_shape_is_read_too() -> None:
     request_day = date(2026, 6, 25)
     rest = {
@@ -220,6 +270,9 @@ def test_every_declared_moment_is_bounded_by_some_rule() -> None:
         (Stage.cert, Moment.arrival),
         (Stage.merits, Moment.grant),
         (Stage.merits, Moment.briefed),
+        # Dated off the Court's transcript list, which no docket entry carries;
+        # the argument entry the docket does carry falls on the same day.
+        (Stage.merits, Moment.argued),
     }
     for spec in moments.DECLARED_MOMENTS:
         key = (spec.stage, spec.moment)

@@ -159,6 +159,15 @@ live:
   # deadline; a larger slice would multiply the day's paced PDF downloads
   # without a matching gain. 0 disables.
   document_freshness_per_run: 10
+  # Oral argument transcripts the argument-transcript pass may download a cycle
+  # (`live.fetch_argument_transcripts`): the ones the Court lists for the current
+  # and previous October Term that the corpus does not hold, newest argument
+  # first. Two paced list reads a cycle plus one download (about a hundred
+  # pages) per transcript; the Court lists 56 to 61 transcripts a Term
+  # (OT2020-OT2025), so 5 keeps up with a sitting week and clears a Term's
+  # back-fill in about a day where the deadline allows. Runs last, on what the
+  # cycle left. 0 disables.
+  argument_transcripts_per_run: 5
   # Predict timing is not configured here: the live channel stamps the predict
   # queue on a DISTRIBUTION TRANSITION — a petition newly distributed for a
   # conference, or relisted to a new one — the cert-calendar analogue of
@@ -259,6 +268,14 @@ historical:
     # the cap holds the spend. The class held 10 on the index blob of
     # 2026-10-17 (sha 7c62d6e4), so one window drains it.
     ocr: 10
+    # `backfill-opinion-record --sweep` (split jobs beside the daily window):
+    # opinion documents read into the per-opinion record, two thirds newest
+    # decision first and the rest rotated through the older rows, sliced in
+    # the parse because each is a fetch from the Court's site (about four
+    # seconds). The Court issues at most about ten on a June day;
+    # the 57 OT2025 documents still owed a bench row or a reading on the index
+    # blob of 2026-10-22 drain in four windows.
+    opinion_record: 15
     # Ceilings, each well above the fill class a converged corpus holds. Upper
     # bounds on that class, on the index blob of 2026-10-02 (sha 2b356dbd):
     # 0 marked rows, 179 response candidates, 54 decision-record candidates.
@@ -275,6 +292,10 @@ historical:
     # Far above the 10 scanned filings of 2026-10-17: a class that size is an
     # extractor or fetch regression emptying stored text, not scans to read.
     ocr_ceiling: 500
+    # Above two Terms' listings (about 70 documents a Term): a class that size
+    # is a Term newly in reach or an emptied record, which the dispatched
+    # `opinion-record` pass applies under a maintainer's bound.
+    opinion_record_ceiling: 200
 
 predict:
   # Prediction-scope gate (docs/data-pipeline.md "Scope"). Restricts only the agentic
@@ -366,13 +387,13 @@ salience:
   # Bootstrapping-sized, and sized to BIND. Raw paid cohorts run a median 34
   # petitions (p90 82, max 369), so a cap of 150 would cut just 8 of 251
   # cohorts and select ~95% of the paid docket — a ranking, not a spend
-  # control: at the ~$15-per-event planning rate (docs/budget.md) that is on
-  # the order of $24K a Term, about twice what the shipped cap of 12 costs
+  # control: at the ~$17-per-event planning rate (docs/milestones.md) that is
+  # on the order of $27K a Term, about twice what the shipped cap of 12 costs
   # (derived below). At 12 the
   # gate measures 495-522 selections a Term (OT2022-24 replay: capped rank
   # fill 398-413 plus uncapped carve-outs 97-115), which with the other
-  # stages' moments lands the escalation program at ~$11.1-11.5K — ~$12.6-13.0K
-  # with the arrival cohort beside it.
+  # stages' moments lands the escalation program at ~$12.4-12.9K — ~$14.1-14.6K
+  # with the arrival cohort beside it, at the same planning rate.
   #
   # It costs coverage, and the trade is stated rather than hidden: the
   # selection keeps 0.76-0.81 of the Term's replay-reconstructable
@@ -399,7 +420,7 @@ salience:
   # Sized to the
   # slice's real purpose, the unbiased predicted population whose forward
   # skill transfers to live use: 1-in-20 over ~1,500 paid arrivals/Term is
-  # ~75 cases (~$1,125 at the $15/case planning rate), publishable as n=75 with its
+  # ~75 cases (~$1,275 at the $17/case planning rate), publishable as n=75 with its
   # ±5.9pp interval (Wilson 95% at the pooled 6.67% arrival grant rate).
   # Class rates are census quantities at the population's own n and never
   # size this knob. Effectively

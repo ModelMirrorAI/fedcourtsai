@@ -312,6 +312,7 @@ class EventKind(StrEnum):
     appeal = "appeal"
     order = "order"
     brief = "brief"
+    argument = "argument"
 
 
 class Stage(StrEnum):
@@ -361,12 +362,17 @@ class Moment(StrEnum):
 
     #: cert — the petition is first distributed for conference.
     distribution = "distribution"
+    #: cert — the Court first relists the petition after a conference considered it.
+    relist = "relist"
     #: cert — the Court calls for the Solicitor General's views.
     cvsg = "cvsg"
+    #: cert — the Solicitor General files the brief the Court invited.
+    sg_brief = "sg-brief"
     #: interim — the application arrives on the docket; cert — the petition
     #: is docketed (the sal-v2 arrival cohort's moment).
     arrival = "arrival"
-    #: interim — the Court (or a Circuit Justice) asks for a response.
+    #: interim — the Court (or a Circuit Justice) asks for a response to the
+    #: application; cert — the Court calls for a response to the petition.
     response_requested = "response-requested"
     #: interim — a response to the application is filed.
     response_filed = "response-filed"
@@ -374,6 +380,8 @@ class Moment(StrEnum):
     grant = "grant"
     #: merits — the respondent's brief on the merits is filed.
     briefed = "briefed"
+    #: merits — the Court posts the transcript of the oral argument.
+    argued = "argued"
 
 
 class GroupBy(StrEnum):
@@ -6098,6 +6106,42 @@ class BacktestCourtScore(_Strict):
     )
 
 
+#: The SCOTUS docket classes the historical replay scores apart. A cert petition
+#: (the Term-prefixed ``YY-NNNN`` form), an interim application (``YYAnnn`` in any
+#: spelling), and every other SCOTUS docket (original, miscellaneous, pre-1925,
+#: unparseable) carry
+#: different outcome vocabularies — `granted` is cert on a petition and the relief
+#: asked on an application — so one SCOTUS floor over all three moves with the mix
+#: rather than with anything a predictor did.
+BacktestDocketClass = Literal["cert", "application", "other"]
+
+
+class BacktestDocketClassScore(BacktestCourtScore):
+    """One predictor's standings over one docket class of one court's slice.
+
+    The same scores as the court row it refines, over the events of that court
+    whose docket is of ``docket_class``. Emitted for SCOTUS only, the one court
+    whose slice mixes classes with different outcome vocabularies; the classes
+    partition the court's events, so their counts sum to its row's.
+    """
+
+    events_scored: int = Field(
+        ge=0, description="Events replayed for this predictor in this docket class"
+    )
+    always_denied_accuracy: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="This docket class's always-deny floor — the fraction of its scored "
+        "events whose disposition is `denied`. The base rate that makes the accuracy readable",
+    )
+
+    docket_class: BacktestDocketClass = Field(
+        description="`cert` — a modern discretionary-cert petition (the population the "
+        "cert stage predicts); `application` — an interim application; `other` — any other "
+        "docket of the court (original, miscellaneous, pre-1925 or unparseable numbers)"
+    )
+
+
 class BacktestEntry(_Strict):
     """One predictor's standings over the historical back-test set."""
 
@@ -6141,6 +6185,14 @@ class BacktestEntry(_Strict):
         default_factory=list,
         description="Per-court breakdown, court-id ordered — the grain at which the floor and "
         "the lift are actually comparable",
+    )
+    docket_classes: list[BacktestDocketClassScore] = Field(
+        default_factory=list,
+        description="The SCOTUS row split by docket class, in `cert`, `application`, `other` "
+        "order, classes with no events omitted. The SCOTUS slice mixes cert petitions with "
+        "interim applications, whose `denied` share differs several-fold, so the cert floor "
+        "and lift are read on the `cert` row, not the court row. Empty where no SCOTUS "
+        "event was scored",
     )
 
 
@@ -6795,6 +6847,15 @@ class CertBacktestArm(_Strict):
         "(`denied` over `events_scored`) — the per-petition share of "
         "``correct - denied``",
     )
+    granted_correct: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of those, the petitions whose granted-or-not projection the entry "
+        "called — the headline axis. Always-deny gets ``events_scored - granted`` right "
+        "here, so the arm's headline lift **in petitions** is ``granted_correct - "
+        "(events_scored - granted)``. Null on reports written before the granted-axis "
+        "headline",
+    )
 
 
 class CertBacktestBigCase(_Strict):
@@ -7046,8 +7107,11 @@ class CertBacktestDisclosure(_Strict):
     )
     unreadable: bool = Field(
         default=False,
-        description="The cell wrote a `flags.json` that does not parse as `AgentFlags`, "
-        "so what it disclosed is unknown and `flags` is empty. The cell stays scored: "
+        description="The cell wrote a `flags.json` with nothing to recover: it cannot be "
+        "read, does not parse as a JSON object or list, or none of its flags survives the "
+        "normalisation the cell workflows apply (an off-vocabulary severity or category is "
+        "coerced and read, not unreadable). What it disclosed is unknown and `flags` is "
+        "empty. The cell stays scored: "
         "a formatting fault is not evidence of exposure, and an unread note may still "
         "have been one",
     )
@@ -7075,7 +7139,9 @@ class CertBacktestDisclosureTally(_Strict):
         ge=0, description="Of those, the cells that left a readable `flags.json`"
     )
     flags_unreadable: int = Field(
-        ge=0, description="Of those, the cells whose `flags.json` did not parse"
+        ge=0,
+        description="Of those, the cells whose `flags.json` had nothing to recover "
+        "(`unreadable` on the disclosure)",
     )
     candidates: int = Field(
         ge=0,
@@ -7239,8 +7305,8 @@ class CertBacktestEntry(_Strict):
     predictor_id: str
     rank: int = Field(
         ge=1,
-        description="1-based standing; 1 is best. Ordered by lift over the "
-        "always-deny floor, then Brier, then id — **among entries scored over "
+        description="1-based standing; 1 is best. Ordered by the headline "
+        "`granted_lift_over_always_denied`, then Brier, then id — **among entries scored over "
         "the whole set**. An entry short some cells (`provenance.lost_cells`) "
         "sorts below every full one whatever its number, because lift is a "
         "per-petition mean and a lost petition the predictor would have got "
@@ -7263,19 +7329,35 @@ class CertBacktestEntry(_Strict):
     granted_accuracy: float = Field(
         ge=0.0,
         le=1.0,
-        description="Fraction whose binary granted/denied projection matched the outcome",
+        description="Fraction whose binary granted-or-not projection matched the outcome "
+        "(a GVR is granted; a dismissal or withdrawal is not) — the headline accuracy, "
+        "the target the Brier score scores",
     )
     mean_brier_score: float = Field(
         ge=0.0,
         le=1.0,
         description="Mean Brier score of P(granted) vs the realized outcome (lower is better)",
     )
+    granted_lift_over_always_denied: float | None = Field(
+        default=None,
+        ge=-1.0,
+        le=1.0,
+        description="The headline: `granted_accuracy` minus always-deny's over the "
+        "petitions **this entry was scored on**, which is their not-granted share — the "
+        "honest signal under cert's structural denial skew, where raw accuracy is cheap, "
+        "and what the board ranks by. That floor is the report's "
+        "`always_not_granted_accuracy` whenever `events_scored` is the whole set, and the "
+        "scored subset's own not-granted share where cells were lost. Null on reports "
+        "written before the granted-axis headline, which ranked by "
+        "`lift_over_always_denied`",
+    )
     lift_over_always_denied: float = Field(
         ge=-1.0,
         le=1.0,
-        description="Disposition accuracy minus the always-deny floor's over the "
-        "petitions **this entry was scored on** — the honest signal under cert's "
-        "structural denial skew, where raw accuracy is cheap. That floor is the "
+        description="Exact-disposition accuracy minus the always-deny floor's over the "
+        "petitions **this entry was scored on** — a secondary reading beside the "
+        "headline, which counts a dismissal or withdrawal as a miss for every "
+        "forecaster, always-deny included. That floor is the "
         "report's `always_denied_accuracy` whenever `events_scored` is the whole "
         "set, and the scored subset's own denial rate where cells were lost",
     )
@@ -7377,11 +7459,20 @@ class CertBacktest(_Strict):
         default=0.0,
         ge=0.0,
         le=1.0,
-        description="The always-deny floor's disposition accuracy over this set: "
-        "the denial base rate a lift figure is measured against, and exactly the "
-        "one every entry that scored the whole set is measured against. An entry "
-        "short some cells (`provenance.lost_cells`) is floored over its own "
-        "scored subset instead, which this figure does not give",
+        description="The always-deny floor's exact-disposition accuracy over this set: "
+        "the denial base rate the secondary `lift_over_always_denied` is measured "
+        "against, and exactly the one every entry that scored the whole set is measured "
+        "against. An entry short some cells (`provenance.lost_cells`) is floored over its "
+        "own scored subset instead, which this figure does not give",
+    )
+    always_not_granted_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The headline floor: always-deny's `granted_accuracy` over this set, "
+        "its not-granted share (denied, dismissed and withdrawn) — what every entry's "
+        "`granted_lift_over_always_denied` is measured against where it scored the whole "
+        "set. Null on an empty set and on reports written before the granted-axis headline",
     )
     provisioning: dict[str, int] = Field(
         default_factory=dict,

@@ -17,7 +17,6 @@ from typer.testing import CliRunner
 
 from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus, supremecourt
-from fedcourtsai.cert_backtest import redact_snapshot
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import documents as documents_module
@@ -43,6 +42,7 @@ from fedcourtsai.pipeline.documents import (
     LeadFetch,
     _qp_stored_is_fragment,
     backfill_questions_presented,
+    bio_block_texts,
     consolidation_lead,
     document_fetch_losses,
     document_text_coverage,
@@ -50,6 +50,7 @@ from fedcourtsai.pipeline.documents import (
     extract_questions_presented,
     fetch_case_documents,
     fetch_consolidation_lead,
+    member_respondent_brief_date,
     merits_entry_matched,
     party_contact_values,
     questions_presented_extract,
@@ -66,7 +67,7 @@ from fedcourtsai.pipeline.merits_signals import (
     respondent_brief_date,
 )
 from fedcourtsai.pipeline.pull import PullQueues
-from fedcourtsai.provision import documents_before
+from fedcourtsai.provision import documents_before, redact_snapshot
 from fedcourtsai.supremecourt import SupremeCourtClient
 from tests.conftest import FixtureCorpus, seed_prediction
 
@@ -1289,6 +1290,21 @@ def test_merits_entry_matched_reads_the_entry_without_the_stage_bound() -> None:
     assert not merits_entry_matched(payload, kind=KIND_PETITION)
 
 
+def test_a_respondent_confessing_error_is_provisioned_but_does_not_open_the_moment() -> None:
+    """The selector stores the brief; the briefed moment waits for the defense."""
+    confession = "Brief of respondent United States supporting vacatur filed."
+    defense = "Brief of Court-appointed amicus curiae in support of the judgment below filed."
+    payload = _granted_payload(
+        _entry("Jun 23 2026", confession, url="https://www.supremecourt.gov/sg.pdf"),
+        _entry("Aug 22 2026", defense, url="https://www.supremecourt.gov/amicus.pdf"),
+    )
+    refs = [r for r in select_documents(payload) if r.kind == KIND_MERITS_BRIEF_RESPONDENT]
+    assert [(r.url, r.description) for r in refs] == [
+        ("https://www.supremecourt.gov/sg.pdf", confession)
+    ]
+    assert respondent_brief_date(payload, granted_on=date(2026, 4, 6)) == date(2026, 8, 22)
+
+
 def test_the_briefed_moment_keeps_its_narrower_respondent_reading() -> None:
     """The selector reads "Brief for the respondent"; the registered moment does not.
 
@@ -1473,6 +1489,49 @@ def test_a_lead_filing_from_before_the_members_grant_is_not_borrowed() -> None:
     assert KIND_MERITS_BRIEF_PETITIONER not in refs  # Jun 01, before the member's grant
     assert KIND_MERITS_BRIEF_RESPONDENT in refs  # Jul 13, after it
     assert KIND_MERITS_REPLY_PETITIONER in refs
+
+
+def test_a_members_respondent_brief_is_dated_off_its_lead() -> None:
+    """The briefed date a member's own docket never carries, read where the brief was filed."""
+    member = _member_payload()
+    assert member_respondent_brief_date(_lead_payload(*_LEAD_BRIEFS), member) == date(2026, 7, 13)
+    # A brief the Clerk marked for another docket of the group is not the member's.
+    other = _entry(
+        "Jul 13 2026",
+        "Brief of respondent Coastal Freight Lines filed (as to 25-502).",
+        url="https://www.supremecourt.gov/DocketPDF/25/25-500/other-resp.pdf",
+    )
+    assert member_respondent_brief_date(_lead_payload(other), member) is None
+    # The later of the two grants bounds it, as the document borrow is bounded.
+    late = _member_payload()
+    late_grant = {"Date": "Jul 20 2026", "Text": "Petition GRANTED.", "Links": []}
+    late["ProceedingsandOrder"][2] = late_grant  # type: ignore[index]
+    assert member_respondent_brief_date(_lead_payload(*_LEAD_BRIEFS), late) is None
+    ungranted_lead = _lead_payload(*_LEAD_BRIEFS)
+    undated_grant = {"Date": "", "Text": "Petition GRANTED.", "Links": []}
+    ungranted_lead["ProceedingsandOrder"][1] = undated_grant  # type: ignore[index]
+    assert member_respondent_brief_date(ungranted_lead, member) is None
+    # Nothing on the lead yet dates nothing.
+    assert member_respondent_brief_date(_lead_payload(), member) is None
+    # A member whose grant cannot be dated has no merits stage to date a brief in.
+    ungranted = _member_payload()
+    ungranted["ProceedingsandOrder"][2] = {"Date": "", "Text": "Petition GRANTED.", "Links": []}  # type: ignore[index]
+    assert member_respondent_brief_date(_lead_payload(*_LEAD_BRIEFS), ungranted) is None
+
+
+def test_a_members_briefed_date_reads_the_appointed_amicus_unless_marked_for_others() -> None:
+    """An appointed amicus names no party: unmarked it is the group's, marked it is not."""
+    member = _member_payload()
+    amicus = "Brief of Court-appointed amicus curiae in support of the judgment below filed."
+    url = "https://www.supremecourt.gov/DocketPDF/25/25-500/amicus.pdf"
+    unmarked = _entry("Jul 13 2026", amicus, url=url)
+    assert member_respondent_brief_date(_lead_payload(unmarked), member) == date(2026, 7, 13)
+    elsewhere = _entry(
+        "Jul 13 2026", amicus.replace(" filed.", " (as to No. 25-999) filed."), url=url
+    )
+    assert member_respondent_brief_date(_lead_payload(elsewhere), member) is None
+    own = _entry("Jul 13 2026", amicus.replace(" filed.", " (as to No. 25-501) filed."), url=url)
+    assert member_respondent_brief_date(_lead_payload(own), member) == date(2026, 7, 13)
 
 
 def test_a_lead_with_a_self_represented_party_lends_nothing() -> None:
@@ -3695,6 +3754,98 @@ def test_document_text_coverage_reach_counts_only_the_counted_kinds(tmp_path: Pa
     assert coverage.cases_read == 5
     # And it is still counted as a distributed case holding no petition.
     assert coverage.distributed_without_petition == 3
+
+
+def _set_keyed_bio(case_id: str, *bodies: str) -> corpus.CaseDocument:
+    """A multi-respondent opposition, stored the way the combiner writes one."""
+    stem = case_id.rsplit("/", 1)[-1]
+    urls = [f"https://www.supremecourt.gov/{stem}-bio-{n}.pdf" for n in range(len(bodies))]
+    blocks = [
+        f"=== Brief of respondent {n} in opposition filed. (Jul 0{n + 1} 2026) ===\n{body}"
+        for n, body in enumerate(bodies)
+    ]
+    return corpus.CaseDocument(
+        case_id=case_id,
+        kind=KIND_BRIEF_IN_OPPOSITION,
+        url=BIO_URL_JOIN.join(sorted(urls)),
+        entry_date="Jul 01 2026",
+        fetched_at=date(2026, 7, 2),
+        pages=40,
+        text="\n\n".join(blocks),
+    )
+
+
+def test_bio_block_texts_strips_the_per_brief_headers() -> None:
+    combined = _set_keyed_bio("scotus/1", "Deny the petition.", "  \n").text
+    assert [body.strip() for body in bio_block_texts(combined)] == ["Deny the petition.", ""]
+    # A lone opposition is stored raw, with no header: one body, the whole text.
+    assert bio_block_texts("Deny the petition.") == ["Deny the petition."]
+
+
+def test_document_text_coverage_sizes_the_heading_only_oppositions(tmp_path: Path) -> None:
+    """A multi-respondent opposition of scans reads as covered; this sizes it.
+
+    Its per-brief headings are text, so the `empty_text` test never fires on it,
+    and its key is a set rather than a URL, so OCR recovery never reaches it.
+    The count reads it body by body instead.
+    """
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                # Queued, and every brief a scan: the residual the issue names.
+                _set_keyed_bio("scotus/10", "", "  \n"),
+                # Both briefs carry text: a set key, and nothing missing.
+                _set_keyed_bio("scotus/11", "Deny.", "Deny as well."),
+                # One brief read, one a scan.
+                _set_keyed_bio("scotus/15", "Deny.", ""),
+                # A group of two that fetched one: a single link, but still the
+                # header, and the one brief a scan.
+                _set_keyed_bio("scotus/12", "  ").model_copy(
+                    update={"url": "https://www.supremecourt.gov/12-bio-0.pdf"}
+                ),
+            ],
+        )
+        coverage = document_text_coverage(conn, tmp_path / "data")
+    assert coverage.combined_oppositions == 4
+    assert coverage.heading_only_oppositions == 2
+    assert coverage.heading_only_oppositions_queued == 1
+    assert coverage.partly_empty_oppositions == 1
+    assert coverage.partly_empty_oppositions_queued == 0
+    assert coverage.heading_only_opposition_cases == ["scotus/10", "scotus/12"]
+    assert coverage.partly_empty_opposition_cases == ["scotus/15"]
+    # Still covered by the per-kind test, which is why it needs its own count.
+    assert "scotus/10" in coverage.empty_documents
+    assert KIND_BRIEF_IN_OPPOSITION not in coverage.empty_documents["scotus/10"]
+
+
+@pytest.mark.reads_data
+def test_corpus_info_text_coverage_prints_the_heading_only_oppositions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = _seed_text_coverage_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn, [_set_keyed_bio("scotus/11", "", ""), _set_keyed_bio("scotus/10", "Deny.", "")]
+        )
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = runner.invoke(app, ["corpus-info", "--text-coverage"])
+    assert result.exit_code == 0, result.output
+    assert (
+        "(1 of 2 combined multi-respondent brief(s) in opposition carry nothing beyond "
+        "their "
+        "per-brief headings, 0 of them on a queued-or-predicted case, and 1 more "
+        "carry some briefs with no text, 1 of them on a queued-or-predicted case."
+    ) in result.stdout
+    # Joined to the empty-text ledger under its own label, so the case count
+    # there takes it in and no new header reaches the run summary.
+    assert "empty text (4 case(s)):" in result.stdout
+    assert "scotus/11: brief-in-opposition (headings only)" in result.stdout
+    assert (
+        "scotus/10: petition, questions-presented, brief-in-opposition (some briefs empty)"
+        in result.stdout
+    )
 
 
 def test_document_text_coverage_share_is_none_over_an_unread_cut(tmp_path: Path) -> None:

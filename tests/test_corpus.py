@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from fedcourtsai import corpus, corpus_ranged
+from fedcourtsai import casestore, corpus, corpus_ranged
 from fedcourtsai.schemas import (
     Disposition,
     EventKind,
@@ -3161,6 +3161,30 @@ def test_ifp_petition_is_out_of_predict_scope() -> None:
     assert corpus.is_ifp_petition(_row(court="ca9", docket_number="5005")) is False
 
 
+def test_ifp_grant_that_opens_a_merits_proceeding_returns_to_predict_scope() -> None:
+    # The IFP rule is a cert-stage funding decision: it stops at a grant that
+    # opens a merits proceeding, and the fee-class reading stays IFP.
+    granted = _row(
+        case_id="scotus/1",
+        court="scotus",
+        docket_number="25-5005",
+        disposition=Disposition.granted,
+        date_cert_granted=date(2026, 1, 9),
+    )
+    assert corpus.is_ifp_petition(granted) is True
+    assert corpus.is_ungranted_ifp_petition(granted) is False
+    assert corpus.out_of_scope_reason(granted) is None
+    # A GVR rides the cert order and opens no merits proceeding: still excluded.
+    gvr = granted.model_copy(update={"disposition": Disposition.gvr})
+    assert corpus.is_ungranted_ifp_petition(gvr) is True
+    assert corpus.out_of_scope_reason(gvr) == (
+        "in-forma-pauperis petition — a documented predict-scope exclusion"
+    )
+    # A pending IFP petition stays excluded.
+    pending = granted.model_copy(update={"disposition": None, "date_cert_granted": None})
+    assert corpus.is_ungranted_ifp_petition(pending) is True
+
+
 def test_is_salience_deferred_is_fail_open() -> None:
     # Unscored (no version) → treated as selected (fail-open), never deferred.
     assert corpus.is_salience_deferred(_row(salience_version=None)) is False
@@ -3247,6 +3271,102 @@ def test_latest_live_snapshot_skips_a_newer_rest_snapshot(tmp_path: Path) -> Non
         assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 6, 20), rest_payload)
         assert corpus.latest_live_snapshot(conn, "scotus/1") == (date(2026, 6, 10), live_payload)
         assert corpus.latest_live_snapshot(conn, "scotus/none") is None
+
+
+# --- the as-of snapshot bound -------------------------------------------------------
+
+
+def _seed_three_snapshots(
+    conn: sqlite3.Connection,
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    """A live snapshot on 6-10, a REST one on 6-20 and a live one on 6-25."""
+    early: dict[str, object] = {"ProceedingsandOrder": [{"Text": "Petition filed."}]}
+    rest: dict[str, object] = {"id": 1, "court": "https://example/courts/scotus/"}
+    late: dict[str, object] = {"ProceedingsandOrder": [{"Text": "Petition GRANTED."}]}
+    corpus.upsert_snapshot(conn, "scotus/1", date(2026, 6, 10), early)
+    corpus.upsert_snapshot(conn, "scotus/1", date(2026, 6, 20), rest)
+    corpus.upsert_snapshot(conn, "scotus/1", date(2026, 6, 25), late)
+    return early, rest, late
+
+
+def test_a_bound_ignores_every_snapshot_dated_after_it(tmp_path: Path) -> None:
+    """The replay contract: under the bound "newest" means newest on or before the
+    as-of day, the day itself included (the blob's pull stamp is a day a round
+    read), and each read is recorded with the date that answered it."""
+    with corpus.connect(tmp_path / "corpus.db") as conn:
+        early, rest, late = _seed_three_snapshots(conn)
+        with corpus.snapshots_as_of(date(2026, 6, 20)) as bound:
+            assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 6, 20), rest)
+            # The live reader skips the REST row, as it does unbounded.
+            assert corpus.latest_live_snapshot(conn, "scotus/1") == (date(2026, 6, 10), early)
+            assert corpus.latest_snapshot(conn, "scotus/none") is None
+        assert bound.as_json() == {
+            "as_of": "2026-06-20",
+            "reads": [
+                {"case_id": "scotus/1", "shape": "any", "snapshot_date": "2026-06-20"},
+                {"case_id": "scotus/1", "shape": "live", "snapshot_date": "2026-06-10"},
+                {"case_id": "scotus/none", "shape": "any", "snapshot_date": None},
+            ],
+        }
+        with corpus.snapshots_as_of(date(2026, 6, 9)):
+            assert corpus.latest_snapshot(conn, "scotus/1") is None
+            assert corpus.latest_live_snapshot(conn, "scotus/1") is None
+        # Outside a bound the reads are the unbounded ones again.
+        assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 6, 25), late)
+        assert corpus.latest_live_snapshot(conn, "scotus/1") == (date(2026, 6, 25), late)
+
+
+def test_bounds_do_not_nest(tmp_path: Path) -> None:
+    """A nested bound would re-date its parent's reads, so it is refused, and the
+    refusal leaves the outer bound in force."""
+    with corpus.connect(tmp_path / "corpus.db") as conn:
+        early, _, _ = _seed_three_snapshots(conn)
+        with corpus.snapshots_as_of(date(2026, 6, 15)):
+            with (
+                pytest.raises(RuntimeError, match="do not nest"),
+                corpus.snapshots_as_of(date(2026, 6, 30)),
+            ):
+                pass
+            assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 6, 10), early)
+
+
+def test_an_exception_inside_a_bound_clears_it(tmp_path: Path) -> None:
+    """The bound is process-wide, so one left behind would re-date every later read."""
+    with corpus.connect(tmp_path / "corpus.db") as conn:
+        _seed_three_snapshots(conn)
+
+        def read_then_fail() -> None:
+            with corpus.snapshots_as_of(date(2026, 6, 15)):
+                corpus.latest_snapshot(conn, "scotus/1")
+                raise ValueError("boom")
+
+        with pytest.raises(ValueError):
+            read_then_fail()
+        found = corpus.latest_snapshot(conn, "scotus/1")
+        assert found is not None
+        assert found[0] == date(2026, 6, 25)
+        with corpus.snapshots_as_of(date(2026, 6, 15)):
+            pass
+
+
+def test_the_bound_applies_to_the_content_store_under_the_split(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The issue's own shape: the blob holds no snapshots and the store keeps every
+    dated one, including those stored after the blob was cut. The bound answers
+    from the store, at the as-of day."""
+    store = casestore.InMemoryObjectTransport()
+    early = {"ProceedingsandOrder": [{"Text": "Petition filed."}]}
+    late = {"ProceedingsandOrder": [{"Text": "Petition GRANTED."}]}
+    casestore.write_snapshot(store, "scotus/1", date(2026, 9, 21), early)
+    casestore.write_snapshot(store, "scotus/1", date(2026, 9, 25), late)
+    casestore.set_active_transport(store)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    with corpus.connect(tmp_path / "corpus.db") as conn:
+        assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 9, 25), late)
+        with corpus.snapshots_as_of(date(2026, 9, 21)):
+            assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 9, 21), early)
+            assert corpus.latest_live_snapshot(conn, "scotus/1") == (date(2026, 9, 21), early)
 
 
 def test_connect_readonly_rejects_service_backend(tmp_path: Path) -> None:
@@ -3606,6 +3726,10 @@ def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
                     counsel=first,
                     last_live_polled=date(2026, 7, 13),
                     cvsg_date=date(2026, 5, 1),
+                    sg_brief_filed=date(2026, 9, 2),
+                    call_for_response_at=date(2026, 8, 12),
+                    merits_brief_on_lead=date(2026, 7, 13),
+                    relisted_at=date(2026, 10, 13),
                     distribution_count=2,
                     application_kind="substantive",
                     sample_weight=10,
@@ -3634,6 +3758,10 @@ def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
     # The other latched columns keep their own rules.
     assert kept.last_live_polled == date(2026, 7, 13)  # fill-in latch
     assert kept.cvsg_date == date(2026, 5, 1)  # fill-in latch
+    assert kept.sg_brief_filed == date(2026, 9, 2)  # fill-in latch
+    assert kept.call_for_response_at == date(2026, 8, 12)  # fill-in latch
+    assert kept.merits_brief_on_lead == date(2026, 7, 13)  # fill-in latch
+    assert kept.relisted_at == date(2026, 10, 13)  # fill-in latch
     assert kept.distribution_count == 2  # max-latch
     assert kept.application_kind == "extension"  # a real reading replaces
     assert kept.sample_weight == 1  # min-latch

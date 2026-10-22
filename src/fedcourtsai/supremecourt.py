@@ -22,11 +22,13 @@ and the symmetric guard in ``pipeline.discover``).
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections.abc import Callable
-from datetime import date
+from dataclasses import dataclass
+from datetime import date, datetime
 from typing import Any, Literal
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 
@@ -35,6 +37,14 @@ DOCKET_JSON_URL = "https://www.supremecourt.gov/rss/cases/JSON/{docket}.json"
 # The Court's human-readable docket page for one docket number — a display link,
 # never fetched by this module: the live channel reads the JSON above.
 DOCKET_PAGE_URL = "https://www.supremecourt.gov/docket/docketfiles/html/public/{docket}.html"
+
+# The Court's per-Term list of oral argument transcripts, keyed by the October
+# Term year (``2025`` lists the arguments of OT2025). One HTML page per Term, each
+# row a docket number linking the transcript PDF beside the date it was argued.
+# The Court posts a transcript on the day of the argument, so the list is how the
+# pipeline learns that one exists: the docket JSON records the argument but links
+# no transcript.
+TRANSCRIPT_LISTING_URL = "https://www.supremecourt.gov/oral_arguments/argument_transcript/{term}"
 
 # Any ordinary browser UA is accepted; the default programmatic UA gets a 403.
 # Pinned so runs are comparable (shared with the reachability probe's posture).
@@ -273,6 +283,111 @@ def scotus_docket_slug(
     return f"{term:02d}{separator}{serial}"
 
 
+@dataclass(frozen=True)
+class ArgumentTranscript:
+    """One row of the Court's transcript list: a docket, its transcript, its argument day."""
+
+    docket_number: str
+    url: str
+    argued: date
+
+
+@dataclass(frozen=True)
+class ArgumentSitting:
+    """One argument session of an October Term, as the Court's transcript list heads it.
+
+    ``start`` and ``end`` are the first and last argument days the heading
+    names, inclusive. The Court's own grouping, not a reading of the argument
+    dates: the Court widens a heading to take in a special session (a case
+    added in February or May), which no gap rule over the dates reproduces.
+    """
+
+    term: int
+    start: date
+    end: date
+
+    def holds(self, day: date) -> bool:
+        """Whether ``day`` falls within the sitting, both ends included."""
+        return self.start <= day <= self.end
+
+
+@dataclass(frozen=True)
+class TranscriptListing:
+    """One Term's transcript list: its transcripts and the sittings that head them."""
+
+    transcripts: list[ArgumentTranscript]
+    sittings: list[ArgumentSitting]
+
+
+# A sitting's heading on the transcript list: "Argument Session: April 20, 2026 -
+# April 29, 2026".
+_SITTING_RE = re.compile(
+    r"argument\s+session:\s*([a-z]+\s+\d{1,2},\s*\d{4})\s*-\s*([a-z]+\s+\d{1,2},\s*\d{4})",
+    re.IGNORECASE,
+)
+
+
+def parse_argument_sittings(html: str, *, term: int) -> list[ArgumentSitting]:
+    """The sittings a Term's transcript list is headed by, earliest first.
+
+    A heading whose dates do not read, or whose end precedes its start, is left
+    out rather than guessed at; one heading printed twice is one sitting.
+    """
+    found: set[ArgumentSitting] = set()
+    for first, last in _SITTING_RE.findall(html):
+        try:
+            start = datetime.strptime(" ".join(first.replace(",", " ").split()), "%B %d %Y").date()
+            end = datetime.strptime(" ".join(last.replace(",", " ").split()), "%B %d %Y").date()
+        except ValueError:
+            continue
+        if start <= end:
+            found.add(ArgumentSitting(term=term, start=start, end=end))
+    return sorted(found, key=lambda sitting: sitting.start)
+
+
+# One listing row: the transcript link, whose text is the docket number, then the
+# cell holding the argued date as MM/DD/YY. Read row by row so a link is paired
+# only with the date in its own row.
+_TRANSCRIPT_ROW_RE = re.compile(r"<tr\b.*?</tr>", re.IGNORECASE | re.DOTALL)
+_TRANSCRIPT_LINK_RE = re.compile(
+    r"""<a\s[^>]*href\s*=\s*['"]([^'"]*argument_transcripts/[^'"]+\.pdf)['"][^>]*>([^<]+)</a>""",
+    re.IGNORECASE,
+)
+_TRANSCRIPT_DATE_RE = re.compile(r">\s*(\d{2}/\d{2}/\d{2})\s*<")
+
+
+def parse_transcript_listing(html: str, *, page_url: str) -> list[ArgumentTranscript]:
+    """The transcripts a Term's listing page links, one per docket.
+
+    ``page_url`` is the page the HTML was served from, which the relative links
+    resolve against. Kept only where the link text is a Term-form docket number,
+    the link resolves to the Court's own host (:func:`is_court_url`) and the row
+    carries a readable date: an application argued on the interim docket has no
+    merits stage to forecast, and a row this cannot read is left out rather than
+    guessed at. A docket listed twice in one Term (a reargument the same Term)
+    keeps its later row, the argument the decision follows.
+    """
+    found: dict[str, ArgumentTranscript] = {}
+    for row in _TRANSCRIPT_ROW_RE.findall(html):
+        link = _TRANSCRIPT_LINK_RE.search(row)
+        when = _TRANSCRIPT_DATE_RE.search(row)
+        if link is None or when is None:
+            continue
+        number = parse_scotus_docket_number(link.group(2))
+        url = urljoin(page_url, link.group(1).strip())
+        if number is None or not is_court_url(url):
+            continue
+        try:
+            argued = datetime.strptime(when.group(1), "%m/%d/%y").date()
+        except ValueError:
+            continue
+        docket = scotus_docket_slug(*number)
+        held = found.get(docket)
+        if held is None or argued >= held.argued:
+            found[docket] = ArgumentTranscript(docket_number=docket, url=url, argued=argued)
+    return list(found.values())
+
+
 def october_term_year(day: date) -> int:
     """The October Term ``day`` falls in — the tree's one date→Term rule.
 
@@ -407,6 +522,22 @@ class SupremeCourtClient:
         """
         url = DOCKET_JSON_URL.format(docket=scotus_docket_slug(term, serial, form=form))
         return self._fetch(url)
+
+    def get_transcript_listing(self, term: int) -> TranscriptListing | None:
+        """The October Term ``term``'s transcript list, or ``None`` when no list is served.
+
+        One paced GET of :data:`TRANSCRIPT_LISTING_URL`, read for its transcripts
+        (:func:`parse_transcript_listing`, against the URL it was served from)
+        and its sitting headings (:func:`parse_argument_sittings`).
+        """
+        url = TRANSCRIPT_LISTING_URL.format(term=term)
+        response = self._fetch(url)
+        if response is None:
+            return None
+        return TranscriptListing(
+            transcripts=parse_transcript_listing(response.text, page_url=str(response.url)),
+            sittings=parse_argument_sittings(response.text, term=term),
+        )
 
     def get_document(self, url: str) -> bytes | None:
         """Fetch one linked document (a filed PDF), or ``None`` when not served.

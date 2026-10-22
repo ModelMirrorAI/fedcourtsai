@@ -44,6 +44,7 @@ extractor fix onto the rows an unchanged petition URL would otherwise freeze.
 
 from __future__ import annotations
 
+import dataclasses
 import io
 import logging
 import re
@@ -93,11 +94,16 @@ from .caption import _scored_segment
 # closes a cycle; `ingest`, which holds the same grant reading for the corpus
 # row, would.
 #
-# The invitation and disposition readings bound the two cert-stage arms that are
-# not opposition briefs — the Solicitor General's invited brief and the reply —
-# in docket order: the CVSG entry opens the first, and the first entry carrying
-# a machine-readable cert disposition closes both.
-from .cert_signals import CVSG_RE, cert_grant_date, match_disposition_signal
+# The disposition reading bounds the cert-stage reply in docket order: the first
+# entry carrying a machine-readable cert disposition closes it. The Solicitor
+# General's invited brief is located by `cert_signals` itself, between the CVSG
+# entry and that same disposition, because the sg-brief moment is dated off the
+# same entry.
+from .cert_signals import (
+    cert_grant_date,
+    match_disposition_signal,
+    sg_invited_brief_position,
+)
 from .cert_signals import entry_date as _parse_entry_date
 
 # The interim lane's own reading of what an application asks for. Imported
@@ -117,12 +123,16 @@ from .interim_signals import ApplicationKind, application_kind, is_response_file
 # moment's predicate plus "Brief for the respondent …" and a leading "Redacted",
 # while the moment itself keeps the narrower reading. Which document a cell is
 # given and when its moment opens are separate questions, and widening the
-# second is a moment change rather than a selector one.
+# second is a moment change rather than a selector one. The same split runs the
+# other way for a respondent confessing error: the selector stores that brief,
+# and the moment is dated by the brief that defends the judgment.
 from .merits_signals import (
+    is_appointed_amicus_merits_brief,
     is_petitioner_merits_brief,
     is_petitioner_merits_reply,
     is_respondent_merits_brief_document,
     is_respondent_merits_reply,
+    respondent_brief_date,
 )
 from .prefetch import prefetch_by_case
 
@@ -203,6 +213,11 @@ KIND_MERITS_BRIEF_RESPONDENT = "merits-brief-respondent"
 KIND_MERITS_REPLY_PETITIONER = "merits-reply-petitioner"
 KIND_MERITS_REPLY_RESPONDENT = "merits-reply-respondent"
 KIND_QUESTIONS_PRESENTED = "questions-presented"
+# The transcript of the oral argument, which no docket entry links: the Court
+# lists it on a per-Term page (:func:`fedcourtsai.supremecourt.parse_transcript_listing`),
+# so it is fetched by the live poll's transcript pass rather than selected here,
+# and dated by the argument day the list gives.
+KIND_ARGUMENT_TRANSCRIPT = "argument-transcript"
 
 # The separator the combined brief-in-opposition row joins its constituents'
 # links with. Named because three readers turn on it: the row is rebuilt from
@@ -423,27 +438,6 @@ _CERT_REPLY_EXCLUDE_RE = re.compile(
     re.IGNORECASE,
 )
 
-# The Solicitor General's **invited brief**, filed in answer to the Court's call
-# for the views of the United States (:data:`cert_signals.CVSG_RE`):
-#
-#   "Brief amicus curiae of United States filed."
-#   "Brief for the United States as amicus curiae filed."
-#   "Brief of the United States as Amicus Curiae filed."
-#
-# Start-anchored on the filer, and the filer must be the United States **and
-# nothing after it** — the lookahead admits only "as …", the verb, a parenthesis
-# or punctuation — because "United States" also opens the names of amici that
-# are not the government ("Brief amicus curiae of United States Conference of
-# Catholic Bishops filed.", "Brief of United States Senators …"). The word
-# "amicus" is required as well, so the United States filing as a **party** — a
-# federal respondent's opposition — stays with the opposition arm.
-_SG_BRIEF_RE = re.compile(
-    r"^\s*brief\s+(?:amicus\s+curiae\s+)?(?:of|for)\s+(?:the\s+)?united\s+states"
-    r"(?=\s*(?:as\b|filed\b|submitted\b|\(|[.,;]|$))",
-    re.IGNORECASE,
-)
-_SG_AMICUS_RE = re.compile(r"\bamicus\b", re.IGNORECASE)
-
 
 # The applicant's **reply** to the response to an application, as the Clerk
 # enters it:
@@ -489,19 +483,6 @@ def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | No
     if _is_post_grant(filed, granted_on) or not _BIO_VERB_RE.search(text):
         return False
     return bool(_CERT_REPLY_RE.search(text)) and not _CERT_REPLY_EXCLUDE_RE.search(text)
-
-
-def _is_sg_invited_brief_entry(text: str) -> bool:
-    """Whether an entry is the brief for the United States as amicus curiae.
-
-    Text alone; the caller supplies the stage — an entry counts only after the
-    Court's invitation and before the first disposition, in docket order — so an
-    uninvited filing by the United States as amicus (a merits-stage amicus brief
-    supporting a party, say) is never read as the invited one.
-    """
-    return bool(
-        _SG_BRIEF_RE.search(text) and _SG_AMICUS_RE.search(text) and _BIO_VERB_RE.search(text)
-    )
 
 
 # Where the questions-presented section of a petition ends: the next standard
@@ -778,11 +759,13 @@ def select_documents(
       link alone. The merits reply arm below reads the same words after the
       grant; the date is the only thing between them.
     - The **Solicitor General's invited brief**
-      (:func:`_is_sg_invited_brief_entry`), stored as ``sg-invited-brief``: the
-      first brief for the United States as amicus curiae entered after the
-      Court's invitation (:data:`cert_signals.CVSG_RE`) and before any
-      disposition entry, from its ``Main Document`` link alone. No other amicus
-      brief is selected by any arm.
+      (:func:`cert_signals.sg_invited_brief_position`), stored as
+      ``sg-invited-brief``: the first brief for the United States as amicus
+      curiae entered after the Court's invitation
+      (:data:`cert_signals.CVSG_RE`) and before any disposition entry, from its
+      ``Main Document`` link alone — the entry the sg-brief moment is dated
+      from. A first brief posting no such link stores nothing; a later one is
+      never taken in its place. No other amicus brief is selected by any arm.
     - The **petitioner's brief on the merits**
       (:func:`merits_signals.is_petitioner_merits_brief`) and the
       **respondent's** (:func:`~merits_signals.is_respondent_merits_brief_document`),
@@ -852,15 +835,19 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     application_reply: DocumentRef | None = None
     bios: list[DocumentRef] = []
     seen_bio_urls: set[str] = set()
-    # Docket-order stage markers for the reply and invited-brief arms: whether
-    # the Court has invited the Solicitor General yet, and whether the petition
-    # has been disposed of. Both are updated *after* an entry is read, so the
-    # entry that disposes of the petition is itself never a filing here.
-    invited = False
+    # Docket-order stage marker for the reply arm: whether the petition has been
+    # disposed of, updated *after* an entry is read, so the entry that disposes
+    # of the petition is itself never a filing here.
     disposed = False
+    # The invited brief is located once, by the parse that also dates the
+    # sg-brief moment, so the stored document and the moment are one entry.
+    # Positions count the mapping entries alone, as `proceedings_entries` does.
+    sg_position = sg_invited_brief_position(payload)
+    position = -1
     for entry in payload.get("ProceedingsandOrder") or []:
         if not isinstance(entry, Mapping):
             continue
+        position += 1
         text = str(entry.get("Text") or "")
         entry_date = str(entry.get("Date") or "") or None
         filed = _parse_entry_date(entry_date)
@@ -910,13 +897,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             and _is_cert_reply_entry(text, filed=filed, granted_on=granted_on)
         ):
             cert_reply = _merits_filing_ref(entry, KIND_CERT_REPLY, entry_date)
-        elif (
-            sg_brief is None
-            and invited
-            and not disposed
-            and _is_sg_invited_brief_entry(text)
-            and not _is_post_grant(filed, granted_on)
-        ):
+        elif position == sg_position:
             sg_brief = _merits_filing_ref(entry, KIND_SG_INVITED_BRIEF, entry_date)
         elif (
             merits_petitioner is None
@@ -942,7 +923,6 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             and is_respondent_merits_reply(text)
         ):
             reply_respondent = _merits_filing_ref(entry, KIND_MERITS_REPLY_RESPONDENT, entry_date)
-        invited = invited or CVSG_RE.search(text) is not None
         disposed = disposed or match_disposition_signal(text) is not None
     return [
         ref
@@ -1270,6 +1250,50 @@ def _lead_for_member(lead: Mapping[str, Any], member: Mapping[str, Any]) -> dict
     )
 
 
+def member_respondent_brief_date(lead: Mapping[str, Any], member: Mapping[str, Any]) -> date | None:
+    """When a consolidated member's own respondent filed its merits brief on the lead.
+
+    :func:`~fedcourtsai.pipeline.merits_signals.respondent_brief_date` over the
+    lead's entries cut to the member's own filings (:func:`_lead_for_member`),
+    bounded by the later of the member's grant and the lead's, as the document
+    borrow is: the same parse that dates an unconsolidated case's briefed
+    moment, read where consolidation moved the filing, and a Court-appointed
+    amicus's brief with it unless the Clerk marks it for other dockets. ``None`` where the member
+    serves no number, either grant cannot be dated, or no attributed brief is on
+    the lead yet. Unlike the document borrow, a self-represented party on the
+    lead does not refuse it: that guard keeps a filer's contact details out of
+    staged text, and a date carries none.
+    """
+    own_filings = _lead_for_member(lead, member)
+    member_granted_on = cert_grant_date(member)
+    lead_granted_on = cert_grant_date(lead)
+    member_number = parse_scotus_docket_number(str(member.get("CaseNumber") or ""))
+    if (
+        own_filings is None
+        or member_granted_on is None
+        or lead_granted_on is None
+        or member_number is None
+    ):
+        return None
+    # A Court-appointed amicus names no party, so the side filter above keeps it
+    # for every member. One the Clerk marks "(as to No.)" for other dockets
+    # defends their judgment, not this member's, and is dropped; an unmarked one
+    # is read as the group's.
+    own_filings = {
+        **own_filings,
+        "ProceedingsandOrder": [
+            entry
+            for entry in own_filings.get("ProceedingsandOrder") or []
+            if not (
+                isinstance(entry, Mapping)
+                and is_appointed_amicus_merits_brief(text := str(entry.get("Text") or ""))
+                and _marked_for_others(text, member_number)
+            )
+        ],
+    }
+    return respondent_brief_date(own_filings, granted_on=max(member_granted_on, lead_granted_on))
+
+
 def _merits_entries_kept(
     docket: Mapping[str, Any], keep: Callable[[str, set[str]], bool]
 ) -> dict[str, Any]:
@@ -1582,6 +1606,60 @@ def extract_pdf_text(
         )
     except (PyPdfError, ValueError, TypeError):
         return ExtractedText(text="", pages=0, truncated=False)
+
+
+# A transcript's page furniture, one stripped line at a time: the margin line
+# numbers and the page number (bare integers), the reporter's running footer and
+# the review header every page repeats, and the dashed rules of the cover. Kept
+# out because they are a third of the extracted text and none of the argument.
+_TRANSCRIPT_FURNITURE_RE = re.compile(
+    r"\d{1,3}|heritage reporting corporation|official - subject to final review|(?:- )+-",
+    re.IGNORECASE,
+)
+# The reporter's closing line. Everything after the last one is the word index,
+# which lists every word with its page and line references and reads as noise.
+_TRANSCRIPT_CLOSE_RE = re.compile(
+    r"\(\s*whereupon,[^)]*?\bwas\s+submitted\.?\s*\)", re.IGNORECASE | re.DOTALL
+)
+
+
+def clean_transcript_text(text: str) -> str:
+    """An argument transcript's extracted text without its furniture or word index.
+
+    Cut after the reporter's last closing line, where the argument ends, then
+    each line has its whitespace collapsed and a line that is page furniture
+    (:data:`_TRANSCRIPT_FURNITURE_RE`) or blank is dropped. A transcript without
+    the closing line keeps its index rather than losing argument to a guess.
+    """
+    closes = list(_TRANSCRIPT_CLOSE_RE.finditer(text))
+    if closes:
+        text = text[: closes[-1].end()]
+    kept: list[str] = []
+    for line in text.splitlines():
+        stripped = " ".join(line.split())
+        if stripped and not _TRANSCRIPT_FURNITURE_RE.fullmatch(stripped):
+            kept.append(stripped)
+    return "\n".join(kept)
+
+
+def extract_transcript_text(data: bytes, *, char_cap: int) -> ExtractedText:
+    """Extract an argument transcript's text, cleaned, under the plain head cut.
+
+    The whole transcript is read (up to :data:`_READ_CEILING_CAPS` times the
+    cap) before :func:`clean_transcript_text`, because the furniture it removes
+    is what would otherwise spend the cap: an hour's argument fits once its line
+    numbers and index are gone. What is still over the cap is head-cut and
+    flagged, as any other plain-cut document is.
+    """
+    raw = extract_pdf_text(data, char_cap=char_cap * _READ_CEILING_CAPS)
+    text = clean_transcript_text(raw.text)
+    truncated = raw.truncated
+    if len(text) > char_cap:
+        text = text[:char_cap]
+        truncated = True
+    return ExtractedText(
+        text=text, pages=raw.pages, truncated=truncated, ocr_derived=raw.ocr_derived
+    )
 
 
 # --- Appendix-aware cut -----------------------------------------------------
@@ -3501,6 +3579,26 @@ def bio_set_key(refs: Sequence[DocumentRef]) -> str:
     return BIO_URL_JOIN.join(sorted(ref.url for ref in refs))
 
 
+# The per-brief header :func:`_combine_bio_documents` writes above each
+# constituent of a multi-brief opposition row, on a line of its own.
+_BIO_BLOCK_HEADER_RE = re.compile(r"^=== .* ===$", re.MULTILINE)
+
+
+def bio_block_texts(text: str) -> list[str]:
+    """The constituent bodies of a combined opposition row, headers stripped.
+
+    One entry per ``=== <docket entry> ===`` header, in stored order, so a row
+    whose every brief was a scan reads back as a list of blank bodies while its
+    text as a whole is not blank — the headers are text. A row with no header (a
+    lone brief, stored raw) reads back as its whole text, one body.
+    """
+    parts = _BIO_BLOCK_HEADER_RE.split(text)
+    if len(parts) == 1:
+        return parts
+    # Whatever precedes the first header is not a brief: the combiner writes none.
+    return parts[1:]
+
+
 def unheld_document_kinds(refs: Sequence[DocumentRef], stored_urls: Mapping[str, str]) -> list[str]:
     """The selected kinds the stored set does not hold at the selected link, in ``refs`` order.
 
@@ -4193,6 +4291,10 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_QUESTIONS_PRESENTED: (
         "The questions-presented section cut out of the petition's own text."
     ),
+    KIND_ARGUMENT_TRANSCRIPT: (
+        "The transcript of the oral argument as the Court posted it, without its line "
+        "numbers, page headers and word index."
+    ),
 }
 
 # The two halves the coverage counts are cut into, in report order.
@@ -4325,6 +4427,52 @@ class TextCoverage(BaseModel):
         "`extract_pdf_text`'s could-not-open branch rather than a page count with "
         "no text layer, so OCR is not the repair for them",
     )
+    combined_oppositions: int = Field(
+        default=0,
+        ge=0,
+        description="Stored brief-in-opposition rows written as a combination of "
+        "briefs: a key that is a set of more than one brief's link, or text under a "
+        "per-brief header, which a group stored with only one of its briefs fetched "
+        "keeps under a single link. Outside OCR recovery either way: a set key is "
+        "not a URL to fetch, and a headed row is not whitespace-empty. A row of "
+        "this shape whose whole text is whitespace is counted here and left to the "
+        "per-kind empty count",
+    )
+    heading_only_oppositions: int = Field(
+        default=0,
+        ge=0,
+        description="Of the combined oppositions, the ones whose every constituent "
+        "body is empty: nothing beyond the per-brief headings. Not empty by the "
+        "`empty_text` test, because the headings are text, so the per-kind cuts "
+        "count these as covered while they carry no argument. A row the "
+        "document cap truncated reads only the briefs it kept",
+    )
+    heading_only_oppositions_queued: int = Field(
+        default=0,
+        ge=0,
+        description="Of the heading-only oppositions, the ones on a queued-or-"
+        "predicted case — where the missing argument costs a cell",
+    )
+    partly_empty_oppositions: int = Field(
+        default=0,
+        ge=0,
+        description="Of the combined oppositions, the ones where some constituent "
+        "bodies are empty and some are not: a respondent's brief lost to a scan "
+        "inside a row that reads as covered",
+    )
+    partly_empty_oppositions_queued: int = Field(
+        default=0,
+        ge=0,
+        description="Of the partly empty oppositions, the ones on a queued-or-predicted case",
+    )
+    heading_only_opposition_cases: list[str] = Field(
+        default_factory=list,
+        description="The heading-only opposition cases themselves, in case_id order",
+    )
+    partly_empty_opposition_cases: list[str] = Field(
+        default_factory=list,
+        description="The partly empty opposition cases themselves, in case_id order",
+    )
     offloaded: bool = Field(
         description="Whether the payload reads were served by the per-case content "
         "store (the corpus-split shape) rather than by the blob's own tables"
@@ -4389,6 +4537,38 @@ def _stored_payload_floor(conn: corpus.ReadConnection, case_id: str, *, kind: st
     if any(ref.kind == kind for ref in select_documents(payload)):
         return False
     return primary_entry_matched(payload, kind=kind)
+
+
+@dataclass
+class _CombinedOppositions:
+    """The combined opposition rows one coverage pass reads, body by body.
+
+    A multi-respondent opposition is never empty by the ``empty_text`` test —
+    its per-brief headings are text — so a row of scans needs its own reading:
+    each constituent body (:func:`bio_block_texts`) is tested on its own.
+    """
+
+    combined: int = 0
+    heading_only_queued: int = 0
+    partly_empty_queued: int = 0
+    heading_only_cases: list[str] = dataclasses.field(default_factory=list)
+    partly_empty_cases: list[str] = dataclasses.field(default_factory=list)
+
+    def read(self, case_id: str, url: str, text: str, *, queued: bool) -> None:
+        # Read off the text as well as the key: a group stored with one brief
+        # fetched keeps that brief's single link but still writes its header.
+        if BIO_URL_JOIN not in url and not _BIO_BLOCK_HEADER_RE.search(text):
+            return  # a lone brief, stored raw: the per-kind test already reads it
+        self.combined += 1
+        if not text.strip():
+            return  # already counted empty by the per-kind test
+        blank = [not body.strip() for body in bio_block_texts(text)]
+        if all(blank):
+            self.heading_only_cases.append(case_id)
+            self.heading_only_queued += queued
+        elif any(blank):
+            self.partly_empty_cases.append(case_id)
+            self.partly_empty_queued += queued
 
 
 def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> TextCoverage:
@@ -4507,6 +4687,7 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
     queued_without_petition_cases: list[str] = []
     queued_without_application_cases: list[str] = []
     cases_read = unopened_petitions = 0
+    oppositions = _CombinedOppositions()
     distributed_without_petition = queued_without_petition = queued_without_application = 0
     # Materialized before the fetch: `iter_rows` rides `conn`, which under the
     # offloaded schedule must not be walked while readers are in flight.
@@ -4552,6 +4733,8 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
                 has_petition = has_petition or document.kind == KIND_PETITION
                 has_application = has_application or document.kind == KIND_APPLICATION
                 tally[0] += 1
+                if document.kind == KIND_BRIEF_IN_OPPOSITION:
+                    oppositions.read(case_id, document.url, document.text, queued=case_id in queued)
                 if not document.text.strip():
                     tally[1] += 1
                     empty_documents.setdefault(case_id, []).append(document.kind)
@@ -4607,6 +4790,13 @@ def document_text_coverage(conn: corpus.ReadConnection, data_root: Path) -> Text
         queued_without_petition_floor=petition_floor,
         queued_without_application_floor=application_floor,
         unopened_petitions=unopened_petitions,
+        combined_oppositions=oppositions.combined,
+        heading_only_oppositions=len(oppositions.heading_only_cases),
+        heading_only_oppositions_queued=oppositions.heading_only_queued,
+        partly_empty_oppositions=len(oppositions.partly_empty_cases),
+        partly_empty_oppositions_queued=oppositions.partly_empty_queued,
+        heading_only_opposition_cases=oppositions.heading_only_cases,
+        partly_empty_opposition_cases=oppositions.partly_empty_cases,
         offloaded=corpus.payload_reads_offloaded(),
         # Zero-filled and ordered by construction (kind within segment), so the
         # report is the same shape whatever the corpus held.

@@ -53,11 +53,12 @@ import hashlib
 import logging
 import sqlite3
 import time
+from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 
@@ -68,10 +69,13 @@ from ..registry import enabled_predictors
 from ..store import event_has_claimable_prediction, forecastable_events, petition_distributed
 from ..supremecourt import (
     IFP_SERIAL_BASE,
+    ArgumentSitting,
+    ArgumentTranscript,
     SupremeCourtClient,
     current_docket_term,
     live_application_id,
     live_docket_id,
+    october_term_year,
     parse_scotus_application_number,
     parse_scotus_docket_number,
     term_roll_date,
@@ -82,8 +86,12 @@ from .document_backfill import (
     is_predict_relevant,
 )
 from .documents import (
+    KIND_ARGUMENT_TRANSCRIPT,
+    consolidation_lead,
+    extract_transcript_text,
     fetch_case_documents,
     fetch_consolidation_lead,
+    member_respondent_brief_date,
     select_documents,
     unheld_document_kinds,
 )
@@ -374,6 +382,47 @@ def provision_documents(
         return corpus.upsert_documents(conn, documents)
 
 
+def latch_member_brief_on_lead(
+    corpus_db_path: Path, case_id: str, payload: Mapping[str, Any]
+) -> date | None:
+    """Date a consolidated member's respondent brief off its lead's stored docket.
+
+    Consolidation moves the member's later filings to the lead docket, so the
+    respondent's merits brief never reaches the member's own payload and its
+    ``merits_brief_filed`` stays empty. Called after the poll's ingest, on a
+    member (:func:`~fedcourtsai.pipeline.documents.consolidation_lead`) whose
+    row as just ingested has neither ``merits_brief_filed`` nor
+    ``merits_brief_on_lead`` and no merits judgment, this reads the lead's
+    newest stored live snapshot — the lead is a corpus case in the same
+    rotation, so it costs no request, at most one rotation stale — and latches
+    the first respondent brief the attribution reads as the member's
+    (:func:`~fedcourtsai.pipeline.documents.member_respondent_brief_date`). A
+    lead the corpus does not hold dates nothing. The date lands in
+    ``merits_brief_on_lead``, which no mint reads: the briefed moment's dating
+    is registered, so opening it for members is a re-bless decision, and the
+    column accrues until then.
+    """
+    lead = consolidation_lead(payload)
+    if lead is None:
+        return None
+    with corpus.connect(corpus_db_path) as conn:
+        row = corpus.get_row(conn, case_id)
+        if row is None or (
+            row.merits_brief_filed is not None
+            or row.merits_brief_on_lead is not None
+            or row.merits_judgment is not None
+        ):
+            return None
+        lead_case = corpus.scotus_case_id_by_docket_number(conn, f"{lead[0]:02d}-{lead[1]}")
+        stored = None if lead_case is None else corpus.latest_live_snapshot(conn, lead_case)
+        if stored is None:
+            return None
+        filed = member_respondent_brief_date(stored[1], payload)
+        if filed is not None:
+            corpus.latch_merits_brief_on_lead(conn, case_id, filed)
+    return filed
+
+
 @dataclass(frozen=True)
 class FreshnessCandidate:
     """One polled case the freshness pass checks, with the docket it was just read at.
@@ -541,6 +590,218 @@ def refresh_stale_documents(
     ledger["deferred"] = deferred
     ledger["owed"] = dict(sorted(owed.items()))
     return ledger
+
+
+def fetch_argument_transcripts(
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    *,
+    cap: int,
+    char_cap: int,
+    today: date,
+    deadline: float | None = None,
+    time_fn: Callable[[], float] = time.monotonic,
+) -> dict[str, object]:
+    """Store the oral argument transcripts the Court has listed and the corpus lacks.
+
+    The post-argument moment's acquisition. No docket entry links a transcript:
+    the Court posts it the day the case is argued, on one page per October Term
+    (:meth:`~fedcourtsai.supremecourt.SupremeCourtClient.get_transcript_listing`).
+    So the pass reads that list for the Term ``today`` falls in and the one
+    before it — two paced GETs a cycle, the earlier Term covering the spring
+    sittings across the October roll and the back-fill of the last Term — and
+    matches each row to a corpus case by docket number. The sittings heading
+    each list are stored as they read (:func:`~fedcourtsai.corpus.upsert_argument_sittings`),
+    the Court's own grouping of the Term's argument days. A matched case whose
+    stored ``argument-transcript`` row is missing or holds another URL owes the
+    transcript; owed rows are fetched newest argument first, at most ``cap`` a
+    cycle and within the deadline, extracted by
+    :func:`~fedcourtsai.pipeline.documents.extract_transcript_text`, stored under
+    the argument day, and the day latched into ``argument_transcript_at``
+    (:func:`~fedcourtsai.corpus.latch_argument_transcript_at`), which opens the
+    moment at the case's next poll.
+
+    Every argued case is stored, decided or not: the transcript is a fact of the
+    case and costs one download, while the moment's mint guards decide whether
+    it is forecast. A consolidated member the list does not name gets nothing;
+    the list names the docket the argument was heard under. ``cap`` of ``0``
+    disables the pass. The returned counts are the run log's ledger line; a
+    list or a download that fails is counted and the pass moves on, and the
+    caller isolates the pass as a whole.
+    """
+    ledger: dict[str, object] = dict.fromkeys(
+        (
+            "listed",
+            "sittings",
+            "unmatched",
+            "held",
+            "owed",
+            "stored",
+            "empty",
+            "unavailable",
+            "failed",
+            "deferred",
+        ),
+        0,
+    )
+    if cap <= 0 or (deadline is not None and time_fn() >= deadline):
+        return ledger
+    listed, sittings, failed = _listed_transcripts(client, today)
+    if sittings:
+        with corpus.connect(corpus_db_path) as conn:
+            corpus.upsert_argument_sittings(conn, sittings, read_at=today)
+    owed, unmatched, held = _owed_transcripts(corpus_db_path, listed)
+    ledger.update(
+        listed=len(listed),
+        sittings=len(sittings),
+        unmatched=unmatched,
+        held=held,
+        owed=len(owed),
+    )
+    outcomes: Counter[str] = Counter()
+    deferred = 0
+    for case_id, row in owed:
+        if sum(outcomes.values()) >= cap or (
+            deadline is not None and deadline - time_fn() < ESTIMATED_DOCUMENT_SECONDS
+        ):
+            deferred += 1
+            continue
+        try:
+            outcome = _store_transcript(
+                client, corpus_db_path, case_id, row, char_cap=char_cap, today=today
+            )
+        except Exception as exc:  # one transcript's failure must not cost the pass the rest
+            logger.warning("argument-transcripts: %s failed: %s", case_id, type(exc).__name__)
+            outcome = "failed"
+        outcomes[outcome] += 1
+    ledger.update(
+        stored=outcomes["stored"] + outcomes["empty"],
+        empty=outcomes["empty"],
+        unavailable=outcomes["unavailable"],
+        failed=failed + outcomes["failed"],
+        deferred=deferred,
+    )
+    return ledger
+
+
+def _listed_transcripts(
+    client: SupremeCourtClient, today: date
+) -> tuple[list[ArgumentTranscript], list[ArgumentSitting], int]:
+    """The transcripts and sittings listed for the October Term ``today`` is in and the one before.
+
+    Returns them with the count of lists that failed to load; a list the Court
+    does not serve contributes nothing.
+    """
+    term = october_term_year(today)
+    listed: list[ArgumentTranscript] = []
+    sittings: list[ArgumentSitting] = []
+    failed = 0
+    for listing_term in (term, term - 1):
+        try:
+            listing = client.get_transcript_listing(listing_term)
+        except httpx.HTTPError:
+            failed += 1
+            continue
+        if listing is not None:
+            listed.extend(listing.transcripts)
+            sittings.extend(listing.sittings)
+    return listed, sittings, failed
+
+
+def _owed_transcripts(
+    corpus_db_path: Path, listed: list[ArgumentTranscript]
+) -> tuple[list[tuple[str, ArgumentTranscript]], int, int]:
+    """The listed transcripts a corpus case lacks, newest argument first.
+
+    Returns ``(owed, unmatched, held)``: the ``(case_id, row)`` pairs owed, the
+    rows no corpus case carries the docket number of, and the cases already
+    holding a transcript. A case whose row has ``argument_transcript_at``
+    latched is held without a store read: the transcript that opened its moment
+    is the one it keeps, so neither a reargument's later transcript nor a
+    re-posted link replaces it, and the steady state costs one index read per
+    listed docket. Only an unlatched case has its stored link read, which is
+    what keeps a transcript stored with no text from being downloaded again. A
+    case listed in both Terms is matched on its newer row.
+    """
+    ordered = sorted(listed, key=lambda r: r.argued, reverse=True)
+    matched: dict[str, ArgumentTranscript] = {}
+    unmatched = held = 0
+    with corpus.connect(corpus_db_path) as conn:
+        by_number = corpus.scotus_case_ids_by_docket_numbers(
+            conn, [row.docket_number for row in ordered]
+        )
+        for row in ordered:
+            normalized = corpus.normalize_docket_number(row.docket_number)
+            case_id = by_number.get(normalized) if normalized is not None else None
+            if case_id is None:
+                unmatched += 1
+            elif case_id not in matched:
+                matched[case_id] = row
+        unlatched: list[str] = []
+        for case_id in matched:
+            stored_row = corpus.get_row(conn, case_id)
+            if stored_row is not None and stored_row.argument_transcript_at is not None:
+                held += 1
+            else:
+                unlatched.append(case_id)
+        # The links alone, as the freshness check reads them: a manifest read
+        # per case under the corpus split, prefetched, and no document body.
+        with prefetch_by_case(
+            unlatched,
+            lambda case_id: corpus.document_urls_for_case(conn, case_id),
+            thread_name_prefix="argument-transcripts",
+        ) as fetched:
+            stored_urls = dict(fetched)
+    owed: list[tuple[str, ArgumentTranscript]] = []
+    for case_id in unlatched:
+        row = matched[case_id]
+        if stored_urls.get(case_id, {}).get(KIND_ARGUMENT_TRANSCRIPT) == row.url:
+            held += 1
+        else:
+            owed.append((case_id, row))
+    return owed, unmatched, held
+
+
+def _store_transcript(
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    case_id: str,
+    row: ArgumentTranscript,
+    *,
+    char_cap: int,
+    today: date,
+) -> Literal["stored", "empty", "unavailable", "failed"]:
+    """Download, extract and store one transcript; return what became of it.
+
+    Stored under the argument day, which is what places it against a moment
+    cutoff. Only a transcript that carries text latches ``argument_transcript_at``:
+    a cell filed under the moment with an empty transcript would be forecast
+    from the briefed moment's information set.
+    """
+    try:
+        data = client.get_document(row.url)
+    except httpx.HTTPError:  # an off-host hop is one of these
+        return "failed"
+    if data is None:
+        return "unavailable"
+    extracted = extract_transcript_text(data, char_cap=char_cap)
+    document = corpus.CaseDocument(
+        case_id=case_id,
+        kind=KIND_ARGUMENT_TRANSCRIPT,
+        url=row.url,
+        entry_date=row.argued.isoformat(),
+        fetched_at=today,
+        pages=extracted.pages,
+        truncated=extracted.truncated,
+        ocr_derived=extracted.ocr_derived,
+        text=extracted.text,
+    )
+    with corpus.connect(corpus_db_path) as conn:
+        corpus.upsert_documents(conn, [document])
+        if not extracted.text.strip():
+            return "empty"
+        corpus.latch_argument_transcript_at(conn, case_id, row.argued)
+    return "stored"
 
 
 def _within_term_roll_grace(today: date, grace_days: int) -> bool:
@@ -795,6 +1056,7 @@ def poll_live_cases(  # noqa: PLR0913 - soft-budget deadline + injected clock ov
             )
             continue
         result = ingest_live_payload(corpus_db_path, data_root, payload, docket_id, today=today)
+        latch_member_brief_on_lead(corpus_db_path, result.case_id, payload)
         transitioned = _distribution_transition(row, result)
         # The queue decision is made here so provisioning follows it: a
         # transition on a petition the salience latch defers spends neither
@@ -1441,7 +1703,7 @@ def salience_sweep(  # noqa: PLR0913,PLR0912,PLR0915 - cycle args (deadline/cloc
             corpus.stamp_predict_queued(conn, [result.case_id], today)
 
 
-def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over the cycle args
+def live_poll_all(  # noqa: PLR0913,PLR0915 - soft-budget deadline + injected clock over the cycle args + one isolated step per cycle pass
     client: SupremeCourtClient,
     corpus_db_path: Path,
     data_root: Path,
@@ -1508,7 +1770,9 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
     (:func:`refresh_stale_documents`) over the predict-relevant cases both
     rotations polled and did not provision on a trigger, capped at
     ``config.document_freshness_per_run`` cases (``0`` disables it, and the
-    polls then collect nothing for it).
+    polls then collect nothing for it), then the **argument-transcript** pass
+    (:func:`fetch_argument_transcripts`), capped at
+    ``config.argument_transcripts_per_run`` downloads (``0`` disables it).
     """
     gated = scope == PredictScope.scotus_docket
     discovery = discover_live(
@@ -1723,4 +1987,41 @@ def live_poll_all(  # noqa: PLR0913 - soft-budget deadline + injected clock over
             )
         except Exception as exc:  # the pass is owed again next cycle; the window's work comes first
             queues.document_freshness = {"error": type(exc).__name__}
+    # Argument transcripts, after document freshness and for the same reason: a
+    # transcript it does not reach is owed again next cycle, so it spends only
+    # what is left.
+    queues.argument_transcripts = _argument_transcript_pass(
+        client, corpus_db_path, config, today=today, deadline=deadline, time_fn=time_fn
+    )
     return queues, discovery
+
+
+def _argument_transcript_pass(
+    client: SupremeCourtClient,
+    corpus_db_path: Path,
+    config: LiveConfig,
+    *,
+    today: date,
+    deadline: float | None,
+    time_fn: Callable[[], float],
+) -> dict[str, object]:
+    """:func:`fetch_argument_transcripts` under the cycle's config, failure-isolated.
+
+    Isolated as a whole, as the freshness pass is: the cycle's polls and
+    outcomes are already written locally, and a raise here must not fail the
+    step before the corpus push that banks them. Empty when the pass is off.
+    """
+    if config.argument_transcripts_per_run <= 0:
+        return {}
+    try:
+        return fetch_argument_transcripts(
+            client,
+            corpus_db_path,
+            cap=config.argument_transcripts_per_run,
+            char_cap=config.document_text_cap,
+            today=today,
+            deadline=deadline,
+            time_fn=time_fn,
+        )
+    except Exception as exc:  # the pass is owed again next cycle; the window's work comes first
+        return {"error": type(exc).__name__}

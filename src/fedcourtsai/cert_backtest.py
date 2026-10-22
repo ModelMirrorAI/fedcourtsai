@@ -28,6 +28,7 @@ axes the cert task demands:
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import sqlite3
 import sys
@@ -41,6 +42,7 @@ from pathlib import Path
 from typing import Any, Literal, TextIO
 
 from . import corpus
+from .agent_flags import CellCoordinates, normalise_flags
 from .analytics import _is_scored_segment_row
 from .backtest import (
     Backtester,
@@ -79,11 +81,10 @@ from .pipeline.salience import (
     salience_bands,
     salience_score,
 )
-from .provision import truncate_snapshot
+from .provision import redact_snapshot, truncate_snapshot
 from .registry import enabled_predictors
 from .schemas import (
     CERT_BACKTEST_ARMS,
-    AgentFlags,
     CalibrationBin,
     CertBacktest,
     CertBacktestArm,
@@ -101,6 +102,7 @@ from .schemas import (
     CertBacktestSegment,
     Disposition,
     EventKind,
+    FlagSource,
     PredictableEvent,
     Prediction,
     PredictorConfig,
@@ -317,79 +319,6 @@ def select_cert_backtest_set(
         salience_floor=salience_floor,
         replayable_only=replayable_only,
     ).items
-
-
-# Snapshot fields that reveal the outcome — because they exist only once the
-# matter was decided (or record the decision), or because they accrue with the
-# proceedings and so, on a decided docket, betray it — stripped before an
-# agentic replay sees the docket. This blocklist is key-name-based, so every
-# channel's outcome-bearing keys must be listed.
-#
-# The proceedings entries are NOT here: they are truncated by date instead
-# (`truncate_snapshot`). Content offers no rule that separates a disposing order
-# from a pre-decision entry, but a date does — an entry filed before the cutoff
-# cannot record a decision that came after it. Dropping them wholesale left a
-# replay cell reading a docket with no history at all, which is not the docket
-# any forward cell ever saw, and left it unable to observe its own salience band.
-# Truncation is applied on top of this list, never instead of it.
-SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
-    "disposition",
-    "date_terminated",
-    "date_decided",
-    "date_cert_granted",
-    "date_cert_denied",
-    "date_argued",
-    "date_reargued",
-    "date_rehearing_denied",
-    "clusters",
-    "citations",
-    "citation_count",
-    "opinion_text",
-    "precedential_status",
-    "summary",
-    # Regenerated on docket activity, so on a decided live docket it postdates
-    # (and thereby leaks the existence of) the decision.
-    "sJsonCreationDate",
-    # The /qp/ page is generated when certiorari is GRANTED and opens with the
-    # grant order — the key's very presence leaks the outcome (verified live).
-    # The questions presented reach cells from the petition text instead.
-    "QPLink",
-    # The party and counsel blocks accrue after arrival: every third-party
-    # filing appends its counsel of record, and amici pile onto granted
-    # petitions (mean "Other" entries: 10.37 granted vs 0.45 denied), so on a
-    # decided docket the blocks' sheer size is a grant oracle — and
-    # "AttorneyHeaderOther" is emitted only when the "Other" block is
-    # non-empty, so its very presence is the boolean form of the same oracle
-    # (verified live). "PetitionerTitle" and "RespondentTitle" are NOT here:
-    # they are the arrival-time captions a forward cell sees (pipeline ingest
-    # reads them for the case name).
-    "Petitioner",
-    "Respondent",
-    "Other",
-    "AttorneyHeaderPetitioner",
-    "AttorneyHeaderRespondent",
-    "AttorneyHeaderOther",
-)
-
-
-def redact_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
-    """Drop the top-level fields that reveal that (or how) the matter was decided.
-
-    :data:`SNAPSHOT_OUTCOME_FIELDS` only. The proceedings entries survive this
-    and are handled by :func:`truncate_snapshot`, which is the other half — a
-    caller wanting the pre-decision view wants both.
-
-    Deliberately uniform across provenances: the counsel blocks are stripped
-    from genuinely pre-decision (``dated``) snapshots too, where they are
-    legitimate arrival-time signal, because the blocks are undated — date
-    truncation cannot apply — and a uniform replay information set beats a
-    dated/truncated mixture the scoring would then have to carry. The cost is
-    stated, not hidden: every replay cell is blind to counsel identity, which
-    a forward cell sees, so replay figures understate the same predictor's
-    forward information set. Do not "fix" this on dated snapshots — that
-    reopens the seam on every decided one.
-    """
-    return {key: value for key, value in payload.items() if key not in SNAPSHOT_OUTCOME_FIELDS}
 
 
 def _kept_entries_show_a_disposition(payload: Mapping[str, Any]) -> bool:
@@ -743,14 +672,21 @@ def outcome_exposure_candidate(message: str) -> bool:
 
 
 def _read_replayed_flags(
-    flags_path: Path, *, predictor_id: str, case_id: str, scored: bool
+    flags_path: Path, *, predictor_id: str, case_id: str, run_id: str, scored: bool
 ) -> CertBacktestDisclosure | None:
     """Read one replayed cell's ``flags.json`` into the report's disclosure record.
 
-    ``None`` where the cell left none. A file that does not parse is recorded
-    as ``unreadable`` rather than dropped: the cell tried to say something,
-    and a reader should know that an unread note exists. The cell stays in the
-    scores either way — nothing here is a filter.
+    ``None`` where the cell left none. The file is read the way the cell
+    workflows read it, through :func:`normalise_flags`, so a note with an
+    off-vocabulary severity or category, an over-long message or a missing
+    envelope field is read and scored like any other. Only a file with nothing
+    to recover is recorded as ``unreadable`` — one that does not parse as a
+    JSON object or list, or none of whose flags survives normalisation —
+    rather than dropped: the cell tried to say something, and a reader should
+    know that an unread note exists, as is one that cannot be read off disk.
+    A ``harness``-sourced flag — the normaliser's own account of its
+    coercions — is not one of the cell's notes and is not counted. The cell
+    stays in the scores either way — nothing here is a filter.
 
     The messages themselves go to stderr, credential-shaped runs redacted,
     and never into the returned record: the report is committed under
@@ -761,15 +697,35 @@ def _read_replayed_flags(
     """
     if not flags_path.is_file():
         return None
-    try:
-        raised = AgentFlags.model_validate_json(flags_path.read_text())
-    except (OSError, ValueError) as exc:
-        _say(f"unreadable flags.json from {predictor_id} on {case_id}: {type(exc).__name__}")
+
+    def unreadable(reason: str) -> CertBacktestDisclosure:
+        _say(f"unreadable flags.json from {predictor_id} on {case_id}: {reason}")
         return CertBacktestDisclosure(
             predictor_id=predictor_id, case_id=case_id, scored=scored, unreadable=True
         )
+
+    try:
+        text = flags_path.read_text()
+    except (OSError, ValueError) as exc:
+        return unreadable(type(exc).__name__)
+    try:
+        structure = json.loads(text)
+    except (ValueError, RecursionError):
+        return unreadable("does not parse as JSON")
+    if not isinstance(structure, dict | list):
+        return unreadable("is not a JSON object")
+    where = CellCoordinates(
+        case_id=case_id, run_id=run_id, role=UsageRole.predictor, actor_id=predictor_id
+    )
+    normalised = normalise_flags(text, where)
+    raised = [flag for flag in normalised.flags.flags if flag.source != FlagSource.harness]
+    if normalised.changed:
+        items = structure.get("flags") if isinstance(structure, dict) else structure
+        if not raised and items not in (None, []):
+            return unreadable("no flag survives normalisation")
+        _say(f"flags.json from {predictor_id} on {case_id} was normalised to validate")
     flags: list[CertBacktestFlag] = []
-    for flag in raised.flags:
+    for flag in raised:
         message = redact_credentials(flag.message)
         candidate = outcome_exposure_candidate(message)
         flags.append(
@@ -907,6 +863,7 @@ def _replay_item_cells(
             cell.event_paths.prediction_flags(predictor_id, cell.run_id),
             predictor_id=predictor_id,
             case_id=case_id,
+            run_id=cell.run_id,
             scored=scored,
         )
         if found is not None:
@@ -1661,11 +1618,12 @@ def _predicted(backtester: Backtester, item: BacktestItem) -> BacktestPrediction
 class _ArmAcc:
     """Streaming accumulator for one provisioning arm of one entry."""
 
-    __slots__ = ("correct", "denied", "events", "granted")
+    __slots__ = ("correct", "denied", "events", "granted", "granted_correct")
 
     def __init__(self) -> None:
         self.events = 0
         self.correct = 0
+        self.granted_correct = 0
         self.denied = 0
         self.granted = 0
 
@@ -1686,6 +1644,7 @@ def _arm_scores(arm_acc: Mapping[str, _ArmAcc]) -> list[CertBacktestArm]:
                 granted=acc.granted,
                 accuracy=acc.correct / acc.events,
                 lift_over_always_denied=(acc.correct - acc.denied) / acc.events,
+                granted_correct=acc.granted_correct,
             )
         )
     return arms
@@ -1701,6 +1660,7 @@ def _score_one(
     granted_correct = 0
     brier_sum = 0.0
     denied_scored = 0
+    granted_scored = 0
     pairs: list[tuple[float, int]] = []
     band_acc: dict[str, _BandAcc] = {}
     big_case_scores: list[float] = []
@@ -1715,8 +1675,10 @@ def _score_one(
         disp_correct = prediction.predicted_disposition == item.actual_disposition
         if disp_correct:
             correct += 1
-        if granted_flag(prediction.predicted_disposition) == actual_granted:
+        binary_correct = granted_flag(prediction.predicted_disposition) == actual_granted
+        if binary_correct:
             granted_correct += 1
+        granted_scored += actual_granted
         brier = (prediction.probability_granted - actual_granted) ** 2
         brier_sum += brier
         pairs.append((prediction.probability_granted, actual_granted))
@@ -1727,6 +1689,7 @@ def _score_one(
             tally = arm_acc.setdefault(arm, _ArmAcc())
             tally.events += 1
             tally.correct += int(disp_correct)
+            tally.granted_correct += int(binary_correct)
             tally.denied += int(item.actual_disposition == Disposition.denied)
             tally.granted += actual_granted
         if segments is not None:
@@ -1748,6 +1711,9 @@ def _score_one(
     # counts exactly the items the report-level `always_denied_accuracy` is
     # summed over, so this reproduces that figure wherever nothing was lost.
     floor = denied_scored / n
+    # The headline's floor, by the same rule: always-deny is right on the
+    # binary axis wherever the petition was not granted, dismissals included.
+    granted_floor = (n - granted_scored) / n
     # Null for anything that is not an engine replay: the offline reference
     # baselines are pure functions of the corpus, so they ran no backend and no
     # model, and saying so is what keeps their rows readable beside replayed ones.
@@ -1766,6 +1732,7 @@ def _score_one(
         granted_accuracy=granted_correct / n,
         mean_brier_score=brier_sum / n,
         lift_over_always_denied=correct / n - floor,
+        granted_lift_over_always_denied=granted_correct / n - granted_floor,
         calibration=_calibration(pairs),
         segments=_band_segments(band_acc),
         arms=_arm_scores(arm_acc),
@@ -1783,8 +1750,11 @@ def run_cert_backtest(
 ) -> CertBacktest:
     """Replay each backtester over the cert set and roll the scores up best-first.
 
-    Entries rank by **lift over the always-deny floor** (desc) — under the
-    denial skew that, not raw accuracy, is the signal — then mean Brier (asc),
+    Entries rank by the headline **granted-axis lift over the always-deny
+    floor** (desc) — under the denial skew that, not raw accuracy, is the
+    signal, and the binary target is the one a cert forecast is asked to call
+    and the Brier score scores, so a dismissal is a not-granted outcome rather
+    than a miss for every forecaster — then mean Brier (asc),
     then ``predictor_id``; a total order, deterministic under ties. An empty set
     yields the empty zero-count report. When ``segments`` is given (from
     :func:`build_segment_context`), each entry also carries the per-salience-band
@@ -1815,6 +1785,9 @@ def run_cert_backtest(
     always_denied_accuracy = sum(
         item.actual_disposition == Disposition.denied for item in items
     ) / len(items)
+    always_not_granted_accuracy = sum(
+        not granted_flag(item.actual_disposition) for item in items
+    ) / len(items)
     # Which arm each petition sat in, off the same clocks `provisioning_denied`
     # reads, so an entry's per-arm split and the report's per-arm floors are
     # counted over one assignment.
@@ -1838,7 +1811,7 @@ def run_cert_backtest(
     entries.sort(
         key=lambda e: (
             e.events_scored != len(items),
-            -e.lift_over_always_denied,
+            -(e.granted_lift_over_always_denied or 0.0),
             e.mean_brier_score,
             e.predictor_id,
         )
@@ -1850,6 +1823,7 @@ def run_cert_backtest(
         predictors_evaluated=len(entries),
         salience_version=SALIENCE_VERSION,
         always_denied_accuracy=always_denied_accuracy,
+        always_not_granted_accuracy=always_not_granted_accuracy,
         provisioning=dict(provisioning or {}),
         provisioning_denied=_denied_by_arm(items, provisioning, provenance),
         provenance=provenance,

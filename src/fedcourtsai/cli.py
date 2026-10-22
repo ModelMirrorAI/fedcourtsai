@@ -21,7 +21,7 @@ import textwrap
 import time
 from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
@@ -264,6 +264,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     application_backfill,
+    authorship,
     granted_noted,
     historical,
     liveprobe,
@@ -311,6 +312,8 @@ from .pipeline.documents import (
     FETCH_LOSS_NOT_SELECTED,
     FETCH_LOSS_OFF_HOST,
     FETCH_LOSS_UNAVAILABLE,
+    KIND_ARGUMENT_TRANSCRIPT,
+    KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
     OTHER_LIST,
     SCRUB_PASS_SHAPE,
@@ -329,6 +332,7 @@ from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
 from .pipeline.live import live_poll_all
+from .pipeline.merits_coverage import merits_coverage
 from .pipeline.missed import (
     MISSED_LOOKBACK_DAYS,
     DeclineReason,
@@ -508,6 +512,7 @@ from .store import (
     ledger_cell_counts,
     load_predicted_event,
     open_events,
+    open_events_for_docket_number,
     prediction_counts,
     resolved_events,
     scored_prediction,
@@ -2592,9 +2597,9 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
     fetched into it — an idempotency key, not something to GET. Such a row also
     carries its per-brief headings as text, so it is not empty by the coverage
     report's test and reads there as covered while carrying no argument at all;
-    neither surface sizes that residual, and the ledger's `set_keyed` tally is
-    the guard against a set key that somehow did read empty rather than a count
-    of it. Each candidate is
+    ``corpus-info --text-coverage`` sizes that residual on its own line, and the
+    ledger's `set_keyed` tally is the guard against a set key that somehow did
+    read empty rather than a count of it. Each candidate is
     re-fetched by its own stored URL on supremecourt.gov, free and
     politeness-capped, so the pass spends none of the CourtListener budget; and
     its pages go through the extractor with the OCR seam supplied, which reads a
@@ -3850,7 +3855,7 @@ def _refuse_bound_with_sweep(command: str, bound_flag: str, bound: int | None) -
 
 
 def _echo_sweep_ledger(
-    command: str, *, written: bool, planned: int, deferred: int, cap: int
+    command: str, *, written: bool, planned: int, deferred: int, cap: int, err: bool = False
 ) -> None:
     """The one ledger line a fill sweep tees to the run summary, and its refusal.
 
@@ -3863,7 +3868,8 @@ def _echo_sweep_ledger(
     filled = planned if written else 0
     typer.echo(
         f"sweep ledger — {command}: would fill {found}; filled {filled}; "
-        f"remaining {found - filled} (cap {cap})"
+        f"remaining {found - filled} (cap {cap})",
+        err=err,
     )
 
 
@@ -4309,6 +4315,144 @@ def decision_census_cmd(
     typer.echo(census.model_dump_json())
 
 
+@app.command("merits-coverage")
+def merits_coverage_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First grant Term to report.")
+    ] = 2025,
+    last_term: Annotated[
+        int | None,
+        typer.Option("--last-term", help="Last grant Term to report (default: the current Term)."),
+    ] = None,
+) -> None:
+    """Census every plenary merits grant against its forecast, read-only.
+
+    Over every SCOTUS modern cert docket whose grant opens a merits proceeding,
+    keyed to the October Term of its grant date (`pipeline/merits_coverage.py`):
+    a grant whose judgment rode the cert order is counted apart as
+    `order_riding`, and every other grant gets one status — `forecast` (a
+    committed merits prediction), `owed` (an open forecastable event awaiting a
+    round), `out_of_scope`, `terminated`, `decided_unforecast`, `stale`, or one
+    of the two holes, `no_event` and `not_forecastable`. Lists every grant
+    without a prediction, with its status. Reads the corpus index and the
+    committed predictions under the data root; reads no snapshot and writes
+    nothing. Prints one line per Term to stderr and the census JSON to stdout;
+    exits 3 when the census finds a hole, so a scheduled caller can alarm on
+    it apart from a failure. Fails loud (exit 1) if the corpus is absent.
+    """
+    today = date.today()
+    last = last_term if last_term is not None else october_term_year(today)
+    if first_term > last:
+        typer.echo("merits-coverage: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the merits coverage census.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        census = merits_coverage(
+            conn, settings.data_root, first_term=first_term, last_term=last, today=today
+        )
+    for term in census.terms:
+        statuses = ", ".join(f"{k} {v}" for k, v in term.statuses.items()) or "-"
+        typer.echo(
+            f"OT{term.term}: plenary grants {term.plenary_grants}, "
+            f"order-riding {term.order_riding}; {statuses}",
+            err=True,
+        )
+    typer.echo(f"uncovered {len(census.uncovered)}; holes {census.gaps}", err=True)
+    typer.echo(census.model_dump_json())
+    if census.gaps:
+        raise typer.Exit(code=3)
+
+
+@app.command("authorship-tally")
+def authorship_tally_cmd(
+    term: Annotated[int, typer.Option("--term", help="October Term to tally, four-digit.")],
+    as_of: Annotated[
+        str | None,
+        typer.Option(
+            "--as-of", help="Read the record as it stood on this day (YYYY-MM-DD); today."
+        ),
+    ] = None,
+) -> None:
+    """Tally who has written from each argument sitting of a Term, as of a day. Read-only.
+
+    The pattern a late-Term authorship forecast is conditioned on
+    (`pipeline/authorship.py`): each sitting the Court's transcript list heads
+    (`argument_sittings`), its cases (granted cases argued in it, and every
+    recorded lead opinion argued in it), the author of each case decided by the
+    day, and the bench's Justices who have written for it nothing yet. Decisions
+    dated after the day are not read; argument days and sittings are as stored.
+    Writes nothing. Prints one line per sitting to stderr
+    and the tally as JSON to stdout. Fails loud if the corpus is absent.
+    """
+    try:
+        day = date.fromisoformat(as_of) if as_of else date.today()
+    except ValueError as exc:
+        raise typer.BadParameter(f"not a YYYY-MM-DD date: {as_of!r}", param_hint="--as-of") from exc
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before tallying authorship.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        try:
+            tally = authorship.authorship_tally(conn, term=term, as_of=day)
+        except ValueError as exc:
+            typer.echo(f"OT{term}: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+    if not tally:
+        typer.echo(f"OT{term}: no argument sittings stored by {day.isoformat()}.", err=True)
+    for sitting in tally:
+        typer.echo(
+            f"{sitting.sitting.start.isoformat()}..{sitting.sitting.end.isoformat()}: "
+            f"{len(sitting.cases)} case(s), {len(sitting.undecided)} undecided, "
+            f"{len(sitting.unrecorded)} decided with no opinion recorded; "
+            f"written: {', '.join(sitting.authors) or '-'}; "
+            f"yet to write: {', '.join(sitting.yet_to_write) or '-'}",
+            err=True,
+        )
+    typer.echo(
+        json.dumps(
+            {
+                "term": term,
+                "as_of": day.isoformat(),
+                "sittings": [
+                    {
+                        "start": sitting.sitting.start.isoformat(),
+                        "end": sitting.sitting.end.isoformat(),
+                        "bench": list(sitting.bench),
+                        "yet_to_write": list(sitting.yet_to_write),
+                        "cases": [
+                            {
+                                "key": case.key,
+                                "docket": case.docket,
+                                "argued": case.argued.isoformat(),
+                                "decided": case.decided.isoformat() if case.decided else None,
+                                "author": case.author,
+                                "recorded": case.recorded,
+                            }
+                            for case in sitting.cases
+                        ],
+                    }
+                    for sitting in tally
+                ],
+            },
+            indent=2,
+        )
+    )
+
+
 @app.command("merits-lineups")
 def merits_lineups_cmd(
     first_term: Annotated[
@@ -4377,11 +4521,13 @@ def merits_lineups_cmd(
 @app.command("backfill-opinion-record")
 def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a CLI entrypoint; options map 1:1 to inputs
     first_term: Annotated[
-        int, typer.Option("--first-term", help="First October Term to read (four-digit).")
-    ] = 2025,
+        int | None,
+        typer.Option("--first-term", help="First October Term to read (four-digit; default 2025)."),
+    ] = None,
     last_term: Annotated[
-        int, typer.Option("--last-term", help="Last October Term to read (four-digit).")
-    ] = 2025,
+        int | None,
+        typer.Option("--last-term", help="Last October Term to read (four-digit; default 2025)."),
+    ] = None,
     docket: Annotated[
         str,
         typer.Option(help="Comma-separated docket numbers to read (e.g. 24-43); all if empty."),
@@ -4415,6 +4561,17 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
     projection: Annotated[Path | None, typer.Option("--projection", help=_PROJECTION_HELP)] = None,
     plan_out: Annotated[Path | None, typer.Option("--plan-out", help=_PLAN_OUT_HELP)] = None,
     from_plan: Annotated[Path | None, typer.Option("--from-plan", help=_FROM_PLAN_HELP)] = None,
+    sweep: Annotated[
+        bool,
+        typer.Option(
+            "--sweep",
+            help="Standing-sweep mode (run-seed's daily window): read the current and previous "
+            "October Term, the parse at most `historical.sweep_caps.opinion_record` documents "
+            "(two thirds newest decision first, the rest rotated); an apply refuses a class above "
+            "`opinion_record_ceiling` "
+            "in place of --max-rows.",
+        ),
+    ] = False,
 ) -> None:
     """Build the per-opinion record — type, author, joiners, word count — from the Court's opinions.
 
@@ -4438,18 +4595,46 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
     leaves untouched.
     ``--apply`` refuses above ``--max-rows``, which counts the opinion rows and
     bench rows it would insert; the apply half belongs in run-repair's `opinion-record` pass,
-    which on an apply holds the corpus-write credentials. Nothing a predict or
+    which on an apply holds the corpus-write credentials. ``--sweep`` is the
+    standing half on run-seed's daily window, so each decision of the current
+    Term is recorded within a day or so of its issue: every mode reads the
+    current and previous October Term, the parse reads at most the window's
+    slice of documents (two thirds newest decision first, the rest rotated
+    through the older rows) and counts the rest as deferred,
+    and the apply takes the slice and the class ceiling in place of a bound.
+    Nothing a predict or
     evaluate cell sees reads the table. Prints the readings of the unrecorded
     listing rows as one JSON array on stdout and a per-Term count on stderr.
     Fails loud if the corpus is absent.
     """
+    caps = load_historical_config(get_settings().config_root).sweep_caps if sweep else None
+    if sweep:
+        if first_term is not None or last_term is not None or docket:
+            typer.echo(
+                "backfill-opinion-record: --sweep reads the current and previous October Term "
+                "whole and takes no --first-term, --last-term or --docket.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        _refuse_bound_with_sweep("backfill-opinion-record", "--max-rows", max_rows)
+        if emit_corpus_projection is None and projection is None and from_plan is None:
+            typer.echo(
+                "backfill-opinion-record: --sweep runs split, as the daily window's jobs do: "
+                "--emit-corpus-projection, then --projection, then --from-plan.",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        current = october_term_year(date.today())
+        first_term, last_term = current - 1, current
+    first_term = 2025 if first_term is None else first_term
+    last_term = 2025 if last_term is None else last_term
     if first_term > last_term:
         typer.echo("backfill-opinion-record: --first-term must not exceed --last-term.", err=True)
         raise typer.Exit(code=2)
     if throttle <= 0:
         typer.echo("--throttle must be positive", err=True)
         raise typer.Exit(code=2)
-    if apply and max_rows is None:
+    if apply and max_rows is None and not sweep:
         typer.echo(
             "backfill-opinion-record: --apply requires an explicit --max-rows. "
             "Read the dry run first and pass the count you are approving.",
@@ -4507,11 +4692,35 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
             err=True,
         )
         return
+    # The sweep's class and its read documents, set only on a sweep's apply.
+    found = planned = 0
     try:
         if from_plan is not None:
             plan = _read_handoff_or_exit(
                 "backfill-opinion-record", from_plan, opinion_record.OpinionRecordPlan
             )
+            if caps is not None:
+                if list(plan.terms) != terms:
+                    raise HandoffRefused(f"the plan was read for Terms {plan.terms}, not {terms}")
+                found = opinion_record.sweep_class(plan, cap=caps.opinion_record)
+                planned = sum(1 for reading in plan.readings if reading.status == "read")
+                if found > caps.opinion_record_ceiling:
+                    _echo_sweep_ledger(
+                        "backfill-opinion-record",
+                        written=False,
+                        planned=planned,
+                        deferred=found - planned,
+                        cap=caps.opinion_record,
+                        err=True,
+                    )
+                    _refuse_sweep_above_ceiling(
+                        "backfill-opinion-record",
+                        refused=True,
+                        found=found,
+                        ceiling=caps.opinion_record_ceiling,
+                    )
+            if caps is not None:
+                max_rows = caps.opinion_record * opinion_record.SWEEP_ROWS_PER_DOCUMENT
             if apply:
                 with corpus.connect(db_path) as conn:
                     result = opinion_record.apply_opinion_record_plan(
@@ -4542,6 +4751,8 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                     recorded=recorded,
                     rebench=opinion_record.projected_rebench(handed),
                     dockets=dockets,
+                    max_documents=None if caps is None else caps.opinion_record,
+                    rotation=date.today().toordinal(),
                 )
         else:
             with SupremeCourtClient(throttle_seconds=throttle) as client:
@@ -4592,13 +4803,28 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
     typer.echo(
         f"backfill-opinion-record ({'applied' if result.applied else 'dry-run'}): "
         f"{done} row(s) — {result.rows} opinion row(s), {result.benches} bench row(s); "
-        f"{result.already_recorded} listing row(s) already recorded",
+        f"{result.already_recorded} listing row(s) already recorded"
+        + (f"; {result.deferred} deferred to a later window" if result.deferred else ""),
         err=True,
     )
+    if caps is not None and from_plan is not None:
+        _echo_sweep_ledger(
+            "backfill-opinion-record",
+            written=result.applied,
+            planned=planned,
+            deferred=found - planned,
+            cap=caps.opinion_record,
+            err=True,
+        )
     if result.refused:
         typer.echo(
             f"backfill-opinion-record: refusing to insert {total} rows "
-            f"(--max-rows {max_rows}). Triage the dry run before raising the bound.",
+            + (
+                f"(--max-rows {max_rows}). Triage the dry run before raising the bound."
+                if caps is None
+                else f"(the sweep's {max_rows}: {opinion_record.SWEEP_ROWS_PER_DOCUMENT} a "
+                "document of its slice). An honest slice stays far under it."
+            ),
             err=True,
         )
         raise typer.Exit(code=1)
@@ -7557,7 +7783,8 @@ def cert_backtest_cmd(
     typer.echo(
         f"cert-backtest: {report.predictors_evaluated} predictor(s) over "
         f"{report.events_scored} decided petition(s); always-deny floor "
-        f"{report.always_denied_accuracy:.3f}; engine "
+        f"{report.always_not_granted_accuracy or 0.0:.3f} granted vs not "
+        f"({report.always_denied_accuracy:.3f} exact disposition); engine "
         f"{engine or 'none (offline baselines only)'} -> {destination}"
     )
 
@@ -10762,7 +10989,7 @@ def _vintaged[T: BaseModel](path: Path, model: type[T]) -> Vintaged[T]:
 
 
 def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
-    """The committed replay artifacts the weekly digest's back-test block reports."""
+    """The committed metrics artifacts the weekly digest's scored blocks report."""
     return WeeklyAnalytics(
         backtest=_vintaged(metrics_root / "backtest.json", Backtest),
         salience_replay=_vintaged(metrics_root / "salience-replay.json", SalienceReplay),
@@ -10771,6 +10998,7 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
         # it as an absence rather than omitting the line.
         cert_backtest=_vintaged(metrics_root / "cert-backtest.json", CertBacktest),
         salience_version_in_force=SALIENCE_VERSION,
+        leaderboard=_vintaged(metrics_root / "leaderboard.json", Leaderboard),
     )
 
 
@@ -11727,6 +11955,19 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
         "Read off the stored payload, so a case upstream has since posted a link "
         "for is counted here until that pass fetches it.)"
     )
+    # The one emptiness the per-kind cuts cannot see: a multi-respondent
+    # opposition is stored under per-brief headings, which are text, so a row of
+    # scans reads as covered there, and OCR recovery leaves it out because its key
+    # is not a URL to fetch. Sized here so the residual has a number.
+    typer.echo(
+        f"  ({coverage.heading_only_oppositions} of {coverage.combined_oppositions} "
+        "combined multi-respondent brief(s) in opposition carry nothing beyond their "
+        f"per-brief headings, {coverage.heading_only_oppositions_queued} of them on "
+        f"a queued-or-predicted case, and {coverage.partly_empty_oppositions} more "
+        f"carry some briefs with no text, {coverage.partly_empty_oppositions_queued} "
+        "of them on a queued-or-predicted case. The cuts below count these rows as "
+        "covered, and OCR recovery does not reach them.)"
+    )
     typer.echo(
         f"text frame: the pass read documents for {coverage.cases_read} of the "
         f"{coverage.cases} live-slice case(s) it walked — a reach count, not a "
@@ -11764,10 +12005,20 @@ def _echo_text_coverage(coverage: TextCoverage) -> None:
     # The triage list an extraction fix works from, untruncated for the reason
     # the questions-presented backfill prints its whole ledger: the count says
     # whether to act, the ids are what acting operates on.
-    if coverage.empty_documents:
-        typer.echo(f"empty text ({len(coverage.empty_documents)} case(s)):")
-        for case_id, kinds in coverage.empty_documents.items():
-            typer.echo(f"  {case_id}: {', '.join(kinds)}")
+    # The heading-only oppositions join it under their own label rather than a
+    # ledger of their own: they are the same repair question, and this header is
+    # the one the run summary is cut at, so a new header would publish its list.
+    empty_ledger = {case_id: list(kinds) for case_id, kinds in coverage.empty_documents.items()}
+    for case_id in coverage.heading_only_opposition_cases:
+        empty_ledger.setdefault(case_id, []).append(f"{KIND_BRIEF_IN_OPPOSITION} (headings only)")
+    for case_id in coverage.partly_empty_opposition_cases:
+        empty_ledger.setdefault(case_id, []).append(
+            f"{KIND_BRIEF_IN_OPPOSITION} (some briefs empty)"
+        )
+    if empty_ledger:
+        typer.echo(f"empty text ({len(empty_ledger)} case(s)):")
+        for case_id in sorted(empty_ledger):
+            typer.echo(f"  {case_id}: {', '.join(empty_ledger[case_id])}")
     # The second ledger, for the failure mode no extraction fix reaches. Printed
     # for the reason the first is: a repair here is a per-case route question —
     # a case whose documents were never provisioned reads the same as one whose
@@ -13529,6 +13780,9 @@ rejected as an extra argument. Say what you want in flags.
 
 Filters — every one optional, none of them positional:
   --court TEXT           one CourtListener court id, e.g. scotus
+  --docket-number TEXT   one docket by number (25-1323, 'No. 25-1323',
+                         26A477), open or resolved — a companion, cross or
+                         held petition's row; still under the replay clock
   --topic TEXT           nature-of-suit / subject, matched EXACTLY; the
                          values come off the `topic` field of returned rows
   --judge TEXT           repeatable; ranks on shared judges
@@ -13624,6 +13878,74 @@ def _replay_cutoff_day(clock: ReplayClock | None) -> tuple[date | None, str | No
         ) from exc
 
 
+#: The cell env var carrying a replay cell's docket Term — the value the prompt
+#: contract has it pass as `--decided-before "$DECIDED_BEFORE"` on `query`.
+DECIDED_BEFORE_VAR = "DECIDED_BEFORE"
+
+
+def _docket_number_clock(raw: str) -> ReplayClock | None:
+    """The replay clock a docket-number lookup runs under.
+
+    The argument where one is given; otherwise the cell's own Term from
+    ``DECIDED_BEFORE``. The lookup reads the environment for itself because it
+    is the one read a replay cell is likely to make without the flag — the
+    frozen prompt spells ``--decided-before`` on ``query`` calls only, and a
+    companion's row is precisely what a replay clock must be able to withhold
+    — so a lookup that forgot the flag is bounded rather than unmasked. A
+    forward cell's environment carries no ``DECIDED_BEFORE``, and nothing
+    changes for it.
+
+    ``ValueError`` on an unparseable value, either source: a clock that fell
+    through to "none" would unmask the lookup while looking bounded.
+    """
+    if raw.strip():
+        return parse_decided_before(raw)
+    env = (os.environ.get(DECIDED_BEFORE_VAR) or "").strip()
+    if not env:
+        return None
+    try:
+        return parse_decided_before(env)
+    except ValueError as exc:
+        raise ValueError(
+            f"{DECIDED_BEFORE_VAR}={env!r}: {exc}; it carries this replay cell's "
+            "Term and cannot be guessed at"
+        ) from exc
+
+
+def _docket_number_or_refuse(raw: str) -> str:
+    """``raw`` in its normal form, or ``ValueError`` for one that names nothing."""
+    normal = corpus.normalize_docket_number(raw)
+    if normal is None:
+        raise ValueError(f"--docket-number {raw!r} names no docket number")
+    return normal
+
+
+def _scoped_docket_number(raw: str, court: str) -> str:
+    """``raw`` in its normal form for a ``query`` lookup, which needs a court.
+
+    A number is unique only within one court, and a court-less miss would walk
+    every court's rows, so the pair is refused rather than read.
+    """
+    normal = _docket_number_or_refuse(raw)
+    if not court:
+        raise ValueError(
+            "--docket-number needs --court (e.g. --court scotus): a number is "
+            "unique only within one court"
+        )
+    return normal
+
+
+def _echo_docket_number_clock(normal: str | None, term: int | None, raw_arg: str) -> None:
+    """Say that a docket-number lookup took its Term bar from the environment."""
+    if normal is None or term is None or raw_arg.strip():
+        return
+    typer.echo(
+        f"note: docket-number lookup bounded by replay Term {term} (from "
+        f"{DECIDED_BEFORE_VAR}) — a docket of that Term or later is not returned",
+        err=True,
+    )
+
+
 def _query_interface_help() -> str:
     """:data:`_QUERY_INTERFACE_HELP` with the current filter vocabularies in it."""
 
@@ -13683,6 +14005,18 @@ class _TeachingQueryCommand(TyperCommand):
 def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query filters
     *,
     court: Annotated[str, typer.Option(help="Restrict to one CourtListener court id.")] = "",
+    docket_number: Annotated[
+        str,
+        typer.Option(
+            help="Look up one docket by its number — 25-1323, 'No. 25-1323' and "
+            "26A477 all work — to read a companion, cross or held petition's row "
+            "(its distribution, conference, CVSG and disposition fields). Returns "
+            "the docket open or resolved, cert petition or application, so "
+            "--include-open / --include-applications are implied. Pair with "
+            "--court scotus. The replay clock still applies: --decided-before, "
+            "else the DECIDED_BEFORE environment variable, and REPLAY_CUTOFF."
+        ),
+    ] = "",
     topic: Annotated[str, typer.Option(help="Exact nature-of-suit / subject topic.")] = "",
     judge: Annotated[
         list[str] | None,
@@ -13796,8 +14130,13 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
     # the unmasked corpus while looking like it had been masked. Both halves —
     # the argument, and the cutoff day the cell's environment carries.
     try:
-        clock = parse_decided_before(decided_before)
+        clock = (
+            _docket_number_clock(decided_before)
+            if docket_number
+            else parse_decided_before(decided_before)
+        )
         cutoff_day, cutoff_source = _replay_cutoff_day(clock)
+        normal_number = _scoped_docket_number(docket_number, court) if docket_number else None
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         typer.echo(_query_interface_help(), err=True)
@@ -13812,6 +14151,7 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         raise typer.Exit(code=1)
     q = corpus.PriorQuery(
         court=court or None,
+        docket_number=normal_number,
         topic=topic or None,
         judges=judge or [],
         citations=citation or [],
@@ -13822,10 +14162,14 @@ def query(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to the query fil
         # screens ignore on the query, and on the sidecar wire.
         decided_before=clock.term if clock is not None and clock.day is None else None,
         decided_before_day=cutoff_day,
-        resolved_only=not include_open,
-        exclude_non_cert=not include_applications,
+        # A docket-number lookup names one docket, and the companion it is
+        # for is as often pending, or an application, as not: the two
+        # priors-shaped defaults would hide exactly the row asked for.
+        resolved_only=not include_open and normal_number is None,
+        exclude_non_cert=not include_applications and normal_number is None,
     )
     _echo_replay_cutoff(cutoff_day, cutoff_source)
+    _echo_docket_number_clock(normal_number, q.decided_before, decided_before)
     if backend == "service":
         try:
             response = corpus_service.client_query(
@@ -14283,6 +14627,56 @@ def _read_cell_inputs(
     return read
 
 
+def _read_related(
+    backend: corpus.CorpusBackend, db_path: Path, case: str, payload: Mapping[str, Any]
+) -> tuple[provision.RelatedRead, ...]:
+    """The ``Vide``-linked dockets of the payload a cell was placed on.
+
+    A read of its own, taken after the cell's gates and placement, so a refused
+    cell spends nothing on companions and the links are the placed payload's.
+    The numbers resolve through the corpus index in one scan. Under the
+    casestore backend, which carries no index, that scan runs over the ordinary
+    read backend the row gate also reaches (ranged in the cell workflows), and
+    each companion's snapshot comes from the content store as the cell's own
+    did; a link with no index reachable is recorded as such, never dropped.
+    """
+    numbers = provision.vide_docket_numbers(payload)
+    if not numbers:
+        return ()
+    if backend == "casestore":
+        source = _casestore_source()
+        choice = corpus.resolve_backend(None)
+
+        def resolve(wanted: Sequence[str]) -> Mapping[str, str] | None:
+            if choice == "local" and not db_path.exists():
+                return None
+            try:
+                with corpus.connect_readonly(db_path, backend=choice) as conn:
+                    found = corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted)
+                    _echo_read_stats(conn)
+                    return found
+            except (OSError, corpus_ranged.RangedBackendError):
+                typer.echo(
+                    "::warning::companion links recorded unresolved: the corpus index "
+                    "did not answer from the casestore path",
+                    err=True,
+                )
+                return None
+
+        return provision.read_related(
+            numbers, own_case=case, resolve=resolve, snapshot=source.latest_snapshot
+        )
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        reads = provision.read_related(
+            numbers,
+            own_case=case,
+            resolve=lambda wanted: corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted),
+            snapshot=lambda linked: corpus.latest_snapshot(conn, linked),
+        )
+        _echo_read_stats(conn)
+    return reads
+
+
 def _place_at_moment(
     case: str,
     event: str,
@@ -14635,6 +15029,21 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         case, event, cutoff, read, payload=payload, snapshot_date=snapshot_date, documents=documents
     )
     paths = CasePaths(settings.data_root, court, docket)
+    # A predict cell's companions: the dockets the Court links to the docket the
+    # cell was placed on. Every run-predict cell names its event, a cert
+    # baseline with no cutoff included, which `place_related` bounds by its own
+    # snapshot date; an evaluate cell (no event) grades against the resolved
+    # docket and reads none, and `--out` asks for a payload copy, not a record.
+    related = (
+        [
+            provision.place_related(
+                item, cutoff, event=event, mode=mode, vintage=placement.snapshot_date
+            )
+            for item in _read_related(backend, db_path, case, placement.payload)
+        ]
+        if event and out is None
+        else []
+    )
     # The whole record — snapshot, context.json, documents and manifest, each
     # staged copy through the contact-detail scrubs — goes through the one
     # writer the local cascade shares (`provision.write_cell_record`), so the
@@ -14642,7 +15051,13 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     # be written differently.
     try:
         written = provision.write_cell_record(
-            paths, case, placement, mode=mode, cutoff=cutoff, snapshot_dest=out
+            paths,
+            case,
+            placement,
+            mode=mode,
+            cutoff=cutoff,
+            snapshot_dest=out,
+            related=related,
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)
@@ -14663,6 +15078,16 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             f"withheld on {written.snapshot_scrub.blocks} "
             f"{_sides_named(written.unrepresented)}-side block(s)"
         )
+    if written.related:
+        # Numbers and reasons only: the linked dockets are public, their text stays
+        # in the record.
+        linked = ", ".join(
+            item.docket_number
+            if item.payload is not None
+            else f"{item.docket_number} ({item.reason})"
+            for item in written.related
+        )
+        typer.echo(f"{case} related ({linked}) -> {paths.related_dir}")
     if written.staged:
         kinds = ", ".join(doc.kind for doc, _ in written.staged)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
@@ -14724,10 +15149,17 @@ def summarize_plan_cmd(
         if found.latest is None:
             return None
         day, payload = found.latest
+        # The argument transcript is a post-argument cell's input alone
+        # (`provision.documents_for_moment`); a summary is written from the
+        # record every predict cell shares.
         return summaries.CaseRecord(
             snapshot=day,
             payload=payload,
-            documents=[(doc.kind, doc.text) for doc in found.documents],
+            documents=[
+                (doc.kind, doc.text)
+                for doc in found.documents
+                if doc.kind != KIND_ARGUMENT_TRANSCRIPT
+            ],
         )
 
     plan = summaries.plan_summaries(settings.data_root, eligible, read, config, limit=limit)
@@ -15878,23 +16310,101 @@ def materialize_event(
 @app.command("open-events")
 def open_events_cmd(
     court: Annotated[str, typer.Option()],
-    docket: Annotated[int, typer.Option()],
+    docket: Annotated[int | None, typer.Option(help="The case's CourtListener docket id.")] = None,
+    docket_number: Annotated[
+        str,
+        typer.Option(
+            help="The case's docket number instead of its id — 25-1323, "
+            "'No. 25-1323', 26A477. The id it resolved to is said on stderr. "
+            "Refused under a replay clock (--decided-before, the DECIDED_BEFORE "
+            "environment variable, or REPLAY_CUTOFF): the events listed are the "
+            "docket's current state, which no clock masks, so a clocked caller "
+            "reads the docket's masked row with `query --docket-number`."
+        ),
+    ] = "",
+    decided_before: Annotated[
+        str,
+        typer.Option(
+            help="A replay clock, spelled as on `query` (a Term year or an ISO "
+            "date). Given with --docket-number it is refused, as the DECIDED_BEFORE "
+            "fallback is; `0` clears that fallback for an unclocked lookup."
+        ),
+    ] = "",
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
-    """Print unresolved (predictable) event ids for a case, one per line."""
+    """Print unresolved (predictable) event ids for a case, one per line.
+
+    Name the case by ``--docket`` (its CourtListener id) or ``--docket-number``.
+    """
     settings = get_settings()
+    if (docket is None) == (not docket_number):
+        typer.echo("Name the case by exactly one of --docket and --docket-number.", err=True)
+        raise typer.Exit(code=2)
+    if docket is not None and decided_before.strip():
+        typer.echo("--decided-before bounds a --docket-number lookup only.", err=True)
+        raise typer.Exit(code=2)
     backend = corpus.resolve_backend(_corpus_backend(corpus_backend, allow_service=True))
+    if docket is not None:
+        if backend == "service":
+            try:
+                response = corpus_service.client_open_events(_service_url_or_exit(), court, docket)
+            except corpus_service.CorpusServiceError as exc:
+                typer.echo(str(exc), err=True)
+                raise typer.Exit(code=1) from exc
+            event_ids = response.event_ids
+        else:
+            event_ids = open_events(
+                corpus.corpus_db_path(settings.corpus_root), court, docket, backend=backend
+            )
+        for eid in event_ids:
+            typer.echo(eid)
+        return
+    _open_events_by_number(court, docket_number, decided_before, backend)
+
+
+def _open_events_by_number(
+    court: str, docket_number: str, decided_before: str, backend: corpus.CorpusBackend
+) -> None:
+    """``open-events --docket-number``: resolve the number under the clock, then list."""
+    settings = get_settings()
+    try:
+        normal = _docket_number_or_refuse(docket_number)
+        clock = _docket_number_clock(decided_before)
+        cutoff_day, _ = _replay_cutoff_day(clock)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+    term = clock.term if clock is not None and clock.day is None else None
+    if term is not None or cutoff_day is not None:
+        typer.echo(corpus_service.OPEN_EVENTS_CLOCK_REFUSAL + ".", err=True)
+        raise typer.Exit(code=2)
     if backend == "service":
         try:
-            response = corpus_service.client_open_events(_service_url_or_exit(), court, docket)
+            response = corpus_service.client_open_events(
+                _service_url_or_exit(),
+                court,
+                docket_number=normal,
+                decided_before=term,
+                decided_before_day=cutoff_day,
+            )
         except corpus_service.CorpusServiceError as exc:
             typer.echo(str(exc), err=True)
             raise typer.Exit(code=1) from exc
-        for eid in response.event_ids:
-            typer.echo(eid)
+        resolved, event_ids = response.docket, response.event_ids
+    else:
+        resolved, event_ids = open_events_for_docket_number(
+            corpus.corpus_db_path(settings.corpus_root),
+            court,
+            normal,
+            backend=backend,
+            decided_before=term,
+            decided_before_day=cutoff_day,
+        )
+    if resolved is None:
+        typer.echo(f"note: docket number {normal} resolved to no {court} docket", err=True)
         return
-    db = corpus.corpus_db_path(settings.corpus_root)
-    for eid in open_events(db, court, docket, backend=backend):
+    typer.echo(f"note: docket number {normal} -> {ids.case_id(court, resolved)}", err=True)
+    for eid in event_ids:
         typer.echo(eid)
 
 
@@ -16319,6 +16829,12 @@ def live_poll(
         typer.echo(
             "Document freshness: "
             + ", ".join(f"{key}={value}" for key, value in queues.document_freshness.items())
+            + "."
+        )
+    if queues.argument_transcripts:
+        typer.echo(
+            "Argument transcripts: "
+            + ", ".join(f"{key}={value}" for key, value in queues.argument_transcripts.items())
             + "."
         )
     # The window's document-fetch ledger. Last, after the queue counts, because
@@ -17092,7 +17608,9 @@ def _report_predictionless(report: PredictionlessReport, *, prefix: str) -> None
         )
 
 
-def _predict_backlog_cases(findings: _BacklogFindings | None = None) -> list[CaseRequest]:
+def _predict_backlog_cases(
+    findings: _BacklogFindings | None = None, *, day: date | None = None
+) -> list[CaseRequest]:
     """The predict stage's own case set, derived from the corpus-level backlog.
 
     What a scheduled predict run fans out over when no trigger names its cases:
@@ -17161,6 +17679,9 @@ def _predict_backlog_cases(findings: _BacklogFindings | None = None) -> list[Cas
     plan that reports on the derivation (``predict-plan``'s case
     reconciliation) reads the same one the fan-out was built from rather than
     deriving a second.
+
+    ``day`` is the deriver's clock. ``None`` — what ``predict-matrix`` passes —
+    reads the wall clock; ``predict-plan --as-of`` passes its replay date.
     """
     settings = get_settings()
     salience_cfg = load_salience_config(settings.config_root)
@@ -17194,6 +17715,7 @@ def _predict_backlog_cases(findings: _BacklogFindings | None = None) -> list[Cas
             settings.config_root / "predictors.yaml",
             cap=salience_cfg.sweep_cases_per_cycle,
             max_attempts=predict_cfg.max_attempts_per_cell,
+            today=day,
         )
     _report_predict_backlog(
         backlog, cap=salience_cfg.sweep_cases_per_cycle, prefix=_warn_prefix(findings)
@@ -17379,8 +17901,8 @@ def _requested_cases(
 
     ``derived`` receives what the backlog mode's derivation found beyond its
     case list (:class:`_BacklogFindings`), and stays empty in the named-case
-    modes, where nothing is derived. ``day`` is the evaluate deriver's clock
-    (see :func:`_evaluate_backlog_cases`); the predict deriver does not take it.
+    modes, where nothing is derived. ``day`` is the deriver's clock (see
+    :func:`_evaluate_backlog_cases` and :func:`_predict_backlog_cases`).
     """
     if body_file is not None:
         return parse_cases(body_file.read_text())
@@ -17400,7 +17922,7 @@ def _requested_cases(
             "disables. Name the target with --body-file, or --court and --docket."
         )
     if backlog == "predict":
-        return _predict_backlog_cases(derived)
+        return _predict_backlog_cases(derived, day=day)
     return _evaluate_backlog_cases(derived, day=day)
 
 
@@ -18028,6 +18550,7 @@ def _predict_fanout(
     note_file: Path | None,
     report: bool,
     collect_prs_file: Path | None = None,
+    day: date | None = None,
 ) -> _PredictFanout:
     """Run the predict planning pipeline: scope, forecastability, ledger, guard, cap.
 
@@ -18043,6 +18566,10 @@ def _predict_fanout(
     happen. Suppression is all-or-nothing on that flag, so no plan-run log ever
     carries a partial set. ``note_file`` is the other write, and a plan passes
     ``None``.
+
+    ``day`` is the forecastability re-check's clock: ``None`` — what
+    ``predict-matrix`` passes — reads the wall clock, and ``predict-plan
+    --as-of`` passes its replay date.
     """
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
@@ -18060,7 +18587,7 @@ def _predict_fanout(
     )
     # One clock for the whole plan, so a fan-out that straddles midnight cannot
     # apply a different staleness bound to selection than to the re-check.
-    today = date.today()
+    today = day or date.today()
     cases = _resolve_cases(
         requested,
         lambda c, d: forecastable_events(
@@ -18582,29 +19109,31 @@ def evaluate_matrix_cmd(
 #: here use three).
 _SPEND_BASIS_CAVEATS: dict[str, list[str]] = {
     "predict": [
-        "Measured, but over one stamped fan-out (81 cells, 27 events) that "
+        "The claude-code and codex rows are measured, but over one stamped "
+        + "fan-out (81 cells, 27 events) that "
         + "predates the current freeze instant — a shakedown figure for claims "
         + "purposes. "
         + "The ~+20% level gap to the 410-cell pre-freeze ledger is an UPPER "
         + "BOUND on any level effect, not a measurement of one.",
-        "The codex and gemini rows are PRE-CUTOVER. The codex row projects "
-        + "HIGH: it was measured on gpt-5.6-sol ($5/$30 per MTok) while that "
-        + "engine's default is now gpt-6.1-sol ($2/$10), roughly a third of "
-        + "the cost at equal token counts. The gemini row was measured on "
-        + "gemini-3.1-pro-preview ($2/$12); gemini-4-argon lists at $2/$10 "
-        + "until 2026-12-01, when the row projects HIGH by about a fifth, and "
-        + "$4/$20 after, when it projects LOW by about a third. Both are "
-        + "list-price projections, and only the first measured post-cutover "
-        + "runs re-anchor the rows.",
+        "The codex row is PRE-CUTOVER, measured on gpt-5.6-sol, and projects "
+        + "HIGH: gpt-6.1-sol measures about $0.43 a prediction (5 cells) against the "
+        + "row's $1.88. The gemini row prices gemini-4-argon from its first "
+        + "few cells (5 predictions, about $1.06 each at the introductory "
+        + "$2/$10) doubled for the $4/$20 rate in force from 2026-12-01, so "
+        + "until then it projects about twice the measured cost. Only a deliberate "
+        + "re-anchor of the pinned rows moves them.",
     ],
     "evaluate": [
-        "An ASSUMPTION, not a measurement: these rates scale a pre-freeze "
+        "An ASSUMPTION, not a measurement: the claude-code and codex rates scale a pre-freeze "
         + "anchor by the whole predict move (~+22%). The anchor they use "
         + "is the `proc-v2` grading — THREE graded events, the process-stamped "
         + "subset of the four pre-freeze gradings — taken as the better-matched "
         + "of the two pre-freeze anchors; the pooled four-grading figure is the "
         + "more cautious one and is NOT what these rates carry. All four are "
-        + "cert-stage, so the anchor is stage-narrow either way.",
+        + "cert-stage, so the anchor is stage-narrow either way. The gemini "
+        + "row does not use that anchor: it prices gemini-4-argon's first 18 "
+        + "grading runs (about $0.64 each at the introductory $2/$10) doubled "
+        + "for the $4/$20 rate in force from 2026-12-01.",
         "An evaluate measurement EXISTS outside the frozen partition, and these "
         + "rates do not use "
         + "it: two runs independently graded one six-event INTERIM population "
@@ -18635,8 +19164,8 @@ def _shared_spend_caveats(seam: str) -> list[str]:
         "measured n (~+$1.2 an event, on 11 events against 12); the rest sit "
         "within noise of each other, so conditioning on them would fit noise. "
         "The merits separation is real and is deliberately not applied here, so "
-        "an all-merits plan reads ~10% LOW ($7.47 an event against the $6.79 "
-        "whole-run rate these figures use)."
+        "an all-merits event measures ~10% above the whole-run mean the "
+        "claude-code and codex rows were set from ($7.47 against $6.79)."
     )
     if seam == "evaluate":
         moment += (
@@ -18688,8 +19217,8 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
     """Price a would-mint cell set at the per-(seam, engine) rates, with its basis.
 
     Summed cell by cell rather than multiplied by one blended rate, because the
-    engines differ by ~7x within a seam: a plan narrowed to one engine priced at
-    the design-mix average is wrong by up to 4x in either direction, and a
+    engines differ by up to ~4.6x within a seam: a plan narrowed to one engine
+    priced at the design-mix average is wrong by up to ~2.2x in either direction, and a
     narrowed plan is exactly the shape a backfill re-queue takes. A cell whose
     engine the table does not name falls back to the design-mix rate and is
     counted, so an unrecognized engine shows up as a stated approximation rather
@@ -18728,13 +19257,15 @@ def _plan_spend(cells: Sequence[Mapping[str, Any]], *, seam: str, breached: bool
             "source": (
                 "fedcourtsai.planning_rates.PLANNING_RATES_USD_PER_CELL — the predict "
                 "whole-run measurement, and the evaluate pre-freeze cert-stage "
-                "anchor (the proc-v2 grading, scaled by the predict move)"
+                "anchor (the proc-v2 grading, scaled by the predict move), with "
+                "the gemini rows at gemini-4-argon's measured cells repriced "
+                "for its 2026-12-01 rate"
             ),
             "seam": seam,
             "rates_usd_per_cell": dict(rates),
             "fallback_usd_per_cell": _PLANNING_USD_PER_CELL,
             "fallback_source": (
-                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$15 per "
+                "fedcourtsai.planning_rates.PLANNING_USD_PER_CELL (~$17 per "
                 "fully-tournamented case over a six-cell design mix)"
             ),
             "cells_at_fallback_rate": at_fallback,
@@ -19213,6 +19744,38 @@ def _plan_reconciliation(derived: list[PredictBacklog]) -> CaseReconciliation | 
     return derived[0].reconciliation if derived else None
 
 
+def _plan_as_of(value: str) -> date:
+    """Resolve ``--as-of``: an ISO date, or ``blob`` for the blob's newest pull stamp.
+
+    ``blob`` is the blob's own vintage (:func:`fedcourtsai.corpus.latest_pull_date`),
+    the latest day a round reading it could have known anything from, so it is
+    what a faithful replay of that round bounds its snapshot reads by. A blob
+    with no pull stamp, or no blob at all, is refused rather than read as
+    unbounded: a replay that quietly fell back to live reads would be the
+    defect this flag exists to remove.
+    """
+    if value != "blob":
+        try:
+            return date.fromisoformat(value)
+        except ValueError as exc:
+            raise typer.BadParameter(f"--as-of takes YYYY-MM-DD or `blob`, not {value!r}") from exc
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        raise typer.BadParameter(
+            f"--as-of blob needs a corpus to read the pull stamp from, and there is none "
+            f"at {db_path} — `fedcourts corpus-pull` first."
+        )
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        stamp = corpus.latest_pull_date(conn)
+    if stamp is None:
+        raise typer.BadParameter(
+            "--as-of blob: the corpus carries no pull stamp to bound the replay by; "
+            "pass the date explicitly."
+        )
+    return stamp
+
+
 @app.command("predict-plan")
 def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     body_file: Annotated[
@@ -19257,6 +19820,17 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
     ] = "",
     approval_report: _ApprovalReportOption = None,
     approval_report_run_url: _ApprovalReportRunUrlOption = "",
+    as_of: Annotated[
+        str,
+        typer.Option(
+            "--as-of",
+            help="Replay the plan as of a day: YYYY-MM-DD, or `blob` for the corpus blob's "
+            "newest pull stamp. The deriver and the forecastability re-check read it as "
+            "today, every newest-snapshot read answers with the newest snapshot dated on "
+            "or before it, and the plan records each snapshot date read under "
+            "`snapshot_bound`. Omit it for a live plan.",
+        ),
+    ] = "",
 ) -> None:
     """Report the predict cells a run would mint, step by step, spending nothing.
 
@@ -19293,23 +19867,49 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
     ``--approval-report`` writes the same plan a second time as bounded
     markdown, for a hold gate to post where a maintainer decides on it. stdout
     is byte-identical either way: the report is a third channel, not a mode.
+
+    ``--as-of`` makes a past plan replayable from its content-addressed blob.
+    The content store keeps every dated snapshot and is not versioned with the
+    blob, so a live read of "the case's newest snapshot" — the decided hold's
+    disclosure scan, the distribution-moment conference bound — can answer with
+    a snapshot stored after the round ran. Under ``--as-of`` those reads are
+    bounded (:func:`fedcourtsai.corpus.snapshots_as_of`) and the planning clock
+    reads the same day, and the plan gains a ``snapshot_bound`` block naming
+    the bound and the snapshot date each read returned. Without it nothing is
+    bounded and the plan carries no such block.
     """
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
     derived = _BacklogFindings()
-    fanout = _predict_fanout(
-        _requested_cases(body_file, court, docket, event, backlog="predict", derived=derived),
-        planned_run_id,
-        stage="predict-plan",
-        stranded_file=stranded_file,
-        collect_prs_file=collect_prs_file,
-        # A plan writes nothing: no close note, and no step-summary block.
-        note_file=None,
-        report=False,
-    )
-    gate = _predict_ledger_gate(
-        fanout.resolved, settings.config_root / "predictors.yaml", settings.data_root
-    )
+    replay_day = _plan_as_of(as_of) if as_of else None
+    with ExitStack() as stack:
+        bound = (
+            stack.enter_context(corpus.snapshots_as_of(replay_day))
+            if replay_day is not None
+            else None
+        )
+        fanout = _predict_fanout(
+            _requested_cases(
+                body_file,
+                court,
+                docket,
+                event,
+                backlog="predict",
+                derived=derived,
+                day=replay_day,
+            ),
+            planned_run_id,
+            stage="predict-plan",
+            stranded_file=stranded_file,
+            collect_prs_file=collect_prs_file,
+            # A plan writes nothing: no close note, and no step-summary block.
+            note_file=None,
+            report=False,
+            day=replay_day,
+        )
+        gate = _predict_ledger_gate(
+            fanout.resolved, settings.config_root / "predictors.yaml", settings.data_root
+        )
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
     would_mint = [
         {
@@ -19411,6 +20011,8 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
         "would_mint": would_mint,
         **_plan_spend(would_mint, seam="predict", breached=verdict.breached),
     }
+    if bound is not None:
+        plan["snapshot_bound"] = bound.as_json()
     _echo_plan(
         plan,
         stage="predict-plan",
@@ -19845,6 +20447,13 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
     registry_ok: Annotated[
         _TriState, typer.Option("--registry-ok", help="Did the registry stage pass at the head?")
     ] = _TriState.UNKNOWN,
+    cell_inert: Annotated[
+        _TriState,
+        typer.Option(
+            "--cell-inert",
+            help="Did main's scripts/cell_reach.py call the batch cell-inert?",
+        ),
+    ] = _TriState.UNKNOWN,
     cut_requested: Annotated[
         bool,
         typer.Option(
@@ -19914,6 +20523,7 @@ def promotion_train_step_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opti
         check_runs=_read_json_list(check_runs_file, "check_runs"),
         quiescent=_tri(quiescent),
         registry_ok=_tri(registry_ok),
+        cell_inert=_tri(cell_inert),
     )
     typer.echo(promotion_train_decide(observed, train_config).model_dump_json())
 

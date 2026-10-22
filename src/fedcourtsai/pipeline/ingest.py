@@ -46,9 +46,12 @@ from .cert_signals import (
     CVSG_RE,
     DEFAULT_DISTRIBUTION_PARSE,
     DISTRIBUTED_RE,
+    call_for_response_date,
     distribution_pattern,
+    first_relist_date,
     match_disposition_signal,
     proceedings_entries,
+    sg_brief_date,
 )
 from .decision_record import DecisionRecord, read_decision_record
 from .interim_signals import (
@@ -170,6 +173,27 @@ class CorpusRow(BaseModel):
         default=None,
         description="Date the Court called for the views of the Solicitor General, "
         "from the live proceedings. Live-channel only; None elsewhere.",
+    )
+    call_for_response_at: date | None = Field(
+        default=None,
+        description="When the Court called for a response to the petition "
+        "(`pipeline.cert_signals.call_for_response_date`) — the cert stage's "
+        "call-for-response moment. Live cert branch only; None elsewhere — the "
+        "storage fill-in latch keeps a stored date when a writer carries none.",
+    )
+    relisted_at: date | None = Field(
+        default=None,
+        description="When the Court first relisted the petition "
+        "(`pipeline.cert_signals.first_relist_date`) — the cert stage's relist "
+        "moment. Live cert branch only; None elsewhere — the storage fill-in latch "
+        "keeps a stored date when a writer carries none.",
+    )
+    sg_brief_filed: date | None = Field(
+        default=None,
+        description="When the Solicitor General filed the brief the Court invited "
+        "(`pipeline.cert_signals.sg_brief_date`) — the cert stage's sg-brief "
+        "moment. Live cert branch only; None elsewhere — the storage fill-in "
+        "latch keeps a stored date when a writer carries none.",
     )
     originating_court_name: str | None = Field(
         default=None,
@@ -565,6 +589,9 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         distributed_for_conference=_date(record.get("distributed_for_conference")),
         distribution_count=_as_count(record.get("distribution_count")),
         cvsg_date=_date(record.get("cvsg_date")),
+        sg_brief_filed=_date(record.get("sg_brief_filed")),
+        call_for_response_at=_date(record.get("call_for_response_at")),
+        relisted_at=_date(record.get("relisted_at")),
         originating_court_name=_clean(record.get("originating_court_name")),
         application_kind=_clean(record.get("application_kind")),
         application_filed_at=_date(record.get("application_filed_at")),
@@ -951,6 +978,9 @@ def map_live_docket(
     docket_number = corpus.strip_docket_annotation(case_number)
     conference = _live_conference_date(entries)
     cvsg = _live_cvsg_date(entries)
+    sg_brief: date | None = None
+    call_for_response: date | None = None
+    relisted: date | None = None
     ask: str | None = None
     requested: bool | None = None
     referred: bool | None = None
@@ -1010,6 +1040,13 @@ def map_live_docket(
         response_filed_on = response_filed_date(dated)
     else:
         disposition, cert_granted, cert_denied, terminated = _live_resolution(entries)
+        # The cert stage's sg-brief moment, read off the raw payload through the
+        # same parse provisioning checks a placed snapshot with, so the date the
+        # event opens at and the entry the cell is placed after are one reading.
+        sg_brief = sg_brief_date(payload)
+        # The cert stage's call-for-response moment, read the same way.
+        call_for_response = call_for_response_date(payload)
+        relisted = first_relist_date(payload)
         if cert_granted is not None and disposition in _MERITS_PROCEEDING_VALUES:
             # A grant that opens a merits proceeding keeps polling toward its
             # judgment, and the terminal entry that states it is normalized
@@ -1059,6 +1096,9 @@ def map_live_docket(
         "distributed_for_conference": conference.isoformat() if conference else None,
         "distribution_count": None if form == "application" else _live_distribution_count(entries),
         "cvsg_date": cvsg.isoformat() if cvsg else None,
+        "sg_brief_filed": sg_brief.isoformat() if sg_brief else None,
+        "call_for_response_at": call_for_response.isoformat() if call_for_response else None,
+        "relisted_at": relisted.isoformat() if relisted else None,
         "originating_court_name": lower_court,
         "application_kind": ask,
         "application_filed_at": (
@@ -1335,6 +1375,9 @@ def to_corpus_row(
         originating_docket_number=row.originating_docket_number,
         distribution_count=row.distribution_count,
         cvsg_date=row.cvsg_date,
+        sg_brief_filed=row.sg_brief_filed,
+        call_for_response_at=row.call_for_response_at,
+        relisted_at=row.relisted_at,
         originating_court_name=row.originating_court_name,
         application_kind=row.application_kind,
         response_requested=row.response_requested,

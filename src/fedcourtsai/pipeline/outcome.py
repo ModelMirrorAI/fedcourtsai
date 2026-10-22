@@ -1729,6 +1729,119 @@ def cvsg_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEv
     )
 
 
+def sg_brief_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEvent | None:
+    """The cert stage's sg-brief forecast moment, or ``None``.
+
+    The CVSG moment forecasts at the invitation; this one forecasts once the
+    brief the Court asked for is on the docket, typically months later. The
+    Solicitor General's recommendation is the strongest single cert signal there
+    is, so the same disposition can be forecast again from a materially better
+    evidence base: the brief itself, provisioned as ``sg-invited-brief``.
+
+    No parser here: the date is latched at ingest
+    (:func:`~fedcourtsai.pipeline.cert_signals.sg_brief_date`), which already
+    requires the invitation before the brief, so a row carrying the date has a
+    CVSG behind it. The trigger stays true forever, so it re-fires on every poll
+    and is made safe by the same two guards as :func:`cvsg_event_for`: the cert
+    baseline must still be open, and the row must not record the petition
+    decided.
+    """
+    if row.sg_brief_filed is None or row.court != "scotus":
+        return None
+    first = moments.moments_for(Stage.cert)[0]
+    if first.event_id not in open_event_ids or appears_decided(row):
+        return None
+    spec = next(s for s in moments.moments_for(Stage.cert) if s.moment is Moment.sg_brief)
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=row.sg_brief_filed,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
+def call_for_response_event_for(
+    row: CorpusRow, open_event_ids: list[str]
+) -> corpus.CorpusEvent | None:
+    """The cert stage's call-for-response forecast moment, or ``None``.
+
+    A call for a response is the Court's first sign that someone in chambers
+    has read a petition the respondent was content to waive, and it arrives
+    while the petition is pending — so the same disposition is forecast again
+    from the docket as it stands at the call. The date is latched at ingest
+    (:func:`~fedcourtsai.pipeline.cert_signals.call_for_response_date`); the
+    trigger stays true forever, so it re-fires on every poll behind the CVSG
+    moment's two guards: the cert baseline must still be open, and the row must
+    not record the petition decided.
+
+    Never on an application docket, whose own response request is the interim
+    stage's moment and is read by a different parse into different columns.
+    """
+    if row.call_for_response_at is None or row.court != "scotus":
+        return None
+    if corpus.is_scotus_application_form(row.docket_number):
+        return None
+    first = moments.moments_for(Stage.cert)[0]
+    if first.event_id not in open_event_ids or appears_decided(row):
+        return None
+    spec = next(s for s in moments.moments_for(Stage.cert) if s.moment is Moment.response_requested)
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=row.call_for_response_at,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
+def relist_event_for(row: CorpusRow, open_event_ids: list[str]) -> corpus.CorpusEvent | None:
+    """The cert stage's relist forecast moment, or ``None``.
+
+    A relist means a conference considered the petition and the Court listed it
+    again rather than deciding it, the public signal that someone is looking
+    closely, so the same disposition is forecast again from the docket as it
+    stands at the first relist. The date is latched at ingest
+    (:func:`~fedcourtsai.pipeline.cert_signals.first_relist_date`); the trigger
+    stays true forever, so it re-fires on every poll behind the CVSG moment's
+    two guards: the cert baseline must still be open, and the row must not
+    record the petition decided. Never on an application docket.
+    """
+    if row.relisted_at is None or row.court != "scotus":
+        return None
+    if corpus.is_scotus_application_form(row.docket_number):
+        return None
+    first = moments.moments_for(Stage.cert)[0]
+    if first.event_id not in open_event_ids or appears_decided(row):
+        return None
+    spec = next(s for s in moments.moments_for(Stage.cert) if s.moment is Moment.relist)
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=row.relisted_at,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
 def arrival_event_for(
     row: corpus.CorpusRow, open_event_ids: list[str]
 ) -> corpus.CorpusEvent | None:
@@ -1784,8 +1897,9 @@ def briefed_merits_event_for(
 
     Once both sides' merits briefs are on the record the case is substantively
     ready to be decided, and the same judgment can be forecast again from a much
-    larger evidence base — a median 159 days before it lands, and never fewer
-    than 44 (:mod:`fedcourtsai.pipeline.merits_signals`).
+    larger evidence base — a median 159 days before it lands, in a sample
+    measured before the moment's later readings, which can move that lead in
+    either direction (:mod:`fedcourtsai.pipeline.merits_signals`).
 
     Unlike the grant moment, this cannot be keyed on *this* resolution's
     outcomes: the brief is a docket observation that stays true forever, so the
@@ -1820,6 +1934,43 @@ def briefed_merits_event_for(
     )
 
 
+def argued_merits_event_for(
+    row: CorpusRow, open_event_ids: list[str], transcript_at: date | None
+) -> corpus.CorpusEvent | None:
+    """The merits stage's post-argument forecast moment, or ``None``.
+
+    The argument is the last public step before the opinion: the Justices'
+    questions are on the record, and the same judgment can be forecast again
+    from them. The trigger is the transcript, not the argued date, because the
+    transcript is what the moment adds to a cell's information set. Its argument
+    day, ``transcript_at``, is latched on the stored row by the live poll's
+    transcript pass (:func:`~fedcourtsai.pipeline.live.fetch_argument_transcripts`)
+    rather than read off this poll's payload, which links no transcript, so the
+    event mints at the case's next poll after the pass stores it. The trigger
+    stays true forever, so it re-fires on every poll behind the briefed
+    moment's guards: the row must open a merits proceeding, carry no merits
+    judgment, and keep the grant moment open.
+    """
+    if transcript_at is None or row.merits_judgment is not None:
+        return None
+    if not corpus.opens_merits_proceeding(row) or MERITS_EVENT_ID not in open_event_ids:
+        return None
+    spec = next(s for s in moments.moments_for(Stage.merits) if s.moment is Moment.argued)
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=transcript_at,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
 def mint_moment_events(
     corpus_db_path: Path,
     data_root: Path,
@@ -1846,12 +1997,17 @@ def mint_moment_events(
     shape ``materialize-event`` provisions for the agent cells).
     """
     opens = list(open_event_ids or [])
+    transcript_at = _stored_transcript_at(corpus_db_path, row, opens)
     minted = [
         event
         for event in (
             merits_event_for(row, resolution),
             briefed_merits_event_for(row, opens),
+            argued_merits_event_for(row, opens, transcript_at),
             cvsg_event_for(row, opens),
+            sg_brief_event_for(row, opens),
+            call_for_response_event_for(row, opens),
+            relist_event_for(row, opens),
         )
         if event is not None
     ]
@@ -1863,6 +2019,24 @@ def mint_moment_events(
         if not minted:
             return []
         return persist_moment_events(conn, data_root, court_id, docket_id, minted)
+
+
+def _stored_transcript_at(
+    corpus_db_path: Path, row: CorpusRow, open_event_ids: list[str]
+) -> date | None:
+    """The stored row's ``argument_transcript_at``, read only where it could mint.
+
+    The ingestion row is built from the docket payload, which links no
+    transcript, so the post-argument trigger is read off the corpus row the
+    transcript pass latched it on. Read only while the grant moment is open and
+    no judgment is recorded, the two conditions without which the moment cannot
+    mint, so a cert or interim poll opens no extra read.
+    """
+    if MERITS_EVENT_ID not in open_event_ids or row.merits_judgment is not None:
+        return None
+    with corpus.connect(corpus_db_path) as conn:
+        stored = corpus.get_row(conn, row.case_id)
+    return None if stored is None else stored.argument_transcript_at
 
 
 def _without_terminated_merits(
@@ -1879,7 +2053,7 @@ def _without_terminated_merits(
     row (detection keys on ``merits_judgment``), so it would stay open forever
     while provisioning refused every cell it earned. The stored row settles it,
     read on the connection this seam already opens and only when a merits mint
-    is actually on the table; the interim and CVSG mints never consult it.
+    is actually on the table; the interim and cert mints never consult it.
 
     A row the corpus has not stored yet reads as *no finding*, not as a refusal:
     the column is a sweep product, so its absence is the ordinary state of a

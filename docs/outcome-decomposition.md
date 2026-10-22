@@ -641,7 +641,8 @@ Drawn from the above, and cheaper to apply than to rediscover:
 ## What is scoreable today
 
 **The declared cert set: `cert-v2`.** Every declared cert **moment** — the
-petition baseline, the CVSG moment, the arrival moment — carries
+petition baseline, the CVSG moment, the arrival moment, and the sg-brief,
+call-for-response and relist moments once they are switched on — carries
 exactly five claims, declared in `pipeline.claims` and answered in full by
 every predictor (`Prediction.claims`); the harness scores them into
 `Evaluation.claim_scores` at the evaluator's post-run stamp (`stamp-cell`,
@@ -682,8 +683,9 @@ grant-family row carries weight 1).
 
 It reads the **paid** per-fee-class cut, not the Term-level pooled one, because
 the paid class is the scored population: IFP petitions are Tier-0-excluded by
-the salience gate (`docs/salience.md`), so no cell is ever an IFP row. They are
-better than a quarter of the pooled grant family at roughly three-quarters GVR,
+the salience gate (`docs/salience.md`) up to a merits grant, so no cert-stage
+cell is ever an IFP row. They are better than a quarter of the pooled grant
+family at roughly three-quarters GVR,
 so the pooled rate reads 0.467 against the paid 0.354. Eleven points is not a
 rounding error against a difference-form rule: a predictor knowing only its own
 segment's rate would bank `(0.467 − 0.354)² ≈ 0.013` per scored claim, larger
@@ -875,9 +877,10 @@ sums over a different set, so the two are pooled no more freely than a total
 from a cell run under a different process digest — `metrics/README.md`'s
 `declared_set_versions` rule is where that is enforced.
 
-**The declared merits set: `merits-v1`.** Both declared merits moments — the
-grant moment `evt-order-judgment` and the briefed moment `evt-brief-judgment` —
-carry it, reached through the declared-moment table rather than by event id or
+**The declared merits set: `merits-v1`.** Every declared merits moment — the
+grant moment `evt-order-judgment`, the briefed moment `evt-brief-judgment`, and
+the post-argument moment `evt-argument-judgment` once it is switched on —
+carries it, reached through the declared-moment table rather than by event id or
 kind: a forecast taken after briefing answers the same claim as one taken at
 the grant, and only the evidence behind the answer differs. The set declares
 exactly one claim,
@@ -1457,7 +1460,8 @@ discloses the Court's reasoning, so a forward cell is genuinely forecasting.
 That pass is **conditional on when the cell runs**, and only half of "when" is
 pinned. The provisioned half is: each merits moment opens at its own trigger —
 the grant moment at the cert grant, the briefed moment at the second side's
-merits brief — and `provision-snapshot` places the cell at the day after it, so
+merits brief, the post-argument moment at the argument day of the transcript the
+Court posted — and `provision-snapshot` places the cell at the day after it, so
 however late in the Term the cell runs, the proceedings, the documents, and the
 date-keyed top-level fields it is handed are the ones that trigger left
 (`context.cutoff` records the instant; see [cli.md](cli.md)). An argument date
