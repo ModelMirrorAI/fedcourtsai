@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9526000532",
+  "run_id": "20261022T230223Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "info", "event_id": "evt-motion-disposition",
+     "message": "The provisioned application.txt is empty_text (16-page PDF with no text layer). I forecast from the caption, the posture, and the CA3 docket title without reading the application's content."}
+  ]
+}

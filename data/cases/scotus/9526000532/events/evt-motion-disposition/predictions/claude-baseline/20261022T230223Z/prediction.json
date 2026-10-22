@@ -1,0 +1,67 @@
+{
+  "big_case_rationale": "Pro se criminal defendant's stay application from a Third Circuit appeal; no sign of issues reaching beyond the individual case.",
+  "big_case_score": 0.03,
+  "case_id": "scotus/9526000532",
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.015
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.2
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.02
+    }
+  ],
+  "confidence": 0.9,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "cut_anchor_index": 0,
+    "cut_kind": "arrival-position",
+    "cutoff": "2026-10-11",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "referred_to_court": false,
+    "response_requested": false,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-11",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-22T23:06:26Z",
+  "engine": "claude-code",
+  "event_id": "evt-motion-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-11.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.015,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+    "label": "proc-v10",
+    "pipeline_sha": "000f3f17d5f426cd2f43278a4abe13aa5e6b8423",
+    "stamped_at": "2026-10-22T23:07:06.303268Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261022T230223Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
