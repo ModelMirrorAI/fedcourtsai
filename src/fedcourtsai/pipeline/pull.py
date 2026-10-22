@@ -221,6 +221,12 @@ class PullQueues:
     # kinds — or ``{"error": <type>}`` when the pass itself raised and was
     # skipped. Empty when the pass is disabled.
     document_freshness: dict[str, object] = field(default_factory=dict)
+    # Live-channel only: the argument-transcript pass's ledger for the run log
+    # (`live.fetch_argument_transcripts`) — transcripts listed, unmatched to a
+    # corpus case, already held, owed, stored (empty among them), unavailable
+    # upstream, failed, and deferred by the cap or the deadline — or
+    # ``{"error": <type>}`` when the pass itself raised. Empty when disabled.
+    argument_transcripts: dict[str, object] = field(default_factory=dict)
 
 
 def _in_predict_scope(

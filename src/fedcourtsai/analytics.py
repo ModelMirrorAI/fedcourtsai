@@ -3464,6 +3464,7 @@ _BIG_CASE_MOMENT_ORDER: Final[tuple[tuple[Stage, Moment], ...]] = (
     (Stage.cert, Moment.sg_brief),
     (Stage.merits, Moment.grant),
     (Stage.merits, Moment.briefed),
+    (Stage.merits, Moment.argued),
 )
 
 _BIG_CASE_MOMENT_RANK: Final[dict[tuple[Stage, Moment], int]] = {

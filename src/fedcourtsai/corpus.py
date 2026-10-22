@@ -436,6 +436,16 @@ class CorpusRow(BaseModel):
         "no relist, not yet, or not parsed — on a decided row polled before the "
         "column existed, never parsed.",
     )
+    argument_transcript_at: date | None = Field(
+        default=None,
+        description="The argument day of the first oral argument transcript the "
+        "Court's per-Term transcript list gave for this docket and the live poll's "
+        "transcript pass stored (`pipeline.live.fetch_argument_transcripts`) — the "
+        "merits stage's post-argument forecast moment. Fill-in latched: a later "
+        "reargument never moves it. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = not argued, no transcript listed "
+        "yet, or not read.",
+    )
     merits_brief_on_lead: date | None = Field(
         default=None,
         description="When a consolidated member's own respondent filed its brief on "
@@ -992,7 +1002,13 @@ CREATE TABLE IF NOT EXISTS cases (
     -- pipeline/cert_signals.py): the date that opens the cert stage's relist
     -- moment. Written by the live poll at ingest; fill-in latched. Withheld from
     -- the retrieval surface. NULL = no relist yet, or not parsed.
-    relisted_at TEXT
+    relisted_at TEXT,
+    -- The argument day of the first oral argument transcript stored for the
+    -- docket (see CorpusRow and pipeline/live.py): the date that opens the merits
+    -- stage's post-argument moment. Written by the live poll's transcript pass;
+    -- fill-in latched. Withheld from the retrieval surface. NULL = no transcript
+    -- stored yet.
+    argument_transcript_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1171,6 +1187,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "call_for_response_at": "TEXT",
     "merits_brief_on_lead": "TEXT",
     "relisted_at": "TEXT",
+    "argument_transcript_at": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1874,6 +1891,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
             row.merits_brief_on_lead.isoformat() if row.merits_brief_on_lead else None
         ),
         "relisted_at": row.relisted_at.isoformat() if row.relisted_at else None,
+        "argument_transcript_at": (
+            row.argument_transcript_at.isoformat() if row.argument_transcript_at else None
+        ),
         "capital_case": int(row.capital_case),
     }
 
@@ -1992,6 +2012,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         call_for_response_at=_optional_date(record, "call_for_response_at"),
         merits_brief_on_lead=_optional_date(record, "merits_brief_on_lead"),
         relisted_at=_optional_date(record, "relisted_at"),
+        argument_transcript_at=_optional_date(record, "argument_transcript_at"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -2005,8 +2026,8 @@ def _update_clause(column: str) -> str:
     ``document_floor_probed_at`` floor probe, and the fill-in slice of
     the live-parsed signals — the conference, CVSG, invited-brief,
     call-for-response and first-relist dates, the dated interim/merits signals beside them (a
-    consolidated member's lead-filed respondent brief among them), and
-    the merits decision record)
+    consolidated member's lead-filed respondent brief and the post-argument
+    transcript's argument day among them), and the merits decision record)
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
@@ -2052,6 +2073,7 @@ def _update_clause(column: str) -> str:
         "call_for_response_at",
         "merits_brief_on_lead",
         "relisted_at",
+        "argument_transcript_at",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -3558,6 +3580,24 @@ def latch_merits_brief_on_lead(conn: sqlite3.Connection, case_id: str, filed: da
         )
 
 
+def latch_argument_transcript_at(conn: sqlite3.Connection, case_id: str, argued: date) -> None:
+    """Fill in ``argument_transcript_at`` on one case, keeping a date already stored.
+
+    The live poll's transcript pass is the writer: the transcript comes off the
+    Court's per-Term list rather than the docket payload, so it lands beside the
+    row upsert rather than through it, as :func:`latch_merits_brief_on_lead` does
+    and for the same reason. The first transcript stored opens the moment, so a
+    reargument's later transcript never moves it. A direct ``UPDATE`` of the
+    index and never the casestore mirror.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET argument_transcript_at = COALESCE(argument_transcript_at, ?) "
+            "WHERE case_id = ?",
+            (argued.isoformat(), case_id),
+        )
+
+
 def unlatch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -> None:
     """Clear ``salience_selected`` on each case — the latch's one sanctioned exception.
 
@@ -3912,7 +3952,8 @@ def opinion_body(row: CorpusRow) -> str | None:
 
 
 #: Columns a ``query`` prior never carries, though the row stores them. The
-#: invited-brief, call-for-response and first-relist dates are mint triggers, a consolidated
+#: invited-brief, call-for-response, first-relist and argument-transcript dates are mint
+#: triggers, a consolidated
 #: member's lead-filed respondent brief dates a moment no mint reads yet, and the
 #: merits decision record is an analytics surface — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
@@ -3932,6 +3973,7 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "call_for_response_at",
         "merits_brief_on_lead",
         "relisted_at",
+        "argument_transcript_at",
     }
 )
 

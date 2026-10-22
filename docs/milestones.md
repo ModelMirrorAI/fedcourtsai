@@ -91,7 +91,10 @@ Add the moments where a case's information set materially changes, starting
 with the one the public cares about most:
 
 - **Post-oral-argument** — every argued case, after the transcript is out
-  (~60 events a Term). First to be built.
+  (~60 events a Term). Declared, minted and switched off on the same terms as
+  the SG brief (`evt-argument-judgment`, moment `argued` on the merits stage).
+  The live poll already stores each transcript the Court lists, as the
+  `argument-transcript` document only this moment's cells are handed.
 - **SG brief after a CVSG** — the Solicitor General's recommendation (~20).
   Declared, parsed and minted (`evt-brief-sg-disposition`, moment `sg-brief`),
   and switched off: no cell is filed under it until the process version whose

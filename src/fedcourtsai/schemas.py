@@ -312,6 +312,7 @@ class EventKind(StrEnum):
     appeal = "appeal"
     order = "order"
     brief = "brief"
+    argument = "argument"
 
 
 class Stage(StrEnum):
@@ -379,6 +380,8 @@ class Moment(StrEnum):
     grant = "grant"
     #: merits — the respondent's brief on the merits is filed.
     briefed = "briefed"
+    #: merits — the Court posts the transcript of the oral argument.
+    argued = "argued"
 
 
 class GroupBy(StrEnum):

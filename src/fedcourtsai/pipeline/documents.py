@@ -209,6 +209,11 @@ KIND_MERITS_BRIEF_RESPONDENT = "merits-brief-respondent"
 KIND_MERITS_REPLY_PETITIONER = "merits-reply-petitioner"
 KIND_MERITS_REPLY_RESPONDENT = "merits-reply-respondent"
 KIND_QUESTIONS_PRESENTED = "questions-presented"
+# The transcript of the oral argument, which no docket entry links: the Court
+# lists it on a per-Term page (:func:`fedcourtsai.supremecourt.parse_transcript_listing`),
+# so it is fetched by the live poll's transcript pass rather than selected here,
+# and dated by the argument day the list gives.
+KIND_ARGUMENT_TRANSCRIPT = "argument-transcript"
 
 # The separator the combined brief-in-opposition row joins its constituents'
 # links with. Named because three readers turn on it: the row is rebuilt from
@@ -1574,6 +1579,60 @@ def extract_pdf_text(
         )
     except (PyPdfError, ValueError, TypeError):
         return ExtractedText(text="", pages=0, truncated=False)
+
+
+# A transcript's page furniture, one stripped line at a time: the margin line
+# numbers and the page number (bare integers), the reporter's running footer and
+# the review header every page repeats, and the dashed rules of the cover. Kept
+# out because they are a third of the extracted text and none of the argument.
+_TRANSCRIPT_FURNITURE_RE = re.compile(
+    r"\d{1,3}|heritage reporting corporation|official - subject to final review|(?:- )+-",
+    re.IGNORECASE,
+)
+# The reporter's closing line. Everything after the last one is the word index,
+# which lists every word with its page and line references and reads as noise.
+_TRANSCRIPT_CLOSE_RE = re.compile(
+    r"\(\s*whereupon,[^)]*?\bwas\s+submitted\.?\s*\)", re.IGNORECASE | re.DOTALL
+)
+
+
+def clean_transcript_text(text: str) -> str:
+    """An argument transcript's extracted text without its furniture or word index.
+
+    Cut after the reporter's last closing line, where the argument ends, then
+    each line has its whitespace collapsed and a line that is page furniture
+    (:data:`_TRANSCRIPT_FURNITURE_RE`) or blank is dropped. A transcript without
+    the closing line keeps its index rather than losing argument to a guess.
+    """
+    closes = list(_TRANSCRIPT_CLOSE_RE.finditer(text))
+    if closes:
+        text = text[: closes[-1].end()]
+    kept: list[str] = []
+    for line in text.splitlines():
+        stripped = " ".join(line.split())
+        if stripped and not _TRANSCRIPT_FURNITURE_RE.fullmatch(stripped):
+            kept.append(stripped)
+    return "\n".join(kept)
+
+
+def extract_transcript_text(data: bytes, *, char_cap: int) -> ExtractedText:
+    """Extract an argument transcript's text, cleaned, under the plain head cut.
+
+    The whole transcript is read (up to :data:`_READ_CEILING_CAPS` times the
+    cap) before :func:`clean_transcript_text`, because the furniture it removes
+    is what would otherwise spend the cap: an hour's argument fits once its line
+    numbers and index are gone. What is still over the cap is head-cut and
+    flagged, as any other plain-cut document is.
+    """
+    raw = extract_pdf_text(data, char_cap=char_cap * _READ_CEILING_CAPS)
+    text = clean_transcript_text(raw.text)
+    truncated = raw.truncated
+    if len(text) > char_cap:
+        text = text[:char_cap]
+        truncated = True
+    return ExtractedText(
+        text=text, pages=raw.pages, truncated=truncated, ocr_derived=raw.ocr_derived
+    )
 
 
 # --- Appendix-aware cut -----------------------------------------------------
@@ -4184,6 +4243,10 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_MERITS_REPLY_RESPONDENT: "The respondent's reply brief on the merits.",
     KIND_QUESTIONS_PRESENTED: (
         "The questions-presented section cut out of the petition's own text."
+    ),
+    KIND_ARGUMENT_TRANSCRIPT: (
+        "The transcript of the oral argument as the Court posted it, without its line "
+        "numbers, page headers and word index."
     ),
 }
 

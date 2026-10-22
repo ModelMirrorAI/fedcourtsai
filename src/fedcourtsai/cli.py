@@ -16380,6 +16380,12 @@ def live_poll(
             + ", ".join(f"{key}={value}" for key, value in queues.document_freshness.items())
             + "."
         )
+    if queues.argument_transcripts:
+        typer.echo(
+            "Argument transcripts: "
+            + ", ".join(f"{key}={value}" for key, value in queues.argument_transcripts.items())
+            + "."
+        )
     # The window's document-fetch ledger. Last, after the queue counts, because
     # it reports on what provisioning did for the cases those counts name — and
     # unconditionally, because a window that lost nothing and a window that never

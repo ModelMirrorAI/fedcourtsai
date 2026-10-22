@@ -1933,6 +1933,43 @@ def briefed_merits_event_for(
     )
 
 
+def argued_merits_event_for(
+    row: CorpusRow, open_event_ids: list[str], transcript_at: date | None
+) -> corpus.CorpusEvent | None:
+    """The merits stage's post-argument forecast moment, or ``None``.
+
+    The argument is the last public step before the opinion: the Justices'
+    questions are on the record, and the same judgment can be forecast again
+    from them. The trigger is the transcript, not the argued date, because the
+    transcript is what the moment adds to a cell's information set. Its argument
+    day, ``transcript_at``, is latched on the stored row by the live poll's
+    transcript pass (:func:`~fedcourtsai.pipeline.live.fetch_argument_transcripts`)
+    rather than read off this poll's payload, which links no transcript, so the
+    event mints at the case's next poll after the pass stores it. The trigger
+    stays true forever, so it re-fires on every poll behind the briefed
+    moment's guards: the row must open a merits proceeding, carry no merits
+    judgment, and keep the grant moment open.
+    """
+    if transcript_at is None or row.merits_judgment is not None:
+        return None
+    if not corpus.opens_merits_proceeding(row) or MERITS_EVENT_ID not in open_event_ids:
+        return None
+    spec = next(s for s in moments.moments_for(Stage.merits) if s.moment is Moment.argued)
+    return corpus.CorpusEvent(
+        event_id=spec.event_id,
+        case_id=row.case_id,
+        court=row.court,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=row.case_name or row.docket_number or row.case_id,
+        description=spec.description,
+        opened_at=transcript_at,
+        decision_target=spec.decision_target,
+        resolved=False,
+    )
+
+
 def mint_moment_events(
     corpus_db_path: Path,
     data_root: Path,
@@ -1959,11 +1996,13 @@ def mint_moment_events(
     shape ``materialize-event`` provisions for the agent cells).
     """
     opens = list(open_event_ids or [])
+    transcript_at = _stored_transcript_at(corpus_db_path, row, opens)
     minted = [
         event
         for event in (
             merits_event_for(row, resolution),
             briefed_merits_event_for(row, opens),
+            argued_merits_event_for(row, opens, transcript_at),
             cvsg_event_for(row, opens),
             sg_brief_event_for(row, opens),
             call_for_response_event_for(row, opens),
@@ -1979,6 +2018,24 @@ def mint_moment_events(
         if not minted:
             return []
         return persist_moment_events(conn, data_root, court_id, docket_id, minted)
+
+
+def _stored_transcript_at(
+    corpus_db_path: Path, row: CorpusRow, open_event_ids: list[str]
+) -> date | None:
+    """The stored row's ``argument_transcript_at``, read only where it could mint.
+
+    The ingestion row is built from the docket payload, which links no
+    transcript, so the post-argument trigger is read off the corpus row the
+    transcript pass latched it on. Read only while the grant moment is open and
+    no judgment is recorded, the two conditions without which the moment cannot
+    mint, so a cert or interim poll opens no extra read.
+    """
+    if MERITS_EVENT_ID not in open_event_ids or row.merits_judgment is not None:
+        return None
+    with corpus.connect(corpus_db_path) as conn:
+        stored = corpus.get_row(conn, row.case_id)
+    return None if stored is None else stored.argument_transcript_at
 
 
 def _without_terminated_merits(
