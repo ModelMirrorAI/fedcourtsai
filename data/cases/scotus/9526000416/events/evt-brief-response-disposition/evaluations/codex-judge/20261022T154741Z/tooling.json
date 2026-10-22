@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000416",
+  "gaps": [
+    "Unobserved retrieval results limit result-body auditing for gemini-baseline"
+  ],
+  "helpful": [
+    "Blinded candidate artifacts",
+    "Harness retrieval chronology and capture markers",
+    "Explicit interim-stage scoring contract"
+  ],
+  "notes": "All candidates were scoreable from provisioned artifacts. The committed interim statpack was consulted only for baseline availability; baseline, skill and claim scores remain harness-owned. No external or live-corpus retrieval was needed. Zero result-capture coverage was treated as an observability limit, not a defect or leakage evidence.",
+  "role": "evaluator",
+  "run_id": "20261022T154741Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "jq",
+    "apply_patch",
+    "local schema validation",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

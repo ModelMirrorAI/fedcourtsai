@@ -1,0 +1,23 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000416",
+  "gaps": [
+    "`fedcourts paths` does not accept `--actor` or `--run-id` options (`uv run fedcourts paths --court scotus --docket 9526000416 --event evt-order-response-requested-disposition --role evaluator` works without them)."
+  ],
+  "helpful": [
+    "Provisioned `record/documents/application.txt`, `record/documents/application-response.txt`, and `record/snapshots/2026-10-21.json` provided full context on both the application and the opposition/order history for grading reasoning quality and forming an independent big-case assessment.",
+    "Harness-captured `record/blinded/<alias>/retrieval_log.json` made forward-mode verification and `result_capture_coverage` inspection straightforward across all three candidates."
+  ],
+  "notes": "Evaluated three blinded candidates (claude-baseline, codex-baseline, gemini-baseline) on interim event evt-order-response-requested-disposition without external corpus or CourtListener retrieval.",
+  "role": "evaluator",
+  "run_id": "20261022T154741Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "run_shell_command",
+    "write_file"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

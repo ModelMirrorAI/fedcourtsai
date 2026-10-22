@@ -1,0 +1,80 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.55,
+    "notes": "Interim stay application by the SG against a classwide preliminary injunction (and APA section 705 stay) blocking a nationwide BOP policy on gender-dysphoria treatment and accommodations for roughly 2,000 federal inmates. The stakes are real for the affected class and the policy is national, but the Court denied it in a one-line order with two noted would-grant votes and no opinion. That leaves the merits to the D.C. Circuit's expedited appeal and sets no doctrine. Significant, but well below a merits ruling in the gender-identity line."
+  },
+  "brier_score": 0.4624000000000001,
+  "brier_skill_score": -52.19271111111111,
+  "case_id": "scotus/9526000416",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.09323583180987204,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.68,
+        "score": -0.45370707966672136
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "mask_reason": "signal-before-run",
+        "outcome": null,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.94,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.93,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.45370707966672136,
+    "total": -0.45370707966672136
+  },
+  "correct": 0,
+  "created_at": "2026-10-22T15:56:48Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (arrival-position cut, cutoff 2026-09-29; prediction created 2026-09-29). Live retrieval of the supremecourt.gov docket, SCOTUSblog, news and the district docket. The newest retrieved_doc_date is 2026-09-29, before the 2026-10-21 resolution. It used the 2026-09-28 response-request entry, which is outside the arrival-position baseline but is ordinary forward signal predating the resolution, and the candidate disclosed it. The other cases it cites (Orr and the corpus SG rows) are other dockets. No outcome material for this application. Clean.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260929T212928Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v10",
+    "pipeline_sha": "e8d8df932e28a45cd52ae25887b584fd8474bc89",
+    "stamped_at": "2026-10-22T15:57:48.617388Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20261022T154741Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.09323583180987204,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

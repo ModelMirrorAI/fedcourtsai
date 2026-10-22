@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000416",
+  "gaps": [
+    "Unobserved retrieval results limit independent review of what some candidate calls returned."
+  ],
+  "helpful": [
+    "Outcome and dated snapshot corroborate the exact interim disposition.",
+    "Alias staging preserves the blind while keeping both prose documents available.",
+    "Per-call result-capture markers distinguish missing evidence from empty results."
+  ],
+  "notes": "All scoring used provisioned case facts. The interim baseline, skill, mechanical claims, and process stamps remain harness-owned; no anomaly required flags.json.",
+  "role": "evaluator",
+  "run_id": "20261022T154741Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: read provisioned blinded artifacts and schemas",
+    "jq: inspect outcome and captured retrieval calls",
+    "metrics/statpack.md: interim baseline availability",
+    "local JSON Schema and model validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
