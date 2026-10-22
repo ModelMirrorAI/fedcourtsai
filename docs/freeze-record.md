@@ -12457,3 +12457,234 @@ freeze commit is recorded here.
     python -c "from fedcourtsai.process_version
     import HARNESS_BOUNDARIES as H; print('vide-related-dockets' in {b.name
     for b in H})"` prints `True`.
+
+- **The cert resolver reads a direct appeal's summary affirmance and its
+  dismissals; recorded 2026-10-22.** The other side of the 2026-10-19
+  direct-appeal entry, in the same classes: a **scoring-baseline** entry and a
+  **conditioning** one through the same numbers. It moves the realized cert
+  record of mandatory-jurisdiction direct appeals, which the statpack's
+  per-band segment pools are built from, and those pools are what a cert cell
+  is provisioned with and stamped against. That earlier entry is not otherwise
+  edited. It moves no digest: no prompt template, neither agent config and not
+  `src/fedcourtsai/process_version.py` changes, and `uv run fedcourts
+  process-digest --all` prints `proc-v10` and the same six digests at this
+  change as at its parent (`605201bd…`, `7ab92dd4…`, `bee46e92…`,
+  `167b7d71…`, `a8610eec…`, `6a88d3dc…`). It registers one harness boundary,
+  below. The carrying merge writes nothing to the corpus or the ledger.
+
+  **The pattern change** (`src/fedcourtsai/pipeline/cert_signals.py`). A
+  second table, `_DIRECT_APPEAL_EXIT_SIGNALS`, is scanned after every
+  existing row, so the plenary-review rows and every cert row keep their
+  readings and win wherever they match the same entry. Its rows and labels:
+  - "The appeal is dismissed for want of a substantial federal question."
+    (with or without "properly presented") → `dismissed`;
+  - "Appeal dismissed for want of jurisdiction." / "The appeal is dismissed
+    for want of jurisdiction." (or "lack of jurisdiction") → `dismissed`;
+  - "The appeal is DISMISSED AS MOOT." → `dismissed`, on the `mootness`
+    basis, as a cert dismissal as moot carries;
+  - "Motion to affirm GRANTED." → `denied`;
+  - a summary affirmance, "Adjudged to be AFFIRMED.", "Judgment AFFIRMED.",
+    "The judgment [of the … Court] is affirmed." → `denied`.
+
+  **Why these labels.** The `Disposition` convention already puts summary
+  affirmance and want-of-a-question on the denied/dismissed side, and both
+  labels sit in every resolved denominator and outside the grant family, so
+  the pools read each exit as a not-granted resolution either way. The label
+  is chosen by what the order does. A summary affirmance (and the motion to
+  affirm it grants) declines plenary review and leaves the judgment below
+  standing, which is what a cert denial records, so it reads `denied` and
+  dates `date_cert_denied` with the termination, as a cert denial does. A
+  dismissal is the Court's own word for an appeal it disposes of without
+  reaching the merits, so it reads `dismissed` and dates the termination
+  alone. The dismissal rows are scanned before the affirmance rows, so an
+  entry that dismisses one part and affirms another reads `dismissed`. Both
+  are the not-granted side, so the order moves only the label axis.
+
+  **No merits judgment latches on a summary affirmance.** The live channel
+  latches `merits_judgment` only on a grant that opens a merits proceeding
+  (`MERITS_PROCEEDING_DISPOSITIONS`), and `denied` is not one, so a summary
+  affirmance carries no merits pair. No merits event is minted
+  (`outcome._merits_mint_verdict` returns no verdict without a
+  merits-opening grant), and the statpack's merits section and its baseline,
+  which admit only merits-opening grants, do not read these rows. That is the
+  conservative call: the merits population is the briefed-and-argued one,
+  and a summary affirmance is not in it.
+
+  **Guarding against the merits judgment.** "Judgment AFFIRMED." is also how
+  a merits judgment reads after argument on a granted cert docket, so the
+  entry alone cannot say which it is. The exit table is therefore never read
+  by an entry-level reader. Only `docket_disposition_signals` opens it, per
+  entry, under two tests on the docket:
+  - **direct-appeal context**: some entry carries a jurisdictional statement,
+    a statement as to jurisdiction, or a motion to affirm or to dismiss or
+    affirm, papers only an appeal carries;
+  - **no plenary review yet**: no earlier entry shows argument ("Argued."),
+    a setting for argument, merits briefing, or a joint appendix.
+
+  Each row also reads only where its phrase opens its sentence and the
+  sentence names no docket number. That is the 2026-10-19 cross-docket guard,
+  extended to the new rows, so "The appeal in No. 17-2 is dismissed …" never
+  disposes of the docket whose entry carries it. An entry naming an opinion of
+  the Court or a per curiam opinion is not read. The existing order guards run
+  on every match, with one exception: the motion-to-affirm row is exempt from
+  the motion-opening guard, because its subject is the motion it decides.
+
+  The docket-level readers are ingest-time resolution (`ingest._live_resolution`),
+  the historical loader's keep/skip read (and so `refresh_dockets`), the
+  disposition basis, the reachability probe, and the forward-leakage guard.
+  Every entry-level reader keeps the cert table alone: the convergence sweep,
+  the refused-sentence readers, `cert_grant_date`, and the before-the-
+  first-disposition moment readers. The convergence sweep's population is
+  `granted` rows and exits on rows recording a grant, so it never reaches
+  these rows.
+
+  Deliberate misses:
+  - a split order ("Adjudged to be AFFIRMED in part and REVERSED in part.",
+    a dismissal "with respect to" one district beside an affirmance as to
+    another);
+  - "affirmed by an equally divided Court";
+  - a bare "Appeal dismissed." that names no basis.
+
+  **The census.** Read at blob
+  `f54d9688487cf45948ecba633d84c690a952c31acdad11a5471a6f4abd9427dc`
+  (`freshness: latest pull 2026-10-22, latest snapshot 2026-07-13`, the
+  pointer `origin/main` carries at `a5b613282`, each docket's latest live
+  snapshot from the content store), in two passes.
+  - **Stored snapshots.** Every live-polled Term-form SCOTUS row was re-parsed
+    with `ingest.map_live_docket`, with the exit table closed and open: 21,286
+    snapshots (123 rows hold none). 19 of them carry a direct-appeal paper (18
+    of them federal-district-origin), and none changes reading. Every stored
+    direct appeal already resolves through a plenary-review or GVR row, or is
+    pending. Of those 18, 14 are stored `gvr` (3 of them the 2026-10-19
+    census flips, which read `granted` once re-served) and 4 pending; the
+    nineteenth is a stored `granted`. So the census adds no docket to the
+    refresh list.
+  - **The 44-docket list.** The 44 dockets of the 2026-10-19 entry hold no
+    live snapshot, apart from its 3 census flips, so their upstream records
+    were fetched from supremecourt.gov on 2026-10-22 and read in the session
+    only. 43 are served, and 24-1888 answers 404, so the refresh reports it
+    `unserved`. Under the 2026-10-19 parser, 14 resolve: 13 grant-side and
+    24-999's existing dismissal. Under this change, 26 resolve. The 12 flips
+    are all federal-district-origin direct appeals and all
+    `undecided` → not-granted:
+    - `dismissed`, for want of jurisdiction: 17-680, 17-780, 17-1368,
+      18-290, 18-433, 18-1134, 22-136, 22-492, 24-111;
+    - `dismissed`, as moot: 17-1339, 22-92;
+    - `denied`, summary affirmance: 20-1279.
+
+    Of the 26 federal-district-origin dockets on the list, 23 now resolve,
+    11 `granted` and 12 not-granted. 3 still miss:
+    - 17-1364, a split per curiam affirmed in part and reversed in part;
+    - 21-1086, whose noting sits conjoined behind an application order (the
+      2026-10-19 deliberate miss), and whose affirmance after argument the
+      plenary trace correctly declines to read as summary;
+    - 23-969, a split dismissal and affirmance.
+
+    The other 14 non-resolving dockets are not district-origin. They are
+    cert-before-judgment denials (routing-only by design), consolidated
+    members whose terminal sits on the lead docket, and pending petitions.
+    None of them is this change's.
+
+  **What it moves, once the list is re-served.** The figures are statpacks
+  rebuilt from the blob above. "Before" is the blob as it stands. "Grant-side
+  only" re-serves the list under the 2026-10-19 parser. "Both sides"
+  re-serves it under this change. Each re-serve ran through
+  `live.ingest_live_payload` on a scratch copy. The committed
+  `metrics/statpack.json` (`ac757d745`) predates corpus repairs since landed,
+  so its figures (state 22.70%, federal 72.93%, high 34.97%) are not the
+  "before". Per band, the `risk_set` anchors from `uv run fedcourts
+  segment-anchors` (before → grant-side only → both sides):
+  - docket Term 2025 (pools OT2017–OT2024): federal 75.69% (n=181) →
+    75.82% (n=182) → 75.82%; high 35.30% (n=898) → 35.59% (n=902) →
+    35.59%; state 23.21% (n=392) → 23.80% (n=395) → 23.80%; elevated
+    17.37% (n=2810) → 17.51% (n=2816) → 17.49% (n=2819); baseline 5.19%
+    (n=11580) → 5.24% (n=11587) → 5.23% (n=11599);
+  - docket Term 2026 (pools OT2017–OT2025): federal 73.04% (n=204) →
+    73.17% (n=205) → 73.17%; high 35.55% (n=976) → 35.82% (n=980) →
+    35.82%; state 23.88% (n=423) → 24.41% (n=426) → 24.41%; elevated
+    16.96% (n=3130) → 17.09% (n=3136) → 17.08% (n=3139); baseline 5.07%
+    (n=12892) → 5.11% (n=12899) → 5.10% (n=12911).
+
+  **The two-sided refresh barely moves the anchors.** All 12 exits sit in
+  the baseline (9) and elevated (3) bands, so the state, federal and high
+  anchors are the same with or without them. Against a grant-side-only
+  refresh, the two-sided one lowers elevated by 0.02 points (Term 2025) and
+  0.01 (Term 2026), and baseline by 0.01 at both. Against the blob as it stands, the refresh as a whole raises state by
+  0.59 points (Term 2025) and 0.53 (Term 2026), high by 0.29 and 0.27,
+  federal by 0.13 and 0.13, elevated by 0.12 and 0.12, and baseline by 0.04
+  and 0.03. All of that comes from the grant side. The 2026-10-19 bound
+  (state to about 27.0%) assumed all 23 hollow district-origin dockets were
+  grants. They are not: 8 of those 23 resolve as grants, 12 as exits, and 3
+  miss.
+
+  **The other baselines.** The summary-route baseline (paid cert-order
+  share of the grant family) moves 0.3510 → 0.3433 at docket Term 2025 and
+  0.3522 → 0.3450 at Term 2026. The merits baseline moves 0.7059 → 0.7039
+  (Term 2025) and 0.7060 → 0.7041 (Term 2026), and the merits section's
+  disturbed/parsed goes 389/551 → 395/561. Both moves are wholly the grant
+  side's. The exits enter neither baseline: neither counts outside the grant
+  family, so grant-side-only and both-sides agree to the digit. The exact
+  after-values are the next statpack refresh's, which can differ by rows
+  landed since.
+
+  **The ledger.** On the scratch re-serve, 10 of the 12 exits record an
+  `evt-petition-disposition` outcome: `actual_granted` 0, at the exit date,
+  on the `mootness` basis for the two moot dismissals and `standard`
+  otherwise. 18-290 and 18-1134 are predict-excluded rows, so their corpus
+  label lands and their open event is not recorded. No exit mints a merits
+  event. No committed predict or evaluate output sits under any of the 44.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** It is registered
+  as the 2026-10-19 entry's was:
+  - **The registry row.** The boundary is `direct-appeal-summary-exit`. It
+    applies to every predictor, with reach `all`, and is **gradual**: a
+    cell's input moves at the statpack refresh after the re-serve, not at the
+    merge. It is registered **pending** in this change's own PR (`fedcourts
+    register-boundary`). Its `merge` and `at` stay null until the promotion
+    merge that carries it to `main` stamps them (`promotion-record`).
+  - **The side test** is the registered one, against the carrying merge,
+    with the after-side `n` an upper bound on exposure.
+
+  **Timing.** The carrying merge changes the parser only. A row takes the new
+  reading when it is next ingested, and the pools move at the first statpack
+  refresh on `main` after that. The hollow rows are in no rotation, so they
+  move only when re-served. The committed `metrics/docket.md` keeps the old
+  direct-appeal caveat until the next `fedcourts docket` run regenerates it
+  from `analytics.py`.
+
+  **Release 1 disclosure.** The tagged release (`results/ot2026-longconf`)
+  reads its own tag and does not move. Its anchors were read before any of
+  the 44 dockets was re-served, so neither side of a direct appeal is in
+  them beyond the 3 stored `gvr` rows the 2026-10-19 entry disclosed.
+
+  **The one-off refresh is no longer held.** Both sides of a direct appeal
+  now read, so the 44 dockets can enter the pools at once. The list is the
+  2026-10-19 one unchanged: the census found no flip outside it, and all 12
+  flips are on it. After the promotion that carries this change to `main`:
+
+  `gh workflow run run-seed.yml --ref main -f refresh_dockets='24-109 24-110
+  22-807 21-1086 17-586 17-626 17-333 18-281 17-1364 18-422 18-726 20-366
+  24-111 17-680 17-780 17-1339 17-1368 18-290 18-433 18-1134 20-1279 21-12
+  22-92 22-136 22-492 23-969 17-1003 17-1660 18-443 19-1209 20-201 20-298
+  20-391 20-524 21-582 21-583 21-587 21-633 22-350 23-624 24-969 24-999
+  24-1030 24-1888'`
+
+  The refresh reports 24-1888 `unserved` and the 17 non-resolving dockets
+  `undecided`, and ingests neither.
+
+  The runnable effect check once the refresh lands, where the corpus is
+  pulled (`uv run fedcourts corpus-pull`):
+  - `sqlite3 corpus/corpus.db "SELECT disposition, date_cert_denied,
+    date_decided FROM cases WHERE case_id = 'scotus/72465305'"` (20-1279)
+    prints `denied|2021-10-04|2021-10-04`;
+  - the same query on `scotus/72461523` (17-680) prints
+    `dismissed||2018-01-16`;
+  - the 2026-10-19 entry's check on `scotus/69779623` (24-109) and
+    `scotus/14833516` (18-422) still prints `granted`.
+
+  Before it, at the carrying merge:
+  - `uv run pytest tests/test_cert_signals.py -k "direct_appeal or
+    summarily or substantial or exit or merits_affirmance or
+    docket_numbered or plenary"` is green;
+  - `uv run fedcourts process-digest --all` prints the same label and six
+    digests as at its first parent.

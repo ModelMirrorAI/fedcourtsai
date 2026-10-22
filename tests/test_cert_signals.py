@@ -14,16 +14,21 @@ import pytest
 
 from fedcourtsai import corpus
 from fedcourtsai.pipeline.cert_signals import (
+    _DIRECT_APPEAL_EXIT_SIGNALS,
     _ENTRY_SIGNALS,
     DISTRIBUTION_PARSES,
     cert_grant_date,
+    direct_appeal_exit_gates,
     dissent_from_denial,
+    docket_disposition_signals,
     match_disposition_signal,
     mootness_disposition,
+    proceedings_entries,
     refused_exit_sentence,
     refused_grant_sentence,
     snapshot_distribution_count,
 )
+from fedcourtsai.pipeline.historical import _payload_disposition
 from fedcourtsai.pipeline.ingest import (
     _live_distribution_count,
     _live_resolution,
@@ -31,7 +36,8 @@ from fedcourtsai.pipeline.ingest import (
     map_live_docket,
     to_corpus_row,
 )
-from fedcourtsai.schemas import Disposition
+from fedcourtsai.pipeline.outcome import disposition_basis, forward_leakage
+from fedcourtsai.schemas import GRANTED_DISPOSITIONS, Disposition
 
 # --- dispositions the resolver must read -----------------------------------------
 
@@ -1419,7 +1425,10 @@ def test_a_plenary_review_order_inside_a_motion_opening_sentence_is_a_deliberate
     )
 
 
-def test_summary_affirmance_and_want_of_a_question_are_deliberate_misses() -> None:
+def test_summary_affirmance_and_want_of_a_question_read_only_at_the_docket_level() -> None:
+    # The entry alone cannot say whether "Judgment AFFIRMED." is a summary
+    # affirmance or a merits judgment after argument, so an entry-level reader
+    # never reads the exit table; only the docket-level reader opens it.
     for text in (
         "Judgment AFFIRMED.",
         "The judgment is affirmed.",
@@ -1427,6 +1436,8 @@ def test_summary_affirmance_and_want_of_a_question_are_deliberate_misses() -> No
         "Appeal DISMISSED for want of jurisdiction.",
     ):
         assert match_disposition_signal(text) is None, text
+        assert match_disposition_signal(text, direct_appeal_exit=True) is not None, text
+        assert refused_exit_sentence(text) is None, text
 
 
 def _appeal(*entries: tuple[str, str]) -> dict[str, object]:
@@ -1591,3 +1602,311 @@ def test_a_postponed_appeal_dismissed_for_want_of_jurisdiction_stays_granted() -
     assert row.date_cert_granted == date(2019, 1, 4)
     assert row.date_decided is None
     assert row.merits_judgment is None
+
+
+# --- mandatory-jurisdiction direct appeals: the non-plenary exits ------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "disposition", "label"),
+    [
+        # Castañon v. United States (20-1279), verbatim.
+        (
+            "Adjudged to be AFFIRMED. See <i>Adams</i> v. <i>Clinton</i>, 531 U. S. 941 "
+            + "(2000). Justice Thomas and Justice Gorsuch would dismiss the appeal for lack "
+            + "of jurisdiction.",
+            Disposition.denied,
+            "summary affirmance",
+        ),
+        ("Judgment AFFIRMED.", Disposition.denied, "summary affirmance"),
+        ("The judgment is affirmed.", Disposition.denied, "summary affirmance"),
+        (
+            "The judgment of the United States District Court for the Northern District of "
+            + "Alabama is affirmed.",
+            Disposition.denied,
+            "summary affirmance",
+        ),
+        ("Motion to affirm GRANTED.", Disposition.denied, "motion to affirm granted"),
+        (
+            "The motion of appellees to affirm is granted, and the judgment is affirmed.",
+            Disposition.denied,
+            "motion to affirm granted",
+        ),
+        (
+            "The appeal is dismissed for want of a substantial federal question.",
+            Disposition.dismissed,
+            "appeal dismissed for want of a substantial federal question",
+        ),
+        (
+            "Appeal dismissed for want of a properly presented substantial federal question.",
+            Disposition.dismissed,
+            "appeal dismissed for want of a substantial federal question",
+        ),
+        # 18-290, 17-1368 and 18-1134, verbatim; the last cites a decided docket
+        # in a sentence of its own, which the cross-docket guard leaves alone.
+        (
+            "The appeal is dismissed for want of jurisdiction.",
+            Disposition.dismissed,
+            "appeal dismissed for want of jurisdiction",
+        ),
+        (
+            "Appeal dismissed for want of jurisdiction.",
+            Disposition.dismissed,
+            "appeal dismissed for want of jurisdiction",
+        ),
+        (
+            "Appeal dismissed for want of jurisdiction. See Virginia House of Delegates v. "
+            + "Bethune-Hill, No. 18-281, 587 U. S. ___ (2019).",
+            Disposition.dismissed,
+            "appeal dismissed for want of jurisdiction",
+        ),
+        (
+            "The appeal is DISMISSED AS MOOT.",
+            Disposition.dismissed,
+            "appeal dismissed as moot",
+        ),
+    ],
+)
+def test_a_direct_appeals_non_plenary_exit_reads_on_the_not_granted_side(
+    text: str, disposition: Disposition, label: str
+) -> None:
+    matched = match_disposition_signal(text, direct_appeal_exit=True)
+    assert matched is not None
+    assert matched[0] == disposition
+    assert matched[1] == label
+    assert matched[0] not in GRANTED_DISPOSITIONS
+
+
+def test_an_appeal_dismissed_as_moot_carries_the_mootness_basis() -> None:
+    text = "The appeal is dismissed as moot."
+    assert mootness_disposition(text, direct_appeal_exit=True)
+    assert not mootness_disposition(
+        "The appeal is dismissed for want of jurisdiction.", direct_appeal_exit=True
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Split orders: a partial reversal, and a partial dismissal beside an
+        # affirmance as to another part (17-1364 and 23-969, verbatim).
+        "Adjudged to be AFFIRMED in part and REVERSED in part. Opinion per curiam.",
+        "The appeal is dismissed with respect to Subdistrict 9A, and the judgment is "
+        + "affirmed with respect to Subdistrict 4A.",
+        "Judgment AFFIRMED by an equally divided Court.",
+        # A judgment naming an opinion of the Court is a decided case.
+        "Adjudged to be AFFIRMED. Roberts, C. J., delivered the opinion of the Court.",
+        "Adjudged to be AFFIRMED. Opinion per curiam.",
+        # A bare dismissal names no basis (18-281, after argument).
+        "Appeal dismissed.",
+        # Recitals and papers on a direct appeal.
+        "Motion to affirm filed by appellees Common Cause, et al.",
+        "Motion of Evan Milligan, et al. to affirm not accepted for filing.",
+        "Supplemental brief of appellant Louisiana in support of affirmance filed.",
+        "Motion to extend the time to file a motion to dismiss or affirm granted.",
+        "Motion of appellees to dismiss the appeal for want of jurisdiction filed.",
+        "Brief of appellees urging that the judgment be affirmed filed.",
+        # A scoped dismissal is not the appeal's exit.
+        "The appeal is dismissed for want of jurisdiction only as to appellant Smith.",
+        # Not the opening of its sentence.
+        "In the event the judgment is affirmed, the stay shall terminate automatically.",
+        "Should the appeal be dismissed for want of jurisdiction, the stay shall terminate.",
+    ],
+)
+def test_direct_appeal_near_misses_never_read_as_an_exit(text: str) -> None:
+    assert match_disposition_signal(text, direct_appeal_exit=True) is None, text
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A combined order naming dockets may be disposing of another docket than
+        # the one whose entry carries it — the #2582 guard, on the exit rows.
+        "The appeal in No. 17-2 is dismissed for want of jurisdiction.",
+        "Appeal dismissed for want of a substantial federal question in Nos. 17-2 and 17-3.",
+        "The judgment in No. 21-1087 is affirmed.",
+        "Judgment AFFIRMED in No. 24-2.",
+        "Motion to affirm in No. 22-5 GRANTED.",
+        "The appeal is DISMISSED AS MOOT as to No. 18-1.",
+    ],
+)
+def test_a_docket_numbered_exit_is_a_deliberate_miss(text: str) -> None:
+    assert match_disposition_signal(text, direct_appeal_exit=True) is None, text
+
+
+def test_a_combined_order_noting_one_docket_and_dismissing_another_reads_neither() -> None:
+    text = (
+        "Probable jurisdiction in No. 17-1 is noted. The appeal in No. 17-2 is dismissed "
+        + "for want of jurisdiction."
+    )
+    assert match_disposition_signal(text, direct_appeal_exit=True) is None
+    assert docket_disposition_signals(["Statement as to jurisdiction filed.", text]) == [None, None]
+
+
+def test_the_exit_rows_sit_behind_every_entry_row() -> None:
+    # A plenary-review or cert row in the same entry wins, so the #2582 rows and
+    # every existing reading are untouched by the exit table.
+    labels = [label for _pattern, _disposition, label in _ENTRY_SIGNALS]
+    assert labels[-2:] == ["probable jurisdiction noted", "jurisdiction postponed to the merits"]
+    assert not {label for _p, _d, label in _DIRECT_APPEAL_EXIT_SIGNALS} & set(labels)
+    matched = match_disposition_signal(
+        "Probable jurisdiction NOTED. The judgment is affirmed.", direct_appeal_exit=True
+    )
+    assert matched is not None and matched[1] == "probable jurisdiction noted"
+    matched = match_disposition_signal(
+        "The petition for a writ of certiorari is granted. The appeal is dismissed for want "
+        + "of jurisdiction.",
+        direct_appeal_exit=True,
+    )
+    assert matched is not None and matched[1] == "cert granted"
+
+
+def _rows(payload: dict[str, object], docket_id: int) -> corpus.CorpusRow:
+    return to_corpus_row(from_live_record(map_live_docket(payload, docket_id, form="cert")))
+
+
+def test_a_summarily_affirmed_appeal_resolves_as_denied() -> None:
+    """Docket level: the Castañon shape (20-1279) — papers, then the affirmance."""
+    payload = _appeal(
+        ("Mar 12 2021", "Statement as to jurisdiction filed. (Response due April 14, 2021)"),
+        ("Jul 14 2021", "Motion to dismiss or affirm filed by appellees United States, et al."),
+        ("Jul 28 2021", "Opposition to motion to dismiss or affirm filed by appellants."),
+        (
+            "Oct 04 2021",
+            "Adjudged to be AFFIRMED. See <i>Adams</i> v. <i>Clinton</i>, 531 U. S. 941 (2000).",
+        ),
+        ("Nov 05 2021", "JUDGMENT ISSUED."),
+    )
+    row = _rows(payload, 73_400_011)
+
+    assert row.disposition == Disposition.denied
+    assert row.date_cert_granted is None
+    assert row.date_cert_denied == date(2021, 10, 4)
+    assert row.date_decided == date(2021, 10, 4)
+    # Not a merits proceeding: no merits judgment latches on a summary affirmance.
+    assert row.merits_judgment is None
+    assert row.merits_decided is None
+    assert cert_grant_date(payload) is None
+    assert disposition_basis(payload) == "standard"
+
+
+def test_an_appeal_dismissed_for_want_of_a_substantial_federal_question_resolves_as_dismissed() -> (
+    None
+):
+    payload = _appeal(
+        ("Jan 10 2022", "Statement as to jurisdiction filed."),
+        ("Feb 10 2022", "Motion to dismiss filed by appellees."),
+        ("Mar 21 2022", "The appeal is dismissed for want of a substantial federal question."),
+    )
+    row = _rows(payload, 73_400_012)
+
+    assert row.disposition == Disposition.dismissed
+    assert row.date_cert_granted is None
+    assert row.date_cert_denied is None
+    assert row.date_decided == date(2022, 3, 21)
+    assert row.merits_judgment is None
+    assert disposition_basis(payload) == "standard"
+
+
+def test_an_appeal_dismissed_as_moot_resolves_as_dismissed_on_the_mootness_basis() -> None:
+    payload = _appeal(
+        ("Jul 28 2022", "Statement as to jurisdiction filed."),
+        ("Sep 30 2022", "Motion to dismiss or affirm filed by appellees."),
+        ("Nov 07 2022", "The appeal is dismissed as moot."),
+    )
+    row = _rows(payload, 73_400_013)
+
+    assert row.disposition == Disposition.dismissed
+    assert row.date_decided == date(2022, 11, 7)
+    assert disposition_basis(payload) == "mootness"
+
+
+def test_a_noted_then_argued_then_affirmed_appeal_stays_granted() -> None:
+    """Docket level: the noting is the grant; the affirmance after argument is its judgment."""
+    payload = _appeal(
+        ("Feb 17 2023", "Statement as to jurisdiction filed. (Response due March 29, 2023)"),
+        ("Mar 29 2023", "Motion to affirm filed by appellees."),
+        ("May 15 2023", "Probable jurisdiction noted."),
+        ("Oct 11 2023", "Argued. For appellants: counsel. For appellees: counsel."),
+        ("May 23 2024", "Judgment AFFIRMED."),
+    )
+    row = _rows(payload, 73_400_014)
+
+    assert row.disposition == Disposition.granted
+    assert row.date_cert_granted == date(2023, 5, 15)
+    assert row.date_cert_denied is None
+    assert row.date_decided is None
+    assert row.merits_judgment == "affirmed"
+    assert row.merits_decided == date(2024, 5, 23)
+
+
+def test_an_argued_appeal_whose_noting_is_missed_never_reads_a_summary_affirmance() -> None:
+    """Docket level: the Allen v. Milligan shape (21-1086).
+
+    Its noting sits conjoined behind an application order, a deliberate miss, so
+    the first entry any row could read is the affirmance after argument. The
+    plenary trace closes the exit table before it, and the opinion guard would
+    refuse it regardless: the docket stays unresolved rather than recording an
+    argued appeal as a summary affirmance.
+    """
+    payload = _appeal(
+        ("Jan 28 2022", "Statement as to jurisdiction filed. (Response due March 9, 2022)"),
+        (
+            "Feb 07 2022",
+            "Application (21A375) granted by the Court. The application is treated as a "
+            + "jurisdictional statement (No. 21-1086), and probable jurisdiction is noted.",
+        ),
+        (
+            "Mar 08 2022",
+            "Joint motion of the parties to extend the time to file the briefs on the merits "
+            + "granted.",
+        ),
+        ("Oct 04 2022", "Argued. For appellants: counsel."),
+        ("Jun 08 2023", "Adjudged to be AFFIRMED."),
+    )
+    row = _rows(payload, 73_400_015)
+
+    assert row.disposition is None
+    gates = direct_appeal_exit_gates([text for text, _ in proceedings_entries(payload)])
+    assert gates == [True, True, True, False, False]
+
+
+def test_a_merits_affirmance_on_a_granted_cert_docket_is_unchanged() -> None:
+    """Docket level: a cert grant, argument, and "Judgment AFFIRMED." — a merits judgment."""
+    payload = _appeal(
+        ("Jan 10 2023", "Petition for a writ of certiorari filed. (Response due February 9, 2023)"),
+        ("Apr 03 2023", "DISTRIBUTED for Conference of 4/14/2023."),
+        ("Apr 17 2023", "Petition GRANTED."),
+        ("Oct 30 2023", "Argued. For petitioner: counsel."),
+        ("Feb 21 2024", "Judgment AFFIRMED."),
+    )
+    texts = [text for text, _ in proceedings_entries(payload)]
+    assert direct_appeal_exit_gates(texts) == [False] * len(texts)
+    row = _rows(payload, 73_400_016)
+
+    assert row.disposition == Disposition.granted
+    assert row.date_cert_granted == date(2023, 4, 17)
+    assert row.date_cert_denied is None
+    assert row.merits_judgment == "affirmed"
+
+
+def test_a_cert_docket_affirmance_with_no_grant_read_stays_unresolved() -> None:
+    # No direct-appeal paper, so the exit table never opens: an affirmance on a
+    # cert docket whose grant the resolver did not read is left alone.
+    payload = _appeal(
+        ("Jan 10 2023", "Petition for a writ of certiorari filed."),
+        ("Feb 21 2024", "Judgment AFFIRMED."),
+    )
+    assert _rows(payload, 73_400_017).disposition is None
+    assert docket_disposition_signals(["Petition filed.", "Judgment AFFIRMED."]) == [None, None]
+
+
+def test_the_historical_loader_and_the_live_resolver_agree_on_a_direct_appeal_exit() -> None:
+    payload = _appeal(
+        ("Nov 22 2017", "Statement as to jurisdiction filed."),
+        ("Jan 16 2018", "Appeal dismissed for want of jurisdiction."),
+        ("Mar 28 2018", "JUDGMENT ISSUED."),
+    )
+    assert _payload_disposition(payload) == Disposition.dismissed
+    assert _rows(payload, 73_400_018).disposition == Disposition.dismissed
+    assert forward_leakage(payload, "scotus", "evt-petition-disposition") is not None

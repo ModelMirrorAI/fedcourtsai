@@ -2608,12 +2608,13 @@ _DOCKET_GAPS = (
     + "a label for them, but no resolver rule reads one off an order, so none is "
     + "produced and a summary reversal is counted inside the grant family above "
     + "rather than being missing from it. "
-    + "On mandatory-jurisdiction direct appeals the outcome resolver reads the "
-    + "vacatur-remand form (`gvr`) and probable jurisdiction noted or postponed "
-    + "to the merits (`granted`); summary affirmance and dismissal for want "
-    + "of a substantial federal question are deliberate resolver misses that reach "
-    + "maintainer triage instead, so a direct appeal reaches these counts on the "
-    + "grant side only.",
+    + "On mandatory-jurisdiction direct appeals the outcome resolver reads both "
+    + "sides: the vacatur-remand form (`gvr`) and probable jurisdiction noted or "
+    + "postponed to the merits (`granted`), and a summary affirmance (`denied`) "
+    + "or a dismissal for want of a substantial federal question, for want of "
+    + "jurisdiction or as moot (`dismissed`). A split order (affirmed in part and "
+    + "reversed in part, or dismissed in part and affirmed in part) is read on "
+    + "neither side and leaves the docket unresolved.",
     "**Justice-level statistics.** Vote frequencies, agreement matrices, and "
     + "opinion authorship are per-justice facts; this corpus is docket-first and "
     + "holds no per-justice vote record.",
