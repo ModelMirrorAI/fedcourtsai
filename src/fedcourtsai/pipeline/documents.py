@@ -123,8 +123,11 @@ from .interim_signals import ApplicationKind, application_kind, is_response_file
 # moment's predicate plus "Brief for the respondent …" and a leading "Redacted",
 # while the moment itself keeps the narrower reading. Which document a cell is
 # given and when its moment opens are separate questions, and widening the
-# second is a moment change rather than a selector one.
+# second is a moment change rather than a selector one. The same split runs the
+# other way for a respondent confessing error: the selector stores that brief,
+# and the moment is dated by the brief that defends the judgment.
 from .merits_signals import (
+    is_appointed_amicus_merits_brief,
     is_petitioner_merits_brief,
     is_petitioner_merits_reply,
     is_respondent_merits_brief_document,
@@ -1254,7 +1257,8 @@ def member_respondent_brief_date(lead: Mapping[str, Any], member: Mapping[str, A
     lead's entries cut to the member's own filings (:func:`_lead_for_member`),
     bounded by the later of the member's grant and the lead's, as the document
     borrow is: the same parse that dates an unconsolidated case's briefed
-    moment, read where consolidation moved the filing. ``None`` where the member
+    moment, read where consolidation moved the filing, and a Court-appointed
+    amicus's brief with it unless the Clerk marks it for other dockets. ``None`` where the member
     serves no number, either grant cannot be dated, or no attributed brief is on
     the lead yet. Unlike the document borrow, a self-represented party on the
     lead does not refuse it: that guard keeps a filer's contact details out of
@@ -1263,8 +1267,30 @@ def member_respondent_brief_date(lead: Mapping[str, Any], member: Mapping[str, A
     own_filings = _lead_for_member(lead, member)
     member_granted_on = cert_grant_date(member)
     lead_granted_on = cert_grant_date(lead)
-    if own_filings is None or member_granted_on is None or lead_granted_on is None:
+    member_number = parse_scotus_docket_number(str(member.get("CaseNumber") or ""))
+    if (
+        own_filings is None
+        or member_granted_on is None
+        or lead_granted_on is None
+        or member_number is None
+    ):
         return None
+    # A Court-appointed amicus names no party, so the side filter above keeps it
+    # for every member. One the Clerk marks "(as to No.)" for other dockets
+    # defends their judgment, not this member's, and is dropped; an unmarked one
+    # is read as the group's.
+    own_filings = {
+        **own_filings,
+        "ProceedingsandOrder": [
+            entry
+            for entry in own_filings.get("ProceedingsandOrder") or []
+            if not (
+                isinstance(entry, Mapping)
+                and is_appointed_amicus_merits_brief(text := str(entry.get("Text") or ""))
+                and _marked_for_others(text, member_number)
+            )
+        ],
+    }
     return respondent_brief_date(own_filings, granted_on=max(member_granted_on, lead_granted_on))
 
 

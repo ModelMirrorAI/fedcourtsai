@@ -1897,8 +1897,9 @@ def briefed_merits_event_for(
 
     Once both sides' merits briefs are on the record the case is substantively
     ready to be decided, and the same judgment can be forecast again from a much
-    larger evidence base — a median 159 days before it lands, and never fewer
-    than 44 (:mod:`fedcourtsai.pipeline.merits_signals`).
+    larger evidence base — a median 159 days before it lands, in a sample
+    measured before the moment's later readings, which can move that lead in
+    either direction (:mod:`fedcourtsai.pipeline.merits_signals`).
 
     Unlike the grant moment, this cannot be keyed on *this* resolution's
     outcomes: the brief is a docket observation that stays true forever, so the

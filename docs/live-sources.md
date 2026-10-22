@@ -434,7 +434,15 @@ the docket form, so one function serves both lanes:
   respondent side the wider reading is the selector's alone: the briefed merits
   moment is still dated by the narrower "Brief of respondent …" reading, since
   which document a cell is given and when its moment opens are separate
-  questions.
+  questions. The two readings part once more over a respondent **confessing
+  error** ("Brief of respondent United States supporting vacatur filed."): the
+  selector stores it as the respondent's brief, its description saying which
+  way it argues, but it does not date the briefed moment. That moment opens on
+  the brief that defends the judgment instead, an adverse co-respondent's or a
+  Court-appointed amicus's ("Brief of Court-appointed amicus curiae in support
+  of the judgment below filed."), whichever is filed first. An appointed
+  amicus's brief dates the moment on any docket where it is the first brief
+  defending the judgment, ahead of the respondent's own if it is filed first.
 - **`merits-reply-petitioner`** / **`merits-reply-respondent`** — each side's
   *reply* on the merits, the last word on the argument and the one filing that
   answers what the other side actually argued. A distinct entry family ("Reply
