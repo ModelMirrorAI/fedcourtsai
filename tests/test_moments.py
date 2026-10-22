@@ -26,6 +26,7 @@ from fedcourtsai.pipeline.outcome import (
     cvsg_event_for,
     forward_leakage,
     interim_response_events_for,
+    relist_event_for,
     sg_brief_event_for,
 )
 from fedcourtsai.schemas import Disposition, EventKind, Moment, Stage
@@ -78,7 +79,7 @@ def test_the_minted_set_is_every_declared_moment_but_the_two_case_level_baseline
     so the corpus holds one for nearly every case and its ledger half is owed
     only at first touch or resolution. Everything else in the register is
     minted, and a mint owes both halves at once — so the set must be exactly
-    the eight non-baseline moments, and must stay derived from the id shape
+    the nine non-baseline moments, and must stay derived from the id shape
     rather than drifting into a hand-maintained list.
     """
     minted = moments.minted_moment_ids()
@@ -87,6 +88,7 @@ def test_the_minted_set_is_every_declared_moment_but_the_two_case_level_baseline
         "evt-order-cvsg-disposition",
         "evt-brief-sg-disposition",
         "evt-order-call-for-response-disposition",
+        "evt-order-relist-disposition",
         "evt-order-response-requested-disposition",
         "evt-brief-response-disposition",
         "evt-order-judgment",
@@ -401,6 +403,37 @@ def test_the_cert_call_for_response_moment_mints_only_on_an_open_petition() -> N
     application = row.model_copy(update={"docket_number": "26A120"})
     assert call_for_response_event_for(application, [baseline]) is None
     spec = moments.spec_for("evt-order-call-for-response-disposition")
+    assert spec is not None and not spec.forecastable
+
+
+def test_the_cert_relist_moment_mints_only_on_an_open_petition() -> None:
+    """The CVSG moment's guards, at the petition's first relist."""
+    relisted = date(2026, 10, 13)
+    row = CorpusRow(
+        case_id="scotus/7",
+        court="scotus",
+        docket_id=7,
+        source="live",
+        docket_number="26-121",
+        relisted_at=relisted,
+    )
+    baseline = moments.moments_for(Stage.cert)[0].event_id
+    minted = relist_event_for(row, [baseline])
+    assert minted is not None
+    assert (minted.event_id, minted.stage, minted.moment, minted.opened_at) == (
+        "evt-order-relist-disposition",
+        Stage.cert,
+        Moment.relist,
+        relisted,
+    )
+    assert relist_event_for(row, []) is None
+    decided = row.model_copy(update={"disposition": Disposition.denied.value})
+    assert relist_event_for(decided, [baseline]) is None
+    unread = row.model_copy(update={"relisted_at": None})
+    assert relist_event_for(unread, [baseline]) is None
+    application = row.model_copy(update={"docket_number": "26A121"})
+    assert relist_event_for(application, [baseline]) is None
+    spec = moments.spec_for("evt-order-relist-disposition")
     assert spec is not None and not spec.forecastable
 
 

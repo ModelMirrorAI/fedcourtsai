@@ -99,11 +99,12 @@ with the one the public cares about most:
 - **Late-Term authorship elimination** — a fixed calendar date on which every
   still-undecided argued case is re-forecast, once the pattern of who has
   written from each sitting is visible (~25).
-- **Relist re-forecast** and **call for response** — the strongest public
-  cert-stage signals; volumes to be counted from the statpack before
-  committing. The call for response is declared, parsed and minted
+- **First-relist re-forecast** and **call for response** — the strongest public
+  cert-stage signals. Both are declared, parsed and minted, and switched off
+  on the same terms as the SG brief: the call for response
   (`evt-order-call-for-response-disposition`, moment `response-requested` on
-  the cert stage) and switched off on the same terms as the SG brief.
+  the cert stage) and the first relist (`evt-order-relist-disposition`, moment
+  `relist`), which fires once per petition rather than at every relist.
 
 These add a few hundred events at most, mainly on the low-volume merits track,
 so the cost is engineering rather than inference: each moment is a

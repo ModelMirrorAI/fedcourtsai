@@ -2223,6 +2223,82 @@ def test_from_live_docket_latches_the_invited_brief_date() -> None:
     assert uninvited.sg_brief_filed is None
 
 
+def test_from_live_docket_latches_the_first_relist() -> None:
+    """The cert relist trigger: a later conference, distributed after the earlier one sat."""
+    filing = _payload()["ProceedingsandOrder"][0]
+    relist = {"Date": "Oct 05 2026", "Text": "DISTRIBUTED for Conference of 10/9/2026."}
+    second = {"Date": "Oct 13 2026", "Text": "DISTRIBUTED for Conference of 10/16/2026."}
+    row = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, relist, second]),
+        live_docket_id(25, 110),
+    )
+    # Only the first relist opens the moment.
+    assert row.relisted_at == date(2026, 10, 5)
+    # A first distribution alone is no relist.
+    once = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP]), live_docket_id(25, 111)
+    )
+    assert once.relisted_at is None
+    # A reschedule before the conference sat moves the petition unconsidered.
+    moved = {"Date": "Sep 22 2026", "Text": "Rescheduled."}
+    rescheduled = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, moved, relist]),
+        live_docket_id(25, 112),
+    )
+    assert rescheduled.relisted_at is None
+    # A redistribution entered before the earlier conference is no relist either.
+    early = {"Date": "Sep 22 2026", "Text": "DISTRIBUTED for Conference of 10/9/2026."}
+    reset = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, early]), live_docket_id(25, 113)
+    )
+    assert reset.relisted_at is None
+    # A reschedule moves the petition; the relist after the new conference sits counts.
+    moved_on = {"Date": "Sep 22 2026", "Text": "DISTRIBUTED for Conference of 10/9/2026."}
+    later = {"Date": "Oct 13 2026", "Text": "DISTRIBUTED for Conference of 10/16/2026."}
+    then_relisted = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, moved, moved_on, later]),
+        live_docket_id(25, 115),
+    )
+    assert then_relisted.relisted_at == date(2026, 10, 13)
+    # A call for response takes the petition off its conference: the
+    # redistribution after the response is no relist.
+    called = {"Date": "Sep 20 2026", "Text": "Response Requested. (Due October 20, 2026)"}
+    answered = {"Date": "Oct 20 2026", "Text": "Brief of respondent in opposition filed."}
+    back = {"Date": "Oct 28 2026", "Text": "DISTRIBUTED for Conference of 11/14/2026."}
+    response = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, called, answered, back]),
+        live_docket_id(25, 116),
+    )
+    assert response.relisted_at is None
+    # A redistribution months after the conference follows something else (here
+    # the Solicitor General's invited brief), not a relist.
+    cvsg = {
+        "Date": "Oct 05 2026",
+        "Text": "The Solicitor General is invited to file a brief in this case "
+        + "expressing the views of the United States.",
+    }
+    months = {"Date": "May 20 2027", "Text": "DISTRIBUTED for Conference of 6/5/2027."}
+    invited = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, cvsg, months]),
+        live_docket_id(25, 117),
+    )
+    assert invited.relisted_at is None
+    # A relist entry dated on the conference day itself is not read as one.
+    same_day = {"Date": "Sep 29 2026", "Text": "DISTRIBUTED for Conference of 10/9/2026."}
+    on_the_day = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, same_day]), live_docket_id(25, 118)
+    )
+    assert on_the_day.relisted_at is None
+    # Nothing distributed after the petition was decided stands in for a relist.
+    denied = {"Date": "Oct 05 2026", "Text": "Petition DENIED."}
+    after = {"Date": "Nov 02 2026", "Text": "DISTRIBUTED for Conference of 11/14/2026."}
+    decided = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, denied, after]),
+        live_docket_id(25, 114),
+    )
+    assert decided.relisted_at is None
+
+
 def test_from_live_docket_latches_the_call_for_response() -> None:
     """The cert call-for-response trigger: the first `Response Requested` before a disposition."""
     filing = _payload()["ProceedingsandOrder"][0]

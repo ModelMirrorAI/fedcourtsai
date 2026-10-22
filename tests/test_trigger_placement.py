@@ -25,6 +25,7 @@ _RESPONSE_FILED = "evt-brief-response-disposition"
 _CVSG = "evt-order-cvsg-disposition"
 _SG_BRIEF = "evt-brief-sg-disposition"
 _CALL_FOR_RESPONSE = "evt-order-call-for-response-disposition"
+_RELIST = "evt-order-relist-disposition"
 
 _APPLICATION = "Application (26A477) for an administrative stay, submitted to Justice Kavanaugh."
 _REQUEST = "Response to application (26A477) requested by Justice Kavanaugh, due October 10, 2026."
@@ -235,6 +236,17 @@ def test_the_cert_call_for_response_moment_needs_the_call() -> None:
     assert _place(_CALL_FOR_RESPONSE, cutoff, read).provenance == "truncated"
     cutoff, read = _read(_CALL_FOR_RESPONSE, called, after, (called, after))
     assert _place(_CALL_FOR_RESPONSE, cutoff, read).provenance == "dated"
+
+
+def test_the_cert_relist_moment_needs_the_relist() -> None:
+    relisted = date(2026, 10, 13)
+    head = [("Sep 15 2026", "DISTRIBUTED for Conference of 10/9/2026.")]
+    before = _live(head, "26-121")
+    after = _live([*head, ("Oct 13 2026", "DISTRIBUTED for Conference of 10/16/2026.")], "26-121")
+    cutoff, read = _read(_RELIST, relisted, after, (relisted, before))
+    assert _place(_RELIST, cutoff, read).provenance == "truncated"
+    cutoff, read = _read(_RELIST, relisted, after, (relisted, after))
+    assert _place(_RELIST, cutoff, read).provenance == "dated"
 
 
 def test_the_rest_shape_is_read_too() -> None:
