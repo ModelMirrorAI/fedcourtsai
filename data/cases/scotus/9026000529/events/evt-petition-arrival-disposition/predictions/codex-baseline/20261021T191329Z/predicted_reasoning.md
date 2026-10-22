@@ -1,0 +1,9 @@
+# Forecast
+
+The Court will deny the petition, most likely without a noted dissent or statement respecting denial. The arrival snapshot records zero conference distributions and no CVSG. I expect one initial distribution and disposition at the first conference to which the petition is submitted, rather than repeated consideration. My 0.95 distribution-increment probability includes that first distribution: from the frozen count of zero, it is not a prediction that the petition will actually be relisted after its first conference. A true subsequent relist is substantially less likely, approximately 0.08.
+
+I expect no invitation for the Solicitor General's views (probability 0.002). The United States is already the respondent, represented by the Solicitor General, so its position can reach the Court through the ordinary response process. Assuming ordinary briefing and no substantial extensions, disposition is most likely in January–March 2027, after the November 20, 2026 response deadline. Timing is not a scored claim.
+
+If review is granted, the likely question is a narrowed version of the petition's complete-defense question: whether excluding the decedent's contemporaneous mental-health statements as remote, confusing, or cumulative was constitutionally permissible in a trial presenting suicide as the defense theory. The Court would not need to revisit the entire evidentiary record or decide guilt. Conditional on any grant, I assign 0.30 to disposition in the cert order itself, principally a summary reversal if the Court regards the exclusion as plainly inconsistent with its existing decisions. Plenary consideration remains the more likely grant route; the supplied record identifies no intervening decision making a GVR especially natural.
+
+Conditional on denial, the probability of any noted dissent or statement is 0.03. I do not predict a separate writing or identify an individual Justice as its likely author.

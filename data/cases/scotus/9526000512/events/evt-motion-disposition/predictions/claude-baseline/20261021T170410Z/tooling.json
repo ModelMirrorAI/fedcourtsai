@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000512",
+  "run_id": "20261021T170410Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["statpack interim section", "courtlistener search"],
+  "helpful": ["Full application text provisioned and untruncated"],
+  "gaps": ["Lower-court appendix (district court opinion) not provisioned", "No interim base rate conditioned on applicant type (State) or subject (election/Purcell)"],
+  "notes": "Interim pool rests on only three parsed Terms (2023-2025)."
+}

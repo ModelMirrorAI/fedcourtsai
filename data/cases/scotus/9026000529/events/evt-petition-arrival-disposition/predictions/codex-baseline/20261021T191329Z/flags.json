@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000529",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "The provisioned appendix is truncated within the central Rule 403 appellate discussion at App. 104. App. 105\u2013106, which the petition cites for its relevance and cumulativeness characterization, are not available in the supplied text. Forecast uses the retained opening analysis and trial-ruling excerpt, and discounts the petition's unverified characterization.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Sentencing descriptions conflict: petition printed page 6 says life without parole; the service court opinion at App. 6 states life with the possibility of parole. Forecast follows the court's description and does not infer the reason for the discrepancy.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-arrival-disposition",
+      "message": "Provisioned context names snapshot_date and cutoff 2026-10-22, one day after the run date 2026-10-21. The actual supplied snapshot was read and named; its sole proceeding is the 2026-10-16 petition filing, and no future substantive proceeding was used.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261021T191329Z",
+  "schema_version": "1.0"
+}

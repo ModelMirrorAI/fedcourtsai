@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000512",
+  "gaps": [
+    "No published interim baseline conditional on response-filed moment or prediction-time escalation signals.",
+    "The separately linked lower-court and supplemental appendices were not provisioned as standalone texts."
+  ],
+  "helpful": [
+    "Both adversarial filings were nonempty and untruncated.",
+    "Frozen context explicitly recorded the requested response and submitted amicus count.",
+    "Per-Term substantive counts permitted a leakage-safe interim baseline calculation."
+  ],
+  "notes": "The default package-manager cache was read-only; using a writable temporary cache restored CLI operation. No credentials, live corpus, or own-case outcome retrieval was needed.",
+  "role": "predictor",
+  "run_id": "20261021T170410Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and context",
+    "provisioned application and application-response text",
+    "committed interim statpack",
+    "fedcourts paths",
+    "local Python base-rate calculation",
+    "web search and official Supreme Court opinion PDF"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

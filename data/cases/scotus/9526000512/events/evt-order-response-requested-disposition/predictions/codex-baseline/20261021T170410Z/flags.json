@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9526000512",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-response-requested-disposition",
+      "message": "The provisioned application attributes No. 26A274 to both National Republican Congressional Committee v. Brown (September 4, 2026) and People Not Politicians v. Onder (September 25, 2026). These differently captioned references were not independently verified and were not used as separate precedential support. The forecast instead uses the application facts with an advocacy discount and independently retrieved Purcell. This note concerns citation consistency, not discovered outcome material.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261021T170410Z",
+  "schema_version": "1.0"
+}

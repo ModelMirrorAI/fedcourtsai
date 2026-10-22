@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000512",
+  "run_id": "20261021T170410Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md interim-docket section", "provisioned application and response text"],
+  "helpful": ["Provisioned application and response text made the merits/Purcell read possible"],
+  "gaps": ["No conditioned interim base rate (e.g., grant rate given response requested, or state applicant in election cases)"],
+  "notes": "Interim pool rests only on 2023-2025; earlier Terms are unparsed."
+}
