@@ -387,3 +387,48 @@ def test_only_a_post_argument_cell_is_handed_the_transcript() -> None:
     )
     assert [d.kind for d in placement.documents] == [KIND_MERITS_BRIEF_PETITIONER]
     assert placement.dropped_documents == 1
+
+
+def test_a_latched_case_keeps_its_first_transcript(tmp_path: Path) -> None:
+    """A reargument's transcript, or a re-posted link, never replaces the one that opened the moment."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    cases = _seed(db, "25-466")
+    with corpus.connect(db) as conn:
+        corpus.latch_argument_transcript_at(conn, cases["25-466"], date(2025, 12, 1))
+    served = _served()
+    served[_LIST_2026] = _listing(
+        _listing_row("25-466", "../argument_transcripts/2026/25-466_re.pdf", "10/06/26")
+    )
+    client, asked = _client(served)
+    with client:
+        ledger = live_module.fetch_argument_transcripts(
+            client, db, cap=5, char_cap=10_000, today=_TODAY
+        )
+    assert (ledger["held"], ledger["owed"], ledger["stored"]) == (1, 0, 0)
+    assert asked == [_LIST_2026, _LIST_2025]
+
+
+def test_the_pass_spends_nothing_past_the_deadline_and_isolates_one_failure(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _seed(db, "25-170", "25-466")
+    client, asked = _client(_served())
+    with client:
+        ledger = live_module.fetch_argument_transcripts(
+            client, db, cap=5, char_cap=10_000, today=_TODAY, deadline=0.0, time_fn=lambda: 1.0
+        )
+    assert asked == [] and ledger["listed"] == 0
+
+    def broken(data: bytes, *, char_cap: int) -> Any:
+        if b"ALITO" in data:
+            raise ValueError("unreadable")
+        return extract_transcript_text(data, char_cap=char_cap)
+
+    monkeypatch.setattr(live_module, "extract_transcript_text", broken)
+    client, _ = _client(_served())
+    with client:
+        ledger = live_module.fetch_argument_transcripts(
+            client, db, cap=5, char_cap=10_000, today=_TODAY
+        )
+    assert (ledger["failed"], ledger["stored"]) == (1, 1)

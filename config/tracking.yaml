@@ -162,10 +162,11 @@ live:
   # Oral argument transcripts the argument-transcript pass may download a cycle
   # (`live.fetch_argument_transcripts`): the ones the Court lists for the current
   # and previous October Term that the corpus does not hold, newest argument
-  # first. Two paced list reads a cycle plus one download (~90 pages, a few
-  # seconds with extraction) per transcript; the Court hears about sixty cases a
-  # Term, so 5 keeps up with a sitting week and clears a Term's back-fill in a
-  # day. Runs last, on what the cycle left. 0 disables.
+  # first. Two paced list reads a cycle plus one download (about a hundred
+  # pages) per transcript; the Court lists 56 to 61 transcripts a Term
+  # (OT2020-OT2025), so 5 keeps up with a sitting week and clears a Term's
+  # back-fill in about a day where the deadline allows. Runs last, on what the
+  # cycle left. 0 disables.
   argument_transcripts_per_run: 5
   # Predict timing is not configured here: the live channel stamps the predict
   # queue on a DISTRIBUTION TRANSITION — a petition newly distributed for a

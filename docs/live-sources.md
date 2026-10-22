@@ -641,19 +641,24 @@ pass, after document freshness (`live.fetch_argument_transcripts`):
   on the interim docket has no merits stage, and a row whose date cannot be read
   is left out. A docket listed twice in one Term keeps its later row.
 - **Match.** Each row is matched to a corpus case by its docket number. A case
-  whose stored `argument-transcript` row is missing or holds another link owes
-  it. A consolidated member the list does not name gets nothing: the list names
+  with `argument_transcript_at` latched is held without a store read; any other
+  case owes the transcript unless its stored `argument-transcript` row already
+  holds the listed link. A consolidated member the list does not name gets nothing: the list names
   the docket the argument was heard under.
 - **Fetch and store.** Newest argument first, at most
   `live.argument_transcripts_per_run` a cycle and within the soft deadline. The
-  text is read whole and then cleaned (`documents.extract_transcript_text`):
-  the margin line numbers, page numbers, running headers and footers, and the
-  word index after the reporter's closing line are dropped, which brings an
-  hour's argument to about 80,000 characters, under the cap. The row is stored
+  text is read up to ten times the cap, which is the whole of any transcript,
+  and then cleaned (`documents.extract_transcript_text`): the margin line
+  numbers, page numbers, running headers and footers, and the word index after
+  the reporter's closing line are dropped. Measured on the OT2025 *Sripetch v.
+  SEC* transcript (97 pages), that takes the text from 219,076 characters to
+  79,488, under the cap; a longer one is head-cut and flagged. The row is stored
   under the argument day, which is what places it against a cell's cutoff.
 - **Latch.** A transcript that carries text latches its argument day into
-  `argument_transcript_at`, fill-in, so a reargument's later transcript replaces
-  the stored text but never moves the date. That date opens the merits
+  `argument_transcript_at`, fill-in. A latched case is never fetched again, so
+  the stored transcript stays the one whose date opened the moment: a
+  reargument's later transcript, or the same one re-posted at a new link, is
+  not taken. That date opens the merits
   post-argument moment (`evt-argument-judgment`) at the case's next poll, behind
   the briefed moment's guards: a merits proceeding, no judgment, the grant
   moment still open. The moment is declared and switched off, so no cell is
@@ -662,15 +667,16 @@ pass, after document freshness (`live.fetch_argument_transcripts`):
   (`provision.documents_for_moment`). The date rule keeps the transcript from a
   grant or briefed cell already, since both are cut before the argument; the
   kind rule keeps it from an uncut cell, which reads every stored document.
+  The case-summary plan leaves it out of the record it digests and summarizes.
   Every argued case is stored, decided or not, because the transcript is a fact
   of the case and costs one download.
 - **Ledger.** The `Argument transcripts:` line carries listed, unmatched, held,
   owed, stored (empty among them), unavailable, failed and deferred counts. The
   pass is failure-isolated as document freshness is.
 
-One residual. A case reargued in a later Term has its first transcript replaced
-by the reargument's, dated after the first argument, so a cell placed at the
-first argument loses the transcript rather than reading the later one.
+One residual: a transcript stored with no text latches nothing, and the OCR
+recovery pass does not cover this kind, so its case never opens the moment.
+The Court posts its transcripts as born-digital PDFs, so this should not arise.
 
 **The appendix-aware cut.** The `petition`, `application` and `appendix` rows
 are not head-cut at the cap, because on a filing that carries an appendix a head

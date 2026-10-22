@@ -640,7 +640,7 @@ def fetch_argument_transcripts(
         ),
         0,
     )
-    if cap <= 0:
+    if cap <= 0 or (deadline is not None and time_fn() >= deadline):
         return ledger
     listed, failed = _listed_transcripts(client, today)
     owed, unmatched, held = _owed_transcripts(corpus_db_path, listed)
@@ -653,9 +653,14 @@ def fetch_argument_transcripts(
         ):
             deferred += 1
             continue
-        outcomes[
-            _store_transcript(client, corpus_db_path, case_id, row, char_cap=char_cap, today=today)
-        ] += 1
+        try:
+            outcome = _store_transcript(
+                client, corpus_db_path, case_id, row, char_cap=char_cap, today=today
+            )
+        except Exception as exc:  # one transcript's failure must not cost the pass the rest
+            logger.warning("argument-transcripts: %s failed: %s", case_id, type(exc).__name__)
+            outcome = "failed"
+        outcomes[outcome] += 1
     ledger.update(
         stored=outcomes["stored"] + outcomes["empty"],
         empty=outcomes["empty"],
@@ -693,33 +698,52 @@ def _owed_transcripts(
     """The listed transcripts a corpus case lacks, newest argument first.
 
     Returns ``(owed, unmatched, held)``: the ``(case_id, row)`` pairs owed, the
-    rows no corpus case carries the docket number of, and the cases whose stored
-    transcript is already the listed URL. A case listed in both Terms (a
-    reargument) is owed its newer row only.
+    rows no corpus case carries the docket number of, and the cases already
+    holding a transcript. A case whose row has ``argument_transcript_at``
+    latched is held without a store read: the transcript that opened its moment
+    is the one it keeps, so neither a reargument's later transcript nor a
+    re-posted link replaces it, and the steady state costs one index read per
+    listed docket. Only an unlatched case has its stored link read, which is
+    what keeps a transcript stored with no text from being downloaded again. A
+    case listed in both Terms is matched on its newer row.
     """
+    ordered = sorted(listed, key=lambda r: r.argued, reverse=True)
     matched: dict[str, ArgumentTranscript] = {}
-    unmatched = 0
+    unmatched = held = 0
     with corpus.connect(corpus_db_path) as conn:
-        for row in sorted(listed, key=lambda r: r.argued, reverse=True):
-            case_id = corpus.scotus_case_id_by_docket_number(conn, row.docket_number)
+        by_number = corpus.scotus_case_ids_by_docket_numbers(
+            conn, [row.docket_number for row in ordered]
+        )
+        for row in ordered:
+            normalized = corpus.normalize_docket_number(row.docket_number)
+            case_id = by_number.get(normalized) if normalized is not None else None
             if case_id is None:
                 unmatched += 1
             elif case_id not in matched:
                 matched[case_id] = row
+        unlatched: list[str] = []
+        for case_id in matched:
+            stored_row = corpus.get_row(conn, case_id)
+            if stored_row is not None and stored_row.argument_transcript_at is not None:
+                held += 1
+            else:
+                unlatched.append(case_id)
         # The links alone, as the freshness check reads them: a manifest read
         # per case under the corpus split, prefetched, and no document body.
         with prefetch_by_case(
-            list(matched),
+            unlatched,
             lambda case_id: corpus.document_urls_for_case(conn, case_id),
             thread_name_prefix="argument-transcripts",
         ) as fetched:
             stored_urls = dict(fetched)
-    owed = [
-        (case_id, row)
-        for case_id, row in matched.items()
-        if stored_urls.get(case_id, {}).get(KIND_ARGUMENT_TRANSCRIPT) != row.url
-    ]
-    return owed, unmatched, len(matched) - len(owed)
+    owed: list[tuple[str, ArgumentTranscript]] = []
+    for case_id in unlatched:
+        row = matched[case_id]
+        if stored_urls.get(case_id, {}).get(KIND_ARGUMENT_TRANSCRIPT) == row.url:
+            held += 1
+        else:
+            owed.append((case_id, row))
+    return owed, unmatched, held
 
 
 def _store_transcript(
