@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "Residential privacy and municipal inspections have broader importance, but this petition arises from an individual fence and code-enforcement dispute without a developed appellate merits ruling or demonstrated interjurisdictional split.",
+  "big_case_score": 0.22,
+  "case_id": "scotus/9026000290",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.004
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.035
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.001
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.35
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.008
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-22",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-22T10:30:40Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-22.json",
+  "judgment": null,
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.004,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4",
+    "label": "proc-v10",
+    "pipeline_sha": "910a35fdc43be673a142d760dccf4e06305b9cc1",
+    "stamped_at": "2026-10-22T10:32:50.742147Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261022T031334Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

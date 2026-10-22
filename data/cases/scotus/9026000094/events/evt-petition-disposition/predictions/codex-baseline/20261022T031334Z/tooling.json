@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000094",
+  "gaps": [
+    "The service-backed cell cannot obtain corpus-wide freshness through corpus-info.",
+    "The reply and municipal amicus text were not provisioned.",
+    "General web lookups returned no usable source text."
+  ],
+  "helpful": [
+    "Usable petition and opposition text, including the appended panel opinions, made the independent-ground vehicle issue assessable.",
+    "Frozen sal-v4 conditioning and exact prior-Term reached-band fields supported a matched risk-set anchor.",
+    "CourtListener MCP supplied the general GVR precedent without retrieving this case's outcome."
+  ],
+  "notes": "The two recorded distributions straddle a requested-response cycle; treating both as substantive conferences would overread the signal. No corpus case query was needed. A temporary uv cache was required because the default cache path was read-only.",
+  "role": "predictor",
+  "run_id": "20261022T031334Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell provisioned-input reads",
+    "fedcourts paths",
+    "committed statpack",
+    "jq risk-set pooling",
+    "fedcourts corpus-info (unavailable for service backend)",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search/open (no usable text)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
