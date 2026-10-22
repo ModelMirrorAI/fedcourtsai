@@ -784,8 +784,8 @@ published:
   protect. The default stays all-versions because scoping it does not thin the
   board evenly: a resolved case is never re-predicted, and the re-predict rule
   re-owes only the cert distribution, the CVSG and the three interim moments, so
-  a case sitting at a cert arrival moment or at either merits moment is never
-  refilled either. The frozen build is therefore a live-cert-and-interim slice of
+  a case sitting at the cert arrival, sg-brief or relist moment, or at any
+  merits moment, is never refilled either. The frozen build is therefore a live-cert-and-interim slice of
   a selected population rather than a smaller copy of the whole, which is a
   legitimate thing to look at and the wrong thing to publish as the census. Both
   builds stamp `process_scope` and the `frozen_process` record they key on, the

@@ -12688,3 +12688,283 @@ freeze commit is recorded here.
     docket_numbered or plenary"` is green;
   - `uv run fedcourts process-digest --all` prints the same label and six
     digests as at its first parent.
+
+- **`proc-v11`: the predict prompt names the sg-brief, first-relist and
+  post-argument moments, which the fan-out now forecasts; recorded
+  2026-10-22.** Carried to `main` by `<FILL: promotion tag>` (merge
+  `<FILL: merge sha>`, `<FILL: merged-at>`), to be tagged
+  **`prereg/proc-v11`**. Registered under the merge-stamped rule, so its
+  counting instant, its three bless moments and every window edge it moves
+  are the carrying merge's committer time. It is the third supersession
+  shape for all three predictors at once
+  ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  `.github/prompts/predict.md`, which every predictor digest reads, changes,
+  so each predictor's open window **closes** at this label's instant and a
+  `proc-v11` window opens there for each new digest. No evaluator digest
+  moves: neither the evaluate prompt nor any judge's config changes, so the
+  three judges carry their bless moments forward and add this label to their
+  blessing labels. Nothing is de-counted and nothing is re-owed: every cell
+  counted in a closed window keeps counting under its own label.
+
+  **What moved, in the predict prompt.**
+  - *Stage: cert* lists five moments rather than three. `moment: sg-brief`
+    (`evt-brief-sg-disposition`, opened the day the Solicitor General's
+    invited brief is filed) tells the cell to read
+    `record/documents/sg-invited-brief.txt`, state the recommendation and
+    how far it follows it, and anchor on the statpack's CVSG cut, which no
+    committed table splits by the recommendation. `moment: relist`
+    (`evt-order-relist-disposition`, opened on the first relist) says the
+    cell's `band` and `distribution_count` already include the relist, keeps
+    the band anchoring every cert cell uses, and names the relist-count cut,
+    pooled from bucket 1 up, as a cross-check that, like the band, counts a
+    reschedule as a relist and so likely reads low for this population. The claim-masking paragraph adds that `cvsg-increment` is
+    vacuous on an sg-brief cell and that `relist-increment` on a relist cell
+    asks for a second relist.
+  - *Stage: merits* lists three moments rather than two. `moment: argued`
+    (`evt-argument-judgment`, opened on the argument day the Court's
+    transcript list gives) tells the cell to read
+    `record/documents/argument-transcript.txt`, to summarize rather than
+    quote, and to say how far it reads a question from the bench as a lean.
+    A forward merits cell that retrieves what a later moment adds (the
+    argument, on a grant or briefed cell run after it) is told to say so.
+    The paragraph on scoring the moments separately is written for three.
+    The anchor rule's grant-Term instruction now takes the grant date from
+    the docket's grant order, since a later moment's `opened_at` is the
+    brief or the argument rather than the grant.
+  - The claim-set paragraph names the new moments under `cert-v2` and
+    `merits-v1`.
+  - Input item 5 gains the paragraph describing `record/related/`, which the
+    2026-10-22 `vide-related-dockets` entry deferred to this label so that
+    the predictor digests move once, and the older debts listed under *The
+    amendment debt* below.
+
+  **What moved, in the code.** `pipeline/moments.py` sets `forecastable` on
+  the three moments, so the fan-out admits their open events. The relist and
+  sg-brief moments each forecast the next conference (the one the petition
+  was relisted for, the first one after the brief), so the cert admission
+  (`store._cert_forecastable`) refuses a cell on either once a conference the
+  petition was distributed for on or after the trigger has sat on it by the
+  plan day and left it undecided
+  (`cert_signals.conference_sat_since`): such a petition has been relisted
+  again or held, and a cell placed back at the trigger would be scored as the
+  population it has left. The reading of "sat" is the distribution
+  moment's: a conference day counts as sat, a petition taken off the
+  conference by a call for response or a reschedule was not considered, and
+  a live payload stored before the conference, no readable payload, an event
+  with no opening date, or a relist whose own distribution entry the payload
+  does not carry, refuses. The
+  call-for-response moment stays declared and switched off: its first polls
+  open events for petitions called for a response long before, and how those
+  back-dated events count is not decided here. `pull.REPREDICT_MOMENTS` does
+  not change, so none of the three is re-owed when a later label de-counts
+  its cells: the argued moment is held out with the other merits moments as
+  a funding decision, and a relist or sg-brief re-predict would be spend on a
+  cohort that has not yet run, and would need the conference bound above on
+  the re-predict path too.
+
+  **The three populations, pre-registered here.** Each is scored on its own
+  `<stage>@<moment>` population and never pooled with another moment's
+  ([metrics/README.md](../metrics/README.md)).
+  - `cert@sg-brief`: open petitions on which the Solicitor General filed the
+    brief a CVSG invited, opened on the brief's docket date. It declares
+    `cert-v2`; its `disposition` claim scores against the frozen band's
+    strictly-prior reached rate, as every cert moment's does. That baseline
+    does not see the Solicitor General's recommendation, the strongest
+    single cert signal, so positive skill against it is expected of any rule
+    that follows the recommendation: a `cert@sg-brief` figure against the
+    band is not a claim of skill beyond the recommendation, and none is made
+    until a committed cut splits the population by it. The cell's cutoff is
+    the day after the brief; it is refused (exit 5) where neither the dated
+    stored snapshot nor the latest payload cut to the moment carries the
+    brief's entry, and is not minted once the first conference after the
+    brief has sat.
+  - `cert@relist`: open petitions at their first relist, which is a later
+    distribution of the petition, entered after a conference that sat on it
+    and within the relist window, naming a later conference. It declares
+    `cert-v2` and scores against the same band baseline. The band is built
+    from the distribution count, which takes in a reschedule before the first
+    conference as well as a true relist, so the baseline is measured on a
+    looser membership than this moment's and likely reads low for it: skill
+    on this population reads favourably by an unmeasured amount, and a
+    figure says so. Its `relist-increment` claim resolves on any further
+    distribution, a reschedule included; the relist increment has no run-day
+    mask, which is harmless while the claim has no baseline and so no score,
+    and is owed before a per-Term relist cut gives it one. It is placed and
+    refused on the same terms as the sg-brief moment, and is not minted once
+    the conference it was relisted for has sat.
+  - `merits@argued`: granted cases with an open merits proceeding whose
+    argument transcript the live poll has latched, opened on the argument
+    day. It declares `merits-v1` and scores against the strictly-prior
+    disturbed rate, as both other merits moments do. Its cells alone are
+    handed the transcript (`provision.documents_for_moment`).
+
+  No base rate is re-priced and no membership rule moves for any existing
+  population.
+
+  **Events opened before the carrying merge.** The live poll has minted these
+  moments' events, switched off, since their declaring changes reached
+  `main`, so the first rounds after the carrying merge place cells on events
+  opened before it, with a placement lag the placed-cell rule already owes
+  beside a figure ([metrics/README.md](../metrics/README.md)). The conference
+  bound keeps a relist or sg-brief cell to a petition whose next conference
+  has not yet sat, so such a cell forecasts the same conference a timely one
+  would; on the argued moment nothing material happens between argument and
+  judgment. Even so, any figure over one of the three populations states
+  beside it how many of its cells sit on events opened before the carrying
+  merge, and is quoted with and without them until the populations hold
+  cells on events opened after it.
+
+  **No cross-moment figure is registered here.** The prompt tells a cell
+  that a difference between its moments' forecasts is what the later
+  evidence was worth. No figure of that kind is pre-registered by this
+  entry, and none is a claim until a dated entry fixes its form (the same
+  predictor and window, paired by event, a Brier difference with its `n`).
+
+  **Digests** (`uv run fedcourts process-digest --all`, at `staging`
+  `742ea50a5` before this change and at it):
+
+  | Actor | Before | `proc-v11` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734` (`proc-v9`) | `sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54` (new) |
+  | `codex-baseline` | `sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4` (`proc-v10`) | `sha256:a711152d3e0082a9f5311e40348116c753247aba102ddc60e5979c7d292abe64` (new) |
+  | `gemini-baseline` | `sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434` (`proc-v10`) | `sha256:c4213d78e7a7a6fc5f13d070a3bda326254c0189b7979f5e7b91a23d5608ad66` (new) |
+  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | same, carried forward |
+  | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | same, carried forward |
+  | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | same, carried forward |
+
+  **Step 0.** At `origin/main` `4844b2d21` (`2026-10-22T22:41:11Z`), `git grep
+  -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
+  the three newly blessed digests, and `git grep -l '"process_version": {'
+  origin/main -- data/cases | wc -l` is **2929** stamped cells. At the
+  carrying merge the newly blessed predictor digests stamp
+  <FILL: census predictions digest=d1487fc0,a711152d,c4213d78> committed
+  predictions.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`605201bd…`) | `proc-v9` | `2026-10-11T12:00:00Z` | this label's instant (was open) |
+  | `codex-baseline` (`7ab92dd4…`) | `proc-v10` | `2026-10-20T15:24:42Z` | this label's instant (was open) |
+  | `gemini-baseline` (`bee46e92…`) | `proc-v10` | `2026-10-20T15:24:42Z` | this label's instant (was open) |
+  | `claude-baseline` (`d1487fc0…`) | `proc-v11` | this label's instant | open (new) |
+  | `codex-baseline` (`a711152d…`) | `proc-v11` | this label's instant | open (new) |
+  | `gemini-baseline` (`c4213d78…`) | `proc-v11` | this label's instant | open (new) |
+
+  The `proc-v8` windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** These lines were run with this
+  commit's pending rows stamped by hand at a provisional instant,
+  `2026-10-24T00:00:00Z`, in a scratch copy of the registry, over
+  `origin/main`'s ledger at `4844b2d21`. `uv run fedcourts
+  successor-disclosures --closed proc-v9 --successor proc-v11`:
+
+  ```
+  successor proc-v11 closes proc-v9 at 2026-10-24T00:00:00+00:00
+    closed proc-v9 claude-baseline: 61 counted event(s) — 4 resolved, 57 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    graded by claude-judge @ sha256:167b7d71…: 4 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:18a76b93…: 3 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:a8610eec…: 1 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:22558044…: 3 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:6a88d3dc…: 1 grading(s), 0 at or after the instant
+  ```
+
+  `uv run fedcourts successor-disclosures --closed proc-v10 --successor
+  proc-v11`:
+
+  ```
+  successor proc-v11 closes proc-v10 at 2026-10-24T00:00:00+00:00
+    closed proc-v10 codex-baseline: 12 counted event(s) — 0 resolved, 12 pending at close
+    closed proc-v10 gemini-baseline: 12 counted event(s) — 0 resolved, 12 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Outcomes, gradings and cells keep landing until the instant, so both runs
+  are repeated once the carrying merge has stamped the registry, and a dated
+  follow-up entry quotes them, with the per-engine partition of the
+  successor's counted events once each `proc-v11` window holds counted cells.
+  That follow-up lands before any `proc-v11` window figure is quoted outside
+  the committed board.
+
+  **What a reading across engines can be after this label.** All three
+  windows close at one instant and open at one instant, so the `proc-v11`
+  grid is the first since `proc-v8` in which the three engines' windows open
+  at one instant. The engines have run the same prompt bytes since
+  `proc-v10`, which moved no prompt byte, so the closing windows differ in
+  when they opened, not in what they were asked. The closed `proc-v10`
+  windows are short: under four days and 12 counted events each at the
+  provisional instant, none resolved.
+  A pooled figure keeps each predictor's windows as one record, so it spans
+  this prompt change, and the composition says so.
+
+  **Evidence for the change other than the closed windows' boards.** The
+  switch-on rests on nothing those windows' outcomes say. Of the 61 events
+  `claude-baseline` counts under `proc-v9`, 4 had resolved at the provisional
+  instant, and none of the 12 each under the `proc-v10` windows. The three
+  moments were declared switched off in code that reached `main` before this
+  entry, with the predict prompt as the only thing owed, and the decision to
+  switch them on is the maintainer's, asked for on 2026-10-22. It cites the
+  information each moment adds (the Solicitor General's recommendation, the
+  Court's own relist, the argument), not a score.
+
+  **The amendment debt, paid in the predict prompt.** Every debt this record
+  and [live-sources.md](live-sources.md) hold against
+  `.github/prompts/predict.md` is paid here, since this label moves all
+  three predictor digests anyway:
+  - *A predict cell stages its `Vide`-linked dockets under
+    `record/related/`, 2026-10-22*: the `record/related/` paragraph, above.
+  - *The selector reaches the merits reply, …, 2026-09-15*: input item 5 and
+    *Stage: merits* name each side's reply on the merits,
+    `merits-reply-petitioner.txt` and `merits-reply-respondent.txt`, cut by
+    the same moment rule as the opening briefs. Briefed-moment cells have
+    already run on cases holding provisioned reply rows, with a prompt that
+    named only the opening briefs; this pays the wording and does not reach
+    back to them.
+  - *A docket naming nobody but the petitioner has its staged filed-document
+    text scrubbed, 2026-09-21*, the 2026-09-29 `contact_scrub_passes` entry
+    and *The contact scrub reads the spellings a scanned caption leaves,
+    2026-10-17*: input item 5 names the four manifest keys
+    (`contact_scrubbed`, `contact_replacements`, `contact_residuals`,
+    `contact_scrub_passes`) and the `[contact detail withheld]` token.
+  - *A self-represented petitioner's contact keys are withheld from the
+    staged snapshot, 2026-09-29*, and its two 2026-09-30 widenings: the same
+    paragraph names `[register number withheld]` and says a placeholder is
+    not missing evidence. The summarize prompt's half of this debt is not
+    paid here.
+  - The four the `proc-v9` entry deferred and `proc-v10` deferred again: the
+    stakes-read sentence now says each evaluator reads with the score in
+    view; a new rule forbids reading another cell's committed
+    `predictions/` or `evaluations/` tree, through git included; the
+    `data/qp-topics/` rule says the cell removes the directory on purpose;
+    and the `MODEL_ID` example names `claude-opus-5-5`.
+  - *The replay clock on `fedcourts query` withholds a retrieved prior's
+    post-clock decision record and tracking stamps, 2026-10-15*: the replay
+    paragraph says an empty, null or false withheld column, or an empty
+    `--citation` lookup, is masked under the clock.
+  - The reading rules [live-sources.md](live-sources.md) owed to a re-bless
+    and recorded nowhere here: input item 5 names `application.txt` (and the
+    interim section tells a cell to read it), `appendix.txt`,
+    `cert-reply.txt`, `sg-invited-brief.txt`, `application-response.txt` and
+    `application-reply.txt`; it says what a `[pipeline note: …]` cut line is;
+    it says how to read a row marked `ocr_derived: true`; and it points at
+    each row's `kind_description`.
+  - The `proc-v6` entry's trigger-issue sentence: both places the predict
+    prompt said a `flags.json` note survives the trigger issue's closure now
+    say only that it outlives the run, since no fan-out round has a trigger
+    issue. The evaluate prompt's two copies of the sentence stay, because
+    changing them would move the evaluator digests, which this label holds.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v11`, and `uv run
+    fedcourts process-digest --all` prints the six digests above;
+  - `uv run python -c "from fedcourtsai.pipeline.moments import spec_for;
+    print([spec_for(e).forecastable for e in ('evt-brief-sg-disposition',
+    'evt-order-relist-disposition', 'evt-argument-judgment')])"` prints
+    `[True, True, True]`;
+  - the first scheduled predict round after the carrying merge whose backlog
+    holds an open event of one of the three moments mints a cell for it: a
+    `prediction.json` lands under `events/evt-brief-sg-disposition/`,
+    `events/evt-order-relist-disposition/` or `events/evt-argument-judgment/`
+    in that round's collect PR.

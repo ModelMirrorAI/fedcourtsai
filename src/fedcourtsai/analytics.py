@@ -3022,8 +3022,9 @@ def _big_case_version_scope(process_scope: str, cases_out_of_scope: int) -> str:
     frozen partition does not thin the board evenly. It removes every case whose
     reads all predate the freeze, and the re-predict rule
     (:data:`fedcourtsai.pipeline.pull.REPREDICT_MOMENTS`) re-owes only the cert
-    distribution, the CVSG and the three interim moments — so a cert *arrival*
-    moment and both *merits* moments are never refilled, and a resolved case
+    distribution, the CVSG and the three interim moments — so the cert *arrival*,
+    *sg-brief* and *relist* moments and every *merits* moment are never
+    refilled, and a resolved case
     never is at all. A reader handed the frozen board without that sentence would
     read a systematically different population as the same one.
     """
@@ -3177,8 +3178,9 @@ def _big_case_population(process_scope: str, cases_out_of_scope: int) -> str:
             "never re-predicted, so one whose reads predate the freeze can never be "
             "refilled into scope, and the re-predict "
             "rule (`pipeline/pull.py`) re-owes only the cert distribution, the CVSG and the "
-            "three interim moments — so a case sitting at a cert **arrival** moment or at "
-            "either **merits** moment is never refilled either, however long it waits. "
+            "three interim moments — so a case sitting at the cert **arrival**, **sg-brief** "
+            "or **relist** moment, or at any **merits** moment, is never refilled either, "
+            "however long it waits. "
             "Those are a floor rather than the whole of it: a **pending** case at a moment "
             "the rule does re-owe can still sit outside, because a distribution is re-owed "
             "only while a conference is still ahead of it, and because a re-owed cell has "
@@ -3978,8 +3980,8 @@ def build_big_case_board(
     event (:func:`fedcourtsai.store.ledger_counts` — a counting window admits
     its harness stamp, and no earlier window holds that predictor's counted
     cell on the event). It is not this board with fewer rows. A resolved
-    case is never re-predicted and the re-predict rule re-owes neither the cert
-    arrival moment nor either merits moment, so the frozen build is a
+    case is never re-predicted and the re-predict rule re-owes no cert arrival,
+    sg-brief or relist moment and no merits moment, so the frozen build is a
     live-cert-and-interim slice of a selected population, which is why the
     artifact states the hold-out beside its own row count. Neither setting
     touches ``events``, which carries every committed run of the case as history

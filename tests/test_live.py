@@ -1331,8 +1331,14 @@ def test_live_poll_all_predicts_on_distribution_and_evaluates_on_resolution(
         queues5, _ = live_poll_all(
             client, db, data_root, term=25, config=config, today=date(2026, 10, 2)
         )
+    # The first relist also opens the relist moment, so its event queues beside
+    # the baseline.
     assert queues5.predict == [
-        {"court": "scotus", "docket": 9_025_000_002, "events": ["evt-petition-disposition"]}
+        {
+            "court": "scotus",
+            "docket": 9_025_000_002,
+            "events": ["evt-order-relist-disposition", "evt-petition-disposition"],
+        }
     ]
     with corpus.connect(db) as conn:
         relisted = corpus.get_row(conn, "scotus/9025000002")
