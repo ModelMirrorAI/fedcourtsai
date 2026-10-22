@@ -1,0 +1,13 @@
+case_id: scotus/73548979
+decision_target: disposition
+description: Disposition of the petition, forecast after the Court first relisted
+  it for another conference.
+docket_entry_id: null
+event_id: evt-order-relist-disposition
+kind: order
+moment: relist
+opened_at: '2026-10-13'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Clemente Properties, Inc., et al. v. Pedro R. Pierluisi-Urrutia, et al.
