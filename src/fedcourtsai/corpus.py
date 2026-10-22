@@ -34,10 +34,10 @@ import tempfile
 import threading
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, timedelta
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -5853,7 +5853,14 @@ def latest_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict[str,
     has never been snapshotted (the onboarding signal for ``pull``). Under the
     corpus-split mode the snapshots live in the content store, so the read is
     served from there (``conn`` is unused) — see :func:`_payload_read_source`.
+
+    Inside :func:`snapshots_as_of` "most recent" means most recent dated on or
+    before the bound's date, and the read is recorded on the bound.
     """
+    if (bound := _active_snapshot_bound()) is not None:
+        found = snapshot_at(conn, case_id, before=bound.as_of + timedelta(days=1))
+        bound.record(case_id, "any", found)
+        return found
     if (source := _payload_read_source()) is not None:
         return source.latest_snapshot(case_id)
     cur = conn.execute(
@@ -5913,7 +5920,14 @@ def latest_live_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict
     proceedings (the signal backfill) must skip past any newer REST snapshot a
     later ``pull`` stored, not just take the newest row. Under the corpus-split
     mode the snapshots live in the content store, so it is served from there.
+
+    Inside :func:`snapshots_as_of` "most recent" means most recent dated on or
+    before the bound's date, and the read is recorded on the bound.
     """
+    if (bound := _active_snapshot_bound()) is not None:
+        found = _live_snapshot_on_or_before(conn, case_id, bound.as_of)
+        bound.record(case_id, "live", found)
+        return found
     if (source := _payload_read_source()) is not None:
         return source.latest_live_snapshot(case_id)
     cur = conn.execute(
@@ -5926,6 +5940,102 @@ def latest_live_snapshot(conn: ReadConnection, case_id: str) -> tuple[date, dict
         if "ProceedingsandOrder" in payload:
             return date.fromisoformat(record["snapshot_date"]), payload
     return None
+
+
+def _live_snapshot_on_or_before(
+    conn: ReadConnection, case_id: str, as_of: date
+) -> tuple[date, dict[str, Any]] | None:
+    """The newest live-shaped snapshot dated on or before ``as_of``, or ``None``.
+
+    Walks back through :func:`snapshot_at`, skipping each REST-shaped row the way
+    :func:`latest_live_snapshot` does, so it needs nothing of the read source
+    beyond the point-in-time read every backend already serves.
+    """
+    before = as_of + timedelta(days=1)
+    while (found := snapshot_at(conn, case_id, before=before)) is not None:
+        if "ProceedingsandOrder" in found[1]:
+            return found
+        before = found[0]
+    return None
+
+
+#: Which reader a recorded bounded read came through: ``any`` for
+#: :func:`latest_snapshot`, ``live`` for :func:`latest_live_snapshot`.
+SnapshotShape = Literal["any", "live"]
+
+
+class SnapshotBound:
+    """An as-of date the newest-snapshot reads are bounded by, and what they read.
+
+    The content store is not versioned with the blob: it keeps every dated
+    snapshot, so "the case's newest snapshot" answers with whatever the store
+    holds when the read runs, which can postdate the blob a plan was derived
+    from. Bounding those reads to the blob's vintage is what lets a derivation
+    over a content-addressed blob replay what the round read.
+
+    ``reads`` maps each ``(case_id, shape)`` asked to the date of the snapshot
+    that answered, or ``None`` where none was stored on or before ``as_of``.
+    """
+
+    def __init__(self, as_of: date) -> None:
+        self.as_of = as_of
+        self.reads: dict[tuple[str, SnapshotShape], date | None] = {}
+        self._lock = threading.Lock()
+
+    def record(
+        self, case_id: str, shape: SnapshotShape, found: tuple[date, dict[str, Any]] | None
+    ) -> None:
+        """Note which snapshot answered one bounded read."""
+        with self._lock:
+            self.reads[(case_id, shape)] = None if found is None else found[0]
+
+    def as_json(self) -> dict[str, Any]:
+        """The bound and its reads, sorted, in the shape a plan document carries."""
+        with self._lock:
+            reads = sorted(self.reads.items())
+        return {
+            "as_of": self.as_of.isoformat(),
+            "reads": [
+                {
+                    "case_id": case_id,
+                    "shape": shape,
+                    "snapshot_date": None if found is None else found.isoformat(),
+                }
+                for (case_id, shape), found in reads
+            ],
+        }
+
+
+_SNAPSHOT_BOUND: dict[str, SnapshotBound] = {}
+
+
+def _active_snapshot_bound() -> SnapshotBound | None:
+    """The bound :func:`snapshots_as_of` has set, or ``None`` outside one."""
+    return _SNAPSHOT_BOUND.get("bound")
+
+
+@contextmanager
+def snapshots_as_of(as_of: date) -> Iterator[SnapshotBound]:
+    """Bound :func:`latest_snapshot` and :func:`latest_live_snapshot` to ``as_of``.
+
+    Within the block each answers with the newest snapshot dated **on or before**
+    ``as_of`` rather than the newest stored, on whichever backend serves it, and
+    records what it read on the yielded :class:`SnapshotBound`. Process-wide
+    rather than per-thread, so a read a caller fans across worker threads is
+    bounded too. It is for read-only replay (``predict-plan --as-of``): a
+    writer's change detection must compare against the newest stored snapshot,
+    so no writer runs inside one. Outside a block every read is unchanged. Not
+    re-entrant — a nested bound would silently re-date its parent's reads — so a
+    second one is refused.
+    """
+    if _active_snapshot_bound() is not None:
+        raise RuntimeError("snapshots_as_of is already active; bounds do not nest")
+    bound = SnapshotBound(as_of)
+    _SNAPSHOT_BOUND["bound"] = bound
+    try:
+        yield bound
+    finally:
+        _SNAPSHOT_BOUND.pop("bound", None)
 
 
 def snapshot_count(conn: ReadConnection) -> int:

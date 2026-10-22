@@ -810,6 +810,44 @@ def test_the_decided_hold_is_keyed_per_event_so_a_grant_never_holds_the_merits_e
     assert (backlog.held_decided, backlog.decided_events) == (0, ())
 
 
+def test_a_replay_bound_holds_exactly_what_the_round_held(tmp_path: Path) -> None:
+    """The content store keeps every dated snapshot and is not versioned with the
+    blob, so a replay reading "the newest snapshot" sees disclosures stored after
+    the round ran. Under the as-of bound the decided hold reads the newest
+    snapshot on or before the round's day: a grant stored after it is ignored and
+    the case is derived, as it was; a disclosure on the day itself still holds."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1)
+    _open_case(db, "scotus", 2)
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(
+            conn, "scotus/1", FRESH, {"docket_entries": [{"description": "Petition filed."}]}
+        )
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/1",
+            TODAY + timedelta(days=5),
+            {"docket_entries": [{"description": "Judgment Issued."}]},
+        )
+        corpus.upsert_snapshot(
+            conn, "scotus/2", TODAY, {"docket_entries": [{"description": "Judgment Issued."}]}
+        )
+
+    live = _backlog(db, data)
+    assert (live.case_ids, live.held_decided) == ((), 2)
+
+    with corpus.snapshots_as_of(TODAY) as bound:
+        replay = _backlog(db, data)
+    assert replay.case_ids == ("scotus/1",)
+    assert [(case, event) for case, event, _ in replay.decided_events] == [("scotus/2", EVENT)]
+    assert {
+        (read["case_id"], read["snapshot_date"])
+        for read in bound.as_json()["reads"]
+        if read["shape"] == "any"
+    } == {("scotus/1", FRESH.isoformat()), ("scotus/2", TODAY.isoformat())}
+
+
 # --- the predict stage's second input mode, through the CLI ---
 
 
@@ -888,6 +926,80 @@ def test_predict_plan_takes_the_backlog_mode_too(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     plan = json.loads(result.stdout)
     assert {cell["docket"] for cell in plan["would_mint"]} == {24001}
+
+
+def _disclosed_after(env: dict[str, str], docket: int, *, stored_on: date) -> None:
+    """Store a judgment-disclosing snapshot for ``docket`` dated ``stored_on``."""
+    with corpus.connect(corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))) as conn:
+        corpus.upsert_snapshot(
+            conn,
+            f"scotus/{docket}",
+            stored_on,
+            {"docket_entries": [{"description": "Judgment Issued."}]},
+        )
+
+
+def test_predict_plan_as_of_replays_the_round_rather_than_reading_the_live_store(
+    tmp_path: Path,
+) -> None:
+    """A snapshot stored after the as-of day does not reach a replayed plan: the
+    live plan holds the case on it, the replay derives it, and only the replay
+    carries the `snapshot_bound` block naming what it read."""
+    env = _cli_env(tmp_path, 24001)
+    _disclosed_after(env, 24001, stored_on=date.today())
+    as_of = date.today() - timedelta(days=1)
+
+    live = runner.invoke(app, ["predict-plan", "--run-id", "RID"], env=env)
+    replay = runner.invoke(
+        app, ["predict-plan", "--run-id", "RID", "--as-of", as_of.isoformat()], env=env
+    )
+
+    assert live.exit_code == 0, live.output
+    assert replay.exit_code == 0, replay.output
+    live_plan, replay_plan = json.loads(live.stdout), json.loads(replay.stdout)
+    assert live_plan["would_mint"] == []
+    assert "snapshot_bound" not in live_plan
+    assert {cell["docket"] for cell in replay_plan["would_mint"]} == {24001}
+    assert replay_plan["snapshot_bound"] == {
+        "as_of": as_of.isoformat(),
+        "reads": [{"case_id": "scotus/24001", "shape": "any", "snapshot_date": None}],
+    }
+
+
+def test_predict_plan_as_of_blob_bounds_by_the_newest_pull_stamp(tmp_path: Path) -> None:
+    """`--as-of blob` reads the blob's own vintage, so a replay needs nothing but
+    the blob a round read."""
+    env = _cli_env(tmp_path, 24001)
+    stamp = date.today() - timedelta(days=1)
+    with corpus.connect(corpus.corpus_db_path(Path(env["FEDCOURTS_CORPUS_ROOT"]))) as conn:
+        conn.execute("UPDATE cases SET last_pulled = ?", (stamp.isoformat(),))
+        conn.commit()
+    _disclosed_after(env, 24001, stored_on=date.today())
+
+    result = runner.invoke(app, ["predict-plan", "--run-id", "RID", "--as-of", "blob"], env=env)
+
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    assert plan["snapshot_bound"]["as_of"] == stamp.isoformat()
+    assert {cell["docket"] for cell in plan["would_mint"]} == {24001}
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [("yesterday", "takes YYYY-MM-DD or `blob`"), ("blob", "carries no pull stamp")],
+)
+def test_predict_plan_refuses_an_as_of_it_cannot_resolve(
+    tmp_path: Path, value: str, message: str
+) -> None:
+    """An unresolvable bound is refused, never read as no bound: a replay that fell
+    back to live reads would be the defect the flag removes."""
+    env = _cli_env(tmp_path, 24001)
+
+    result = runner.invoke(app, ["predict-plan", "--run-id", "RID", "--as-of", value], env=env)
+
+    assert result.exit_code != 0
+    assert '"would_mint"' not in result.stdout
+    assert message in _flat(result.output)
 
 
 def test_the_backlog_mode_writes_no_debounce_stamp(tmp_path: Path) -> None:

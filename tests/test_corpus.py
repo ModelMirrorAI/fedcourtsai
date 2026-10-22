@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from fedcourtsai import corpus, corpus_ranged
+from fedcourtsai import casestore, corpus, corpus_ranged
 from fedcourtsai.schemas import (
     Disposition,
     EventKind,
@@ -3271,6 +3271,83 @@ def test_latest_live_snapshot_skips_a_newer_rest_snapshot(tmp_path: Path) -> Non
         assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 6, 20), rest_payload)
         assert corpus.latest_live_snapshot(conn, "scotus/1") == (date(2026, 6, 10), live_payload)
         assert corpus.latest_live_snapshot(conn, "scotus/none") is None
+
+
+# --- the as-of snapshot bound -------------------------------------------------------
+
+
+def _seed_three_snapshots(
+    conn: sqlite3.Connection,
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    """A live snapshot on 6-10, a REST one on 6-20 and a live one on 6-25."""
+    early: dict[str, object] = {"ProceedingsandOrder": [{"Text": "Petition filed."}]}
+    rest: dict[str, object] = {"id": 1, "court": "https://example/courts/scotus/"}
+    late: dict[str, object] = {"ProceedingsandOrder": [{"Text": "Petition GRANTED."}]}
+    corpus.upsert_snapshot(conn, "scotus/1", date(2026, 6, 10), early)
+    corpus.upsert_snapshot(conn, "scotus/1", date(2026, 6, 20), rest)
+    corpus.upsert_snapshot(conn, "scotus/1", date(2026, 6, 25), late)
+    return early, rest, late
+
+
+def test_a_bound_ignores_every_snapshot_dated_after_it(tmp_path: Path) -> None:
+    """The replay contract: under the bound "newest" means newest on or before the
+    as-of day, the day itself included (the blob's pull stamp is a day a round
+    read), and each read is recorded with the date that answered it."""
+    with corpus.connect(tmp_path / "corpus.db") as conn:
+        early, rest, late = _seed_three_snapshots(conn)
+        with corpus.snapshots_as_of(date(2026, 6, 20)) as bound:
+            assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 6, 20), rest)
+            # The live reader skips the REST row, as it does unbounded.
+            assert corpus.latest_live_snapshot(conn, "scotus/1") == (date(2026, 6, 10), early)
+            assert corpus.latest_snapshot(conn, "scotus/none") is None
+        assert bound.as_json() == {
+            "as_of": "2026-06-20",
+            "reads": [
+                {"case_id": "scotus/1", "shape": "any", "snapshot_date": "2026-06-20"},
+                {"case_id": "scotus/1", "shape": "live", "snapshot_date": "2026-06-10"},
+                {"case_id": "scotus/none", "shape": "any", "snapshot_date": None},
+            ],
+        }
+        with corpus.snapshots_as_of(date(2026, 6, 9)):
+            assert corpus.latest_snapshot(conn, "scotus/1") is None
+            assert corpus.latest_live_snapshot(conn, "scotus/1") is None
+        # Outside a bound the reads are the unbounded ones again.
+        assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 6, 25), late)
+        assert corpus.latest_live_snapshot(conn, "scotus/1") == (date(2026, 6, 25), late)
+
+
+def test_bounds_do_not_nest(tmp_path: Path) -> None:
+    """A nested bound would re-date its parent's reads, so it is refused, and the
+    refusal leaves the outer bound in force."""
+    with corpus.connect(tmp_path / "corpus.db") as conn:
+        early, _, _ = _seed_three_snapshots(conn)
+        with corpus.snapshots_as_of(date(2026, 6, 15)):
+            with (
+                pytest.raises(RuntimeError, match="do not nest"),
+                corpus.snapshots_as_of(date(2026, 6, 30)),
+            ):
+                pass
+            assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 6, 10), early)
+
+
+def test_the_bound_applies_to_the_content_store_under_the_split(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The issue's own shape: the blob holds no snapshots and the store keeps every
+    dated one, including those stored after the blob was cut. The bound answers
+    from the store, at the as-of day."""
+    store = casestore.InMemoryObjectTransport()
+    early = {"ProceedingsandOrder": [{"Text": "Petition filed."}]}
+    late = {"ProceedingsandOrder": [{"Text": "Petition GRANTED."}]}
+    casestore.write_snapshot(store, "scotus/1", date(2026, 9, 21), early)
+    casestore.write_snapshot(store, "scotus/1", date(2026, 9, 25), late)
+    casestore.set_active_transport(store)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_SPLIT", "1")
+    with corpus.connect(tmp_path / "corpus.db") as conn:
+        assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 9, 25), late)
+        with corpus.snapshots_as_of(date(2026, 9, 21)):
+            assert corpus.latest_snapshot(conn, "scotus/1") == (date(2026, 9, 21), early)
+            assert corpus.latest_live_snapshot(conn, "scotus/1") == (date(2026, 9, 21), early)
 
 
 def test_connect_readonly_rejects_service_backend(tmp_path: Path) -> None:
