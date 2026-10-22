@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000538",
+  "run_id": "20261022T190915Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["exec_command", "web.run", "fedcourts paths"],
+  "helpful": ["Frozen arrival context identifies the correct conditioning state.", "The sal-v4 reached-rate table supports a private arrival anchor."],
+  "gaps": ["No provisioned question presented, petition, or lower-court opinion.", "General official-rules web retrieval returned no usable content."],
+  "notes": "The initial uv invocation encountered a read-only default cache; using a cache under /tmp allowed the path command and historical-rate calculation to execute. The grant adjustment for apparent self-representation is judgmental, not a calibrated subgroup rate."
+}

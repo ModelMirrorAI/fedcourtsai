@@ -1,0 +1,47 @@
+{
+  "actor_id": "codex-baseline",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 1390605,
+  "case_id": "scotus/9026000538",
+  "created_at": "2026-10-22T19:09:15Z",
+  "engine": "codex",
+  "engine_version": "0.144.1",
+  "engine_version_discrepancy": null,
+  "estimated_cost_usd": 0.3767205,
+  "event_id": "evt-petition-arrival-disposition",
+  "input_tokens": 85480,
+  "model": "gpt-6.1-sol",
+  "output_tokens": 6670,
+  "pipeline_sha": "dbddf9e888871f4a2acbd8b650b13e63cd6cc1ec",
+  "post_run_poll": {
+    "docket_number": "26-538",
+    "polled_at": "2026-10-22T20:14:05.605701Z",
+    "reason": null,
+    "signals": {
+      "cvsg": {
+        "entry_date": null,
+        "present": false
+      },
+      "referred_to_court": null,
+      "response_requested": null
+    },
+    "state": "open"
+  },
+  "pre_mint_poll": {
+    "docket_number": "26-538",
+    "polled_at": "2026-10-22T20:09:26.722923Z",
+    "reason": null,
+    "signals": {
+      "cvsg": {
+        "entry_date": null,
+        "present": false
+      },
+      "referred_to_court": null,
+      "response_requested": null
+    },
+    "state": "open"
+  },
+  "role": "predictor",
+  "run_id": "20261022T190915Z",
+  "schema_version": "1.0"
+}
