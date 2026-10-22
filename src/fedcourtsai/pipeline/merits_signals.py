@@ -6,7 +6,8 @@ work, and the docket records it. This module reads the parties' merits filings:
 the document selector fetches them, and **when** the respondent filed its brief
 — the one milestone the pipeline forecasts from, which is the point at which
 both sides' arguments are on the record and the case is substantively ready to
-be decided.
+be decided. Where the respondent confesses error, the side defending the
+judgment is a Court-appointed amicus, and its brief is the one read.
 
 **Why that milestone and not another.** Measured over 139 granted OT2021-OT2023
 petitions, the respondent's merits brief appears on **96.4%** of them, lands a
@@ -172,6 +173,40 @@ _NOT_THE_PETITIONER_MERITS_FILING_RE = re.compile(
     re.I,
 )
 
+# A respondent **confessing error**: "Brief of respondent United States
+# supporting vacatur filed.", "Brief of respondent in support of reversal and
+# remand filed." The posture of a respondent in support of the petitioner,
+# spelled by the relief it asks for rather than the party it backs, and it
+# leaves the opposing argument just as unfiled: the Court appoints an amicus to
+# defend the judgment below, or an adverse co-respondent files later. So the
+# briefed moment refuses it on the same reading as the exclusion above.
+#
+# Moment-only, unlike that exclusion. The document selector still fetches the
+# brief as the respondent's, because a confession of error is the strongest
+# merits signal a docket carries, and its stored description is the entry's own
+# text, which says which way the respondent argues. Respondent-only, because a
+# petitioner's brief asks for reversal or vacatur by definition.
+_CONFESSION_OF_ERROR_RE = re.compile(
+    r"\b(?:in\s+support\s+of|supporting)\s+(?:the\s+)?(?:reversal|vacatur)\b", re.I
+)
+
+# The brief of a **Court-appointed amicus**, in the Clerk's two spellings:
+# "Brief of Court-appointed amicus curiae in support of the judgment below
+# filed." and "Brief amicus curiae of Court-appointed amicus curiae in support
+# of the judgment below filed." The Court appoints one where no party will
+# defend the judgment (or a position the parties share), usually because the
+# respondent has confessed error, so this brief is where the opposing argument
+# reaches the record, and the briefed moment reads it as the respondent's brief.
+# The exclusion of "amicus" above does not reach it, because this anchor is its
+# own reading rather than a party one; an ordinary amicus ("Brief amicus curiae
+# of Cato Institute …", "Brief of amici curiae …") never names the appointment,
+# so it stays out.
+_APPOINTED_AMICUS_BRIEF_RE = re.compile(
+    r"^\s*brief\s+(?:amicus\s+curiae\s+of|of|for)\s+(?:the\s+)?"
+    r"court[-\s]+appointed\s+amicus\s+curiae\b",
+    re.I,
+)
+
 
 def is_respondent_merits_brief(text: str) -> bool:
     """Whether an entry reads as the respondent's brief on the merits.
@@ -181,10 +216,27 @@ def is_respondent_merits_brief(text: str) -> bool:
     entry to after the grant will read the cert stage as the merits one. Both
     callers do — :func:`respondent_brief_date` scans post-grant entries, and the
     document selector keys its ``merits-brief-respondent`` arm on the same bound.
+
+    A respondent confessing error (:data:`_CONFESSION_OF_ERROR_RE`) is refused
+    here, because this reading dates the briefed moment and that brief leaves
+    the opposing argument unfiled.
     """
-    return bool(
-        _RESPONDENT_BRIEF_RE.search(text)
-    ) and not _NOT_THE_RESPONDENT_MERITS_FILING_RE.search(text)
+    return (
+        bool(_RESPONDENT_BRIEF_RE.search(text))
+        and not _NOT_THE_RESPONDENT_MERITS_FILING_RE.search(text)
+        and not _CONFESSION_OF_ERROR_RE.search(text)
+    )
+
+
+def is_appointed_amicus_merits_brief(text: str) -> bool:
+    """Whether an entry reads as the merits brief of a Court-appointed amicus.
+
+    The opposing brief where the respondent confesses error or does not appear
+    (:data:`_APPOINTED_AMICUS_BRIEF_RE`). Text alone, with the post-grant bound
+    owed by the caller, as for every predicate here: the Court appoints an
+    amicus only after the grant, so the bound costs nothing.
+    """
+    return bool(_APPOINTED_AMICUS_BRIEF_RE.search(text))
 
 
 def is_respondent_merits_brief_document(text: str) -> bool:
@@ -195,8 +247,10 @@ def is_respondent_merits_brief_document(text: str) -> bool:
     respondent(s) …" and a leading "Redacted". Kept apart from that predicate
     because that one dates the registered briefed moment
     (:func:`respondent_brief_date`), and which document a cell is given is a
-    different question from when its moment opens. Same exclusions, same
-    contract: text alone, the post-grant bound owed by the caller.
+    different question from when its moment opens. Same exclusions but one, and
+    the same contract: text alone, the post-grant bound owed by the caller. The
+    one is the confession of error, which a cell is given as the respondent's
+    brief although it does not open the moment.
     """
     return bool(
         _RESPONDENT_BRIEF_DOCUMENT_RE.search(text)
@@ -260,6 +314,13 @@ def is_respondent_merits_reply(text: str) -> bool:
 def respondent_brief_date(payload: Mapping[str, Any], *, granted_on: date | None) -> date | None:
     """When the respondent filed its brief on the merits, or ``None``.
 
+    "The respondent" is the side defending the judgment below: the respondent's
+    own brief (:func:`is_respondent_merits_brief`) or, where the Court appointed
+    an amicus to defend it, that amicus's brief
+    (:func:`is_appointed_amicus_merits_brief`), whichever reaches the record
+    first. A respondent confessing error opens nothing, so a docket where it
+    files first is dated by the brief that answers it.
+
     ``granted_on`` bounds the scan to entries **after** the cert grant, which is
     the strongest of the filters: it is what keeps the cert-stage brief in
     opposition — same shape, same words — out of a merits signal. Without a
@@ -278,7 +339,7 @@ def respondent_brief_date(payload: Mapping[str, Any], *, granted_on: date | None
     if granted_on is None:
         return None
     for text, raw in proceedings_entries(payload):
-        if not is_respondent_merits_brief(text):
+        if not (is_respondent_merits_brief(text) or is_appointed_amicus_merits_brief(text)):
             continue
         filed = entry_date(raw)
         if filed is not None and filed > granted_on:

@@ -711,7 +711,9 @@ class CorpusRow(BaseModel):
         default=None,
         description="When the respondent filed its brief on the merits "
         "(`pipeline.merits_signals.respondent_brief_date`) — the point at which "
-        "both sides' arguments are on the record. Opens the merits stage's "
+        "both sides' arguments are on the record. Where the respondent confesses "
+        "error, the brief defending the judgment dates it instead: an adverse "
+        "co-respondent's or a Court-appointed amicus's. Opens the merits stage's "
         "second forecast moment. None = not yet filed, or not parsed: the case "
         "is pending, unsnapshotted, or its briefing is recorded in a shape the "
         "pattern misses — a coverage gap, never an observed absence.",

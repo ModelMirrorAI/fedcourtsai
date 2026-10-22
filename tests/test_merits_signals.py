@@ -7,6 +7,7 @@ from datetime import date
 import pytest
 
 from fedcourtsai.pipeline.merits_signals import (
+    is_appointed_amicus_merits_brief,
     is_petitioner_merits_brief,
     is_petitioner_merits_reply,
     is_respondent_merits_brief,
@@ -103,6 +104,88 @@ def test_partial_support_is_excluded_from_the_arms_of_its_filers_side(text: str)
     assert not is_respondent_merits_brief_document(text)
     assert not is_petitioner_merits_reply(text)
     assert not is_respondent_merits_reply(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Real docket phrasings, from 17-1606, 18-7739, 18-916, 20-18 and 17-773.
+        "Brief of respondent in support of reversal and remand filed.",
+        "Brief of respondent United States supporting vacatur filed.",
+        "Brief of  Federal Respondent supporting reversal filed.",
+        "Brief of respondent State of California in support of vacatur filed.",
+        "Brief of respondent United States Supporting Vacatur filed. (Corrected).",
+    ],
+)
+def test_a_respondent_confessing_error_does_not_date_the_briefed_moment(text: str) -> None:
+    # The opposing argument is still to come, so the moment refuses it; the
+    # selector still gives a cell the brief, as the respondent's.
+    assert not is_respondent_merits_brief(text)
+    assert is_respondent_merits_brief_document(text)
+    assert respondent_brief_date(_docket(("Jun 2 2025", text)), granted_on=GRANT) is None
+
+
+def test_a_confession_of_error_is_dated_by_the_appointed_amicus_brief() -> None:
+    payload = _docket(
+        (
+            "Mar 20 2025",
+            "John Doe, Esquire, is invited to brief and argue this case, as amicus "
+            + "curiae, in support of the judgment below.",
+        ),
+        ("Jun 2 2025", "Brief of petitioner Holsey Ellingburg, Jr. filed."),
+        ("Jun 2 2025", "Brief of respondent United States supporting vacatur filed."),
+        (
+            "Aug 22 2025",
+            "Brief of Court-appointed amicus curiae in support of the judgment below filed.",
+        ),
+    )
+    assert respondent_brief_date(payload, granted_on=GRANT) == date(2025, 8, 22)
+
+
+def test_a_confession_of_error_is_dated_by_the_adverse_co_respondent() -> None:
+    payload = _docket(
+        ("Jun 2 2025", "Brief of respondent Barclays Capital Inc. in support of vacatur filed."),
+        ("Jul 8 2025", "Brief of respondent Moab Partners, L.P. filed. (Distributed)"),
+    )
+    assert respondent_brief_date(payload, granted_on=GRANT) == date(2025, 7, 8)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Brief of Court-appointed amicus curiae in support of the judgment below filed.",
+        "Brief amicus curiae of Court-appointed amicus curiae in support of the judgment "
+        + "below filed.",
+        "Brief of  Court-appointed amicus curiae in support of the judgment below filed.",
+        "Brief of Court-appointed amicus curiae filed. VIDED",
+    ],
+)
+def test_the_appointed_amicus_brief_dates_the_moment(text: str) -> None:
+    # Where no party defends the judgment, the appointed amicus is the opposing side.
+    assert is_appointed_amicus_merits_brief(text)
+    assert respondent_brief_date(_docket(("Jun 2 2025", text)), granted_on=GRANT) == date(
+        2025, 6, 2
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Brief amicus curiae of Cato Institute filed.",
+        "Brief of amici curiae Former Judges in support of respondent filed.",
+        "Motion for an extension of time to file the brief on the merits of Court-appointed "
+        + "amicus curiae in support of the judgment below filed.",
+        "Motion of the Court-appointed amicus curiae for an extension of time filed.",
+    ],
+)
+def test_an_ordinary_amicus_or_a_filing_about_the_appointed_one_dates_nothing(text: str) -> None:
+    assert not is_appointed_amicus_merits_brief(text)
+    assert respondent_brief_date(_docket(("Jun 2 2025", text)), granted_on=GRANT) is None
+
+
+def test_an_appointed_amicus_brief_before_the_grant_never_qualifies() -> None:
+    text = "Brief of Court-appointed amicus curiae in support of the judgment below filed."
+    assert respondent_brief_date(_docket(("Mar 4 2025", text)), granted_on=GRANT) is None
 
 
 def test_entries_at_or_before_the_grant_never_qualify() -> None:

@@ -1291,6 +1291,21 @@ def test_merits_entry_matched_reads_the_entry_without_the_stage_bound() -> None:
     assert not merits_entry_matched(payload, kind=KIND_PETITION)
 
 
+def test_a_respondent_confessing_error_is_provisioned_but_does_not_open_the_moment() -> None:
+    """The selector stores the brief; the briefed moment waits for the defense."""
+    confession = "Brief of respondent United States supporting vacatur filed."
+    defense = "Brief of Court-appointed amicus curiae in support of the judgment below filed."
+    payload = _granted_payload(
+        _entry("Jun 23 2026", confession, url="https://www.supremecourt.gov/sg.pdf"),
+        _entry("Aug 22 2026", defense, url="https://www.supremecourt.gov/amicus.pdf"),
+    )
+    refs = [r for r in select_documents(payload) if r.kind == KIND_MERITS_BRIEF_RESPONDENT]
+    assert [(r.url, r.description) for r in refs] == [
+        ("https://www.supremecourt.gov/sg.pdf", confession)
+    ]
+    assert respondent_brief_date(payload, granted_on=date(2026, 4, 6)) == date(2026, 8, 22)
+
+
 def test_the_briefed_moment_keeps_its_narrower_respondent_reading() -> None:
     """The selector reads "Brief for the respondent"; the registered moment does not.
 

@@ -123,7 +123,9 @@ from .interim_signals import ApplicationKind, application_kind, is_response_file
 # moment's predicate plus "Brief for the respondent …" and a leading "Redacted",
 # while the moment itself keeps the narrower reading. Which document a cell is
 # given and when its moment opens are separate questions, and widening the
-# second is a moment change rather than a selector one.
+# second is a moment change rather than a selector one. The same split runs the
+# other way for a respondent confessing error: the selector stores that brief,
+# and the moment is dated by the brief that defends the judgment.
 from .merits_signals import (
     is_petitioner_merits_brief,
     is_petitioner_merits_reply,

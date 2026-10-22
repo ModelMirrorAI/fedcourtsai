@@ -12204,3 +12204,117 @@ freeze commit is recorded here.
   '[.entries[] | select(.events_scored == $n) | .granted_lift_over_always_denied]
   | . == (sort | reverse)' metrics/cert-backtest.json` prints `true`. The review PR's
   floor line reads "on granted vs not".
+
+- **A respondent's brief confessing error no longer dates the briefed moment,
+  and a Court-appointed amicus's brief does; recorded 2026-10-22.** A
+  **provisioning-cutoff** change with a harness boundary, recorded ahead of
+  the promotion that carries it.
+
+  **Why.** The briefed moment is the point at which both sides' arguments are
+  on the record. Before the change, a respondent's brief "in support of
+  reversal" or "supporting vacatur" opened it, and that brief argues the
+  petitioner's side. The defense of the judgment comes later, from an adverse
+  co-respondent or from an amicus the Court appoints to defend it. Observed on
+  25-5343 (`scotus/73277583`): its `evt-brief-judgment` opened `2026-06-30`,
+  the day the United States filed "supporting vacatur", while the appointed
+  amicus's brief was filed `2026-08-25`. The appointed amicus's brief opened
+  nothing at all, because the respondent arm excludes every amicus filing, so
+  a docket the amicus alone defends had no briefed moment.
+
+  **What moved.** Only `respondent_brief_date`, the briefed moment's date:
+  - `is_respondent_merits_brief` refuses an entry "in support of" or
+    "supporting" reversal or vacatur.
+  - The new `is_appointed_amicus_merits_brief` reads "Brief of Court-appointed
+    amicus curiae …" and "Brief amicus curiae of Court-appointed amicus curiae
+    …", and `respondent_brief_date` takes the first post-grant entry either
+    predicate reads.
+
+  The consolidated member's borrow reads the same function. What stays: all
+  four merits arms of the selector, the member's side filter and the
+  `document-backfill` gap floor. A confession of error is still stored and
+  provisioned as `merits-brief-respondent`, and its description is the
+  entry's text, which says which way it argues.
+
+  No prompt byte and no registry field moves, so no digest moves:
+  `uv run fedcourts process-digest --all` at this commit prints `proc-v10` and
+  the six digests `605201bd…` (claude-baseline), `7ab92dd4…`
+  (codex-baseline), `bee46e92…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `a8610eec…` (codex-judge) and `6a88d3dc…` (gemini-judge),
+  identical with and without the change.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  when a predict cell's briefed moment opens under unchanged digests. It is
+  composition, not a cut, as for `merits-brief-partial-support`: the pooled
+  default and the paired figure keep both sides and list each engine's `n`
+  before and after. It cuts only a figure that reads its own effect, such as
+  a briefed-moment lead time. A cert-stage cell and the merits grant moment
+  read no merits brief, so neither is affected.
+  - **The registry row.** The boundary is `merits-brief-confession-of-error`:
+    `HarnessBoundary("merits-brief-confession-of-error", <carrying promotion
+    merge hash>, <its committer time, UTC>, None, "granted dockets",
+    gradual=True)`. It applies to every predictor, and it is gradual because
+    the moved date reaches a docket only through a later poll. Its carrying
+    merge exists only once the promotion merges, so the row joins
+    `process_version.HARNESS_BOUNDARIES` in the post-promotion fill PR that
+    completes this entry's placeholders, as the earlier rows did.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`.
+
+  **How a stored date moves.** As the `merits-brief-partial-support` entry
+  states it: the live poll re-derives `merits_brief_filed` on a pending
+  docket, a fresh non-null parse overwrites it, and the events upsert takes
+  the new `opened_at` on an open event. `backfill-response-signals` never
+  revisits a row that already carries a date. So on a pending docket the date
+  moves at the first post-change poll. On a decided docket nothing polls it,
+  and the stored date stays. Those rows open no moment, since the mint is
+  forward-only, but a replay cell that reads a decided prior's
+  `merits_brief_filed` reads the old date. Correcting them is a corpus
+  mutation and would be a `run-repair` pass, decided separately; this entry
+  does not owe it. Unlike the partial-support change, this one can move a
+  date earlier: on 24-362 the appointed amicus filed a day before the
+  respondent.
+
+  **The population.** Measured read-only over the pulled blob, sha256
+  `6701546c9b6a49fa75bf5afc9ef3c0602730bf122ae429f3b32885a5741bed0c`. Its
+  newest pull stamp is 2026-10-22 and its newest stored snapshot row is
+  2026-07-13. The content store is in split mode, and 1,261 of the 1,267
+  granted live-slice rows had a live snapshot there. The six without one
+  (`scotus/17248925`, `66644642`, `69560850`, `72460882`, `72478318`,
+  `8494454`) are unmeasured. Over the 1,261, `respondent_brief_date` moves on
+  20 dockets, and no selector predicate moves on any:
+  - **Two pending dockets.** 25-5343 (`scotus/73277583`) moves from
+    `2026-06-30` to `2026-08-25`. Its minted `evt-brief-judgment` has no
+    committed cell, so only its `opened_at` moves. 25-5930
+    (`scotus/73281102`) moves from none to `2026-09-18`, the appointed
+    amicus's brief. Its respondent filed "Brief for the respondent …
+    supporting vacatur", which the moment's narrower opening never read, so
+    the docket gains a briefed moment it had none of.
+  - **Eighteen decided dockets.** Nine move later, off a confession of error:
+    five to an appointed amicus's brief (17-1606, 17-773, 18-7739, 20-18 and
+    24-482) and four to an adverse co-respondent's (18-916, 20-828, 22-1165
+    and 23-719). Eight move from none to an appointed amicus's brief:
+    17-130, 19-422, 20-5904, 22-7466, 23-370, 23-1002, 23-1270 and 24-275.
+    One, 24-362, moves from `2025-04-01` to `2025-03-31`. None of the eighteen
+    holds a briefed cell, since every one was decided before the briefed
+    moment was minted.
+
+  **What does not move.** No base rate re-prices and no membership rule
+  moves. Which dockets carry a briefed moment changes as stated above. No
+  scored figure moves.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
+  commit>`, merged `<FILL: merge time, UTC>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_merits_signals.py -k "confessing_error or
+    appointed_amicus"` is green;
+  - on the first live poll after the promotion,
+    `uv run fedcourts query --court scotus --docket-number 25-5930` shows
+    `merits_brief_filed` `2026-09-18`, and 25-5343's shows `2026-08-25`;
+  - on `main` once the promotion that carries the fill PR has merged, `uv run
+    python -c "from fedcourtsai.process_version
+    import HARNESS_BOUNDARIES as H; print([b.name for b in H][-1])"` prints
+    `merits-brief-confession-of-error`.
