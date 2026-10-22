@@ -14627,6 +14627,56 @@ def _read_cell_inputs(
     return read
 
 
+def _read_related(
+    backend: corpus.CorpusBackend, db_path: Path, case: str, payload: Mapping[str, Any]
+) -> tuple[provision.RelatedRead, ...]:
+    """The ``Vide``-linked dockets of the payload a cell was placed on.
+
+    A read of its own, taken after the cell's gates and placement, so a refused
+    cell spends nothing on companions and the links are the placed payload's.
+    The numbers resolve through the corpus index in one scan. Under the
+    casestore backend, which carries no index, that scan runs over the ordinary
+    read backend the row gate also reaches (ranged in the cell workflows), and
+    each companion's snapshot comes from the content store as the cell's own
+    did; a link with no index reachable is recorded as such, never dropped.
+    """
+    numbers = provision.vide_docket_numbers(payload)
+    if not numbers:
+        return ()
+    if backend == "casestore":
+        source = _casestore_source()
+        choice = corpus.resolve_backend(None)
+
+        def resolve(wanted: Sequence[str]) -> Mapping[str, str] | None:
+            if choice == "local" and not db_path.exists():
+                return None
+            try:
+                with corpus.connect_readonly(db_path, backend=choice) as conn:
+                    found = corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted)
+                    _echo_read_stats(conn)
+                    return found
+            except (OSError, corpus_ranged.RangedBackendError):
+                typer.echo(
+                    "::warning::companion links recorded unresolved: the corpus index "
+                    "did not answer from the casestore path",
+                    err=True,
+                )
+                return None
+
+        return provision.read_related(
+            numbers, own_case=case, resolve=resolve, snapshot=source.latest_snapshot
+        )
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        reads = provision.read_related(
+            numbers,
+            own_case=case,
+            resolve=lambda wanted: corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted),
+            snapshot=lambda linked: corpus.latest_snapshot(conn, linked),
+        )
+        _echo_read_stats(conn)
+    return reads
+
+
 def _place_at_moment(
     case: str,
     event: str,
@@ -14979,6 +15029,21 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         case, event, cutoff, read, payload=payload, snapshot_date=snapshot_date, documents=documents
     )
     paths = CasePaths(settings.data_root, court, docket)
+    # A predict cell's companions: the dockets the Court links to the docket the
+    # cell was placed on. Every run-predict cell names its event, a cert
+    # baseline with no cutoff included, which `place_related` bounds by its own
+    # snapshot date; an evaluate cell (no event) grades against the resolved
+    # docket and reads none, and `--out` asks for a payload copy, not a record.
+    related = (
+        [
+            provision.place_related(
+                item, cutoff, event=event, mode=mode, vintage=placement.snapshot_date
+            )
+            for item in _read_related(backend, db_path, case, placement.payload)
+        ]
+        if event and out is None
+        else []
+    )
     # The whole record — snapshot, context.json, documents and manifest, each
     # staged copy through the contact-detail scrubs — goes through the one
     # writer the local cascade shares (`provision.write_cell_record`), so the
@@ -14986,7 +15051,13 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     # be written differently.
     try:
         written = provision.write_cell_record(
-            paths, case, placement, mode=mode, cutoff=cutoff, snapshot_dest=out
+            paths,
+            case,
+            placement,
+            mode=mode,
+            cutoff=cutoff,
+            snapshot_dest=out,
+            related=related,
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)
@@ -15007,6 +15078,16 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             f"withheld on {written.snapshot_scrub.blocks} "
             f"{_sides_named(written.unrepresented)}-side block(s)"
         )
+    if written.related:
+        # Numbers and reasons only: the linked dockets are public, their text stays
+        # in the record.
+        linked = ", ".join(
+            item.docket_number
+            if item.payload is not None
+            else f"{item.docket_number} ({item.reason})"
+            for item in written.related
+        )
+        typer.echo(f"{case} related ({linked}) -> {paths.related_dir}")
     if written.staged:
         kinds = ", ".join(doc.kind for doc, _ in written.staged)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")

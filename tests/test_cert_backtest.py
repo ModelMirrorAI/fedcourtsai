@@ -29,7 +29,6 @@ from fedcourtsai.cert_backtest import (
     _kept_entries_show_a_disposition,
     cert_backtest_population,
     draw_cert_backtest_set,
-    redact_snapshot,
     replay_predictors,
     run_cert_backtest,
     select_cert_backtest_set,
@@ -52,7 +51,7 @@ from fedcourtsai.pipeline.runner import (
     get_runner,
 )
 from fedcourtsai.pricing import DEFAULT_MODELS
-from fedcourtsai.provision import truncate_snapshot
+from fedcourtsai.provision import redact_snapshot, truncate_snapshot
 from fedcourtsai.registry import enabled_predictors
 from fedcourtsai.schemas import (
     AgentFlag,

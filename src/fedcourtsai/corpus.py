@@ -4554,6 +4554,53 @@ def docket_number_rowids(conn: ReadConnection, docket_number: str, court: str | 
     return _rowids_matching(conn.execute(sql, params), want)
 
 
+def live_scotus_case_ids_by_docket_numbers(
+    conn: ReadConnection, docket_numbers: Sequence[str]
+) -> dict[str, str] | None:
+    """The live-slice SCOTUS row for each of ``docket_numbers``, keyed by normalized number.
+
+    :func:`docket_number_rowids`'s first read alone, in one scan for every
+    number, for a caller asking about dockets the supremecourt.gov channel
+    would follow (a companion or a cross-petition linked from a live docket): a
+    miss costs the live index and never a walk of every SCOTUS row. A number no
+    live row carries is absent from the answer. ``None`` where the blob carries
+    no live index, which is not the same answer as a miss: the walk it would
+    take instead is the cost this exists to avoid, so nothing was looked up.
+    Two rows on one number resolve to the lowest docket id, as the identity
+    join does.
+    """
+    wanted = {norm for raw in docket_numbers if (norm := normalize_docket_number(raw))}
+    if not _has_index(conn, LIVE_DOCKET_INDEX):
+        return None
+    if not wanted:
+        return {}
+    matched: dict[int, str] = {}
+    for record in conn.execute(
+        f"SELECT rowid AS rid, docket_number FROM cases INDEXED BY {LIVE_DOCKET_INDEX} "
+        "WHERE court = ? AND last_live_polled IS NOT NULL",
+        ("scotus",),
+    ):
+        norm = normalize_docket_number(str(record["docket_number"] or ""))
+        if norm in wanted:
+            matched[int(record["rid"])] = norm
+    if not matched:
+        return {}
+    marks = ",".join("?" for _ in matched)
+    found: dict[str, str] = {}
+    for record in conn.execute(
+        f"SELECT rowid AS rid, case_id FROM cases WHERE rowid IN ({marks})", list(matched)
+    ):
+        norm, case_id = matched[int(record["rid"])], str(record["case_id"])
+        held = found.get(norm)
+        if held is None or _docket_id_of(case_id) < _docket_id_of(held):
+            found[norm] = case_id
+    return found
+
+
+def _docket_id_of(case_id: str) -> int:
+    return int(case_id.rsplit("/", 1)[1])
+
+
 def _term_bar_refuses_number(query: PriorQuery) -> bool:
     """Whether the Term bar refuses a SCOTUS number before any row is read.
 

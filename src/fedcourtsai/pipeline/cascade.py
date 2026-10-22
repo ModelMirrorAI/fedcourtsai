@@ -40,7 +40,7 @@ The steps mirror what ``run-predict`` / ``run-evaluate`` do around the agent cal
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -207,19 +207,35 @@ def _provision_record(
     read: provision.CellRead,
     role: _Role,
     placement: provision.Placement,
+    related: Sequence[provision.RelatedRead] = (),
 ) -> _Record:
     """Write one cell's ``record/`` exactly as the workflow's provisioning step does.
 
     The snapshot placed at the cell's moment, the ``context.json`` that freezes its
     mode and conditioning, and the documents cut with the snapshot — through the
-    same placement and writer ``provision-snapshot`` uses, contact scrubs
-    included. A cascade that wrote only the snapshot would hand the agent no
-    frozen mode, band or cutoff, and the cell would have to guess the posture
-    that provisioning exists to settle.
+    same placement and writer ``provision-snapshot`` uses, contact scrubs and
+    the ``Vide``-linked companions under ``record/related/`` included. A
+    cascade that wrote only the snapshot would hand the agent no frozen mode,
+    band or cutoff, and the cell would have to guess the posture that
+    provisioning exists to settle.
     """
     try:
         written = provision.write_cell_record(
-            case_paths, case_id, placement, mode=mode, cutoff=read.cutoff
+            case_paths,
+            case_id,
+            placement,
+            mode=mode,
+            cutoff=read.cutoff,
+            related=[
+                provision.place_related(
+                    item,
+                    read.cutoff,
+                    event=event_id,
+                    mode=mode,
+                    vintage=placement.snapshot_date,
+                )
+                for item in related
+            ],
         )
     except provision.ProvisionError as exc:
         raise CascadeError(str(exc)) from exc
@@ -236,6 +252,36 @@ def _provision_record(
             documents=len(placement.documents),
         ),
     )
+
+
+def _read_related(
+    db_path: Path,
+    backend: corpus.CorpusBackend,
+    case_id: str,
+    placed: Mapping[str, provision.Placement | None],
+) -> dict[str, tuple[provision.RelatedRead, ...]]:
+    """Each placed target's ``Vide``-linked dockets, read as ``provision-snapshot`` reads them.
+
+    Off the payload each target was placed on, after every target is placed,
+    on one connection opened only where some target links a docket.
+    """
+    linked = {
+        event_id: provision.vide_docket_numbers(placement.payload)
+        for event_id, placement in placed.items()
+        if placement is not None
+    }
+    if not any(linked.values()):
+        return {}
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        return {
+            event_id: provision.read_related(
+                numbers,
+                own_case=case_id,
+                resolve=lambda wanted: corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted),
+                snapshot=lambda linked_case: corpus.latest_snapshot(conn, linked_case),
+            )
+            for event_id, numbers in linked.items()
+        }
 
 
 def _cell_mode(event: corpus.CorpusEvent, row: corpus.CorpusRow) -> str:
@@ -604,12 +650,22 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
         nonlocal record
         if placement is None:
             return
-        record = _provision_record(case_paths, case_id, event_id, mode, read, role, placement)
+        record = _provision_record(
+            case_paths,
+            case_id,
+            event_id,
+            mode,
+            read,
+            role,
+            placement,
+            related.get(event_id, ()),
+        )
         placements.append(record.placement)
 
     # Every predict target placed before any cell runs, so a refusal costs
     # nothing (see `_place_cell`).
     placed = {ev.event_id: _place_cell(case_id, ev.event_id, reads[ev.event_id]) for ev in targets}
+    related = _read_related(corpus_db_path, chosen_backend, case_id, placed)
 
     outcomes = _materialize_targets(case_paths, row, targets, found)
 

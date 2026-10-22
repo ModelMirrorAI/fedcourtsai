@@ -17,7 +17,6 @@ from typer.testing import CliRunner
 
 from fedcourtsai import cli as cli_module
 from fedcourtsai import corpus, supremecourt
-from fedcourtsai.cert_backtest import redact_snapshot
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import documents as documents_module
@@ -68,7 +67,7 @@ from fedcourtsai.pipeline.merits_signals import (
     respondent_brief_date,
 )
 from fedcourtsai.pipeline.pull import PullQueues
-from fedcourtsai.provision import documents_before
+from fedcourtsai.provision import documents_before, redact_snapshot
 from fedcourtsai.supremecourt import SupremeCourtClient
 from tests.conftest import FixtureCorpus, seed_prediction
 

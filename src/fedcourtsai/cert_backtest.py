@@ -81,7 +81,7 @@ from .pipeline.salience import (
     salience_bands,
     salience_score,
 )
-from .provision import truncate_snapshot
+from .provision import redact_snapshot, truncate_snapshot
 from .registry import enabled_predictors
 from .schemas import (
     CERT_BACKTEST_ARMS,
@@ -319,79 +319,6 @@ def select_cert_backtest_set(
         salience_floor=salience_floor,
         replayable_only=replayable_only,
     ).items
-
-
-# Snapshot fields that reveal the outcome — because they exist only once the
-# matter was decided (or record the decision), or because they accrue with the
-# proceedings and so, on a decided docket, betray it — stripped before an
-# agentic replay sees the docket. This blocklist is key-name-based, so every
-# channel's outcome-bearing keys must be listed.
-#
-# The proceedings entries are NOT here: they are truncated by date instead
-# (`truncate_snapshot`). Content offers no rule that separates a disposing order
-# from a pre-decision entry, but a date does — an entry filed before the cutoff
-# cannot record a decision that came after it. Dropping them wholesale left a
-# replay cell reading a docket with no history at all, which is not the docket
-# any forward cell ever saw, and left it unable to observe its own salience band.
-# Truncation is applied on top of this list, never instead of it.
-SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
-    "disposition",
-    "date_terminated",
-    "date_decided",
-    "date_cert_granted",
-    "date_cert_denied",
-    "date_argued",
-    "date_reargued",
-    "date_rehearing_denied",
-    "clusters",
-    "citations",
-    "citation_count",
-    "opinion_text",
-    "precedential_status",
-    "summary",
-    # Regenerated on docket activity, so on a decided live docket it postdates
-    # (and thereby leaks the existence of) the decision.
-    "sJsonCreationDate",
-    # The /qp/ page is generated when certiorari is GRANTED and opens with the
-    # grant order — the key's very presence leaks the outcome (verified live).
-    # The questions presented reach cells from the petition text instead.
-    "QPLink",
-    # The party and counsel blocks accrue after arrival: every third-party
-    # filing appends its counsel of record, and amici pile onto granted
-    # petitions (mean "Other" entries: 10.37 granted vs 0.45 denied), so on a
-    # decided docket the blocks' sheer size is a grant oracle — and
-    # "AttorneyHeaderOther" is emitted only when the "Other" block is
-    # non-empty, so its very presence is the boolean form of the same oracle
-    # (verified live). "PetitionerTitle" and "RespondentTitle" are NOT here:
-    # they are the arrival-time captions a forward cell sees (pipeline ingest
-    # reads them for the case name).
-    "Petitioner",
-    "Respondent",
-    "Other",
-    "AttorneyHeaderPetitioner",
-    "AttorneyHeaderRespondent",
-    "AttorneyHeaderOther",
-)
-
-
-def redact_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
-    """Drop the top-level fields that reveal that (or how) the matter was decided.
-
-    :data:`SNAPSHOT_OUTCOME_FIELDS` only. The proceedings entries survive this
-    and are handled by :func:`truncate_snapshot`, which is the other half — a
-    caller wanting the pre-decision view wants both.
-
-    Deliberately uniform across provenances: the counsel blocks are stripped
-    from genuinely pre-decision (``dated``) snapshots too, where they are
-    legitimate arrival-time signal, because the blocks are undated — date
-    truncation cannot apply — and a uniform replay information set beats a
-    dated/truncated mixture the scoring would then have to carry. The cost is
-    stated, not hidden: every replay cell is blind to counsel identity, which
-    a forward cell sees, so replay figures understate the same predictor's
-    forward information set. Do not "fix" this on dated snapshots — that
-    reopens the seam on every decided one.
-    """
-    return {key: value for key, value in payload.items() if key not in SNAPSHOT_OUTCOME_FIELDS}
 
 
 def _kept_entries_show_a_disposition(payload: Mapping[str, Any]) -> bool:
