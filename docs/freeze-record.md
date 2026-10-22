@@ -12349,3 +12349,111 @@ freeze commit is recorded here.
     python -c "from fedcourtsai.process_version
     import HARNESS_BOUNDARIES as H; print('merits-brief-confession-of-error'
     in {b.name for b in H})"` prints `True`.
+
+- **A predict cell stages its `Vide`-linked dockets under `record/related/`;
+  recorded 2026-10-22.** A **provisioning-cutoff** change with a harness
+  boundary, recorded ahead of the promotion that carries it.
+
+  **Why.** The Court's docket JSON links a cross-petition, a companion case
+  or the petition a case is held for as `Vide` in `RelatedCaseNumber`, on both
+  dockets. A cell had no record of the linked docket's state. Claude cells
+  recovered it by fetching supremecourt.gov and codex cells mostly did not, so
+  a cert comparison on such a docket partly measured fetch ability. On the
+  2026-10-05 predict runs, 16 flags on 14 cert cases named a companion, lead
+  or held-for petition outside the record as the decisive signal.
+
+  **What moved.** `provision-snapshot`, for a cell that names its `--event`,
+  reads the docket numbers its **placed** snapshot links
+  (`provision.vide_docket_numbers`, at most four, in served order, each
+  shaped as a SCOTUS docket number). It reads them after the cell's gates and
+  placement, so a refused cell reads none. It resolves them in one scan of
+  the live slice of the index (`corpus.live_scotus_case_ids_by_docket_numbers`)
+  and stages each one's latest stored snapshot as
+  `record/related/<docket number>.json`, with `related.json` listing every
+  link and the reason any was not staged. Under the `casestore` backend the
+  production fleet provisions under, the scan runs over the ordinary read
+  backend, as the row gate's does, and the snapshot comes from the content
+  store. Each companion is cut by the date rule (`provision.place_related`):
+  - strictly before the cell's cutoff;
+  - on the interim arrival moment, strictly before its opening day, since the
+    cell's own docket is cut at the opening entry and a companion has no
+    anchor to cut at;
+  - on a forward cell with no cutoff, strictly before the cell's own snapshot
+    date, because a companion pulled later than the cell's docket could carry
+    an order disposing of both, which the cell's own terminal gate never read.
+
+  Each is then redacted as the back-test redacts (`provision.redact_snapshot`),
+  since a companion is always rebuilt from a later payload and its undated
+  top-level fields outlive the cut: `QPLink` exists only once certiorari is
+  granted, and the counsel blocks grow with a grant's amici. The redaction
+  removes the party and counsel blocks, and with them any contact detail. A
+  replay cell with no cutoff gets none. An evaluate cell (no `--event`) and an
+  `--out` copy read none. `local-cascade` stages them the same way. The cert
+  back-test's replay provisioner, which stages no documents either, is
+  unchanged.
+
+  **A residual, stated.** A `truncated` placement keeps the latest payload's
+  `RelatedCaseNumber`, which is undated, so a link the Court added after the
+  cell's moment (a petition later held for another) can be read on such a
+  cell. A `dated` placement reads the links as the docket served them.
+
+  No prompt byte and no registry field moves in the carrying change, so no
+  digest moves there: `uv run fedcourts process-digest --all` prints
+  `proc-v10` and the six digests `605201bd…` (claude-baseline), `7ab92dd4…`
+  (codex-baseline), `bee46e92…` (gemini-baseline), `167b7d71…`
+  (claude-judge), `a8610eec…` (codex-judge) and `6a88d3dc…` (gemini-judge),
+  identical with and without it. The predict prompt's paragraph naming
+  `record/related/` is carried by the re-bless that registers the moments
+  switch-on, so that the predictor digests move once. Until that paragraph
+  lands, a cell finds the directory only by listing its record.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change adds to
+  what a predict cell reads under unchanged digests. It is composition, not a
+  cut: the pooled default and the paired figure keep both sides and list each
+  engine's `n` before and after. It cuts only a figure that reads its own
+  effect, such as a per-stratum reading over linked dockets.
+  - **The registry row.** The boundary is `vide-related-dockets`:
+    `HarnessBoundary("vide-related-dockets", <carrying promotion merge hash>,
+    <its committer time, UTC>, None, "all")`, applying to every predictor. Its
+    reach is `all` because no narrower registered reach names linked dockets,
+    so a figure reading its own effect selects them by `related.json`. It is
+    not gradual: the change acts at provisioning on stored snapshots, with no
+    later poll or fetch needed. Its carrying merge
+    exists only once the promotion merges, so the row joins
+    `process_version.HARNESS_BOUNDARIES` in the post-promotion fill PR that
+    completes this entry's placeholders. A leaderboard built on `main`
+    between the promotion and that fill omits this boundary's listing, which
+    loses composition only, never a cut or a score.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`.
+
+  **The population.** Measured read-only over the same pulled blob as the
+  entry above (sha256 `6701546c…`, newest pull 2026-10-22, newest stored
+  snapshot row 2026-07-13). Of the 134 live-slice SCOTUS rows queued for
+  prediction with no disposition and no merits judgment, 7 link one `Vide`
+  docket each, and all 7 resolve through the live slice:
+  `scotus/73281002` (25-967), `scotus/73281009` (25-962), `scotus/73500228`
+  (25-1389), `scotus/73500291` (25-1323), `scotus/9026000096` (26-109),
+  `scotus/9026000119` (26-264) and `scotus/9026000328` (26-350). Over every
+  queued row, decided ones included, 15 of 372 link one, and 11 of those
+  resolve.
+
+  **What does not move.** No base rate re-prices, no membership rule moves
+  and no scored figure moves. No skill movement is predicted, and a movement
+  in **either** direction across this boundary may not be read as a model
+  effect.
+
+  **The amendment debt.** It is unchanged. This entry adds no new token.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
+  commit>`, merged `<FILL: merge time, UTC>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_related_dockets.py` is green;
+  - a predict run's provisioning log for `scotus/73500291` prints
+    `related (25-1323)`;
+  - on `main` once the promotion that carries the fill PR has merged, `uv run
+    python -c "from fedcourtsai.process_version
+    import HARNESS_BOUNDARIES as H; print('vide-related-dockets' in {b.name
+    for b in H})"` prints `True`.

@@ -24,7 +24,7 @@ from typing import Any
 
 import pytest
 
-from fedcourtsai import cert_backtest
+from fedcourtsai import cert_backtest, provision
 from fedcourtsai.pipeline import cell_context, ingest, liveprobe, outcome, salience
 from fedcourtsai.pipeline.documents import (
     CONTACT_PLACEHOLDER,
@@ -478,8 +478,8 @@ def test_every_scored_and_analytic_reading_of_the_payload_is_unchanged(
         25, 5123, payload
     )
     # The backtest's redaction drops the counsel blocks wholesale.
-    assert cert_backtest.redact_snapshot(copy.deepcopy(staged)) == (
-        cert_backtest.redact_snapshot(copy.deepcopy(payload))
+    assert provision.redact_snapshot(copy.deepcopy(staged)) == (
+        provision.redact_snapshot(copy.deepcopy(payload))
     )
     # And the scrub trigger reads the same docket either way: the register
     # number's marker keeps the block reading as self-represented.
