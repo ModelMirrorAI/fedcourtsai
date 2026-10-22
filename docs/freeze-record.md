@@ -12229,7 +12229,13 @@ freeze commit is recorded here.
     …", and `respondent_brief_date` takes the first post-grant entry either
     predicate reads.
 
-  The consolidated member's borrow reads the same function. What stays: all
+  The consolidated member's borrow (`member_respondent_brief_date`, which
+  fills `merits_brief_on_lead`) reads the same function. An appointed amicus
+  names no party, so the member's side filter keeps its brief for every member
+  of the group, unless the Clerk marks it "(as to No.)" for other dockets
+  only, which drops it. `merits_brief_on_lead` is fill-in latched, so a member
+  date already latched off a confession of error stays. No mint reads that
+  column, and its movement was not measured here. What stays: all
   four merits arms of the selector, the member's side filter and the
   `document-backfill` gap floor. A confession of error is still stored and
   provisioned as `merits-brief-respondent`, and its description is the

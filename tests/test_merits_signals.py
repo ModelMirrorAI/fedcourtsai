@@ -176,6 +176,9 @@ def test_the_appointed_amicus_brief_dates_the_moment(text: str) -> None:
         "Motion for an extension of time to file the brief on the merits of Court-appointed "
         + "amicus curiae in support of the judgment below filed.",
         "Motion of the Court-appointed amicus curiae for an extension of time filed.",
+        # Appointed to argue the petitioner's side, it leaves the defense unfiled.
+        "Brief of Court-appointed amicus curiae in support of petitioner filed.",
+        "Brief of Court-appointed amicus curiae supporting vacatur filed.",
     ],
 )
 def test_an_ordinary_amicus_or_a_filing_about_the_appointed_one_dates_nothing(text: str) -> None:

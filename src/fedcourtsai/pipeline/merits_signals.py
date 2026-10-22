@@ -186,6 +186,11 @@ _NOT_THE_PETITIONER_MERITS_FILING_RE = re.compile(
 # merits signal a docket carries, and its stored description is the entry's own
 # text, which says which way the respondent argues. Respondent-only, because a
 # petitioner's brief asks for reversal or vacatur by definition.
+# The respondent arm's side exclusion alone, for the appointed amicus, which the
+# arm's "amicus" exclusion would otherwise refuse outright.
+_NOT_THE_RESPONDENT_SIDE_RE = re.compile(
+    r"\b(?:in\s+(?:partial\s+)?support\s+of|supporting)\s+(?:the\s+)?petitioners?\b", re.I
+)
 _CONFESSION_OF_ERROR_RE = re.compile(
     r"\b(?:in\s+support\s+of|supporting)\s+(?:the\s+)?(?:reversal|vacatur)\b", re.I
 )
@@ -200,9 +205,13 @@ _CONFESSION_OF_ERROR_RE = re.compile(
 # The exclusion of "amicus" above does not reach it, because this anchor is its
 # own reading rather than a party one; an ordinary amicus ("Brief amicus curiae
 # of Cato Institute …", "Brief of amici curiae …") never names the appointment,
-# so it stays out.
+# so it stays out. An appointed amicus arguing the petitioner's side ("in
+# support of petitioner", "supporting vacatur") is refused on the respondent
+# arm's own exclusions, since it leaves the defense as unfiled as a respondent
+# saying the same. A spelling this misses ("Brief of Jane Doe, Court-appointed
+# amicus curiae, …") leaves the date to the respondent's own brief, or None.
 _APPOINTED_AMICUS_BRIEF_RE = re.compile(
-    r"^\s*brief\s+(?:amicus\s+curiae\s+of|of|for)\s+(?:the\s+)?"
+    r"^\s*brief\s+(?:amicus\s+curiae\s+of|of)\s+(?:the\s+)?"
     r"court[-\s]+appointed\s+amicus\s+curiae\b",
     re.I,
 )
@@ -236,7 +245,11 @@ def is_appointed_amicus_merits_brief(text: str) -> bool:
     owed by the caller, as for every predicate here: the Court appoints an
     amicus only after the grant, so the bound costs nothing.
     """
-    return bool(_APPOINTED_AMICUS_BRIEF_RE.search(text))
+    return (
+        bool(_APPOINTED_AMICUS_BRIEF_RE.search(text))
+        and not _NOT_THE_RESPONDENT_SIDE_RE.search(text)
+        and not _CONFESSION_OF_ERROR_RE.search(text)
+    )
 
 
 def is_respondent_merits_brief_document(text: str) -> bool:

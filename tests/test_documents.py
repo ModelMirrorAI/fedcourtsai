@@ -1520,6 +1520,21 @@ def test_a_members_respondent_brief_is_dated_off_its_lead() -> None:
     assert member_respondent_brief_date(_lead_payload(*_LEAD_BRIEFS), ungranted) is None
 
 
+def test_a_members_briefed_date_reads_the_appointed_amicus_unless_marked_for_others() -> None:
+    """An appointed amicus names no party: unmarked it is the group's, marked it is not."""
+    member = _member_payload()
+    amicus = "Brief of Court-appointed amicus curiae in support of the judgment below filed."
+    url = "https://www.supremecourt.gov/DocketPDF/25/25-500/amicus.pdf"
+    unmarked = _entry("Jul 13 2026", amicus, url=url)
+    assert member_respondent_brief_date(_lead_payload(unmarked), member) == date(2026, 7, 13)
+    elsewhere = _entry(
+        "Jul 13 2026", amicus.replace(" filed.", " (as to No. 25-999) filed."), url=url
+    )
+    assert member_respondent_brief_date(_lead_payload(elsewhere), member) is None
+    own = _entry("Jul 13 2026", amicus.replace(" filed.", " (as to No. 25-501) filed."), url=url)
+    assert member_respondent_brief_date(_lead_payload(own), member) == date(2026, 7, 13)
+
+
 def test_a_lead_with_a_self_represented_party_lends_nothing() -> None:
     """The staged-text scrub is keyed on the member's counsel blocks, not the lead's.
 
