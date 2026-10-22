@@ -147,8 +147,10 @@ opinion in a decided case — its order in the document, kind, author, joiners
 and length — for the opinion-authorship and opinion-length figures a Term's
 statistics count per opinion rather than per case. It is a historical record,
 held corpus-side and read by nothing a predict or evaluate cell sees. Its
-apply runs as run-repair's `opinion-record` pass over OT2020–OT2025, fetching
-in a job that holds no credential ([data-pipeline.md](data-pipeline.md#maintenance-passes)).
+apply runs as run-repair's `opinion-record` pass over OT2020–OT2025, and as a
+standing sweep on run-seed's daily window over the current and previous Term,
+each fetching in a job that holds no credential
+([data-pipeline.md](data-pipeline.md#maintenance-passes)).
 
 - **Source and scope.** Every row of a Term's opinions listing, read through
   the same client: the signed merits opinions, the per curiams (summary

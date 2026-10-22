@@ -104,10 +104,10 @@ with the one the public cares about most:
   written from each sitting is visible (~25). The pattern is read but not yet
   declared as a moment: the live poll stores the Court's argument sittings, and
   `fedcourts authorship-tally` reads each sitting's authors and undecided cases
-  as of a day from the per-opinion record. That record is written for
-  OT2020–OT2025 only, and sittings are stored for the current and previous Term,
-  so OT2025 is the one Term the tally reads whole today; the current Term's
-  authors still need a standing sweep before a cell could be handed the tally.
+  as of a day from the per-opinion record. That record holds OT2020–OT2025,
+  and the opinion-record standing sweep on run-seed's daily window keeps the
+  current and previous Term in it; sittings are stored for the current and
+  previous Term, so the tally reads those two.
   The tally is context, not a claim: declaring the moment still owes the
   eight tests in [outcome-decomposition.md](outcome-decomposition.md), which
   the authorship claims have failed so far for want of a committed resolution

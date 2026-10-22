@@ -959,8 +959,8 @@ either is missing routes every request to the approval.
 
 **`corpus-write` holds the production read-write role for the corpus
 writers alone.** Every job that assumes the read-write role binds it —
-`run-pull`'s `pull`, `live` and `enrich`, `run-seed`'s `seed` and
-`ocr-sweep`, and `run-repair`'s corpus (`repair`), `applications`,
+`run-pull`'s `pull`, `live` and `enrich`, `run-seed`'s `seed`,
+`ocr-sweep` and `opinion-record`, and `run-repair`'s corpus (`repair`), `applications`,
 `decision-record` and `opinion-record` jobs — and no other job may:
 `tests/test_workflow_corpus_write.py` holds every job naming the read-write
 role to the literal `corpus-write`, and refuses the environment to every
@@ -1566,6 +1566,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-repair` — `handoff-parse` job | none | every fetch from supremecourt.gov and every parse of what it served: no environment, no `id-token: write`, no secret, and a step asserts the AWS and OIDC variables are absent first; its only output is the dry-run ledger and, on an apply, the plan artifact |
 | `run-repair` — votes writer | none | on an apply only: re-validates the plan against the ledger and stamps `outcome.json`; no corpus, no role, no `id-token` — the data App token pushes the commit |
 | `run-seed` — `order-votes-projection`, `order-votes-parse`, `order-votes` jobs | read-only, none, none | the order-list vote sweep: the same three-job split as run-repair's `order-votes` pass on the daily window — a projection job with the read-only role (a full index `corpus-pull`, then each population case's docket number), a parse job holding no credential (no environment, no `id-token`, no secret, and the same AWS/OIDC guard), and a writer holding only the data App token, minted after the planned stamps are applied |
+| `run-seed` — `opinion-record-projection`, `opinion-record-parse`, `opinion-record` jobs | read-only, none, read-write | the opinion-record sweep: the same three-job split as run-repair's `opinion-record` pass on the daily window, over the current and previous Term — a projection job with the read-only role (the record's listing keys), a parse job holding no credential (the same AWS/OIDC guard) that reads at most the window's slice of documents, and a writer under `corpus-write` that pulls fresh, re-validates and inserts, pushes the blob, and mints the data App token only after the push |
 | `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied, `corpus-push`, then the pointer commit — no fetch, no PDF parse |
 | `run-repair` — corpus job | read-only on a dry run, read-write on an apply | a dry run pulls the index, applies the dedupe (and, for the overhang clear, the scope reconcile) to the runner's copy alone and tees the pass's ledger: no App token, no `corpus-write` lock, the remote-writes switch off, no push. An apply holds the lock, the read-write role and the App token for the whole job, re-assumed for the OCR pass. The dry run narrows what is held, not what is reachable: the job still binds `corpus-write` with `id-token: write`, so any step, the OCR and document back-fill dry runs' PDF parsing among them, can still mint the read-write role |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
@@ -2034,7 +2035,19 @@ lane and the questions-presented re-derivation read them. Its reach as a
 prompt-injection vector is bounded by the cells' data-not-instructions
 guard and by the binding to the worklist; it is **pending the maintainer's
 acceptance**, which merging the sweep's jobs gives, with the carve-out it
-rides on. The plan is the
+rides on. run-seed's opinion-record sweep has no dry run and no bound either:
+its slice (`historical.sweep_caps.opinion_record`, 15 documents a window) and
+a row bound of twenty a document of the slice stand in for them, so a
+compromised parse could insert up to 300 invented rows each window, each
+passing the reader's own checks (roster names, consistent counts, the Court's
+own URL). The ceiling (`opinion_record_ceiling`, 200) is no control against
+such a parse, which writes the class count it is weighed on; it stops an
+honest parse whose class has widened. Those rows go to the corpus index, not git, so no diff
+review sees them, and the record is fill-only, so a forged row stays until a
+pass built to replace rows exists. Nothing a predict or evaluate cell sees
+reads the table; its readers are the analytic `merits-lineups` and
+`authorship-tally`. That residual is likewise **pending the maintainer's
+acceptance**, which merging the sweep's jobs gives. The plan is the
 Court's word only as far as the parse job can be trusted; what the split
 removes is that job's reach to any credential. The parse job's steps run as
 one user on one runner, so a parse that

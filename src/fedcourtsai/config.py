@@ -428,7 +428,12 @@ class SweepCapsConfig(BaseModel):
     committed outcomes in the same window's split jobs (it fetches the Court's
     orders, so it runs beside the walk rather than inside it). A fifth,
     ``ocr-recover-petitions --sweep``, reads scanned filings by OCR in split jobs
-    of its own on every window, forward-cell candidates first.
+    of its own on every window, forward-cell candidates first. A sixth,
+    ``backfill-opinion-record --sweep``, reads the current and previous Term's
+    opinions into the per-opinion record in the daily window's split jobs,
+    and is sliced in its parse, where the fetches are: its unit is documents
+    fetched, two thirds newest decision first and the rest rotated through the
+    older rows.
     A cap is a **slice**, not a refusal: a window writes at most this many rows of
     its class — the index sweeps in ``case_id`` order, the vote sweep oldest order
     date first, the OCR sweep in the order :mod:`fedcourtsai.pipeline.ocr_sweep`
@@ -456,6 +461,10 @@ class SweepCapsConfig(BaseModel):
     # (`ocr-recover-petitions --sweep`). Its unit is runner minutes, not rows,
     # so it is small. The bound sits below the handoff models' own item limit.
     ocr: int = Field(default=10, ge=1, le=200)
+    # Opinion documents fetched and read per window into the per-opinion
+    # record (`backfill-opinion-record --sweep`). Its unit is fetches from the
+    # Court's site, about four seconds each, so it is small.
+    opinion_record: int = Field(default=15, ge=1, le=200)
     # Each sweep's refusing ceiling on the WHOLE class it finds, before the
     # slice: above it the window writes nothing and the step fails, because a
     # class that size is a widened predicate rather than a backlog to drain.
@@ -464,10 +473,18 @@ class SweepCapsConfig(BaseModel):
     decision_fills_ceiling: int = Field(default=500, ge=1, le=10_000)
     order_votes_ceiling: int = Field(default=1500, ge=1, le=10_000)
     ocr_ceiling: int = Field(default=500, ge=1, le=10_000)
+    opinion_record_ceiling: int = Field(default=200, ge=1, le=10_000)
 
     @model_validator(mode="after")
     def _ceiling_admits_the_cap(self) -> Self:
-        for name in ("docket_markings", "response_fills", "decision_fills", "order_votes", "ocr"):
+        for name in (
+            "docket_markings",
+            "response_fills",
+            "decision_fills",
+            "order_votes",
+            "ocr",
+            "opinion_record",
+        ):
             if getattr(self, f"{name}_ceiling") < getattr(self, name):
                 raise ValueError(f"sweep_caps.{name}_ceiling must be at least sweep_caps.{name}")
         return self

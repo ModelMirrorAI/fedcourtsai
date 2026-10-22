@@ -328,7 +328,9 @@ writing, read from the documents the Court's per-Term opinions listing links
 (`pipeline/opinion_record.py`). Like the case row's decision columns, this is
 a historical record held corpus-side; no outcome is written to the git ledger
 for a case the pipeline never forecast. Written only by
-`fedcourts backfill-opinion-record`, which is fill-only: a document is recorded
+`fedcourts backfill-opinion-record` (run-repair's `opinion-record` pass, and its
+standing sweep on run-seed's daily window over the current and previous Term),
+which is fill-only: a document is recorded
 whole or not at all, and a recorded row is never changed. So a new version of
 the counting rule or of a reader reaches stored rows only through a pass built
 to replace them, which does not exist yet; `word_rule` and `lineup` say which

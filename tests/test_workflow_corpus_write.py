@@ -80,6 +80,7 @@ KNOWN_WRITER_JOBS = {
     ("run-pull.yml", "enrich"),
     ("run-seed.yml", "seed"),
     ("run-seed.yml", "ocr-sweep"),
+    ("run-seed.yml", "opinion-record"),
     ("run-repair.yml", "repair"),
     ("run-repair.yml", "applications"),
     ("run-repair.yml", "decision-record"),

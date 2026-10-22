@@ -873,6 +873,31 @@ which with this sweep is at worst about 115 minutes: the projection (30) and
 parse (50) beside the walk (55), then the writer (30). A window that fires in
 that time waits in the group.
 
+The daily window runs a third split sweep: the **opinion-record sweep**
+(`fedcourts backfill-opinion-record --sweep`), run-repair's `opinion-record`
+pass on a schedule over the current and previous October Term, so each opinion
+the Court issues reaches the per-opinion record within a day, rather than only
+when a maintainer dispatches the pass, which is pinned to the Terms the record
+began with. `opinion-record-projection` holds the read-only role and writes the
+listing keys the record holds whole. `opinion-record-parse` holds no credential,
+reads both Terms' listings and at most `historical.sweep_caps.opinion_record`
+fetched documents (two thirds newest decision first, the last third rotated
+through the older rows a window at a time), deferring the rest to the next
+window; a volume-linked row is skipped unfetched and costs no slot.
+`opinion-record` starts only when the parse read a document, waits for the
+walk, then re-validates the plan against a fresh pull, refuses a plan above the
+slice, above twenty rows a document of it, or with a class above
+`opinion_record_ceiling`, inserts fill-only, pushes the blob and only then
+mints the App token for the pointer commit. `ocr-sweep` waits for it, since
+both push the one corpus pointer and the run's lock orders no jobs within the
+run; its chain ends before the OCR sweep's parse can, so the lock's worst-case
+hold is unchanged. A row the reader refuses stays unrecorded and is offered
+again each window, so the class never falls below the count of such rows; the
+newest-first share keeps one from holding back a later decision, and the
+rotated share keeps a run of them from holding back an older one.
+Each job reads the Terms off its own day, so a run straddling midnight UTC on
+30 September refuses its plan and the next window converges.
+
 Two further writer steps sit **ahead of the loop** on a dispatch-only footing —
 the `refresh_terms` cursor reset and the `refresh_dockets` targeted re-serve —
 where they precede the walk they change. With `refresh_streams` beside them,
