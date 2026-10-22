@@ -1239,6 +1239,10 @@ def _drop_disclosed(
     snapshot keeps its events: provisioning refuses that shape too, but loudly
     and by name (exit 1, no snapshot in the corpus), which a count here would
     turn silent.
+
+    "Latest" is the newest stored, which under the corpus split is the live
+    content store's newest rather than the blob's vintage; a replay bounds it
+    with :func:`~fedcourtsai.corpus.snapshots_as_of` (``predict-plan --as-of``).
     """
     snapshot = corpus.latest_snapshot(conn, case_id)
     if snapshot is None:

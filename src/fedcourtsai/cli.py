@@ -21,7 +21,7 @@ import textwrap
 import time
 from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
@@ -17272,7 +17272,9 @@ def _report_predictionless(report: PredictionlessReport, *, prefix: str) -> None
         )
 
 
-def _predict_backlog_cases(findings: _BacklogFindings | None = None) -> list[CaseRequest]:
+def _predict_backlog_cases(
+    findings: _BacklogFindings | None = None, *, day: date | None = None
+) -> list[CaseRequest]:
     """The predict stage's own case set, derived from the corpus-level backlog.
 
     What a scheduled predict run fans out over when no trigger names its cases:
@@ -17341,6 +17343,9 @@ def _predict_backlog_cases(findings: _BacklogFindings | None = None) -> list[Cas
     plan that reports on the derivation (``predict-plan``'s case
     reconciliation) reads the same one the fan-out was built from rather than
     deriving a second.
+
+    ``day`` is the deriver's clock. ``None`` — what ``predict-matrix`` passes —
+    reads the wall clock; ``predict-plan --as-of`` passes its replay date.
     """
     settings = get_settings()
     salience_cfg = load_salience_config(settings.config_root)
@@ -17374,6 +17379,7 @@ def _predict_backlog_cases(findings: _BacklogFindings | None = None) -> list[Cas
             settings.config_root / "predictors.yaml",
             cap=salience_cfg.sweep_cases_per_cycle,
             max_attempts=predict_cfg.max_attempts_per_cell,
+            today=day,
         )
     _report_predict_backlog(
         backlog, cap=salience_cfg.sweep_cases_per_cycle, prefix=_warn_prefix(findings)
@@ -17559,8 +17565,8 @@ def _requested_cases(
 
     ``derived`` receives what the backlog mode's derivation found beyond its
     case list (:class:`_BacklogFindings`), and stays empty in the named-case
-    modes, where nothing is derived. ``day`` is the evaluate deriver's clock
-    (see :func:`_evaluate_backlog_cases`); the predict deriver does not take it.
+    modes, where nothing is derived. ``day`` is the deriver's clock (see
+    :func:`_evaluate_backlog_cases` and :func:`_predict_backlog_cases`).
     """
     if body_file is not None:
         return parse_cases(body_file.read_text())
@@ -17580,7 +17586,7 @@ def _requested_cases(
             "disables. Name the target with --body-file, or --court and --docket."
         )
     if backlog == "predict":
-        return _predict_backlog_cases(derived)
+        return _predict_backlog_cases(derived, day=day)
     return _evaluate_backlog_cases(derived, day=day)
 
 
@@ -18208,6 +18214,7 @@ def _predict_fanout(
     note_file: Path | None,
     report: bool,
     collect_prs_file: Path | None = None,
+    day: date | None = None,
 ) -> _PredictFanout:
     """Run the predict planning pipeline: scope, forecastability, ledger, guard, cap.
 
@@ -18223,6 +18230,10 @@ def _predict_fanout(
     happen. Suppression is all-or-nothing on that flag, so no plan-run log ever
     carries a partial set. ``note_file`` is the other write, and a plan passes
     ``None``.
+
+    ``day`` is the forecastability re-check's clock: ``None`` — what
+    ``predict-matrix`` passes — reads the wall clock, and ``predict-plan
+    --as-of`` passes its replay date.
     """
     settings = get_settings()
     predict_config = load_predict_config(settings.config_root)
@@ -18240,7 +18251,7 @@ def _predict_fanout(
     )
     # One clock for the whole plan, so a fan-out that straddles midnight cannot
     # apply a different staleness bound to selection than to the re-check.
-    today = date.today()
+    today = day or date.today()
     cases = _resolve_cases(
         requested,
         lambda c, d: forecastable_events(
@@ -19397,6 +19408,38 @@ def _plan_reconciliation(derived: list[PredictBacklog]) -> CaseReconciliation | 
     return derived[0].reconciliation if derived else None
 
 
+def _plan_as_of(value: str) -> date:
+    """Resolve ``--as-of``: an ISO date, or ``blob`` for the blob's newest pull stamp.
+
+    ``blob`` is the blob's own vintage (:func:`fedcourtsai.corpus.latest_pull_date`),
+    the latest day a round reading it could have known anything from, so it is
+    what a faithful replay of that round bounds its snapshot reads by. A blob
+    with no pull stamp, or no blob at all, is refused rather than read as
+    unbounded: a replay that quietly fell back to live reads would be the
+    defect this flag exists to remove.
+    """
+    if value != "blob":
+        try:
+            return date.fromisoformat(value)
+        except ValueError as exc:
+            raise typer.BadParameter(f"--as-of takes YYYY-MM-DD or `blob`, not {value!r}") from exc
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend == "local" and not db_path.exists():
+        raise typer.BadParameter(
+            f"--as-of blob needs a corpus to read the pull stamp from, and there is none "
+            f"at {db_path} — `fedcourts corpus-pull` first."
+        )
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        stamp = corpus.latest_pull_date(conn)
+    if stamp is None:
+        raise typer.BadParameter(
+            "--as-of blob: the corpus carries no pull stamp to bound the replay by; "
+            "pass the date explicitly."
+        )
+    return stamp
+
+
 @app.command("predict-plan")
 def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     body_file: Annotated[
@@ -19441,6 +19484,17 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
     ] = "",
     approval_report: _ApprovalReportOption = None,
     approval_report_run_url: _ApprovalReportRunUrlOption = "",
+    as_of: Annotated[
+        str,
+        typer.Option(
+            "--as-of",
+            help="Replay the plan as of a day: YYYY-MM-DD, or `blob` for the corpus blob's "
+            "newest pull stamp. The deriver and the forecastability re-check read it as "
+            "today, every newest-snapshot read answers with the newest snapshot dated on "
+            "or before it, and the plan records each snapshot date read under "
+            "`snapshot_bound`. Omit it for a live plan.",
+        ),
+    ] = "",
 ) -> None:
     """Report the predict cells a run would mint, step by step, spending nothing.
 
@@ -19477,23 +19531,49 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
     ``--approval-report`` writes the same plan a second time as bounded
     markdown, for a hold gate to post where a maintainer decides on it. stdout
     is byte-identical either way: the report is a third channel, not a mode.
+
+    ``--as-of`` makes a past plan replayable from its content-addressed blob.
+    The content store keeps every dated snapshot and is not versioned with the
+    blob, so a live read of "the case's newest snapshot" — the decided hold's
+    disclosure scan, the distribution-moment conference bound — can answer with
+    a snapshot stored after the round ran. Under ``--as-of`` those reads are
+    bounded (:func:`fedcourtsai.corpus.snapshots_as_of`) and the planning clock
+    reads the same day, and the plan gains a ``snapshot_bound`` block naming
+    the bound and the snapshot date each read returned. Without it nothing is
+    bounded and the plan carries no such block.
     """
     settings = get_settings()
     planned_run_id = run_id or ids.run_id()
     derived = _BacklogFindings()
-    fanout = _predict_fanout(
-        _requested_cases(body_file, court, docket, event, backlog="predict", derived=derived),
-        planned_run_id,
-        stage="predict-plan",
-        stranded_file=stranded_file,
-        collect_prs_file=collect_prs_file,
-        # A plan writes nothing: no close note, and no step-summary block.
-        note_file=None,
-        report=False,
-    )
-    gate = _predict_ledger_gate(
-        fanout.resolved, settings.config_root / "predictors.yaml", settings.data_root
-    )
+    replay_day = _plan_as_of(as_of) if as_of else None
+    with ExitStack() as stack:
+        bound = (
+            stack.enter_context(corpus.snapshots_as_of(replay_day))
+            if replay_day is not None
+            else None
+        )
+        fanout = _predict_fanout(
+            _requested_cases(
+                body_file,
+                court,
+                docket,
+                event,
+                backlog="predict",
+                derived=derived,
+                day=replay_day,
+            ),
+            planned_run_id,
+            stage="predict-plan",
+            stranded_file=stranded_file,
+            collect_prs_file=collect_prs_file,
+            # A plan writes nothing: no close note, and no step-summary block.
+            note_file=None,
+            report=False,
+            day=replay_day,
+        )
+        gate = _predict_ledger_gate(
+            fanout.resolved, settings.config_root / "predictors.yaml", settings.data_root
+        )
     verdict = check_spend(settings.data_root, load_spend_config(settings.config_root))
     would_mint = [
         {
@@ -19595,6 +19675,8 @@ def predict_plan_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 
         "would_mint": would_mint,
         **_plan_spend(would_mint, seam="predict", breached=verdict.breached),
     }
+    if bound is not None:
+        plan["snapshot_bound"] = bound.as_json()
     _echo_plan(
         plan,
         stage="predict-plan",
