@@ -14578,7 +14578,6 @@ def _read_cell_inputs(
     *,
     want_row: bool,
     cut: bool,
-    related: bool = False,
 ) -> provision.CellRead:
     """One backend read of everything a cell's provisioning decides on.
 
@@ -14598,19 +14597,13 @@ def _read_cell_inputs(
     property of the moment the cell forecasts rather than of the gate — and for
     neither otherwise, which is the evaluate path: an unread list is egress this
     command's single-connection design exists to account for.
-
-    ``related`` reads each ``Vide``-linked docket's latest snapshot on the same
-    connection (:func:`provision.vide_docket_numbers`), resolving its number
-    through the index. The content store has no index to resolve a number
-    through, so under that backend every link is recorded as not in the corpus.
     """
     if backend == "casestore":
         source = _casestore_source()
         events = source.events_for_case(case) if want_row or cut else []
         cutoff = provision.moment_cutoff(event, events) if cut else None
-        latest = source.latest_snapshot(case)
         return provision.CellRead(
-            latest=latest,
+            latest=source.latest_snapshot(case),
             documents=source.documents_for_case(case),
             events=events,
             # The casestore exposes events but no rows; `_casestore_row_refusal`
@@ -14618,47 +14611,65 @@ def _read_cell_inputs(
             row=None,
             cutoff=cutoff,
             dated=source.snapshot_at(case, before=cutoff) if cutoff is not None else None,
-            related=tuple(
-                provision.RelatedRead(number, None, None)
-                for number in (
-                    provision.vide_docket_numbers(latest[1])
-                    if related and latest is not None
-                    else ()
-                )
-            ),
         )
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         events = corpus.events_for_case(conn, case) if want_row or cut else []
         cutoff = provision.moment_cutoff(event, events) if cut else None
-        latest = corpus.latest_snapshot(conn, case)
         read = provision.CellRead(
-            latest=latest,
+            latest=corpus.latest_snapshot(conn, case),
             documents=corpus.documents_for_case(conn, case),
             events=events,
             row=corpus.get_row(conn, case) if want_row else None,
             cutoff=cutoff,
             dated=corpus.snapshot_at(conn, case, before=cutoff) if cutoff is not None else None,
-            related=_read_related(conn, latest) if related else (),
         )
         _echo_read_stats(conn)
     return read
 
 
 def _read_related(
-    conn: corpus.ReadConnection, latest: tuple[date, dict[str, Any]] | None
+    backend: corpus.CorpusBackend, db_path: Path, case: str, payload: Mapping[str, Any]
 ) -> tuple[provision.RelatedRead, ...]:
-    """Each ``Vide``-linked docket's row and latest snapshot, on the cell's connection."""
-    if latest is None:
+    """The ``Vide``-linked dockets of the payload a cell was placed on.
+
+    A read of its own, taken after the cell's gates and placement, so a refused
+    cell spends nothing on companions and the links are the placed payload's.
+    The numbers resolve through the corpus index in one scan. Under the
+    casestore backend, which carries no index, that scan runs over the ordinary
+    read backend the row gate also reaches (ranged in the cell workflows), and
+    each companion's snapshot comes from the content store as the cell's own
+    did; a link with no index reachable is recorded as such, never dropped.
+    """
+    numbers = provision.vide_docket_numbers(payload)
+    if not numbers:
         return ()
-    reads: list[provision.RelatedRead] = []
-    for number in provision.vide_docket_numbers(latest[1]):
-        linked = corpus.live_scotus_case_id_by_docket_number(conn, number)
-        reads.append(
-            provision.RelatedRead(
-                number, linked, corpus.latest_snapshot(conn, linked) if linked else None
-            )
+    if backend == "casestore":
+        source = _casestore_source()
+        choice = corpus.resolve_backend(None)
+
+        def resolve(wanted: Sequence[str]) -> Mapping[str, str] | None:
+            if choice == "local" and not db_path.exists():
+                return None
+            try:
+                with corpus.connect_readonly(db_path, backend=choice) as conn:
+                    found = corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted)
+                    _echo_read_stats(conn)
+                    return found
+            except (OSError, corpus_ranged.RangedBackendError):
+                return None
+
+        return provision.read_related(
+            numbers, own_case=case, resolve=resolve, snapshot=source.latest_snapshot
         )
-    return tuple(reads)
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        reads = provision.read_related(
+            numbers,
+            own_case=case,
+            resolve=lambda wanted: corpus.live_scotus_case_ids_by_docket_numbers(conn, wanted),
+            snapshot=lambda linked: corpus.latest_snapshot(conn, linked),
+        )
+        _echo_read_stats(conn)
+    return reads
 
 
 def _place_at_moment(
@@ -14948,11 +14959,6 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         # exact conditioning the forward path refuses — and the interim arrival
         # bound would be skipped with it.
         cut=moment_cutoff and bool(event),
-        # A predict cell's companions: the dockets the Court links to this one,
-        # read for a cell that names its event. An evaluate cell grades against
-        # the resolved docket, and a case-baseline cell has no moment to cut a
-        # companion to, so neither reads them.
-        related=bool(event),
     )
     found = read.latest
     documents = read.documents
@@ -15018,6 +15024,21 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         case, event, cutoff, read, payload=payload, snapshot_date=snapshot_date, documents=documents
     )
     paths = CasePaths(settings.data_root, court, docket)
+    # A predict cell's companions: the dockets the Court links to the docket the
+    # cell was placed on. Every run-predict cell names its event, a cert
+    # baseline with no cutoff included, which `place_related` bounds by its own
+    # snapshot date; an evaluate cell (no event) grades against the resolved
+    # docket and reads none, and `--out` asks for a payload copy, not a record.
+    related = (
+        [
+            provision.place_related(
+                item, cutoff, event=event, mode=mode, vintage=placement.snapshot_date
+            )
+            for item in _read_related(backend, db_path, case, placement.payload)
+        ]
+        if event and out is None
+        else []
+    )
     # The whole record — snapshot, context.json, documents and manifest, each
     # staged copy through the contact-detail scrubs — goes through the one
     # writer the local cascade shares (`provision.write_cell_record`), so the
@@ -15031,10 +15052,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             mode=mode,
             cutoff=cutoff,
             snapshot_dest=out,
-            related=[
-                provision.place_related(item, cutoff, mode=mode, vintage=placement.snapshot_date)
-                for item in read.related
-            ],
+            related=related,
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)

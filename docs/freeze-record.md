@@ -12363,21 +12363,39 @@ freeze commit is recorded here.
   or held-for petition outside the record as the decisive signal.
 
   **What moved.** `provision-snapshot`, for a cell that names its `--event`,
-  reads the linked docket numbers (`provision.vide_docket_numbers`, at most
-  four, in served order). It resolves each through the live slice of the
-  index alone (`corpus.live_scotus_case_id_by_docket_number`) and stages each
-  one's latest stored snapshot as `record/related/<docket number>.json`, with
-  `related.json` listing every link and the reason any was not staged. Each
-  is cut by the date rule (`provision.place_related`): strictly before the
-  cell's cutoff, or, on a forward cell with no cutoff, strictly before the
-  cell's own snapshot date. The second bound exists because a companion
-  pulled later than the cell's docket could carry an order disposing of both,
-  which the cell's own terminal gate never read. A replay cell with no cutoff
-  gets none. Each staged companion passes the snapshot contact scrub on its
-  own docket's reading. An evaluate cell and a case-baseline cell (no
-  `--event`) read none. Under the `casestore` backend, which reads no index,
-  every link is recorded as not in the corpus. The cert back-test's replay
-  provisioner, which stages no documents either, is unchanged.
+  reads the docket numbers its **placed** snapshot links
+  (`provision.vide_docket_numbers`, at most four, in served order, each
+  shaped as a SCOTUS docket number). It reads them after the cell's gates and
+  placement, so a refused cell reads none. It resolves them in one scan of
+  the live slice of the index (`corpus.live_scotus_case_ids_by_docket_numbers`)
+  and stages each one's latest stored snapshot as
+  `record/related/<docket number>.json`, with `related.json` listing every
+  link and the reason any was not staged. Under the `casestore` backend the
+  production fleet provisions under, the scan runs over the ordinary read
+  backend, as the row gate's does, and the snapshot comes from the content
+  store. Each companion is cut by the date rule (`provision.place_related`):
+  - strictly before the cell's cutoff;
+  - on the interim arrival moment, strictly before its opening day, since the
+    cell's own docket is cut at the opening entry and a companion has no
+    anchor to cut at;
+  - on a forward cell with no cutoff, strictly before the cell's own snapshot
+    date, because a companion pulled later than the cell's docket could carry
+    an order disposing of both, which the cell's own terminal gate never read.
+
+  Each is then redacted as the back-test redacts (`provision.redact_snapshot`),
+  since a companion is always rebuilt from a later payload and its undated
+  top-level fields outlive the cut: `QPLink` exists only once certiorari is
+  granted, and the counsel blocks grow with a grant's amici. The redaction
+  removes the party and counsel blocks, and with them any contact detail. A
+  replay cell with no cutoff gets none. An evaluate cell (no `--event`) and an
+  `--out` copy read none. `local-cascade` stages them the same way. The cert
+  back-test's replay provisioner, which stages no documents either, is
+  unchanged.
+
+  **A residual, stated.** A `truncated` placement keeps the latest payload's
+  `RelatedCaseNumber`, which is undated, so a link the Court added after the
+  cell's moment (a petition later held for another) can be read on such a
+  cell. A `dated` placement reads the links as the docket served them.
 
   No prompt byte and no registry field moves in the carrying change, so no
   digest moves there: `uv run fedcourts process-digest --all` prints
@@ -12403,7 +12421,9 @@ freeze commit is recorded here.
     later poll or fetch needed. Its carrying merge
     exists only once the promotion merges, so the row joins
     `process_version.HARNESS_BOUNDARIES` in the post-promotion fill PR that
-    completes this entry's placeholders.
+    completes this entry's placeholders. A leaderboard built on `main`
+    between the promotion and that fill omits this boundary's listing, which
+    loses composition only, never a cut or a score.
   - **The side test** is the registered one: a stamped cell is after the
     change if the carrying merge is an ancestor of, or equal to, its
     `process_version.pipeline_sha`.

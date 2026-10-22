@@ -21,8 +21,9 @@ payload and documents a cell actually receives.
 *What lands on disk.* :func:`write_cell_record` writes that placement to the
 gitignored ``record/`` — the dated snapshot, the ``context.json`` conditioning
 stamp, ``documents/`` with its manifest, and ``related/`` with the
-``Vide``-linked dockets cut to the same moment (:func:`place_related`), every
-staged copy through the contact-detail scrubs. One writer, because a cell's record is one thing: the
+``Vide``-linked dockets cut to the cell's moment and redacted
+(:func:`place_related`), the snapshot and documents through the contact-detail
+scrubs. One writer, because a cell's record is one thing: the
 ``provision-snapshot`` command and the local cascade both reach it here, so
 neither can hand an agent a record shaped differently from the other's.
 """
@@ -74,8 +75,9 @@ class UnanchorableMoment(ProvisionError):
 class RelatedRead:
     """One ``Vide``-linked docket as the cell's read found it.
 
-    ``case_id`` is ``None`` where no corpus row carries the number, and
-    ``latest`` where the row has no stored snapshot; either way the link is
+    ``case_id`` is ``None`` where no live corpus row carries the number, and
+    ``latest`` where the row has no stored snapshot; ``unread`` says why
+    nothing was looked up at all (no index to resolve through). Every link is
     still recorded in the manifest, so a cell can tell a docket the corpus does
     not hold from one the Court never linked.
     """
@@ -83,6 +85,7 @@ class RelatedRead:
     docket_number: str
     case_id: str | None
     latest: tuple[date, dict[str, Any]] | None
+    unread: str | None = None
 
 
 @dataclass(frozen=True)
@@ -97,9 +100,7 @@ class CellRead:
     ``row`` is present only where the terminal gate needs it, and ``cutoff`` /
     ``dated`` only where the cell's event declares a moment to be placed at —
     ``cutoff`` is where that moment falls, ``dated`` the stored snapshot from
-    before it, if the corpus kept one. ``related`` holds the ``Vide``-linked
-    dockets (:func:`vide_docket_numbers`), read only for a cell that names an
-    event.
+    before it, if the corpus kept one.
     """
 
     latest: tuple[date, dict[str, Any]] | None
@@ -108,7 +109,6 @@ class CellRead:
     row: CorpusRow | None
     cutoff: date | None
     dated: tuple[date, dict[str, Any]] | None
-    related: tuple[RelatedRead, ...] = ()
 
 
 class CasestoreSource:
@@ -414,6 +414,79 @@ def cut_dated_fields(payload: Mapping[str, Any], cutoff: date) -> dict[str, Any]
     return out
 
 
+# Snapshot fields that reveal the outcome — because they exist only once the
+# matter was decided (or record the decision), or because they accrue with the
+# proceedings and so, on a decided docket, betray it — stripped before an
+# agentic replay sees the docket. This blocklist is key-name-based, so every
+# channel's outcome-bearing keys must be listed.
+#
+# The proceedings entries are NOT here: they are truncated by date instead
+# (`truncate_snapshot`). Content offers no rule that separates a disposing order
+# from a pre-decision entry, but a date does — an entry filed before the cutoff
+# cannot record a decision that came after it. Dropping them wholesale left a
+# replay cell reading a docket with no history at all, which is not the docket
+# any forward cell ever saw, and left it unable to observe its own salience band.
+# Truncation is applied on top of this list, never instead of it.
+SNAPSHOT_OUTCOME_FIELDS: tuple[str, ...] = (
+    "disposition",
+    "date_terminated",
+    "date_decided",
+    "date_cert_granted",
+    "date_cert_denied",
+    "date_argued",
+    "date_reargued",
+    "date_rehearing_denied",
+    "clusters",
+    "citations",
+    "citation_count",
+    "opinion_text",
+    "precedential_status",
+    "summary",
+    # Regenerated on docket activity, so on a decided live docket it postdates
+    # (and thereby leaks the existence of) the decision.
+    "sJsonCreationDate",
+    # The /qp/ page is generated when certiorari is GRANTED and opens with the
+    # grant order — the key's very presence leaks the outcome (verified live).
+    # The questions presented reach cells from the petition text instead.
+    "QPLink",
+    # The party and counsel blocks accrue after arrival: every third-party
+    # filing appends its counsel of record, and amici pile onto granted
+    # petitions (mean "Other" entries: 10.37 granted vs 0.45 denied), so on a
+    # decided docket the blocks' sheer size is a grant oracle — and
+    # "AttorneyHeaderOther" is emitted only when the "Other" block is
+    # non-empty, so its very presence is the boolean form of the same oracle
+    # (verified live). "PetitionerTitle" and "RespondentTitle" are NOT here:
+    # they are the arrival-time captions a forward cell sees (pipeline ingest
+    # reads them for the case name).
+    "Petitioner",
+    "Respondent",
+    "Other",
+    "AttorneyHeaderPetitioner",
+    "AttorneyHeaderRespondent",
+    "AttorneyHeaderOther",
+)
+
+
+def redact_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
+    """Drop the top-level fields that reveal that (or how) the matter was decided.
+
+    :data:`SNAPSHOT_OUTCOME_FIELDS` only. The proceedings entries survive this
+    and are handled by :func:`truncate_snapshot`, which is the other half — a
+    caller wanting the pre-decision view wants both.
+
+    Deliberately uniform across provenances: the counsel blocks are stripped
+    from genuinely pre-decision (``dated``) snapshots too, where they are
+    legitimate arrival-time signal, because the blocks are undated — date
+    truncation cannot apply — and a uniform replay information set beats a
+    dated/truncated mixture the scoring would then have to carry. The cost is
+    stated, not hidden: every replay cell is blind to counsel identity, which
+    a forward cell sees, so replay figures understate the same predictor's
+    forward information set. Do not "fix" this on dated snapshots — that
+    reopens the seam on every decided one.
+    """
+    return {key: value for key, value in payload.items() if key not in SNAPSHOT_OUTCOME_FIELDS}
+
+
 def truncate_snapshot(
     payload: Mapping[str, Any], cutoff: date | None
 ) -> tuple[dict[str, Any], int]:
@@ -705,10 +778,16 @@ def place_at_moment(
 VIDE_RELATION: Final = "Vide"
 
 #: At most this many linked dockets are staged, in the order the Court lists
-#: them. Each costs a corpus lookup and a snapshot read on the cell's one
-#: connection, and a docket linked to more than a handful is a group whose
-#: lead the cell's own snapshot already names.
+#: them. Each costs a snapshot read, and a docket linked to more than a handful
+#: is a group whose lead the cell's own snapshot already names.
 MAX_RELATED_DOCKETS: Final = 4
+
+# A SCOTUS docket number as `normalize_docket_number` leaves it: a two-digit
+# Term, the form letter (`-` for a petition, `A` for an application, `O` for an
+# original action) and the sequence. The number becomes a file name under
+# `record/related/`, so anything else upstream serves is refused, as a document
+# kind is (`_checked_kind`).
+_RELATED_NUMBER_RE = re.compile(r"^\d{2}[-AO]\d{1,5}$")
 
 
 def vide_docket_numbers(payload: Mapping[str, Any]) -> tuple[str, ...]:
@@ -717,7 +796,11 @@ def vide_docket_numbers(payload: Mapping[str, Any]) -> tuple[str, ...]:
     Read off ``RelatedCaseNumber``, the list the Court's JSON carries on both
     sides of the link (``{"DisplayCaseNumber": "25-1323", "RelatedType":
     "Vide"}``). Any other relation type is skipped, as are the docket's own
-    number and a repeat, and the list stops at :data:`MAX_RELATED_DOCKETS`.
+    number, a repeat and a number not shaped as a SCOTUS docket number, and the
+    list stops at :data:`MAX_RELATED_DOCKETS`. A caller passes the payload the
+    cell is placed on, so a link the Court added after the cell's moment is not
+    read off a ``dated`` snapshot; a ``truncated`` one keeps the latest list,
+    since the field is undated.
     """
     linked = payload.get("RelatedCaseNumber")
     if not isinstance(linked, list):
@@ -730,10 +813,45 @@ def vide_docket_numbers(payload: Mapping[str, Any]) -> tuple[str, ...]:
         if str(item.get("RelatedType") or "").strip().lower() != VIDE_RELATION.lower():
             continue
         number = normalize_docket_number(str(item.get("DisplayCaseNumber") or ""))
-        if number is None or number == own or number in numbers:
+        if number is None or not _RELATED_NUMBER_RE.match(number):
+            continue
+        if number == own or number in numbers:
             continue
         numbers.append(number)
     return tuple(numbers[:MAX_RELATED_DOCKETS])
+
+
+def read_related(
+    numbers: Sequence[str],
+    *,
+    own_case: str,
+    resolve: Callable[[Sequence[str]], Mapping[str, str] | None],
+    snapshot: Callable[[str], tuple[date, dict[str, Any]] | None],
+) -> tuple[RelatedRead, ...]:
+    """Each linked docket's row and latest stored snapshot.
+
+    ``resolve`` maps the numbers to live case ids in one read, or answers
+    ``None`` where it has no index to read
+    (:func:`corpus.live_scotus_case_ids_by_docket_numbers`); ``snapshot`` reads
+    one case's latest stored snapshot from whichever store serves the cell. A
+    number resolving to the cell's own case is dropped, which covers a payload
+    that serves no ``CaseNumber``.
+    """
+    if not numbers:
+        return ()
+    found = resolve(numbers)
+    if found is None:
+        return tuple(
+            RelatedRead(number, None, None, unread="no corpus index to resolve it through")
+            for number in numbers
+        )
+    reads: list[RelatedRead] = []
+    for number in numbers:
+        linked = found.get(number)
+        if linked == own_case:
+            continue
+        reads.append(RelatedRead(number, linked, snapshot(linked) if linked else None))
+    return tuple(reads)
 
 
 @dataclass(frozen=True)
@@ -753,39 +871,56 @@ class RelatedPlacement:
 
 
 def place_related(
-    related: RelatedRead, cutoff: date | None, *, mode: str, vintage: date
+    related: RelatedRead, cutoff: date | None, *, event: str, mode: str, vintage: date
 ) -> RelatedPlacement:
     """Cut one linked docket to what the cell's own docket could show.
 
     Bounded strictly before the cell's ``cutoff`` where it has one, so a
-    companion is read as it stood when the cell's moment opened. Without one, a
-    forward cell's companion is bounded strictly before ``vintage``, the date of
-    the cell's own snapshot: the companion's stored pull can be newer than the
-    cell's, and an order disposing of both dockets entered in between would
-    reach the cell through the companion after the cell's own terminal gate
-    read a docket without it. Both are the date rule
-    (:func:`truncate_snapshot` and :func:`cut_dated_fields`), which fails closed
-    on an undated entry exactly as the cell's own cut does. A replay cell with no
-    cutoff gets none: nothing bounds it by its event date.
+    companion is read as it stood when the cell's moment opened. On the
+    interim arrival moment, whose own docket is cut at the opening entry
+    because an application can be submitted and decided inside one day, the
+    companion is bounded strictly before the opening day instead: it carries no
+    anchor to cut at. Without a cutoff, a forward cell's companion is bounded
+    strictly before ``vintage``, the date of the cell's own snapshot: the
+    companion's stored pull can be newer, and an order disposing of both
+    dockets entered in between would reach the cell through the companion
+    after the cell's own terminal gate read a docket without it. A replay cell
+    with no cutoff gets none: nothing bounds it by its event date.
+
+    The cut is the date rule (:func:`truncate_snapshot` and
+    :func:`cut_dated_fields`), which fails closed on an undated entry, and then
+    the back-test's outcome redaction (:func:`redact_snapshot`),
+    because a companion is always rebuilt from a later payload and its undated
+    top-level fields outlive the cut: ``QPLink`` exists only once certiorari is
+    granted, and the party and counsel blocks grow with a grant's amici. The
+    redaction takes the contact-bearing blocks with it, so a staged companion
+    carries no counsel contact details to scrub.
     """
 
     def withheld(reason: str) -> RelatedPlacement:
         return RelatedPlacement(related.docket_number, related.case_id, None, None, reason)
 
+    if related.unread is not None:
+        return withheld(related.unread)
     if related.case_id is None:
         return withheld("not in the corpus")
     if related.latest is None:
         return withheld("no stored snapshot")
     if cutoff is None and mode == "replay":
         return withheld("a replay cell with no cutoff")
-    bound = cutoff if cutoff is not None else vintage
+    if cutoff is None:
+        bound = vintage
+    elif is_interim_arrival(event):
+        bound = cutoff - timedelta(days=1)
+    else:
+        bound = cutoff
     stored_on, payload = related.latest
     cut, _ = truncate_snapshot(payload, bound)
     return RelatedPlacement(
         related.docket_number,
         related.case_id,
         min(stored_on, bound),
-        cut_dated_fields(cut, bound),
+        redact_snapshot(cut_dated_fields(cut, bound)),
         None,
     )
 
@@ -860,7 +995,9 @@ def write_cell_record(
     Three things, written together because they describe one information set: the
     dated snapshot, the ``context.json`` the prompt contract reads its mode and
     conditioning from, and ``documents/`` with the manifest naming what is there
-    — both staged copies through the contact-detail scrubs. A caller that wrote
+    — both staged copies through the contact-detail scrubs — and, where
+    ``related`` holds any, ``related/`` with each linked docket
+    :func:`place_related` placed and its ``related.json``. A caller that wrote
     only the first would hand an agent a snapshot with no frozen mode, band or
     cutoff beside it — the cell would then have to guess its own posture, which
     is the one thing provisioning exists to settle.
@@ -957,19 +1094,12 @@ def write_cell_record(
             write_text(paths.document(kind), doc.text if scrubbed is None else scrubbed.text)
         write_raw_json(paths.documents_manifest, document_manifest(staged))
     if related and snapshot_dest is None:
-        # Each linked docket's snapshot through the same contact scrub as the
-        # cell's own, on its own docket-level reading: a companion's
-        # self-represented filer is withheld on the companion's blocks.
+        # Each linked docket as `place_related` cut and redacted it: the
+        # redaction already removed the party and counsel blocks a contact
+        # scrub would read.
         for item in related:
-            if item.payload is None:
-                continue
-            related_scrub = (
-                scrub_snapshot_contacts(item.payload) if unrepresented_sides(item.payload) else None
-            )
-            write_raw_json(
-                paths.related_snapshot(item.docket_number),
-                item.payload if related_scrub is None else related_scrub.payload,
-            )
+            if item.payload is not None:
+                write_raw_json(paths.related_snapshot(item.docket_number), item.payload)
         write_raw_json(paths.related_manifest, related_manifest(related))
     return RecordWrite(
         snapshot=dest,
