@@ -120,7 +120,7 @@ _MERITS_WORDS: Final[dict[Judgment, str]] = {
 }
 
 _MOMENT_WORDS: Final[dict[Moment, str]] = {
-    Moment.distribution: "at its distribution for conference",
+    Moment.distribution: "when it was distributed for conference",
     Moment.relist: "after the Court first relisted it",
     Moment.cvsg: "after the Court invited the Solicitor General's views",
     Moment.sg_brief: "after the Solicitor General filed the invited brief",
@@ -134,20 +134,29 @@ _MOMENT_WORDS: Final[dict[Moment, str]] = {
 _MOMENT_VALUES: Final = frozenset(m.value for m in Moment)
 
 _FOOTER: Final = (
-    "Every forecast above is a committed file in a public git ledger, made before "
-    "the outcome existed; its timestamp in the ledger is the proof. A forecast is "
-    "not an accuracy claim: scored results, and the rules for reading them, are on "
-    "the [Results page](https://fedcourts.ai/results/). Each predictor is a "
-    "frontier model given the same prompt and the same provisioned case record, "
-    "though not at the same moment."
+    "Every forecast above was committed to a public git ledger before the outcome "
+    "existed, and its timestamp there is the proof. A forecast is not a claim of "
+    "accuracy: scored results, and the rules for reading them, are on the "
+    "[Results page](https://fedcourts.ai/results/). Each model is a frontier AI "
+    "model given the same prompt and the same case materials, though not at the "
+    "same moment."
 )
 
 #: The two halves of a group's outcome count, by stage: the stage's usual
 #: outcome, and everything else.
 _USUAL_LABEL: Final[dict[Stage, tuple[str, str]]] = {
-    Stage.cert: ("denied", "not denied"),
-    Stage.interim: ("denied", "not denied"),
+    Stage.cert: ("denied", "another outcome"),
+    Stage.interim: ("denied", "another outcome"),
     Stage.merits: ("left standing", "reversed or vacated"),
+}
+
+#: The name a reader knows each predictor family by. A predictor id is
+#: ``<family>-<variant>``; the update names the family, and an id outside
+#: these families is shown as it is.
+_FAMILY_NAMES: Final[dict[str, str]] = {
+    "claude": "Claude",
+    "codex": "Codex",
+    "gemini": "Gemini",
 }
 
 #: What a lay reader needs to know to read a stage's percentages.
@@ -486,7 +495,8 @@ def _item_line(item: EventItem, repo_url: str) -> str:
     docket = f" (No. {item.docket_number})" if item.docket_number else ""
     outcome = f" — {item.outcome}." if item.outcome is not None else "."
     forecasts = " · ".join(
-        f"{forecast.predictor_id} {_percent(forecast.probability)}" for forecast in item.forecasts
+        f"{_display_name(forecast.predictor_id)} {_percent(forecast.probability)}"
+        for forecast in item.forecasts
     )
     return (
         f"- **{_escape(item.caption)}**{docket}{outcome} Forecasts: {forecasts}"
@@ -494,22 +504,35 @@ def _item_line(item: EventItem, repo_url: str) -> str:
     )
 
 
+def _display_name(predictor_id: str) -> str:
+    """The predictor as a reader knows it: its family's name for a ``-baseline`` id."""
+    family, _, variant = predictor_id.partition("-")
+    name = _FAMILY_NAMES.get(family)
+    return name if name is not None and variant == "baseline" else predictor_id
+
+
 def _percent(probability: float) -> str:
     """A probability as a whole percentage, never rounded to certainty."""
-    if probability < 0.005:
+    percent = round(probability * 100)
+    if percent < 1:
         return "<1%"
-    if probability > 0.995:
+    if percent > 99:
         return ">99%"
-    return f"{round(probability * 100)}%"
+    return f"{percent}%"
 
 
 def _outcome_count(stage: Stage | None, members: Sequence[EventItem]) -> str:
-    """How a resolved group split, so the ordering below cannot hide the base rate."""
+    """How a resolved group split, so the ordering below cannot hide the base rate.
+
+    A group of one shows its outcome on its own line, so it gets no count.
+    """
+    if len(members) == 1:
+        return ""
     usual_label, other_label = (
         _USUAL_LABEL.get(stage, ("usual", "other")) if stage is not None else ("usual", "other")
     )
     usual = sum(1 for item in members if item.usual)
-    return f"{len(members)} resolved: {len(members) - usual} {other_label}, {usual} {usual_label}. "
+    return f"{len(members)} resolved: {usual} {usual_label}, {len(members) - usual} {other_label}. "
 
 
 def _group_order(stage: Stage | None, moment: Moment | None) -> tuple[int, str]:
@@ -531,16 +554,20 @@ def _section(title: str, items: Sequence[EventItem], repo_url: str, *, resolved:
     for item in items:
         groups.setdefault((item.stage, item.moment), []).append(item)
     lines = [f"## {title}", ""]
+    explained: set[Stage | None] = set()
     for stage, moment in sorted(groups, key=lambda key: _group_order(*key)):
         members = groups[(stage, moment)]
-        lines += [
-            _heading(stage, moment),
-            "",
-            (_outcome_count(stage, members) if resolved else "")
-            + f"Each percentage is a model's committed chance of {_chance_of(stage)}."
-            + (_STAGE_NOTE.get(stage, "") if stage is not None else ""),
-            "",
-        ]
+        # How to read the percentages is said once per stage in a section,
+        # under the stage's first group.
+        note = (
+            ""
+            if stage in explained
+            else f"Each percentage is a model's committed chance of {_chance_of(stage)}."
+            + (_STAGE_NOTE.get(stage, "") if stage is not None else "")
+        )
+        explained.add(stage)
+        intro = ((_outcome_count(stage, members) if resolved else "") + note).strip()
+        lines += [_heading(stage, moment), ""] + ([intro, ""] if intro else [])
         usual = [item for item in members if item.usual]
         lines += [_item_line(item, repo_url) for item in members if not item.usual]
         lines += [_item_line(item, repo_url) for item in usual]

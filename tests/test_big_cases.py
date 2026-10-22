@@ -1411,14 +1411,14 @@ def test_a_petition_row_s_lines_are_filled_with_the_names(tmp_path: Path) -> Non
         (
             "granted",
             "granted",
-            "The Court takes up the United States' case; "
-            + "a grant alone decides nothing yet about who is right.",
+            "The Court takes up the United States' case. "
+            + "A grant alone decides nothing yet about who is right.",
         ),
         (
             "denied",
             "not-granted",
-            "The United States' petition ends and the lower court's decision stands; "
-            + "that is not a ruling that the lower court was right.",
+            "The United States' petition ends and the lower court's decision stands. "
+            + "That is not a ruling that the lower court was right.",
         ),
     ]
 

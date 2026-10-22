@@ -185,13 +185,13 @@ def test_petition_lines_say_a_grant_decides_nothing_and_a_denial_is_no_ruling() 
     assert _lines(Stage.cert, "United States", "Carroll") == {
         "granted": (
             "granted",
-            "The Court takes up the United States' case; "
-            "a grant alone decides nothing yet about who is right.",
+            "The Court takes up the United States' case. "
+            "A grant alone decides nothing yet about who is right.",
         ),
         "denied": (
             "not-granted",
-            "The United States' petition ends and the lower court's decision stands; "
-            "that is not a ruling that the lower court was right.",
+            "The United States' petition ends and the lower court's decision stands. "
+            "That is not a ruling that the lower court was right.",
         ),
     }
 
@@ -200,11 +200,12 @@ def test_application_lines_are_temporary_relief() -> None:
     assert _lines(Stage.interim, "Trump", "California") == {
         "granted": (
             "granted",
-            "Trump gets the relief requested, for now; the case continues in the lower courts.",
+            "Trump gets the relief requested for now, while the case continues in the lower "
+            + "courts.",
         ),
         "denied": (
             "not-granted",
-            "Trump does not get the relief requested, for now; things stay as the lower "
+            "Trump does not get the relief requested for now, and things stay as the lower "
             "courts left them while the case continues.",
         ),
     }
@@ -220,14 +221,14 @@ def test_merits_lines_pair_by_side_not_one_to_one() -> None:
         "vacated": "disturbed",
     }
     assert lines["reversed"][1] == (
-        "The Department of Labor wins in the Court; the lower court's decision is "
-        "overturned, and any remaining issues go back to it."
+        "The Department of Labor wins: the lower court's decision is "
+        "overturned, and any remaining issues go back to that court."
     )
     assert lines["affirmed"][1] == (
-        "Sun Valley Orchards wins in the Court; the lower court's decision is upheld."
+        "Sun Valley Orchards wins: the lower court's decision is upheld."
     )
     assert lines["vacated"][1] == (
-        "The lower court's decision is set aside and the case goes back to it, "
+        "The lower court's decision is set aside and the case goes back to that court, "
         "without the Court deciding it for either side."
     )
 
