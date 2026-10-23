@@ -220,6 +220,16 @@ def test_the_bound_refuses_the_whole_apply(tmp_path: Path) -> None:
         assert _stored(conn, "scotus/5001") == 0
 
 
+def test_a_write_the_corpus_does_not_admit_stops_the_apply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with corpus.connect(tmp_path / "c.db") as conn:
+        _seed(conn)
+        monkeypatch.setattr(corpus, "raise_cert_amicus_briefs", lambda _conn, _updates: 1)
+        with pytest.raises(RuntimeError, match="plan and the corpus disagree"):
+            rederive_cert_amicus_briefs(conn, apply=True, max_changes=2)
+
+
 def test_a_re_run_after_the_apply_changes_nothing(tmp_path: Path) -> None:
     with corpus.connect(tmp_path / "c.db") as conn:
         _seed(conn)

@@ -2188,8 +2188,8 @@ jobs:
         # Network-bound like the distribution re-derivation: under the corpus
         # split the pass reads one content-store object per cert-form live-slice
         # row (well over ten thousand), pooled by the shared prefetch, then pays
-        # the blob push. That pass reads a larger population inside the same
-        # cap. With the dedupe prerequisite (10m) ahead of it the chain stays
+        # the blob push. The distribution re-derivation reads a larger
+        # population inside the same cap. With the dedupe prerequisite (10m) ahead of it the chain stays
         # inside the job's cap and the opening credentials' 1h lives.
         timeout-minutes: 30
         env:
