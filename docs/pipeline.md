@@ -887,8 +887,8 @@ window; a volume-linked row is skipped unfetched and costs no slot.
 `opinion-record` starts only when the parse read a document, waits for the
 walk, then re-validates the plan against a fresh pull, refuses a plan above the
 slice, above twenty rows a document of it, or with a class above
-`opinion_record_ceiling`, inserts fill-only, pushes the blob and only then
-mints the App token for the pointer commit. `ocr-sweep` waits for it, since
+`opinion_record_ceiling`, stores each writing's text in the content store,
+inserts fill-only, pushes the blob and only then mints the App token for the pointer commit. `ocr-sweep` waits for it, since
 both push the one corpus pointer and the run's lock orders no jobs within the
 run; its chain ends before the OCR sweep's parse can, so the lock's worst-case
 hold is unchanged. A row the reader refuses stays unrecorded and is offered
@@ -1258,18 +1258,20 @@ withheld from the `query` rows, and no gate, mint or outcome reads them.
 
 `opinion-record` builds the per-opinion record — each opinion's kind, author,
 joiners and word count — into the corpus `opinions` table, with who sat on each
-signed decision in `opinion_benches` (`fedcourts
+signed decision in `opinion_benches` and each writing's text in the content
+store, pointed at from `opinion_texts` (`fedcourts
 backfill-opinion-record`), for OT2020–OT2025, a range pinned in the workflow rather
 than taken as an input (OT2017–OT2019 list only whole volumes, which the pass
 skips). It fetches each document the Court's opinions listing links that the
-record does not yet hold whole — unrecorded, or a signed decision recorded
-without its bench row — from supremecourt.gov at about one request a second and
+record does not yet hold whole — unrecorded, a signed decision recorded
+without its bench row, or a document recorded without its text row — from supremecourt.gov at about one request a second and
 inserts fill-only, and
 it writes nothing under `data/`, so its commit is the corpus pointer alone. The
 PDFs are fetched and parsed in the credential-free parse job; the writer pulls
 the corpus fresh under the lock, re-validates the readings, resolves each case
-id, inserts and pushes, and mints the App token only after the push. The
-bound is the dry run's "would insert N": opinion rows and bench rows together. Each run fetches again, so an apply does not lead
+id, stores each text, inserts and pushes, and mints the App token only after
+the push. The bound is the dry run's "would insert N": opinion, bench and text
+rows together. Each run fetches again, so an apply does not lead
 with a dry run, and a re-dispatched dry run after the apply is the control.
 Nothing a cell sees moves: the table is no part of a `query` row, and no gate,
 mint, outcome or score reads it.

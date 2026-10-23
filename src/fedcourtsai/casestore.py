@@ -21,6 +21,7 @@ Layout (under the configured ``s3://<bucket>/<prefix>``)::
         snapshots/<YYYY-MM-DD>.json            # dated point-in-time docket payload
         documents/documents.json               # manifest: kind -> current text leaf
         documents/<kind>/<YYYY-MM-DD>-<digest>.txt   # extracted text (content-addressed leaf)
+    scotus/opinions/OT<term>/<listing>-<digest>.json  # one opinion document's writings
 
 **Write-once discipline.** Bulk content objects are never overwritten in place, so
 "what did a cell see?" stays reproducible: document text leaves are
@@ -518,6 +519,17 @@ def mirrors_connection(conn: ReadConnection) -> bool:
     return False
 
 
+def write_transport(conn: ReadConnection) -> ObjectTransport | None:
+    """The transport a writer storing objects for a write on ``conn`` may use, or ``None``.
+
+    The two remote-write gates a mirror passes (:func:`_mirror_transport`,
+    :func:`mirrors_connection`), for a writer whose object must land before its
+    pointer row does and so cannot be best-effort: ``None`` means store
+    nothing and record no pointer.
+    """
+    return _mirror_transport() if mirrors_connection(conn) else None
+
+
 def _best_effort(description: str, write: Callable[[ObjectTransport], object]) -> None:
     """Run one mirror write against the mirror transport, swallowing any failure.
 
@@ -687,7 +699,29 @@ def document_leaf_key(case_id: str, kind: str, fetched_at: date, digest: str) ->
     )
 
 
+def opinion_text_key(term: int, listing_number: str, digest: str) -> str:
+    """One opinion document's writings, content-addressed under the Court's listing key.
+
+    ``scotus/opinions/OT<term>/<listing_number>-<digest>.json``. Keyed by the
+    listing row rather than by case because the document is the unit: a
+    consolidated decision is one document for several dockets, and the
+    per-opinion record keys its rows the same way. A docket id is numeric, so
+    the ``opinions`` segment cannot collide with a case prefix.
+    """
+    return f"scotus/opinions/OT{term}/{listing_number}-{digest[:_LEAF_DIGEST_CHARS]}.json"
+
+
 # --- writers ------------------------------------------------------------------
+
+
+def write_opinion_text(
+    transport: ObjectTransport, term: int, listing_number: str, body: bytes
+) -> ObjectRef:
+    """Store one opinion document's writings at its content-addressed key; never overwrite."""
+    digest = digest_bytes(body)
+    key = opinion_text_key(term, listing_number, digest)
+    transport.put(key, body, if_absent=True)
+    return ObjectRef(key=key, digest=digest, size=len(body))
 
 
 def write_case(transport: ObjectTransport, row: CorpusRow) -> ObjectRef:
@@ -1022,6 +1056,14 @@ def read_opinion_text(transport: ObjectTransport, case_id: str) -> str | None:
         return None
     text = json.loads(body).get("opinion_text")
     return text if isinstance(text, str) and text else None
+
+
+def read_pinned(transport: ObjectTransport, key: str, digest: str) -> bytes | None:
+    """The object at ``key`` when its bytes are the ones ``digest`` pins, else ``None``."""
+    body = transport.get(key)
+    if body is None or digest_bytes(body) != digest:
+        return None
+    return body
 
 
 class _CasestoreReadSource:

@@ -1458,6 +1458,43 @@ def _migrate_opinion_benches(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE opinion_benches ADD COLUMN {column} {ddl}")
 
 
+# Per-column DDL for `opinion_texts`: at most one row per document the
+# per-opinion record holds (`pipeline.opinion_record`), keyed as `opinions` is,
+# pointing at the content-store object that holds each of its writings' text
+# (`casestore.opinion_text_key`). The text is payload, so it lives in the store
+# and this row is its pointer: the object's key, digest and size, and the text
+# rule it was cut under. Written only by the `backfill-opinion-record` pass,
+# fill-only, after the object is stored, in the transaction that inserts the
+# document's other rows or on a later pass for a document recorded without
+# one. A row whose `object_key` is null says the re-read writings were not the
+# stored ones, so no text was stored for them, which also ends the re-reading.
+OPINION_TEXTS_COLUMN_DDL: dict[str, str] = {
+    "term": "INTEGER NOT NULL",
+    "listing_number": "TEXT NOT NULL",
+    "object_key": "TEXT",
+    "digest": "TEXT",
+    "bytes": "INTEGER",
+    "text_rule": "TEXT NOT NULL",
+    "read_at": "TEXT NOT NULL",
+}
+
+
+def _migrate_opinion_texts(conn: sqlite3.Connection) -> None:
+    """Create `opinion_texts` from its DDL map, and add any column added since.
+
+    Idempotent, and like `opinions` reached only by a writer's connection: a
+    read-only open of a blob written before the table existed reads it as empty.
+    """
+    columns = ", ".join(f"{name} {ddl}" for name, ddl in OPINION_TEXTS_COLUMN_DDL.items())
+    conn.execute(
+        f"CREATE TABLE IF NOT EXISTS opinion_texts ({columns}, PRIMARY KEY (term, listing_number))"
+    )
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(opinion_texts)")}
+    for column, ddl in OPINION_TEXTS_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE opinion_texts ADD COLUMN {column} {ddl}")
+
+
 # Per-column DDL for `argument_sittings`: one row per argument session of an
 # October Term, as the Court's transcript list heads it, keyed by the Term and
 # the session's first day. Written by the live poll's transcript pass, which
@@ -1664,6 +1701,7 @@ def _apply_schema(conn: sqlite3.Connection) -> None:
     _migrate_documents(conn)
     _migrate_opinions(conn)
     _migrate_opinion_benches(conn)
+    _migrate_opinion_texts(conn)
     _migrate_argument_sittings(conn)
 
 

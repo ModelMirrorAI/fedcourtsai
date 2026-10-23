@@ -1570,8 +1570,8 @@ Access mirrors each workflow's role in the pipeline:
 | `run-repair` — `handoff-parse` job | none | every fetch from supremecourt.gov and every parse of what it served: no environment, no `id-token: write`, no secret, and a step asserts the AWS and OIDC variables are absent first; its only output is the dry-run ledger and, on an apply, the plan artifact |
 | `run-repair` — votes writer | none | on an apply only: re-validates the plan against the ledger and stamps `outcome.json`; no corpus, no role, no `id-token` — the data App token pushes the commit |
 | `run-seed` — `order-votes-projection`, `order-votes-parse`, `order-votes` jobs | read-only, none, none | the order-list vote sweep: the same three-job split as run-repair's `order-votes` pass on the daily window — a projection job with the read-only role (a full index `corpus-pull`, then each population case's docket number), a parse job holding no credential (no environment, no `id-token`, no secret, and the same AWS/OIDC guard), and a writer holding only the data App token, minted after the planned stamps are applied |
-| `run-seed` — `opinion-record-projection`, `opinion-record-parse`, `opinion-record` jobs | read-only, none, read-write | the opinion-record sweep: the same three-job split as run-repair's `opinion-record` pass on the daily window, over the current and previous Term — a projection job with the read-only role (the record's listing keys), a parse job holding no credential (the same AWS/OIDC guard) that reads at most the window's slice of documents, and a writer under `corpus-write` that pulls fresh, re-validates and inserts, pushes the blob, and mints the data App token only after the push |
-| `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied, `corpus-push`, then the pointer commit — no fetch, no PDF parse |
+| `run-seed` — `opinion-record-projection`, `opinion-record-parse`, `opinion-record` jobs | read-only, none, read-write | the opinion-record sweep: the same three-job split as run-repair's `opinion-record` pass on the daily window, over the current and previous Term — a projection job with the read-only role (the record's listing keys), a parse job holding no credential (the same AWS/OIDC guard) that reads at most the window's slice of documents, and a writer under `corpus-write` that pulls fresh, re-validates, stores each writing's text in the content store and inserts, pushes the blob, and mints the data App token only after the push |
+| `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied (the opinion-record writer storing each writing's text in the content store first), `corpus-push`, then the pointer commit — no fetch, no PDF parse |
 | `run-repair` — corpus job | read-only on a dry run, read-write on an apply | a dry run pulls the index, applies the dedupe (and, for the overhang clear, the scope reconcile) to the runner's copy alone and tees the pass's ledger: no App token, no `corpus-write` lock, the remote-writes switch off, no push. An apply holds the lock, the read-write role and the App token for the whole job, re-assumed for the OCR pass. The dry run narrows what is held, not what is reachable: the job still binds `corpus-write` with `id-token: write`, so any step, the OCR and document back-fill dry runs' PDF parsing among them, can still mint the read-write role |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull). A forward predict cell's provisioning step also fetches its docket's current JSON from the Court (the pre-mint poll), and a post-run step holding no credential fetches it once more, both through the live poller's client, which refuses any hop off the Court's host; each payload is only scanned for the event's outcome, never stored or handed to the cell |
@@ -1976,16 +1976,18 @@ release dataset publish; for the application back-fill, the Term's highest
 stored application serial and its live-owned serials, which say how far the
 corpus's rows reach and which of them the live channel polls; for the
 opinion record, the (Term, listing number) of each document it already holds
-whole and of each signed decision it holds without a bench row, the row key of
-the Court's own opinions listing. Each says something about the
+whole, of each signed decision it holds without a bench row and of each
+document it holds without a text row, the row key of the Court's own opinions
+listing. Each says something about the
 compilation extent — which public dockets the pipeline holds — on the footing
 argued above, and nothing about their contents. `repair-plan-<run_id>`, on an
 apply only, carries what the parse read: for the vote passes, each planned
 record (votes, provenance, writing roles — the fields the writer commits to
 public git anyway); for the opinion record, each document's opinion rows read
 off the Court's listing and PDF (kind, author, joiners, word counts, the
-printed header sentence) and the bench and non-participation its syllabus
-prints, with the case id left for the writer to resolve. The
+printed header sentence, each writing's text as the Court published it) and
+the bench and non-participation its syllabus prints, with the case id left
+for the writer to resolve. The
 application back-fill's plan carries each served docket JSON verbatim —
 party contact blocks included, a self-represented applicant's address,
 telephone and prisoner number among them — with the ledger's structured

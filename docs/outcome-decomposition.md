@@ -2260,11 +2260,11 @@ committed evaluations are never edited.
 
 ### What remains unbuilt
 
-1. **Per-writing opinion text.** The `opinions` table records each writing's
-   kind, author, joiners and length from the Court's own documents, but stores no
-   text, and the content store holds a majority-opinion body for only a sliver
-   of the granted cases. Storing each writing's text from the documents the
-   `opinion-record` pass already reads is a corpus change on a repair pass.
+1. **Per-writing opinion text in the cell.** The `opinion-record` pass stores
+   each writing's text in the content store beside the `opinions` rows
+   (`opinion_texts`, [corpus/README.md](../corpus/README.md)), filling the
+   documents it already records as its sweep and its repair pass re-read
+   them; nothing stages that text into a merits evaluate cell yet.
 2. **The merits calibration cells.** The schema fields, the draft prompt
    section, the cert and interim sample (`fedcourts reasoning-pilot-sample`,
    which also writes the blind labeling packet), the report (`fedcourts

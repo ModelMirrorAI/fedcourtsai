@@ -8,6 +8,7 @@ sizes), written out here; nothing in this file touches the network.
 from __future__ import annotations
 
 import ast
+import dataclasses
 import json
 import re
 import sqlite3
@@ -19,7 +20,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.handoff import HandoffRefused, read_handoff, write_handoff
 from fedcourtsai.pipeline import opinion_record
@@ -204,6 +205,33 @@ def test_the_slip_splits_at_each_caption_and_counts_footnotes() -> None:
     assert dissent.words == count_words(
         "JUSTICE ALITO, with whom JUSTICE THOMAS joins, dissenting. I would reverse."
     )
+    # The text is the lines counted, spacing collapsed; the note's mark is gone.
+    assert lead.text == (
+        "JUSTICE KAGAN delivered the opinion of the Court.*\n"
+        + "The question is simple.1 We answer it.\nIt is so ordered."
+    )
+    assert lead.footnotes == "A footnote of six words."
+    assert (
+        dissent.text
+        == "JUSTICE ALITO, with whom JUSTICE THOMAS joins,\ndissenting.\nI would reverse."
+    )
+    for section in sections:
+        assert _recounts(section)
+
+
+def _recounts(section: Section) -> bool:
+    """Whether a section's text and footnotes count to its own words, as the plan check asks."""
+    entry = OpinionEntry(
+        position=1,
+        kind=WritingKind.dissent,
+        author="Alito",
+        header=section.header.text,
+        words=section.words,
+        footnote_words=section.footnote_words,
+        text=section.text,
+        footnotes=section.footnotes,
+    )
+    return opinion_record._text_problem(entry) is None
 
 
 def test_an_unread_slip_header_is_a_problem() -> None:
@@ -262,6 +290,9 @@ def test_the_print_splits_mid_page_and_drops_the_amicus_note() -> None:
     assert dissent.footnote_words == 4
     assert lead.words == 7 + 8 + 4 + 5
     assert dissent.words == 9 + 3 + 4
+    assert dissent.text.endswith("I would reverse. 1 Respectfully.")
+    assert dissent.footnotes == "The dissent's footnote here."
+    assert all(_recounts(section) for section in sections)
 
 
 def test_footnote_1_on_an_opening_page_is_assigned_by_count() -> None:
@@ -400,6 +431,16 @@ class _Fetcher:
         return b"%PDF"
 
 
+def _texted(words: int, footnote_words: int) -> dict[str, Any]:
+    """An entry's counts with a text and footnotes the word rule counts to them."""
+    return {
+        "words": words,
+        "footnote_words": footnote_words,
+        "text": " ".join(["word"] * (words - footnote_words)),
+        "footnotes": " ".join(["note"] * footnote_words),
+    }
+
+
 def _reading(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
     del data
     opinions = [
@@ -407,22 +448,34 @@ def _reading(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
             position=1,
             kind=WritingKind.opinion_of_the_court,
             author="Kagan",
-            words=100,
-            footnote_words=10,
             header="JUSTICE KAGAN delivered the opinion of the Court.",
+            **_texted(100, 10),
         ),
         OpinionEntry(
             position=2,
             kind=WritingKind.dissent,
             author="Alito",
             joins=[OpinionJoin(justice="Thomas", qualifier="as to Part I")],
-            words=50,
-            footnote_words=0,
             header="JUSTICE ALITO, with whom JUSTICE THOMAS joins as to Part I, dissenting.",
+            **_texted(50, 0),
         ),
     ]
     return opinion_record._base(
         entry, status="read", source_format="slip", lineup="scotus-syllabus/2", opinions=opinions
+    )
+
+
+@pytest.fixture(autouse=True)
+def _store() -> casestore.InMemoryObjectTransport:
+    """An injected content store, which every write in this file may store texts in."""
+    store = casestore.InMemoryObjectTransport()
+    casestore.set_active_transport(store)
+    return store
+
+
+def _writer(conn: sqlite3.Connection) -> opinion_record.RecordWriter:
+    return lambda pairs, benches, texts: insert_opinions(
+        conn, pairs, benches, texts, store=casestore.write_transport(conn)
     )
 
 
@@ -456,7 +509,7 @@ def test_apply_inserts_fill_only_and_a_rerun_fetches_nothing(_corpus: Path) -> N
     fetcher = _Fetcher([_listing("1", "25-1"), _listing("2", "25-2")])
     with corpus.connect(_corpus) as conn:
         dry = build_opinion_record(conn, fetcher, terms=[2025])
-        assert not dry.applied and dry.rows == 4 and dry.benches == 2
+        assert not dry.applied and (dry.rows, dry.benches, dry.texts) == (4, 2, 2)
         assert conn.execute("SELECT COUNT(*) FROM opinions").fetchone()[0] == 0
         assert [r.case_id for r in dry.readings] == ["scotus/1", None]
 
@@ -466,7 +519,7 @@ def test_apply_inserts_fill_only_and_a_rerun_fetches_nothing(_corpus: Path) -> N
             terms=[2025],
             apply=True,
             max_rows=3,
-            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
+            write=_writer(conn),
         )
         assert refused.refused and not refused.applied
         assert conn.execute("SELECT COUNT(*) FROM opinions").fetchone()[0] == 0
@@ -476,10 +529,11 @@ def test_apply_inserts_fill_only_and_a_rerun_fetches_nothing(_corpus: Path) -> N
             fetcher,
             terms=[2025],
             apply=True,
-            max_rows=6,
-            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
+            max_rows=8,
+            write=_writer(conn),
         )
         assert done.applied and done.rows == 4 and done.benches_inserted == 2
+        assert done.texts_inserted == 2
         row = conn.execute(
             "SELECT * FROM opinions WHERE listing_number = '1' AND position = 2"
         ).fetchone()
@@ -495,7 +549,7 @@ def test_apply_inserts_fill_only_and_a_rerun_fetches_nothing(_corpus: Path) -> N
             terms=[2025],
             apply=True,
             max_rows=0,
-            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
+            write=_writer(conn),
         )
         assert again.rows == 0 and again.already_recorded == 2 and fetcher.fetched == []
         assert conn.execute("SELECT COUNT(*) FROM opinions").fetchone()[0] == 4
@@ -544,7 +598,7 @@ def test_no_retrieval_row_carries_the_opinion_record() -> None:
 def test_only_the_record_s_own_modules_touch_the_table() -> None:
     """No module but the writer, the schema and the lineup reader names the record's tables in SQL.
 
-    The ``opinions`` and ``opinion_benches`` tables. So no retrieval,
+    The ``opinions``, ``opinion_benches`` and ``opinion_texts`` tables. So no retrieval,
     provisioning or outcome path can read them without this test changing:
     provisioning reaches them only through ``pipeline/authorship.py``'s tally,
     held back from every cell until a re-bless, and scoring only through the
@@ -559,7 +613,7 @@ def test_only_the_record_s_own_modules_touch_the_table() -> None:
         "pipeline/authorship.py",
         "pipeline/authorship_rates.py",
     }
-    naming = re.compile(r"\b(?:from|into|table|update|exists) opinion(?:s|_benches)\b")
+    naming = re.compile(r"\b(?:from|into|table|update|exists) opinion(?:s|_benches|_texts)\b")
     touching: set[str] = set()
     for path in root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -653,9 +707,12 @@ def _split_plan(db: Path, fetcher: _Fetcher, tmp_path: Path) -> Path:
         write_handoff(projection_file, opinion_record.opinion_record_projection(ro, terms=[2025]))
     projection = read_handoff(projection_file, opinion_record.OpinionRecordProjection)
     recorded = opinion_record.projected_recorded(projection, terms=[2025])
-    rebench = opinion_record.projected_rebench(projection)
     dry = opinion_record.read_opinion_record(
-        fetcher, terms=[2025], recorded=recorded, rebench=rebench
+        fetcher,
+        terms=[2025],
+        recorded=recorded,
+        rebench=opinion_record.projected_rebench(projection),
+        retext=opinion_record.projected_retext(projection),
     )
     plan_file = tmp_path / "handoff" / "plan.json"
     write_handoff(plan_file, opinion_record.opinion_record_plan(dry))
@@ -671,7 +728,7 @@ def _apply(db: Path, plan_file: Path, *, max_rows: int) -> opinion_record.Opinio
             terms=[2025],
             apply=True,
             max_rows=max_rows,
-            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
+            write=_writer(conn),
         )
 
 
@@ -693,7 +750,7 @@ def test_the_split_inserts_what_the_one_process_apply_inserts(
 
     refused = _apply(_corpus, plan_file, max_rows=3)
     assert refused.refused and _rows(_corpus) == []
-    done = _apply(_corpus, plan_file, max_rows=6)
+    done = _apply(_corpus, plan_file, max_rows=8)
     assert done.applied and done.inserted == 4 and done.benches_inserted == 2
     # The writer resolved the case id from its own corpus.
     assert {r["case_id"] for r in _rows(_corpus)} == {"scotus/1", None}
@@ -710,8 +767,8 @@ def test_the_split_inserts_what_the_one_process_apply_inserts(
             _Fetcher(listing),
             terms=[2025],
             apply=True,
-            max_rows=6,
-            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
+            max_rows=8,
+            write=_writer(conn),
         )
     assert _rows(_corpus) == _rows(one)
 
@@ -724,7 +781,7 @@ def test_the_projection_spares_the_parse_every_recorded_document(
     _corpus: Path, tmp_path: Path
 ) -> None:
     listing = [_listing("1", "25-1"), _listing("2", "25-2")]
-    _apply(_corpus, _split_plan(_corpus, _Fetcher(listing[:1]), tmp_path / "a"), max_rows=3)
+    _apply(_corpus, _split_plan(_corpus, _Fetcher(listing[:1]), tmp_path / "a"), max_rows=4)
     fetcher = _Fetcher(listing)
     plan_file = _split_plan(_corpus, fetcher, tmp_path / "b")
     assert fetcher.fetched == [listing[1].url]
@@ -821,10 +878,12 @@ def test_the_command_runs_the_split_end_to_end(
         ["backfill-opinion-record", "--projection", str(projection), "--plan-out", str(plan)],
     )
     assert planned.exit_code == 0, planned.output
-    assert "would insert 3 row(s) — 2 opinion row(s), 1 bench row(s)" in planned.output
-    applied = _cli(tmp_path, monkeypatch, "--from-plan", str(plan), "--apply", "--max-rows", "3")
+    assert (
+        "would insert 4 row(s) — 2 opinion row(s), 1 bench row(s), 1 text row(s)" in planned.output
+    )
+    applied = _cli(tmp_path, monkeypatch, "--from-plan", str(plan), "--apply", "--max-rows", "4")
     assert applied.exit_code == 0, applied.output
-    assert "inserted 3 of 3" in applied.output
+    assert "inserted 4 of 4" in applied.output
     for args in (
         ("--projection", str(projection), "--apply", "--max-rows", "2"),
         ("--from-plan", str(plan), "--projection", str(projection)),
@@ -862,7 +921,7 @@ def _build(db: Path, fetcher: _Fetcher, *, max_rows: int = 100) -> Any:
             terms=[2025],
             apply=True,
             max_rows=max_rows,
-            write=lambda pairs, benches: insert_opinions(conn, pairs, benches),
+            write=_writer(conn),
         )
 
 
@@ -891,7 +950,7 @@ def test_participation_is_read_off_a_complete_lineup() -> None:
 
 def test_a_signed_decision_records_who_sat(_corpus: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(opinion_record, "read_document", _seated)
-    done = _build(_corpus, _Fetcher([_listing("1", "25-1")]), max_rows=3)
+    done = _build(_corpus, _Fetcher([_listing("1", "25-1")]), max_rows=4)
     assert done.applied and (done.inserted, done.benches_inserted) == (2, 1)
     assert _benches(_corpus) == {"1": (list(BENCH), ["Jackson"])}
 
@@ -944,7 +1003,8 @@ def test_a_re_read_that_reads_other_writings_records_no_bench(
 
     monkeypatch.setattr(opinion_record, "read_document", other)
     result = _build(_corpus, fetcher)
-    assert (result.rows, result.benches) == (0, 1) and len(result.bench_conflicts) == 1
+    assert (result.rows, result.benches, result.texts) == (0, 1, 0)
+    assert len(result.reread_conflicts) == 1
     # A null row: read, and participation not observed for the stored writings.
     assert _benches(_corpus) == {"1": (None, None)}
     fetcher.fetched.clear()
@@ -960,9 +1020,8 @@ def test_a_per_curiam_takes_no_bench_row_and_is_not_read_again(
             position=1,
             kind=WritingKind.per_curiam,
             author=None,
-            words=10,
-            footnote_words=0,
             header="PER CURIAM.",
+            **_texted(10, 0),
         )
         return opinion_record._base(
             entry,
@@ -974,8 +1033,8 @@ def test_a_per_curiam_takes_no_bench_row_and_is_not_read_again(
 
     monkeypatch.setattr(opinion_record, "read_document", per_curiam)
     fetcher = _Fetcher([_listing("1", "25-1")])
-    first = _build(_corpus, fetcher, max_rows=1)
-    assert (first.inserted, first.benches_inserted) == (1, 0)
+    first = _build(_corpus, fetcher, max_rows=2)
+    assert (first.inserted, first.benches_inserted, first.texts_inserted) == (1, 0, 1)
     fetcher.fetched.clear()
     _build(_corpus, fetcher, max_rows=0)
     assert fetcher.fetched == [] and _benches(_corpus) == {}
@@ -1036,10 +1095,10 @@ def test_the_split_dry_run_counts_only_the_bench_rows_of_a_re_read(
     dry = opinion_record.read_opinion_record(
         _Fetcher(listing), terms=[2025], recorded=set(), rebench=rebench
     )
-    # Document 1's two opinion rows are stored: only its bench row is new.
-    assert (dry.rows, dry.benches) == (2, 2)
-    done = _apply(_corpus, plan_file, max_rows=4)
-    assert done.applied and (done.inserted, done.benches_inserted) == (2, 2)
+    # Document 1's two opinion rows and its text are stored: only its bench row is new.
+    assert (dry.rows, dry.benches, dry.texts) == (2, 2, 1)
+    done = _apply(_corpus, plan_file, max_rows=5)
+    assert done.applied and (done.inserted, done.benches_inserted, done.texts_inserted) == (2, 2, 1)
     assert len(plan.readings) == 2
 
 
@@ -1059,7 +1118,7 @@ def test_an_honest_planned_bench_is_applied(_corpus: Path, tmp_path: Path) -> No
     raw["readings"][0]["bench"] = list(BENCH)
     raw["readings"][0]["took_no_part"] = ["Jackson"]
     plan_file.write_text(json.dumps(raw))
-    done = _apply(_corpus, plan_file, max_rows=3)
+    done = _apply(_corpus, plan_file, max_rows=4)
     assert done.applied and _benches(_corpus) == {"1": (list(BENCH), ["Jackson"])}
 
 
@@ -1152,7 +1211,7 @@ def test_the_sweep_runs_the_split_over_the_current_and_previous_term(
     assert seen == [25, 26]
     applied = _cli(tmp_path, monkeypatch, "--sweep", "--from-plan", str(plan), "--apply")
     assert applied.exit_code == 0, applied.output
-    assert "inserted 3 of 3" in applied.output
+    assert "inserted 4 of 4" in applied.output
     assert "would fill 1; filled 1; remaining 0 (cap 15)" in applied.output
     # A plan read for other Terms is not this sweep's.
     monkeypatch.setattr("fedcourtsai.cli.october_term_year", lambda day: 2027)
@@ -1197,7 +1256,7 @@ def test_the_sweep_apply_refuses_rows_beyond_its_per_document_bound(
     monkeypatch.setattr(opinion_record, "SWEEP_ROWS_PER_DOCUMENT", 0)
     refused = _cli(tmp_path, monkeypatch, "--sweep", "--from-plan", str(plan), "--apply")
     assert refused.exit_code == 1
-    assert "refusing to insert 3 rows (the sweep's 0" in " ".join(refused.output.split())
+    assert "refusing to insert 4 rows (the sweep's 0" in " ".join(refused.output.split())
     assert _rows(_corpus) == []
 
 
@@ -1247,3 +1306,203 @@ def test_the_sweep_ledger_goes_to_stderr_beside_the_counts(
     assert result.exit_code == 0, result.output
     assert "sweep ledger" in result.stderr and "sweep ledger" not in result.stdout
     assert json.loads(result.stdout) == []
+
+
+# --- the text: each writing's words, in the content store -------------------------------
+
+
+def _texts(db: Path) -> dict[str, dict[str, Any]]:
+    with corpus.connect(db) as conn:
+        return {
+            row["listing_number"]: dict(row) for row in conn.execute("SELECT * FROM opinion_texts")
+        }
+
+
+def test_each_read_document_s_writings_are_stored_and_pointed_at(
+    _corpus: Path, _store: casestore.InMemoryObjectTransport
+) -> None:
+    done = _build(_corpus, _Fetcher([_listing("1", "25-1")]))
+    assert (done.texts, done.texts_inserted) == (1, 1)
+    row = _texts(_corpus)["1"]
+    assert row["text_rule"] == "scotus-opinion-text/1"
+    assert row["object_key"].startswith("scotus/opinions/OT2025/1-")
+    body = casestore.read_pinned(_store, row["object_key"], row["digest"])
+    assert body is not None and len(body) == row["bytes"]
+    stored = opinion_record.OpinionText.model_validate_json(body)
+    assert [w.author for w in stored.writings] == ["Kagan", "Alito"]
+    assert stored.writings[0].text == " ".join(["word"] * 90)
+    assert stored.writings[0].footnotes == " ".join(["note"] * 10)
+    assert stored.document_url == _listing("1", "25-1").url
+
+
+def test_a_recorded_document_is_read_once_more_for_its_text(
+    _corpus: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(opinion_record, "read_document", _seated)
+    fetcher = _Fetcher([_listing("1", "25-1")])
+    _build(_corpus, fetcher)
+    before, benches = _rows(_corpus), _benches(_corpus)
+    with corpus.connect(_corpus) as conn:  # a record written before the text table
+        conn.execute("DELETE FROM opinion_texts")
+        conn.commit()
+        assert opinion_record.retext_documents(conn) == {(2025, "1")}
+        assert opinion_record.rebench_documents(conn) == set()
+        projection = opinion_record.opinion_record_projection(conn, terms=[2025])
+    assert projection.recorded == [] and projection.rebench == []
+    assert [d.listing_number for d in projection.retext] == ["1"]
+    fetcher.fetched.clear()
+    refill = _build(_corpus, fetcher, max_rows=1)
+    assert fetcher.fetched == [_listing("1", "25-1").url]
+    assert (refill.rows, refill.benches, refill.texts, refill.texts_inserted) == (0, 0, 1, 1)
+    assert _rows(_corpus) == before and _benches(_corpus) == benches
+    assert _texts(_corpus)["1"]["object_key"] is not None
+    fetcher.fetched.clear()
+    _build(_corpus, fetcher, max_rows=0)
+    assert fetcher.fetched == []
+
+
+def test_the_split_dry_run_counts_only_the_text_row_of_a_re_read(
+    _corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(opinion_record, "read_document", _seated)
+    listing = [_listing("1", "25-1"), _listing("2", "25-2")]
+    _build(_corpus, _Fetcher(listing[:1]))
+    with corpus.connect(_corpus) as conn:
+        conn.execute("DELETE FROM opinion_texts")
+        conn.commit()
+    plan_file = _split_plan(_corpus, _Fetcher(listing), tmp_path)
+    projection = read_handoff(
+        tmp_path / "handoff" / "projection.json", opinion_record.OpinionRecordProjection
+    )
+    dry = opinion_record.read_opinion_record(
+        _Fetcher(listing),
+        terms=[2025],
+        recorded=set(),
+        rebench=opinion_record.projected_rebench(projection),
+        retext=opinion_record.projected_retext(projection),
+    )
+    # Document 1's opinion rows and bench are stored: only its text row is new.
+    assert (dry.rows, dry.benches, dry.texts) == (2, 1, 2)
+    done = _apply(_corpus, plan_file, max_rows=5)
+    assert (done.inserted, done.benches_inserted, done.texts_inserted) == (2, 1, 2)
+
+
+def test_a_re_read_that_reads_other_writings_stores_no_text(
+    _corpus: Path, _store: casestore.InMemoryObjectTransport, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fetcher = _Fetcher([_listing("1", "25-1")])
+    _build(_corpus, fetcher)
+    with corpus.connect(_corpus) as conn:
+        conn.execute("DELETE FROM opinion_texts")
+        conn.commit()
+    _store.objects.clear()
+
+    def other(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
+        reading = _reading(entry, data)
+        dissent = reading.opinions[1].model_copy(update={"joins": []})
+        return reading.model_copy(update={"opinions": [reading.opinions[0], dissent]})
+
+    monkeypatch.setattr(opinion_record, "read_document", other)
+    result = _build(_corpus, fetcher)
+    assert (result.rows, result.benches, result.texts) == (0, 0, 1)
+    assert len(result.reread_conflicts) == 1
+    # A null row: read, and no text stored for writings other than the stored ones.
+    row = _texts(_corpus)["1"]
+    assert (row["object_key"], row["digest"], row["bytes"]) == (None, None, None)
+    assert _store.objects == {}
+    fetcher.fetched.clear()
+    _build(_corpus, fetcher, max_rows=0)
+    assert fetcher.fetched == []
+
+
+def test_with_no_store_a_text_is_kept_nowhere_and_stays_owed(_corpus: Path) -> None:
+    casestore.set_active_transport(None)
+    fetcher = _Fetcher([_listing("1", "25-1")])
+    done = _build(_corpus, fetcher)
+    assert (done.inserted, done.texts, done.texts_inserted) == (2, 1, 0)
+    assert _texts(_corpus) == {}
+    with corpus.connect(_corpus) as conn:
+        assert opinion_record.retext_documents(conn) == {(2025, "1")}
+
+
+def test_a_store_failure_inserts_no_row(_corpus: Path) -> None:
+    class Down(casestore.InMemoryObjectTransport):
+        def put(self, key: str, body: bytes, *, if_absent: bool = False) -> None:
+            raise OSError("store down")
+
+    casestore.set_active_transport(Down())
+    with pytest.raises(OSError, match="store down"):
+        _build(_corpus, _Fetcher([_listing("1", "25-1")]))
+    assert _rows(_corpus) == [] and _texts(_corpus) == {}
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("text", None, "carries no text"),
+        ("footnotes", None, "carries no text"),
+        ("text", "word word", "does not count to its words"),
+        ("footnotes", "note", "does not count to its footnote words"),
+        ("text", "word\u0000", "NUL"),
+    ],
+)
+def test_a_planned_text_its_counts_do_not_recount_is_refused(
+    _corpus: Path, tmp_path: Path, field: str, value: str | None, message: str
+) -> None:
+    plan_file = _split_plan(_corpus, _Fetcher([_listing("1", "25-1")]), tmp_path)
+    raw = json.loads(plan_file.read_text())
+    raw["readings"][0]["opinions"][0][field] = value
+    plan_file.write_text(json.dumps(raw))
+    with pytest.raises(HandoffRefused, match=message):
+        _apply(_corpus, plan_file, max_rows=10)
+    assert _rows(_corpus) == []
+
+
+def test_a_document_whose_text_does_not_recount_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(opinion_record, "_text_problem", lambda opinion: "is off by one")
+    pages = [
+        _SYLLABUS,
+        _caption("Opinion", "  PER CURIAM.\n  The judgment is reversed."),
+    ]
+    monkeypatch.setattr(
+        opinion_record,
+        "extract_pdf_text",
+        lambda data, char_cap: type("T", (), {"text": "x", "truncated": False})(),
+    )
+    monkeypatch.setattr(opinion_record, "is_preliminary_print", lambda data: False)
+
+    class Page:
+        def __init__(self, text: str) -> None:
+            self.text = text
+
+        def extract_text(self, **kwargs: object) -> str:
+            return self.text
+
+    class Reader:
+        def __init__(self, stream: object) -> None:
+            self.pages = [Page(page) for page in pages]
+
+    monkeypatch.setattr(opinion_record, "PdfReader", Reader)
+    entry = dataclasses.replace(_listing("1", "25-1"), author_code="PC")
+    reading = opinion_record.read_document(entry, b"%PDF")
+    assert reading.status == "refused" and reading.reason == "opinion 1 is off by one"
+
+
+def test_the_printed_readings_leave_the_texts_to_the_plan(
+    _corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(OpinionFetcher, "listing", lambda self, term: [_listing("1", "25-1")])
+    monkeypatch.setattr(OpinionFetcher, "opinion", lambda self, url: b"%PDF")
+    plan = tmp_path / "plan.json"
+    projection = tmp_path / "p.json"
+    assert _cli(tmp_path, monkeypatch, "--emit-corpus-projection", str(projection)).exit_code == 0
+    planned = _cli(tmp_path, monkeypatch, "--projection", str(projection), "--plan-out", str(plan))
+    assert planned.exit_code == 0, planned.output
+    printed = json.loads(planned.stdout)
+    assert printed[0]["opinions"][0]["words"] == 100
+    assert "text" not in printed[0]["opinions"][0]
+    assert "footnotes" not in printed[0]["opinions"][0]
+    written = read_handoff(plan, opinion_record.OpinionRecordPlan)
+    assert written.readings[0].opinions[0].text == " ".join(["word"] * 90)

@@ -229,6 +229,18 @@ each fetching in a job that holds no credential
     kerning ("pr esent"), with footnotes below the em-dash rule; the
     preliminary print in plain mode, since its layout mode letter-spaces,
     with footnotes told from body text by their smaller type.
+- **The text** (rule `scotus-opinion-text`, version 1). Each read document's
+  writings are also stored as text, for grading a merits forecast against
+  what the Court wrote: each writing's body from its header sentence on, and
+  its footnotes, exactly the lines the word count is taken over, with each
+  line's spacing collapsed and its line breaks and line-end hyphens kept; a
+  footnote loses its own number, and the text layer's own faults, such as a
+  dropped "fi" ligature in the preliminary print, stay in. The text is held to the counts: the word
+  rule must count the body (reference marks dropped) and the footnotes to the
+  stored words and footnote words, or the document is refused. It is stored
+  in the access-gated content store, one object per document, with a pointer
+  row in the corpus (`opinion_texts`), and like the rest of the record it is
+  read by nothing a predict cell sees.
 - **Checked against.** SCOTUSblog's *Final Stat Pack for the 2025-26 Term*
   (updated 2026-07-06; its figures are quoted here, with attribution, for
   comparison only) was compared with a dry run over OT2025, as a check

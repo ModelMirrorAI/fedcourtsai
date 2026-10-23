@@ -1417,7 +1417,8 @@ or network.
      built by `backfill-opinion-record` from the Court's opinions, applied on
      run-repair's `opinion-record` pass and, for the current and previous
      Term, as a standing sweep on run-seed's daily window, and held corpus-side
-     on the same terms.
+     on the same terms. The same pass stores each writing's text in the
+     content store, the corpus holding only its pointer (`opinion_texts`).
      So is the per-Justice vote half for a case the pipeline never forecast:
      `fedcourts merits-lineups` derives each decision's lineup from those rows
      and the pass's `opinion_benches` (who sat), read-only and never stored, by
@@ -1665,7 +1666,7 @@ population and apply against another.
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `application-backfill` | `backfill-applications` (split, as above) | `--max-rows` (rows landed, onboarded and enriched together; the dry run's count is an upper bound) | two-digit October Term, **required in both modes** | — |
 | `decision-record` | `backfill-decision-record` | `--max-fills` (rows filled, not the `candidates` denominator) | — | — |
-| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion rows and bench rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
+| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion, bench and text rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -1857,14 +1858,14 @@ fields parsed from them ([security.md](security.md), *S3 / the private stores*).
   vote passes, each population case's docket number; for the application
   back-fill, the Term's highest stored serial and its live-owned serials; for
   the opinion record, the (Term, listing number) of each document it already
-  holds whole and of each signed decision it holds without a bench row. It
-  fetches nothing.
+  holds whole, of each signed decision it holds without a bench row and of
+  each document it holds without a text row. It fetches nothing.
 - `handoff-parse` holds **no credential**: no environment, no `id-token`, no
   secret, and a step asserts the AWS and OIDC variables are absent before
   anything is fetched. It fetches and parses, prints the dry-run ledger to the
   run summary, and on an apply writes the plan — the planned vote records, the
-  served docket JSON verbatim, or the opinion rows and bench rows — as a run
-  artifact. It
+  served docket JSON verbatim, or the opinion, bench and text rows with each
+  writing's text — as a run artifact. It
   restores the uv cache but never saves one.
 - On an apply only, a writer job downloads the plan and treats it as untrusted
   input: every row is re-validated against the reader's own invariants and the
@@ -1875,7 +1876,8 @@ fields parsed from them ([security.md](security.md), *S3 / the private stores*).
   opinion-record writers take the read-write role, pull the corpus fresh inside
   the lock, apply — the application writer re-reads ownership, resolves
   identity and applies the prediction guard against that corpus, and the
-  opinion-record writer resolves each case id from it and inserts fill-only —
+  opinion-record writer resolves each case id from it, stores each writing's
+  text in the content store and inserts fill-only —
   push the blob, and mint the App token only after the push. None fetches.
 
 Both files cross as one-day run artifacts (`repair-projection-<run_id>`,
