@@ -12291,7 +12291,8 @@ def decision_below_command(
         int | None,
         typer.Option(
             help="Match the newest N cert petitions in the pulled corpus whose lower "
-            f"court is a federal court of appeals (e.g. {decision_below.DEFAULT_SAMPLE}).",
+            f"court is a federal court of appeals (e.g. {decision_below.DEFAULT_SAMPLE}; "
+            f"at most {decision_below.MAX_SAMPLE}).",
         ),
     ] = None,
 ) -> None:
@@ -12308,12 +12309,18 @@ def decision_below_command(
 
     Strictly **read-only**: writes no corpus, content store or ledger, and
     stages nothing to a cell. It spends CourtListener REST requests through the
-    shared client and its governor (a few per case), and never calls RECAP
-    Fetch, so nothing is bought. `--case` and `--sample` read the pulled
-    corpus; `--docket` needs no corpus.
+    shared client, throttled by this process's own governor at the configured
+    ceilings — four for a typical case, `MAX_REQUESTS_PER_CASE` (16) at worst —
+    which count against the same account limits as the pull lanes but not
+    against their per-process tally; `--sample` is capped at `MAX_SAMPLE` (50)
+    to bound that. It never calls RECAP Fetch, so nothing is bought. `--case`
+    and `--sample` read the pulled corpus; `--docket` needs no corpus.
     """
-    if sample is not None and sample < 1:
-        typer.echo("decision-below: --sample must be at least 1", err=True)
+    if sample is not None and not 1 <= sample <= decision_below.MAX_SAMPLE:
+        typer.echo(
+            f"decision-below: --sample must be between 1 and {decision_below.MAX_SAMPLE}",
+            err=True,
+        )
         raise typer.Exit(code=2)
     named = [value.strip() for value in case or [] if value.strip()]
     numbers = [value.strip() for value in docket or [] if value.strip()]

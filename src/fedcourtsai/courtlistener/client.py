@@ -159,7 +159,9 @@ class CourtListenerClient:
         """
         return self._get(f"clusters/{cluster_id}/")
 
-    def list_clusters_by_docket_number(self, *, court: str, docket_number: str) -> JsonDict:
+    def list_clusters_by_docket_number(
+        self, *, court: str, docket_number: str, date_filed_lte: date | None = None
+    ) -> JsonDict:
         """List the opinion clusters upstream joins to a docket number in a court.
 
         The relation-side read of :meth:`get_cluster`: a case's published
@@ -174,10 +176,14 @@ class CourtListenerClient:
         path this client did not build. Upstream's filter semantics are its
         own, so a caller for which the join must be exact verifies the docket a
         returned cluster names rather than taking the match on trust.
+
+        ``date_filed_lte`` narrows the list to clusters filed on or before a
+        date, for a caller that wants only what preceded an event.
         """
-        return self._get(
-            "clusters/", {"docket__court": court, "docket__docket_number": docket_number}
-        )
+        params: JsonDict = {"docket__court": court, "docket__docket_number": docket_number}
+        if date_filed_lte is not None:
+            params["date_filed__lte"] = date_filed_lte.isoformat()
+        return self._get("clusters/", params)
 
     def get_opinion(self, opinion_id: int) -> JsonDict:
         """Fetch a single opinion by CourtListener opinion id.

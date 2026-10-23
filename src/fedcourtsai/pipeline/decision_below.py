@@ -30,29 +30,41 @@ petition seeks review of, so neither is joined here.
 most — the exact string first, then upstream's ``docket_number_core`` (the
 year and serial digits, computed here the way upstream computes it for an
 appellate number) — and every row a filter returns must carry this court and
-this number, by either spelling, or it is dropped. A cluster counts as the
-decision below only when its ``date_filed`` is the judgment date and it hangs
-on a checked row; a cluster dated after the SCOTUS docketing is never a
-candidate. Several clusters on the judgment date are all reported, since a
-court can issue an opinion and an amended one the same day.
+this number, by either spelling, or it is dropped. The clusters are then
+asked for by the court and each checked row's own number, dated on or before
+the SCOTUS docketing — one list request however many clusters a row carries —
+and a returned cluster must hang on a checked row. A cluster counts as the
+decision below only when its ``date_filed`` is the judgment date. Several
+clusters on the judgment date are all reported, since a court can issue an
+opinion and an amended one the same day; a list that says more exist than one
+page holds is reported ``clusters_truncated``.
 
 **The rehearing reading is text, and says so.** CourtListener serves docket
 entries as filed text with no structured rehearing field, so the en banc
 reading is a pattern match over the ``description`` of each entry filed on or
 after the judgment date, with every entry that drove it cited by number and
-date. The SCOTUS docket's own ``LowerCourtRehearingDenied`` date is reported
-beside it unchanged; it does not say whether the denial was of panel or en
-banc rehearing.
+date. A motion about the *time* to petition is not a petition, and its grant
+is not a grant of rehearing. A positive reading is a fact about the entries
+read; a negative one is reported only when the read was complete — every row,
+every page — and is ``None`` otherwise. Without a judgment date there is no
+bound to read from, so the entries are not read. The SCOTUS docket's own
+``LowerCourtRehearingDenied`` date is reported beside it unchanged; it does
+not say whether the denial was of panel or en banc rehearing. A refusal or a
+fault on the entries degrades the reading to ``unavailable`` and leaves the
+docket and cluster match standing; only a throttle wall propagates.
 
-**Bounded spend.** Every request goes through the shared client and its rate
-governor. A case costs at most two requests per lower-court number (up to
-:data:`MAX_LOWER_NUMBERS` numbers), one per cluster followed (up to
-:data:`MAX_CLUSTERS`), one per opinion read (up to :data:`MAX_OPINIONS`) and
-up to :data:`MAX_ENTRY_PAGES` pages of entries for each of up to
-:data:`MAX_ENTRY_DOCKETS` rows; a typical circuit case costs four or five. The
-client's request budget (:class:`RateBudgetExceeded`) or a 429 its retries
-could not clear stops the walk with the rest reported deferred, as the
-opinion enrichment does.
+**Bounded spend.** Every request goes through the shared client and the rate
+governor of the process that runs it. A case costs at most two docket
+requests per lower-court number (up to :data:`MAX_LOWER_NUMBERS` numbers),
+one cluster list per distinct checked number (up to the same cap), one
+request per opinion read (up to :data:`MAX_OPINIONS` a case) and up to
+:data:`MAX_ENTRY_PAGES` pages of entries for each of up to
+:data:`MAX_ENTRY_DOCKETS` rows — 6 + 3 + 3 + 4 = :data:`MAX_REQUESTS_PER_CASE`
+at worst; a single-number circuit case with one matched opinion costs four.
+The client's request budget (:class:`RateBudgetExceeded`), a 429 its retries
+could not clear, or a 401 (the credential refused, which every later request
+would meet too) stops the walk with the rest reported deferred, as the opinion
+enrichment does.
 """
 
 from __future__ import annotations
@@ -70,24 +82,29 @@ from .. import corpus
 from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_throttled
 from ..supremecourt import parse_scotus_docket_number
 from .ingest import live_lower_court_id
-from .opinion_enrichment import docket_court, resource_id
+from .opinion_enrichment import cluster_docket_id, docket_court, resource_id
 
 #: Lower-court numbers asked per case. A consolidated petition can list many;
 #: the first few carry the decision, and the cap bounds what one case spends.
 MAX_LOWER_NUMBERS: Final = 3
 
-#: Opinion clusters followed per case, across every checked docket row.
-MAX_CLUSTERS: Final = 4
-
-#: Sub-opinions read per matched cluster, for the availability report.
+#: Sub-opinions read per case, across its matched clusters, for the availability report.
 MAX_OPINIONS: Final = 3
 
 #: Docket rows whose entries are read per case, and pages read per row.
 MAX_ENTRY_DOCKETS: Final = 2
 MAX_ENTRY_PAGES: Final = 2
 
-#: The default sample size of the ``decision-below`` command.
+#: The most requests one case can cost (see the module docstring).
+MAX_REQUESTS_PER_CASE: Final = (
+    2 * MAX_LOWER_NUMBERS + MAX_LOWER_NUMBERS + MAX_OPINIONS + MAX_ENTRY_DOCKETS * MAX_ENTRY_PAGES
+)
+
+#: The default and the largest sample of the ``decision-below`` command. The
+#: ceiling keeps a sample's worst case (``MAX_SAMPLE * MAX_REQUESTS_PER_CASE``)
+#: inside the held tier's daily allowance with room left for the pull windows.
 DEFAULT_SAMPLE: Final = 20
+MAX_SAMPLE: Final = 50
 
 MatchStatus = Literal[
     "matched",
@@ -132,7 +149,21 @@ _EN_BANC_RE: Final = re.compile(r"\brehearing\s+en\s+banc\b|\ben\s+banc\s+rehear
 _PETITION_RE: Final = re.compile(r"\bpetition\b|\bmotion\b", re.I)
 _ORDER_RE: Final = re.compile(r"\border\b", re.I)
 _DENIED_RE: Final = re.compile(r"\bden(?:y|ied|ies|ying)\b", re.I)
-_GRANTED_RE: Final = re.compile(r"\bgrant(?:ed|s|ing)?\b", re.I)
+_GRANTED_RE: Final = re.compile(r"\bgrant(?:ed|s|ing)?\b|\bordered\b", re.I)
+# "Rehearing en banc denied" / "en banc is ordered": the disposition stated on
+# the phrase itself, which reads as one even beside a petition word (a mandate
+# entry recites the petition it follows).
+_DIRECT_DISPOSITION_RE: Final = re.compile(
+    r"\ben\s+banc\s+(?:(?:is|was|be|are|were)\s+)?(?:hereby\s+)?"
+    + r"(?:den(?:ied|y)|grant(?:ed)?|ordered)\b",
+    re.I,
+)
+# A motion about the time to petition: neither a petition nor its disposition.
+_TIME_MOTION_RE: Final = re.compile(
+    r"\bextension\b|\b(?:extend|enlarg)\w*|\btime\s+to\s+file\b"
+    + r"|\bleave\s+to\s+file\b.*\bout\s+of\s+time\b",
+    re.I,
+)
 _DISSENT_RE: Final = re.compile(r"\bdissent(?:s|ed|ing)?\b", re.I)
 
 
@@ -230,19 +261,33 @@ class RehearingReading(BaseModel):
     """The en banc reading of a lower-court docket's post-judgment entries.
 
     Text-derived: each flag is a pattern match over the entries' filed text,
-    and ``cites`` names every entry that set one. ``None`` means no entry was
-    read, which is not the same answer as ``False``.
+    and ``cites`` names every entry that set one. ``True`` is a fact about the
+    entries read; ``False`` is reported only when ``complete``, and ``None``
+    otherwise — an unread page is not evidence of absence.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    entries_read: int = Field(ge=0, description="Entries read, filed on or after the judgment")
+    entries_read: int = Field(
+        ge=0,
+        description="Entries read: those filed on or after the judgment date, on the "
+        "rows and pages the caps admitted; 0 where none was read",
+    )
+    complete: bool = Field(
+        default=False,
+        description="Whether every post-judgment entry of every checked row was read — "
+        "no row past the row cap, no page past the page cap",
+    )
     petition_filed: bool | None = None
     disposition: Literal["denied", "granted"] | None = None
-    dissent_noted: bool | None = None
+    dissent_noted: bool | None = Field(
+        default=None, description="A dissent noted from the disposition; None without one"
+    )
     cites: list[EntryCite] = Field(default_factory=list)
     unavailable: str | None = Field(
-        default=None, description="Why entries could not be read, where upstream refused them"
+        default=None,
+        description="Why the entries were not read: no judgment date to bound the read, "
+        "or upstream refused or failed the request",
     )
 
 
@@ -257,6 +302,11 @@ class DecisionBelowMatch(BaseModel):
     reason: str = Field(description="Why the status, in a sentence")
     dockets: list[DocketRow] = Field(default_factory=list)
     clusters: list[ClusterMatch] = Field(default_factory=list)
+    clusters_truncated: bool = Field(
+        default=False,
+        description="Whether a cluster list held more than one page, so clusters beyond "
+        "it were not seen",
+    )
     rehearing: RehearingReading | None = None
     requests: int = Field(default=0, ge=0, description="REST requests this case issued")
 
@@ -393,17 +443,22 @@ class _EntryReading:
 def read_entry(text: str) -> _EntryReading:
     """What one docket entry's text says about rehearing en banc.
 
-    An entry that does not mention rehearing en banc says nothing. One that does
-    is a disposition when it reads as an order (or carries a disposition word
-    without a petition word), and a petition otherwise; a dissent counts only on
-    a disposition, where it is a dissent from the order.
+    An entry that does not mention rehearing en banc says nothing, and neither
+    does a motion about the time to file one: granting an extension is not
+    granting rehearing. Otherwise an entry is a disposition when the phrase
+    states one (``rehearing en banc denied``, ``en banc is ordered``), when it
+    reads as an order, or when it carries a disposition word without a petition
+    word; a petition otherwise. A dissent counts only on a disposition, where it
+    is a dissent from the order.
     """
-    if not _EN_BANC_RE.search(text):
+    if not _EN_BANC_RE.search(text) or _TIME_MOTION_RE.search(text):
         return _EntryReading()
     denied = bool(_DENIED_RE.search(text))
     granted = bool(_GRANTED_RE.search(text)) and not denied
-    is_order = bool(_ORDER_RE.search(text)) or (
-        (denied or granted) and not _PETITION_RE.search(text)
+    is_order = (
+        bool(_DIRECT_DISPOSITION_RE.search(text))
+        or bool(_ORDER_RE.search(text))
+        or ((denied or granted) and not _PETITION_RE.search(text))
     )
     if is_order and (denied or granted):
         return _EntryReading(denied=denied, granted=granted, dissent=bool(_DISSENT_RE.search(text)))
@@ -418,8 +473,14 @@ def _entry_text(entry: Mapping[str, Any]) -> str:
     return " ".join(part for part in parts if isinstance(part, str))
 
 
-def read_rehearing(entries: Iterable[tuple[int, Mapping[str, Any]]]) -> RehearingReading:
-    """The en banc reading over ``(docket_id, entry)`` pairs."""
+def read_rehearing(
+    entries: Iterable[tuple[int, Mapping[str, Any]]], *, complete: bool = True
+) -> RehearingReading:
+    """The en banc reading over ``(docket_id, entry)`` pairs.
+
+    ``complete`` says whether the pairs are every post-judgment entry there is;
+    without it a negative answer is ``None`` rather than ``False``.
+    """
     read = 0
     petition = denied = granted = dissent = False
     cites: list[EntryCite] = []
@@ -443,17 +504,22 @@ def read_rehearing(entries: Iterable[tuple[int, Mapping[str, Any]]]) -> Rehearin
             )
         )
     if read == 0:
-        return RehearingReading(entries_read=0)
+        # Upstream holds entries only where someone uploaded them, so an empty
+        # read is not evidence that nothing was filed, however complete.
+        return RehearingReading(entries_read=0, complete=complete)
     disposition: Literal["denied", "granted"] | None = (
         "denied" if denied else "granted" if granted else None
     )
+    negative = False if complete else None
+    # A disposition implies a petition was before the court, whether or not its
+    # filing entry was among those read.
+    filed = petition or disposition is not None
     return RehearingReading(
         entries_read=read,
-        # A disposition implies a petition was before the court, whether or not
-        # its filing entry was among those read.
-        petition_filed=petition or disposition is not None,
+        complete=complete,
+        petition_filed=True if filed else negative,
         disposition=disposition,
-        dissent_noted=dissent if disposition is not None else False,
+        dissent_noted=None if disposition is None else (True if dissent else negative),
         cites=cites,
     )
 
@@ -509,15 +575,20 @@ class _Walk:
                 return checked
         return []
 
-    def cluster(self, cluster_id: int) -> Mapping[str, Any]:
+    def clusters(self, court: str, number: str, on_or_before: date | None) -> Mapping[str, Any]:
         self.requests += 1
-        return _object(self.client.get_cluster(cluster_id))
+        return _object(
+            self.client.list_clusters_by_docket_number(
+                court=court, docket_number=number, date_filed_lte=on_or_before
+            )
+        )
 
     def opinion(self, opinion_id: int) -> Mapping[str, Any]:
         self.requests += 1
         return _object(self.client.get_opinion(opinion_id))
 
-    def entries(self, docket_id: int, since: date | None) -> list[Mapping[str, Any]]:
+    def entries(self, docket_id: int, since: date) -> tuple[list[Mapping[str, Any]], bool]:
+        """A row's entries filed on or after ``since``, and whether all were read."""
         found: list[Mapping[str, Any]] = []
         for page in range(1, MAX_ENTRY_PAGES + 1):
             self.requests += 1
@@ -528,8 +599,8 @@ class _Walk:
             if isinstance(results, list):
                 found.extend(entry for entry in results if isinstance(entry, Mapping))
             if not payload.get("next"):
-                break
-        return found
+                return found, True
+        return found, False
 
 
 def _availability(opinion_id: int, payload: Mapping[str, Any]) -> OpinionAvailability:
@@ -615,40 +686,67 @@ def _checked_rows(walk: _Walk, court: str, numbers: Sequence[str]) -> list[Mappi
     return rows
 
 
-def _clusters(
-    walk: _Walk, rows: Sequence[Mapping[str, Any]], facts: LowerCourtFacts
-) -> list[ClusterMatch]:
-    """The clusters the rows link, dated on or before the docketing.
+@dataclass(frozen=True)
+class _Clusters:
+    found: list[ClusterMatch]
+    truncated: bool = False
 
-    A cluster dated after the SCOTUS docketing cannot be the decision the
-    petition asks about, so it is dropped; one with no date is kept, since
-    nothing rules it out. Sub-opinions are read only for a cluster on the
-    judgment date — the candidate for the decision below.
+
+def _clusters(
+    walk: _Walk, rows: Sequence[Mapping[str, Any]], court: str, facts: LowerCourtFacts
+) -> _Clusters:
+    """The clusters on the checked rows, dated on or before the docketing.
+
+    One list request per distinct number the checked rows carry, filtered on
+    the court, that number and ``date_filed`` on or before the SCOTUS
+    docketing — a cluster dated later cannot be the decision the petition asks
+    about. Each result is a full cluster serialization, so no per-cluster fetch
+    follows, and each must name one of the checked rows
+    (:func:`~fedcourtsai.pipeline.opinion_enrichment.cluster_docket_id`), or it
+    is another case's and is dropped. Sub-opinions are read only for a cluster
+    on the judgment date — the candidate for the decision below — and at most
+    :data:`MAX_OPINIONS` a case.
     """
     base_url = walk.client.base_url
-    clusters: list[ClusterMatch] = []
-    followed = 0
+    row_ids = {ident for ident in (_int(row.get("id")) for row in rows) if ident is not None}
+    numbers: list[str] = []
     for row in rows:
-        for cluster_id in _linked_ids(row.get("clusters"), base_url=base_url, resource="clusters"):
-            if followed >= MAX_CLUSTERS:
-                return clusters
-            followed += 1
-            cluster = walk.cluster(cluster_id)
+        served = _text(row.get("docket_number"))
+        if served is not None and served not in numbers:
+            numbers.append(served)
+    found: list[ClusterMatch] = []
+    seen: set[int] = set()
+    truncated = False
+    opinions_left = MAX_OPINIONS
+    for number in numbers[:MAX_LOWER_NUMBERS]:
+        page = walk.clusters(court, number, facts.scotus_docketed)
+        results = page.get("results")
+        if page.get("next"):
+            truncated = True
+        for cluster in results if isinstance(results, list) else []:
+            if not isinstance(cluster, Mapping):
+                continue
+            cluster_id = _int(cluster.get("id"))
+            docket_id = cluster_docket_id(cluster, base_url=base_url)
+            if cluster_id is None or cluster_id in seen or docket_id not in row_ids:
+                continue
+            seen.add(cluster_id)
             filed = _iso_date(cluster.get("date_filed"))
             docketed = facts.scotus_docketed
             if filed is not None and docketed is not None and filed > docketed:
                 continue
             on_date = filed is not None and filed == facts.judgment_date
-            panel = cluster.get("panel")
-            opinions = (
+            opinion_ids = (
                 _linked_ids(cluster.get("sub_opinions"), base_url=base_url, resource="opinions")
                 if on_date
                 else []
-            )
-            clusters.append(
+            )[: max(opinions_left, 0)]
+            opinions_left -= len(opinion_ids)
+            panel = cluster.get("panel")
+            found.append(
                 ClusterMatch(
                     cluster_id=cluster_id,
-                    docket_id=_int(row.get("id")),
+                    docket_id=docket_id,
                     date_filed=filed,
                     on_judgment_date=on_date,
                     precedential_status=_text(cluster.get("precedential_status")),
@@ -656,11 +754,11 @@ def _clusters(
                     panel_links=len(panel) if isinstance(panel, list) else 0,
                     opinions=[
                         _availability(opinion_id, walk.opinion(opinion_id))
-                        for opinion_id in opinions[:MAX_OPINIONS]
+                        for opinion_id in opinion_ids
                     ],
                 )
             )
-    return clusters
+    return _Clusters(found=found, truncated=truncated)
 
 
 def _verdict(
@@ -706,16 +804,17 @@ def _match(walk: _Walk, facts: LowerCourtFacts, *, case_id: str | None) -> Decis
             + ", ".join(facts.docket_numbers[:MAX_LOWER_NUMBERS]),
             requests=walk.requests,
         )
-    clusters = _clusters(walk, rows, facts)
+    clusters = _clusters(walk, rows, court, facts)
     rehearing = _rehearing(walk, dockets, facts)
-    status, reason = _verdict(clusters, dockets, facts)
+    status, reason = _verdict(clusters.found, dockets, facts)
     return DecisionBelowMatch(
         case_id=case_id,
         facts=facts,
         status=status,
         reason=reason,
         dockets=dockets,
-        clusters=clusters,
+        clusters=clusters.found,
+        clusters_truncated=clusters.truncated,
         rehearing=rehearing,
         requests=walk.requests,
     )
@@ -724,21 +823,34 @@ def _match(walk: _Walk, facts: LowerCourtFacts, *, case_id: str | None) -> Decis
 def _rehearing(
     walk: _Walk, dockets: Sequence[DocketRow], facts: LowerCourtFacts
 ) -> RehearingReading:
+    """The en banc reading of the checked rows' post-judgment entries.
+
+    The rehearing reading is a by-product of the match, so a fault on the
+    entries degrades it to ``unavailable`` and the docket and cluster match
+    stand; only a batch wall — the request budget, a persistent 429 —
+    propagates, since every later case would meet it too.
+    """
+    since = facts.judgment_date
+    if since is None:
+        return RehearingReading(
+            entries_read=0, unavailable="no judgment date is served to bound the read"
+        )
     pairs: list[tuple[int, Mapping[str, Any]]] = []
+    complete = len(dockets) <= MAX_ENTRY_DOCKETS
     for row in dockets[:MAX_ENTRY_DOCKETS]:
         try:
-            pairs.extend(
-                (row.docket_id, entry) for entry in walk.entries(row.docket_id, facts.judgment_date)
-            )
-        except httpx.HTTPStatusError as exc:
-            status = exc.response.status_code
-            if status in (401, 403):
-                return RehearingReading(
-                    entries_read=0,
-                    unavailable=f"CourtListener refused the docket entries (HTTP {status})",
-                )
-            raise
-    return read_rehearing(pairs)
+            entries, whole = walk.entries(row.docket_id, since)
+        except (httpx.HTTPError, ValueError) as exc:
+            if _stop_reason(exc) is not None:
+                raise
+            if isinstance(exc, httpx.HTTPStatusError):
+                why = f"CourtListener answered the docket entries HTTP {exc.response.status_code}"
+            else:
+                why = f"the docket entries could not be read ({type(exc).__name__})"
+            return RehearingReading(entries_read=0, unavailable=why)
+        complete = complete and whole
+        pairs.extend((row.docket_id, entry) for entry in entries)
+    return read_rehearing(pairs, complete=complete)
 
 
 def _stop_reason(exc: Exception) -> str | None:
@@ -746,6 +858,8 @@ def _stop_reason(exc: Exception) -> str | None:
         return f"API budget exhausted ({exc})"
     if is_throttled(exc):
         return f"CourtListener throttling persisted ({exc})"
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 401:
+        return "CourtListener refused the credential (HTTP 401)"
     return None
 
 

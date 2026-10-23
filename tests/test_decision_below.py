@@ -22,6 +22,12 @@ from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.courtlistener import CourtListenerClient, RateLimiter, default_rate_limiter
 from fedcourtsai.pipeline.decision_below import (
+    MAX_ENTRY_DOCKETS,
+    MAX_ENTRY_PAGES,
+    MAX_LOWER_NUMBERS,
+    MAX_OPINIONS,
+    MAX_REQUESTS_PER_CASE,
+    MAX_SAMPLE,
     CaseInput,
     LowerCourtFacts,
     appellate_core,
@@ -151,6 +157,30 @@ def test_read_entry_tells_a_petition_from_its_disposition() -> None:
     assert not (panel_only.petition or panel_only.denied or panel_only.granted)
 
 
+def test_read_entry_ignores_a_motion_about_the_time_to_petition() -> None:
+    extension = read_entry(
+        "ORDER granting motion for extension of time to file petition for rehearing en banc."
+    )
+    assert not (extension.petition or extension.granted or extension.denied)
+    extended = read_entry("Time to file petition for rehearing en banc extended to 05/01/2025.")
+    assert not (extended.petition or extended.granted or extended.denied)
+
+
+def test_read_entry_reads_a_disposition_stated_on_the_phrase() -> None:
+    # A mandate entry recites the petition it follows; the denial still reads.
+    mandate = read_entry("MANDATE ISSUED. Petition for rehearing en banc denied.")
+    assert mandate.denied and not mandate.petition
+    ordered = read_entry("Rehearing en banc is ordered.")
+    assert ordered.granted and not ordered.denied
+
+
+def _entries(*descriptions: str) -> list[tuple[int, Mapping[str, Any]]]:
+    return [
+        (11, {"entry_number": 40 + n, "date_filed": "2025-04-20", "description": d})
+        for n, d in enumerate(descriptions)
+    ]
+
+
 def test_read_rehearing_cites_the_entries_that_set_it() -> None:
     entries = [
         (11, {"entry_number": 40, "date_filed": "2025-04-20", "description": "Letter filed."}),
@@ -176,6 +206,7 @@ def test_read_rehearing_cites_the_entries_that_set_it() -> None:
     ]
     reading = read_rehearing(entries)
     assert reading.entries_read == 3
+    assert reading.complete is True
     assert reading.petition_filed is True
     assert reading.disposition == "denied"
     assert reading.dissent_noted is True
@@ -185,8 +216,21 @@ def test_read_rehearing_cites_the_entries_that_set_it() -> None:
     ]
 
 
+def test_read_rehearing_says_no_only_after_a_complete_read() -> None:
+    quiet = _entries("Letter filed.", "Bill of costs filed.")
+    assert read_rehearing(quiet, complete=True).petition_filed is False
+    partial = read_rehearing(quiet, complete=False)
+    assert partial.petition_filed is None
+    assert partial.complete is False
+    # A positive reading stands either way; a missing dissent does not.
+    denied = _entries("ORDER denying petition for rehearing en banc.")
+    assert read_rehearing(denied, complete=False).petition_filed is True
+    assert read_rehearing(denied, complete=False).dissent_noted is None
+    assert read_rehearing(denied, complete=True).dissent_noted is False
+
+
 def test_read_rehearing_with_no_entries_answers_unknown_not_no() -> None:
-    reading = read_rehearing([])
+    reading = read_rehearing([], complete=True)
     assert reading.entries_read == 0
     assert reading.petition_filed is None
     assert reading.disposition is None
@@ -196,25 +240,41 @@ def test_read_rehearing_with_no_entries_answers_unknown_not_no() -> None:
 
 
 class _Upstream:
-    """Canned CourtListener v4 payloads, served by path and query."""
+    """Canned CourtListener v4 payloads, served by path and query.
 
-    def __init__(
+    ``cluster_pages`` answers the cluster list by ``(docket__court,
+    docket__docket_number)``, applying its ``date_filed__lte`` filter unless
+    ``ignore_date_filter`` says the filter was not applied upstream.
+    """
+
+    def __init__(  # noqa: PLR0913 - one canned answer per endpoint and fault
         self,
         *,
         dockets_by_number: Mapping[tuple[str, str], list[dict[str, Any]]] | None = None,
         dockets_by_core: Mapping[tuple[str, str], list[dict[str, Any]]] | None = None,
-        clusters: Mapping[int, dict[str, Any]] | None = None,
+        cluster_pages: Mapping[tuple[str, str], list[dict[str, Any]]] | None = None,
+        cluster_next: bool = False,
+        ignore_date_filter: bool = False,
         opinions: Mapping[int, dict[str, Any]] | None = None,
         entries: Mapping[int, list[dict[str, Any]]] | None = None,
         entries_status: int = 200,
+        entries_next: bool = False,
     ) -> None:
         self.by_number = dockets_by_number or {}
         self.by_core = dockets_by_core or {}
-        self.clusters = clusters or {}
+        self.cluster_pages = cluster_pages or {}
+        self.cluster_next = cluster_next
+        self.ignore_date_filter = ignore_date_filter
         self.opinions = opinions or {}
         self.entries = entries or {}
         self.entries_status = entries_status
+        self.entries_next = entries_next
         self.requests: list[httpx.Request] = []
+
+    @staticmethod
+    def _page(rows: list[dict[str, Any]], more: bool) -> httpx.Response:
+        nxt = "https://www.courtlistener.com/api/rest/v4/next/" if more else None
+        return httpx.Response(200, json={"count": len(rows), "next": nxt, "results": rows})
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
@@ -226,17 +286,23 @@ class _Upstream:
                 rows = self.by_core.get((court, params["docket_number_core"]), [])
             else:
                 rows = self.by_number.get((court, params.get("docket_number", "")), [])
-            return httpx.Response(200, json={"count": len(rows), "next": None, "results": rows})
+            return self._page(rows, False)
+        if parts[-1] == "clusters":
+            key = (params.get("docket__court", ""), params.get("docket__docket_number", ""))
+            rows = list(self.cluster_pages.get(key, []))
+            bound = params.get("date_filed__lte")
+            if bound and not self.ignore_date_filter:
+                rows = [r for r in rows if r["date_filed"] <= bound]
+            return self._page(rows, self.cluster_next)
         if parts[-1] == "docket-entries":
             if self.entries_status != 200:
                 return httpx.Response(self.entries_status, json={"detail": "refused"})
             rows = self.entries.get(int(params["docket"]), [])
-            return httpx.Response(200, json={"count": len(rows), "next": None, "results": rows})
+            return self._page(rows, self.entries_next)
         resource, ident = parts[-2], int(parts[-1])
-        table = {"clusters": self.clusters, "opinions": self.opinions}[resource]
-        if ident not in table:
+        if resource != "opinions" or ident not in self.opinions:
             return httpx.Response(404, json={"detail": "Not found."})
-        return httpx.Response(200, json=table[ident])
+        return httpx.Response(200, json=self.opinions[ident])
 
 
 def _client(handler: _Upstream, limiter: RateLimiter | None = None) -> CourtListenerClient:
@@ -254,9 +320,7 @@ def _no_backoff_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(get.retry, "sleep", lambda _seconds: None)
 
 
-def _docket(
-    ident: int, number: str = "24-50496", *, clusters: Sequence[int] = (), **extra: Any
-) -> dict[str, Any]:
+def _docket(ident: int, number: str = "24-50496", **extra: Any) -> dict[str, Any]:
     return {
         "id": ident,
         "court": _link("courts", "ca5"),
@@ -264,14 +328,17 @@ def _docket(
         "docket_number": number,
         "case_name": "Doe v. Roe",
         "panel_str": "",
-        "clusters": [_link("clusters", c) for c in clusters],
+        "clusters": [],
         **extra,
     }
 
 
-def _cluster(ident: int, filed: str, *, opinions: Sequence[int] = ()) -> dict[str, Any]:
+def _cluster(
+    ident: int, filed: str, *, docket: int = 11, opinions: Sequence[int] = ()
+) -> dict[str, Any]:
     return {
         "id": ident,
+        "docket": _link("dockets", docket),
         "date_filed": filed,
         "judges": "Smith, Ho, Oldham",
         "panel": [_link("people", 1), _link("people", 2), _link("people", 3)],
@@ -291,31 +358,32 @@ _OPINION = {
     "plain_text": "United States Court of Appeals for the Fifth Circuit ...",
 }
 
+_POST_JUDGMENT = [
+    {
+        "entry_number": 41,
+        "date_filed": "2025-04-23",
+        "description": "PETITION for rehearing en banc filed.",
+    },
+    {
+        "entry_number": 45,
+        "date_filed": "2025-06-02",
+        "description": "ORDER denying petition for rehearing en banc. Judge Ho, " + "dissenting.",
+    },
+]
+
 
 def _matched_upstream(**overrides: Any) -> _Upstream:
     kwargs: dict[str, Any] = {
-        "dockets_by_number": {("ca5", "24-50496"): [_docket(11, clusters=[500, 501])]},
-        "clusters": {
-            500: _cluster(500, "2025-04-09", opinions=[900]),
-            # An earlier order on the same docket, dated before the judgment.
-            501: _cluster(501, "2024-11-01"),
-        },
-        "opinions": {900: _OPINION},
-        "entries": {
-            11: [
-                {
-                    "entry_number": 41,
-                    "date_filed": "2025-04-23",
-                    "description": "PETITION for rehearing en banc filed.",
-                },
-                {
-                    "entry_number": 45,
-                    "date_filed": "2025-06-02",
-                    "description": "ORDER denying petition for rehearing en banc. Judge Ho, "
-                    + "dissenting.",
-                },
+        "dockets_by_number": {("ca5", "24-50496"): [_docket(11)]},
+        "cluster_pages": {
+            ("ca5", "24-50496"): [
+                _cluster(500, "2025-04-09", opinions=[900]),
+                # An earlier order on the same docket, dated before the judgment.
+                _cluster(501, "2024-11-01"),
             ]
         },
+        "opinions": {900: _OPINION},
+        "entries": {11: _POST_JUDGMENT},
     }
     kwargs.update(overrides)
     return _Upstream(**kwargs)
@@ -329,30 +397,32 @@ def test_match_case_finds_the_cluster_on_the_judgment_date() -> None:
     assert [d.docket_id for d in found.dockets] == [11]
     on_date = [c for c in found.clusters if c.on_judgment_date]
     assert [c.cluster_id for c in on_date] == [500]
+    assert on_date[0].docket_id == 11
     assert on_date[0].judges == "Smith, Ho, Oldham"
     assert on_date[0].panel_links == 3
     (opinion,) = on_date[0].opinions
     assert opinion.has_download_url and opinion.has_local_file and opinion.has_plain_text
     # The earlier cluster is reported but its opinions are not read.
     assert [c.opinions for c in found.clusters if not c.on_judgment_date] == [[]]
+    assert found.clusters_truncated is False
     assert found.rehearing is not None
+    assert found.rehearing.complete is True
     assert found.rehearing.disposition == "denied"
     assert found.rehearing.dissent_noted is True
-    # docket list, two clusters, one opinion, one page of entries.
-    assert found.requests == 5 == len(upstream.requests)
-    entries_request = upstream.requests[-1]
-    assert entries_request.url.params["date_filed__gte"] == "2025-04-09"
+    # docket list, cluster list, one opinion, one page of entries.
+    assert found.requests == 4 == len(upstream.requests)
+    clusters_request = upstream.requests[1]
+    assert clusters_request.url.params["date_filed__lte"] == "2025-07-28"
+    assert upstream.requests[-1].url.params["date_filed__gte"] == "2025-04-09"
     # The opinion text is not carried into the report.
     assert "Fifth Circuit ..." not in found.model_dump_json()
 
 
 def test_match_case_falls_back_to_the_core_for_a_four_digit_year() -> None:
+    row = {**_docket(21, "25-1812"), "court_id": "cafc", "court": _link("courts", 0)}
     upstream = _Upstream(
-        dockets_by_core={
-            ("cafc", "25001812"): [
-                {**_docket(21, "25-1812"), "court_id": "cafc", "court": _link("courts", 0)}
-            ]
-        }
+        dockets_by_core={("cafc", "25001812"): [row]},
+        cluster_pages={("cafc", "25-1812"): [_cluster(700, "2025-04-09", docket=21)]},
     )
     facts = _facts(
         LowerCourt="United States Court of Appeals for the Federal Circuit",
@@ -361,12 +431,15 @@ def test_match_case_falls_back_to_the_core_for_a_four_digit_year() -> None:
     with _client(upstream) as client:
         found = match_case(client, facts)
     assert [d.docket_id for d in found.dockets] == [21]
-    assert found.status == "no_cluster"
+    assert found.status == "matched"
     asked = [dict(r.url.params) for r in upstream.requests if r.url.path.endswith("/dockets/")]
     assert asked == [
         {"court": "cafc", "docket_number": "2025-1812"},
         {"court": "cafc", "docket_number_core": "25001812"},
     ]
+    # The cluster list asks by the number the checked row carries.
+    (clusters,) = [r for r in upstream.requests if r.url.path.endswith("/clusters/")]
+    assert clusters.url.params["docket__docket_number"] == "25-1812"
 
 
 def test_match_case_drops_a_row_in_another_court_or_under_another_number() -> None:
@@ -380,9 +453,13 @@ def test_match_case_drops_a_row_in_another_court_or_under_another_number() -> No
 
 
 def test_match_case_ignores_a_cluster_dated_after_the_docketing() -> None:
+    # Upstream ignoring the date filter must not let a later cluster in.
     upstream = _Upstream(
-        dockets_by_number={("ca5", "24-50496"): [_docket(11, clusters=[600, 601])]},
-        clusters={600: _cluster(600, "2025-09-01"), 601: _cluster(601, "2025-03-01")},
+        dockets_by_number={("ca5", "24-50496"): [_docket(11)]},
+        cluster_pages={
+            ("ca5", "24-50496"): [_cluster(600, "2025-09-01"), _cluster(601, "2025-03-01")]
+        },
+        ignore_date_filter=True,
     )
     with _client(upstream) as client:
         found = match_case(client, _facts())
@@ -390,26 +467,113 @@ def test_match_case_ignores_a_cluster_dated_after_the_docketing() -> None:
     assert [c.cluster_id for c in found.clusters] == [601]
 
 
-def test_match_case_follows_no_link_off_the_api() -> None:
-    row = _docket(11)
-    row["clusters"] = ["https://evil.test/api/rest/v4/clusters/500/"]
-    upstream = _Upstream(dockets_by_number={("ca5", "24-50496"): [row]})
+def test_match_case_drops_a_cluster_on_a_row_it_did_not_check() -> None:
+    upstream = _matched_upstream(
+        cluster_pages={("ca5", "24-50496"): [_cluster(500, "2025-04-09", docket=99)]}
+    )
     with _client(upstream) as client:
         found = match_case(client, _facts())
     assert found.status == "no_cluster"
+    assert found.clusters == []
+
+
+def test_match_case_follows_no_link_off_the_api() -> None:
+    cluster = _cluster(500, "2025-04-09")
+    cluster["sub_opinions"] = ["https://evil.test/api/rest/v4/opinions/900/"]
+    upstream = _matched_upstream(cluster_pages={("ca5", "24-50496"): [cluster]})
+    with _client(upstream) as client:
+        found = match_case(client, _facts())
+    assert found.status == "matched"
+    assert found.clusters[0].opinions == []
     assert all(r.url.host == "www.courtlistener.com" for r in upstream.requests)
-    assert not any("/clusters/" in r.url.path for r in upstream.requests)
+    assert not any("/opinions/" in r.url.path for r in upstream.requests)
 
 
-def test_refused_entries_leave_the_match_and_say_why() -> None:
-    upstream = _matched_upstream(entries_status=403)
+def test_match_case_flags_a_cluster_list_past_one_page() -> None:
+    upstream = _matched_upstream(cluster_next=True)
+    with _client(upstream) as client:
+        found = match_case(client, _facts())
+    assert found.clusters_truncated is True
+
+
+@pytest.mark.parametrize("status", [403, 404, 500])
+def test_a_fault_on_the_entries_leaves_the_match_and_says_why(status: int) -> None:
+    upstream = _matched_upstream(entries_status=status)
     with _client(upstream) as client:
         found = match_case(client, _facts())
     assert found.status == "matched"
     assert found.rehearing is not None
     assert found.rehearing.entries_read == 0
+    assert found.rehearing.petition_filed is None
     assert found.rehearing.unavailable is not None
-    assert "403" in found.rehearing.unavailable
+    assert str(status) in found.rehearing.unavailable
+
+
+def test_a_throttle_on_the_entries_still_stops_the_batch() -> None:
+    upstream = _matched_upstream(entries_status=429)
+    with _client(upstream) as client:
+        report = match_cases(client, [CaseInput(label="a", facts=_facts())])
+    assert report.matches == []
+    assert report.deferred == ["a"]
+
+
+def test_entries_past_the_page_cap_leave_the_negatives_unknown() -> None:
+    quiet = [{"entry_number": 50, "date_filed": "2025-05-01", "description": "Letter filed."}]
+    upstream = _matched_upstream(entries={11: quiet}, entries_next=True)
+    with _client(upstream) as client:
+        found = match_case(client, _facts())
+    assert found.rehearing is not None
+    assert found.rehearing.complete is False
+    assert found.rehearing.petition_filed is None
+    entry_pages = [r for r in upstream.requests if r.url.path.endswith("/docket-entries/")]
+    assert len(entry_pages) == MAX_ENTRY_PAGES
+
+
+def test_rows_past_the_row_cap_leave_the_negatives_unknown() -> None:
+    rows = [_docket(11 + n) for n in range(MAX_ENTRY_DOCKETS + 1)]
+    quiet = [{"entry_number": 50, "date_filed": "2025-05-01", "description": "Letter filed."}]
+    upstream = _matched_upstream(
+        dockets_by_number={("ca5", "24-50496"): rows},
+        entries={row["id"]: quiet for row in rows},
+    )
+    with _client(upstream) as client:
+        found = match_case(client, _facts())
+    assert found.rehearing is not None
+    assert found.rehearing.complete is False
+    assert found.rehearing.petition_filed is None
+
+
+def test_no_judgment_date_skips_the_entries_and_says_so() -> None:
+    upstream = _matched_upstream()
+    with _client(upstream) as client:
+        found = match_case(client, _facts(LowerCourtDecision=None))
+    assert found.rehearing is not None
+    assert found.rehearing.unavailable is not None
+    assert "judgment date" in found.rehearing.unavailable
+    assert not any(r.url.path.endswith("/docket-entries/") for r in upstream.requests)
+
+
+def test_a_case_never_exceeds_the_worst_case_request_count() -> None:
+    numbers = ", ".join(f"24-5049{n}" for n in range(5))
+    rows = {
+        ("ca5", f"24-5049{n}"): [_docket(10 + n, f"24-5049{n}")] for n in range(MAX_LOWER_NUMBERS)
+    }
+    pages = {
+        ("ca5", f"24-5049{n}"): [
+            _cluster(500 + n, "2025-04-09", docket=10 + n, opinions=[900, 901])
+        ]
+        for n in range(MAX_LOWER_NUMBERS)
+    }
+    upstream = _Upstream(
+        dockets_by_number=rows,
+        cluster_pages=pages,
+        opinions={900: _OPINION, 901: {**_OPINION, "id": 901}},
+        entries_next=True,
+    )
+    with _client(upstream) as client:
+        found = match_case(client, _facts(LowerCourtCaseNumbers=f"({numbers})"))
+    assert found.requests == len(upstream.requests) <= MAX_REQUESTS_PER_CASE
+    assert sum(len(c.opinions) for c in found.clusters) == MAX_OPINIONS
 
 
 def test_an_unmapped_court_spends_nothing() -> None:
@@ -429,32 +593,32 @@ def test_a_docket_with_no_lower_court_spends_nothing() -> None:
     assert upstream.requests == []
 
 
-def test_match_cases_stops_at_a_throttle_wall_and_defers_the_rest() -> None:
-    def throttled(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(429, json={"detail": "slow down"})
+def _always(status: int) -> CourtListenerClient:
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, json={"detail": "no"})
 
     client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
-    client._client = httpx.Client(base_url=_BASE, transport=httpx.MockTransport(throttled))
+    client._client = httpx.Client(base_url=_BASE, transport=httpx.MockTransport(answer))
+    return client
+
+
+@pytest.mark.parametrize(("status", "words"), [(429, "throttling"), (401, "credential")])
+def test_match_cases_stops_at_a_batch_wall_and_defers_the_rest(status: int, words: str) -> None:
     cases = [
         CaseInput(label="unmapped", facts=_facts(LowerCourt="Supreme Court of Ohio")),
         CaseInput(label="a", facts=_facts()),
         CaseInput(label="b", facts=_facts()),
     ]
-    with client:
+    with _always(status) as client:
         report = match_cases(client, cases)
     assert [m.status for m in report.matches] == ["unmapped_court"]
-    assert report.stopped is not None and "throttling" in report.stopped
+    assert report.stopped is not None and words in report.stopped
     assert report.deferred == ["a", "b"]
 
 
 def test_match_cases_records_a_one_case_failure_and_continues() -> None:
-    def broken(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, json={"detail": "upstream fault"})
-
-    client = CourtListenerClient(rate_limiter=default_rate_limiter(10_000, 10_000, 10_000))
-    client._client = httpx.Client(base_url=_BASE, transport=httpx.MockTransport(broken))
     cases = [CaseInput(label="a", facts=_facts()), CaseInput(label="b", facts=_facts())]
-    with client:
+    with _always(500) as client:
         report = match_cases(client, cases)
     assert report.counts == {"failed": 2}
     assert report.stopped is None
@@ -536,6 +700,13 @@ def test_command_refuses_to_run_without_a_token(monkeypatch: pytest.MonkeyPatch)
 def test_command_refuses_an_empty_request() -> None:
     result = CliRunner().invoke(app, ["decision-below"])
     assert result.exit_code == 2
+
+
+def test_command_caps_the_sample() -> None:
+    too_many = str(MAX_SAMPLE + 1)
+    result = CliRunner().invoke(app, ["decision-below", "--sample", too_many])
+    assert result.exit_code == 2
+    assert str(MAX_SAMPLE) in result.output
 
 
 def test_command_matches_a_named_scotus_number(monkeypatch: pytest.MonkeyPatch) -> None:
