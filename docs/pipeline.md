@@ -42,7 +42,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-seed`       | daily schedules (4 windows), manual | script (no agent)    |
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
-| `run-evaluate`   | daily schedule (15:39 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
+| `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, or the `reasoning-pilot` round of the unregistered `predicted_reasoning_quality` grade, which is always held for review and commits nothing | Claude Code + Codex + Gemini |
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
@@ -3902,8 +3902,9 @@ against; its pre-registration standing is a dated entry in
 
 Because the gate reads *committed* state, it cannot see a round whose collect PR
 has not merged. What bounds a second derivation there is `run-evaluate`'s
-concurrency group, which serializes every round of the workflow regardless of
-trigger — not the gate. Note what a group does and does not buy: it keeps two
+concurrency group, which serializes every backlog round of the workflow
+regardless of trigger — not the gate. A `reasoning-pilot` round takes a group
+of its own, since it commits nothing for a backlog round to overlap. Note what a group does and does not buy: it keeps two
 rounds from overlapping, but the next round plans the moment it releases, which
 can be well before the previous round's collect PR merges. Predict closes that
 remaining window with its stranded-run guard; evaluate has no equivalent.

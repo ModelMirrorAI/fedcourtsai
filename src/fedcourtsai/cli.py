@@ -4626,6 +4626,10 @@ def reasoning_pilot_report_cmd(
     prompt: Annotated[
         Path | None, typer.Option(help="The draft prompt section the round ran, to hash.")
     ] = None,
+    round_id: Annotated[
+        str | None,
+        typer.Option(help="Read only this evaluate run's evaluations (the round's run id)."),
+    ] = None,
     data_root: Annotated[
         Path, typer.Option(help="The git ledger, which the pilot root must not be or hold.")
     ] = Path("data"),
@@ -4660,14 +4664,15 @@ def reasoning_pilot_report_cmd(
             labels=labels,
             prompt_sha256=hashlib.sha256(prompt.read_bytes()).hexdigest() if prompt else None,
             expect_labels_sha256=expect_labels_sha256,
+            round_id=round_id,
         )
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
     text = json.dumps(report.model_dump(mode="json"), indent=2) + "\n"
     typer.echo(
-        f"{report.off_sample} off-sample, {report.off_run} off-run and {report.superseded} "
-        "superseded evaluation(s) set aside",
+        f"{report.off_sample} off-sample, {report.off_run} off-run, {report.superseded} "
+        f"superseded and {report.other_round} other-round evaluation(s) set aside",
         err=True,
     )
     for stage in report.stages:
@@ -19633,6 +19638,15 @@ def evaluate_matrix_cmd(
             "cannot re-grade the backlog.",
         ),
     ] = False,
+    pilot_section: Annotated[
+        Path | None,
+        typer.Option(
+            help="A draft prompt section every cell reads beside its registered prompt, "
+            "carried on each row as `pilot_section`. Only for a pilot round, whose "
+            "output never reaches the ledger; refused where no file is, or where it is "
+            "a prompt an evaluator registers."
+        ),
+    ] = None,
 ) -> None:
     """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
 
@@ -19661,7 +19675,16 @@ def evaluate_matrix_cmd(
     ``not-ingested`` availability mask (:func:`fedcourtsai.matrix.opinion_hold`).
     It is graded at once when the body lands, ``--force`` does not lift it, and
     the window counts on the run id's day.
+
+    ``--pilot-section`` marks every row of a pilot round
+    (`docs/outcome-decomposition.md`, *The pilot, and what it reports*): the
+    cell's kickoff names the section beside the registered prompt, so the
+    registered prompt and every process digest stay as they are. A registered
+    prompt is refused as a section, so a pilot can never be mistaken for a
+    registered round.
     """
+    if pilot_section is not None:
+        _refuse_pilot_section(pilot_section)
     fanout = _evaluate_fanout(
         _requested_cases(
             body_file,
@@ -19684,7 +19707,32 @@ def evaluate_matrix_cmd(
     if _spend_gate_or_empty("evaluate-matrix").breached:
         typer.echo(json.dumps({"include": []}, separators=(",", ":")))
         return
-    typer.echo(json.dumps(fanout.matrix, separators=(",", ":")))
+    matrix = fanout.matrix
+    if pilot_section is not None:
+        matrix = {
+            **matrix,
+            "include": [
+                {**row, "pilot_section": pilot_section.as_posix()} for row in matrix["include"]
+            ],
+        }
+    typer.echo(json.dumps(matrix, separators=(",", ":")))
+
+
+def _refuse_pilot_section(section: Path) -> None:
+    """Exit 1 unless ``section`` is a file and no evaluator registers it as its prompt."""
+    if not section.is_file():
+        typer.echo(f"--pilot-section {section}: no such file.", err=True)
+        raise typer.Exit(code=1)
+    registered = {
+        Path(evaluator.prompt).resolve()
+        for evaluator in load_evaluators(get_settings().config_root / "evaluators.yaml")
+    }
+    if section.resolve() in registered:
+        typer.echo(
+            f"--pilot-section {section} is a registered evaluate prompt, not a draft section.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 #: What the rates above can and cannot support, carried on every plan beside the

@@ -2263,11 +2263,12 @@ committed evaluations are never edited.
    text, and the content store holds a majority-opinion body for only a sliver
    of the granted cases. Storing each writing's text from the documents the
    `opinion-record` pass already reads is a corpus change on a repair pass.
-2. **The pilot mode.** The schema fields, the draft prompt section, the cert
-   and interim sample (`fedcourts reasoning-pilot-sample`, which also writes
-   the blind labeling packet) and the report (`fedcourts reasoning-pilot-report`)
-   exist; the replay merits calibration cells are not yet sampled, and the
-   pilot still needs a way to run the section over the sampled cells without
-   committing the result.
+2. **The merits calibration cells.** The schema fields, the draft prompt
+   section, the cert and interim sample (`fedcourts reasoning-pilot-sample`,
+   which also writes the blind labeling packet), the report (`fedcourts
+   reasoning-pilot-report`) and the round itself (run-evaluate's
+   `reasoning-pilot` dispatch mode, which grades the sample with the section
+   and uploads the evaluations and the report rather than committing them)
+   exist; the replay merits calibration cells are not yet sampled.
 3. **The reference labels and the pilot run itself.**
 4. **Registration**, as above.

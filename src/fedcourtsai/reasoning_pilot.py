@@ -443,6 +443,12 @@ class PilotReport(_Report):
     superseded: int = Field(
         description="Older evaluations of a judge's cell, set aside for its newest run"
     )
+    round_id: str | None = Field(
+        description="The evaluate run the report was restricted to, if any"
+    )
+    other_round: int = Field(
+        description="Evaluations of another evaluate run than `round_id`; read by nothing"
+    )
     unmatched_labels: list[str] = Field(
         description="Labeled aliases whose cell no judge read in this round"
     )
@@ -463,16 +469,28 @@ class _Reads:
     off_sample: int
     off_run: int
     superseded: int
+    other_round: int
 
 
-def _pilot_reads(pilot_root: Path, sample: Mapping[Cell, SampleEntry]) -> _Reads:
-    """Each judge's newest read of each sampled cell, of the sampled run, under ``pilot_root``."""
+def _pilot_reads(
+    pilot_root: Path, sample: Mapping[Cell, SampleEntry], *, round_id: str | None
+) -> _Reads:
+    """Each judge's newest read of each sampled cell, of the sampled run, under ``pilot_root``.
+
+    With ``round_id``, only evaluations of that evaluate run are read: a cell's
+    artifact carries its event's committed evaluations beside the round's own,
+    and a judge whose pilot cell produced nothing must not be read through its
+    committed, ungraded one.
+    """
     newest: dict[tuple[Cell, str], tuple[str, _Read]] = {}
-    off_sample = off_run = superseded = 0
+    off_sample = off_run = superseded = other_round = 0
     for path in sorted(
         (pilot_root / "cases").glob("*/*/events/*/evaluations/*/*/*/evaluation.json")
     ):
         evaluation = read_model(path, Evaluation)
+        if round_id is not None and evaluation.run_id != round_id:
+            other_round += 1
+            continue
         cell = (evaluation.case_id, evaluation.event_id, evaluation.predictor_id)
         if cell not in sample:
             off_sample += 1
@@ -496,7 +514,7 @@ def _pilot_reads(pilot_root: Path, sample: Mapping[Cell, SampleEntry]) -> _Reads
     reads: dict[Cell, dict[str, _Read]] = defaultdict(dict)
     for (cell, evaluator_id), (_, read) in newest.items():
         reads[cell][evaluator_id] = read
-    return _Reads(dict(reads), off_sample, off_run, superseded)
+    return _Reads(dict(reads), off_sample, off_run, superseded, other_round)
 
 
 def _mean(values: Sequence[float]) -> float | None:
@@ -693,6 +711,7 @@ def pilot_report(
     labels: Path | None = None,
     prompt_sha256: str | None = None,
     expect_labels_sha256: str | None = None,
+    round_id: str | None = None,
 ) -> PilotReport:
     """The report over one pilot round's evaluations under ``pilot_root``.
 
@@ -706,7 +725,8 @@ def pilot_report(
     filled-in packet sheet, read through the ``key.json`` beside it; an
     unfilled label (a null grade) is not a label. Stages read separately, in
     the order cert, interim, merits; a stage the sample does not name is left
-    out.
+    out. With ``round_id`` only that evaluate run's evaluations are read, the
+    rest counted as another round's.
 
     The labels' hash is recorded before the panel's grades are read, so a sheet
     changed after the grades were seen shows: with ``expect_labels_sha256``
@@ -720,7 +740,7 @@ def pilot_report(
         entry.cell: entry
         for entry in (SampleEntry.model_validate(item) for item in json.loads(sample_raw))
     }
-    found = _pilot_reads(pilot_root, sample)
+    found = _pilot_reads(pilot_root, sample, round_id=round_id)
     labelled: dict[Cell, tuple[str, float]] = {}
     labels_sha256 = key_sha256 = None
     unmatched: list[str] = []
@@ -759,6 +779,8 @@ def pilot_report(
         off_sample=found.off_sample,
         off_run=found.off_run,
         superseded=found.superseded,
+        round_id=round_id,
+        other_round=found.other_round,
         unmatched_labels=sorted(unmatched),
         stages=[
             _stage_report(stage, sample, found.reads, labelled)

@@ -135,7 +135,11 @@ def test_the_two_call_sites_differ_only_by_role() -> None:
     evaluate_if = evaluate.pop("if")
     assert "needs.approval.result == 'success'" in predict_if
     assert "needs.approval.result == 'success'" in evaluate_if
-    assert predict_if == evaluate_if
+    # Evaluate's one extra clause: a pilot round commits nothing, so its
+    # unregistered grades never reach the writer.
+    pilot_clause = " && needs.plan.outputs.pilot != 'true'"
+    assert pilot_clause in evaluate_if
+    assert predict_if == evaluate_if.replace(pilot_clause, "", 1)
 
     # The delegating step differs only in `role`. Both pass the auto-released
     # mark the review hold's daily cap is counted from, from their own plan's
