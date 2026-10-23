@@ -1,0 +1,28 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73277583",
+  "corpus_queries": [
+    {
+      "command": "uv run fedcourts query --court scotus --q "Stinson Sentencing Guidelines commentary" --limit 10",
+      "purpose": "Attempted free-text search for SCOTUS priors involving Stinson and Sentencing Guidelines commentary (rejected by CLI parser because fedcourts query takes structured flags only).",
+      "useful": false
+    },
+    {
+      "command": "uv run fedcourts query --court scotus --docket-number "25-5343" --include-open --full",
+      "purpose": "Inspect the corpus row for Kendrick Jarrell Beaird v. United States (No. 25-5343) to verify grant date, amici, counsel, and current merits status.",
+      "useful": true
+    },
+    {
+      "command": "uv run fedcourts query --court scotus --docket-number "23-5928" --full && uv run fedcourts query --court scotus --docket-number "23-7173" --full",
+      "purpose": "Check corpus entries for two prior cert petitions raising the Stinson/Kisor issue cited in the Brief in Opposition (Cortes, No. 23-5928; Boler, No. 23-7173).",
+      "useful": false
+    }
+  ],
+  "notes": "The provisioned snapshot and filings (petition.txt, brief-in-opposition.txt, appendix.txt, questions-presented.txt) provided complete visibility into the limited cert grant on Question 2, the Solicitor General's concession that Kisor governs Stinson, and the appointment of Anthony J. Dick as Court-appointed amicus curiae. CourtListener MCP search calls hit the shared 25/min HTTP 429 rate limit on a couple of precedent lookups, which did not affect the analysis.",
+  "role": "predictor",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "used_corpus_query": true,
+  "wanted_from_corpus": "Full case names and cert dispositions on legacy IFP docket stub rows (such as 23-5928 and 23-7173), which currently store empty case_name and null disposition.",
+  "wanted_tools": null
+}

@@ -1,0 +1,113 @@
+{
+  "case_id": "scotus/73277583",
+  "claims": {
+    "claims": [
+      {
+        "claim": "judgment-disturbed",
+        "probability": 0.88
+      }
+    ],
+    "declared_set": "merits-v1"
+  },
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-04-21",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 7,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-04-21",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": null,
+    "term": 2025
+  },
+  "created_at": "2026-10-23T01:31:30Z",
+  "engine": {
+    "harness": "gemini",
+    "model": "gemini-4-argon",
+    "thinking": null
+  },
+  "event_id": "evt-order-judgment",
+  "granted": true,
+  "input_snapshot": "2026-04-21",
+  "judgment": "vacated",
+  "key_factors": [
+    "The Court limited its grant of certiorari to Question 2: whether Stinson v. United States, 508 U.S. 36 (1993), still correctly states the rule for the deference that courts must give the commentary to the Sentencing Guidelines.",
+    "The en banc Fifth Circuit in United States v. Vargas, 74 F.4th 673 (5th Cir. 2023) (en banc), explicitly refused to apply Kisor v. Wilkie, 588 U.S. 558 (2019), to Sentencing Guidelines commentary, reasoning that only the Supreme Court may declare that Kisor superseded Stinson—deepening an entrenched 6-to-6 circuit split.",
+    "The Solicitor General conceded in the Brief in Opposition (at 10-11) that Kisor's clarification of Seminole Rock/Auer applies to Guidelines commentary under Stinson (so courts may defer to commentary only if the Guideline text is genuinely ambiguous after exhausting traditional tools of construction), and further caused the appointment of an amicus curiae (Anthony J. Dick) to defend the Fifth Circuit's judgment.",
+    "Because the Fifth Circuit panel held that Beaird's challenge was foreclosed by Vargas without ever analyzing whether U.S.S.G. § 4B1.2(b) is genuinely ambiguous before deferring to Application Note 1's inclusion of inchoate offenses, rejecting the Fifth Circuit's unbounded reading of Stinson requires vacating the judgment below and remanding for application of the proper standard."
+  ],
+  "predicted_disposition": "other",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.88,
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "semantic_claims": {
+    "claims": [
+      {
+        "claim": "majority-ground",
+        "proposition": "The Court holds that Stinson v. United States, 508 U.S. 36 (1993), explicitly grounded deference to Sentencing Guidelines commentary on the Seminole Rock/Auer framework for agency interpretations of their own rules, and therefore Kisor v. Wilkie, 588 U.S. 558 (2019), governs Guidelines commentary and prohibits courts from deferring to commentary unless the text of the Guideline itself is genuinely ambiguous after exhausting traditional tools of construction."
+      },
+      {
+        "claim": "ground-breadth",
+        "proposition": "The Court announces a general rule applicable across all Guidelines commentary that Kisor's preconditions for deference govern Stinson, while declining to decide whether U.S.S.G. § 4B1.2(b) as in effect at petitioner's sentencing was genuinely ambiguous or whether Stinson should be overruled outright in favor of zero deference, leaving the application of Kisor's ambiguity threshold to the Fifth Circuit on remand."
+      }
+    ],
+    "declared_set": "semantic-v1"
+  },
+  "votes": [
+    {
+      "justice": "roberts",
+      "vote": "for-relief",
+      "writing": "majority"
+    },
+    {
+      "justice": "thomas",
+      "vote": "for-relief",
+      "writing": "concurrence"
+    },
+    {
+      "justice": "alito",
+      "vote": "against-relief",
+      "writing": "dissent"
+    },
+    {
+      "justice": "sotomayor",
+      "vote": "for-relief",
+      "writing": "none"
+    },
+    {
+      "justice": "kagan",
+      "vote": "for-relief",
+      "writing": "none"
+    },
+    {
+      "justice": "gorsuch",
+      "vote": "for-relief",
+      "writing": "concurrence-in-judgment"
+    },
+    {
+      "justice": "kavanaugh",
+      "vote": "for-relief",
+      "writing": "none"
+    },
+    {
+      "justice": "barrett",
+      "vote": "for-relief",
+      "writing": "none"
+    },
+    {
+      "justice": "jackson",
+      "vote": "for-relief",
+      "writing": "none"
+    }
+  ]
+}

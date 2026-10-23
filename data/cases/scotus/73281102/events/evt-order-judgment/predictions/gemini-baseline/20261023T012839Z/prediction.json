@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281102",
+  "event_id": "evt-order-judgment",
+  "predictor_id": "gemini-baseline",
+  "engine": {
+    "name": "gemini",
+    "model": "gemini-4-argon",
+    "effort": null
+  },
+  "run_id": "20261023T012839Z",
+  "created_at": "2026-10-23T01:35:00Z",
+  "input_snapshot": "2026-06-02.json",
+  "granted": true,
+  "probability": 0.84,
+  "predicted_disposition": "vacated",
+  "disposition_probabilities": {
+    "vacated": 0.48,
+    "reversed": 0.34,
+    "affirmed-in-part": 0.02,
+    "affirmed": 0.13,
+    "dismissed-improvidently-granted": 0.03
+  },
+  "summary": "The Court is highly likely (84%) to disturb the Fifth Circuit's judgment dismissing Petitioner's 28 U.S.C. 2241 habeas petition under Melot v. Bergami's 'accelerated release' rule. Both Petitioner and the Solicitor General agree that the Fifth Circuit erred and that a claim seeking application of First Step Act earned time credits toward prerelease custody (a halfway house or home confinement) challenges the 'place or manner' of detention cognizable under Section 2241, as recognized in Jones v. Hendrix, 599 U.S. 465, 475 (2023), and Skinner v. Switzer, 562 U.S. 521, 534 (2011). Because the Fifth Circuit bypassed the district court's administrative-exhaustion holding and the Solicitor General specifically supports vacatur, vacatur and remand (48%) is slightly more likely than outright reversal and remand (34%).",
+  "key_factors": [
+    "Merits base rate: across the ten grant Terms strictly preceding OT2025 (OT2017-OT2024 in the statpack), the Supreme Court disturbed the judgment below in 69.8% of parsed merits decisions (360 of 516; 235 reversed, 115 vacated, 10 affirmed-in-part).",
+    "Solicitor General alignment and confession of error: the United States concedes that the Fifth Circuit's bright-line 'accelerated release' rule conflicts with Supreme Court precedent and filed a merits brief supporting vacatur, requiring appointment of an amicus curiae (Brian W. Barnes) to defend the judgment below.",
+    "Direct doctrinal support in Jones v. Hendrix, 599 U.S. 465, 475 (2023), and Skinner v. Switzer, 562 U.S. 521, 534 (2011), which recognize that habeas corpus under 28 U.S.C. 2241 encompasses challenges to being detained in an unauthorized 'place or manner,' denials of good-time credits, and claims seeking to 'reduce the level of custody.'",
+    "Statutory structure of the First Step Act, 18 U.S.C. 3632(d)(4)(C) and 3624(g), which mandates that earned time credits 'shall be applied toward time in prerelease custody or supervised release,' combined with the practical absence of any Bivens remedy for federal prisoners in the Fifth and Eighth Circuits if Section 2241 is foreclosed.",
+    "Procedural posture favoring vacatur over reversal: the district court granted summary judgment on administrative exhaustion, which the Fifth Circuit explicitly declined to address ('we need not address whether Maxwell sufficiently exhausted his administrative remedies'), and the Court limited certiorari to Question 1."
+  ],
+  "signals": null,
+  "vote_margin": {
+    "expected_winner_votes": 8.0,
+    "expected_loser_votes": 1.0,
+    "p_unanimous": 0.45,
+    "p_close": 0.05
+  },
+  "opinion_authors": null,
+  "holding_outcome": null
+}

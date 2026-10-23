@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281102",
+  "run_id": "20261023T012839Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_search_document",
+    "google_web_search"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "metrics/statpack.md merits docket table for 10-Term pre-OT2025 disturbed rate and disposition breakdown",
+    "provisioned cert-stage filings (brief-in-opposition.txt, cert-reply.txt, appendix.txt, petition.txt)",
+    "mcp_courtlistener_search_document on Jones v. Hendrix (599 U.S. 465)",
+    "google_web_search for forward-mode merits briefing posture"
+  ],
+  "gaps": [],
+  "notes": "Clean forward-mode merits cell at moment: grant. All five cert-stage filings were provisioned and readable."
+}
