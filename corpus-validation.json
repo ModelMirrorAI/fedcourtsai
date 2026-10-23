@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 17512,
+      "checked": 17528,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 29140,
+      "checked": 29144,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -134,7 +134,7 @@
       "problems": []
     },
     {
-      "checked": 2866,
+      "checked": 2898,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -142,7 +142,7 @@
       "problems": []
     },
     {
-      "checked": 1228,
+      "checked": 1244,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -150,7 +150,7 @@
       "problems": []
     },
     {
-      "checked": 162,
+      "checked": 167,
       "detail": "",
       "failures": 0,
       "name": "prediction_semantic_claims_conform",
