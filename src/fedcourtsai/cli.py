@@ -269,6 +269,7 @@ from .pipeline import (
     decision_below,
     granted_noted,
     historical,
+    justice_priors,
     liveprobe,
     merits_lineups,
     moments,
@@ -4661,6 +4662,75 @@ def merits_lineups_cmd(
             {
                 "census": census.model_dump(mode="json"),
                 "lineups": [lineup.model_dump(mode="json") for lineup in lineups],
+            }
+        )
+    )
+
+
+@app.command("justice-priors")
+def justice_priors_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First October Term to roll up.")
+    ] = 2020,
+    last_term: Annotated[
+        int, typer.Option("--last-term", help="Last October Term to roll up.")
+    ] = 2025,
+    before_term: Annotated[
+        int | None,
+        typer.Option(
+            "--before-term",
+            help="Pool the Terms strictly before this one into rates. Default: --last-term + 1.",
+        ),
+    ] = None,
+) -> None:
+    """Roll the merits lineups into per-Justice merits priors, read-only.
+
+    For each Term and Justice (`pipeline/justice_priors.py`): decisions sat, the
+    rate voting with the judgment, the rate voting to disturb the judgment below
+    (over plain affirmed, reversed or vacated judgments), and pairwise
+    agreement, over complete lineups only. The pooled rates sum the Terms
+    strictly before `--before-term`, so a forecast in a Term never reads its
+    own Term's decisions. Nothing a cell sees reads it. Writes nothing. Prints
+    one coverage line per Term to stderr and `{"terms": ..., "pooled": ...}`
+    JSON to stdout. Fails loud if the corpus is absent.
+    """
+    if first_term > last_term:
+        typer.echo("justice-priors: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before rolling up justice priors.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        lineups = merits_lineups.merits_lineups(conn, first_term=first_term, last_term=last_term)
+        judgments = justice_priors.case_judgments(
+            conn, (lu.case_id for lu in lineups if lu.status == "complete" and lu.case_id)
+        )
+    priors = justice_priors.justice_priors(lineups, judgments)
+    pooled = justice_priors.pool_before(
+        priors, last_term + 1 if before_term is None else before_term
+    )
+    for term in priors.terms:
+        typer.echo(
+            f"OT{term.term}: {term.complete} of {term.documents} documents with a complete "
+            f"lineup, {term.judged} with a plain judgment; {len(term.justices)} Justice(s)",
+            err=True,
+        )
+    typer.echo(
+        f"pooled before OT{pooled.before_term}: {pooled.decisions} decision(s) over "
+        f"{len(pooled.terms)} Term(s)",
+        err=True,
+    )
+    typer.echo(
+        json.dumps(
+            {
+                "terms": priors.model_dump(mode="json")["terms"],
+                "pooled": pooled.model_dump(mode="json"),
             }
         )
     )
