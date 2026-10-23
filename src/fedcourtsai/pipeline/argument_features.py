@@ -87,8 +87,11 @@ ASSIGNMENT: Final = (
 _APOSTROPHES = "'\u2019"
 _NAME = rf"[A-ZÀ-Þ][A-Za-zÀ-ÿ{_APOSTROPHES}.\-]*(?: [A-ZÀ-Þ][A-Za-zÀ-ÿ{_APOSTROPHES}.\-]*){{0,3}}"
 _LABEL_RE: Final = re.compile(
-    rf"^(?P<title>CHIEF JUSTICE|JUSTICE|MR\.?|MRS\.?|MS\.?|GENERAL) (?P<name>{_NAME}):(?:\s+|$)"
+    rf"^(?P<title>CHIEF JUSTICE|JUSTICE|MR\.?|MRS\.?|MS\.?|GENERAL) (?P<name>{_NAME}):\s*"
 )
+# A line opening like a label (capital words, then a colon) that _LABEL_RE does
+# not read, such as a title outside the closed list. Counted, not attributed.
+_LABEL_LIKE_RE: Final = re.compile(r"^(?P<prefix>[A-Z][A-Z.'\-]*(?: [A-Z][A-Z.'\-]*){1,4}):")
 # A segment header in the body. The table of contents prints the same words
 # with a colon ("ORAL ARGUMENT OF:"), which is not a header. The reporter
 # sometimes prints "ARGUMENT BY", and an extraction can lose the leading "ORAL";
@@ -96,7 +99,11 @@ _LABEL_RE: Final = re.compile(
 _HEADER_RE: Final = re.compile(r"^(?:(?P<kind>REBUTTAL|ORAL) )?ARGUMENT (?:OF|BY)(?![:\w])")
 # How many lines past its first a header may run before it is read as unended.
 _HEADER_MAX_LINES: Final = 6
+# The reporter's closing line, "(Whereupon, at 11:19 a.m., the case was
+# submitted.)", read with or without the comma; "submitted" must be on it or the
+# next line, so a mid-argument "(Whereupon, a recess was taken.)" ends nothing.
 _CLOSING_RE: Final = re.compile(r"^\(\s*whereupon\b", re.IGNORECASE)
+_SUBMITTED_RE: Final = re.compile(r"\bsubmitted\b", re.IGNORECASE)
 # The line that opens the argument proper, after the cover, the appearances and
 # the table of contents, which print the advocates' names and sides as well.
 _PROCEEDINGS_RE: Final = re.compile(r"^P ?R ?O ?C ?E ?E ?D ?I ?N ?G ?S$")
@@ -257,7 +264,11 @@ def _argument_lines(text: str) -> tuple[list[str], bool, bool]:
     lines = [line.strip() for line in text.splitlines()]
     if _is_line_numbered(lines):
         lines = [_LINE_NUMBER_RE.sub("", line, count=1) for line in lines]
-    closes = [i for i, line in enumerate(lines) if _CLOSING_RE.match(line)]
+    closes = [
+        i
+        for i, line in enumerate(lines)
+        if _CLOSING_RE.match(line) and _SUBMITTED_RE.search(" ".join(lines[i : i + 2]))
+    ]
     if closes:
         lines = lines[: closes[-1]]
     opening = next((i for i, line in enumerate(lines) if _PROCEEDINGS_RE.match(line)), None)
@@ -278,6 +289,7 @@ class _Parse:
         self.notes: list[str] = []
         self.justices: dict[str, _JusticeTally] = {}
         self.unresolved: Counter[str] = Counter()
+        self.label_like: Counter[str] = Counter()
         self.justice_turns = 0
         self.outside = 0
         self.unresolved_turns = 0
@@ -301,8 +313,11 @@ class _Parse:
                 self.close_turn()
                 self.speaker = (label.group("title").rstrip("."), label.group("name"))
                 self.words = _words(line[label.end() :])
-            elif self.speaker is not None and not _is_furniture(line):
-                self.words += _words(line)
+            else:
+                if (like := _LABEL_LIKE_RE.match(line)) is not None:
+                    self.label_like[like.group("prefix")] += 1
+                if self.speaker is not None and not _is_furniture(line):
+                    self.words += _words(line)
             index += 1
         self.close_turn()
 
@@ -449,6 +464,8 @@ def parse_argument_features(text: str) -> ArgumentFeatures:
             justice_turns_unresolved=parse.unresolved_turns,
             justice_turns_unattributed_segment=parse.unattributed_segment,
             unresolved_labels=sorted(parse.unresolved),
+            unrecognized_label_lines=sum(parse.label_like.values()),
+            unrecognized_labels=sorted(parse.label_like),
             closing_line=closing_line,
             notes=notes,
         ),

@@ -4477,7 +4477,12 @@ def argument_features_cmd(
     if not transcript.is_file():
         typer.echo(f"no transcript text at {transcript}", err=True)
         raise typer.Exit(code=1)
-    features = argument_features.parse_argument_features(transcript.read_text(encoding="utf-8"))
+    try:
+        text = transcript.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        typer.echo(f"{transcript} is not UTF-8 text; pass the cleaned transcript text", err=True)
+        raise typer.Exit(code=1) from None
+    features = argument_features.parse_argument_features(text)
     coverage = features.coverage
     typer.echo(
         f"{coverage.segments} segment(s), {coverage.segments_unattributed} with no side; "

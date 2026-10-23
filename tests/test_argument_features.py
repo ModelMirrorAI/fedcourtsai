@@ -420,9 +420,27 @@ def test_coverage_refuses_counts_that_do_not_partition() -> None:
             justice_turns_unresolved=0,
             justice_turns_unattributed_segment=0,
             unresolved_labels=[],
+            unrecognized_label_lines=0,
+            unrecognized_labels=[],
             closing_line=True,
             notes=[],
         )
+
+
+def test_features_refuse_totals_that_are_not_the_rows_sums() -> None:
+    features = _features()
+    data = features.model_dump(mode="json")
+    data["side_totals"]["petitioner"]["turns"] += 1
+    with pytest.raises(ValidationError, match="side_totals"):
+        ArgumentFeatures.model_validate(data)
+    data = features.model_dump(mode="json")
+    data["justices"][0]["total"]["words"] += 1
+    with pytest.raises(ValidationError, match="by_side"):
+        ArgumentFeatures.model_validate(data)
+    data = features.model_dump(mode="json")
+    data["segments"].pop()
+    with pytest.raises(ValidationError, match=r"coverage\.segments"):
+        ArgumentFeatures.model_validate(data)
 
 
 def test_cli_prints_the_features_and_a_coverage_line(tmp_path: Path) -> None:
@@ -434,6 +452,11 @@ def test_cli_prints_the_features_and_a_coverage_line(tmp_path: Path) -> None:
     assert "4 segment(s), 0 with no side; 9 Justice turn(s): 7 attributed" in result.stderr
     missing = runner.invoke(app, ["argument-features", str(tmp_path / "absent.txt")])
     assert missing.exit_code == 1
+    binary = tmp_path / "argument-transcript.pdf"
+    binary.write_bytes(b"%PDF-1.4\n\xff\xfe\x00")
+    refused = runner.invoke(app, ["argument-features", str(binary)])
+    assert refused.exit_code == 1
+    assert "is not UTF-8 text" in refused.stderr
 
 
 def test_an_advocate_is_matched_by_a_whole_word_of_the_header() -> None:
@@ -454,3 +477,45 @@ def test_an_advocate_is_matched_by_a_whole_word_of_the_header() -> None:
         _count(1, 1),
         1,
     )
+
+
+def test_a_recess_line_does_not_end_the_argument() -> None:
+    # Only a closing line saying the case was submitted ends the parse, so a
+    # head-cut text with a recess in it is still reported as having no close.
+    features = parse_argument_features(
+        _argument(
+            ["ORAL ARGUMENT OF ANN AY", "ON BEHALF OF THE PETITIONER", "MS. AY: Reverse."],
+            ["JUSTICE THOMAS: Why?", "(Whereupon, a recess was taken.)"],
+            ["JUSTICE THOMAS: And after the recess?"],
+            close=False,
+        )
+    )
+    assert not features.coverage.closing_line
+    assert features.justices[0].by_side == {"petitioner": _count(2, 5)}
+
+
+def test_a_label_with_no_space_after_its_colon_still_opens_a_turn() -> None:
+    features = parse_argument_features(
+        _argument(
+            ["ORAL ARGUMENT OF ANN AY", "ON BEHALF OF THE PETITIONER", "MS. AY:Reverse."],
+            ["JUSTICE KAGAN:Why?"],
+        )
+    )
+    assert features.justices[0].by_side == {"petitioner": _count(1, 1)}
+    assert features.segments[0].advocate == _count(1, 1)
+
+
+def test_a_label_like_line_the_parse_cannot_read_is_counted() -> None:
+    features = parse_argument_features(
+        _argument(
+            ["ORAL ARGUMENT OF ANN AY", "ON BEHALF OF THE PETITIONER", "MS. AY: Reverse."],
+            ["THE MARSHAL: Oyez.", "JUSTICE KAGAN: Why?"],
+        )
+    )
+    coverage = features.coverage
+    assert (coverage.unrecognized_label_lines, coverage.unrecognized_labels) == (
+        1,
+        ["THE MARSHAL"],
+    )
+    # Its words stay with the turn it falls in; nothing is attributed to it.
+    assert features.segments[0].advocate == _count(1, 4)

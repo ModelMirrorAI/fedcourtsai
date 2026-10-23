@@ -705,13 +705,9 @@ pass, after document freshness (`live.fetch_argument_transcripts`):
   (`fedcourts argument-features`) and is **not yet given to any cell**.
   Staging it beside the transcript would change the post-argument moment's
   information set, so it waits for a process-version re-bless
-  ([process-version.md](process-version.md)). Measured on 60 OT2024
-  transcripts from the Court's list, every segment's side was read and 11,816
-  of 11,877 Justice turns were attributed: the other 61 are the Chief Justice
-  calling each case and one misprinted label. Five of the 60 run past the
-  150,000-character `document_text_cap` once cleaned, so they are stored
-  head-cut, four of them without their rebuttal. On such a row the parse finds
-  no closing line and says so.
+  ([process-version.md](process-version.md)). A transcript longer than
+  `document_text_cap` once cleaned is stored head-cut, often without its
+  rebuttal. On such a row the parse finds no closing line and says so.
 - **Ledger.** The `Argument transcripts:` line carries listed, unmatched, held,
   owed, stored (empty among them), unavailable, failed, deferred and sittings
   counts. The

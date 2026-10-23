@@ -10,7 +10,7 @@ agents and Codex ``--output-schema`` can target them directly.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import Annotated, Any, Final, Literal, get_args
@@ -1161,6 +1161,22 @@ class ArgumentSegment(_Strict):
     )
 
 
+def _turn_sum(counts: Iterable[ArgumentTurnCount]) -> ArgumentTurnCount:
+    turns = words = 0
+    for count in counts:
+        turns += count.turns
+        words += count.words
+    return ArgumentTurnCount(turns=turns, words=words)
+
+
+def _keyed_sum[K: str](rows: Iterable[dict[K, ArgumentTurnCount]]) -> dict[K, ArgumentTurnCount]:
+    parts: dict[K, list[ArgumentTurnCount]] = {}
+    for row in rows:
+        for key, count in row.items():
+            parts.setdefault(key, []).append(count)
+    return {key: _turn_sum(counts) for key, counts in parts.items()}
+
+
 class JusticeArgumentFeatures(_Strict):
     """One Justice's questioning, split by the side of the segment each turn fell in."""
 
@@ -1177,6 +1193,14 @@ class JusticeArgumentFeatures(_Strict):
     unattributed: ArgumentTurnCount = Field(
         description="Turns in segments whose side is unread. Never folded into a side"
     )
+
+    @model_validator(mode="after")
+    def _sums(self) -> JusticeArgumentFeatures:
+        if _turn_sum(self.by_side.values()) != self.total:
+            raise ValueError(f"{self.justice}: total is not the sum over by_side")
+        if _turn_sum(self.by_alignment.values()) != self.total:
+            raise ValueError(f"{self.justice}: total is not the sum over by_alignment")
+        return self
 
 
 class ArgumentParseCoverage(_Strict):
@@ -1210,6 +1234,15 @@ class ArgumentParseCoverage(_Strict):
     unresolved_labels: list[str] = Field(
         description="The distinct Justice labels the roster did not resolve, as printed"
     )
+    unrecognized_label_lines: int = Field(
+        ge=0,
+        description="Lines that open like a speaker label (capitals, then a colon) under "
+        "a title the parse does not read as one; their words are counted with the turn "
+        "they fall in, so this is how many such lines a reader may want to look at",
+    )
+    unrecognized_labels: list[str] = Field(
+        description="The distinct label-like prefixes those lines open with, as printed"
+    )
     closing_line: bool = Field(
         description="Whether the reporter's closing '(Whereupon … submitted.)' line was "
         "found. Without it the parse ran to the end of the text, which may then end "
@@ -1237,9 +1270,10 @@ class ArgumentFeatures(_Strict):
 
     Computed by :func:`fedcourtsai.pipeline.argument_features.parse_argument_features`
     from the text :func:`fedcourtsai.pipeline.documents.extract_transcript_text`
-    stores, deterministically and with no model in the loop, so every predictor
-    that is given it reads the same count. ``assignment`` states the reading that
-    turns a speaker label into a side.
+    stores, deterministically and with no model in the loop, so one transcript
+    always yields one count. ``assignment`` states the reading that turns a
+    speaker label into a side. The totals are checked on construction against
+    the rows and the coverage against the segments.
     """
 
     parser_version: Literal["1"] = Field(
@@ -1257,6 +1291,19 @@ class ArgumentFeatures(_Strict):
         description="The same turns summed by the position the segment argued for"
     )
     coverage: ArgumentParseCoverage = Field(description="What was and was not attributed")
+
+    @model_validator(mode="after")
+    def _consistent(self) -> ArgumentFeatures:
+        if self.side_totals != _keyed_sum(row.by_side for row in self.justices):
+            raise ValueError("side_totals are not the sum of the rows' by_side")
+        if self.alignment_totals != _keyed_sum(row.by_alignment for row in self.justices):
+            raise ValueError("alignment_totals are not the sum of the rows' by_alignment")
+        if self.coverage.segments != len(self.segments):
+            raise ValueError("coverage.segments is not the number of segments")
+        attributed = sum(1 for segment in self.segments if segment.side is not None)
+        if self.coverage.segments_attributed != attributed:
+            raise ValueError("coverage.segments_attributed is not the segments with a side")
+        return self
 
 
 class ClaimProbability(_Strict):
