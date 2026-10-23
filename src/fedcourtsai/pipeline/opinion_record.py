@@ -1803,3 +1803,66 @@ def insert_opinions(
             texted,
         )
         return rows, bench_rows, conn.total_changes - before - rows - bench_rows
+
+
+# --- the reader: a case's stored writings ---------------------------------------
+
+
+@dataclass(frozen=True)
+class StoredText:
+    """One decision's stored writings, with the digest its pointer row records."""
+
+    text: OpinionText
+    digest: str
+
+
+def case_texts(
+    conn: corpus.ReadConnection,
+    transport: casestore.ObjectTransport | None,
+    *,
+    case_id: str,
+    docket_number: str | None,
+) -> list[StoredText]:
+    """Every stored decision of one case, oldest first: what an evaluate cell may stage.
+
+    A decision is the case's when its record row names the case, or when its
+    listing prints the case's docket number among its dockets — the second
+    covers a consolidated decision, whose rows link only the lead docket's
+    case, and is asked only of a Supreme Court case, since a lower court's
+    docket numbers share the Court's shape. An object is taken only where its
+    bytes match the pointer row's digest and parse as an :class:`OpinionText`
+    for that same listing row; anything else is left out, as is every decision
+    whose text is not stored.
+    """
+    if transport is None:
+        return []
+    scotus = case_id.partition("/")[0] == "scotus"
+    wanted = corpus.normalize_docket_number(docket_number) if docket_number and scotus else None
+    try:
+        rows = conn.execute(
+            "SELECT o.term, o.listing_number, o.dockets, o.case_id, t.object_key, t.digest "
+            "FROM opinions AS o JOIN opinion_texts AS t "
+            "ON o.term = t.term AND o.listing_number = t.listing_number "
+            "WHERE o.position = 1 AND t.object_key IS NOT NULL "
+            "ORDER BY o.decided, o.term, o.listing_number"
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc):
+            raise
+        return []
+    found: list[StoredText] = []
+    for term, number, dockets, linked, key, digest in rows:
+        printed = {corpus.normalize_docket_number(d) for d in json.loads(dockets or "[]")}
+        if linked != case_id and (wanted is None or wanted not in printed):
+            continue
+        body = casestore.read_pinned(transport, str(key), str(digest))
+        if body is None:
+            continue
+        try:
+            text = OpinionText.model_validate_json(body)
+        except ValueError:
+            continue
+        if (text.term, text.listing_number) != (int(term), str(number)):
+            continue
+        found.append(StoredText(text=text, digest=str(digest)))
+    return found

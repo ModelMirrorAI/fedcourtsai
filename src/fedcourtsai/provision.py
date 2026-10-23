@@ -30,6 +30,7 @@ neither can hand an agent a record shaped differently from the other's.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -63,9 +64,17 @@ from .pipeline.documents import (
     scrub_snapshot_contacts,
     unrepresented_sides,
 )
+from .pipeline.opinion_record import StoredText
 from .pipeline.vide_links import VIDE_RELATION
-from .schemas import AuthorshipTally, Moment, Stage
-from .serialize import write_raw_json, write_text
+from .schemas import (
+    AuthorshipTally,
+    Moment,
+    Stage,
+    StagedDecision,
+    StagedWriting,
+    StagedWritings,
+)
+from .serialize import write_json, write_raw_json, write_text
 from .supremecourt import october_term_year
 
 
@@ -1241,8 +1250,81 @@ def clear_opinion_slot(paths: CasePaths) -> None:
     """
     paths.opinion_text.unlink(missing_ok=True)
     paths.opinion_manifest.unlink(missing_ok=True)
+    paths.opinion_writings_manifest.unlink(missing_ok=True)
+    if paths.opinion_writings_dir.is_dir():
+        for decision in paths.opinion_writings_dir.iterdir():
+            if decision.is_file():
+                decision.unlink()
+                continue
+            _clear_dir(decision)
+            if not any(decision.iterdir()):
+                decision.rmdir()
+        if not any(paths.opinion_writings_dir.iterdir()):
+            paths.opinion_writings_dir.rmdir()
     if paths.opinion_dir.is_dir() and not any(paths.opinion_dir.iterdir()):
         paths.opinion_dir.rmdir()
+
+
+#: A listing number as it may appear in a staged decision's directory name.
+_LISTING = re.compile(r"[0-9A-Za-z][0-9A-Za-z.\-]{0,15}")
+
+
+def stage_writings(
+    paths: CasePaths, case_id: str, stored: Sequence[StoredText]
+) -> StagedWritings | None:
+    """Write every writing of each stored decision under ``record/opinion/writings/``.
+
+    One file per writing, ``OT<term>-<listing>/<NN>-<kind>.txt``: its text,
+    then its footnotes under a ``Footnotes`` line. The manifest beside them
+    records each file's digest of the bytes written, and the stored object's,
+    so a grade's basis resolves against the text it was formed from. Writes
+    nothing and returns ``None`` where no decision is stored; a listing number
+    that is not one the record could hold is refused before the first write.
+    """
+    if not stored:
+        return None
+    for item in stored:
+        if not _LISTING.fullmatch(item.text.listing_number):
+            raise ValueError(f"not a listing number: {item.text.listing_number[:20]!r}")
+    decisions: list[StagedDecision] = []
+    for item in stored:
+        text = item.text
+        folder = f"OT{text.term}-{text.listing_number}"
+        writings: list[StagedWriting] = []
+        for writing in text.writings:
+            body = writing.text
+            if writing.footnotes:
+                body += "\n\nFootnotes\n\n" + writing.footnotes
+            body += "\n"
+            name = f"{folder}/{writing.position:02d}-{writing.kind.value}.txt"
+            write_text(paths.opinion_writings_dir / name, body)
+            writings.append(
+                StagedWriting(
+                    position=writing.position,
+                    kind=writing.kind.value,
+                    author=writing.author,
+                    header=writing.header,
+                    words=writing.words,
+                    file=f"writings/{name}",
+                    sha256=hashlib.sha256(body.encode("utf-8")).hexdigest(),
+                    length=len(body),
+                )
+            )
+        decisions.append(
+            StagedDecision(
+                term=text.term,
+                listing_number=text.listing_number,
+                name=text.name,
+                decided=text.decided,
+                document_url=text.document_url,
+                object_digest=item.digest,
+                text_rule=text.text_rule,
+                writings=writings,
+            )
+        )
+    manifest = StagedWritings(case_id=case_id, decisions=decisions)
+    write_json(paths.opinion_writings_manifest, manifest)
+    return manifest
 
 
 #: A document kind, as it is allowed to appear in a `record/documents/` filename.

@@ -1104,6 +1104,55 @@ class StagedOpinion(_Strict):
     )
 
 
+class StagedWriting(_Strict):
+    """One writing of a decision, as staged under ``record/opinion/writings/``."""
+
+    position: int = Field(ge=1, description="Its order in the decision, from 1")
+    kind: str = Field(description="The `WritingKind` vocabulary: opinion-of-the-court, dissent, …")
+    author: str | None = Field(description="The signing Justice; null for a per curiam")
+    header: str = Field(description="The writing's header sentence as printed (normalized)")
+    words: int = Field(ge=0, description="Words under the per-opinion record's counting rule")
+    file: str = Field(description="The staged file, relative to `record/opinion/`")
+    sha256: str = Field(description="Hex SHA-256 of the staged file's UTF-8 bytes")
+    length: int = Field(ge=0, description="Characters in the staged file")
+
+
+class StagedDecision(_Strict):
+    """One decision whose writings are staged: a document of the Court's opinions listing."""
+
+    term: int = Field(description="The October Term (four-digit year)")
+    listing_number: str = Field(description="The listing row's number: the document")
+    name: str = Field(description="The case name as the listing prints it")
+    decided: date = Field(description="The listing's decision date")
+    document_url: str = Field(description="The supremecourt.gov PDF the text was read from")
+    object_digest: str = Field(
+        description="Hex SHA-256 of the stored text object the files were written from"
+    )
+    text_rule: str = Field(description="`<rule>/<version>` the text was cut under")
+    writings: list[StagedWriting] = Field(description="Every writing, in the order printed")
+
+
+class StagedWritings(_Strict):
+    """The manifest beside the staged writings — ``record/opinion/writings.json``.
+
+    **Harness-owned and evaluate-only**, on the majority opinion's terms
+    (:class:`StagedOpinion`): written by ``provision-opinion --writings``, never by
+    an agent or by the provisioner the predict lane calls, and written only
+    beside the files it describes, so its presence is the answer to "are the
+    writings staged?". Each decision is one document of the Court's opinions
+    listing that names the case's docket, read from the per-opinion record's
+    stored text and taken only where that text's bytes match the digest its
+    pointer row records.
+    """
+
+    case_id: str = Field(
+        description="The case whose decisions are staged, `<court_id>/<docket_id>`"
+    )
+    decisions: list[StagedDecision] = Field(
+        min_length=1, description="Each decision staged, oldest first"
+    )
+
+
 #: Which side an argument segment's advocate stood for, as its header names it:
 #: a party (``petitioner``, an appellant read as one; ``respondent``, an appellee
 #: read as one), or an amicus — the United States or any other — keyed with the

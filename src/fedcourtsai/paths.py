@@ -341,6 +341,19 @@ class CasePaths:
         return self.opinion_dir / "majority-opinion.txt"
 
     @property
+    def opinion_writings_dir(self) -> Path:
+        # Every writing of each decision the per-opinion record stores text for:
+        # one file per writing under `OT<term>-<listing>/`. Staged only on a
+        # pilot round's evaluate cell (`provision-opinion --writings`).
+        return self.opinion_dir / "writings"
+
+    @property
+    def opinion_writings_manifest(self) -> Path:
+        # What each file under `writings/` is: its decision, its kind and author,
+        # and the digest of the bytes staged. Written only beside them.
+        return self.opinion_dir / "writings.json"
+
+    @property
     def opinion_manifest(self) -> Path:
         # What the text beside it is and where it came from: the case, the
         # presence bit, the body's sha256 and length, and the citation the

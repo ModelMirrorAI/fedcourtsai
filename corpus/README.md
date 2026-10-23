@@ -347,8 +347,9 @@ which derives each decision's per-Justice votes from it, and `fedcourts authorsh
 which reads each lead opinion's author against its argument sitting; it is read by no `query`
 retrieval row, outcome, mint or scoring gate, and provisioning reads it only for
 the tally a post-argument merits cell would be given, which is held back from
-every cell (`provision.AUTHORSHIP_TALLY_WITHHELD`); a test pins which modules may name
-it. It is metadata, not payload, so it stays in the index blob under the
+every cell (`provision.AUTHORSHIP_TALLY_WITHHELD`), and to pick the decisions whose
+writings `provision-opinion --writings` stages into a pilot round's evaluate cell;
+a test pins which modules may name it. It is metadata, not payload, so it stays in the index blob under the
 corpus-split mode and has no content-store mirror; the writings' text, which
 is payload, goes to the content store instead (`opinion_texts`, below). The source, the cross-check
 and the word-counting rule are in [docs/data-sources.md](../docs/data-sources.md).
@@ -423,7 +424,9 @@ pointer is null, which also ends the re-reading. A write with no content
 store addressed stores no text and writes no text row for a document whose
 text it would store, so the document stays owed.
 Held on the same terms as `opinions`: corpus-side, read by no `query` row,
-provisioning step, outcome, mint or score. The text is the Court's, but it
+outcome, mint or score. One provisioning step reads it: `fedcourts
+provision-opinion --writings`, which stages a decided case's writings into a
+pilot round's evaluate cell and no other. The text is the Court's, but it
 reached the store through the parse job's plan, whose check is only that the
 text recounts to its own word counts, so a reader takes the object only when
 its bytes match the row's digest (`casestore.read_pinned`) and treats it as
