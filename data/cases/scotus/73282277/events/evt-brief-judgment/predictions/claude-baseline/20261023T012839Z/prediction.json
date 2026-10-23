@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "Whether to overrule Williams v. Florida (1970) and constitutionalize the 12-person criminal jury; reaches thousands of pending direct appeals in at least seven states.",
+  "big_case_score": 0.85,
+  "case_id": "scotus/73282277",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.7
+    }
+  ],
+  "confidence": 0.55,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-29",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 5,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-29",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-23T01:51:53Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-09-29.json",
+  "judgment": "reversed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.7,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+    "label": "proc-v10",
+    "pipeline_sha": "d6d456dd3f5d3ccb34dfdfef2ba8620958d12d10",
+    "stamped_at": "2026-10-23T01:52:52.252476Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds, on the original public meaning of 'trial by an impartial jury' as applied in Ramos v. Louisiana, that the Sixth Amendment (incorporated against the States through the Fourteenth) requires a 12-member jury to convict of a serious offense, and expressly overrules Williams v. Florida, rejecting Williams's functionalist reasoning rather than holding that Ramos had already silently overruled it."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is a categorical rule reaching every State's trials for serious (non-petty) offenses, not one confined to Florida's six-person felony juries or to Kian; the Court leaves retroactivity, harmless-error and preservation questions for remand and pending cases rather than limiting the rule's reach in the opinion itself."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73277583",
+  "gaps": [
+    "No provisioned Court-appointed amicus merits brief despite its filing being the briefed event's trigger",
+    "CourtListener opinion-passage retrieval returned HTTP 429 on both attempts",
+    "Web searches and an official opinion open returned no usable content"
+  ],
+  "helpful": [
+    "Both parties' nontruncated merits briefs, including their differing theories and shared vacatur request",
+    "The limited grant order and lower-court opinion separated the sentencing question from the petition's constitutional gun challenges",
+    "The merits statpack included excluded counts and enough strictly prior parsed judgments to compute the registered anchor"
+  ],
+  "notes": "The ordinary uv cache location was read-only; setting UV_CACHE_DIR=/tmp/uv-cache restored local CLI execution. No CourtListener REST fallback or current-case outcome search was used. The Court-appointed advocate is substantively more important than the formal respondent slot in this aligned-parties case.",
+  "role": "predictor",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Local provisioned-record reads",
+    "fedcourts paths",
+    "Committed merits statpack and local pool calculation",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document (throttled)",
+    "web.run (no usable content)",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

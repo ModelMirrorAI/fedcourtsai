@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73281102",
+  "run_id": "20261023T012839Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "statpack.md merits section",
+    "provisioned BIO/cert reply/QP",
+    "snapshot"
+  ],
+  "helpful": [
+    "Provisioned BIO and cert reply made the government's partial concession visible",
+    "Merits section per-Term disturbed table"
+  ],
+  "gaps": [
+    "No provisioned order text for the amicus appointment; its date relative to the cutoff is only inferable from the attorney list"
+  ],
+  "notes": "Did not use MCP retrieval; the provisioned record was sufficient for a grant-moment merits call."
+}

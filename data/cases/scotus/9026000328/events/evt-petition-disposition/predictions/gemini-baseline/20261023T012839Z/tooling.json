@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9026000328",
+  "run_id": "20261023T012839Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Provisioned petition.txt, appendix.txt, questions-presented.txt, and related/26-350.json provided comprehensive pre-decision context, including the full South Carolina Supreme Court opinion and post-opinion orders.",
+    "fedcourts query by --docket-number quickly confirmed the status of companion docket 26-350, the pending Whittaker petitions (26-159, 26-263), and the prior denial in Atlas Turner v. Welch (25-213).",
+    "metrics/statpack.md provided exact sal-v4 baseline [reached] rates and relist/CVSG cuts."
+  ],
+  "gaps": [
+    "CourtListener MCP server returned HTTP 429 (300/hour rate limit exceeded), though the provisioned appendix and corpus queries covered all necessary case context."
+  ],
+  "notes": "Degraded gracefully from the CourtListener MCP 429 error using the provisioned appendix and corpus queries.",
+  "schema_version": "1.0"
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73282277",
+  "run_id": "20261023T012839Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md (merits docket section)", "provisioned documents"],
+  "helpful": ["Merits section's per-Term disturbed/parsed counts with an excluded column made the pooled anchor easy to compute"],
+  "gaps": ["A merits-section cut by the posture of the grant (e.g. cases asking to overrule precedent, or summary state-court affirmances) would sharpen the anchor"],
+  "notes": "The snapshot's attorney roster escapes the date cut; see flags.json."
+}

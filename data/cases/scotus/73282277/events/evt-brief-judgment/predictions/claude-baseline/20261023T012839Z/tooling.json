@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73282277",
+  "run_id": "20261023T012839Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot",
+    "provisioned merits briefs",
+    "metrics/statpack.md merits section"
+  ],
+  "helpful": [
+    "Both merits briefs provisioned in full, untruncated",
+    "Merits section of statpack with excluded column"
+  ],
+  "gaps": [
+    "Amicus brief texts (incl. the United States') are not provisioned, so the SG's position is unknown from the record"
+  ],
+  "notes": "Forecast rests on provisioned briefs plus general knowledge of the Court's Sixth Amendment jurisprudence; no MCP or corpus query calls made."
+}

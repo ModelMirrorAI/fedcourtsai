@@ -1,0 +1,71 @@
+{
+  "big_case_rationale": "Cross-border corporate receivership dispute involving the internal affairs doctrine and an English High Court anti-suit injunction, though posture is interlocutory and fact-bound.",
+  "big_case_score": 0.35,
+  "case_id": "scotus/9026000328",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.015
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.12
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.15
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.02
+    }
+  ],
+  "confidence": 0.88,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-23",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026
+  },
+  "created_at": "2026-10-23T01:35:00Z",
+  "engine": "gemini",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-23.json",
+  "judgment": null,
+  "model": "gemini-4-argon",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.015,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434",
+    "label": "proc-v10",
+    "pipeline_sha": "d6d456dd3f5d3ccb34dfdfef2ba8620958d12d10",
+    "stamped_at": "2026-10-23T02:09:53.559633Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

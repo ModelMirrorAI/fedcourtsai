@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "Sets the deference rule for Sentencing Guidelines commentary, which touches a large share of federal sentences; doctrinally significant post-Kisor/Loper Bright, but the case itself is a single guidelines enhancement.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/73277583",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.88
+    }
+  ],
+  "confidence": 0.7,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-08-26",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 7,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-26",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-23T01:41:17Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-08-26.json",
+  "judgment": "vacated",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.88,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+    "label": "proc-v10",
+    "pipeline_sha": "d6d456dd3f5d3ccb34dfdfef2ba8620958d12d10",
+    "stamped_at": "2026-10-23T01:42:25.393579Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that Stinson's 'plainly erroneous or inconsistent' formulation no longer states the rule: guidelines commentary receives deference, if at all, only within Kisor v. Wilkie's limits (genuine ambiguity after exhausting the traditional tools of construction, a reasonable reading, and the character-and-context inquiry), rejecting the Fifth Circuit's (Vargas) and the appointed amicus's view that Stinson's reflexive deference survives Kisor unchanged; it does not adopt petitioner's lead position that commentary gets no deference at all."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is a categorical rule reaching all Sentencing Guidelines commentary across every guideline, not confined to Section 2K2.1 or this enhancement: the Court announces the governing deference standard and remands without itself deciding whether 'large capacity magazine' is genuinely ambiguous or whether the error was harmless."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}
