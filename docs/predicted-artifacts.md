@@ -401,7 +401,11 @@ Written on every live cell. `predicted_reasoning_doc` is nullable only so
 records written before the field existed still validate — not so a cell can
 skip the document, and `validate` enforces exactly that split: a
 process-stamped cell provably post-dates the field, so a null pointer on one
-fails validation, while unstamped shakedown records stay valid.
+fails validation, while unstamped shakedown records stay valid. A
+`predicted_reasoning.md` written beside a null pointer fails whatever the
+stamp, because no legacy record has that shape, and because the stamp lands
+after the engine exits, so this is the form of the miss a cell's own
+`validate` run can catch before it finishes.
 
 ## `reasoning.md`
 

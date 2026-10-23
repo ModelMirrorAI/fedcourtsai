@@ -1156,6 +1156,11 @@ def _scored_prediction_context(
     return max(resolvable, key=cell_clock).context
 
 
+#: The forecast document's filename, as ``CasePaths`` writes it and the prompt
+#: contract names it in ``predicted_reasoning_doc``.
+_FORECAST_DOC = "predicted_reasoning.md"
+
+
 def check_prediction_docs(data_root: Path) -> CorpusCheck:
     """Every prose document a prediction names must exist beside the prediction.
 
@@ -1178,6 +1183,12 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
     since stamping was wired, and every run after it also carries the field — so a
     stamped cell missing the document is a broken cell, never a legacy shape.
     Unstamped (alpha/shakedown) records stay valid.
+
+    One null pointer is broken whatever the stamp: a ``predicted_reasoning.md``
+    written beside the prediction but left unnamed. No legacy shape writes the
+    document without naming it, and the stamp lands only after the engine exits,
+    so this is the form of the miss a cell's own ``validate`` run can see before
+    it finishes.
     """
     problems: list[str] = []
     checked = 0
@@ -1196,6 +1207,12 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
                 "process-stamped cell; no stamped record predates the field, so "
                 "the prompt contract's required forecast document is missing "
                 "rather than merely pre-dating it"
+            )
+        elif prediction.predicted_reasoning_doc is None and (path.parent / _FORECAST_DOC).is_file():
+            problems.append(
+                f"prediction {path}: predicted_reasoning_doc is null but "
+                f"{_FORECAST_DOC} is written beside it; name the document in "
+                "prediction.json"
             )
         for field_name, doc in (
             ("reasoning_doc", prediction.reasoning_doc),
