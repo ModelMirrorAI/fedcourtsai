@@ -918,10 +918,10 @@ def staged_scrub(text: str, values: tuple[str, ...], sides: tuple[str, ...]) -> 
 
     None where the docket is not scrubbed. A docket read so on a party side runs
     both passes. One read so on its `Other` list alone runs the value pass only:
-    no amicus's own brief is staged — the one amicus filing selected is the
-    Solicitor General's invited brief, which counsel for the United States
-    files — so what is staged there is counsel's filings (the staged filers
-    there are represented), and the shape pass would cost their text its
+    no amicus's own brief is staged — the only amicus filings selected are the
+    United States' briefs, which its own counsel files — so what is staged
+    there is counsel's filings (the staged filers there are represented), and
+    the shape pass would cost their text its
     misreads of legal prose. The premise is about amici: a self-represented
     non-amicus `Other` filer whose own opposition is staged gets the value pass
     alone as well. Where no amicus

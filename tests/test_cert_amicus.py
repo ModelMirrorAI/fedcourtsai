@@ -6,6 +6,7 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import analytics, corpus
@@ -14,6 +15,7 @@ from fedcourtsai.pipeline.cert_amicus import (
     cert_amicus_briefs,
     cert_amicus_briefs_before,
     cert_stage_entries,
+    is_amicus_motion_order,
 )
 from fedcourtsai.pipeline.cert_signals import proceedings_entries
 from fedcourtsai.pipeline.ingest import from_live_record, map_live_docket, to_corpus_row
@@ -110,6 +112,48 @@ def test_the_prediction_side_count_leaves_an_undated_entry_out() -> None:
     entries = _entries(_PETITION, ("", "Brief amicus curiae of Cato filed."))
     assert cert_amicus_briefs_before(entries, date(2026, 12, 1)) == 0
     assert cert_amicus_briefs(entries) == 1
+
+
+_MOTION = (
+    "Oct 04 2019",
+    "Motion of Alan B. Morrison for leave to file a brief as amicus curiae out of time filed.",
+)
+
+
+@pytest.mark.parametrize(
+    "words",
+    [
+        "Motion of Alan B. Morrison for leave to file a brief as amicus curiae GRANTED.",
+        "Motion of Cato Institute for leave to file a brief as amicus curiae DENIED.",
+        "The motion of Cato Institute for leave to file a brief as amicus curiae is granted.",
+        "Motions of Cato Institute, et al. for leave to file briefs as amici curiae GRANTED.",
+        "Joint motion of amici curiae for leave to file one brief granted.",
+    ],
+)
+def test_the_order_on_an_amicus_motion_adds_no_brief(words: str) -> None:
+    assert is_amicus_motion_order(words)
+    entries = _entries(_PETITION, _MOTION, ("Oct 18 2019", words))
+    # The motion carried the brief; its order is the same amicus again.
+    assert cert_amicus_briefs(entries) == 1
+    assert cert_amicus_briefs_before(entries, date(2019, 12, 1)) == 1
+    # The interim reading keeps counting it: its column is latched and frozen
+    # onto committed outcomes, so it is narrowed only by its own re-derivation.
+    assert amicus_briefs([t for t, _ in entries]) == 2
+
+
+@pytest.mark.parametrize(
+    "words",
+    [
+        # The filing of the motion, which is where the brief reaches the docket.
+        _MOTION[1],
+        "Motion for leave to file amici curiae brief filed by Current and Former Prosecutors.",
+        "Brief amicus curiae of Cato Institute filed.",
+        # A grant that is not a ruling on an amicus motion.
+        "Motion to extend the time to file a response is granted.",
+    ],
+)
+def test_other_entries_are_not_amicus_motion_orders(words: str) -> None:
+    assert not is_amicus_motion_order(words)
 
 
 # --- the column --------------------------------------------------------------------

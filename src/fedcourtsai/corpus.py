@@ -532,14 +532,16 @@ class CorpusRow(BaseModel):
         "before the Court disposed of the petition "
         "(`pipeline.cert_amicus.cert_amicus_briefs`): the interim count's per-entry "
         "reading (`interim_signals.amicus_briefs`) over the entries before the "
-        "first disposition entry in docket order, so a granted case's merits "
-        "amici never reach it. A stakes proxy with that reading's approximations. "
-        "Max-latched: the cut fixes a resolved petition's value and an open "
-        "petition's only grows, so a degraded parse's confident 0 never regresses "
-        "it. Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). "
-        "None = never cert-parsed — on a row the live poll has not read since "
-        "the column existed, which a resolved row the rotation skips stays until "
-        "a re-derivation. Live cert branch only.",
+        "first disposition entry in docket order, less the Court's orders on "
+        "amicus motions, so a granted case's merits amici never reach it and a "
+        "brief filed by motion counts once. A stakes proxy with that reading's "
+        "other approximations. Max-latched: the cut fixes a resolved petition's "
+        "value and an open petition's only grows, so a degraded parse's "
+        "confident 0 never regresses it. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = not cert-parsed since the column "
+        "existed: a row the live poll has not read since then, which a resolved "
+        "row the poll rotation skips stays until a re-derivation fills it. Live "
+        "cert branch only.",
     )
     sample_weight: int | None = Field(
         default=None,
@@ -2229,8 +2231,11 @@ def _update_clause(column: str) -> str:
         # unbounded one. The latch keeps the higher number, which is the accepted
         # cost of protecting every other row from a degraded parse — bringing such
         # a row down is a re-derivation, not a poll. The cert-stage amicus count
-        # has no such fall: its cut is the first disposition entry, which every
-        # later poll of the same docket reads in the same place.
+        # has no such fall from a poll: its cut is the first disposition entry,
+        # which every later poll of the same docket reads in the same place. It
+        # shares the other exposure, though: a narrower reading of an entry,
+        # shipped later, cannot lower a value already latched either, and needs
+        # a re-derivation to reach the stored rows.
         # `has_opinion` is the same shape again: an opinion once linked is never
         # unlinked, and every writer asserts the bit (NOT NULL, default False),
         # so a channel that does not carry the body would otherwise flip a

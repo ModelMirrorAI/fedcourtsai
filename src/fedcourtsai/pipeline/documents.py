@@ -185,8 +185,8 @@ logger = logging.getLogger(__name__)
 #   reply, so the two are told apart by the grant date alone.
 # - `sg-invited-brief` is the **Solicitor General's invited brief**: the brief for
 #   the United States as amicus curiae filed after the Court called for the
-#   views of the Solicitor General. The one amicus filing any arm takes, because
-#   it is the Court's own request and the filing that most often decides an
+#   views of the Solicitor General. The one cert-stage amicus filing any arm
+#   takes, because it is the Court's own request and the filing that most often decides an
 #   invited petition; every other cert-stage amicus brief stays unselected.
 #
 # One merits-stage amicus kind sits beside the merits filings:
