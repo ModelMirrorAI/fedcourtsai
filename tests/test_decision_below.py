@@ -19,7 +19,6 @@ from typer.testing import CliRunner
 
 import fedcourtsai.cli as cli_module
 from fedcourtsai import corpus
-from fedcourtsai.cli import app
 from fedcourtsai.courtlistener import CourtListenerClient, RateLimiter, default_rate_limiter
 from fedcourtsai.pipeline.decision_below import (
     MAX_ENTRY_DOCKETS,
@@ -692,19 +691,19 @@ def test_sample_rows_takes_the_newest_circuit_petitions(tmp_path: Path) -> None:
 
 def test_command_refuses_to_run_without_a_token(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("FEDCOURTS_COURTLISTENER_API_TOKEN", raising=False)
-    result = CliRunner().invoke(app, ["decision-below", "--docket", "25-100"])
+    result = CliRunner().invoke(cli_module.app, ["decision-below", "--docket", "25-100"])
     assert result.exit_code == 2
     assert "token" in result.output
 
 
 def test_command_refuses_an_empty_request() -> None:
-    result = CliRunner().invoke(app, ["decision-below"])
+    result = CliRunner().invoke(cli_module.app, ["decision-below"])
     assert result.exit_code == 2
 
 
 def test_command_caps_the_sample() -> None:
     too_many = str(MAX_SAMPLE + 1)
-    result = CliRunner().invoke(app, ["decision-below", "--sample", too_many])
+    result = CliRunner().invoke(cli_module.app, ["decision-below", "--sample", too_many])
     assert result.exit_code == 2
     assert str(MAX_SAMPLE) in result.output
 
@@ -728,7 +727,7 @@ def test_command_matches_a_named_scotus_number(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setenv("FEDCOURTS_COURTLISTENER_API_TOKEN", "test-token")
     monkeypatch.setattr(cli_module, "SupremeCourtClient", _Court)
     monkeypatch.setattr(cli_module, "_client", lambda: _client(upstream))
-    result = CliRunner().invoke(app, ["decision-below", "--docket", "25-100"])
+    result = CliRunner().invoke(cli_module.app, ["decision-below", "--docket", "25-100"])
     assert result.exit_code == 0, result.output
     assert "1 of 1 matched" in result.output
     assert '"status": "matched"' in result.output
