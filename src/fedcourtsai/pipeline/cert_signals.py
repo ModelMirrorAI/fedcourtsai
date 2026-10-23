@@ -1222,6 +1222,64 @@ def relisted_past(payload: Mapping[str, Any], run_day: date) -> bool:
     return any(conference <= run_day for _filed, conference in distributions[:-1])
 
 
+def conference_sat_since(
+    payload: Mapping[str, Any],
+    payload_date: date,
+    run_day: date,
+    trigger: date,
+    *,
+    trigger_is_distribution: bool = False,
+) -> bool:
+    """Whether a conference the petition was distributed for on or after ``trigger`` has sat.
+
+    The bound on a cert moment whose information set lasts only until the next
+    conference considers the petition: the first relist, forecast against the
+    conference it was relisted for, and the Solicitor General's invited brief,
+    forecast against the first conference after it. Once such a conference has
+    sat on the petition by ``run_day`` and left it undecided, the petition has
+    been relisted or held, and a cell placed back at ``trigger`` would be
+    forecasting a population it has already left.
+
+    Reads every **petition** distribution docketed from ``trigger`` through
+    ``run_day`` (the relist entry itself is one, dated on the trigger day). A
+    conference on or before ``run_day`` counts as sat, as
+    :func:`considering_conference` counts it, and one the petition was taken off
+    before it sat (a call for response or a bare reschedule between the
+    distribution and the conference day) does not count. A payload stored
+    before such a conference cannot say whether it sat, so it reads as sat:
+    the cost of a wrong refusal is one deferred cell, of a wrong admission a
+    forecast of a moment that is over. Where the trigger is itself a
+    distribution (``trigger_is_distribution``, the relist), finding none from
+    the trigger on means the payload could not be read as the trigger was, and
+    reads as sat for the same reason.
+    """
+    distributions = [
+        (distributed, conference)
+        for distributed, conference in petition_distributions(payload, through=run_day)
+        if distributed >= trigger
+    ]
+    if trigger_is_distribution and not distributions:
+        return True
+    entries = [
+        (text, filed)
+        for text, raw in proceedings_entries(payload)
+        if (filed := entry_date(raw)) is not None
+    ]
+    for distributed, conference in distributions:
+        if conference > run_day:
+            continue
+        if payload_date < conference:
+            return True
+        taken_off = any(
+            distributed <= filed <= conference
+            and (_RESPONSE_REQUESTED_RE.search(text) or _RESCHEDULED_RE.search(text))
+            for text, filed in entries
+        )
+        if not taken_off:
+            return True
+    return False
+
+
 #: How long after a conference a relist entry may be docketed and still be that
 #: conference's relist. The Clerk enters a relist in the days after the conference
 #: that passed on the petition, ahead of the next one; a redistribution entered

@@ -34,6 +34,7 @@ from fedcourtsai.store import (
     distribution_conference_considered,
     event_has_claimable_prediction,
     event_recorded_closed,
+    forecastable_event_ids,
     forecastable_events,
     forward_refusal_reason,
     iter_flags,
@@ -1082,7 +1083,50 @@ def test_every_declared_forecastable_moment_is_admitted_somewhere(tmp_path: Path
                 )
             ],
         )
-        corpus.upsert_events(conn, [_briefed_event("scotus/82")])
+        # The sg-brief and first-relist moments, minted on the same pending
+        # petition: the generic cert arm admits them as it does the arrival one.
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=event_id,
+                    case_id="scotus/81",
+                    court="scotus",
+                    kind=kind,
+                    stage=Stage.cert,
+                    opened_at=date(2025, 3, 3),
+                )
+                for event_id, kind in (
+                    ("evt-brief-sg-disposition", EventKind.brief),
+                    ("evt-order-relist-disposition", EventKind.order),
+                )
+            ],
+        )
+        # Both are bounded by the next conference, read off the live payload: the
+        # relist entry names a conference still ahead, so both stay open.
+        corpus.upsert_snapshot(
+            conn,
+            "scotus/81",
+            date(2025, 3, 4),
+            {
+                "ProceedingsandOrder": [
+                    {"Date": "Mar 03 2025", "Text": "DISTRIBUTED for Conference of 1/5/2099."}
+                ]
+            },
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                _briefed_event("scotus/82"),
+                corpus.CorpusEvent(
+                    event_id="evt-argument-judgment",
+                    case_id="scotus/82",
+                    court="scotus",
+                    kind=EventKind.argument,
+                    stage=Stage.merits,
+                ),
+            ],
+        )
         corpus.upsert_rows(
             conn,
             [
@@ -2137,3 +2181,102 @@ def test_a_re_predict_never_targets_a_petition_only_its_motion_distributed() -> 
     assert not _reopenable_moment("evt-petition-disposition", row, day=day, payloads=payloads)
     distributed = row.model_copy(update={"distribution_count": 1})
     assert _reopenable_moment("evt-petition-disposition", distributed, day=day, payloads=payloads)
+
+
+def _bounded_moment_case(
+    db: Path, event_id: str, kind: EventKind, entries: list[dict[str, str]]
+) -> None:
+    """A pending petition carrying one conference-bounded cert moment, opened 2026-10-05."""
+    case_id = "scotus/91"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number="25-910",
+                    cvsg_date=date(2026, 1, 12),
+                    distribution_count=2,
+                    distributed_for_conference=date(2026, 10, 16),
+                )
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=event_id,
+                    case_id=case_id,
+                    court="scotus",
+                    kind=kind,
+                    stage=Stage.cert,
+                    opened_at=date(2026, 10, 5),
+                )
+            ],
+        )
+        corpus.upsert_snapshot(conn, case_id, date(2026, 10, 20), {"ProceedingsandOrder": entries})
+
+
+_RELISTED = [
+    {"Date": "Sep 15 2026", "Text": "DISTRIBUTED for Conference of 10/2/2026."},
+    {"Date": "Oct 05 2026", "Text": "DISTRIBUTED for Conference of 10/16/2026."},
+]
+
+
+@pytest.mark.parametrize(
+    ("event_id", "kind", "entries", "today", "admitted"),
+    [
+        # The relisted-for conference is ahead: the moment is open.
+        ("evt-order-relist-disposition", EventKind.order, _RELISTED, date(2026, 10, 12), True),
+        # It sat and left the petition undecided: relisted again or held, so closed.
+        ("evt-order-relist-disposition", EventKind.order, _RELISTED, date(2026, 10, 19), False),
+        # Taken off that conference before it sat: never considered, so still open.
+        (
+            "evt-order-relist-disposition",
+            EventKind.order,
+            [*_RELISTED, {"Date": "Oct 14 2026", "Text": "Rescheduled."}],
+            date(2026, 10, 19),
+            True,
+        ),
+        # The conference before the trigger does not count: the brief opened the
+        # moment after it, and no distribution follows the brief yet.
+        (
+            "evt-brief-sg-disposition",
+            EventKind.brief,
+            [{"Date": "Sep 15 2026", "Text": "DISTRIBUTED for Conference of 10/2/2026."}],
+            date(2026, 10, 19),
+            True,
+        ),
+        # The first conference after the brief has sat: closed.
+        ("evt-brief-sg-disposition", EventKind.brief, _RELISTED, date(2026, 10, 19), False),
+        # A relist whose own distribution entry does not parse: the docket was not
+        # read as the trigger was, so the cell waits.
+        ("evt-order-relist-disposition", EventKind.order, _RELISTED[:1], date(2026, 10, 12), False),
+    ],
+)
+def test_a_relist_or_sg_brief_cell_closes_once_the_next_conference_sits(
+    tmp_path: Path,
+    event_id: str,
+    kind: EventKind,
+    entries: list[dict[str, str]],
+    today: date,
+    admitted: bool,
+) -> None:
+    """Each moment forecasts the next conference, so a petition that conference left
+    undecided has moved to another population and earns no cell placed back at it."""
+    db = corpus.corpus_db_path(tmp_path)
+    _bounded_moment_case(db, event_id, kind, entries)
+    with corpus.connect(db) as conn:
+        offered = forecastable_event_ids(conn, "scotus", 91, today=today)
+    assert (event_id in offered) is admitted
+
+
+def test_a_relist_cell_refuses_without_a_readable_payload(tmp_path: Path) -> None:
+    """No live payload is no evidence the conference has not sat, so the cell waits."""
+    db = corpus.corpus_db_path(tmp_path)
+    _bounded_moment_case(db, "evt-order-relist-disposition", EventKind.order, _RELISTED)
+    with corpus.connect(db) as conn:
+        conn.execute("DELETE FROM snapshots")
+        offered = forecastable_event_ids(conn, "scotus", 91, today=date(2026, 10, 12))
+    assert "evt-order-relist-disposition" not in offered

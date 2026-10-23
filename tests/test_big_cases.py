@@ -58,12 +58,11 @@ _EVENT = "evt-petition-disposition"
 #: in the frozen partition by default — the board's default `process_scope`. Read
 #: off the registry rather than spelled out, so a re-bless does not silently push
 #: every fixture out of scope; an evaluator digest is blessed but has no window,
-#: and a closed window would not contain the fixtures' clock.
-_BLESSED = sorted(
-    w.digest
-    for w in COUNTING_WINDOWS
-    if w.closes is None and w.revoked_at is None and w.digest in FROZEN_PROCESS_DIGESTS
-)[0]
+#: and a closed window would not contain the fixtures' clock. While a re-bless is
+#: pending, its predecessors' windows read open with their digests already
+#: unblessed, so an open window's digest serves when no blessed one has one.
+_OPEN = sorted(w.digest for w in COUNTING_WINDOWS if w.closes is None and w.revoked_at is None)
+_BLESSED = next((d for d in _OPEN if d in FROZEN_PROCESS_DIGESTS), _OPEN[0])
 #: A digest no freeze commit blessed: a stamped run that is still out of scope.
 _RETIRED = "sha256:" + "0" * 64
 #: The default harness clock, after the freeze instant so the default fixture is
@@ -1032,7 +1031,8 @@ def test_the_reading_rules_state_the_population_of_the_scope_they_were_built_at(
     assert "so every one of them is out of scope" not in frozen.population
     # And the named mechanisms are a floor, not the whole hold-out.
     assert "floor rather than the whole" in frozen.population
-    assert "cert **arrival** moment or at either **merits** moment" in frozen.population
+    assert "cert **arrival**, **sg-brief** " in frozen.population
+    assert "or at any **merits** moment" in frozen.population
     assert "live-cert-and-interim slice" in frozen.population
     # And the amendment boundary bites on the other build, not on these rows.
     assert "post-dates that amendment" in frozen.no_time_series

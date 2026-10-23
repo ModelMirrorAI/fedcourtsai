@@ -2365,8 +2365,8 @@ the rendered table) and
   declared moment carries the same `dated`/`truncated` split, so no forward
   figure over placed cells may be published without those counts stated inline.
   The split is not cosmetic on either axis. It is **selected**: `dated` needs a
-  pull that landed on the trigger day — and, on the `cvsg`,
-  `response-requested` and `response-filed` moments, one carrying the trigger
+  pull that landed on the trigger day — and, on the `cvsg`, `sg-brief`,
+  `relist`, `response-requested` and `response-filed` moments, one carrying the trigger
   entry dated on the day the event opened — which the live poller does for
   watchlisted and salient dockets and not for the rest, so the residual
   concentrates in the `truncated` arm rather than spreading evenly. And the two
@@ -2374,7 +2374,7 @@ the rendered table) and
   is the docket as pulled, so it can miss entries filed later the same day),
   `truncated` from above (it reconstructs to the cutoff but carries the undated
   counsel/amici blocks as at a much later pull). Pooling them averages a
-  selected mixture of two different biases. On those three trigger moments a
+  selected mixture of two different biases. On those trigger moments a
   cell no stored payload places is refused rather than placed, so placed-cell
   counts exclude it, and the refused count is not derivable from the ledger:
   the refusal writes no cause into the cell's status, and `collect` books it as
@@ -3036,8 +3036,8 @@ the rendered table) and
   case first predicted after the freeze stays in scope through its own
   resolution. The re-predict rule (`REPREDICT_MOMENTS` in `pipeline/pull.py`)
   re-owes only the cert distribution, the CVSG and the three interim moments, so
-  a case sitting at a cert **arrival** moment or at either **merits** moment is
-  never refilled however long it waits. Those are a floor rather than the whole
+  a case sitting at the cert **arrival**, **sg-brief** or **relist** moment, or
+  at any **merits** moment, is never refilled however long it waits. Those are a floor rather than the whole
   of it: a pending case at a moment the rule does re-owe can still sit outside,
   because a distribution is re-owed only until the conference it was distributed
   for has considered it, and because a re-owed cell has to be minted and land before it counts.
