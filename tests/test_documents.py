@@ -40,6 +40,8 @@ from fedcourtsai.pipeline.documents import (
     SCRUB_PASS_VALUE,
     DocumentFetchLosses,
     LeadFetch,
+    _derived_questions_document,
+    _qp_change_reason,
     _qp_stored_is_fragment,
     backfill_questions_presented,
     bio_block_texts,
@@ -1951,11 +1953,11 @@ def test_extract_questions_presented_reads_a_tab_delimited_petition() -> None:
     )
     section = extract_questions_presented(petition)
     # Exact equality: this text is the labeler's entire evidentiary input, so
-    # the fixture pins the artifact, trailing page-folio crumb included — the
-    # crumb is pre-existing extractor residue on every layout, not this shape's.
+    # the fixture pins the artifact. The page folio ("ii") the extraction
+    # carried in before the next heading is dropped, as on every layout.
     assert section == (
         "Whether\t a\tclaim\t for\t wrongful\t death\t under"
-        + "\tMassachusetts\tlaw\tis\tpreempted\tby\tERISA.\t\t \t\nii"
+        + "\tMassachusetts\tlaw\tis\tpreempted\tby\tERISA."
     )
 
 
@@ -5593,3 +5595,164 @@ def test_a_consolidated_member_borrows_no_partial_support_brief_as_the_responden
     refs = {r.kind: r.url for r in select_documents(_member_payload(), lead=lead)}
     assert refs[KIND_MERITS_BRIEF_PETITIONER].endswith("/25-500/lead-pet.pdf")
     assert KIND_MERITS_BRIEF_RESPONDENT not in refs
+
+
+def test_extract_questions_presented_reads_a_split_small_caps_heading() -> None:
+    # pypdf recovers a small-caps "QUESTIONS" with the plural's "S" set apart. The
+    # old start rule missed the heading and opened at a later argument heading
+    # that merely spells the phrase, capturing argument text as the questions.
+    petition = (
+        "PETITION FOR A WRIT OF CERTIORARI\n(I)\n"
+        "QUESTION S PRESENTED\n"
+        "1. Whether Section 11(a) requires disclosure of interim financial data.\n"
+        "PARTIES TO THE PROCEEDING\nPetitioners are the issuer and its underwriters.\n"
+        "ARGUMENT\n"
+        "A. The Questions Presented In This Case Are Exceptionally Important.\n"
+        "The decision below creates a disclosure duty no other circuit recognizes.\n"
+    )
+    assert extract_questions_presented(petition) == (
+        "1. Whether Section 11(a) requires disclosure of interim financial data."
+    )
+
+
+def test_extract_questions_presented_reads_a_questions_to_review_heading() -> None:
+    petition = (
+        "Counsel for Petitioner\n"
+        "Questions to Review\n"
+        "Does lack of objective criteria leave the statutory factors void for vagueness?\n"
+        "1\n"
+        "Parties to the Proceeding\nPetitioner is the father.\n"
+    )
+    assert extract_questions_presented(petition) == (
+        "Does lack of objective criteria leave the statutory factors void for vagueness?"
+    )
+
+
+def test_extract_questions_presented_ignores_questions_for_review_said_in_prose() -> None:
+    # Only a heading opens the section on the review wording: prose says it too.
+    petition = (
+        "The petition raises questions for review that the circuits have split on, "
+        + "and the decision below deepened that split considerably.\n"
+        + "OPINIONS BELOW\nThe opinion is reported at 1 F.4th 1.\n"
+    )
+    assert extract_questions_presented(petition) is None
+
+
+def test_extract_questions_presented_ignores_an_argument_heading_on_the_review_words() -> None:
+    # An argument heading shouts the review wording; it does not stand alone on
+    # its line, so it opens no section.
+    petition = (
+        "REASONS FOR GRANTING THE PETITION\n"
+        "I. THIS CASE PRESENTS IMPORTANT QUESTIONS FOR REVIEW\n"
+        "The circuits are divided on the standard, and the division is entrenched.\n"
+    )
+    assert extract_questions_presented(petition) is None
+
+
+def test_extract_questions_presented_ignores_a_sentence_opening_on_the_review_words() -> None:
+    petition = (
+        "Questions for Review of this kind arise often in the lower courts, "
+        + "and this one is cleanly presented.\n"
+        + "OPINIONS BELOW\nThe opinion is reported at 1 F.4th 1.\n"
+    )
+    assert extract_questions_presented(petition) is None
+
+
+def test_qp_change_reason_sets_mechanical_trims_apart() -> None:
+    question = "Whether the agency exceeded its statutory authority under the Act?"
+    assert _qp_change_reason(question + "\nii", question) == "trim-only"
+    assert _qp_change_reason("FOR REVIEW\n" + question, question) == "trim-only"
+    assert _qp_change_reason("FOR REVIEW\n" + question + "\n 12 ", question) == "trim-only"
+    # A trim that also changes the words is not mechanical.
+    assert _qp_change_reason(question + "\nii", question[:-1] + ".") == "other-change"
+
+
+def test_extract_questions_presented_drops_the_heading_tail_and_a_trailing_folio() -> None:
+    petition = (
+        "QUESTIONS PRESENTED FOR REVIEW\n"
+        "When a taking occurs under authority later struck down, does retention of "
+        + "the property without due process violate the Fifth Amendment?\n"
+        + "  \nii\n"
+        + "PARTIES TO THE PROCEEDING\nPetitioner is the landowner.\n"
+    )
+    assert extract_questions_presented(petition) == (
+        "When a taking occurs under authority later struck down, does retention of "
+        + "the property without due process violate the Fifth Amendment?"
+    )
+
+
+def test_a_questions_presented_row_at_the_cap_is_marked_truncated() -> None:
+    petition = _petition_document("scotus/9", "QUESTIONS PRESENTED\n" + "Whether x. " * 600)
+    questions = extract_questions_presented(petition.text)
+    assert questions is not None and len(questions) >= 3_990
+    derived = _derived_questions_document(petition, questions, fetched_at=date(2026, 6, 2))
+    assert derived.truncated is True
+    brief = _petition_document(
+        "scotus/10", "QUESTIONS PRESENTED\nWhether the agency exceeded its authority.\n"
+    )
+    short = _derived_questions_document(
+        brief, "Whether the agency exceeded its authority.", fetched_at=date(2026, 6, 2)
+    )
+    assert short.truncated is False
+
+
+def test_backfill_questions_presented_sets_a_missing_cap_mark(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    long_text = "QUESTIONS PRESENTED\n" + "Whether x. " * 600
+    capped = extract_questions_presented(long_text)
+    assert capped is not None
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9",
+                    court="scotus",
+                    docket_number="25-9",
+                    last_live_polled=date(2026, 6, 2),
+                )
+            ],
+        )
+        corpus.upsert_documents(
+            conn, [_petition_document("scotus/9", long_text), _stored_qp("scotus/9", capped)]
+        )
+        dry = backfill_questions_presented(conn, apply=False)
+        assert dry.changes == {"scotus/9": "cap-mark"}
+        backfill_questions_presented(conn, apply=True)
+        again = backfill_questions_presented(conn, apply=False)
+    assert again.updated == 0
+    with corpus.connect(db) as conn:
+        stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/9")}
+    row = stored[KIND_QUESTIONS_PRESENTED]
+    assert row.truncated is True and row.text == capped
+
+
+def test_backfill_questions_presented_marks_a_rewritten_row_that_is_capped(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    long_text = "QUESTIONS PRESENTED\n" + "Whether x. " * 600
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9",
+                    court="scotus",
+                    docket_number="25-9",
+                    last_live_polled=date(2026, 6, 2),
+                )
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                _petition_document("scotus/9", long_text),
+                _stored_qp("scotus/9", "Whether x. Whether x. Whether x. Whether x."),
+            ],
+        )
+        backfill_questions_presented(conn, apply=True)
+    with corpus.connect(db) as conn:
+        stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/9")}
+    row = stored[KIND_QUESTIONS_PRESENTED]
+    assert row.truncated is True and row.text == extract_questions_presented(long_text)

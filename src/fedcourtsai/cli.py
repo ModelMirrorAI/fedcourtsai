@@ -2280,10 +2280,11 @@ def backfill_questions_presented_cmd(
     floor by counting the dots), which empties under its own reason class,
     `toc-junk-emptied`, so a dry run shows the emptied subset apart. Each
     rewrite is
-    classified by the extraction hole it comes from (`stale-toc-fragment`,
-    `prose-terminator-fragment`, `below-floor`, `other-change`,
-    `toc-junk-emptied`, plus
-    `derived-anew` where a case had no row), so the dry run is the triage list;
+    classified by the extraction hole it comes from (`trim-only`,
+    `stale-toc-fragment`, `prose-terminator-fragment`, `below-floor`,
+    `other-change`, `toc-junk-emptied`, plus `derived-anew` where a case had no
+    row, and `cap-mark` where the text stands and only its `truncated` mark is
+    corrected), so the dry run is the triage list;
     the printed `QPBackfillResult` carries the untruncated case-id ledger of
     which rows an applied pass replaced, beside the pre-apply `corpus.db.ref`
     the command echoes. Idempotent. A

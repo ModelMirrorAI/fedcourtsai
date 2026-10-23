@@ -28,6 +28,7 @@ from .. import corpus
 from ..schemas import PredictionContext
 from . import arrival_cut, vide_links
 from .asof import project_row
+from .paper_only import paper_only_filings
 from .salience import SALIENCE_VERSION, salience_band, scorer
 
 
@@ -165,4 +166,7 @@ def build(
         amicus_briefs=projected.row.amicus_briefs if application else None,
         term=term,
         vide_links=links,
+        # Frozen so a cell, and a grader reading the record, can tell a filing
+        # the Court never posted from one provisioning missed.
+        paper_only_filings=paper_only_filings(payload),
     )

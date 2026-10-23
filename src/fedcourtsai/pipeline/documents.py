@@ -678,7 +678,23 @@ def _is_party_letter_entry(text: str) -> bool:
 # Authoring constraint for the phrase tuple: word sequences whose only regex
 # constructs are (?:...) groups and escaped literals — the blanket
 # space-to-\s+ rewrite below would corrupt a space inside a character class.
-_QP_START_RE = re.compile(r"QUESTIONS?\s+PRESENTED", re.IGNORECASE)
+# `QUESTION\s?S?`: pypdf can recover a small-caps "QUESTIONS" with the plural's
+# "S" set apart ("QUESTION S PRESENTED"), and the singular and plural headings
+# are otherwise the same rule. A heading's "FOR REVIEW" tail is part of the
+# heading, not the first words of the section.
+_QP_START_RE = re.compile(r"QUESTION\s?S?\s+PRESENTED(?:\s+FOR\s+REVIEW\b)?", re.IGNORECASE)
+# The other wording a petition heads the page with ("Questions to Review",
+# "Question for Review"). Unlike the start rule above, ordinary prose says these
+# words too, and an argument heading shouts them ("THIS CASE PRESENTS IMPORTANT
+# QUESTIONS FOR REVIEW"), so a match opens the section only where it stands
+# alone on its line (:func:`_qp_starts`).
+_QP_REVIEW_HEADING_RE = re.compile(r"QUESTIONS?\s+(?:TO|FOR)\s+REVIEW", re.IGNORECASE)
+# A page folio left alone on the section's last line, the page break the
+# extraction carried in before the next heading ("ii", "1"): a print artifact,
+# never part of a question. Its known bound: a genuine last line that is only a
+# short number ("U.S.S.G. §" broken before "1") loses that line, which a question
+# ending on its "?" never has.
+_QP_TRAILING_FOLIO_RE = re.compile(r"\n[ \t]*(?:[ivx]{1,6}|\d{1,3})[ \t]*\Z", re.IGNORECASE)
 _QP_END_PHRASES = (
     "PARTIES TO THE PROCEEDING",
     "CORPORATE DISCLOSURE",
@@ -3622,19 +3638,61 @@ def extract_questions_presented(petition_text: str) -> str | None:
     text layer. A fragment stored as text reads to every downstream consumer as
     the questions this case presents.
     """
+    return _extract_questions_presented(petition_text)[0]
+
+
+def questions_presented_capped(petition_text: str) -> bool:
+    """Whether the section :func:`extract_questions_presented` returns was cut at the cap.
+
+    True where the section ran on past :data:`_QP_MAX_CHARS` — no end heading
+    within reach, or a terminated section that long — so the stored text ends
+    mid-question and its row is marked ``truncated``.
+    """
+    return _extract_questions_presented(petition_text)[1]
+
+
+def _extract_questions_presented(petition_text: str) -> tuple[str | None, bool]:
+    """The section and whether it was cut at the cap; see :func:`extract_questions_presented`."""
     heading_seen = False
-    for start in _QP_START_RE.finditer(petition_text):
+    for start in _qp_starts(petition_text):
         heading_seen = True
         rest = petition_text[start.end() :]
         end = _qp_section_end(rest)
+        capped = end is None and len(rest) > _QP_MAX_CHARS
         capture = rest[:end] if end is not None else rest[:_QP_MAX_CHARS]
         if _is_toc_capture(capture):
             continue  # a TOC entry, dotted or space-aligned — not the questions body
-        section = capture.strip()
+        section = _QP_TRAILING_FOLIO_RE.sub("", capture.rstrip()).strip()
         if len(section) < _QP_MIN_CHARS:
             continue  # an empty capture or a front-matter crumb
-        return section[:_QP_MAX_CHARS]
-    return "" if heading_seen else None
+        return section[:_QP_MAX_CHARS], capped or len(section) > _QP_MAX_CHARS
+    return ("" if heading_seen else None), False
+
+
+def _qp_starts(petition_text: str) -> list[re.Match[str]]:
+    """Every place a questions-presented section may open, in text order.
+
+    The QUESTION(S) PRESENTED phrase wherever it falls, as the scan has always
+    read it, plus a "Questions to/for Review" heading where it stands alone on
+    its line. :func:`_is_heading_match` is the wrong test here: its all-caps
+    branch holds for an end heading, whose words no question body shouts, but an
+    argument heading does shout these, and a title-case sentence can open a line
+    on them. An alternative heading overlapping a start already taken is dropped.
+    """
+    starts = list(_QP_START_RE.finditer(petition_text))
+    taken = [(m.start(), m.end()) for m in starts]
+    for match in _QP_REVIEW_HEADING_RE.finditer(petition_text):
+        line_start = petition_text.rfind("\n", 0, match.start()) + 1
+        line_end = petition_text.find("\n", match.end())
+        line_end = len(petition_text) if line_end == -1 else line_end
+        if petition_text[line_start : match.start()].strip():
+            continue
+        if petition_text[match.end() : line_end].strip():
+            continue
+        if any(a < match.end() and match.start() < b for a, b in taken):
+            continue
+        starts.append(match)
+    return sorted(starts, key=lambda m: m.start())
 
 
 # The ways a selected document produces no stored row. A missing document is an
@@ -4266,8 +4324,10 @@ def _derived_questions_document(
     """The ``questions-presented`` row derived from one stored petition.
 
     Its identity is the petition's — same case, same source URL, same docket
-    entry — because that is what the text was read out of; ``pages`` is 0 and
-    ``truncated`` false because nothing was paged or capped here.
+    entry — because that is what the text was read out of; ``pages`` is 0
+    because nothing was paged here. ``truncated`` is whether the extractor cut
+    the section at its cap (:func:`questions_presented_capped`), so a reader
+    must not take its last question as complete.
     ``ocr_derived`` is the petition's rather than false for the same reason the
     identity is: text cut out of an OCR reading is an OCR reading, and the
     questions presented are exactly where a misread character costs most.
@@ -4279,7 +4339,7 @@ def _derived_questions_document(
         entry_date=petition.entry_date,
         fetched_at=fetched_at,
         pages=0,
-        truncated=False,
+        truncated=bool(questions) and questions_presented_capped(petition.text),
         ocr_derived=petition.ocr_derived,
         text=questions,
     )
@@ -4303,8 +4363,9 @@ class QPBackfillResult(BaseModel):
     )
     unchanged: int = Field(
         ge=0,
-        description="Cases whose stored questions-presented text is already what "
-        "the current extractor derives (a case owed nothing counts here too)",
+        description="Cases whose stored questions-presented text and cap mark are "
+        "already what the current extractor derives (a case owed nothing counts here "
+        "too)",
     )
     updated: int = Field(ge=0, description="Rows rewritten (apply) or that would be (dry-run)")
     reasons: dict[str, int] = Field(
@@ -4326,6 +4387,10 @@ class QPBackfillResult(BaseModel):
     )
 
 
+# A heading's "FOR REVIEW" tail an older cut stored as the section's first words.
+_QP_STORED_REVIEW_TAIL_RE = re.compile(r"\A\s*FOR\s+REVIEW\b", re.IGNORECASE)
+
+
 def _qp_change_reason(stored: str, derived: str) -> str:
     """Why a stored questions-presented text is not what the extractor now derives.
 
@@ -4334,8 +4399,18 @@ def _qp_change_reason(stored: str, derived: str) -> str:
     phrase the end-heading vocabulary also spells, which leaves the stored value
     a prefix of the full section; a front-matter crumb under the length floor;
     and anything else, which is a change worth a maintainer's eye before it is
-    applied.
+    applied. Ahead of them, ``trim-only``: the stored text with a heading's
+    leading "FOR REVIEW" tail or a trailing page folio removed, and nothing else
+    changed, so the dry run sets the mechanical trims apart from the rewrites a
+    maintainer reads. Two classes are assigned outside this function:
+    ``derived-anew`` and ``toc-junk-emptied`` for the row's text, and
+    ``cap-mark`` where the text is unchanged and only its ``truncated`` mark is
+    corrected.
     """
+    trimmed = _QP_STORED_REVIEW_TAIL_RE.sub("", stored, count=1).strip()
+    trimmed = _QP_TRAILING_FOLIO_RE.sub("", trimmed.rstrip()).strip()
+    if trimmed != stored and trimmed == derived:
+        return "trim-only"
     if _QP_TOC_RE.search(stored) or _QP_TOC_LINE_RE.search(stored):
         return "stale-toc-fragment"
     if stored and derived.startswith(stored):
@@ -4390,7 +4465,7 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     re-fetched. This is the pass that closes that gap: over every SCOTUS case
     holding petition text (SQLite, or the per-case content store under the
     corpus-split mode), run the current :func:`extract_questions_presented` and
-    rewrite the row only where its output differs from what is stored — a
+    rewrite the row only where its output (or its cap mark) differs from what is stored — a
     convergence sweep, not a re-extraction of PDFs, so it touches no network and
     re-reads no filing. Each rewrite is classified (:func:`_qp_change_reason`)
     so the dry run reads as triage rather than a count. Idempotent: a second
@@ -4415,8 +4490,7 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
     what keeps the walk from a per-case content-store read for every SCOTUS row
     the bulk import ever wrote. Where payload reads are offloaded to the
     content store their latency is the pass's whole cost — a serial walk of
-    the ~1,500-case population is what turned the first dispatched pass into a
-    job-cap cancellation — so the document fetch goes through
+    the live slice, some 26,000 cases, outruns the job cap — so the document fetch goes through
     :func:`~fedcourtsai.pipeline.prefetch.prefetch_by_case`, which pools the
     reads there and keeps the SQLite fallback serial on its single-thread
     connection. Everything after a fetch — extraction, comparison,
@@ -4445,9 +4519,19 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
         stored = by_kind.get(KIND_QUESTIONS_PRESENTED)
         # `None` (no heading anywhere) and "" (a heading with nothing usable
         # under it) both mean "no questions to store" for an existing row.
-        derived = extract_questions_presented(petition.text) or ""
+        section, section_capped = _extract_questions_presented(petition.text)
+        derived = section or ""
         current = stored.text if stored is not None else ""
+        capped = bool(derived) and section_capped
         if derived == current:
+            if stored is not None and stored.truncated != capped:
+                # The text stands; only its cap mark was wrong, as on every row
+                # derived before the mark was set. Rewritten under its own reason
+                # so a dry run shows the flag-only rewrites apart.
+                updates.append(stored.model_copy(update={"truncated": capped}))
+                reasons["cap-mark"] += 1
+                changes[case_id] = "cap-mark"
+                return
             unchanged += 1
             return
         if (
@@ -4474,7 +4558,13 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
             # makes this an OCR reading too, and a stale marker would present it
             # as an extraction.
             updates.append(
-                stored.model_copy(update={"text": derived, "ocr_derived": petition.ocr_derived})
+                stored.model_copy(
+                    update={
+                        "text": derived,
+                        "ocr_derived": petition.ocr_derived,
+                        "truncated": capped,
+                    }
+                )
             )
             if not derived and len(current) >= _QP_MIN_CHARS:
                 # Reaching here empty-over-floor means the fragment test

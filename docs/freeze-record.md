@@ -13040,3 +13040,172 @@ freeze commit is recorded here.
     "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('context-vide-links' in {b.name for b in H})"` prints `True` once
     the promotion record has stamped the row.
+
+- **A predict cell's context freezes whether its docket's filings are on
+  paper only; recorded 2026-10-23.** A **conditioning** change with no
+  reading rule and no scored figure.
+
+  **Why.** Under Rule 34.6 and Paragraph 9 of the Court's electronic filing
+  guidelines, some dockets file on paper only, and the Court posts nothing
+  behind those filings. These are mostly immigration and detention cases, and
+  the Solicitor General is often a party. A cell on one gets an empty
+  `record/documents/`. Cells read that as a provisioning failure and flagged
+  it: 13 cells over 9 predict runs, 2026-10-03 to 10-17, counted from the
+  agent-flag roll-ups on the agent-feedback tracking issue. The pipeline
+  already counted this class as the back-fill's `no_link` floor. Nothing in a
+  cell's record said so.
+
+  **The conditioning half.** `PredictionContext` gains `paper_only_filings`,
+  read off the placed payload in docket order:
+  - `true` where the payload carries the Court's paper-only entry, with no
+    later entry quoting the rule to call for electronic versions (the Court
+    makes that call once briefing and argument are scheduled);
+  - `false` where the payload carries neither entry, or the lift follows the
+    paper-only entry;
+  - null where the payload has no `ProceedingsandOrder` list: the REST
+    shape, or a cut that dropped the list because no moment could be placed.
+
+  A `truncated` payload answers as at its cut. The cell reads
+  `record/context.json`, so the field joins its information set. It adds
+  nothing the cell could not already read, because the entry is in the staged
+  snapshot. No prompt text or other digest input changes, so no digest moves.
+  Telling cells in the prompt that this is expected is left for the next
+  re-bless. The cert back-test's replay contexts are built by the same
+  builder and carry the field too, though those cells stage no documents at
+  all.
+  - **The registry row.** The boundary is `context-paper-only-filings`. It
+    applies to every predictor, with reach `all`, and is not gradual: every
+    cell provisioned after the carrying merge freezes the field. It is
+    registered **pending** in this change's own PR
+    (`fedcourts register-boundary`). Its `merge` and `at` stay null until the
+    promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **Expected population.** Read directly from the production per-case
+    content store on 2026-10-23, not from a pulled index blob, over each
+    case's newest stored snapshot (the newest dated 2026-10-23). It covered the 285
+    SCOTUS cases holding a prediction run in September or October 2026. The
+    reader marks 7 of them `true`, and each of the 7 has no stored document. Two
+    more carry the paper-only entry followed by the lift; they read `false`
+    and hold stored filings (4 and 7).
+
+  **What it moves.** No scored figure. Once cells sit on both sides of the
+  stamped boundary, each pooled entry's and each paired engine's `boundaries`
+  list gains a `context-paper-only-filings` row. That row is composition, not
+  a cut. The field is no cut, exclusion or rank key on any board. A later
+  dated entry must register one before any figure reads it.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_paper_only_filings.py` is green;
+  - on the first predict run's collect PR after the carrying merge, `jq -c
+    '.context | has("paper_only_filings")' data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json`
+    prints `true` for every file;
+  - on `main`, `uv run python -c
+    "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('context-paper-only-filings' in {b.name for b in H})"` prints `True`
+    once the promotion record has stamped the row.
+
+- **The questions-presented cut opens at the petition's real heading, drops
+  page folios, and marks a capped section; recorded 2026-10-23.** A change to
+  a cell input and to the QP-topic labeler's input, with no reading rule and
+  no scored figure.
+
+  **Why.** The stored `questions-presented` row is what a cert cell reads as
+  `record/documents/questions-presented.txt`, and what the QP-topic labeler
+  labels. Agent flags named five bad rows. Read from the stored petition text,
+  they come from four faults:
+  - pypdf recovered a small-caps heading as "QUESTION S PRESENTED", which the
+    start rule missed. The cut then opened at prose ("the questions presented
+    are:") or at an argument heading that spells the phrase. On 73280982 the
+    row held printed pages 31 to 33 of the argument.
+  - A "Questions to Review" heading was not read at all, so no row was stored.
+  - The page folio before the next heading ("ii") was kept as the row's last
+    line.
+  - A section longer than the 4,000-character cap was cut there, but the row
+    was stored with `truncated: false`.
+
+  The fifth flag (73331499, "cut mid-Q2") is the filing's own text: the
+  petition's second question ends mid-sentence.
+
+  **The change.**
+  - The start rule reads `QUESTION\s?S?\s+PRESENTED`, and absorbs a heading's
+    `FOR REVIEW` tail.
+  - A `Questions to Review` or `Question for Review` heading opens the section
+    only where it stands alone on its line. Prose and argument headings say
+    those words too.
+  - A lone folio on the section's last line is dropped.
+  - A section cut at the cap is stored with `truncated: true`.
+  - `backfill-questions-presented` re-derives stored rows from their stored
+    petition text, as it does after any cutter change. A row whose text is
+    unchanged but whose cap mark is wrong is rewritten under its own reason
+    class, `cap-mark`. A rewrite that only drops a `FOR REVIEW` tail or a
+    trailing folio is classed `trim-only`, so the dry run sets the mechanical
+    trims apart from the rows a maintainer reads.
+  - New rows take the cut at ingest.
+  - **The registry row.** The boundary is `qp-cutter-split-and-review-headings`.
+    It applies to every predictor, with reach `all`, and is **gradual**: stored
+    rows change only when a maintainer-dispatched back-fill applies. It is
+    registered pending in this change's own PR (`fedcourts register-boundary`).
+    The promotion merge that carries it stamps it (`promotion-record`).
+
+  **Measured effect.** The current and the new extractor were each run over
+  the stored petition text of every live-slice SCOTUS case. The read went
+  directly to the production per-case content store on 2026-10-23, with the
+  case list taken from the index blob `2c899403…` (latest pull 2026-10-23,
+  latest snapshot row 2026-07-13). Of 25,914 live-slice cases, 9,859 carry
+  petition text and 8,755 of those carry a QP heading under either rule; 6,446
+  derive a different section.
+
+  | Class | Rows |
+  | --- | ---: |
+  | Only a trailing page folio dropped | 5,624 |
+  | Folio and a leading `FOR REVIEW` dropped | 430 |
+  | Only a leading `FOR REVIEW` dropped | 297 |
+  | Reopened at the real heading (mostly the split heading) | 70 |
+  | Heading now found where none was read | 18 |
+  | Empty before, now derived | 5 |
+  | Heading now found, nothing usable under it | 2 |
+  | Derived before, now empty | 0 |
+
+  The 18 newly found sections were read by hand: each opens on the petition's
+  questions or the preface to them, 13 under a review heading standing alone
+  on its line and 5 under the split heading. Of the 70 reopened rows, 56 were
+  checked mechanically: the old text, whitespace-normalised and with the tail
+  and folio trimmed, lies inside the new section. The other 14 were read by
+  hand: each old row was argument prose cut at the cap or at a phrase, and each
+  new row is the petition's questions. No row loses a question.
+
+  A dry run of the back-fill's own classification against the rows as stored
+  gives the triage list to expect: 6,348 `trim-only`, 71 `other-change`, 261
+  `cap-mark`, 20 `derived-anew`, 4 `prose-terminator-fragment`, 3 each of
+  `below-floor`, `stale-toc-fragment` and `toc-junk-emptied`, 45 refused, and
+  3,101 unchanged. The 45 refused rows and 8 rewrites (the 3
+  `toc-junk-emptied`, the 3 `stale-toc-fragment` and 2 of the
+  `prose-terminator-fragment`) differ from the stored row under the current
+  extractor too: stored rows an earlier back-fill has not converged, not this
+  change's effect. A capped row's `truncated` mark reaches the cell through
+  `record/documents/documents.json`, so the 261 `cap-mark` rows change a cell
+  input though their text does not.
+  - **The labeler.** The QP-topic labels already committed were read off the
+    rows as stored. A batch labeled after the back-fill applies reads the new
+    rows, so a QP whose row changed class "reopened" or "newly derived" can
+    label differently from a batch before it. Folio and `FOR REVIEW` drops
+    change no question text.
+
+  **What it moves.** No scored figure and no digest: no prompt or other digest
+  input changes. Once cells sit on both sides of the stamped boundary, each
+  pooled entry's and each paired engine's `boundaries` list gains a
+  `qp-cutter-split-and-review-headings` row, which is composition, not a cut.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py -k "questions_presented"` is green;
+  - after the carrying merge, a `run-repair` dry run with `repair:
+    qp-backfill` reports about 6,700 rows to rewrite: about 6,350
+    `trim-only`, about 70 `other-change` and about 260 `cap-mark`, with the
+    remainder in the small classes above. Its apply is the maintainer's
+    dispatch.
