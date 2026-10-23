@@ -1,0 +1,13 @@
+case_id: scotus/73279966
+decision_target: disposition
+description: Disposition of the petition, forecast once the Solicitor General has
+  filed the brief the Court invited.
+docket_entry_id: null
+event_id: evt-brief-sg-disposition
+kind: brief
+moment: sg-brief
+opened_at: '2026-09-15'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al.
