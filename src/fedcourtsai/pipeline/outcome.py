@@ -78,6 +78,7 @@ from ..schemas import (
     EventKind,
     InterimResolutionSignals,
     Judgment,
+    MeritsDecisionMethod,
     Moment,
     Outcome,
     PredictableEvent,
@@ -132,6 +133,20 @@ def _known_judgment(value: str) -> Judgment | None:
     """
     try:
         return Judgment(value)
+    except ValueError:
+        return None
+
+
+def known_decision_method(value: str | None) -> MeritsDecisionMethod | None:
+    """The stored decision method as a :class:`MeritsDecisionMethod`, or ``None``.
+
+    ``merits_decision_method`` is blob-tolerant TEXT like ``merits_judgment``,
+    so an unknown value reads as unclassified rather than failing the outcome.
+    """
+    if value is None:
+        return None
+    try:
+        return MeritsDecisionMethod(value)
     except ValueError:
         return None
 
@@ -1022,6 +1037,7 @@ def build_merits_outcome(
     distribution_count: int | None,
     cvsg_date: date | None,
     source: str | None,
+    decision_method: MeritsDecisionMethod | None = None,
 ) -> Outcome:
     """Construct the merits ground truth from a parsed judgment and its date.
 
@@ -1056,6 +1072,9 @@ def build_merits_outcome(
     - ``resolved_at`` is ``decided`` — the judgment entry's own docket date
       (``merits_decided``); detection refuses to resolve on an undated parse
       rather than stamping a guess.
+    - ``merits_decision_method`` is the row's decision record as read, null
+      where it is unclassified: the per curiam that resolves the
+      majority-author claim's ``per-curiam`` label, which no writing role names.
     """
     return Outcome(
         case_id=case_id,
@@ -1064,6 +1083,7 @@ def build_merits_outcome(
         actual_disposition=Disposition.other,
         actual_granted=int(judgment_disturbed(judgment)),
         judgment=judgment,
+        merits_decision_method=decision_method,
         signals=resolution_signals(distribution_count, cvsg_date),
         source=source,
     )
@@ -1381,6 +1401,7 @@ def detect_resolution(  # noqa: PLR0913 - the row plus the corpus facts detectio
                         distribution_count=row.distribution_count,
                         cvsg_date=row.cvsg_date,
                         source=row.citations[0] if row.citations else None,
+                        decision_method=known_decision_method(row.merits_decision_method),
                     )
                     for merits_event in merits_events
                 },

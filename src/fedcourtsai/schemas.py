@@ -1329,6 +1329,32 @@ class ClaimProbability(_Strict):
     )
 
 
+class ClaimDistribution(_Strict):
+    """One declared distribution claim's probabilities, in ``Prediction.claim_distributions``.
+
+    The form a claim over the bench takes, where one probability cannot carry
+    the forecast: a label per Justice (the roster's spelling), and for the
+    majority-author claim the ``per-curiam`` label beside them. Whether the
+    probabilities are one distribution summing to 1 or an independent
+    probability per Justice is the declared claim's kind, fixed by the harness
+    in ``fedcourtsai.pipeline.claims`` and checked there; this record carries
+    only the predictor's numbers, as :class:`ClaimProbability` does.
+    """
+
+    claim_id: str = Field(
+        description="The declared distribution claim these probabilities answer, "
+        "e.g. 'majority-author', 'separate-writers', 'order-writers'"
+    )
+    probabilities: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
+        min_length=1,
+        description="Label -> the predictor's probability. A label is a Justice's "
+        "name as the roster spells it, or 'per-curiam' on the majority-author "
+        "claim. On a categorical claim (majority-author) the values sum to 1 over "
+        "the labels; on a per-Justice claim (separate-writers, order-writers) "
+        "each is that Justice's own probability and there is no sum",
+    )
+
+
 class SemanticClaim(_Strict):
     """One declared **semantic** claim's stated proposition, inside ``Prediction.semantic_claims``.
 
@@ -1492,6 +1518,15 @@ class Prediction(_Strict):
         "skip them. Optional (defaults None) only so predictions written before "
         "the field existed still validate.",
     )
+    claim_distributions: list[ClaimDistribution] | None = Field(
+        default=None,
+        description="Per-claim probability distributions over the harness-declared "
+        "distribution claims for this event (`fedcourtsai.pipeline.claims`): the "
+        "authorship forecasts, one label per Justice. Mandatory where the "
+        "event's set declares any, exactly as `claims` is. Null on events whose "
+        "set declares none, and on predictions written before the field existed; "
+        "omitted from the file while null",
+    )
     semantic_claims: list[SemanticClaim] | None = Field(
         default=None,
         description="Per-claim propositions over the harness-declared **semantic** "
@@ -1522,6 +1557,14 @@ class Prediction(_Strict):
                 "a prediction carrying `judgment` must carry a non-empty `votes` block"
             )
         return self
+
+    @model_serializer(mode="wrap")
+    def _omit_unstated_distributions(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``claim_distributions`` while null, so an older record reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and self.claim_distributions is None:
+            payload.pop("claim_distributions", None)
+        return payload
 
 
 class ResolutionSignals(_Strict):
@@ -1698,6 +1741,17 @@ class Outcome(_Strict):
         "the accuracy comparison onto the merits axis, and that routing does "
         "not read the stage",
     )
+    merits_decision_method: MeritsDecisionMethod | None = Field(
+        default=None,
+        description="How the Court decided the case, beside what it did to the "
+        "judgment (`MeritsDecisionMethod`): a signed opinion after argument, a "
+        "per curiam after argument, a summary opinion or order, or a DIG. Read "
+        "from the corpus row's decision record when the merits outcome is "
+        "written; what resolves the majority-author claim's per-curiam label, "
+        "since a per curiam names no author for `writing_roles` to carry. Null "
+        "off the merits stage and where the record left the method unclassified, "
+        "never an observed absence; omitted from the file while null",
+    )
     source: str | None = Field(default=None, description="Docket entry id or citation")
     disposition_basis: Literal["standard", "mootness"] = Field(
         default="standard",
@@ -1731,6 +1785,13 @@ class Outcome(_Strict):
         "ledger carries no payload, and reading absence as 'nobody dissented' "
         "would invent an observation, exactly as an absent `signals` block does",
     )
+
+    @model_validator(mode="after")
+    def _decision_method_is_merits_only(self) -> Outcome:
+        """How the Court decided is a merits fact: no judgment, no method."""
+        if self.merits_decision_method is not None and self.judgment is None:
+            raise ValueError("`merits_decision_method` is set off the merits stage")
+        return self
 
     @model_validator(mode="after")
     def _vote_record_coheres(self) -> Outcome:
@@ -1789,6 +1850,14 @@ class Outcome(_Strict):
                         f"`writing_roles` records {role_of[vote.justice]!r}"
                     )
         return self
+
+    @model_serializer(mode="wrap")
+    def _omit_unclassified_method(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``merits_decision_method`` while null, so an older outcome reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and self.merits_decision_method is None:
+            payload.pop("merits_decision_method", None)
+        return payload
 
 
 class LeakageAssessment(_Strict):
@@ -1927,6 +1996,49 @@ class ClaimScore(_Strict):
         return payload
 
 
+class DistributionScore(_Strict):
+    """One declared distribution claim's row inside ``ClaimScoreBlock.distributions``.
+
+    The bench-shaped counterpart of :class:`ClaimScore`, under the same
+    discipline: everything except ``probabilities`` is the harness's. The
+    registered rule is applied once per label, ``(b - y)^2 - (p - y)^2``, and
+    the claim's declared weighting combines the label terms: a categorical
+    claim adds them (bounded by 2), a per-Justice claim averages them over the
+    Justices it resolves (bounded by 1), so a bench of nine weighs as one
+    claim (`docs/outcome-decomposition.md`, *The authorship claims*). A claim
+    the declaration marks collected-only is resolved and never scored.
+    """
+
+    claim_id: str = Field(description="The declared distribution claim this row scores")
+    probabilities: dict[str, float] = Field(
+        description="The predictor's stated probabilities by label, copied from "
+        "the prediction's `claim_distributions` block"
+    )
+    baseline: dict[str, float] | None = Field(
+        default=None,
+        description="The harness-computed baseline by label, from Terms strictly "
+        "before the case's. None where the committed statpack publishes no cut "
+        "supporting one; the claim then goes unscored",
+    )
+    outcome: dict[str, int] | None = Field(
+        default=None,
+        description="How each label resolved, 1 or 0, over the labels the record "
+        "settles. None when the record does not disclose the claim — the "
+        "availability mask: no observed writing roles, an unclassified decision "
+        "method, or (for majority-author) no deciding opinion",
+    )
+    scored: bool = Field(
+        description="Whether the declaration scores this claim. False for a "
+        "collected-only claim (order-writers), whose row carries its resolution "
+        "and never a score"
+    )
+    score: float | None = Field(
+        default=None,
+        description="The per-label rule combined by the claim's declared "
+        "weighting. None when unscored, or when outcome or baseline is None",
+    )
+
+
 class ClaimScoreBlock(_Strict):
     """The harness-computed mechanical claim scores for one prediction.
 
@@ -1982,6 +2094,19 @@ class ClaimScoreBlock(_Strict):
         "description for what remains unpriced and which comparison carries a "
         "skill claim. None when no claim scored",
     )
+    distributions: list[DistributionScore] = Field(
+        default_factory=list,
+        description="One row per declared distribution claim (the authorship "
+        "claims), in the declaration's order. Reported beside the claims and "
+        "never added into `total`, `floor` or `lift`: the authorship block "
+        "stands on its own until the criterion registered for joining it is "
+        "met. Omitted from the file while empty",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_undeclared_distributions(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``distributions`` while empty, so a block it does not reach reads as before."""
+        return _omit_empty(handler(self), distributions=self.distributions)
 
 
 class SemanticGrade(_Strict):
