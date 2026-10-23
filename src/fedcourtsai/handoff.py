@@ -39,8 +39,9 @@ from pydantic import BaseModel, ValidationError
 
 from .serialize import write_json
 
-#: The largest handoff file a reader accepts. The biggest real one, a Term's
-#: served application dockets, is on the order of ten megabytes.
+#: The largest handoff file a reader accepts. The biggest real one, the
+#: opinion-record plan over the repair pass's six Terms with each writing's
+#: text, is on the order of thirty megabytes.
 MAX_HANDOFF_BYTES: Final = 64 * 1024 * 1024
 
 

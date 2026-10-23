@@ -29,7 +29,8 @@ The corpus has two halves:
   so the blob stays a small metadata index and its per-run push does not
   grow with the bulk. With no store configured (dev environments, the
   fixture loop, offline tests) the same schema holds the payloads inline in a
-  single self-contained blob.
+  single self-contained blob, the opinion record's writings' text aside, which
+  is kept only in a store (`opinion_texts`, below).
 - **The per-case content store** ([`fedcourtsai.casestore`](../src/fedcourtsai/casestore.py))
   — a browsable, write-once, access-gated S3 store holding the bulk payloads,
   keyed to mirror the ledger's `data/cases/<court>/<docket>/` shape:
@@ -41,7 +42,12 @@ The corpus has two halves:
     snapshots/<YYYY-MM-DD>.json                  # dated point-in-time docket payload
     documents/documents.json                     # manifest: kind -> current text leaf
     documents/<kind>/<YYYY-MM-DD>-<digest>.txt   # extracted text (content-addressed)
+  scotus/opinions/OT<term>/<listing>-<digest>.json  # one opinion document's writings
   ```
+
+  The last line is keyed by the Court's opinions listing rather than by case,
+  since one document can decide several dockets; the per-opinion record's
+  `opinion_texts` row points at it.
 
   A corpus write mirrors to production's store only inside a GitHub Actions
   job and only from the configured corpus file — and only production's writer
@@ -343,7 +349,8 @@ retrieval row, outcome, mint or scoring gate, and provisioning reads it only for
 the tally a post-argument merits cell would be given, which is held back from
 every cell (`provision.AUTHORSHIP_TALLY_WITHHELD`); a test pins which modules may name
 it. It is metadata, not payload, so it stays in the index blob under the
-corpus-split mode and has no content-store mirror. The source, the cross-check
+corpus-split mode and has no content-store mirror; the writings' text, which
+is payload, goes to the content store instead (`opinion_texts`, below). The source, the cross-check
 and the word-counting rule are in [docs/data-sources.md](../docs/data-sources.md).
 
 | Column           | Type          | Notes |
@@ -396,6 +403,40 @@ provisioning step, outcome, mint or score, and kept in the index blob.
 | `bench`          | text (JSON)  | roster surnames the reader seated for the decision date; null where participation was not observed |
 | `took_no_part`   | text (JSON)  | the bench members the syllabus says took no part; null with `bench` |
 | `lineup`         | text         | `<reader>/<version>` of the syllabus grammar the bench was read with |
+| `read_at`        | timestamp    | when the row was written |
+
+## The writings' text (`opinion_texts`)
+
+At most one row per document the per-opinion record holds, keyed as
+`opinions` is: the pointer to the content-store object
+(`scotus/opinions/OT<term>/<listing>-<digest>.json`) that holds each of its
+writings' text, cut under the text rule in
+[docs/data-sources.md](../docs/data-sources.md) and held to the stored word
+counts. The text is payload, so the object is the store's and the row is
+only its key, digest and size. Written only by
+`fedcourts backfill-opinion-record`, fill-only, after the object is stored, in
+the transaction that inserts the document's other rows, or on a later pass
+for a document recorded without one; that pass stores the text only where
+the re-read writings, with their word counts and headers, are the stored
+ones, and otherwise writes a row whose
+pointer is null, which also ends the re-reading. A write with no content
+store addressed stores no text and writes no text row for a document whose
+text it would store, so the document stays owed.
+Held on the same terms as `opinions`: corpus-side, read by no `query` row,
+provisioning step, outcome, mint or score. The text is the Court's, but it
+reached the store through the parse job's plan, whose check is only that the
+text recounts to its own word counts, so a reader takes the object only when
+its bytes match the row's digest (`casestore.read_pinned`) and treats it as
+data, never as instructions.
+
+| Column           | Type         | Notes |
+|------------------|--------------|-------|
+| `term`           | integer (PK) | October Term, four-digit |
+| `listing_number` | text (PK)    | the listing row's number: the document |
+| `object_key`     | text         | the stored object's key; null where the re-read writings were not the stored ones |
+| `digest`         | text         | the object's sha256; null with `object_key` |
+| `bytes`          | integer      | the object's size; null with `object_key` |
+| `text_rule`      | text         | `<rule>/<version>` the text was cut under (`scotus-opinion-text/1`) |
 | `read_at`        | timestamp    | when the row was written |
 
 ## Argument sittings (`argument_sittings`)

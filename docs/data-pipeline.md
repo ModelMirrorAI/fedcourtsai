@@ -753,8 +753,8 @@ provenances, the two cut kinds, and the moments the cut does not apply to.
 The `casestore` backend has no query surface, so `query` / `stats` / `open-events` / scope reconcile read
 the index — locally pulled or ranged in place — and `cert-backtest` replay
 reads its redacted snapshots from the store through the payload read source.
-The opinion body is the payload the index does not hold, and two readers need
-it: `query --full`, which hydrates each prior's body inside the shared payload
+The CourtListener opinion body (`cases.opinion_text`) is the payload the index
+does not hold, and two readers need it: `query --full`, which hydrates each prior's body inside the shared payload
 shaper so the CLI and the query service behave identically — the sidecar is the
 credentialed process, which is what lets a credential-free cell ask for a body
 at all — and `provision-opinion`, which stages one case's body into its
@@ -1417,7 +1417,8 @@ or network.
      built by `backfill-opinion-record` from the Court's opinions, applied on
      run-repair's `opinion-record` pass and, for the current and previous
      Term, as a standing sweep on run-seed's daily window, and held corpus-side
-     on the same terms.
+     on the same terms. The same pass stores each writing's text in the
+     content store, the corpus holding only its pointer (`opinion_texts`).
      So is the per-Justice vote half for a case the pipeline never forecast:
      `fedcourts merits-lineups` derives each decision's lineup from those rows
      and the pass's `opinion_benches` (who sat), read-only and never stored, by
@@ -1665,7 +1666,7 @@ population and apply against another.
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `application-backfill` | `backfill-applications` (split, as above) | `--max-rows` (rows landed, onboarded and enriched together; the dry run's count is an upper bound) | two-digit October Term, **required in both modes** | — |
 | `decision-record` | `backfill-decision-record` | `--max-fills` (rows filled, not the `candidates` denominator) | — | — |
-| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion rows and bench rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
+| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion, bench and text rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -1857,14 +1858,14 @@ fields parsed from them ([security.md](security.md), *S3 / the private stores*).
   vote passes, each population case's docket number; for the application
   back-fill, the Term's highest stored serial and its live-owned serials; for
   the opinion record, the (Term, listing number) of each document it already
-  holds whole and of each signed decision it holds without a bench row. It
-  fetches nothing.
+  holds whole, of each signed decision it holds without a bench row and of
+  each document it holds without a text row. It fetches nothing.
 - `handoff-parse` holds **no credential**: no environment, no `id-token`, no
   secret, and a step asserts the AWS and OIDC variables are absent before
   anything is fetched. It fetches and parses, prints the dry-run ledger to the
   run summary, and on an apply writes the plan — the planned vote records, the
-  served docket JSON verbatim, or the opinion rows and bench rows — as a run
-  artifact. It
+  served docket JSON verbatim, or the opinion, bench and text rows with each
+  writing's text — as a run artifact. It
   restores the uv cache but never saves one.
 - On an apply only, a writer job downloads the plan and treats it as untrusted
   input: every row is re-validated against the reader's own invariants and the
@@ -1875,7 +1876,8 @@ fields parsed from them ([security.md](security.md), *S3 / the private stores*).
   opinion-record writers take the read-write role, pull the corpus fresh inside
   the lock, apply — the application writer re-reads ownership, resolves
   identity and applies the prediction guard against that corpus, and the
-  opinion-record writer resolves each case id from it and inserts fill-only —
+  opinion-record writer resolves each case id from it, stores each writing's
+  text in the content store and inserts fill-only —
   push the blob, and mint the App token only after the push. None fetches.
 
 Both files cross as one-day run artifacts (`repair-projection-<run_id>`,
@@ -1925,8 +1927,9 @@ OT2017–OT2019 are skipped by design, every listing row there linking into a
 whole volume, and a pinned range means the dry run and the apply it bounds read
 the same Terms. The parse fetches about four seconds a document over some 380
 documents, outside the lock. It takes no dedupe
-prerequisite: it writes only its own table, keyed by Term, listing number and
-position rather than by case row, and nothing that gates a cell reads it. All
+prerequisite: it writes only its own three tables, keyed by Term and listing
+number (and position, for an opinion row) rather than by case row, and the
+content-store objects they point at, and nothing that gates a cell reads them. All
 the writing jobs commit straight to `main` on the writers' rebase-and-backoff
 push path.
 
@@ -2180,15 +2183,16 @@ gh workflow run run-repair.yml --ref main \
   -f repair=decision-record -f repair_mode=apply -f repair_bound=<would fill N>
 
 # The opinion record reads OT2020–OT2025 (pinned in the workflow). Its apply
-# fetches every document the record does not hold whole again — unrecorded, or a
-# signed decision recorded without its bench row — and runs no dry run first,
-# which would double the pass's traffic to the Court's site. Its bound is the dry
-# run's "would insert N" — opinion rows and bench rows, not documents; a signed
-# decision re-read for its bench counts one bench row, its stored opinion rows
-# none. The readings, each refusal's reason included, are in the parse job's step
-# log; the summary carries the per-Term counts, and on the apply the writer's
-# summary names each re-read whose writings differ from the stored rows (it gets a
-# null bench row). Re-dispatching in `dry-run` after the apply is the control:
+# fetches every document the record does not hold whole again — unrecorded, a
+# signed decision recorded without its bench row, or a document recorded without
+# its text row — and runs no dry run first, which would double the pass's traffic
+# to the Court's site. Its bound is the dry run's "would insert N" — opinion,
+# bench and text rows, not documents; a document re-read for its bench or its
+# text counts one row for each it lacks, its stored opinion rows none. The
+# readings, each refusal's reason included, are in the parse job's step log; the
+# summary carries the per-Term counts, and on the apply the writer's summary
+# names each re-read whose writings differ from the stored rows (it gets null
+# bench and text rows). Re-dispatching in `dry-run` after the apply is the control:
 # it must report "would insert 0" (it re-fetches only the refused documents).
 gh workflow run run-repair.yml --ref main \
   -f repair=opinion-record -f repair_mode=dry-run

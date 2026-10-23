@@ -4889,7 +4889,7 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
         typer.Option(
             "--max-rows",
             help="Blast-radius bound, required with --apply: refuse to insert more rows "
-            "(opinion rows plus bench rows, the dry run's 'would insert N').",
+            "(opinion, bench and text rows, the dry run's 'would insert N').",
         ),
     ] = None,
     throttle: Annotated[
@@ -4940,9 +4940,11 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
     read signed decision also gets a bench row (`opinion_benches`): who sat,
     where its syllabus lineup accounts for the whole bench, else null. A signed
     decision recorded without one is read again to add it, beside rows it
-    leaves untouched.
-    ``--apply`` refuses above ``--max-rows``, which counts the opinion rows and
-    bench rows it would insert; the apply half belongs in run-repair's `opinion-record` pass,
+    leaves untouched. Each read document's writings are also stored as text in
+    the content store, pointed at from `opinion_texts`, and a document recorded
+    without its text row is read again on the same terms.
+    ``--apply`` refuses above ``--max-rows``, which counts the opinion, bench
+    and text rows it would insert; the apply half belongs in run-repair's `opinion-record` pass,
     which on an apply holds the corpus-write credentials. ``--sweep`` is the
     standing half on run-seed's daily window, so each decision of the current
     Term is recorded within a day or so of its issue: every mode reads the
@@ -5077,8 +5079,8 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                         terms=terms,
                         apply=True,
                         max_rows=max_rows,
-                        write=lambda pairs, benches: opinion_record.insert_opinions(
-                            conn, pairs, benches
+                        write=lambda pairs, benches, texts: opinion_record.insert_opinions(
+                            conn, pairs, benches, texts, store=casestore.write_transport(conn)
                         ),
                     )
             else:
@@ -5098,6 +5100,7 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                     terms=terms,
                     recorded=recorded,
                     rebench=opinion_record.projected_rebench(handed),
+                    retext=opinion_record.projected_retext(handed),
                     dockets=dockets,
                     max_documents=None if caps is None else caps.opinion_record,
                     rotation=date.today().toordinal(),
@@ -5114,8 +5117,8 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                             dockets=dockets,
                             apply=True,
                             max_rows=max_rows,
-                            write=lambda pairs, benches: opinion_record.insert_opinions(
-                                conn, pairs, benches
+                            write=lambda pairs, benches, texts: opinion_record.insert_opinions(
+                                conn, pairs, benches, texts, store=casestore.write_transport(conn)
                             ),
                         )
                 else:
@@ -5128,7 +5131,11 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
         raise typer.Exit(code=1) from exc
     if plan_out is not None:
         write_handoff(plan_out, opinion_record.opinion_record_plan(result))
-    typer.echo(json.dumps([r.model_dump(mode="json") for r in result.readings], indent=2))
+    # The texts ride the plan, not the step log the readings are printed to.
+    untexted = {"opinions": {"__all__": {"text", "footnotes"}}}
+    typer.echo(
+        json.dumps([r.model_dump(mode="json", exclude=untexted) for r in result.readings], indent=2)
+    )
     for failure in result.failures:
         typer.echo(failure, err=True)
     for term in terms:
@@ -5140,17 +5147,24 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
             f"({opinions} opinions), {counts['refused']} refused, {counts['skipped']} skipped",
             err=True,
         )
-    for conflict in result.bench_conflicts:
+    for conflict in result.reread_conflicts:
         typer.echo(conflict, err=True)
-    total = result.rows + result.benches
+    if result.applied and result.texts_inserted < result.texts:
+        typer.echo(
+            f"backfill-opinion-record: stored {result.texts_inserted} of {result.texts} text(s); "
+            "no content store was addressed for the rest, so their documents stay owed",
+            err=True,
+        )
+    total = result.rows + result.benches + result.texts
     done = (
-        f"inserted {result.inserted + result.benches_inserted} of {total}"
+        f"inserted {result.inserted + result.benches_inserted + result.texts_inserted} of {total}"
         if result.applied
         else f"would insert {total}"
     )
     typer.echo(
         f"backfill-opinion-record ({'applied' if result.applied else 'dry-run'}): "
-        f"{done} row(s) — {result.rows} opinion row(s), {result.benches} bench row(s); "
+        f"{done} row(s) — {result.rows} opinion row(s), {result.benches} bench row(s), "
+        f"{result.texts} text row(s); "
         f"{result.already_recorded} listing row(s) already recorded"
         + (f"; {result.deferred} deferred to a later window" if result.deferred else ""),
         err=True,
