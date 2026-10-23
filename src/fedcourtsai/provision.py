@@ -39,9 +39,16 @@ from types import MappingProxyType
 from typing import Any, Literal
 
 from . import casestore
-from .corpus import CaseDocument, CorpusEvent, CorpusRow
+from .corpus import CaseDocument, CorpusEvent, CorpusRow, ReadConnection
 from .paths import CasePaths
-from .pipeline import arrival_cut, cell_context, cert_signals, interim_signals, moments
+from .pipeline import (
+    arrival_cut,
+    authorship,
+    cell_context,
+    cert_signals,
+    interim_signals,
+    moments,
+)
 from .pipeline.documents import (
     KIND_ARGUMENT_TRANSCRIPT,
     KIND_DESCRIPTIONS,
@@ -57,8 +64,9 @@ from .pipeline.documents import (
     unrepresented_sides,
 )
 from .pipeline.vide_links import VIDE_RELATION
-from .schemas import Moment, Stage
+from .schemas import AuthorshipTally, Moment, Stage
 from .serialize import write_raw_json, write_text
+from .supremecourt import october_term_year
 
 
 class ProvisionError(RuntimeError):
@@ -607,6 +615,64 @@ def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> li
     ]
 
 
+AUTHORSHIP_TALLY_WITHHELD = True
+"""Whether a cell's record goes without its authorship tally.
+
+The tally (:func:`authorship_tally_for`) is part of a merits cell's information
+set, which the process digest does not see, so it is held back as a withheld
+document kind is (:data:`WITHHELD_KINDS`) until the re-bless whose prompt tells
+cells about it, which flips this and registers the harness boundary. While held,
+no tally is read, so a cell's provisioning spends nothing on it.
+"""
+
+
+def carries_authorship_tally(event_id: str) -> bool:
+    """Whether a cell for ``event_id`` is given the Term's authorship tally.
+
+    The post-argument merits moment alone: its case is argued, so it sits in one
+    of the Term's sittings, which no earlier moment's case does yet.
+    """
+    spec = moments.spec_for(event_id)
+    return spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
+
+
+def authorship_tally_as_of(cutoff: date | None, snapshot_date: date, mode: str) -> date | None:
+    """The last day whose decisions a cell's tally reads, inclusive, or ``None``.
+
+    The day before the cutoff, which is exclusive, so the tally holds no decision
+    the cell's moment postdates; an uncut cell reads through its snapshot's date.
+    A forward cell only: the tally reads argument days and sitting headings as
+    stored now (:mod:`fedcourtsai.pipeline.authorship`), so a replay cell's tally
+    would show a case reargued after its day, its own included, already gone
+    from its sitting, and a heading's later add-on days, both facts its moment
+    postdates. A replay cell is given none.
+    """
+    if mode != "forward":
+        return None
+    return cutoff - timedelta(days=1) if cutoff is not None else snapshot_date
+
+
+def authorship_tally_for(
+    conn: ReadConnection, event_id: str, *, cutoff: date | None, snapshot_date: date, mode: str
+) -> AuthorshipTally | None:
+    """The Term's authorship tally a cell for ``event_id`` is given, or ``None``.
+
+    The Term is the one in progress on the tally's day, not the docket's filing
+    Term. ``None`` for a moment that carries none and for a replay cell. Raises
+    ``ValueError`` where the tally cannot be read (a sitting before the roster's
+    floor, a stored date that does not parse), which the caller reports,
+    provisioning the cell without it.
+    """
+    if not carries_authorship_tally(event_id):
+        return None
+    as_of = authorship_tally_as_of(cutoff, snapshot_date, mode)
+    if as_of is None:
+        return None
+    term = october_term_year(as_of)
+    tally = authorship.authorship_tally(conn, term=term, as_of=as_of)
+    return authorship.tally_record(tally, term=term, as_of=as_of)
+
+
 def documents_before(documents: Iterable[CaseDocument], cutoff: date) -> list[CaseDocument]:
     """The documents on the docket strictly before ``cutoff``.
 
@@ -965,6 +1031,7 @@ class RecordWrite:
     snapshot_scrub: ScrubbedSnapshot | None
     staged: tuple[tuple[CaseDocument, ScrubbedText | None], ...]
     related: tuple[RelatedPlacement, ...] = ()
+    authorship_tally: AuthorshipTally | None = None
 
 
 def write_cell_record(
@@ -976,6 +1043,7 @@ def write_cell_record(
     cutoff: date | None,
     snapshot_dest: Path | None = None,
     related: Sequence[RelatedPlacement] = (),
+    authorship_tally: AuthorshipTally | None = None,
 ) -> RecordWrite:
     """Materialize one cell's whole ``record/`` from its placement.
 
@@ -984,7 +1052,9 @@ def write_cell_record(
     conditioning from, and ``documents/`` with the manifest naming what is there
     — both staged copies through the contact-detail scrubs — and, where
     ``related`` holds any, ``related/`` with each linked docket
-    :func:`place_related` placed and its ``related.json``. A caller that wrote
+    :func:`place_related` placed and its ``related.json``, and, where
+    ``authorship_tally`` is given and not held back
+    (:data:`AUTHORSHIP_TALLY_WITHHELD`), ``authorship-tally.json``. A caller that wrote
     only the first would hand an agent a snapshot with no frozen mode, band or
     cutoff beside it — the cell would then have to guess its own posture, which
     is the one thing provisioning exists to settle.
@@ -1015,6 +1085,7 @@ def write_cell_record(
         _clear_dir(paths.snapshots_dir)
         _clear_dir(paths.documents_dir)
         _clear_dir(paths.related_dir)
+        paths.authorship_tally.unlink(missing_ok=True)
         clear_opinion_slot(paths)
     payload = placement.payload
     dest = snapshot_dest or paths.snapshot(placement.snapshot_date.isoformat())
@@ -1088,12 +1159,18 @@ def write_cell_record(
             if item.payload is not None:
                 write_raw_json(paths.related_snapshot(item.docket_number), item.payload)
         write_raw_json(paths.related_manifest, related_manifest(related))
+    tally_written = (
+        authorship_tally is not None and snapshot_dest is None and not AUTHORSHIP_TALLY_WITHHELD
+    )
+    if tally_written and authorship_tally is not None:
+        write_raw_json(paths.authorship_tally, authorship_tally.model_dump(mode="json"))
     return RecordWrite(
         snapshot=dest,
         unrepresented=unrepresented,
         snapshot_scrub=snapshot_scrub,
         staged=tuple(staged),
         related=tuple(related) if snapshot_dest is None else (),
+        authorship_tally=authorship_tally if tally_written else None,
     )
 
 

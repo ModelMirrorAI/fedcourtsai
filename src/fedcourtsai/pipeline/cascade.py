@@ -54,7 +54,15 @@ from ..blinding import (
 )
 from ..paths import CasePaths, EventPaths
 from ..registry import enabled_evaluators, enabled_predictors
-from ..schemas import Judgment, Outcome, PredictableEvent, PredictorConfig, Stage, UsageRole
+from ..schemas import (
+    AuthorshipTally,
+    Judgment,
+    Outcome,
+    PredictableEvent,
+    PredictorConfig,
+    Stage,
+    UsageRole,
+)
 from ..serialize import write_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
 from . import vide_links
@@ -201,7 +209,7 @@ def _place_cell(
     return placement
 
 
-def _provision_record(
+def _provision_record(  # noqa: PLR0913
     case_paths: CasePaths,
     case_id: str,
     event_id: str,
@@ -210,13 +218,16 @@ def _provision_record(
     role: _Role,
     placement: provision.Placement,
     related: Sequence[provision.RelatedRead] = (),
+    *,
+    authorship_tally: AuthorshipTally | None = None,
 ) -> _Record:
     """Write one cell's ``record/`` exactly as the workflow's provisioning step does.
 
     The snapshot placed at the cell's moment, the ``context.json`` that freezes its
     mode and conditioning, and the documents cut with the snapshot — through the
-    same placement and writer ``provision-snapshot`` uses, contact scrubs and
-    the ``Vide``-linked companions under ``record/related/`` included. A
+    same placement and writer ``provision-snapshot`` uses, contact scrubs,
+    the ``Vide``-linked companions under ``record/related/`` and a merits cell's
+    authorship tally included. A
     cascade that wrote only the snapshot would hand the agent no frozen mode,
     band or cutoff, and the cell would have to guess the posture that
     provisioning exists to settle.
@@ -238,6 +249,7 @@ def _provision_record(
                 )
                 for item in related
             ],
+            authorship_tally=authorship_tally,
         )
     except provision.ProvisionError as exc:
         raise CascadeError(str(exc)) from exc
@@ -284,6 +296,44 @@ def _read_related(
             )
             for event_id, numbers in linked.items()
         }
+
+
+def _read_authorship_tallies(
+    db_path: Path,
+    backend: corpus.CorpusBackend,
+    placed: Mapping[str, provision.Placement | None],
+    reads: Mapping[str, provision.CellRead],
+    modes: Mapping[str, str],
+) -> dict[str, AuthorshipTally]:
+    """Each placed target's authorship tally, read as ``provision-snapshot`` reads it.
+
+    On one connection opened only where the tally is not held back and some
+    target's moment carries one.
+    """
+    wanted = [
+        (event_id, placement)
+        for event_id, placement in placed.items()
+        if placement is not None and provision.carries_authorship_tally(event_id)
+    ]
+    if provision.AUTHORSHIP_TALLY_WITHHELD or not wanted:
+        return {}
+    found: dict[str, AuthorshipTally] = {}
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        for event_id, placement in wanted:
+            try:
+                tally = provision.authorship_tally_for(
+                    conn,
+                    event_id,
+                    cutoff=reads[event_id].cutoff,
+                    snapshot_date=placement.snapshot_date,
+                    mode=modes[event_id],
+                )
+            except ValueError:
+                # The cell goes without, as `provision-snapshot` provisions it.
+                continue
+            if tally is not None:
+                found[event_id] = tally
+    return found
 
 
 def _cell_mode(event: corpus.CorpusEvent, row: corpus.CorpusRow) -> str:
@@ -662,6 +712,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
             role,
             placement,
             related.get(event_id, ()),
+            authorship_tally=tallies.get(event_id),
         )
         placements.append(record.placement)
 
@@ -669,6 +720,13 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     # nothing (see `_place_cell`).
     placed = {ev.event_id: _place_cell(case_id, ev.event_id, reads[ev.event_id]) for ev in targets}
     related = _read_related(corpus_db_path, chosen_backend, case_id, placed)
+    tallies = _read_authorship_tallies(
+        corpus_db_path,
+        chosen_backend,
+        placed,
+        reads,
+        {ev.event_id: _cell_mode(ev, row) for ev in targets},
+    )
 
     outcomes = _materialize_targets(case_paths, row, targets, found)
 

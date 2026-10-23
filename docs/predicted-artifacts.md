@@ -56,7 +56,9 @@ fields that mean the same thing at every stage:
   predicted. The staged `documents/` hold the kinds provisioning gives cells,
   never one the corpus stores but withholds from every cell until a re-bless
   (`provision.WITHHELD_KINDS`: the supplemental briefs and party letters,
-  [document-provisioning.md](document-provisioning.md)), and carry a
+  [document-provisioning.md](document-provisioning.md)); the post-argument
+  merits cell's `authorship-tally.json` is held back the same way
+  (`provision.AUTHORSHIP_TALLY_WITHHELD`). The staged documents carry a
   `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
   facts (a `petition`, `application` or `appendix` cut at the cap also marks
