@@ -20,6 +20,7 @@ from fedcourtsai.pipeline.documents import (
     KIND_BRIEF_IN_OPPOSITION,
     KIND_CERT_REPLY,
     KIND_DESCRIPTIONS,
+    KIND_PARTY_LETTER,
     KIND_PETITION,
     TEXT_COVERAGE_KINDS,
     fetch_case_documents,
@@ -458,6 +459,32 @@ def test_the_cap_bounds_the_cases_fetched_and_moved_dockets_go_first(db: Path) -
     assert ledger["stale"] == 4 and ledger["refreshed"] == 2 and ledger["deferred"] == 2
     refreshed = {cid for cid in ids if KIND_BRIEF_IN_OPPOSITION in _stored(db, cid)}
     assert refreshed == {ids[1], ids[3]}
+
+
+def test_a_case_owing_only_a_withheld_kind_never_takes_a_staged_kinds_slot(db: Path) -> None:
+    # Two moved dockets owing only a party letter, which no cell is given yet,
+    # ahead of an unchanged one owing its opposition: the cap goes to the
+    # opposition first, and only the slot left over to a letter.
+    letter = _entry("Jul 05 2026", "Letter from counsel for respondent filed.", _link("l.pdf"))
+    ids = [f"scotus/90250002{n:02d}" for n in range(3)]
+    for case_id in ids:
+        _store(db, _cert_payload(_PETITION), case_id, on=date(2026, 7, 16))
+    candidates = [
+        FreshnessCandidate(ids[0], _cert_payload(_PETITION, letter), changed=True),
+        FreshnessCandidate(ids[1], _cert_payload(_PETITION, letter), changed=True),
+        FreshnessCandidate(ids[2], _cert_payload(_PETITION, _BIO_LEAD), changed=False),
+    ]
+    served = {**_SERVED, f"{_HOST}/l.pdf": _pdf("A letter.")}
+    with _Recorder(served).client() as client:
+        ledger = refresh_stale_documents(
+            client, db, candidates, cap=2, char_cap=10_000, today=_TODAY
+        )
+    assert ledger["stale"] == 3 and ledger["refreshed"] == 2 and ledger["deferred"] == 1
+    assert KIND_BRIEF_IN_OPPOSITION in _stored(db, ids[2])
+    # Within the withheld half the check's own order holds: the first moved docket.
+    assert KIND_PARTY_LETTER in _stored(db, ids[0])
+    assert KIND_PARTY_LETTER not in _stored(db, ids[1])
+    assert ledger["owed"] == {KIND_BRIEF_IN_OPPOSITION: 1, KIND_PARTY_LETTER: 2}
 
 
 def test_a_zero_cap_reads_and_fetches_nothing(db: Path) -> None:

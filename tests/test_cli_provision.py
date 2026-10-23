@@ -13,6 +13,7 @@ from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest
 from fedcourtsai.pipeline.cascade import CascadeError, run_cascade
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
+from fedcourtsai.provision import WITHHELD_KINDS
 from fedcourtsai.schemas import EventKind, Moment, Stage
 from tests.conftest import FixtureCorpus
 
@@ -1265,6 +1266,43 @@ def test_the_cut_takes_the_documents_with_it(fixture_corpus: FixtureCorpus) -> N
     assert not paths.document("merits-brief").exists()
     manifest = json.loads(paths.documents_manifest.read_text())
     assert [entry["kind"] for entry in manifest] == ["petition"]
+
+
+@pytest.mark.parametrize("event", [(), ("--event", "evt-order-judgment")])
+def test_a_withheld_kind_never_lands_in_a_cells_record(
+    fixture_corpus: FixtureCorpus, event: tuple[str, ...]
+) -> None:
+    # Stored, dated well before the cutoff, and still not staged: no cell, cut or
+    # uncut, is given a kind in `provision.WITHHELD_KINDS`.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind=kind,
+                    url=f"https://example/{kind}.pdf",
+                    entry_date="2025-02-01",
+                    fetched_at=date(2025, 2, 2),
+                    text=f"The {kind}.",
+                )
+                for kind in ("petition", *sorted(WITHHELD_KINDS))
+            ],
+        )
+
+    result = _provision_cell(*event)
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert paths.document("petition").exists()
+    for kind in WITHHELD_KINDS:
+        assert not paths.document(kind).exists()
+    manifest = json.loads(paths.documents_manifest.read_text())
+    assert [entry["kind"] for entry in manifest] == ["petition"]
+    # The `--event` case is a placed cell, so both branches are exercised.
+    assert (_context(fixture_corpus)["cutoff"] is not None) == bool(event)
 
 
 def test_a_reconstructed_docket_drops_the_top_level_dates_that_postdate_it(

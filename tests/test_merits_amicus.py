@@ -163,7 +163,7 @@ def test_the_new_arm_moves_no_other_kind(position: int) -> None:
 
 
 def test_the_kind_is_a_fetched_kind_that_describes_itself() -> None:
-    assert FETCHED_DOCUMENT_KINDS[-1] == KIND_MERITS_AMICUS_UNITED_STATES
+    assert KIND_MERITS_AMICUS_UNITED_STATES in FETCHED_DOCUMENT_KINDS
     assert KIND_MERITS_AMICUS_UNITED_STATES in KIND_DESCRIPTIONS
 
 

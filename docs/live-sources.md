@@ -476,13 +476,48 @@ the docket form, so one function serves both lanes:
   of United States filed.") on the other side of the grant: the first such entry
   filed **after the cert grant** whose entry posts a `Main Document` link, from
   that link alone, on the merits arms' terms. The invited brief is filed before
-  the grant, so it stays `sg-invited-brief` and is never this kind. It is the
-  selector's last arm, so an entry any other arm reads is never offered to it
-  and no other kind's selection moves; every other merits-stage amicus brief
+  the grant, so it stays `sg-invited-brief` and is never this kind. It follows
+  every party arm, and the two arms after it read only the pending petition,
+  so an entry any other arm reads is never offered to it and no other kind's
+  selection moves; every other merits-stage amicus brief
   stays unselected. **Stored, and not yet given to any cell**: it is in
   `provision.WITHHELD_KINDS`, because admitting it changes what a merits cell
   reads under an unchanged process digest, which rides a re-bless
   ([process-version.md](process-version.md)).
+- **`supplemental-brief`** / **`party-letter`** — **stored, not yet given to any
+  cell** (`provision.WITHHELD_KINDS`; a kind leaves that set in the re-bless
+  whose prompt tells cells about it, since a newly staged kind changes the
+  predictors' information set under an unchanged digest). Every party's **Rule
+  15.8 supplemental brief** ("Supplemental brief of petitioner … filed.",
+  "Second supplemental brief of respondent … filed.", and a "letter brief",
+  supplemental or bare — "Letter brief of petitioner … filed."), and every party's **letter to the Clerk** that bears on the case —
+  a suggestion of mootness, a settlement, a withdrawal, a notice of an
+  intervening decision or new law, a change of position. Each is one combined
+  row, as the opposition is, of every distinct `Main Document` link in docket
+  order under a per-filing header where there is more than one. Both arms read
+  only the **pending petition** — before the grant and before the first
+  disposition entry — and they are the last two arms of the selector, so no
+  entry an earlier arm takes ever reaches them and they change nothing an
+  existing kind selects. The filer must carry a party word (petitioner,
+  respondent, appellant, appellee): an amicus's supplemental brief is out, and
+  so is a filer named without one ("Supplemental brief of United States
+  filed.", "Letter from the Solicitor General filed."), which the entry alone
+  cannot tell from an amicus. A letter is out when it changes no question before
+  the Court, only when or how it is handled: a waiver (the 14-day distribution
+  period, the right to respond), a request about time, the scheduling of
+  distribution, a consent to amicus filings, a corporate-disclosure, Rule 12.6
+  or Rule 35.3 notice, a letter about a motion pending here or a rehearing
+  petition, the Clerk's own letter and one the Clerk did not accept. Each is
+  read as a phrase ("extension of time", "in response to … motion"), never a
+  bare word, so a substantive letter that only mentions one — a court below
+  that extended an injunction or granted a motion to dismiss as moot — is
+  still taken. **Dated by the latest
+  constituent**, the opposite of the opposition's call: these filings arrive
+  independently across the life of the petition, so the earliest date would
+  admit a later letter — a mootness suggestion, say — to a cell placed before
+  it was written; the latest cannot, at the cost of a cell placed between two
+  constituents reading neither. A constituent whose date does not parse dates
+  the row by its fetch instead.
 
 - **`questions-presented`** — derived from the `petition` text alone, never
   fetched and never derived from an `application`.
@@ -607,8 +642,11 @@ rotations just polled:
   so the selection over it is current and costs no request.
 - **Test.** The case is stale where its stored set does not hold every link the
   selection names (`documents.unheld_document_kinds`): a kind absent, a kind at
-  another link, or an opposition row whose set of briefs differs from the
-  selected set. That is exactly the test the fetch skips a filing on, so a
+  another link, or a combined row — the opposition, the supplemental briefs,
+  the party letters — whose set of filings differs from the selected set. The
+  two kinds no cell is given yet (`provision.WITHHELD_KINDS`) are owed here like
+  any other, since storing them ahead of the re-bless that stages them is the
+  point; the bound below is what keeps them from costing a cell anything. That is exactly the test the fetch skips a filing on, so a
   stale case is one the fetch will download for, and a held case costs nothing
   but the content-store read.
 - **Fetch.** Through the poller's own `provision_documents` — the same
@@ -620,7 +658,8 @@ rotations just polled:
   re-provisions a case while a merits event is open, and the back-fill's merits
   arm remain its routes.
 - **Bound.** Moved dockets first, then the cases owing what an earlier fetch
-  missed, at most `live.document_freshness_per_run` cases a cycle, and last in
+  missed, and behind every one of those the cases owing only withheld kinds, so
+  a cell-facing filing never waits on a store-only one; at most `live.document_freshness_per_run` cases a cycle, and last in
   the cycle, on what the polls, the outcome convergence and the selection sweep
   left of the soft deadline. A case past the cap or the deadline is owed again
   at its next poll, because the test reads state rather than change; a link
@@ -642,7 +681,8 @@ rotations just polled:
   after it was docketed reaches exactly the cells placed after its docketing,
   forward or replay. Two residuals are stated where the cut is made, and
   freshness makes both more reachable. **Combination**: the opposition row is
-  dated by its earliest brief, so it admits a later respondent's brief to a
+  dated by its earliest brief (the supplemental-brief and party-letter rows by
+  their latest, which closes this residual for them), so it admits a later respondent's brief to a
   cell cut between the two; the moment a cut can fall between two oppositions
   on is the CVSG moment, where a respondent filing after the invitation is
   rare, and the arrival moment's cut falls before any opposition.
@@ -985,7 +1025,8 @@ them before a grant, rather than a coverage gap
 docket carries a reply at all); the `appendix`, `cert-reply` and
 `sg-invited-brief` counts are bounded the same way, by the dockets that post a
 separate appendix, carry a cert-stage reply, or were answered after a call for
-the Solicitor General's views; and an empty
+the Solicitor General's views; the `supplemental-brief` and `party-letter`
+counts, stored and not yet staged, by the dockets that carry one; and an empty
 derived questions-presented row is as likely to be a capture the deriver would
 not vouch for. And the command reports the **absent** petition
 beside the empty one, because that is the larger failure and a different
@@ -1168,7 +1209,10 @@ idempotency key and not a link to GET — recovering it would mean re-fetching
 and re-combining a set, which is the fetching lane's work, not this pass's —
 and text recovered there would in any case be discarded the next time a
 co-respondent's brief joined that key. A lone opposition joins to itself, so it
-stores one link and is recovered like any other filing. The combined row itself
+stores one link and is recovered like any other filing. The combined
+`supplemental-brief` and `party-letter` rows are held to the same rule, and
+their headed rows are not sized on the report's combined line, which reads the
+opposition alone. The combined row itself
 is not empty by the coverage report's per-kind test, because its per-brief
 headings are text: a multi-respondent opposition of nothing but scans reads
 there as *covered* while carrying no argument at all, and it is outside this
@@ -1231,17 +1275,23 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   short ones. The estimate is a high reading of the ordinary cost rather than a
   ceiling on the possible one, so the step's cap stays the backstop for what
   runs past it.
-- **What it reads.** Stored rows of a **fetched** kind — every kind a cell
-  reads that arrived as a PDF: the petition, the application, the separately
+- **What it reads.** Stored rows of a **fetched** kind — every stored kind
+  that arrived as a PDF: the petition, the application, the separately
   linked appendix, the response to an application and the applicant's reply,
-  the brief in opposition, the cert-stage reply, the invited brief and the four
-  merits filings, which is the text-coverage set less
-  its one derived member — whose text is empty or whitespace-only, whose page
+  the brief in opposition, the cert-stage reply, the invited brief, the four
+  merits filings, and the supplemental briefs and party letters, which the
+  corpus stores and no cell is yet given (recovered all the same, since the
+  pass is local and cheap and a row recovered now is ready for the re-bless
+  that stages it); which is the text-coverage set less its one derived
+  member — whose text is empty or whitespace-only, whose page
   count is above zero, and whose stored URL is one link. A zero-page row is
   either a PDF the extractor could not open or a derived section — `pages`
   carries both — and neither is OCR's to repair; a case holding no row of a
   kind is a fetch gap, or on an application docket no gap at all; a row whose
-  URL is a set key is the multi-respondent opposition above. All three stay out
+  URL is a set key is a combined row of more than one filing — the
+  multi-respondent opposition above, or a docket's several supplemental briefs
+  or party letters, stored the same way — while a lone one joins to its own
+  link and is recovered like any other filing. All three stay out
   of the population. The kinds differ in what a cell
   loses when one reads empty and in nothing the pass does: each is one stored
   row, one link, one re-fetch, one recognition. The coverage report's case-id

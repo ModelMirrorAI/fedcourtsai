@@ -18,6 +18,7 @@ from fedcourtsai import corpus, summaries
 from fedcourtsai.cli import app
 from fedcourtsai.config import SummariesConfig, load_summaries_config
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.documents import KIND_PARTY_LETTER
 from fedcourtsai.pricing import MODEL_RATES, ModelRate
 from fedcourtsai.schemas import CaseSummaryFrontMatter, SummaryPlan, SummaryPlanCase
 from fedcourtsai.validate import validate_ledger
@@ -236,6 +237,30 @@ def test_summarize_plan_cli_reads_only_predicted_cases(fixture_corpus: FixtureCo
     plan = SummaryPlan.model_validate_json(result.stdout)
     assert [c.case_id for c in plan.cases] == ["scotus/305"]
     assert plan.cases[0].snapshot == date(2026, 9, 22)
+
+    # A stored kind no cell is given (`provision.WITHHELD_KINDS`) is not part of
+    # the record a summary is written from, so storing one moves nothing.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind=KIND_PARTY_LETTER,
+                    url="https://www.supremecourt.gov/letter.pdf",
+                    entry_date="Sep 20 2026",
+                    fetched_at=date(2026, 9, 21),
+                    pages=1,
+                    truncated=False,
+                    text="Letter suggesting mootness.",
+                )
+            ],
+        )
+    result = runner.invoke(app, ["summarize-plan", "--corpus-backend", "local"])
+    assert result.exit_code == 0, result.output
+    withheld = SummaryPlan.model_validate_json(result.stdout)
+    assert withheld.cases[0].record_digest == plan.cases[0].record_digest
+    assert withheld.cases[0].documents == plan.cases[0].documents
 
 
 def test_summarize_plan_leaves_a_withheld_kind_out_of_the_record_digest(

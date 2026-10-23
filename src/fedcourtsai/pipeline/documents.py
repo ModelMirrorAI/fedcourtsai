@@ -8,8 +8,10 @@ petition for certiorari, certiorari before judgment, mandamus or habeas corpus,
 or a direct appeal's statement as to jurisdiction — one ``petition`` kind, one
 role), the ``application`` an interim docket is opened by, the appendix either
 posts under its own link, every non-amicus brief in opposition, the
-petitioner's cert-stage reply, the Solicitor General's invited brief, and —
-once the petition is granted — each side's brief on the merits. Everything here
+petitioner's cert-stage reply, the Solicitor General's invited brief, each
+side's brief on the merits once the petition is granted, and each party's
+supplemental briefs and letters to the Clerk while the petition is pending,
+which are stored but not yet given to any cell. Everything here
 is **pipeline-side** —
 documents are fetched and text-extracted at ingest time (the live poller, on
 the same distribution transition that queues prediction), stored in the
@@ -212,6 +214,22 @@ logger = logging.getLogger(__name__)
 #   group's merits brief is.
 # - `application-reply` is the **applicant's reply** to that response ("Reply of
 #   applicant … filed."): the last word before the Justice or the Court acts.
+#
+# Two further cert-stage kinds are **combined** rows, like the opposition, because
+# a docket can carry several of each and every one is the same role:
+#
+# - `supplemental-brief` is a party's **Rule 15.8 supplemental brief**: the paper
+#   either side files while the petition is pending to call new matter to the
+#   Court's attention — an intervening decision, new legislation, a change of
+#   position. Every one in docket order, combined into one row.
+# - `party-letter` is a **party's letter to the Clerk**: the filing that carries a
+#   suggestion of mootness, a settlement, a withdrawal or the notice of an
+#   intervening decision. Every one in docket order, combined into one row.
+#
+# Both are **stored, not staged**: the corpus holds them, and no cell is given
+# them until the re-bless that tells cells about them takes them out of
+# :data:`fedcourtsai.provision.WITHHELD_KINDS`. Both are dated by their *latest*
+# constituent rather than their earliest (:func:`_combine_documents`).
 KIND_PETITION = "petition"
 KIND_APPLICATION = "application"
 KIND_APPLICATION_RESPONSE = "application-response"
@@ -225,6 +243,8 @@ KIND_MERITS_BRIEF_RESPONDENT = "merits-brief-respondent"
 KIND_MERITS_REPLY_PETITIONER = "merits-reply-petitioner"
 KIND_MERITS_REPLY_RESPONDENT = "merits-reply-respondent"
 KIND_MERITS_AMICUS_UNITED_STATES = "merits-amicus-united-states"
+KIND_SUPPLEMENTAL_BRIEF = "supplemental-brief"
+KIND_PARTY_LETTER = "party-letter"
 KIND_QUESTIONS_PRESENTED = "questions-presented"
 # The transcript of the oral argument, which no docket entry links: the Court
 # lists it on a per-Term page (:func:`fedcourtsai.supremecourt.parse_transcript_listing`),
@@ -232,12 +252,21 @@ KIND_QUESTIONS_PRESENTED = "questions-presented"
 # and dated by the argument day the list gives.
 KIND_ARGUMENT_TRANSCRIPT = "argument-transcript"
 
-# The separator the combined brief-in-opposition row joins its constituents'
-# links with. Named because three readers turn on it: the row is rebuilt from
-# the same join to compare against the stored key, the key is written with it,
-# and the OCR recovery pass tests a stored URL for it — a row carrying more
-# than one link is a set key rather than a link, and never a URL to GET back.
+# The separator a combined row joins its constituents' links with. Named because
+# three readers turn on it: the row is rebuilt from the same join to compare
+# against the stored key, the key is written with it, and the OCR recovery pass
+# tests a stored URL for it — a row carrying more than one link is a set key
+# rather than a link, and never a URL to GET back.
 BIO_URL_JOIN = "|"
+
+# The kinds stored as one row combining every filing the selector returns under
+# them (:func:`_combine_documents`), keyed by the set of their links
+# (:func:`combined_set_key`). Every other fetched kind is one filing at one URL.
+COMBINED_KINDS: tuple[str, ...] = (
+    KIND_BRIEF_IN_OPPOSITION,
+    KIND_SUPPLEMENTAL_BRIEF,
+    KIND_PARTY_LETTER,
+)
 
 # The proceedings entry whose link carries the case-opening filing on a
 # cert-form docket, in the Court's own words. Seven entry shapes open one:
@@ -498,6 +527,133 @@ def _is_cert_reply_entry(text: str, *, filed: date | None, granted_on: date | No
     return bool(_CERT_REPLY_RE.search(text)) and not _CERT_REPLY_EXCLUDE_RE.search(text)
 
 
+# The party word the two combined cert-stage arms below read a filer by: either
+# side of a cert-form docket, a direct appeal's appellant and appellee included.
+# An applicant is not one — those arms are cert-stage and an application has no
+# cert stage — and neither is a filer the Clerk names without a party word
+# ("Supplemental brief of United States filed.", "Letter of Comcast Corporation,
+# et al. submitted."), which no reading of the entry alone can tell from an
+# amicus. Both are known losses rather than guesses.
+_PARTY_WORD = r"(?:petitioners?|respondents?|appellants?|appellees?)\b"
+
+# A party's **Rule 15.8 supplemental brief**, as the Clerk enters it:
+#
+#   "Supplemental brief of petitioner Graham Schiff filed. (Distributed)"
+#   "Supplemental brief of respondents City of New York, et al. filed."
+#   "Second supplemental brief of petitioner Kevin Byrd filed."
+#   "Supplemental reply letter brief of respondents Township of Scott … filed."
+#   "Letter brief of petitioner … filed."
+#
+# Start-anchored on the "supplemental … brief" opening, an ordinal allowed in
+# front and a "reply" or "letter" allowed inside — or on a bare "letter brief",
+# the form the Court asks for when it wants new matter briefed short, which is
+# the same paper under a shorter caption — then the filer clause and a
+# party word within three words, the way the opposition's respondent reading
+# is. The anchor is what keeps a filing *about* a supplemental brief out: "Motion
+# of respondent for leave to file a supplemental brief under seal" and "Motion …
+# for leave to file a petition … with the supplemental appendix" open on
+# "Motion". Excluded besides: an amicus's supplemental brief (the Solicitor
+# General's "Supplemental letter brief of United States as amicus curiae"
+# among them), supplemental papers on rehearing, a filing the Clerk did not
+# accept, and anything naming a motion.
+_SUPPLEMENTAL_BRIEF_RE = re.compile(
+    r"^\s*(?:(?:(?:second|third|fourth|fifth)\s+)?supplemental\s+(?:reply\s+)?(?:letter\s+)?"
+    r"|letter\s+)brief\s+"
+    r"(?:of|for|from|on\s+behalf\s+of)\s+(?:the\s+)?(?:\S+\s+){0,3}?" + _PARTY_WORD,
+    re.IGNORECASE,
+)
+_SUPPLEMENTAL_BRIEF_EXCLUDE_RE = re.compile(
+    r"\bamic(?:us|i)\b|\brehearing\b|\bnot\s+accepted\b|\bmotion\b", re.IGNORECASE
+)
+
+# A party's **letter to the Clerk**, as the Clerk enters it — a wide family,
+# because a letter is the form counsel uses for whatever has no rule of its own:
+#
+#   "Letter of petitioner United States advising the Court of newly enacted
+#    legislation filed."
+#   "Letter from counsel for respondent filed."
+#   "Letter of June 4, 2019 on behalf of respondents filed. (Distributed)"
+#   "Letter to Clerk from petitioner submitted."
+#   "Letter of petitioner citing supplemental authority filed."
+#
+# Three conditions, then a rule for what is out. The entry **opens** on
+# "Letter" (or "Supplemental letter"), so a filing that only mentions one —
+# "Response to letter …", "Corporate Disclosure Letter …", "Rule 12.6 letter of
+# …" — is not read as one; the **filer** is a party, read anywhere in the entry
+# ("of", "from", "by" or "on behalf of", optionally "counsel for", and the party
+# word within two words, so a dated or addressed opening still reads); and the
+# Clerk took it in — filed, submitted or received, the last spelled both ways
+# the docket spells it.
+#
+# What is out is the letter that **changes no question before the Court, only
+# when or how it is handled**, which is a rule rather than a list of shapes: the
+# substantive letters (mootness, settlement, withdrawal, an intervening decision
+# or law, a change of position) are the ones that can move a forecast, and the
+# procedural ones are routine on nearly every docket and would bury them. Read
+# off the entry as: a waiver ("Letter waiving the 14-day waiting period …", a
+# waiver of the right to respond), a request about time (an extension of time,
+# extending the time, more or additional time), the scheduling of distribution
+# (its schedule or date, the distribution of the petition, distributing it for a
+# conference, deferring or postponing it), a consent to
+# amicus filings (a
+# blanket consent, or any letter naming an amicus, which also keeps an amicus's
+# own letter out), a corporate-disclosure or Rule 12.6 / Rule 35.3 notice (a
+# party below disclaiming interest, a public officer's substitution), a letter
+# about a motion pending here (in response or reply to it, in opposition to or
+# support of it, withdrawing it) or about a rehearing petition, a letter from the
+# Clerk, one the Clerk did not accept, and a "letter brief", which the
+# supplemental-brief arm takes. Each procedural reading is a phrase rather than
+# a bare word, so a substantive letter that only mentions one — a court below
+# that "extended" an injunction, granted a "motion" to dismiss as moot — still
+# reads as the letter it is.
+_PARTY_LETTER_RE = re.compile(r"^\s*(?:supplemental\s+)?letter\b", re.IGNORECASE)
+_PARTY_LETTER_FILER_RE = re.compile(
+    r"\b(?:of|from|by|on\s+behalf\s+of)\s+(?:the\s+)?(?:counsel\s+(?:for|of)\s+(?:the\s+)?)?"
+    r"(?:\S+\s+){0,2}?" + _PARTY_WORD,
+    re.IGNORECASE,
+)
+_PARTY_LETTER_VERB_RE = re.compile(r"\b(?:filed|submitted|rec(?:ei|ie)ved)\b", re.IGNORECASE)
+_PARTY_LETTER_EXCLUDE_RE = re.compile(
+    r"\bwaiv|\bextension\s+of\s+(?:the\s+)?time\b|\bextend(?:ing)?\s+(?:the\s+)?time\b"
+    r"|\bdistribution\s+(?:schedule|date)\b|\bdistribution\s+of\s+the\s+petition\b"
+    r"|\b(?:defer|delay|postpon)\w*\s+(?:the\s+)?distribution\b"
+    r"|\bdistribut\w*\s+for\s+(?:the\s+)?conference\b|\b(?:additional|more)\s+time\b"
+    r"|\bamic(?:us|i)\b|\bblanket\s+consent\b"
+    r"|\bdisclosure\b|\b12\.6\b|\b35\.3\b"
+    r"|\b(?:response|reply|opposition|support)\s+(?:to|of)\s+(?:the\s+)?(?:\S+\s+){0,2}?motion\b"
+    r"|\bwithdraw\w*\s+(?:the\s+|its\s+|their\s+)?(?:\S+\s+)?motion\b"
+    r"|\brehearing\b|\bfrom\s+(?:the\s+)?clerk\b|\bnot\s+accepted\b"
+    r"|\bletter\s+brief\b",
+    re.IGNORECASE,
+)
+
+
+def _is_supplemental_brief_entry(text: str) -> bool:
+    """Whether an entry is a party's supplemental brief, stage aside.
+
+    The caller adds the stage: these are cert-stage papers, read before the
+    grant and before the first disposition entry, as the cert-stage reply is.
+    """
+    return bool(
+        _SUPPLEMENTAL_BRIEF_RE.search(text)
+        and _BIO_VERB_RE.search(text)
+        and not _SUPPLEMENTAL_BRIEF_EXCLUDE_RE.search(text)
+    )
+
+
+def _is_party_letter_entry(text: str) -> bool:
+    """Whether an entry is a party's substantive letter to the Clerk, stage aside.
+
+    The caller adds the stage, as it does for the supplemental brief.
+    """
+    return bool(
+        _PARTY_LETTER_RE.search(text)
+        and _PARTY_LETTER_FILER_RE.search(text)
+        and _PARTY_LETTER_VERB_RE.search(text)
+        and not _PARTY_LETTER_EXCLUDE_RE.search(text)
+    )
+
+
 # Where the questions-presented section of a petition ends: the next standard
 # front-matter heading. Petitions front the QP page, so the section runs from
 # the QUESTION(S) PRESENTED heading to the first of these that is *set as a
@@ -717,14 +873,14 @@ def select_documents(
     **lead**, its merits kinds prefer the filings made for the lead over a
     member's (:func:`_select_lead_own`).
 
-    Thirteen arms, all entry-keyed rather than form-keyed — the payload says which
-    filings it carries, and nothing here needs to be told the docket's form. Eight
+    Fifteen arms, all entry-keyed rather than form-keyed — the payload says which
+    filings it carries, and nothing here needs to be told the docket's form. Ten
     of them are additionally **stage**-keyed, on the grant date read off the same
     payload (:func:`cert_signals.cert_grant_date`), because the cert stage and the
     merits stage spell a party's brief and a party's reply identically and only
-    the date separates them; two read the stage in docket order as well, after
-    the Court's call for the Solicitor General's views and before the first
-    disposition entry.
+    the date separates them; four read the stage in docket order as well, before
+    the first disposition entry (and the invited brief after the Court's call for
+    the Solicitor General's views).
 
     - The **case-opening filing** (:data:`_CASE_OPENING_ENTRY_RE`), stored as
       ``petition``: the ordinary cert petition, a petition for certiorari
@@ -821,9 +977,21 @@ def select_documents(
       petitioners filed." and "Brief amicus curiae of United States filed." are
       read and an amicus whose name opens with the same words is not; the
       post-grant bound is what keeps the invited brief, filed before the grant,
-      under its own kind. It is the **last** arm, so an entry any other arm
-      reads is never offered to it and no other kind's selection moves. Every
-      other merits-stage amicus brief stays unselected.
+      under its own kind. It follows every party arm, and the two arms after it
+      read only pre-grant entries, so an entry any other arm reads is never
+      offered to it and no other kind's selection moves. Every other
+      merits-stage amicus brief stays unselected.
+    - **Every** party's **supplemental brief** filed while the petition is
+      pending (:func:`_is_supplemental_brief_entry`), and **every** party's
+      **letter** to the Clerk that bears on the case rather than on its
+      handling (:func:`_is_party_letter_entry`), stored as
+      ``supplemental-brief`` and ``party-letter``: each from its ``Main
+      Document`` link alone, distinct URLs in docket order, read before the
+      grant and before the first disposition entry, and combined by
+      :func:`fetch_case_documents` into one row per kind. Read by the last two
+      arms of the chain, so no entry an earlier arm takes reaches them. Stored
+      and not staged: provisioning withholds both from every cell
+      (:data:`fedcourtsai.provision.WITHHELD_KINDS`).
 
     ``QPLink`` is deliberately never selected: it is generated at grant time and
     leaks the outcome; the questions presented are derived from the petition
@@ -862,6 +1030,9 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     application_reply: DocumentRef | None = None
     bios: list[DocumentRef] = []
     seen_bio_urls: set[str] = set()
+    supplemental_briefs: list[DocumentRef] = []
+    party_letters: list[DocumentRef] = []
+    seen_combined_urls: set[str] = set()
     # Docket-order stage marker for the reply arm: whether the petition has been
     # disposed of, updated *after* an entry is read, so the entry that disposes
     # of the petition is itself never a filing here.
@@ -958,6 +1129,24 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             amicus_united_states = _merits_filing_ref(
                 entry, KIND_MERITS_AMICUS_UNITED_STATES, entry_date
             )
+        # The two combined cert-stage arms come last in the chain, so an entry
+        # any arm above takes never reaches them and they cannot change what
+        # those arms select. Bounded to the pending petition on both readings
+        # the cert-stage reply is — before the grant, and before the first
+        # disposition entry in docket order.
+        elif not disposed and not _is_post_grant(filed, granted_on):
+            kind = (
+                KIND_SUPPLEMENTAL_BRIEF
+                if _is_supplemental_brief_entry(text)
+                else KIND_PARTY_LETTER
+                if _is_party_letter_entry(text)
+                else None
+            )
+            combined = None if kind is None else _merits_filing_ref(entry, kind, entry_date)
+            if combined is not None and combined.url not in seen_combined_urls:
+                seen_combined_urls.add(combined.url)
+                group = supplemental_briefs if kind == KIND_SUPPLEMENTAL_BRIEF else party_letters
+                group.append(combined)
         disposed = disposed or match_disposition_signal(text) is not None
     return [
         ref
@@ -975,6 +1164,8 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             reply_petitioner,
             reply_respondent,
             amicus_united_states,
+            *supplemental_briefs,
+            *party_letters,
         )
         if ref is not None
     ]
@@ -1006,8 +1197,9 @@ def _merits_filing_ref(
 ) -> DocumentRef | None:
     """One party filing from its ``Main Document`` link, or ``None``.
 
-    Each side's merits brief and reply, and the cert-stage reply and the
-    Solicitor General's invited brief, which post the same companion papers.
+    Each side's merits brief and reply, and the cert-stage reply, the Solicitor
+    General's invited brief, and each supplemental brief and party letter, which
+    post the same companion papers.
 
     No any-link fallback, for the reason the application arm has none: a merits
     filing posts its certificate of word count and its proof of service on the
@@ -3473,7 +3665,7 @@ FETCH_LOSS_BIO_EMPTY = "bio-empty"
 # case ends the pass holding an opposition a reader takes for the whole of it,
 # and the stored row is byte-indistinguishable from a genuine lone respondent's
 # except for the per-brief header a partial keeps
-# (:func:`_combine_bio_documents`). Recorded per case, with the selected and
+# (:func:`_combine_documents`). Recorded per case, with the selected and
 # fetched counts in the detail, so the shortfall is attributable rather than
 # inferred from a header count after the fact.
 FETCH_LOSS_BIO_PARTIAL = "bio-partial"
@@ -3657,11 +3849,31 @@ def _earliest_entry_date(refs: list[DocumentRef]) -> str | None:
     return next((ref.entry_date for ref in refs if ref.entry_date), None)
 
 
-def bio_set_key(refs: Sequence[DocumentRef]) -> str:
-    """The stored ``url`` of a combined ``brief-in-opposition`` row over ``refs``.
+def _latest_entry_date(refs: list[DocumentRef]) -> str | None:
+    """The verbatim ``entry_date`` of the latest of ``refs``, or ``None``.
 
-    The canonical join of the briefs' links, sorted, so the key names the *set*
-    whatever docket order it was read in, and a single brief joins to its own
+    The dating the two combined cert-stage kinds take (:func:`_combine_documents`),
+    under the same strict parse as :func:`_earliest_entry_date`. ``None`` as soon
+    as any ref's date does not parse, rather than the latest of those that do:
+    an unplaceable constituent could be the latest, and ``None`` places the row
+    on ``fetched_at`` downstream, which no constituent can postdate.
+    """
+    parsed: list[tuple[date, str | None]] = []
+    for ref in refs:
+        filed = _parse_entry_date(ref.entry_date)
+        if filed is None:
+            return None
+        parsed.append((filed, ref.entry_date))
+    if not parsed:
+        return None
+    return max(parsed, key=lambda pair: pair[0])[1]
+
+
+def combined_set_key(refs: Sequence[DocumentRef]) -> str:
+    """The stored ``url`` of a combined row (:data:`COMBINED_KINDS`) over ``refs``.
+
+    The canonical join of the filings' links, sorted, so the key names the *set*
+    whatever docket order it was read in, and a single filing joins to its own
     link. The one spelling of the key: the fetch writes it, the fetch's own
     idempotency test compares against it, and the freshness check
     (:func:`unheld_document_kinds`) does too.
@@ -3669,8 +3881,14 @@ def bio_set_key(refs: Sequence[DocumentRef]) -> str:
     return BIO_URL_JOIN.join(sorted(ref.url for ref in refs))
 
 
-# The per-brief header :func:`_combine_bio_documents` writes above each
-# constituent of a multi-brief opposition row, on a line of its own.
+# The per-filing header :func:`_combine_documents` writes above each
+# constituent of a multi-filing combined row, on a line of its own, and the
+# label it falls back to where the docket entry carries no text.
+_COMBINED_HEADINGS: Mapping[str, str] = {
+    KIND_BRIEF_IN_OPPOSITION: "Brief in opposition",
+    KIND_SUPPLEMENTAL_BRIEF: "Supplemental brief",
+    KIND_PARTY_LETTER: "Letter",
+}
 _BIO_BLOCK_HEADER_RE = re.compile(r"^=== .* ===$", re.MULTILINE)
 
 
@@ -3696,11 +3914,12 @@ def unheld_document_kinds(refs: Sequence[DocumentRef], stored_urls: Mapping[str,
     ``stored_urls`` the stored kind -> url mapping. A kind is unheld where the
     stored row is absent or carries a different link — a filing docketed after
     the case was last provisioned, a superseding re-filing, a kind the selector
-    gained an arm for since — and, for the combined opposition, where the stored
-    set key differs from the selected set's (a respondent's brief filed later,
-    or one lost at the earlier fetch). That is exactly the test
-    :func:`fetch_case_documents` skips a ref on, so a kind listed here is a
-    kind that call would fetch, and an empty list means it would fetch nothing.
+    gained an arm for since — and, for a combined kind (:data:`COMBINED_KINDS`),
+    where the stored set key differs from the selected set's (a respondent's
+    brief or a party's letter filed later, or one lost at the earlier fetch).
+    That is exactly the test :func:`fetch_case_documents` skips a ref on, so a
+    kind listed here is a kind that call would fetch, and an empty list means it
+    would fetch nothing.
 
     Pure, and network-free: the question it answers is whether a provisioning
     call is owed at all, asked of a payload already in hand. It never asks
@@ -3708,28 +3927,67 @@ def unheld_document_kinds(refs: Sequence[DocumentRef], stored_urls: Mapping[str,
     held whatever cut it was stored under, so nothing here re-downloads one.
     """
     unheld: list[str] = []
-    bios = [ref for ref in refs if ref.kind == KIND_BRIEF_IN_OPPOSITION]
     for ref in refs:
         if ref.kind in unheld:
             continue
-        if ref.kind == KIND_BRIEF_IN_OPPOSITION:
-            if stored_urls.get(ref.kind) != bio_set_key(bios):
+        if ref.kind in COMBINED_KINDS:
+            group = [other for other in refs if other.kind == ref.kind]
+            if stored_urls.get(ref.kind) != combined_set_key(group):
                 unheld.append(ref.kind)
         elif stored_urls.get(ref.kind) != ref.url:
             unheld.append(ref.kind)
     return unheld
 
 
-def _combine_bio_documents(
+def _record_opposition_shortfall(case_id: str, *, selected: int, fetched: int) -> None:
+    """Record the two case-level opposition outcomes the per-brief losses cannot express.
+
+    None of the group fetched (``bio-empty``): every selected brief failed, so
+    the case ends the pass with no opposition row despite the docket listing one
+    — recorded apart from the per-brief failures because it is the outcome a
+    reader cares about.
+
+    Some but not all (``bio-partial``): a row IS stored, and it carries less than
+    the docket's opposition. Recorded apart from the per-brief failures for the
+    reason ``bio-empty`` is — it is the outcome rather than the mechanism — and
+    apart from ``bio-empty`` because the two are opposite repairs: an empty group
+    leaves the case with no row for the next poll's idempotency check to be short
+    of, while a partial group leaves a stored row a reader takes for the whole
+    opposition. The counts go in the detail because the shortfall is what sizes
+    it; without them the run log says only that something was lost here.
+    """
+    if not fetched:
+        _record_fetch_loss(
+            FETCH_LOSS_BIO_EMPTY,
+            case_id,
+            KIND_BRIEF_IN_OPPOSITION,
+            f"{selected} selected brief(s), none fetched",
+        )
+    elif fetched < selected:
+        _record_fetch_loss(
+            FETCH_LOSS_BIO_PARTIAL,
+            case_id,
+            KIND_BRIEF_IN_OPPOSITION,
+            f"{selected} selected brief(s), {fetched} fetched",
+        )
+
+
+def _combine_documents(
     client: SupremeCourtClient,
     case_id: str,
-    bio_refs: list[DocumentRef],
+    kind: str,
+    refs: list[DocumentRef],
     *,
     stored_url: str | None,
     char_cap: int,
     today: date,
 ) -> corpus.CaseDocument | None:
-    """Fetch every opposition brief and combine them into one BIO document.
+    """Fetch every filing of one combined kind and combine them into one row.
+
+    ``kind`` is one of :data:`COMBINED_KINDS` and ``refs`` the selected refs
+    of that kind. Written for the opposition and read as such below; the two
+    combined cert-stage kinds, ``supplemental-brief`` and ``party-letter``, are
+    combined the same way, with the two differences stated at the end.
 
     A petition with several respondents draws a BIO from each; they are stored
     as the single ``brief-in-opposition`` document with a per-brief header, so
@@ -3758,8 +4016,21 @@ def _combine_bio_documents(
     the two case-level outcomes those per-brief failures cannot express, none of
     the group fetched (``bio-empty``) and some but not all of it
     (``bio-partial``) — is recorded (:func:`document_fetch_losses`).
+
+    **The two cert-stage kinds** differ in two ways. Their row is **dated by its
+    latest constituent** (:func:`_latest_entry_date`), the opposite call from
+    the opposition's, because the residual the earliest date accepts is bounded
+    only by how close together the constituents are filed: an opposition's
+    briefs answer one call for a response, while a party's supplemental briefs
+    and letters are filed independently across the life of the petition, and a
+    mootness letter admitted to a cell placed before it was written would hand
+    that cell the outcome. Dating at the latest one cannot admit a filing to a
+    cell placed before it; the cost is that a cell placed between two
+    constituents receives neither. And their per-document losses are recorded
+    under the per-document reasons alone: ``bio-empty`` and ``bio-partial`` name
+    the opposition, which a reader takes for the respondent's whole answer.
     """
-    if not bio_refs:
+    if not refs:
         return None
     # Idempotency key is the SELECTED set: skip only when we already hold exactly
     # these briefs. Because the stored key records the set we actually *fetched*
@@ -3767,7 +4038,7 @@ def _combine_bio_documents(
     # "missing document is expected" case — leaves the stored key short of the
     # selected set, so the next poll re-fetches and self-heals instead of being
     # skipped forever.
-    if stored_url == bio_set_key(bio_refs):
+    if stored_url == combined_set_key(refs):
         return None
     # Off the SELECTED refs, deliberately, and it must stay that way: a group of
     # two that fetches one is then stored under its per-brief header where a
@@ -3775,13 +4046,13 @@ def _combine_bio_documents(
     # the two rows and therefore the one durable trace a partial leaves in the
     # corpus. Reading it off `fetched_refs` after the loop would erase that trace
     # and change the stored bytes of every partial row.
-    single = len(bio_refs) == 1
+    single = len(refs) == 1
     fetched_refs: list[DocumentRef] = []
     blocks: list[str] = []
     pages = 0
     truncated = False
     ocr_derived = False
-    for ref in bio_refs:
+    for ref in refs:
         try:
             data = client.get_document(ref.url)
         except OffHostFetch as exc:
@@ -3800,7 +4071,7 @@ def _combine_bio_documents(
         if single:
             blocks.append(extracted.text)  # a lone BIO stays raw (no header)
         else:
-            heading = ref.description or "Brief in opposition"
+            heading = ref.description or _COMBINED_HEADINGS[kind]
             if ref.entry_date:
                 heading = f"{heading} ({ref.entry_date})"
             blocks.append(f"=== {heading} ===\n{extracted.text}")
@@ -3809,40 +4080,17 @@ def _combine_bio_documents(
         # Any OCR-derived brief marks the whole combined row: the reader holds one
         # document, so the weaker provenance is the one that has to survive.
         ocr_derived = ocr_derived or extracted.ocr_derived
+    if kind == KIND_BRIEF_IN_OPPOSITION:
+        _record_opposition_shortfall(case_id, selected=len(refs), fetched=len(fetched_refs))
     if not fetched_refs:
-        # Every selected brief failed, so the case ends the pass with no
-        # opposition row despite the docket listing one — recorded apart from
-        # the per-brief failures because it is the outcome a reader cares about.
-        _record_fetch_loss(
-            FETCH_LOSS_BIO_EMPTY,
-            case_id,
-            KIND_BRIEF_IN_OPPOSITION,
-            f"{len(bio_refs)} selected brief(s), none fetched",
-        )
         return None
-    if len(fetched_refs) < len(bio_refs):
-        # Some but not all: a row IS stored, and it carries less than the docket's
-        # opposition. Recorded apart from the per-brief failures above for the
-        # reason `bio-empty` is — it is the outcome rather than the mechanism —
-        # and apart from `bio-empty` because the two are opposite repairs: an
-        # empty group leaves the case with no row for the next poll's idempotency
-        # check to be short of, while a partial group leaves a stored row a
-        # reader takes for the whole opposition. The counts go in the detail
-        # because the shortfall is what sizes it; without them the run log says
-        # only that something was lost here.
-        _record_fetch_loss(
-            FETCH_LOSS_BIO_PARTIAL,
-            case_id,
-            KIND_BRIEF_IN_OPPOSITION,
-            f"{len(bio_refs)} selected brief(s), {len(fetched_refs)} fetched",
-        )
     text = "\n\n".join(blocks)
     if len(text) > char_cap:
         text = text[:char_cap]
         truncated = True
     return corpus.CaseDocument(
         case_id=case_id,
-        kind=KIND_BRIEF_IN_OPPOSITION,
+        kind=kind,
         # The canonical join of the briefs actually FETCHED — the idempotency
         # key (see above), which is a single fetchable URL only where one brief
         # was fetched; the individual DocumentRef.url values are what fetch
@@ -3852,7 +4100,7 @@ def _combine_bio_documents(
         # its stored URL carries no join, so a multi-respondent set key is never
         # handed to it as a URL, while a lone opposition — which joins to itself
         # — stays as recoverable as a petition.
-        url=bio_set_key(fetched_refs),
+        url=combined_set_key(fetched_refs),
         # The EARLIEST constituent's date, and of the briefs actually fetched.
         #
         # Earliest, because a combined row is one document from the moment its
@@ -3874,7 +4122,13 @@ def _combine_bio_documents(
         # later brief's text rather than dropping the whole opposition. The
         # docstring above says why that is the direction taken, and
         # `provision.documents_before` carries the same residual at the cut.
-        entry_date=_earliest_entry_date(fetched_refs),
+        # The two cert-stage combined kinds take the latest instead (see the
+        # docstring for why the call differs).
+        entry_date=(
+            _earliest_entry_date(fetched_refs)
+            if kind == KIND_BRIEF_IN_OPPOSITION
+            else _latest_entry_date(fetched_refs)
+        ),
         fetched_at=today,
         pages=pages,
         truncated=truncated,
@@ -3907,7 +4161,9 @@ def fetch_case_documents(
     unchanged, while a superseding filing (a re-filed BIO at a new URL, or a new
     respondent's BIO joining the set) is. The multiple opposition briefs of a
     multi-respondent case are combined into the one ``brief-in-opposition``
-    document (:func:`_combine_bio_documents`); each side's merits brief and each
+    document, and a docket's supplemental briefs and party letters into one
+    ``supplemental-brief`` and one ``party-letter`` row
+    (:func:`_combine_documents`); each side's merits brief and each
     side's merits reply are fetched on their own, under their own kind and their
     own ``char_cap``, because adversarial filings sharing one cap would cut the
     later one by however long the earlier ran. The questions presented are
@@ -3944,15 +4200,14 @@ def fetch_case_documents(
             FETCH_LOSS_NOT_SELECTED,
             case_id,
             _NOT_SELECTED_KIND,
-            "no case-opening, application, opposition, reply, invited-brief or merits entry"
-            " carried a document link",
+            "no case-opening, application, opposition, reply, invited-brief, merits,"
+            " supplemental-brief or letter entry carried a document link",
         )
         return []
-    bio_refs = [ref for ref in refs if ref.kind == KIND_BRIEF_IN_OPPOSITION]
     documents: list[corpus.CaseDocument] = []
     petition: corpus.CaseDocument | None = None
     for ref in refs:
-        if ref.kind == KIND_BRIEF_IN_OPPOSITION:
+        if ref.kind in COMBINED_KINDS:
             continue  # combined as a group below
         if stored_urls.get(ref.kind) == ref.url:
             # The same test `unheld_document_kinds` makes, so the freshness
@@ -3986,16 +4241,18 @@ def fetch_case_documents(
         documents.append(document)
         if ref.kind == KIND_PETITION:
             petition = document
-    bio = _combine_bio_documents(
-        client,
-        case_id,
-        bio_refs,
-        stored_url=stored_urls.get(KIND_BRIEF_IN_OPPOSITION),
-        char_cap=char_cap,
-        today=today,
-    )
-    if bio is not None:
-        documents.append(bio)
+    for kind in COMBINED_KINDS:
+        combined = _combine_documents(
+            client,
+            case_id,
+            kind,
+            [ref for ref in refs if ref.kind == kind],
+            stored_url=stored_urls.get(kind),
+            char_cap=char_cap,
+            today=today,
+        )
+        if combined is not None:
+            documents.append(combined)
     if petition is not None and petition.text:
         questions = extract_questions_presented(petition.text)
         if questions is not None:
@@ -4283,6 +4540,8 @@ FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
     KIND_MERITS_REPLY_PETITIONER,
     KIND_MERITS_REPLY_RESPONDENT,
     KIND_MERITS_AMICUS_UNITED_STATES,
+    KIND_SUPPLEMENTAL_BRIEF,
+    KIND_PARTY_LETTER,
 )
 
 # The kinds a text-coverage measurement counts, fetched before derived — every
@@ -4322,6 +4581,11 @@ FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
 # the live slice. The two interim additions are bounded the same way: an
 # `application-response` row exists only where a respondent answered the
 # application, and an `application-reply` only where the applicant replied.
+# The two combined cert-stage kinds are bounded the same way — a
+# `supplemental-brief` row only where a party filed one while the petition was
+# pending, a `party-letter` row only where a party wrote a letter that bears on
+# the case — and share the opposition's asymmetry: a multi-filing row's headings
+# are text, so a row of scans reads as covered, and nothing here sizes that.
 TEXT_COVERAGE_KINDS: tuple[str, ...] = (*FETCHED_DOCUMENT_KINDS, KIND_QUESTIONS_PRESENTED)
 
 # One sentence per kind, written into every row of a cell's `documents.json`
@@ -4382,6 +4646,16 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_MERITS_AMICUS_UNITED_STATES: (
         "The brief of the United States as amicus curiae on the merits, filed after the "
         "grant: the federal government's position on the judgment."
+    ),
+    KIND_SUPPLEMENTAL_BRIEF: (
+        "Every party's supplemental brief filed while the petition was pending, "
+        "combined in docket order, each under a '=== <docket entry> ===' header where "
+        "there is more than one."
+    ),
+    KIND_PARTY_LETTER: (
+        "Every party's letter to the Clerk bearing on the case filed while the "
+        "petition was pending, combined in docket order, each under a "
+        "'=== <docket entry> ===' header where there is more than one."
     ),
     KIND_QUESTIONS_PRESENTED: (
         "The questions-presented section cut out of the petition's own text."
