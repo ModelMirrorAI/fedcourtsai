@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000512",
+  "gaps": [],
+  "helpful": [
+    "Provisioned full-text application, response, and reply documents under record/documents/",
+    "Committed metrics/statpack.md interim-docket table for verifying predictors' base-rate anchors",
+    "Captured retrieval_log.json transcripts for mode-aware leakage grading"
+  ],
+  "notes": "All three blinded candidates' artifacts, provisioned filings, and outcome.json were complete and unambiguous.",
+  "role": "evaluator",
+  "run_id": "20261023T154839Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "run_shell_command",
+    "write_file"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

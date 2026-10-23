@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000512",
+  "run_id": "20261023T154839Z",
+  "role": "evaluator",
+  "actor_id": "codex-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell local file inspection",
+    "jq",
+    "metrics/statpack.md",
+    "pydantic artifact validation"
+  ],
+  "helpful": [
+    "Blinded candidate artifacts and explicit forward-mode stamps",
+    "Per-call result-capture markers",
+    "Provisioned application for checking procedural chronology"
+  ],
+  "gaps": [
+    "Unobserved candidate tool results limit independent inspection of retrieved lower-court text"
+  ],
+  "notes": "All three candidates were evaluated without external retrieval or identity inference. The capture gap was treated as uncertainty, not failed retrieval or evidence of leakage. Interim baseline, skill, and mechanical claim scoring remain harness-owned."
+}

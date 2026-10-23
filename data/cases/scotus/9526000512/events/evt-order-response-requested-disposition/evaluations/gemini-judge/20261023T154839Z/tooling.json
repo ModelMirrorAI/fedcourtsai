@@ -1,0 +1,27 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000512",
+  "gaps": [
+    "The October 22, 2026 detached opinion / order in 26A512 was not yet indexed on CourtListener and was not provisioned in record/documents/, requiring a web search to read Justice Jackson's dissenting opinion and the majority's one-paragraph Purcell rationale."
+  ],
+  "helpful": [
+    "web_fetch and google_web_search retrieved the verbatim text of the Supreme Court's October 22, 2026 majority stay order and Justice Jackson's dissenting opinion in Scanlan v. Coalition for Open Democracy (26A512), which had not yet been indexed in CourtListener opinions.",
+    "Provisioned application.txt, application-response.txt, application-reply.txt, and 2026-10-22.json snapshot provided complete context on the lower-court orders and Supreme Court briefing."
+  ],
+  "notes": "Evaluated three blinded predictions (gemini-baseline, codex-baseline, claude-baseline) for scotus/9526000512 evt-order-response-requested-disposition.",
+  "role": "evaluator",
+  "run_id": "20261023T154839Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "mcp_courtlistener_search",
+    "google_web_search",
+    "web_fetch",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
