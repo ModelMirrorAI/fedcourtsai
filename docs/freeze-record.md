@@ -13183,7 +13183,6 @@ freeze commit is recorded here.
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py -k "questions_presented"` is green;
-  - after the carrying merge, a `run-repair` dry run of
-    `backfill-questions-presented` reports about 6,700 rows to rewrite,
-    including a `cap-mark` class of about 260. Its apply is the maintainer's
-    dispatch.
+  - after the carrying merge, a `run-repair` dry run with `repair:
+    qp-backfill` reports about 6,700 rows to rewrite, a `cap-mark` class of
+    about 260 among them. Its apply is the maintainer's dispatch.
