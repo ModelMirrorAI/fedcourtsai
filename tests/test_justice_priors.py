@@ -164,3 +164,9 @@ def test_the_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert payload["pooled"]["before_term"] == 2026
     backwards = ["justice-priors", "--first-term", "2025", "--last-term", "2024"]
     assert runner.invoke(app, backwards).exit_code == 2
+
+
+def test_a_vote_with_no_merits_side_is_refused() -> None:
+    lineups = [_lineup(2024, "1", {"A": M, "B": VoteValue.grant}, case_id="scotus/1")]
+    with pytest.raises(ValueError, match="no merits side"):
+        justice_priors(lineups, {})

@@ -9,27 +9,36 @@ decided case rows' parsed judgments, and nothing else.
 **The population** is the complete lineups: signed decisions whose writings
 seat every Justice on a filled bench row. Per curiams, unobserved and refused
 documents carry no whole-bench vote and are counted only in the per-Term
-``documents`` total, so a Term's coverage is readable beside its rates.
+``documents`` total, so a Term's coverage is readable beside its rates. The
+selection is not at random: per curiams (summary reversals among them, which
+lean toward disturbing) and fractured decisions the grammar could not seat
+are the ones left out.
 
 **Three tables, per Term and Justice:**
 
 - *Majority*: of the decisions the Justice took part in, those where they voted
   with the judgment: ``majority`` or ``concur-in-judgment``. A vote in part on
   each side (``concur-in-part-dissent-in-part``) is in ``sat`` and in neither
-  side, the same rule the lineup census splits by.
+  side, the same rule the lineup census splits by, so the majority rate's
+  denominator holds the votes in part while the other two tables' do not.
 - *Disturb*: of the decisions with a whole-side vote and a parsed judgment that
   is a plain ``affirmed``, ``reversed`` or ``vacated``, those where the Justice
   voted to disturb the judgment below: with the judgment where it was reversed
   or vacated, in dissent where it was affirmed. A mixed judgment
   (affirmed in part) has no single side to disturb on, and a DIG or an equally
   divided Court is a non-merits exit, so all three are left out, as is a
-  decision whose case row carries no parsed judgment.
+  decision whose case row carries no parsed judgment. That makes this axis
+  narrower than the scored merits binary, which counts a DIG and an equally
+  divided Court as undisturbed, so its rates are not comparable with the
+  statpack's disturbed rate.
 - *Pairwise agreement*: for each pair of Justices both voting a whole side on a
   decision, whether they voted the same side.
 
-**Strictly prior.** :func:`pool_before` sums the Terms strictly before a
-Term, so a forecast made in a Term never reads that Term's own decisions, which
-include the decision it forecasts. The Term is the opinions listing's own.
+**Strictly prior.** :func:`pool_before` sums the Terms strictly before the
+Term it is given, which for a merits forecast is the case's **grant** Term. A
+table's Term is the opinions listing's, the Term of the decision, and a case is
+decided at or after the Term it was granted in, so the pooled Terms never hold
+the forecast case's own decision.
 
 Read-only, and a pure function of the lineups and the case rows: nothing is
 stored, and nothing a cell sees reads it yet. Staging it is a re-bless step.
@@ -119,8 +128,11 @@ class JusticeRate(_Strict):
 
     justice: str
     sat: int = Field(ge=0)
+    majority: int = Field(ge=0)
+    in_part: int = Field(ge=0)
     majority_rate: float | None = Field(description="`majority / sat`; None where `sat` is 0")
     disturb_eligible: int = Field(ge=0)
+    disturb: int = Field(ge=0)
     disturb_rate: float | None = Field(
         description="`disturb / disturb_eligible`; None where the denominator is 0"
     )
@@ -131,6 +143,7 @@ class PairRate(_Strict):
 
     justices: tuple[str, str]
     both: int = Field(ge=0)
+    agree: int = Field(ge=0)
     agreement: float | None = Field(description="`agree / both`; None where `both` is 0")
 
 
@@ -217,6 +230,10 @@ def justice_priors(
                 acc.sat += 1
                 side = _side(value)
                 if side is None:
+                    if value != VoteValue.concur_in_part:
+                        raise ValueError(
+                            f"{lu.term}/{lu.listing_number}: no merits side for {value}"
+                        )
                     acc.in_part += 1
                     continue
                 sides[vote.justice] = side
@@ -285,14 +302,17 @@ def pool_before(
             JusticeRate(
                 justice=name,
                 sat=acc.sat,
+                majority=acc.majority,
+                in_part=acc.in_part,
                 majority_rate=_rate(acc.majority, acc.sat),
                 disturb_eligible=acc.disturb_eligible,
+                disturb=acc.disturb,
                 disturb_rate=_rate(acc.disturb, acc.disturb_eligible),
             )
             for name, acc in sorted(accs.items())
         ],
         pairs=[
-            PairRate(justices=pair, both=n, agreement=_rate(agree[pair], n))
+            PairRate(justices=pair, both=n, agree=agree[pair], agreement=_rate(agree[pair], n))
             for pair, n in sorted(both.items())
         ],
     )
