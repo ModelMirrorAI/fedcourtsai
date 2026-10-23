@@ -53,7 +53,11 @@ fields that mean the same thing at every stage:
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
   a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
   sit beside every event of the case rather than under the event being
-  predicted. The staged `documents/` carry a `documents.json` manifest stating
+  predicted. The staged `documents/` hold the kinds provisioning gives cells,
+  never one the corpus stores but withholds from every cell until a re-bless
+  (`provision.WITHHELD_KINDS`: the supplemental briefs and party letters,
+  [document-provisioning.md](document-provisioning.md)), and carry a
+  `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
   facts (a `petition`, `application` or `appendix` cut at the cap also marks
   each cut in its text), and what the contact-detail scrub did to its text:
