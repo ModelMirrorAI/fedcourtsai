@@ -1735,9 +1735,10 @@ class Outcome(_Strict):
         "observed to have written nothing. Absent means not observed, never "
         "observed-as-none. Kept off `votes` because at the cert and interim "
         "stages the roles are observable for every Justice while the votes are "
-        "not, and a vote entry needs a vote. Nothing scores it: vote scoring and "
-        "its completeness gate read `votes` and `vote_provenance` only. Read "
-        "beside `vote_provenance`, which it requires",
+        "not, and a vote entry needs a vote. Vote scoring and its completeness "
+        "gate read `votes` and `vote_provenance` only; the authorship claims "
+        "(`majority-author`, `separate-writers`, `order-writers`) resolve from "
+        "these roles. Read beside `vote_provenance`, which it requires",
     )
     judgment: Judgment | None = Field(
         default=None,
@@ -2024,8 +2025,8 @@ class DistributionScore(_Strict):
     baseline: dict[str, float] | None = Field(
         default=None,
         description="The harness-computed baseline by label, from Terms strictly "
-        "before the case's. None where the committed statpack publishes no cut "
-        "supporting one; the claim then goes unscored",
+        "before the October Term of the cell's snapshot. None where the committed "
+        "statpack publishes no cut supporting one; the claim then goes unscored",
     )
     outcome: dict[str, int] | None = Field(
         default=None,
@@ -9490,6 +9491,72 @@ class StatPackMerits(_StatPackMeritsCounts):
     )
 
 
+class StatPackAuthorshipJustice(_Strict):
+    """One Justice's writings over one Term of the per-opinion record.
+
+    Two denominators, because the two authorship claims resolve over different
+    populations. ``decisions`` counts the Term's deciding documents decided
+    while the Justice served, the population ``majority-author`` resolves over;
+    ``sat`` counts the signed decisions whose bench was observed with the
+    Justice taking part, the population ``separate-writers`` resolves over.
+    """
+
+    justice: str = Field(description="The Justice's name as the roster spells it")
+    decisions: int = Field(
+        ge=0,
+        description="Argued decisions (signed or per curiam) decided while the Justice served",
+    )
+    majority: int = Field(
+        ge=0,
+        description="Of `decisions`, those whose lead opinion (of the Court, or a "
+        "plurality) the Justice delivered",
+    )
+    sat: int = Field(
+        ge=0,
+        description="Signed decisions whose observed bench has the Justice taking part",
+    )
+    separate: int = Field(
+        ge=0,
+        description="Of `sat`, those the Justice wrote or co-wrote anything in but "
+        "the lead opinion: a concurrence, a dissent, either in part",
+    )
+
+
+class StatPackAuthorshipTerm(_Strict):
+    """One October Term of the per-opinion record, keyed by the listing's Term."""
+
+    term: int = Field(
+        description="The October-Term year the opinions listing files the decisions under"
+    )
+    decisions: int = Field(
+        ge=0, description="Argued decisions: one per listing row, signed or per curiam"
+    )
+    per_curiam: int = Field(ge=0, description="Of `decisions`, those decided per curiam")
+    observed: int = Field(
+        ge=0, description="Signed decisions whose bench the record observed (a filled bench row)"
+    )
+    justices: list[StatPackAuthorshipJustice] = Field(
+        default_factory=list,
+        description="Every Justice seated on a counted decision's date, in roster order",
+    )
+
+
+class StatPackAuthorship(_Strict):
+    """The statpack's authorship section: who wrote the Court's decisions, per Term.
+
+    Read off the per-opinion record (the `opinions` and `opinion_benches`
+    corpus tables), the committed feed of the authorship claims' baselines
+    (``pipeline.base_rates.majority_author_base_rate`` and
+    ``separate_writing_base_rate``), which pool it strictly-prior. Present only
+    once the record holds an argued decision, as the other stage sections join on
+    their feeds.
+    """
+
+    terms: list[StatPackAuthorshipTerm] = Field(
+        default_factory=list, description="Per-Term detail, most recent Term first"
+    )
+
+
 class StatPackCoverage(_Strict):
     """The statpack's own denominators: how much trustworthy data backs it.
 
@@ -9573,6 +9640,12 @@ class StatPack(_Strict):
         "distribution and descriptive disturbed rate); None — and omitted from "
         "the serialized pack — while no row carries a parsed merits judgment",
     )
+    authorship: StatPackAuthorship | None = Field(
+        default=None,
+        description="Who wrote the Court's decisions per Term, off the per-opinion "
+        "record — the authorship claims' baseline feed; None — and omitted from "
+        "the serialized pack — while the record holds no argued decision",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_absent_stage_sections(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -9589,6 +9662,8 @@ class StatPack(_Strict):
                 payload.pop("interim", None)
             if self.merits is None:
                 payload.pop("merits", None)
+            if self.authorship is None:
+                payload.pop("authorship", None)
         return payload
 
 

@@ -21,7 +21,7 @@ import pytest
 
 from fedcourtsai.pipeline import claims as claims_module
 from fedcourtsai.pipeline import moments
-from fedcourtsai.pipeline.base_rates import claim_score
+from fedcourtsai.pipeline.base_rates import PER_CURIAM_LABEL, claim_score
 from fedcourtsai.pipeline.claims import (
     CLAIM_JUDGMENT_DISTURBED,
     CLAIM_MAJORITY_AUTHOR,
@@ -33,7 +33,6 @@ from fedcourtsai.pipeline.claims import (
     CLAIM_SET_INTERIM_V2,
     CLAIM_SET_MERITS_V1,
     CLAIM_SET_MERITS_V2,
-    PER_CURIAM_LABEL,
     claim_block_problems,
     declared_distribution_claims,
     distribution_problems,

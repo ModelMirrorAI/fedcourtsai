@@ -117,6 +117,111 @@
       "title": "GroupBy",
       "type": "string"
     },
+    "StatPackAuthorship": {
+      "additionalProperties": false,
+      "description": "The statpack's authorship section: who wrote the Court's decisions, per Term.\n\nRead off the per-opinion record (the `opinions` and `opinion_benches`\ncorpus tables), the committed feed of the authorship claims' baselines\n(``pipeline.base_rates.majority_author_base_rate`` and\n``separate_writing_base_rate``), which pool it strictly-prior. Present only\nonce the record holds an argued decision, as the other stage sections join on\ntheir feeds.",
+      "properties": {
+        "terms": {
+          "description": "Per-Term detail, most recent Term first",
+          "items": {
+            "$ref": "#/$defs/StatPackAuthorshipTerm"
+          },
+          "title": "Terms",
+          "type": "array"
+        }
+      },
+      "title": "StatPackAuthorship",
+      "type": "object"
+    },
+    "StatPackAuthorshipJustice": {
+      "additionalProperties": false,
+      "description": "One Justice's writings over one Term of the per-opinion record.\n\nTwo denominators, because the two authorship claims resolve over different\npopulations. ``decisions`` counts the Term's deciding documents decided\nwhile the Justice served, the population ``majority-author`` resolves over;\n``sat`` counts the signed decisions whose bench was observed with the\nJustice taking part, the population ``separate-writers`` resolves over.",
+      "properties": {
+        "decisions": {
+          "description": "Argued decisions (signed or per curiam) decided while the Justice served",
+          "minimum": 0,
+          "title": "Decisions",
+          "type": "integer"
+        },
+        "justice": {
+          "description": "The Justice's name as the roster spells it",
+          "title": "Justice",
+          "type": "string"
+        },
+        "majority": {
+          "description": "Of `decisions`, those whose lead opinion (of the Court, or a plurality) the Justice delivered",
+          "minimum": 0,
+          "title": "Majority",
+          "type": "integer"
+        },
+        "sat": {
+          "description": "Signed decisions whose observed bench has the Justice taking part",
+          "minimum": 0,
+          "title": "Sat",
+          "type": "integer"
+        },
+        "separate": {
+          "description": "Of `sat`, those the Justice wrote or co-wrote anything in but the lead opinion: a concurrence, a dissent, either in part",
+          "minimum": 0,
+          "title": "Separate",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "justice",
+        "decisions",
+        "majority",
+        "sat",
+        "separate"
+      ],
+      "title": "StatPackAuthorshipJustice",
+      "type": "object"
+    },
+    "StatPackAuthorshipTerm": {
+      "additionalProperties": false,
+      "description": "One October Term of the per-opinion record, keyed by the listing's Term.",
+      "properties": {
+        "decisions": {
+          "description": "Argued decisions: one per listing row, signed or per curiam",
+          "minimum": 0,
+          "title": "Decisions",
+          "type": "integer"
+        },
+        "justices": {
+          "description": "Every Justice seated on a counted decision's date, in roster order",
+          "items": {
+            "$ref": "#/$defs/StatPackAuthorshipJustice"
+          },
+          "title": "Justices",
+          "type": "array"
+        },
+        "observed": {
+          "description": "Signed decisions whose bench the record observed (a filled bench row)",
+          "minimum": 0,
+          "title": "Observed",
+          "type": "integer"
+        },
+        "per_curiam": {
+          "description": "Of `decisions`, those decided per curiam",
+          "minimum": 0,
+          "title": "Per Curiam",
+          "type": "integer"
+        },
+        "term": {
+          "description": "The October-Term year the opinions listing files the decisions under",
+          "title": "Term",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term",
+        "decisions",
+        "per_curiam",
+        "observed"
+      ],
+      "title": "StatPackAuthorshipTerm",
+      "type": "object"
+    },
     "StatPackCoverage": {
       "additionalProperties": false,
       "description": "The statpack's own denominators: how much trustworthy data backs it.\n\nPublished so the artifact states its own coverage instead of implying the\nheadline corpus counts (dominated by the frozen bulk import) back the\npredictor-facing sections. ``census_filings`` totals the cursor-derived\nper-Term censuses, so live-slice ingestion can be read against the true\nfiling volume.",
@@ -1017,6 +1122,18 @@
   "additionalProperties": false,
   "description": "``metrics/statpack.json`` \u2014 a corpus base-rate statpack (an independent artifact).\n\nA deterministic, offline roll-up of the corpus into headline counts plus a curated\nset of base-rate breakdowns (:class:`StatPackSection`) \u2014 the project's analogue of a\npublished court \"statpack\". A pure function of the corpus (no clock, no network), so\nreruns over an unchanged corpus reproduce it byte for byte; git-tracked as a\nmetric alongside ``leaderboard.json`` / ``backtest.json``. Starts empty (zero counts,\nno sections) until a corpus is present \u2014 mirroring the other metrics artifacts, an\nabsent corpus yields the empty pack rather than an error.",
   "properties": {
+    "authorship": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StatPackAuthorship"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Who wrote the Court's decisions per Term, off the per-opinion record \u2014 the authorship claims' baseline feed; None \u2014 and omitted from the serialized pack \u2014 while the record holds no argued decision"
+    },
     "corpus_rows": {
       "default": 0,
       "description": "Case rows in the corpus",

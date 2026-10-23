@@ -1369,9 +1369,10 @@ def _migrate_documents(conn: sqlite3.Connection) -> None:
 # opinions listing links, keyed by the listing row (Term, listing number) and
 # the opinion's order in the document. A historical decision record, like the
 # case row's decision columns, written only by the `backfill-opinion-record`
-# pass and read by no retrieval, provisioning, outcome or scoring path. The
-# table is created from this map and migrated by it, the same one-object
-# construction the other tables use.
+# pass and read by no retrieval, provisioning or outcome path; scoring reaches
+# it only through the statpack's authorship section. The table is created
+# from this map and migrated by it, the same one-object construction the other
+# tables use.
 OPINIONS_COLUMN_DDL: dict[str, str] = {
     "term": "INTEGER NOT NULL",
     "listing_number": "TEXT NOT NULL",

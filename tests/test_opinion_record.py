@@ -545,8 +545,10 @@ def test_only_the_record_s_own_modules_touch_the_table() -> None:
     """No module but the writer, the schema and the lineup reader names the record's tables in SQL.
 
     The ``opinions`` and ``opinion_benches`` tables. So no retrieval,
-    provisioning, outcome or scoring path — nothing a predict or evaluate cell
-    is shown — can read them without this test changing.
+    provisioning or outcome path — nothing a predict or evaluate cell is shown —
+    can read them without this test changing, and scoring reads them only
+    through the statpack's authorship section, the baseline feed
+    ``pipeline/authorship_rates.py`` rolls up.
     """
     root = Path(__file__).resolve().parents[1] / "src" / "fedcourtsai"
     allowed = {
@@ -554,6 +556,7 @@ def test_only_the_record_s_own_modules_touch_the_table() -> None:
         "pipeline/opinion_record.py",
         "pipeline/merits_lineups.py",
         "pipeline/authorship.py",
+        "pipeline/authorship_rates.py",
     }
     naming = re.compile(r"\b(?:from|into|table|update|exists) opinion(?:s|_benches)\b")
     touching: set[str] = set()

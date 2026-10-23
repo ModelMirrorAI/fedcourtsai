@@ -201,7 +201,7 @@
             }
           ],
           "default": null,
-          "description": "The harness-computed baseline by label, from Terms strictly before the case's. None where the committed statpack publishes no cut supporting one; the claim then goes unscored",
+          "description": "The harness-computed baseline by label, from Terms strictly before the October Term of the cell's snapshot. None where the committed statpack publishes no cut supporting one; the claim then goes unscored",
           "title": "Baseline"
         },
         "claim_id": {

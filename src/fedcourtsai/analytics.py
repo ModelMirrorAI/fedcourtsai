@@ -41,6 +41,7 @@ from .corpus import CorpusRow, strip_docket_annotation
 from .integrity import cell_clock, leakage_excluded
 from .paths import CasePaths
 from .pipeline import moments as moment_registry
+from .pipeline.authorship_rates import authorship_section
 from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind
@@ -98,6 +99,7 @@ from .schemas import (
     Schedule,
     Stage,
     StatPack,
+    StatPackAuthorship,
     StatPackCoverage,
     StatPackInterim,
     StatPackInterimTerm,
@@ -1942,6 +1944,12 @@ def cert_amicus_section(*, corpus_db_path: Path) -> StatPackSection:
     return _sections(specs, _scan_corpus(corpus_db_path, specs))[0]
 
 
+def _authorship_section(corpus_db_path: Path) -> StatPackAuthorship | None:
+    """The authorship section, off the per-opinion record the blob holds."""
+    with corpus.connect_local_read(corpus_db_path) as conn:
+        return authorship_section(conn)
+
+
 def build_statpack(*, corpus_db_path: Path) -> StatPack:
     """Roll the whole corpus into a base-rate statpack, or the empty pack if it is absent.
 
@@ -1957,7 +1965,9 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
     Two more populations ride beside them as their own stage sections: the
     interim application docket (``interim``), present only once the corpus
     holds application rows, and the granted-merits cohort (``merits``), present
-    only once a row carries a parsed merits judgment.
+    only once a row carries a parsed merits judgment. The per-opinion record
+    rides beside them as the authorship section, present once it holds an
+    argued decision.
     """
     if not corpus_db_path.exists():
         return StatPack(sections=_sections(_STATPACK_SECTIONS))
@@ -1988,6 +1998,7 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
         terms=[_term_entry(year, term_accs.get(year), census) for year in term_years],
         interim=_interim_section(scan.interim),
         merits=_merits_section(scan.merits),
+        authorship=_authorship_section(corpus_db_path),
     )
 
 
@@ -2687,8 +2698,8 @@ _DOCKET_GAPS = (
     + "reversed in part, or dismissed in part and affirmed in part) is read on "
     + "neither side and leaves the docket unresolved.",
     "**Justice-level statistics.** Vote frequencies, agreement matrices, and "
-    + "opinion authorship are per-justice facts; this corpus is docket-first and "
-    + "holds no per-justice vote record.",
+    + "opinion authorship are per-justice facts this docket pack does not carry; "
+    + "the statpack's authorship section rolls up the per-opinion record instead.",
 )
 
 
