@@ -529,9 +529,12 @@ _PARTY_WORD = r"(?:petitioners?|respondents?|appellants?|appellees?)\b"
 #   "Supplemental brief of respondents City of New York, et al. filed."
 #   "Second supplemental brief of petitioner Kevin Byrd filed."
 #   "Supplemental reply letter brief of respondents Township of Scott … filed."
+#   "Letter brief of petitioner … filed."
 #
 # Start-anchored on the "supplemental … brief" opening, an ordinal allowed in
-# front and a "reply" or "letter" allowed inside, then the filer clause and a
+# front and a "reply" or "letter" allowed inside — or on a bare "letter brief",
+# the form the Court asks for when it wants new matter briefed short, which is
+# the same paper under a shorter caption — then the filer clause and a
 # party word within three words, the way the opposition's respondent reading
 # is. The anchor is what keeps a filing *about* a supplemental brief out: "Motion
 # of respondent for leave to file a supplemental brief under seal" and "Motion …
@@ -541,7 +544,8 @@ _PARTY_WORD = r"(?:petitioners?|respondents?|appellants?|appellees?)\b"
 # among them), supplemental papers on rehearing, a filing the Clerk did not
 # accept, and anything naming a motion.
 _SUPPLEMENTAL_BRIEF_RE = re.compile(
-    r"^\s*(?:(?:second|third|fourth|fifth)\s+)?supplemental\s+(?:reply\s+)?(?:letter\s+)?brief\s+"
+    r"^\s*(?:(?:(?:second|third|fourth|fifth)\s+)?supplemental\s+(?:reply\s+)?(?:letter\s+)?"
+    r"|letter\s+)brief\s+"
     r"(?:of|for|from|on\s+behalf\s+of)\s+(?:the\s+)?(?:\S+\s+){0,3}?" + _PARTY_WORD,
     re.IGNORECASE,
 )
@@ -574,13 +578,21 @@ _SUPPLEMENTAL_BRIEF_EXCLUDE_RE = re.compile(
 # or law, a change of position) are the ones that can move a forecast, and the
 # procedural ones are routine on nearly every docket and would bury them. Read
 # off the entry as: a waiver ("Letter waiving the 14-day waiting period …", a
-# waiver of the right to respond), a request about time ("extension",
-# "extend"), the scheduling of distribution, a consent to amicus filings (a
+# waiver of the right to respond), a request about time (an extension of time,
+# extending the time, more or additional time), the scheduling of distribution
+# (its schedule or date, the distribution of the petition, distributing it for a
+# conference, deferring or postponing it), a consent to
+# amicus filings (a
 # blanket consent, or any letter naming an amicus, which also keeps an amicus's
 # own letter out), a corporate-disclosure or Rule 12.6 / Rule 35.3 notice (a
 # party below disclaiming interest, a public officer's substitution), a letter
-# about a motion or a rehearing petition, a letter from the Clerk, one the Clerk
-# did not accept, and a "letter brief", which the supplemental-brief arm takes.
+# about a motion pending here (in response or reply to it, in opposition to or
+# support of it, withdrawing it) or about a rehearing petition, a letter from the
+# Clerk, one the Clerk did not accept, and a "letter brief", which the
+# supplemental-brief arm takes. Each procedural reading is a phrase rather than
+# a bare word, so a substantive letter that only mentions one — a court below
+# that "extended" an injunction, granted a "motion" to dismiss as moot — still
+# reads as the letter it is.
 _PARTY_LETTER_RE = re.compile(r"^\s*(?:supplemental\s+)?letter\b", re.IGNORECASE)
 _PARTY_LETTER_FILER_RE = re.compile(
     r"\b(?:of|from|by|on\s+behalf\s+of)\s+(?:the\s+)?(?:counsel\s+(?:for|of)\s+(?:the\s+)?)?"
@@ -589,10 +601,15 @@ _PARTY_LETTER_FILER_RE = re.compile(
 )
 _PARTY_LETTER_VERB_RE = re.compile(r"\b(?:filed|submitted|rec(?:ei|ie)ved)\b", re.IGNORECASE)
 _PARTY_LETTER_EXCLUDE_RE = re.compile(
-    r"\bwaiv|\bextension\b|\bextend|\bdistribution\b"
+    r"\bwaiv|\bextension\s+of\s+(?:the\s+)?time\b|\bextend(?:ing)?\s+(?:the\s+)?time\b"
+    r"|\bdistribution\s+(?:schedule|date)\b|\bdistribution\s+of\s+the\s+petition\b"
+    r"|\b(?:defer|delay|postpon)\w*\s+(?:the\s+)?distribution\b"
+    r"|\bdistribut\w*\s+for\s+(?:the\s+)?conference\b|\b(?:additional|more)\s+time\b"
     r"|\bamic(?:us|i)\b|\bblanket\s+consent\b"
     r"|\bdisclosure\b|\b12\.6\b|\b35\.3\b"
-    r"|\bmotion\b|\brehearing\b|\bfrom\s+(?:the\s+)?clerk\b|\bnot\s+accepted\b"
+    r"|\b(?:response|reply|opposition|support)\s+(?:to|of)\s+(?:the\s+)?(?:\S+\s+){0,2}?motion\b"
+    r"|\bwithdraw\w*\s+(?:the\s+|its\s+|their\s+)?(?:\S+\s+)?motion\b"
+    r"|\brehearing\b|\bfrom\s+(?:the\s+)?clerk\b|\bnot\s+accepted\b"
     r"|\bletter\s+brief\b",
     re.IGNORECASE,
 )

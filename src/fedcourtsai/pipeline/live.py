@@ -65,6 +65,7 @@ import httpx
 from .. import corpus, ids
 from ..config import LiveConfig, PredictScope, SalienceConfig
 from ..matrix import event_has_predictions, last_predicted_dates, predicted_case_ids
+from ..provision import WITHHELD_KINDS
 from ..registry import enabled_predictors
 from ..store import event_has_claimable_prediction, forecastable_events, petition_distributed
 from ..supremecourt import (
@@ -477,8 +478,11 @@ def refresh_stale_documents(
     read under the corpus split, prefetched) and keeps only the kinds owed; it
     costs no upstream request, because the payload is in hand. The **fetch**
     then provisions the stale candidates in order — the ones whose docket moved
-    on this poll first, then the ones owing what an earlier fetch missed — and
-    stops at ``cap`` cases or at the deadline, whichever comes first. The
+    on this poll first, then the ones owing what an earlier fetch missed, and
+    behind all of them the cases owing only kinds no cell is given yet
+    (:data:`fedcourtsai.provision.WITHHELD_KINDS`), so storing ahead of a
+    re-bless never delays a filing a cell reads — and stops at ``cap`` cases or
+    at the deadline, whichever comes first. The
     unchanged half is taken in a per-day order rather than poll order, so a run
     of cases owing a link upstream never serves cannot hold the cap ahead of the
     same healthy cases cycle after cycle. A stale
@@ -523,7 +527,7 @@ def refresh_stale_documents(
             ordered.append(candidate)
     ledger["candidates"] = len(ordered)
     by_case = {candidate.case_id: candidate for candidate in ordered}
-    stale: list[tuple[FreshnessCandidate, int]] = []
+    stale: list[tuple[FreshnessCandidate, int, bool]] = []
     owed: dict[str, int] = {}
     checked = 0
     # The check reads links alone (`document_urls_for_case`: the content
@@ -547,14 +551,20 @@ def refresh_stale_documents(
                 # Charged per download the fetch will make: an owed opposition
                 # re-fetches every brief in its set, not one.
                 downloads = sum(1 for ref in refs if ref.kind in unheld)
-                stale.append((candidate, downloads))
+                withheld_only = all(kind in WITHHELD_KINDS for kind in unheld)
+                stale.append((candidate, downloads, withheld_only))
                 for kind in unheld:
                     owed[kind] = owed.get(kind, 0) + 1
     ledger["checked"] = checked
     ledger["unchecked"] = len(ordered) - checked
     ledger["stale"] = len(stale)
+    # A case owing only kinds no cell is given yet (`provision.WITHHELD_KINDS`)
+    # goes behind every case owing a staged kind, keeping the check's order
+    # within each half: storing ahead of a re-bless must never take a cap slot
+    # a cell-facing filing needed.
+    stale.sort(key=lambda item: item[2])
     refreshed = documents = deferred = unwritten = failed = 0
-    for candidate, downloads in stale:
+    for candidate, downloads, _withheld_only in stale:
         # A consolidated member's lead GET rides on top, charged as one docket.
         estimate = downloads * ESTIMATED_DOCUMENT_SECONDS + ESTIMATED_DOCKET_SECONDS
         if refreshed >= cap or (deadline is not None and deadline - time_fn() < estimate):

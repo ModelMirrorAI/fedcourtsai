@@ -78,6 +78,8 @@ def _kind_of(text: str) -> str | None:
         "Supplemental reply letter brief of respondents Township of Scott, Pennsylvania, "
         + "et al. filed.",
         "Supplemental brief of respondent Benjamin Chui filed.  VIDED. (Distributed)",
+        # A bare letter brief is the same paper under a shorter caption.
+        "Letter brief of petitioner Acme Corp. filed.",
     ],
 )
 def test_a_partys_supplemental_brief_is_its_own_kind(entry_text: str) -> None:
@@ -125,6 +127,12 @@ def test_what_is_not_a_partys_supplemental_brief(entry_text: str) -> None:
         + "of Michigan filed.",
         "Letter recieved from petitioners Daril Foose, et al.",
         "Letter from counsel for respondent California received.",
+        # Substantive letters that only mention a procedural word.
+        "Letter of petitioner advising the Court that the district court extended its "
+        + "injunction filed.",
+        "Letter of respondent advising the Court that the court of appeals granted a "
+        + "motion to dismiss the appeal as moot filed.",
+        "Letter of respondent noting the distribution of federal funds at issue ended filed.",
     ],
 )
 def test_a_partys_letter_is_its_own_kind(entry_text: str) -> None:
@@ -140,6 +148,11 @@ def test_a_partys_letter_is_its_own_kind(entry_text: str) -> None:
         "Letter of May 23, 2019 from counsel for petitioner waiving the 14-day waiting "
         + "period under Rule 15.5 filed.",
         "Letter from counsel for respondent requesting an extension of time filed.",
+        "Letter from counsel for respondent requesting additional time filed.",
+        "Letter from counsel for petitioner requesting that the petition be distributed "
+        + "for the conference of January 9, 2026 filed.",
+        "Letter of respondent in support of the motion to dismiss filed.",
+        "Letter of petitioner withdrawing the motion for leave to file filed.",
         "Letter from counsel for petitioner regarding the distribution schedule filed.",
         "Letter from counsel for respondent granting blanket consent for the filing of "
         + "amicus curiae briefs received.",
@@ -383,5 +396,44 @@ def test_no_cell_at_any_moment_is_handed_a_withheld_kind(event_id: str) -> None:
         snapshot_date=date(2026, 7, 2),
         documents=documents,
     )
+    assert {doc.kind for doc in placement.documents} == {KIND_PETITION}
+    assert placement.dropped_documents == len(WITHHELD_KINDS)
+
+
+def test_a_cut_cell_is_not_handed_a_withheld_kind_dated_before_its_cutoff() -> None:
+    # The cut branch: a real cutoff, and every document dated well before it, so
+    # only the withholding can keep the two kinds out.
+    documents = [_document(KIND_PETITION), *(_document(kind) for kind in sorted(WITHHELD_KINDS))]
+    payload = {
+        "ProceedingsandOrder": [
+            {"Date": "Jun 01 2026", "Text": "Petition for a writ of certiorari filed."},
+            {"Date": "Jul 01 2026", "Text": "Letter from counsel for respondent filed."},
+            {"Date": "Jul 05 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."},
+            {"Date": "Oct 06 2026", "Text": "Petition DENIED."},
+        ]
+    }
+    cutoff = date(2026, 9, 30)
+    assert {doc.kind for doc in documents_before(documents, cutoff)} == {
+        KIND_PETITION,
+        *WITHHELD_KINDS,
+    }
+    read = CellRead(
+        latest=(date(2026, 10, 7), payload),
+        documents=documents,
+        events=[],
+        row=None,
+        cutoff=cutoff,
+        dated=None,
+    )
+    placement = place_at_moment(
+        "scotus/9026000100",
+        "evt-order-judgment",
+        cutoff,
+        read,
+        payload=payload,
+        snapshot_date=date(2026, 10, 7),
+        documents=documents,
+    )
+    assert placement.provenance == "truncated"
     assert {doc.kind for doc in placement.documents} == {KIND_PETITION}
     assert placement.dropped_documents == len(WITHHELD_KINDS)
