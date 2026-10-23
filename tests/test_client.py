@@ -136,9 +136,21 @@ def test_cluster_fetch_shares_the_rate_governor_and_retries() -> None:
     assert limiter.calls == 4
 
 
-def test_redirects_are_not_followed() -> None:
+def test_redirects_are_not_followed(monkeypatch: pytest.MonkeyPatch) -> None:
     # The Authorization header rides every request, so a 3xx must surface to the
     # caller rather than carry the credential to whatever origin it names.
+    # httpx mounts a proxy transport from the environment at construction, and
+    # a mounted proxy would take the request before the swapped transport sees
+    # it, so the test runs with no proxy configured wherever it runs.
+    for name in (
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ):
+        monkeypatch.delenv(name, raising=False)
     hosts: list[str] = []
 
     def handle(request: httpx.Request) -> httpx.Response:
