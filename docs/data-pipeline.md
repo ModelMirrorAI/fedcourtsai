@@ -596,7 +596,9 @@ on the remote, serving page reads from block-aligned S3 ranged `GET`s (fixed
 256 KB blocks through a per-connection LRU; the file size comes from the
 committed pointer, so the object is never `HEAD`ed). Immutability is what makes this
 sound with **no consistency machinery**: the committed pointer names one exact
-byte sequence, so a reader can never observe a torn write. The blob's physical
+byte sequence, so a reader can never observe a torn write. The VFS serves the
+main database only; SQLite's own scratch files, such as a sort that outgrows
+the page cache, go to local temp disk through the default VFS. The blob's physical
 layout is a contract with that access pattern, and the writers guarantee it:
 **64 KB pages** (a B-tree descent costs a handful of round trips) and a
 **non-WAL journal mode at rest** (a WAL reader needs the `-wal` sidecar, which

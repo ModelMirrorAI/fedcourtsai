@@ -291,6 +291,32 @@ def render(census: Census, *, listings: bool, same: bool | None = None) -> str:
 
 #: How long the `--text-coverage` read may take before its line is reported unread.
 TEXT_SOURCE_TIMEOUT_SECONDS = 300
+# The class of the exception a failed run raised, off the first line after the
+# traceback's last frame: a plain traceback's last `File "…"` line, or the
+# closing border of the panel the CLI's pretty traceback draws. Only the class
+# name reaches the summary, which the lane posts publicly: an exception's
+# message can carry a path, a key or docket text.
+_EXCEPTION_LINE = re.compile(
+    r"([A-Za-z_][A-Za-z0-9_.]{0,79}(?:Error|Exception|Exit|Interrupt|Failure))(?::|\s*$)"
+)
+
+
+def failure_class(stderr: str) -> str | None:
+    """The exception class a failed run's traceback ends on, or ``None``."""
+    lines = stderr.splitlines()
+    frame_ends = [
+        index
+        for index, line in enumerate(lines)
+        if line.startswith('  File "') or line.startswith("╰")
+    ]
+    if not frame_ends:
+        return None
+    for line in lines[frame_ends[-1] + 1 :]:
+        if line.startswith((" ", "\t")) or not line.strip():
+            continue  # the frame's source line, or blank space before the class
+        match = _EXCEPTION_LINE.match(line)
+        return match.group(1) if match else None
+    return None
 
 
 def text_source_line() -> str:
@@ -308,7 +334,9 @@ def text_source_line() -> str:
     for line in run.stdout.splitlines():
         if line.startswith("text source:"):
             return line
-    return f"text source: not printed (exit {run.returncode})"
+    raised = failure_class(run.stderr)
+    reason = f"exit {run.returncode}: {raised}" if raised else f"exit {run.returncode}"
+    return f"text source: not printed ({reason})"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
