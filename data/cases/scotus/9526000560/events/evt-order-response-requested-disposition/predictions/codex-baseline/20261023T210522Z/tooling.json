@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000560",
+  "run_id": "20261023T210522Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot, context, and application text",
+    "committed interim statpack",
+    "fedcourts paths",
+    "CourtListener MCP search and search_document",
+    "web search and open"
+  ],
+  "helpful": [
+    "The complete application body made the relief requested and jurisdictional argument accessible.",
+    "Frozen interim signals distinguished an existing response request from future referral and amicus increments.",
+    "The statpack supplied prior-Term substantive counts for an explicit baseline calculation.",
+    "CourtListener returned the lead Dalton opinion and relevant statutory-authority discussion."
+  ],
+  "gaps": [
+    "The full district-court orders and declarations cited in the application were not separately provisioned or included in its text.",
+    "Several exact prior-authority searches returned no results; web calls returned no usable content."
+  ],
+  "notes": "Forecast completed from the provisioned application, committed base-rate table, and one independently checked earlier precedent. No current-case outcome retrieval. The default uv cache was read-only; using a cache under /tmp restored CLI access."
+}
