@@ -4646,7 +4646,8 @@ def reasoning_pilot_report_cmd(
     own-family against other-family grades, and the splits on the mask.
     Records the sample's, label sheet's, key's and prompt section's sha256, and
     with ``--expect-labels-sha256`` refuses a sheet that changed after its hash
-    was recorded. Refuses a pilot root that is, holds or sits inside the ledger,
+    was recorded. With ``--round-id`` only that evaluate run's evaluations are
+    read. Refuses a pilot root that is, holds or sits inside the ledger,
     whose evaluations no pilot reads. The round's evaluations must carry the
     harness's ``prediction_run_id`` stamp; an unstamped one counts as off-run.
     """
@@ -19684,6 +19685,13 @@ def evaluate_matrix_cmd(
     registered round.
     """
     if pilot_section is not None:
+        if body_file is None and docket is None:
+            typer.echo(
+                "--pilot-section marks a pilot round over a named case list; the backlog "
+                "is never a pilot.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
         _refuse_pilot_section(pilot_section)
     fanout = _evaluate_fanout(
         _requested_cases(

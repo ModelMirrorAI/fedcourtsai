@@ -83,7 +83,10 @@ def test_the_report_job_reaches_nothing() -> None:
     workflow = _workflow()
     job = workflow["jobs"]["pilot-report"]
     assert "environment" not in job
-    assert job["permissions"] == {"contents": "read", "actions": "read"}
+    assert job["permissions"] == {"contents": "read"}
+    sample = _step(job, "Download the sample")["with"]
+    assert sample["artifact-ids"] == "${{ needs.plan.outputs.sample_artifact_id }}"
+    assert "name" not in sample
     assert "secrets." not in yaml.safe_dump(job)
     assert "needs.plan.outputs.pilot == 'true'" in job["if"]
     assert "needs.approval.result == 'success'" in job["if"]

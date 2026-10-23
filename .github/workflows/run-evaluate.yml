@@ -44,7 +44,7 @@ on:
     # dropped with no record, and a newly registered cron sometimes never
     # indexes until the file changes again on the default branch. A missed slot
     # costs a day's drain, nothing else (the backlog is level-triggered); the
-    # input-less dispatch below is the manual twin that drains it on demand.
+    # backlog dispatch below is the manual twin that drains it on demand.
     - cron: "39 15 * * *"
   # The same derivation, on demand — for a backlog that should drain now rather
   # than at the next window. Its one input picks which derivation, never a
@@ -171,6 +171,9 @@ jobs:
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
       auto_release: ${{ steps.hold.outputs.auto_release }}
       run_id: ${{ steps.plan.outputs.run_id }}
+      # The pilot report downloads the sample by this id rather than by name:
+      # a name is claimable by any job in the run holding the runtime token.
+      sample_artifact_id: ${{ steps.sample-upload.outputs.artifact-id }}
       # Written affirmatively: a scheduled run carries no inputs, so a test of
       # `inputs.mode != 'backlog'` would read a schedule as a pilot.
       pilot: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot' }}
@@ -269,13 +272,14 @@ jobs:
       # The pilot's sample travels with the round: the report job reads which
       # cells, and which prediction runs, the round was meant to grade.
       - name: Upload the pilot sample
+        id: sample-upload
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reasoning-pilot-sample
           path: pilot-sample
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
       # The plan report the approval below is judged on: the tested plan
       # command re-derives the same fan-out the matrix step just minted (same
@@ -1611,16 +1615,23 @@ jobs:
             fi
           done
 
-  # A pilot round's output: the cells' evaluations and the pilot report, as
-  # one artifact, and nothing anywhere else. No environment, no secret, and a
-  # read-only token: it reads this run's artifacts, and the checkout's ledger
-  # only as the place the round's root must sit outside. The maintainer joins
-  # the labels locally, with `reasoning-pilot-report --labels`, after the
-  # round.
+  # A pilot round's output: the round's own evaluations and the pilot report,
+  # as one artifact, and nothing anywhere else. No environment, no secret, and
+  # a `contents: read` token: it reads this run's artifacts through the
+  # runtime token, and the checkout's ledger only as the place the round's
+  # root must sit outside. The artifact keeps the cell artifacts' seven-day
+  # retention, since its agent-written prose passes no secret scan, as theirs
+  # does not. The maintainer downloads it and joins the labels locally, with
+  # `reasoning-pilot-report --labels` over a `--packet` sample taken at the
+  # commit this round ran, whose `sample.json` must hash to the report's
+  # `sample_sha256` (the workflow writes no packet, so no alias key is
+  # published). The cells' download fails as a unit;
+  # their artifacts outlive it, so re-running this job alone recovers the
+  # report.
   pilot-report:
     needs: [authorize, plan, approval, evaluate]
     if: >-
-      ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success'
+      ${{ !cancelled() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success'
       && needs.plan.outputs.pilot == 'true'
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
@@ -1629,7 +1640,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      actions: read # fetch this run's cell artifacts
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1649,16 +1659,21 @@ jobs:
       - name: Download the sample
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: reasoning-pilot-sample
+          artifact-ids: ${{ needs.plan.outputs.sample_artifact_id }}
           path: pilot-sample
 
       # Restricted to this round's run id: each cell artifact carries its
-      # event's committed evaluations beside the round's own.
+      # event's committed evaluations beside the round's own, and only the
+      # round's own are read or kept.
       - name: Report the round
         env:
           ROUND_ID: ${{ needs.plan.outputs.run_id }}
         run: |
           set -euo pipefail
+          if [ ! -d pilot-round/data/cases ]; then
+            echo "::error::no cell of this round uploaded an evaluation; nothing to report"
+            exit 1
+          fi
           uv run fedcourts reasoning-pilot-report pilot-round/data \
             --sample pilot-sample --round-id "$ROUND_ID" \
             --prompt .github/prompts/pilot/predicted-reasoning-quality.md \
@@ -1674,7 +1689,7 @@ jobs:
           mkdir -p reasoning-pilot
           cp pilot-report.json reasoning-pilot/
           cp -r pilot-sample reasoning-pilot/sample
-          (cd pilot-round/data && find cases -path '*/evaluations/*' -type f) \
+          (cd pilot-round/data && find cases -path "*/evaluations/*/${ROUND_ID}/*" -type f) \
             | while read -r rel; do
                 mkdir -p "reasoning-pilot/data/$(dirname "$rel")"
                 cp "pilot-round/data/$rel" "reasoning-pilot/data/$rel"
@@ -1686,7 +1701,7 @@ jobs:
           name: reasoning-pilot-${{ needs.plan.outputs.run_id }}
           path: reasoning-pilot
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
   collect:
     # Defence in depth only. Both attempts of a re-run share `run_id`, so this

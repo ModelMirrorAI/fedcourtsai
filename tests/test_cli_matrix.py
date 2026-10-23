@@ -3442,3 +3442,14 @@ def test_a_pilot_section_must_be_a_draft_file(tmp_path: Path, which: str) -> Non
     assert ("no such file" if which == "missing" else "registered evaluate prompt") in (
         result.output
     )
+
+
+def test_the_backlog_is_never_a_pilot(tmp_path: Path) -> None:
+    section = tmp_path / "pilot.md"
+    section.write_text("draft\n")
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
+    result = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--pilot-section", str(section)], env=env
+    )
+    assert result.exit_code == 1
+    assert "the backlog is never a pilot" in result.output

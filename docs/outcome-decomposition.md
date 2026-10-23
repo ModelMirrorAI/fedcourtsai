@@ -2209,7 +2209,9 @@ reports, so the report cannot be chosen after the grades are read.
   any judge's grade, and the labels' hash is recorded before the panel's
   grades are read, out of band; the pilot report records the sheet's hash
   and, given the one recorded beforehand, refuses a sheet that no longer
-  matches it, saying whether it checked. For merits, published commentary on
+  matches it, saying whether it checked. The labels join a round through a
+  packet sampled at the commit the round ran, whose sample's hash must match
+  the one the round's report records. For merits, published commentary on
   decided cases — argument previews and analyses whose quality is roughly
   known — is graded alongside as exemplars, a weaker test since commentary is
   recognisable by its authors. A label is a reference point, not ground truth:

@@ -3904,9 +3904,9 @@ Because the gate reads *committed* state, it cannot see a round whose collect PR
 has not merged. What bounds a second derivation there is `run-evaluate`'s
 concurrency group, which serializes every backlog round of the workflow
 regardless of trigger — not the gate. A `reasoning-pilot` round takes a group
-of its own, since it commits nothing for a backlog round to overlap. Note what a group does and does not buy: it keeps two
-rounds from overlapping, but the next round plans the moment it releases, which
-can be well before the previous round's collect PR merges. Predict closes that
+of its own, since it commits nothing for a backlog round to overlap. Note what
+a group does and does not buy: it keeps two rounds from overlapping, but the
+next round plans the moment it releases, which can be well before the previous round's collect PR merges. Predict closes that
 remaining window with its stranded-run guard; evaluate has no equivalent.
 
 The cron's cadence and `backlog_cases_per_cycle` pace re-queuing but have no

@@ -487,7 +487,12 @@ def _pilot_reads(
     for path in sorted(
         (pilot_root / "cases").glob("*/*/events/*/evaluations/*/*/*/evaluation.json")
     ):
-        evaluation = read_model(path, Evaluation)
+        try:
+            evaluation = read_model(path, Evaluation)
+        except ValueError:
+            # Not the validation message: it quotes the agent-written values,
+            # and the report's errors reach a public run log.
+            raise ValueError(f"{path} does not validate as an evaluation") from None
         if round_id is not None and evaluation.run_id != round_id:
             other_round += 1
             continue

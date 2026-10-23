@@ -334,8 +334,9 @@ def test_a_round_id_reads_only_that_rounds_evaluations(tmp_path: Path) -> None:
     pilot = tmp_path / "pilot"
     _ledger(data, 1, CERT, predictors=("claude-baseline",))
     _grade(pilot, 1, CERT, "claude-judge", "claude-baseline", 0.75, run_id="20261005T000000Z")
-    # A committed, ungraded evaluation from an earlier round of the same judge,
-    # and a newer one from no round at all, both beside the pilot's own.
+    # Another judge's committed, ungraded evaluation from an earlier round, and
+    # a newer null from another round by the pilot's own judge, which would
+    # supersede the round's grade were the reads not restricted to the round.
     _grade(pilot, 1, CERT, "codex-judge", "claude-baseline", None, run_id="20260910T000000Z")
     _grade(pilot, 1, CERT, "claude-judge", "claude-baseline", None, run_id="20261009T000000Z")
     out = tmp_path / "sample"
