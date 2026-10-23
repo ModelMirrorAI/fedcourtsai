@@ -12,10 +12,12 @@ is pre-registration — with two carve-outs: the semantic family, which is
 declared but neither pre-registered nor producing anything; and a design for
 grading `predicted_reasoning.md` itself (*Grading the forecast document,
 design*), not yet registered.** The scoring rule is `pipeline.base_rates.claim_score`; the
-declared sets — five cert-stage claims under `cert-v2`, carried by every
-declared cert moment, four interim claims under `interim-v1` carried by every
-interim moment, and the one merits claim (`judgment-disturbed`) under
-`merits-v1`, carried by every declared merits moment — live
+declared sets — `cert-v3` on every declared cert moment (`cert-v2`'s five
+binary claims and the `order-writers` distribution claim), `interim-v2` on every
+interim moment (`interim-v1`'s four binary claims and `order-writers`), and
+`merits-v2` on every declared merits moment (the one binary claim,
+`judgment-disturbed`, and the `majority-author` and `separate-writers`
+distribution claims) — live
 in `pipeline.claims`, with the resolvers, the strictly-prior baselines, and the
 availability mask beside it; `Prediction.claims` carries the predictor's
 probabilities and `Evaluation.claim_scores` the harness-computed block. The
@@ -24,8 +26,8 @@ resolve, and *A claim set that failed* records why, in detail, because its
 tests are what the declared sets were chosen against. The merits vote and
 split claims remain pre-registered only —
 `docs/decision-model.md` records why they failed the tests — while the
-writing claims are declared as distribution claims under set versions no
-moment names yet (*The authorship claims*). The
+writing claims are declared as distribution claims under set versions every
+declared moment names (*The authorship claims*). The
 semantic family is declared but not pre-registered: `semantic-v1` (*The
 semantic family, alpha*) declares two claims on the merits moments and is an
 **alpha** — a methodology that has never met an opinion, explicitly not a
@@ -114,11 +116,11 @@ docket's disposition entry):
 
 | Claim | Resolves against |
 | --- | --- |
-| Judgment (`judgment-disturbed`, declared under `merits-v1`) | `Outcome.judgment` through the disturbed projection (`pipeline.judgment.judgment_disturbed`) — the declared form is binary, exactly as the cert disposition claim's is; the multi-class form waits on a per-label distribution claim of its own |
+| Judgment (`judgment-disturbed`, declared under `merits-v1` and carried by `merits-v2`) | `Outcome.judgment` through the disturbed projection (`pipeline.judgment.judgment_disturbed`) — the declared form is binary, exactly as the cert disposition claim's is; the multi-class form waits on a per-label distribution claim of its own |
 | Each justice's vote | `Outcome.votes`, per justice — **not declared**: the merits outcome writer records no votes (docket text discloses no provenance denominator), and the registered opinions source is written only by a dispatched `run-repair` pass (`opinion-votes`), so the resolution channel is empty until that pass stamps a merits outcome; see `docs/decision-model.md` |
-| Majority author | `Outcome.merits_author`, checked against `merits_decision_method` — declared as the `majority-author` distribution claim of `merits-v2` (*The authorship claims*), which no moment names yet; unpopulated until the opinions writer stamps a merits outcome |
-| A concurrence is filed | `Outcome.writing_roles` — field exists, **not declared**, unpopulated on merits outcomes |
-| A dissent is filed | `Outcome.writing_roles` — field exists, **not declared**, unpopulated on merits outcomes |
+| Majority author | `Outcome.merits_author`, checked against `merits_decision_method` — declared as the `majority-author` distribution claim of `merits-v2` (*The authorship claims*), which every merits moment names; unpopulated until the opinions writer stamps a merits outcome |
+| A concurrence is filed | `Outcome.writing_roles` — declared per Justice inside the `separate-writers` distribution claim of `merits-v2`, never as a binary of its own; unpopulated on merits outcomes until the opinions writer stamps them |
+| A dissent is filed | `Outcome.writing_roles` — declared the same way, inside `separate-writers`; unpopulated on merits outcomes until the opinions writer stamps them |
 
 `Outcome.judgment` is also the routing key for the accuracy bit beside the
 claim scores: `pipeline.evaluate.is_correct` takes the judgment comparison
@@ -648,10 +650,12 @@ Drawn from the above, and cheaper to apply than to rediscover:
 
 ## What is scoreable today
 
-**The declared cert set: `cert-v2`.** Every declared cert **moment** — the
-petition baseline, the CVSG moment, the arrival moment, the sg-brief and
-relist moments, and the call-for-response moment once it is switched on — carries
-exactly five claims, declared in `pipeline.claims` and answered in full by
+**The declared cert set: `cert-v2`, carried by `cert-v3`.** Every declared cert
+**moment** — the petition baseline, the CVSG moment, the arrival moment, the
+sg-brief and relist moments, and the call-for-response moment once it is
+switched on — names `cert-v3`, which carries `cert-v2`'s binary claims
+unchanged beside the `order-writers` distribution claim (*The authorship
+claims*), so every cert cell answers exactly five binary claims, declared in `pipeline.claims` and answered in full by
 every predictor (`Prediction.claims`); the harness scores them into
 `Evaluation.claim_scores` at the evaluator's post-run stamp (`stamp-cell`,
 beside the process version — never the evaluator's word, and an
@@ -885,7 +889,9 @@ sums over a different set, so the two are pooled no more freely than a total
 from a cell run under a different process digest — `metrics/README.md`'s
 `declared_set_versions` rule is where that is enforced.
 
-**The declared merits set: `merits-v1`.** Every declared merits moment — the
+**The declared merits set: `merits-v1`, carried by `merits-v2`.** `merits-v2`
+adds the authorship distribution claims (*The authorship claims*) and leaves
+the binary claim unchanged. Every declared merits moment — the
 grant moment `evt-order-judgment`, the briefed moment `evt-brief-judgment`, and
 the post-argument moment `evt-argument-judgment` —
 carries it, reached through the declared-moment table rather than by event id or
@@ -907,9 +913,11 @@ and carry the pool guard's count on every Term inside the window
 affirmance resolve 0 (undisturbed) and sit in the baseline's denominator the
 same way; `docs/decision-model.md` is the registered design.
 
-**The declared interim set: `interim-v1`.** All three interim moments — the
-application on arrival, after the Court called for a response, and once one was
-filed — declare the same four claims, reached through the moment table like the
+**The declared interim set: `interim-v1`, carried by `interim-v2`.** All three
+interim moments — the application on arrival, after the Court called for a
+response, and once one was filed — name `interim-v2`, which declares
+`interim-v1`'s four binary claims beside `order-writers`, so they answer the
+same four, reached through the moment table like the
 merits set. The claims do not change because the forecast was taken later; only
 the information set does, and that lives on the aggregation key.
 
@@ -1082,7 +1090,7 @@ pre-registered rule that keeps it there permanently.
 | merits | The vote lineup and the split | Context-only, banked in `votes` | Pre-registered pending a populated vote source: `Outcome.votes` is empty on every committed merits outcome because docket text discloses no provenance denominator, and the registered opinions source is written only by the dispatched `opinion-votes` pass. Merits votes are banked and scored against complete records the day one is written; cert votes never are |
 | merits | Whether a separate writing splits the rationale from the result | Context-only; **mechanical** family the day a field records it | Existence is a countable docket fact, not a reader's judgment, so it belongs with a real baseline and a proper score rather than as prose graded by impression. `semantic-v1` holds no place for it |
 | merits | Which question presented the Court reaches and which it leaves | Context-only | The merits-side twin of the cert QP row, with the same framing gap |
-| merits | Authorship and the writing roles | `majority-author`, `separate-writers` (`merits-v2`) | Distribution claims declared ahead of their elicitation (*The authorship claims*); they resolve from the `merits_author` and `writing_roles` the opinions writer stamps on a merits outcome. Until a moment names `merits-v2`, the prompt tells the cell not to present them as the scoreable part |
+| merits | Authorship and the writing roles | `majority-author`, `separate-writers` (`merits-v2`) | Distribution claims the predict prompt elicits on every merits cell (*The authorship claims*); they resolve from the `merits_author` and `writing_roles` the opinions writer stamps on a merits outcome |
 | any | The rationale for the predictor's own number | Never scored, by construction | That is `reasoning.md`, a different document with a different epistemic status: it resolves against nothing. `reasoning_quality` grades its soundness and grades no forecast |
 
 Three properties of the table are worth reading off it. **Every scored route is
@@ -1151,7 +1159,7 @@ implemented. The *writing* half is implemented as distribution claims
 (*The authorship claims*), resolving from the writing roles the opinions
 writer stamps. The
 merits *judgment* half is not blocked: judgment detection resolves
-`Outcome.judgment` from the docket, and `merits-v1` declares its one claim.
+`Outcome.judgment` from the docket, and `merits-v2` carries its one binary claim.
 
 All three mechanical halves are declared: `Outcome.signals` and the two
 order-text markers beside it freeze what a cert-stage claim resolves *against*,
@@ -1204,9 +1212,16 @@ One probability cannot carry a forecast over the bench, so these are
 probability per label, a label being a Justice's name as the roster spells it.
 They are declared beside a set's binary claims, under `merits-v2`, `cert-v3` and
 `interim-v2`, which carry their predecessors' binary claims unchanged and in the
-same order (`pipeline.claims`). No moment names those versions until the predict
-prompt elicits the forecast: the declaration and the prompt move together, as
-the paragraph above requires.
+same order (`pipeline.claims`). Every declared moment names its stage's version,
+and the predict prompt elicits the forecast: the declaration and the prompt move
+together, as the paragraph above requires. A cell stamped under a process label
+before `proc-v12`, the first whose prompt asks for the forecast
+(`process_version.AUTHORSHIP_CLAIMS_FROM`), was asked the predecessor set and is
+scored under it (`pipeline.claims.declared_claim_set_for`), as is an unstamped
+cell stating no distribution block: the binary claims are the same, so the
+scores are, and the version a committed grading reports does not move with the
+moment table. An absent distribution block is masked, as an absent `claims`
+block is, and never guessed.
 
 | Claim | Sets | Kind | Resolves from | Masked when |
 | --- | --- | --- | --- | --- |
@@ -1300,8 +1315,9 @@ Justice only under `argued-signed`. A summary opinion is masked, as an argued
 case whose argument entry the docket read missed already masks a signed one.
 Whether the docket's method classification misses one kind of decision more
 often than the other is not yet measured: a census of stamped outcomes masked
-for an unclassified or disagreeing method, by stamped kind, is owed before a
-moment names `merits-v2`. The author is the listing's own and is not
+for an unclassified or disagreeing method, by stamped kind, is owed before any
+`majority-author` figure is quoted, and it can be taken only once the opinions
+writer has stamped the merits population. The author is the listing's own and is not
 cross-checked against the Granted & Noted list, which compares only lineups the
 syllabus was read for (signed decisions): holding the author back on that
 comparison would mask signed decisions a per curiam could never be masked for.

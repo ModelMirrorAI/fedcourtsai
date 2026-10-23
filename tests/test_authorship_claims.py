@@ -2,9 +2,10 @@
 
 `pipeline.claims` declares three claims over the bench — `majority-author` and
 `separate-writers` on the merits sets, `order-writers` on the cert and interim
-sets — under set versions no moment names yet. The invariants pinned here: the
-new versions keep their predecessors' binary claims, no moment reaches them
-until the prompt elicits the forecast, each claim resolves only from the
+sets — under set versions every declared moment names. The invariants pinned
+here: the new versions keep their predecessors' binary claims, a cell stamped
+before the prompt elicited the forecast reads its predecessor set, each claim
+resolves only from the
 outcome's observed writing roles (and, for a per curiam, its decision method),
 the per-label rule combines by the claim's declared kind, a malformed or
 partial block scores nothing without touching the binary block, and the new
@@ -34,7 +35,9 @@ from fedcourtsai.pipeline.claims import (
     CLAIM_SET_MERITS_V1,
     CLAIM_SET_MERITS_V2,
     claim_block_problems,
+    declared_claim_set_for,
     declared_distribution_claims,
+    declared_distribution_claims_for,
     distribution_problems,
     distribution_score,
     score_claims,
@@ -45,6 +48,8 @@ from fedcourtsai.pipeline.outcome import (
     build_merits_outcome,
     known_decision_method,
 )
+from fedcourtsai.pipeline.runner import StubRunner
+from fedcourtsai.process_version import AUTHORSHIP_CLAIMS_FROM, asked_authorship_claims
 from fedcourtsai.schemas import (
     ClaimDistribution,
     ClaimProbability,
@@ -57,6 +62,7 @@ from fedcourtsai.schemas import (
     Outcome,
     Prediction,
     PredictionContext,
+    ProcessVersion,
     StatPack,
     VoteValue,
 )
@@ -89,12 +95,92 @@ def test_the_authorship_versions_keep_their_predecessors_binary_claims() -> None
         assert sets[new] == (new, sets[old][1])
 
 
-def test_no_moment_declares_an_authorship_claim_yet() -> None:
-    # The versions are declared ahead of the prompt that elicits them; a moment
-    # names one only when its cells are asked for the forecast.
+def test_every_declared_moment_names_its_stages_authorship_claims() -> None:
+    expected = {
+        "cert": (CLAIM_ORDER_WRITERS,),
+        "interim": (CLAIM_ORDER_WRITERS,),
+        "merits": (CLAIM_MAJORITY_AUTHOR, CLAIM_SEPARATE_WRITERS),
+    }
     for spec in moments.DECLARED_MOMENTS:
-        assert declared_distribution_claims(spec.event_id) == ()
+        assert declared_distribution_claims(spec.event_id) == expected[spec.stage.value]
+    # An event no moment declares still declares nothing.
     assert declared_distribution_claims("evt-petition-writ-of-certiorari") == ()
+
+
+def _stamped(prediction: Prediction, label: str | None) -> Prediction:
+    stamp = (
+        None
+        if label is None
+        else ProcessVersion(label=label, digest="sha256:abc", stamped_at=datetime(2026, 3, 1))
+    )
+    return prediction.model_copy(update={"process_version": stamp})
+
+
+@pytest.mark.parametrize(
+    ("label", "states", "expected"),
+    [
+        ("proc-v11", False, False),
+        ("proc-v11", True, False),
+        (AUTHORSHIP_CLAIMS_FROM, False, True),
+        ("proc-v13", False, True),
+        ("not-a-label", True, False),
+        (None, False, False),
+        (None, True, True),
+    ],
+)
+def test_the_asked_label_decides_whether_authorship_was_asked(
+    label: str | None, states: bool, expected: bool
+) -> None:
+    assert asked_authorship_claims(label, states_distributions=states) is expected
+
+
+def test_a_cell_stamped_before_the_switch_reads_its_predecessor_set() -> None:
+    # The moment table's advance never relabels a committed grading: the binary
+    # claims are the same, so the scores are, and the version reported is the
+    # one the cell was asked under.
+    old = _stamped(_merits_prediction(None), "proc-v11")
+    assert declared_claim_set_for(old) == (CLAIM_SET_MERITS_V1, (CLAIM_JUDGMENT_DISTURBED,))
+    assert declared_distribution_claims_for(old) == ()
+    # Unstamped and stating no block: the committed pre-switch population.
+    assert declared_claim_set_for(_merits_prediction(None)) == (
+        CLAIM_SET_MERITS_V1,
+        (CLAIM_JUDGMENT_DISTURBED,),
+    )
+    new = _stamped(_merits_prediction(None), AUTHORSHIP_CLAIMS_FROM)
+    assert declared_claim_set_for(new) == (CLAIM_SET_MERITS_V2, (CLAIM_JUDGMENT_DISTURBED,))
+    assert declared_distribution_claims_for(new) == (CLAIM_MAJORITY_AUTHOR, CLAIM_SEPARATE_WRITERS)
+    # Unstamped but stating a block: the local cascade, under the table as it stands.
+    stated = _merits_prediction(_authorship({"Kagan": 1.0}, dict.fromkeys(_BENCH, 0.2)))
+    assert declared_claim_set_for(stated) == (CLAIM_SET_MERITS_V2, (CLAIM_JUDGMENT_DISTURBED,))
+
+
+def test_a_block_the_asked_set_does_not_declare_is_reported() -> None:
+    block = _authorship({"Kagan": 1.0}, dict.fromkeys(_BENCH, 0.2))
+    old = _stamped(_merits_prediction(block), "proc-v11")
+    assert claim_block_problems(old) == [
+        "distribution claim id(s) the event's set does not declare: "
+        f"{CLAIM_MAJORITY_AUTHOR}, {CLAIM_SEPARATE_WRITERS}"
+    ]
+    stray = _merits_prediction(
+        [*block, ClaimDistribution(claim_id=CLAIM_ORDER_WRITERS, probabilities={"Kagan": 0.1})]
+    )
+    assert claim_block_problems(stray) == [
+        f"distribution claim id(s) the event's set does not declare: {CLAIM_ORDER_WRITERS}"
+    ]
+    # The scorer refuses the stray-id block validate reports, rather than
+    # scoring its declared rows.
+    assert (
+        score_distributions(
+            stray,
+            _merits_outcome(roles=_roles(Kagan="majority"), author="Kagan"),
+            StatPack(corpus_rows=1),
+            lookback_terms=3,
+        )
+        == []
+    )
+    # A switched-on cell that leaves the block out is masked, as an absent
+    # claims block is: nothing is guessed, nothing is reported.
+    assert claim_block_problems(_stamped(_merits_prediction(None), AUTHORSHIP_CLAIMS_FROM)) == []
 
 
 # --- resolution -----------------------------------------------------------------
@@ -299,7 +385,7 @@ def test_distribution_problems_name_a_malformed_forecast() -> None:
 
 @pytest.fixture
 def merits_v2(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Point the merits grant moment at merits-v2, as the prompt switch-on will."""
+    """Pin the merits grant moment at merits-v2, whatever the table names."""
     spec = moments.spec_for(MERITS_EVENT_ID)
     assert spec is not None
     switched = dataclasses.replace(spec, claim_set_version=CLAIM_SET_MERITS_V2)
@@ -553,3 +639,14 @@ def test_separate_writers_mask_a_signed_decision_with_no_single_lead() -> None:
     dig = _merits_outcome(roles=_roles(Thomas="dissent"), method=MeritsDecisionMethod.dig)
     resolved = claims_module._resolve_separate_writers(dig)
     assert resolved is not None and resolved["Thomas"] == 1
+
+
+def test_the_stub_states_a_block_that_validates() -> None:
+    day = date(2026, 3, 1)
+    stub = StubRunner._claim_distributions(MERITS_EVENT_ID, day)
+    assert stub is not None
+    assert [d.claim_id for d in stub] == [CLAIM_MAJORITY_AUTHOR, CLAIM_SEPARATE_WRITERS]
+    assert claim_block_problems(_merits_prediction(stub)) == []
+    cert = StubRunner._claim_distributions(_CERT_EVENT, day)
+    assert cert is not None and [d.claim_id for d in cert] == [CLAIM_ORDER_WRITERS]
+    assert StubRunner._claim_distributions("evt-petition-writ-of-certiorari", day) is None

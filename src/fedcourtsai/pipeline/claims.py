@@ -42,6 +42,7 @@ from collections.abc import Callable, Collection, Mapping
 from typing import Literal, Protocol
 
 from ..ids import parse_event_kind
+from ..process_version import asked_authorship_claims
 from ..schemas import (
     ClaimDistribution,
     ClaimProbability,
@@ -230,8 +231,9 @@ _INTERIM_CLAIM_SET: tuple[str, tuple[str, ...]] = (
 #: Set version -> its declaration, the resolution the moment table names by
 #: string. The table stays a leaf module; the claim ids stay here with their
 #: resolvers. The authorship versions carry their predecessors' binary claims
-#: unchanged, in the same order, and add the distribution claims below; no
-#: moment names them until the predict prompt elicits the authorship forecast.
+#: unchanged, in the same order, and add the distribution claims below; a cell
+#: stamped before the prompt elicited them reads its predecessor set
+#: (:func:`declared_claim_set_for`).
 _SETS_BY_VERSION: Mapping[str, tuple[str, tuple[str, ...]]] = {
     CLAIM_SET_CERT_V1: DECLARED_CLAIM_SETS[EventKind.petition],
     CLAIM_SET_CERT_V2: _CERT_V2_CLAIM_SET,
@@ -286,6 +288,50 @@ def declared_claim_set(event_id: str) -> tuple[str, tuple[str, ...]] | None:
     except ValueError:
         return None
     return DECLARED_CLAIM_SETS.get(kind)
+
+
+#: Each authorship set -> the set it extends, the one a cell stamped before the
+#: authorship forecast was asked (:data:`~fedcourtsai.process_version.AUTHORSHIP_CLAIMS_FROM`).
+_ASKED_BEFORE_AUTHORSHIP: Mapping[str, str] = {
+    CLAIM_SET_CERT_V3: CLAIM_SET_CERT_V2,
+    CLAIM_SET_INTERIM_V2: CLAIM_SET_INTERIM_V1,
+    CLAIM_SET_MERITS_V2: CLAIM_SET_MERITS_V1,
+}
+
+
+def _asked_version(prediction: Prediction) -> str | None:
+    """The set version ``prediction`` was asked under, or ``None`` off the moment table.
+
+    The moment table's version, unless the cell was stamped before the
+    authorship forecast was asked, which reads the set that version extends:
+    the binary claims are the same, so the scores are, and the version a
+    committed grading reports never moves with the table.
+    """
+    spec = moments.spec_for(prediction.event_id)
+    if spec is None or spec.claim_set_version is None:
+        return None
+    label = prediction.process_version.label if prediction.process_version else None
+    if asked_authorship_claims(
+        label, states_distributions=prediction.claim_distributions is not None
+    ):
+        return spec.claim_set_version
+    return _ASKED_BEFORE_AUTHORSHIP.get(spec.claim_set_version, spec.claim_set_version)
+
+
+def declared_claim_set_for(prediction: Prediction) -> tuple[str, tuple[str, ...]] | None:
+    """The ``(set_version, claim_ids)`` ``prediction`` declares (:func:`declared_claim_set`).
+
+    Through the version the cell was asked under (:func:`_asked_version`).
+    """
+    version = _asked_version(prediction)
+    if version is None:
+        return declared_claim_set(prediction.event_id)
+    return _SETS_BY_VERSION.get(version)
+
+
+def declared_distribution_claims_for(prediction: Prediction) -> tuple[str, ...]:
+    """The distribution claims ``prediction`` declares, through the version it was asked under."""
+    return _DISTRIBUTIONS_BY_VERSION.get(_asked_version(prediction) or "", ())
 
 
 def declared_distribution_claims(event_id: str) -> tuple[str, ...]:
@@ -1045,20 +1091,25 @@ def score_distributions(
     Empty where the event declares no distribution claim, the prediction
     states none (every prediction written before the authorship forecast), or
     the frozen ``context`` is missing. A stated block that leaves a declared
-    claim out, states one twice, or states a malformed one yields no rows at
+    claim out, states one twice, names one the set does not declare, or states
+    a malformed one yields no rows at
     all, as a partial binary set yields no block: the set is mandatory. The
     binary block is never voided by these rows, which are reported beside it;
     the rows ride that block, though, so where :func:`score_claims` yields no
     block they are not reported at all.
     """
-    declared = declared_distribution_claims(prediction.event_id)
+    declared = declared_distribution_claims_for(prediction)
     if not declared or prediction.claim_distributions is None or prediction.context is None:
         return []
     stated = _stated_distributions(prediction.claim_distributions)
     bench = _cell_bench(prediction)
-    if stated is None or any(
-        claim_id not in stated or distribution_problems(claim_id, stated[claim_id], bench)
-        for claim_id in declared
+    if (
+        stated is None
+        or not set(stated) <= set(declared)
+        or any(
+            claim_id not in stated or distribution_problems(claim_id, stated[claim_id], bench)
+            for claim_id in declared
+        )
     ):
         return []
     rows: list[DistributionScore] = []
@@ -1194,7 +1245,7 @@ def claim_block_problems(prediction: Prediction) -> list[str]:
     void condition in :func:`score_claims` needs a matching arm here.
     """
     problems = _distribution_block_problems(prediction)
-    declared = declared_claim_set(prediction.event_id)
+    declared = declared_claim_set_for(prediction)
     if declared is None or prediction.claims is None:
         return problems
     set_version, claim_ids = declared
@@ -1224,27 +1275,37 @@ def claim_block_problems(prediction: Prediction) -> list[str]:
 def _distribution_block_problems(prediction: Prediction) -> list[str]:
     """The distribution half of :func:`claim_block_problems`: what voids its rows.
 
-    An absent block is not reported, as an absent ``claims`` block is not; a
-    block stated without the ``claims`` block is, because its rows ride the
-    binary block and are dropped with it.
+    An absent block is not reported, as an absent ``claims`` block is not: its
+    claims are masked, never guessed. A block stated without the ``claims``
+    block is reported, because its rows ride the binary block and are dropped
+    with it, and so is a distribution claim the set the cell was asked under
+    does not declare.
     """
-    declared = declared_distribution_claims(prediction.event_id)
-    if not declared or prediction.claim_distributions is None:
+    if prediction.claim_distributions is None:
         return []
+    declared = declared_distribution_claims_for(prediction)
+    problems: list[str] = []
+    undeclared = sorted({d.claim_id for d in prediction.claim_distributions} - set(declared))
+    if undeclared:
+        problems.append(
+            "distribution claim id(s) the event's set does not declare: " + ", ".join(undeclared)
+        )
     if prediction.claims is None:
         return [
+            *problems,
             "distribution claims are stated without the claims block — they are "
-            "reported beside it, so they go unscored without it"
+            "reported beside it, so they go unscored without it",
         ]
     stated = _stated_distributions(prediction.claim_distributions)
     if stated is None:
         counts = Counter(distribution.claim_id for distribution in prediction.claim_distributions)
         duplicated = sorted(claim_id for claim_id, n in counts.items() if n > 1)
         return [
+            *problems,
             "distribution claim id(s) stated twice — two forecasts for one belief: "
-            + ", ".join(duplicated)
+            + ", ".join(duplicated),
         ]
-    problems = [
+    problems += [
         f"declared distribution claim {claim_id!r} is not stated"
         for claim_id in declared
         if claim_id not in stated
@@ -1308,7 +1369,7 @@ def score_claims(
     (:func:`fedcourtsai.set_aside.claim_set_aside_reason`).
     Omitted, nothing is masked on timing.
     """
-    declared = declared_claim_set(prediction.event_id)
+    declared = declared_claim_set_for(prediction)
     if declared is None or prediction.claims is None or prediction.context is None:
         return None
     set_version, claim_ids = declared

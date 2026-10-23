@@ -110,9 +110,9 @@ with the one the public cares about most:
   The tally is context, not a claim. The claims it informs are declared as
   distribution claims (`majority-author`, `separate-writers`, *The authorship
   claims* in [outcome-decomposition.md](outcome-decomposition.md)) in a set
-  version no moment names until the predict prompt elicits them; scoring them
-  waits on their strictly-prior baselines, and the late-Term moment still owes
-  the eight tests.
+  version every merits moment names and the predict prompt elicits, scored
+  against strictly-prior baselines; the late-Term moment still owes the eight
+  tests.
 - **First-relist re-forecast** and **call for response** — the strongest public
   cert-stage signals. Both are declared, parsed and minted. The first relist
   (`evt-order-relist-disposition`, moment `relist`), which fires once per
