@@ -2046,58 +2046,58 @@ of the others'.
   those within-group coefficients speak to whether the grade measures more than
   the disposition.
 
-### The pilot, and the gate it must clear
+### The pilot, and what it reports
 
-Nothing publishes until the grade has been checked against human judgment, and
-the check is fixed here so it cannot be fitted to its own answers.
+The grade is exploratory as much as it is a measurement: part of its value is
+seeing what the judges say about a forecast, in the grade, the central-claims
+list and the write-up. So the pilot is not a pass/fail gate against the
+maintainer's labels. It reads what the judges do, reports how far they agree
+with each other and with the maintainer, and fixes in advance *what* it
+reports, so the report cannot be chosen after the grades are read.
 
 - **Population.** About 60 already-resolved cert and interim documents, graded
   by every configured judge with the draft prompt section, plus replay merits
   cells on 10–20 decided OT2024–25 cases. The replay merits grades are
   **calibration evidence only**, reported separately: those opinions are
-  public, so a replay document can carry its outcome. They enter neither gate
-  criterion below and never test a predictor.
+  public, so a replay document can carry its outcome, and the grades never
+  test a predictor.
 - **Output.** A pilot report, outside `data/`. A pilot grade is never committed
   to the ledger and never read by any metrics artifact. The report lists every
-  gate round, failed rounds included.
+  round the draft prompt section went through.
 - **Reference labels.** The maintainer grades **10** cert and interim pilot
-  documents on the same rubric, chosen to span the scale — at least two the
-  maintainer expects at or below 0.25 and two at or above 0.75, so a judge that
-  always answers 0.5 cannot pass. The maintainer grades blind to predictor
-  identity and before seeing any judge's grade, and the labels' hash is
-  recorded in the pilot report before the panel's grades are read. For merits,
-  published commentary on decided cases — argument previews and analyses whose
-  quality is roughly known — is graded alongside as exemplars. That is a weaker
-  test than the reference labels, since commentary is recognisable by its
-  authors, and it is reported as such and gates nothing.
-- **The gate**, over the cert and interim reference documents and pilot
-  population:
-  1. the panel mean is within **0.2** of the maintainer's grade on at least
-     **8 of 10** reference documents;
-  2. Kendall tau-b between the panel mean and the maintainer's grades is at
-     least **0.5** (on 10 points a sanity bound, not a measurement, which is why
-     it does not gate alone);
-  3. leave-one-out inter-evaluator agreement — the same leave-one-out tau-b
-     construction as the board's `evaluator_agreement`, with the cell (case,
-     event, predictor) as the unit rather than the case, since a document grade
-     is a property of the cell — is defined and at least **0.4** for every
-     evaluator, **within each stage** rather than pooled across stages, with the
-     distinct-case count published beside the unit count. Undefined is not a
-     pass, for the reason the semantic agreement requirement gives.
-
-  Beside the gate, the **predictor-tracking check** is reported: the same
-  leave-one-out tau-b computed within each predictor's documents and averaged.
-  A pooled coefficient well above the within-predictor one says judges agree on
-  which predictor wrote a document more than on how good it was.
-
-- **Borderline, and the one extension.** A round is borderline when it misses
-  without failing badly: 7 of 10 within 0.2, a tau-b against the labels in
-  [0.4, 0.5), or an agreement figure in [0.3, 0.4). A borderline round allows
-  **one** extension, to 20 reference documents, with the first criterion
-  scaled to 16 of 20 and the rest unchanged. Any other result is a fail.
-- **A revised prompt needs fresh labels.** If the draft prompt section is
-  revised after a round, the reference documents that round used become tuning
-  data, and the next round is judged on new ones.
+  documents on the same rubric to start, more as needed, chosen to span the
+  scale. The maintainer grades blind to predictor identity and before seeing
+  any judge's grade, and the labels' hash is recorded in the pilot report
+  before the panel's grades are read. For merits, published commentary on
+  decided cases — argument previews and analyses whose quality is roughly
+  known — is graded alongside as exemplars, a weaker test since commentary is
+  recognisable by its authors. A label is a reference point, not ground truth:
+  where the judges and the maintainer part ways, the report reads the
+  disagreement rather than scoring the judges against it.
+- **What the report carries**, each over the cert and interim documents and
+  never pooled across stages:
+  - each judge's grade beside the maintainer's on every reference document,
+    with the share within 0.2 and Kendall tau-b against the labels (on 10
+    points a description, not a measurement);
+  - leave-one-out inter-evaluator agreement — the same leave-one-out tau-b
+    construction as the board's `evaluator_agreement`, with the cell (case,
+    event, predictor) as the unit rather than the case, since a document grade
+    is a property of the cell — with the distinct-case count beside the unit
+    count, and an undefined coefficient reported as undefined rather than read
+    as agreement, for the reason the semantic agreement requirement gives;
+  - the **predictor-tracking check**: the same leave-one-out tau-b computed
+    within each predictor's documents and averaged. A pooled coefficient well
+    above the within-predictor one says judges agree on which predictor wrote
+    a document more than on how good it was;
+  - each judge's grades of its own family's documents beside its grades of the
+    others';
+  - a reading of the central-claims lists and write-ups: what the judges
+    treated as central, where they diverged, and whether they graded the
+    thrust or hunted details.
+- **What decides registration** is the maintainer's reading of that report, not
+  a threshold. The figures above travel with the grade once it is published —
+  every published mean carries its agreement figure beside it, and a low or
+  undefined one is a caveat a reader sees, not a figure withheld.
 
 ### Registration
 
