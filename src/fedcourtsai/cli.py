@@ -5957,7 +5957,8 @@ def same_question_cmd(
         typer.Option("--as-of", help="Cutoff date (YYYY-MM-DD) for the lists. Default: today."),
     ] = None,
     threshold: Annotated[
-        float, typer.Option("--threshold", help="Least score a match must reach.")
+        float,
+        typer.Option("--threshold", min=0.0, max=1.0, help="Least score a match must reach."),
     ] = same_question.DEFAULT_THRESHOLD,
     vide_check: Annotated[
         bool,
@@ -6001,7 +6002,10 @@ def same_question_cmd(
             if vide_check
             else {}
         )
-    by_number = {p.docket_number: p.case_id for p in petitions}
+    by_number = {
+        corpus.normalize_docket_number(p.docket_number) or p.docket_number: p.case_id
+        for p in petitions
+    }
     lists: dict[str, list[dict[str, object]] | None] = {}
     for number in docket or []:
         normalized = corpus.normalize_docket_number(number) or number
@@ -6012,7 +6016,11 @@ def same_question_cmd(
             continue
         entries = same_question.same_question_petitions(index, case_id, cutoff, threshold=threshold)
         lists[normalized] = [entry.model_dump(mode="json") for entry in entries]
-        typer.echo(f"{normalized}: {len(entries)} match(es) at {threshold} or above", err=True)
+        typer.echo(
+            f"{normalized}: {len(entries)} match(es) at {threshold} or above "
+            f"(at most {same_question.DEFAULT_LIMIT})",
+            err=True,
+        )
     agreement = same_question.vide_agreement(index, links) if vide_check else None
     typer.echo(f"same-question: {len(index.vectors)} petition(s) indexed", err=True)
     if agreement is not None:

@@ -177,3 +177,19 @@ def test_the_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert result.exit_code == 0, result.output
     assert json.loads(result.stdout) == {"lists": {"25-1": None}, "vide_check": None}
     assert runner.invoke(app, ["same-question", "--as-of", "Jan 1"]).exit_code == 2
+
+
+def test_the_command_normalizes_and_bounds_its_inputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    (tmp_path / "corpus").mkdir()
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")):
+        pass
+    result = runner.invoke(
+        app, ["same-question", "--docket", "No. 25-123", "--as-of", "2026-01-01"]
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.stdout)["lists"] == {"25-123": None}
+    assert runner.invoke(app, ["same-question", "--threshold", "-0.1"]).exit_code == 2

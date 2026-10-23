@@ -11,10 +11,10 @@ topic spans well over a thousand petitions, and a petition docketed after the
 labeling frame carries no label at all. The stored questions-presented text is
 there from docketing, so this module matches on it directly.
 
-**The match** is a TF-IDF cosine over the questions-presented texts: words and
-adjacent word pairs, lowercased, with a short list of function words and the
-legal boilerplate every question shares ("whether", "court", "petitioner")
-dropped, and any term found in more than :data:`MAX_DF_SHARE` of the texts
+**The match** is a TF-IDF cosine over the questions-presented texts: lowercased
+words, with a short list of function words and the legal boilerplate every
+question shares ("whether", "court", "petitioner") dropped, and the word pairs
+adjacent once those are gone; any term found in more than :data:`MAX_DF_SHARE` of the texts
 ignored, since a term that common carries no question. Weights are
 ``(1 + log tf) * idf`` with a smoothed ``idf``, L2-normalized, so a score is a
 cosine in [0, 1]. Nothing is learned and nothing is stored: the index is
@@ -31,25 +31,15 @@ filing text.
 **How well it matches.** :func:`vide_agreement` measures the match against the
 docket's own ``Vide`` links, which are a weak yardstick both ways: the Court
 links petitions it considers together whether or not they raise one question,
-and most same-question petitions carry no link. So the default threshold rests
-on a hand reading instead. On the frame read at corpus pointer ``2c899403…``
-(8,665 indexed texts), 53 best-match pairs were read, drawn by score bucket,
-and judged same-question or not by the authoring session. That is one
-grader, not an independent reference set, so the figures are a bound on the
-order of magnitude, not a precision estimate a cut may quote:
+and most same-question petitions carry no link. The default threshold of 0.5 is
+chosen from an informal, unblinded single-grader reading of best-match pairs,
+not from a precision estimate.
 
-=====================  =====  ====
-best-match score       read   same
-=====================  =====  ====
-0.3 to 0.5             16     11
-0.5 to 0.9             32     28
-0.9 and up             5      5
-=====================  =====  ====
-
-The misses above 0.5 are pro se filings built on one template and fact-bound
-questions with shared wording ("whether the court erred by dismissing the
-appeal under the plea waiver"). About one indexed petition in ten has a match at
-0.5 or above.
+**Before a cell reads it**, two timing choices are open: whether a petition
+resolved on the cutoff day itself reads as resolved (:func:`status_on` says
+yes), and the index's term weights, which are computed over every text in the
+frame, including petitions docketed after the cutoff. Neither carries an
+outcome, but both make a score depend on what was filed later.
 
 Nothing a cell sees reads it yet; staging it is a re-bless step.
 """
@@ -175,7 +165,7 @@ _STOPWORDS: Final = frozenset(
 
 
 def terms(text: str) -> list[str]:
-    """The words and adjacent word pairs of ``text`` that the match counts."""
+    """The words of ``text`` the match counts, and each pair adjacent once the rest are gone."""
     words = [w for w in _WORD_RE.findall(text.lower()) if len(w) > 1 and w not in _STOPWORDS]
     return words + [f"{a} {b}" for a, b in pairwise(words)]
 
@@ -245,6 +235,7 @@ class QuestionIndex:
         for bag in counts.values():
             df.update(bag.keys())
         n = len(counts)
+        # Below five texts a one-fifth ceiling drops every term; only a fixture is that small.
         ceiling = max_df_share * n
         idf = {t: math.log((n + 1) / (d + 1)) + 1 for t, d in df.items() if d <= ceiling}
         self.vectors: dict[str, dict[str, float]] = {}
@@ -337,7 +328,8 @@ class VideAgreement(BaseModel):
     top1_linked: int = Field(ge=0, description="Of `linked`, whose best match is a Vide link")
     top5_linked: int = Field(ge=0, description="Of `linked`, with a Vide link in the best five")
     link_scores: dict[str, int] = Field(
-        description="Each linked pair's score, bucketed by tenths (`0.9` holds [0.9, 1.0])"
+        description="Each Vide link's score, counted from each linked end, bucketed by "
+        "tenths (`0.9` holds [0.9, 1.0])"
     )
     top1_by_score: dict[str, list[int]] = Field(
         description="Every indexed petition's best match, bucketed by score: "
@@ -352,7 +344,10 @@ def _bucket(score: float) -> str:
 
 def vide_agreement(index: QuestionIndex, vide: Mapping[str, Iterable[str]]) -> VideAgreement:
     """Measure the match against the Vide links, keyed by case id to linked docket numbers."""
-    by_number = {p.docket_number: case_id for case_id, p in index.petitions.items()}
+    by_number = {
+        corpus.normalize_docket_number(p.docket_number) or p.docket_number: case_id
+        for case_id, p in index.petitions.items()
+    }
     linked = top1 = top5 = 0
     link_scores: Counter[str] = Counter()
     top1_by: dict[str, list[int]] = defaultdict(lambda: [0, 0])
@@ -362,7 +357,10 @@ def vide_agreement(index: QuestionIndex, vide: Mapping[str, Iterable[str]]) -> V
             for n in vide.get(case_id, ())
             if n in by_number and by_number[n] != case_id
         }
-        ranked = sorted(index.scores(case_id).items(), key=lambda kv: -kv[1])
+        ranked = sorted(
+            index.scores(case_id).items(),
+            key=lambda kv: (-kv[1], index.petitions[kv[0]].docket_number),
+        )
         if ranked:
             best, best_score = ranked[0]
             bucket = top1_by[_bucket(best_score)]
