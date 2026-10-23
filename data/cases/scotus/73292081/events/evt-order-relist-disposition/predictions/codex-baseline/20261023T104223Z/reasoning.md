@@ -1,0 +1,31 @@
+# Rationale for the prediction
+
+## Information set
+
+This is a forward cert-stage first-relist cell. I read the provisioned October 7, 2026 snapshot, the event definition, context, document manifest, questions presented, and substantive portions of the petition, opposition, and reply. I also read the Fifth Circuit's diligence and innocence analysis reproduced in the petition's appendix. The context freezes sal-v4 band `elevated`, Term 2025, two distributions, and no CVSG. I use those frozen values, not the October Term containing today's calendar date. The record request on August 11 and receipt of the district court record on September 28 are additional evidence of attention, not proof of four votes to grant.
+
+No current docket or subsequent history of this case was retrieved. I do not know its Supreme Court disposition. The reply was fetched on October 13, but its filing date is August 11, before the snapshot cutoff; the later fetch stamp does not make its arguments post-cutoff developments. The petition is marked truncated, although it includes its argument and the relevant appellate analysis. The motion to defer consideration, opposition to that motion, and September 17 letter appear as docket entries but their text was not provisioned. Their contents cannot be inferred from their titles.
+
+## Base rate and adjustment
+
+The committed statpack's sal-v4 table matches the frozen band. Pooling every displayed Term strictly before this petition's Term gives 484 grant-family outcomes over a denial-reweighted reached-elevated denominator of 2,810, or 17.22%, across Terms 2017–2024. This uses the bracketed reached population, not petitions that ended elevated, and excludes both 2025 and 2026. I calculated it from the unrounded prefix rates and weighted denominators in `metrics/statpack.json`.
+
+As a cross-check, pooling all positive relist buckets in the paid scored segment gives 712 grant-family outcomes among 3,489 resolved petitions, or 20.41%. The constituent resolved counts are 2,521 for one relist, 487 for two, and 481 for three or more. This all-Term terminal cut is a descriptive cross-check, not a second independent prior or an estimate of the chance of another relist. It mixes reschedules with actual post-conference relists, whereas this snapshot records redistribution after the original conference date. The paid-segment CVSG cut shows a much higher grant-family share after a CVSG than without one, but no CVSG exists here, and those overlapping cuts cannot be multiplied together.
+
+These are estimates from the committed pack, not fresh counts from a live corpus query. No corpus blob was consulted, so its newest pull stamp and newest stored snapshot vintage were not established; I do not represent the pack as a current census.
+
+I raise the 17.22% anchor to P(any grant) = 0.24. Upward signals are the genuine first relist, request for the underlying record, the high-stakes claim that prior counsel prevented discovery of a major scientific-evidence problem, and the local prosecutors' support for relief despite the attorney general's opposition. The reply at pages 12–13 invokes a June 22, 2026 Newberry GVR concerning a district attorney's position. I treat that as the advocate's reported analogy, not as an independently verified holding or a controlling instruction to remand this case.
+
+The main downward factor is a concrete vehicle problem, not merely generalized reluctance to hear habeas cases. The Fifth Circuit's reproduced opinion at appendix pages 17a–19a separately concludes that the new material fails section 2244(b)(2)(B)(ii)'s innocence requirement. The opposition at pages 26–28 argues that a favorable diligence ruling therefore would not change the judgment. The reply at pages 6–8 answers that the appellate court improperly bypassed the district court's second-gate assessment and that the challenge is fairly included in the questions presented. That answer makes the obstacle contestable, not absent. The opinion's unpublished status, the opposition's factual distinctions of the alleged split, and preservation and jurisdiction objections to the separate Brady/Napue route further reduce the appeal of plenary review. I do not treat restrictions on reviewing gatekeeping authorization orders as automatically barring review of this appeal from a district court dismissal.
+
+## Other probabilities and stakes
+
+The 0.55 further-distribution probability is a modest lean toward one more conference after the two already recorded. Record examination, four interlocking questions, and a potentially narrower remand provide reasons for deliberation; the unprovided defer filings make the timing especially uncertain. This is a judgment about the forward hazard, not the terminal relist histogram. A CVSG probability of 0.01 reflects the absence of a distinct federal institutional dispute requiring the Solicitor General's participation in this state capital habeas petition.
+
+The conditional summary-route probability is 0.60: prosecutor-position concerns offer a more plausible limited remand than a broad new constitutional exception to successive-petition restrictions. This remains a minority unconditional outcome because the overall grant probability is only 0.24. The conditional denial-writing probability is 0.35, reflecting the combination of capital stakes and the claimed absence of any merits review, without predicting any Justice's vote.
+
+The stakes score of 0.64 is separate from grant likelihood. An execution and the reliability of the conviction make the individual stakes grave; the possible effect on successive habeas access and conflicting state representatives makes the litigation broader than a purely personal error-correction request. The case's procedural complexity limits the likelihood of a nationally consequential holding, not the seriousness of its subject.
+
+## Retrieval limitations
+
+Official-domain searches for the general precedents Newberry and Bowe, and attempted access to an unverified candidate Bowe opinion URL, returned no usable content in the web tool. I relied on neither an outside opinion nor an outside characterization. The provisioned adversarial briefs remain the source of their competing legal descriptions. I did not use CourtListener, corpus priors, another cell's forecast, or outcome-labeling artifacts.

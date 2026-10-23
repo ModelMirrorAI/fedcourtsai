@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277583",
+  "run_id": "20261023T104223Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell: provisioned-file review and jq", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP read_document", "CourtListener MCP search_document", "web search/open attempts"],
+  "helpful": ["Complete argument transcript with all three advocates and Justice-specific exchanges", "Both parties' merits and reply briefs", "Merits base-rate counts with explicit cert-order exclusions", "Targeted CourtListener precedent lookup"],
+  "gaps": ["Court-appointed amicus's merits brief was docketed but not provisioned", "Official-source web calls returned no usable content", "Default uv cache directory was read-only; a temporary cache override was necessary"],
+  "notes": "The transcript made it possible to assess the defense of affirmance despite both named parties seeking vacatur. No live corpus query or current-case retrieval was necessary. A CourtListener citation-only search was imprecise; an exact case-name query resolved the precedent. Tool calls and degradation are documented in retrieval.md."
+}

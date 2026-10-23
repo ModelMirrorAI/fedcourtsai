@@ -1,0 +1,72 @@
+{
+  "big_case_rationale": "Supremacy Clause / intergovernmental-immunity question about state labor law reaching federal immigration-detention contractors nationwide; ~$37M judgment, a 3d Cir. tension, and the United States urging review.",
+  "big_case_score": 0.72,
+  "case_id": "scotus/73279966",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.8
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.04
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.5
+    }
+  ],
+  "confidence": 0.7,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-16",
+    "cvsg_date": "2026-05-18",
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-09-15",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-23T10:57:59Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-sg-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-09-15.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.8,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54",
+    "label": "proc-v11",
+    "pipeline_sha": "ae1f293fef4cdf9ea2550e5ee23338f62e16f1c8",
+    "stamped_at": "2026-10-23T10:58:41.800242Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T104223Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

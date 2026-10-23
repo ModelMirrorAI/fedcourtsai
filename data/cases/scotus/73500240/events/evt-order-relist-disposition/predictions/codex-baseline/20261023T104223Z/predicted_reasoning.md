@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The Court will most likely deny the petition. The principal alternative is a summary grant-side disposition, not a grant for plenary briefing and argument. The overall probability of any grant-side relief is 36%.
+
+The provisioned record already contains two distributions: September 2 for the September 28, 2026 conference, and October 7 for the November 6 conference. Thus the first relist is history, not this forecast. From that two-distribution state, the probability of at least one additional distribution is 55%; one further relist is the modal additional count. Expect resolution around the November conference or following conferences in late 2026, allowing additional time for a summary opinion or separate writing. A much longer hold is a secondary possibility, not the central forecast.
+
+No CVSG appears in the record. A new invitation to the Solicitor General is unlikely (2%): the likely dispute is application of excessive-force and qualified-immunity rules to this shooting, not a question requiring the federal government's institutional views.
+
+If the Court intervenes, it will most likely address the qualified-immunity component of Questions 1 and 2: whether the panel used sufficiently particularized clearly established law when denying immunity on the plaintiff-favorable factual account. A narrowed question about that application is more likely than deciding whether only Supreme Court precedent can ever clearly establish law. The broad historical and statutory foundations proposed in Question 3 are unlikely to be taken up.
+
+Conditional on any grant, the probability of disposition in the cert order rather than plenary review is 82%. A per curiam summary reversal on the clearly-established-law prong is the leading grant-side possibility. A GVR for reconsideration in light of the authority discussed in the opposition is also possible, but less likely than a direct summary correction. The Court would not need to settle the broad source-of-law question to choose either route. If review were instead plenary, the likely focus would still be the level of factual specificity required for qualified immunity, not a categorical overhaul of the doctrine.
+
+Conditional on denial, a noted dissent or statement respecting denial has a 20% probability; no separate writing is the central forecast. The record request, armed-flight allegations, and closely divided en banc vote could generate a request for summary intervention, but they do not establish that any Justice will publicly record one. No individual cert votes or author are forecast.

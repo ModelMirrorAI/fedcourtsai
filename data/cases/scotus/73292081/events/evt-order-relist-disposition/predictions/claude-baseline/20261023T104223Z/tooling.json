@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73292081",
+  "run_id": "20261023T104223Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["statpack", "WebFetch (supremecourt.gov)", "pypdf text extraction"],
+  "helpful": ["Statpack band table and relist cut", "Provisioned petition/BIO/reply text"],
+  "gaps": ["Motions, letters and responses to motions are not provisioned; here they explained the relist (a deferral pending companion petition 26-353)", "No flag distinguishing a deferral/reschedule from a true post-conference relist"],
+  "notes": "The relist that opened this moment looks like a deferral for a companion petition, so the band likely overstates grant odds."
+}

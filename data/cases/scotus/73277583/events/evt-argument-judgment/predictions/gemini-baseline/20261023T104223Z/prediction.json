@@ -1,0 +1,111 @@
+{
+  "big_case_rationale": "Resolves an entrenched 6-6 circuit split over whether Stinson v. United States still governs judicial deference to U.S. Sentencing Guidelines commentary after Kisor and Loper Bright, directly affecting advisory Guidelines calculations across roughly 66,000 federal criminal sentencings annually.",
+  "big_case_score": 0.82,
+  "case_id": "scotus/73277583",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.28
+    }
+  ],
+  "confidence": 0.72,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 7,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-14",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-23T10:55:00Z",
+  "engine": "gemini",
+  "event_id": "evt-argument-judgment",
+  "granted": 0,
+  "input_snapshot": "2026-10-14.json",
+  "judgment": "affirmed",
+  "model": "gemini-4-argon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.28,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:c4213d78e7a7a6fc5f13d070a3bda326254c0189b7979f5e7b91a23d5608ad66",
+    "label": "proc-v11",
+    "pipeline_sha": "ae1f293fef4cdf9ea2550e5ee23338f62e16f1c8",
+    "stamped_at": "2026-10-23T11:08:38.506975Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T104223Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority reaffirms Stinson v. United States (1993) and declines to import Kisor v. Wilkie (2019) or Loper Bright Enterprises v. Raimondo (2024) into Sentencing Guidelines commentary, holding that under the Sentencing Reform Act (28 U.S.C. 994 and 18 U.S.C. 3553(a)), Williams v. United States (1992), U.S.S.G. 1B1.7, and statutory stare decisis\u2014reinforced by the purely advisory post-Booker status of the Guidelines\u2014commentary that interprets or explains a Guideline governs the calculation of the Commission's recommended sentencing range unless it violates the Constitution or a federal statute or is inconsistent with, or a plainly erroneous reading of, the Guideline text."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority announces a categorical, Manual-wide rule governing judicial reliance on interpretive commentary across the U.S. Sentencing Guidelines generally, rather than a narrow holding confined to U.S.S.G. 2K2.1(a)(3)'s large-capacity-magazine enhancement or the harmlessness of the district court's alternative sentence."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

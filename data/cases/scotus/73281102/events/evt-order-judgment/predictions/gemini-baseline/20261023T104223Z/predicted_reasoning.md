@@ -1,0 +1,26 @@
+# Predicted Reasoning of the Court: *William Maxwell v. Albert Thomas, III, Warden* (No. 25-5930)
+
+## 1. Judgment Class and Vote Lineup
+
+- **Judgment Class**: **`vacated`** (the judgment of the United States Court of Appeals for the Fifth Circuit is vacated, and the case is remanded for further proceedings).
+- **Vote Split and Lineup**: **8–1** (or 7–2) disturbing the judgment below.
+  - **Majority**: Chief Justice Roberts and Justices Thomas, Sotomayor, Kagan, Gorsuch, Kavanaugh, Barrett, and Jackson (with Justice Gorsuch delivering the opinion of the Court).
+  - **Dissent**: Justice Alito dissenting (potentially joined by Justice Thomas if the majority reaches beyond the Federal Tort Claims Act (FTCA) and liberal-construction error to broaden 28 U.S.C. § 2241 habeas jurisdiction).
+
+## 2. Questions Reached and Doctrinal Ground (`majority-ground`)
+
+The Court will reach both principal defects identified in the certiorari filings: (1) the lower courts' dismissal with prejudice of petitioner's *pro se* challenge to the Bureau of Prisons' (BOP) refusal to consider him for home confinement or residential reentry center placement on the ground that he used a 28 U.S.C. § 2241 habeas form rather than filing a *Bivens* action; and (2) the lower courts' complete failure to adjudicate petitioner's expressly pleaded FTCA claims.
+
+On the doctrinal basis (`majority-ground`):
+- **FTCA and Rule 8 Liberal Construction**: Relying on *Erickson v. Pardus*, 551 U.S. 89 (2007), *Haines v. Kerner*, 404 U.S. 519 (1972), and *Johnson v. City of Shelby*, 574 U.S. 10 (2014), the Court will hold that the district court and the Fifth Circuit erred by dismissing Maxwell's entire action with prejudice without addressing his explicit FTCA claims (28 U.S.C. §§ 1346(b), 2671 *et seq.*), which were set forth in his "Affidavit and Brief in Support of Habeas Corpus and of Tort Claims" along with documentation of his administrative tort claim.
+- **Channeling Between § 2241 Habeas and Civil Actions**: Rather than overruling *Preiser v. Rodriguez*, 411 U.S. 475 (1973), or *Wilkinson v. Dotson*, 544 U.S. 74 (2005), to hold that all discretionary home-confinement or halfway-house placement disputes under 18 U.S.C. §§ 3621(b) and 3624(c) fall within the historic core of habeas corpus, the majority will hold that lower courts cannot trap *pro se* federal prisoners in a procedural Catch-22—dismissing a § 2241 petition with prejudice on the ground that the claim must be brought under *Bivens* (a damages remedy that is largely unavailable in new contexts under *Egbert v. Boule*, 596 U.S. 482 (2022), and cannot provide prospective record-correction or equitable relief) while refusing to liberally construe the *pro se* pleading as a civil action (including for injunctive/declaratory relief or under the FTCA) or grant leave to amend.
+
+## 3. Breadth of the Holding (`ground-breadth`)
+
+- **General Procedural Rule Without Expanding Core Habeas**: The majority's stated ground will establish a general procedural rule governing federal prisoner litigation across the circuits—that district courts must evaluate the substance of a *pro se* prisoner's pleading rather than its § 2241 form label, must address explicit statutory tort claims pleaded alongside habeas claims, and may not dismiss non-habeas civil claims with prejudice merely because they were filed on a habeas form—while declining to adopt a categorical rule that all challenges to the place of confinement or home-confinement eligibility sound in habeas corpus under 28 U.S.C. § 2241.
+
+## 4. Separate Writings and Procedural Exit Risk
+
+- **Concurring Opinions**: Justice Jackson (joined by Justice Sotomayor) is likely to file a concurring opinion addressing the statutory text of 28 U.S.C. § 2241 and 18 U.S.C. §§ 3621(b) and 3624(c), emphasizing that challenges to the "execution" of a federal sentence historically permitted under § 2241 encompass unlawful refusals to consider statutorily mandated community-confinement factors. Justice Thomas may concur separately (or concur in part and in the judgment) to emphasize that while the lower courts erred in ignoring the FTCA claims under *Erickson* and *Millbrook v. United States*, 569 U.S. 50 (2013), the writ of habeas corpus at common law reached only the fact or duration of custody, not transfers between modes of confinement.
+- **Dissenting Opinion**: Justice Alito is the likeliest dissenter, arguing that a district court adjudicating a 28 U.S.C. § 2241 habeas petition is not required to parse attachments to construct a separate FTCA lawsuit against a different defendant (the United States rather than the Warden) while bypassing the Prison Litigation Reform Act's (PLRA) filing-fee and screening requirements.
+- **Procedural Exit (DIG / Equally Divided Court)**: A dismissal as improvidently granted (DIG) is unlikely (~4% probability). Although the Fifth Circuit's opinion is short and unpublished and the initial petition was filed *pro se*, Supreme Court counsel appeared at the reply stage, the Government expressly conceded in its Brief in Opposition (at 10) that the lower courts never passed upon Maxwell's tort claims, and there is no vehicle impediment preventing the Court from vacating and remanding on that preserved threshold error.

@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73292081",
+  "run_id": "20261023T104223Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-relist-disposition",
+      "message": "The first 'relist' (distributed 10/7 for 11/6 after the 9/28 conference) appears to be a deferral pending companion petition No. 26-353 (petitioner's motion to defer and 9/17 letter). It is not a post-conference relist signal, so the elevated band likely overstates grant odds. 26-353 is not Vide-linked in the snapshot."
+    }
+  ]
+}
