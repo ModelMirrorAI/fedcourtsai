@@ -265,6 +265,7 @@ from .paths import CasePaths, EventPaths
 from .pipeline import (
     application_backfill,
     authorship,
+    decision_below,
     granted_noted,
     historical,
     liveprobe,
@@ -12213,6 +12214,154 @@ def opinion_lineups_command(
         f"{sum(1 for r in readings if r.status == 'failed')} failed",
         err=True,
     )
+
+
+def _decision_below_corpus_inputs(
+    case_ids: Sequence[str], sample: int | None
+) -> list[decision_below.CaseInput]:
+    """The ``decision-below`` cases the pulled corpus supplies: a sample, then named ids."""
+    if not case_ids and sample is None:
+        return []
+    db_path = corpus.corpus_db_path(get_settings().corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts "
+            "corpus-pull), or name SCOTUS numbers with --docket instead.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path) as conn:
+        rows = decision_below.sample_rows(conn, sample) if sample is not None else []
+        for case_id in case_ids:
+            row = corpus.get_row(conn, case_id)
+            if row is None:
+                typer.echo(f"decision-below: the corpus holds no row {case_id}", err=True)
+                raise typer.Exit(code=1)
+            rows.append(row)
+        return [
+            decision_below.CaseInput(
+                label=row.case_id,
+                case_id=row.case_id,
+                facts=decision_below.facts_for_row(conn, row),
+            )
+            for row in rows
+        ]
+
+
+def _decision_below_docket_inputs(
+    serials: Sequence[tuple[str, tuple[int, int]]],
+) -> list[decision_below.CaseInput]:
+    """The ``decision-below`` cases named by SCOTUS number, read from supremecourt.gov."""
+    if not serials:
+        return []
+    inputs: list[decision_below.CaseInput] = []
+    with SupremeCourtClient() as court:
+        for number, (term, serial) in serials:
+            payload = court.get_docket(term, serial)
+            if payload is None:
+                typer.echo(f"decision-below: supremecourt.gov serves no {number}", err=True)
+                raise typer.Exit(code=1)
+            inputs.append(
+                decision_below.CaseInput(
+                    label=number, facts=decision_below.lower_court_facts(payload)
+                )
+            )
+    return inputs
+
+
+@app.command("decision-below")
+def decision_below_command(
+    case: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--case",
+            help="A corpus case id (scotus/<docket_id>) to match; repeatable. Reads the "
+            "pulled corpus.",
+        ),
+    ] = None,
+    docket: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--docket",
+            help="A SCOTUS cert docket number (e.g. 25-100) to match, its facts fetched "
+            "from supremecourt.gov rather than the corpus; repeatable.",
+        ),
+    ] = None,
+    sample: Annotated[
+        int | None,
+        typer.Option(
+            help="Match the newest N cert petitions in the pulled corpus whose lower "
+            f"court is a federal court of appeals (e.g. {decision_below.DEFAULT_SAMPLE}; "
+            f"at most {decision_below.MAX_SAMPLE}).",
+        ),
+    ] = None,
+) -> None:
+    """Measure how many cert petitions' decisions below CourtListener holds.
+
+    For each case, reads the lower court, its case number(s) and the judgment
+    date the SCOTUS docket JSON carries, maps the court to a CourtListener id
+    (the federal courts of appeals only), finds the lower court's docket rows by
+    number, the opinion cluster dated on the judgment date and its sub-opinions'
+    file and text availability, and — where upstream holds the docket's entries —
+    reads whether a petition for rehearing en banc was filed, how it was
+    disposed of, and whether a dissent was noted. Prints the report as JSON on
+    stdout and the match rate on stderr.
+
+    Strictly **read-only**: writes no corpus, content store or ledger, and
+    stages nothing to a cell. It spends CourtListener REST requests through the
+    shared client, throttled by this process's own governor at the configured
+    ceilings — four for a typical case, `MAX_REQUESTS_PER_CASE` (16) at worst —
+    which count against the same account limits as the pull lanes but not
+    against their per-process tally; `--sample` is capped at `MAX_SAMPLE` (50)
+    to bound that. It never calls RECAP Fetch, so nothing is bought. `--case`
+    and `--sample` read the pulled corpus; `--docket` needs no corpus.
+    """
+    if sample is not None and not 1 <= sample <= decision_below.MAX_SAMPLE:
+        typer.echo(
+            f"decision-below: --sample must be between 1 and {decision_below.MAX_SAMPLE}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    named = [value.strip() for value in case or [] if value.strip()]
+    numbers = [value.strip() for value in docket or [] if value.strip()]
+    if not named and not numbers and sample is None:
+        typer.echo("decision-below: name a --case, a --docket or a --sample", err=True)
+        raise typer.Exit(code=2)
+    serials: list[tuple[str, tuple[int, int]]] = []
+    for number in numbers:
+        parsed = parse_scotus_docket_number(number)
+        if parsed is None:
+            typer.echo(f"decision-below: {number!r} is not a cert docket number", err=True)
+            raise typer.Exit(code=2)
+        serials.append((number, parsed))
+    try:
+        case_ids = corpus_seed.parse_case_ids(named) if named else []
+    except corpus_seed.SeedSliceError as exc:
+        typer.echo(f"decision-below: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    if not get_settings().courtlistener_api_token:
+        # Every v4 request answers 401 without one, so the run could only fail
+        # case by case; it is refused before anything is read.
+        typer.echo("decision-below: no CourtListener API token is configured", err=True)
+        raise typer.Exit(code=2)
+    inputs = _decision_below_corpus_inputs(case_ids, sample)
+    inputs.extend(_decision_below_docket_inputs(serials))
+    with _client() as client:
+        report = decision_below.match_cases(client, inputs)
+    typer.echo(report.model_dump_json(indent=2))
+    counts = ", ".join(f"{n} {status}" for status, n in sorted(report.counts.items()))
+    matched = report.counts.get("matched", 0)
+    walked = len(report.matches)
+    typer.echo(
+        f"decision-below (dry run): {matched} of {walked} matched "
+        f"({counts or 'none walked'}); {report.requests} REST request(s)",
+        err=True,
+    )
+    if report.stopped:
+        typer.echo(
+            f"  stopped: {report.stopped} ({len(report.deferred)} case(s) deferred)", err=True
+        )
 
 
 @app.command("order-notations")
