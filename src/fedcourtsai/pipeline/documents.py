@@ -101,6 +101,7 @@ from .caption import _scored_segment
 # same entry.
 from .cert_signals import (
     cert_grant_date,
+    is_sg_invited_brief_entry,
     match_disposition_signal,
     sg_invited_brief_position,
 )
@@ -186,7 +187,18 @@ logger = logging.getLogger(__name__)
 #   the United States as amicus curiae filed after the Court called for the
 #   views of the Solicitor General. The one amicus filing any arm takes, because
 #   it is the Court's own request and the filing that most often decides an
-#   invited petition; every other amicus brief stays unselected.
+#   invited petition; every other cert-stage amicus brief stays unselected.
+#
+# One merits-stage amicus kind sits beside the merits filings:
+#
+# - `merits-amicus-united-states` is the **United States' amicus brief on the
+#   merits**: the first brief for the United States as amicus curiae filed
+#   after the grant, read by the invited brief's own entry anchor
+#   (:func:`cert_signals.is_sg_invited_brief_entry`) on the other side of the
+#   grant. It states the federal government's position on the judgment, which
+#   no party brief does where the United States is not a party. Stored and not
+#   yet handed to any cell (``provision.WITHHELD_KINDS``): admitting it changes
+#   what a merits cell reads, which rides a re-bless.
 #
 # Two interim kinds sit beside the application, one row at one URL each:
 #
@@ -212,6 +224,7 @@ KIND_MERITS_BRIEF_PETITIONER = "merits-brief-petitioner"
 KIND_MERITS_BRIEF_RESPONDENT = "merits-brief-respondent"
 KIND_MERITS_REPLY_PETITIONER = "merits-reply-petitioner"
 KIND_MERITS_REPLY_RESPONDENT = "merits-reply-respondent"
+KIND_MERITS_AMICUS_UNITED_STATES = "merits-amicus-united-states"
 KIND_QUESTIONS_PRESENTED = "questions-presented"
 # The transcript of the oral argument, which no docket entry links: the Court
 # lists it on a per-Term page (:func:`fedcourtsai.supremecourt.parse_transcript_listing`),
@@ -704,8 +717,8 @@ def select_documents(
     **lead**, its merits kinds prefer the filings made for the lead over a
     member's (:func:`_select_lead_own`).
 
-    Twelve arms, all entry-keyed rather than form-keyed — the payload says which
-    filings it carries, and nothing here needs to be told the docket's form. Seven
+    Thirteen arms, all entry-keyed rather than form-keyed — the payload says which
+    filings it carries, and nothing here needs to be told the docket's form. Eight
     of them are additionally **stage**-keyed, on the grant date read off the same
     payload (:func:`cert_signals.cert_grant_date`), because the cert stage and the
     merits stage spell a party's brief and a party's reply identically and only
@@ -765,7 +778,8 @@ def select_documents(
       (:data:`cert_signals.CVSG_RE`) and before any disposition entry, from its
       ``Main Document`` link alone — the entry the sg-brief moment is dated
       from. A first brief posting no such link stores nothing; a later one is
-      never taken in its place. No other amicus brief is selected by any arm.
+      never taken in its place. No other cert-stage amicus brief is selected by
+      any arm.
     - The **petitioner's brief on the merits**
       (:func:`merits_signals.is_petitioner_merits_brief`) and the
       **respondent's** (:func:`~merits_signals.is_respondent_merits_brief_document`),
@@ -798,6 +812,18 @@ def select_documents(
       replies; the respondent arm reaches the postures where the last word is its
       own — a cross-petition, or a case the Court appointed an amicus to defend
       the judgment in.
+    - The **United States' amicus brief on the merits**
+      (:func:`cert_signals.is_sg_invited_brief_entry`, after the grant), stored
+      as ``merits-amicus-united-states``: the first such entry in docket order
+      after the grant whose entry posts a ``Main Document`` link, from that link
+      alone — the merits arms' own terms. The entry anchor is the invited
+      brief's, so "Brief for the United States as amicus curiae supporting
+      petitioners filed." and "Brief amicus curiae of United States filed." are
+      read and an amicus whose name opens with the same words is not; the
+      post-grant bound is what keeps the invited brief, filed before the grant,
+      under its own kind. It is the **last** arm, so an entry any other arm
+      reads is never offered to it and no other kind's selection moves. Every
+      other merits-stage amicus brief stays unselected.
 
     ``QPLink`` is deliberately never selected: it is generated at grant time and
     leaks the outcome; the questions presented are derived from the petition
@@ -831,6 +857,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     merits_respondent: DocumentRef | None = None
     reply_petitioner: DocumentRef | None = None
     reply_respondent: DocumentRef | None = None
+    amicus_united_states: DocumentRef | None = None
     application_response: DocumentRef | None = None
     application_reply: DocumentRef | None = None
     bios: list[DocumentRef] = []
@@ -923,6 +950,14 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             and is_respondent_merits_reply(text)
         ):
             reply_respondent = _merits_filing_ref(entry, KIND_MERITS_REPLY_RESPONDENT, entry_date)
+        elif (
+            amicus_united_states is None
+            and _is_post_grant(filed, granted_on)
+            and is_sg_invited_brief_entry(text)
+        ):
+            amicus_united_states = _merits_filing_ref(
+                entry, KIND_MERITS_AMICUS_UNITED_STATES, entry_date
+            )
         disposed = disposed or match_disposition_signal(text) is not None
     return [
         ref
@@ -939,6 +974,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             merits_respondent,
             reply_petitioner,
             reply_respondent,
+            amicus_united_states,
         )
         if ref is not None
     ]
@@ -1000,6 +1036,14 @@ MERITS_KINDS: tuple[str, ...] = (
     KIND_MERITS_REPLY_PETITIONER,
     KIND_MERITS_REPLY_RESPONDENT,
 )
+
+# What a consolidated member borrows off its lead: the merits filings, and the
+# United States' merits amicus brief, which consolidation moves to the lead with
+# them. The amicus brief names no party, so the side attribution that cuts the
+# party filings to the member's own (:func:`_filed_for_member`) does not reach
+# it; it is borrowed as the group's unless the Clerk marks it "(as to No.)" for
+# other dockets only (:func:`_without_amicus_marked_for_others`).
+LEAD_BORROWED_KINDS: tuple[str, ...] = (*MERITS_KINDS, KIND_MERITS_AMICUS_UNITED_STATES)
 
 # The Court's consolidation entry, entered on every docket of the group, the
 # lead's own included:
@@ -1352,7 +1396,10 @@ def _select_lead_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
       never the lead's.
 
     Every non-merits kind is the plain selection's: the cert-stage filings on a
-    lead are its own, entered before the consolidation.
+    lead are its own, entered before the consolidation. The United States'
+    merits amicus brief is the plain selection's too, over the lead's entries
+    less the ones the Clerk marked for other dockets only
+    (:func:`_without_amicus_marked_for_others`).
     """
     plain = _select_own(payload)
     number = parse_scotus_docket_number(str(payload.get("CaseNumber") or ""))
@@ -1375,8 +1422,47 @@ def _select_lead_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
         if ref.kind in MERITS_KINDS:
             merits[ref.kind] = ref  # the attributed tier, read second, wins
     return [
-        *(ref for ref in plain if ref.kind not in MERITS_KINDS),
+        *(ref for ref in plain if ref.kind not in LEAD_BORROWED_KINDS),
         *(merits[kind] for kind in MERITS_KINDS if kind in merits),
+        *_amicus_refs(payload, number),
+    ]
+
+
+def _without_amicus_marked_for_others(
+    docket: Mapping[str, Any], number: tuple[int, int]
+) -> dict[str, Any]:
+    """``docket`` without the United States' amicus entries marked for other dockets only.
+
+    The amicus counterpart of the side attribution: a brief the Clerk marks
+    "(as to No.)" for other members of the group argues their case, not this
+    docket's, and an unmarked one is read as the group's. Every other entry is
+    kept untouched.
+    """
+    return {
+        **docket,
+        "ProceedingsandOrder": [
+            entry
+            for entry in docket.get("ProceedingsandOrder") or []
+            if not (
+                isinstance(entry, Mapping)
+                and is_sg_invited_brief_entry(text := str(entry.get("Text") or ""))
+                and _marked_for_others(text, number)
+            )
+        ],
+    }
+
+
+def _amicus_refs(docket: Mapping[str, Any], number: tuple[int, int]) -> list[DocumentRef]:
+    """The United States' merits amicus brief a group docket reads as ``number``'s, if any.
+
+    The selection over the docket less the amicus entries marked for other
+    dockets only, kept to that one kind, so the cut cannot move any other kind's
+    selection — the invited brief's position among them.
+    """
+    return [
+        ref
+        for ref in _select_own(_without_amicus_marked_for_others(docket, number))
+        if ref.kind == KIND_MERITS_AMICUS_UNITED_STATES
     ]
 
 
@@ -1393,8 +1479,9 @@ def _lead_merits_refs(lead: Mapping[str, Any], *, member: Mapping[str, Any]) -> 
     """The merits filings a consolidated member reads off its lead docket.
 
     The lead's own selection (:func:`_select_own`) over the lead's entries **cut
-    to the member's own filings** (:func:`_filed_for_member`), and then to
-    :data:`MERITS_KINDS`: the same anchors, the lead's own post-grant bound, the
+    to the member's own filings** (:func:`_filed_for_member`, and for the United
+    States' amicus brief :func:`_without_amicus_marked_for_others`), and then to
+    :data:`LEAD_BORROWED_KINDS`: the same anchors, the lead's own post-grant bound, the
     ``Main Document`` link alone. Each ref keeps the lead's link and the lead's
     entry date, so the stored row records the URL it actually came from, and a
     moment cut places it by the day it reached the record.
@@ -1415,8 +1502,8 @@ def _lead_merits_refs(lead: Mapping[str, Any], *, member: Mapping[str, Any]) -> 
       (:func:`unrepresented_sides`), could carry that
       filer's own address and telephone in a brief the member's scrub would
       not key on. Such a lead lends nothing, and the run log says so. The
-      ``Other`` list does not trigger it: no amicus brief is staged but the
-      Solicitor General's invited one, which counsel for the United States files.
+      ``Other`` list does not trigger it: the only amicus briefs selected are
+      the United States', which its own counsel files.
     """
     if any(side in COUNSEL_SIDES for side in unrepresented_sides(lead)):
         logger.warning(
@@ -1426,14 +1513,17 @@ def _lead_merits_refs(lead: Mapping[str, Any], *, member: Mapping[str, Any]) -> 
         )
         return []
     own_filings = _lead_for_member(lead, member)
-    if own_filings is None:
+    member_number = parse_scotus_docket_number(str(member.get("CaseNumber") or ""))
+    if own_filings is None or member_number is None:
         return []
     member_granted_on = cert_grant_date(member)
     return [
         ref
-        for ref in _select_own(own_filings)
-        if ref.kind in MERITS_KINDS
-        and _is_post_grant(_parse_entry_date(ref.entry_date), member_granted_on)
+        for ref in (
+            *(ref for ref in _select_own(own_filings) if ref.kind in MERITS_KINDS),
+            *_amicus_refs(own_filings, member_number),
+        )
+        if _is_post_grant(_parse_entry_date(ref.entry_date), member_granted_on)
     ]
 
 
@@ -2804,9 +2894,9 @@ def scrub_contact_details(
     runs only where a value clears its floor, and ``passes`` says whether it
     did. ``shape=False`` runs the value pass alone — the caller's choice on a
     docket read as self-represented on its ``Other`` list alone, whose amici's
-    own briefs are not staged (the one amicus kind, ``sg-invited-brief``, is the
-    United States', filed by its counsel): there the staged filings are counsel's,
-    and the shape pass would cost their text its misreads of legal prose (a case
+    own briefs are not staged (the only amicus kinds selected are the United
+    States', filed by its counsel): there the staged filings are counsel's, and
+    the shape pass would cost their text its misreads of legal prose (a case
     name led by a street number, a regulation number in telephone shape).
     ``passes`` is then ``("value",)``, or empty where no value cleared its floor
     and nothing ran.
@@ -4192,6 +4282,7 @@ FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
     KIND_MERITS_BRIEF_RESPONDENT,
     KIND_MERITS_REPLY_PETITIONER,
     KIND_MERITS_REPLY_RESPONDENT,
+    KIND_MERITS_AMICUS_UNITED_STATES,
 )
 
 # The kinds a text-coverage measurement counts, fetched before derived — every
@@ -4288,6 +4379,10 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_MERITS_BRIEF_RESPONDENT: "The respondent's brief on the merits.",
     KIND_MERITS_REPLY_PETITIONER: "The petitioner's reply brief on the merits.",
     KIND_MERITS_REPLY_RESPONDENT: "The respondent's reply brief on the merits.",
+    KIND_MERITS_AMICUS_UNITED_STATES: (
+        "The brief of the United States as amicus curiae on the merits, filed after the "
+        "grant: the federal government's position on the judgment."
+    ),
     KIND_QUESTIONS_PRESENTED: (
         "The questions-presented section cut out of the petition's own text."
     ),

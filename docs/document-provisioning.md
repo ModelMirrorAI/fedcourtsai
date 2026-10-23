@@ -24,7 +24,7 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 | Back-fill | A dispatched pass fetches the selection for predict-relevant cases whose stored set is missing kinds. | `pipeline/document_backfill.py`; `fedcourts backfill-documents` | live-sources.md, *Contract for the document back-fill pass* |
 | Extract | pypdf text, cut at the cap. Petitions, applications and appendices are cut around the appendix so the argument survives; each cut leaves a `[pipeline note: …]` line. The questions presented are cut from the petition text. An argument transcript is cleaned of its line numbers, headers and word index before the plain cut. | `extract_pdf_text`, `extract_filing_text`, `extract_questions_presented`, `extract_transcript_text` | live-sources.md, *The appendix-aware cut* |
 | Recover | A stored document whose text is empty though its PDF has pages is OCR'd locally (pdftoppm + tesseract) and marked `ocr_derived`. A standing sweep on run-seed's walker windows catches new scans, and run-repair's `ocr-recovery` pass clears a backlog. | `pipeline/ocr_recovery.py`, `pipeline/ocr_sweep.py`; `fedcourts ocr-recover-petitions` | live-sources.md, *Contract for the recovery pass*; data-pipeline.md, *Historical — the Term walker* |
-| Cut at the moment | A document is kept only if its proceedings entry is dated before the cell's moment cutoff, so a grant-moment cell never reads the merits briefs. The argument transcript is kept only for a post-argument cell. | `provision.py`: `moment_cutoff`, `documents_for_moment`, `documents_before` | data-pipeline.md, *Provisioning: how a cell gets its record* |
+| Cut at the moment | A document is kept only if its proceedings entry is dated before the cell's moment cutoff, so a grant-moment cell never reads the merits briefs. The argument transcript is kept only for a post-argument cell, and a withheld kind (`WITHHELD_KINDS`) for no cell. | `provision.py`: `moment_cutoff`, `documents_for_moment`, `documents_before` | data-pipeline.md, *Provisioning: how a cell gets its record* |
 | Scrub | On a docket with a self-represented side, contact details are withheld from the staged text and the staged snapshot. Where the shape pass ran, a residual detector re-reads the scrubbed text's opening and closing, and any match records the document as **not** scrubbed. The document is still staged. | `pipeline/documents.py`: `scrub_contact_details`, `contact_residual_matches`, `scrub_snapshot_contacts`; `provision.py`: `staged_scrub` | live-sources.md, from the paragraph introducing the contact-detail scrub through *What the scrub does not reach*; data-sources.md, *PII stance* |
 | Stage | Each kept document is written to `record/documents/<kind>.txt`, with a manifest at `record/documents/documents.json`. | `provision.py`: `write_cell_record`, `document_manifest` | predicted-artifacts.md, *Where the files land*; cli.md, `provision-snapshot` |
 | Companions | Not a document: a predict cell also gets the snapshot of each docket its placed snapshot links as `Vide`, cut by the date rule to its cutoff (or its own snapshot date where it has none) and redacted of undated outcome markers, under `record/related/` with a `related.json` listing every link. No filing text of a companion is staged. | `pipeline/vide_links.py`: `vide_docket_numbers`; `provision.py`: `place_related`, `related_manifest` | cli.md, `provision-snapshot` |
@@ -33,8 +33,11 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 
 These are the kinds, from `pipeline/documents.py`. Selection is per docket and
 the moment decides by date, so a cell gets every kind below that its docket
-carries and that was filed before its cutoff. The one exception is the argument
-transcript, which only a post-argument cell is given.
+carries and that was filed before its cutoff. Two exceptions: the argument
+transcript, which only a post-argument cell is given, and a kind in
+`provision.WITHHELD_KINDS`, which is fetched and stored but given to no cell.
+Admitting a withheld kind changes what cells read, so it rides a re-bless
+([process-version.md](process-version.md)).
 
 | Kind | Filing | Docket |
 | --- | --- | --- |
@@ -46,13 +49,16 @@ transcript, which only a post-argument cell is given.
 | `sg-invited-brief` | The Solicitor General's brief when the Court called for it | Cert |
 | `merits-brief-petitioner`, `merits-brief-respondent` | Each side's brief on the merits | Granted |
 | `merits-reply-petitioner`, `merits-reply-respondent` | Each side's reply on the merits | Granted |
+| `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant. Stored, and not yet given to any cell | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
 | `application-reply` | The applicant's reply to it | Application |
 
-Amicus briefs, other than the Solicitor General's invited brief, are never
-selected. A cell with retrieval rights can still reach them upstream.
+Amicus briefs other than the United States' are never selected: the Solicitor
+General's invited brief at the cert stage, and the United States' brief on the
+merits after the grant. A cell with retrieval rights can still reach the others
+upstream.
 
 ## The settings that bound it
 

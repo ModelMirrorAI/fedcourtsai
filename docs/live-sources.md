@@ -402,8 +402,9 @@ the docket form, so one function serves both lanes:
   must say "amicus", so the United States filing as a party stays with the
   opposition. The entry is the one the sg-brief moment is dated from, so a first
   brief that posts no `Main Document` link stores nothing rather than a later
-  brief standing in for it. It is the one amicus filing any arm selects: the Court asked for
-  it, and on an invited petition it is most often the filing that decides it.
+  brief standing in for it. It is the one cert-stage amicus filing any arm
+  selects: the Court asked for it, and on an invited petition it is most often
+  the filing that decides it.
 - **`merits-brief-petitioner`** / **`merits-brief-respondent`** — each side's
   brief on the merits, one row per side and one URL per row, taken from the
   entry's `Main Document` link and from no other (a merits-brief entry posts its
@@ -467,6 +468,21 @@ the docket form, so one function serves both lanes:
   than a party's is left unfetched rather than guessed at, since no party-word
   anchor can read it. The reply arms read the same two further spellings the
   briefs do ("Reply brief for the petitioner …", a leading "Redacted").
+- **`merits-amicus-united-states`** — the **United States' amicus brief on the
+  merits**, the federal government's position on the judgment where it is not a
+  party. Read by the invited brief's own entry anchor ("Brief for the United
+  States as amicus curiae supporting petitioners filed.", "Brief of the United
+  States as amicus curiae supporting respondents filed.", "Brief amicus curiae
+  of United States filed.") on the other side of the grant: the first such entry
+  filed **after the cert grant** whose entry posts a `Main Document` link, from
+  that link alone, on the merits arms' terms. The invited brief is filed before
+  the grant, so it stays `sg-invited-brief` and is never this kind. It is the
+  selector's last arm, so an entry any other arm reads is never offered to it
+  and no other kind's selection moves; every other merits-stage amicus brief
+  stays unselected. **Stored, and not yet given to any cell**: it is in
+  `provision.WITHHELD_KINDS`, because admitting it changes what a merits cell
+  reads under an unchanged process digest, which rides a re-bless
+  ([process-version.md](process-version.md)).
 
 - **`questions-presented`** — derived from the `petition` text alone, never
   fetched and never derived from an `application`.
@@ -480,8 +496,8 @@ replies are entered on the lead docket alone, and a member's own JSON never
 shows them. So on a **member** — a docket whose entry names a number other
 than its own `CaseNumber` — the fetch reads the lead's docket JSON as well (one
 more paced GET through the same client and endpoint), and each of the four
-merits kinds the member's own docket does not yield is taken from the lead's
-selection. The rules:
+merits kinds, and the United States' merits amicus brief, that the member's own
+docket does not yield is taken from the lead's selection. The rules:
 
 - **The lead is read off the entry**, not off the Granted & Noted list: the
   entry is on the payload already in hand, names the lead explicitly, and is
@@ -499,6 +515,9 @@ selection. The rules:
   `Respondent` for a respondent-side one), compared on name tokens. An entry
   naming no filer ("Brief for the petitioner filed.") cannot be placed on a
   lead and is not borrowed; neither is anything when no entry is the member's.
+  The United States' amicus brief names no party, so it is read as the
+  group's unless the Clerk marks it "(as to No. …)" for other dockets only; a
+  lead reads its own the same way, never a brief marked for a member alone.
 - **Provenance stays honest.** A borrowed row is stored under the member's
   `case_id` with the lead's PDF URL and the lead entry's date, so the manifest
   says where the text came from and a moment cut places it by the day it reached
@@ -515,9 +534,9 @@ selection. The rules:
   lead. The lead's party blocks are not compared at provisioning (it reads one
   case's snapshot), so a lead whose party side reads as self-represented lends
   nothing, and the run log says so. A self-filing amicus on the lead's `Other`
-  list does not block it: no amicus brief is staged but the Solicitor
-  General's invited one (`sg-invited-brief`), which counsel for the United
-  States files.
+  list does not block it: the only amicus briefs selected are the United
+  States' (`sg-invited-brief`, `merits-amicus-united-states`), which its own
+  counsel files.
 - **A lead that does not serve** is warned into the run log and read as no lead:
   the member's own documents are stored without it.
 - **The briefed date.** The member's own docket never carries its respondent's
@@ -787,8 +806,8 @@ filer. The residual is a represented amicus block that did carry a real
 register number (none on that blob): it would stay as served, where a
 party-side one is withheld whatever its `Attorney` says. A docket whose only
 qualifying block is an amicus's gets the **value pass alone** (below): no
-amicus's own brief is staged — the one amicus kind, `sg-invited-brief`, is the
-United States' brief filed by its counsel — so what is staged there is counsel's
+amicus's own brief is staged — the only amicus kinds selected are the United
+States' briefs, filed by its counsel — so what is staged there is counsel's
 filings, and the shape pass would cost their text its misreads of legal prose —
 a case name led by a street number, a regulation number in telephone shape —
 where the staged filers are represented. The premise is about amici, whose
@@ -959,8 +978,9 @@ or whitespace-only under the same predicate provisioning stamps as
 whether the blob or the per-case content store served the reads, since a
 blob-only read of a split corpus undercounts. The counts stay per kind because
 the causes differ: an empty petition or brief in opposition is usually the scan; a
-near-zero count on any of the four merits kinds is the shape of the granted
-slice, since nothing selects them before a grant, rather than a coverage gap
+near-zero count on any of the four merits kinds, or on the United States'
+merits amicus brief, is the shape of the granted slice, since nothing selects
+them before a grant, rather than a coverage gap
 (and the two reply rows are narrower again, bounded by the granted cases whose
 docket carries a reply at all); the `appendix`, `cert-reply` and
 `sg-invited-brief` counts are bounded the same way, by the dockets that post a

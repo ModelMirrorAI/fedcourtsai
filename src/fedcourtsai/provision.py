@@ -45,6 +45,7 @@ from .pipeline import arrival_cut, cell_context, cert_signals, interim_signals, 
 from .pipeline.documents import (
     KIND_ARGUMENT_TRANSCRIPT,
     KIND_DESCRIPTIONS,
+    KIND_MERITS_AMICUS_UNITED_STATES,
     OTHER_LIST,
     ScrubbedSnapshot,
     ScrubbedText,
@@ -566,10 +567,19 @@ def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
     return str(raw) if raw else None
 
 
+#: Document kinds the corpus fetches and stores but no cell is handed. A kind
+#: reaching a cell changes the information set of every process whose cells
+#: read it, under a digest that does not move (``docs/process-version.md``), so
+#: a newly selected kind is stored first and withheld here; admitting it is
+#: removing it from this set under that process change's re-bless.
+WITHHELD_KINDS: frozenset[str] = frozenset({KIND_MERITS_AMICUS_UNITED_STATES})
+
+
 def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> list[CaseDocument]:
     """The documents a cell for ``event_id`` may be handed at all, before any date cut.
 
-    The argument transcript belongs to the post-argument moment alone. The date
+    A :data:`WITHHELD_KINDS` document reaches no cell of any moment. The
+    argument transcript belongs to the post-argument moment alone. The date
     rule already keeps it from a grant or briefed cell, which are cut before the
     argument; this keeps it from the cells no date rule reaches — an uncut cell
     (:func:`moment_cutoff` returning ``None``) reads every stored document — so
@@ -579,7 +589,10 @@ def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> li
     spec = moments.spec_for(event_id)
     argued = spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
     return [
-        document for document in documents if argued or document.kind != KIND_ARGUMENT_TRANSCRIPT
+        document
+        for document in documents
+        if document.kind not in WITHHELD_KINDS
+        and (argued or document.kind != KIND_ARGUMENT_TRANSCRIPT)
     ]
 
 
