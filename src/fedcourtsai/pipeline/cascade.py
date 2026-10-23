@@ -57,6 +57,7 @@ from ..registry import enabled_evaluators, enabled_predictors
 from ..schemas import Judgment, Outcome, PredictableEvent, PredictorConfig, Stage, UsageRole
 from ..serialize import write_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
+from . import vide_links
 from .outcome import (
     NO_ORDER_MARKERS,
     OrderMarkers,
@@ -266,7 +267,7 @@ def _read_related(
     on one connection opened only where some target links a docket.
     """
     linked = {
-        event_id: provision.vide_docket_numbers(placement.payload)
+        event_id: vide_links.vide_docket_numbers(placement.payload)
         for event_id, placement in placed.items()
         if placement is not None
     }

@@ -431,6 +431,22 @@
           "description": "The **forward** stratum cut by salience band: one LeaderboardStratum per band, aggregated exactly as `forward` is \u2014 the same cells, after the run collapse and both exclusions, with the same skill terms. Keyed `<salience_version>/<band>` from the scored prediction's frozen `context`, never the corpus's current band, which only strengthens as a petition is relisted or a CVSG lands and so would sort a forecast by its own future. A cell whose context froze no band, or a band with no version, or that carries no band facts at all, files under the single `(none)` key, so the blocks' `evaluations` sum to `forward.evaluations`. Cert stage only \u2014 no other stage is a salience-band product \u2014 and omitted while there is no forward cert cell or no band facts were supplied. Never a rank key",
           "title": "By Band"
         },
+        "by_link": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/LeaderboardStratum"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The **forward** stratum cut by whether the docket was tied to another: one LeaderboardStratum per key, aggregated exactly as `forward` is \u2014 the same cells, after the run collapse and both exclusions, with the same skill terms. Keyed off the scored prediction's frozen `context.vide_links`: `linked` where it names at least one `Vide` link (a cross-petition, a companion, or the petition the docket is held for), `unlinked` where it names none, and `(none)` where it froze no list, so the blocks' `evaluations` sum to `forward.evaluations`. Cert stage only, and omitted while there is no forward cert cell or no cell facts were supplied. Descriptive: never a rank key",
+          "title": "By Link"
+        },
         "evaluators": {
           "description": "Distinct evaluators that scored this predictor",
           "minimum": 0,
@@ -725,6 +741,22 @@
           "default": null,
           "description": "The **forward** stratum cut by salience band: one LeaderboardStratum per band, aggregated exactly as `forward` is \u2014 the same cells, after the run collapse and both exclusions, with the same skill terms. Keyed `<salience_version>/<band>` from the scored prediction's frozen `context`, never the corpus's current band, which only strengthens as a petition is relisted or a CVSG lands and so would sort a forecast by its own future. A cell whose context froze no band, or a band with no version, or that carries no band facts at all, files under the single `(none)` key, so the blocks' `evaluations` sum to `forward.evaluations`. Cert stage only \u2014 no other stage is a salience-band product \u2014 and omitted while there is no forward cert cell or no band facts were supplied. Never a rank key",
           "title": "By Band"
+        },
+        "by_link": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "$ref": "#/$defs/LeaderboardStratum"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The **forward** stratum cut by whether the docket was tied to another: one LeaderboardStratum per key, aggregated exactly as `forward` is \u2014 the same cells, after the run collapse and both exclusions, with the same skill terms. Keyed off the scored prediction's frozen `context.vide_links`: `linked` where it names at least one `Vide` link (a cross-petition, a companion, or the petition the docket is held for), `unlinked` where it names none, and `(none)` where it froze no list, so the blocks' `evaluations` sum to `forward.evaluations`. Cert stage only, and omitted while there is no forward cert cell or no cell facts were supplied. Descriptive: never a rank key",
+          "title": "By Link"
         },
         "evaluators": {
           "description": "Distinct evaluators that scored this predictor in this stage",

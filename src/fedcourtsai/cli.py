@@ -277,6 +277,7 @@ from .pipeline import (
     pre_mint,
     qp_topics,
     semantic,
+    vide_links,
     vote_sources,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
@@ -14640,7 +14641,7 @@ def _read_related(
     each companion's snapshot comes from the content store as the cell's own
     did; a link with no index reachable is recorded as such, never dropped.
     """
-    numbers = provision.vide_docket_numbers(payload)
+    numbers = vide_links.vide_docket_numbers(payload)
     if not numbers:
         return ()
     if backend == "casestore":

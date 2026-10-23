@@ -16,14 +16,14 @@ from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.fixture import build_fixture_corpus
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import cell_context
 from fedcourtsai.pipeline.cascade import run_cascade
+from fedcourtsai.pipeline.vide_links import MAX_RELATED_DOCKETS, vide_docket_numbers
 from fedcourtsai.provision import (
-    MAX_RELATED_DOCKETS,
     RelatedRead,
     place_related,
     read_related,
     related_manifest,
-    vide_docket_numbers,
 )
 from fedcourtsai.schemas import EventKind, Moment, Stage
 from tests.conftest import FixtureCorpus
@@ -406,3 +406,22 @@ def test_the_local_cascade_stages_the_companion(
     ]
     staged = json.loads(paths.related_snapshot("24-99").read_text())
     assert _descriptions(staged) == ["Cross-petition filed.", "Petition GRANTED."]
+
+
+def test_the_context_freezes_the_placed_payloads_links() -> None:
+    context = cell_context.build("scotus/305", date(2026, 7, 20), _CELL, "forward")
+    assert context.vide_links == ["24-99", "24-777"]
+    unlinked = {key: value for key, value in _CELL.items() if key != "RelatedCaseNumber"}
+    assert cell_context.build("scotus/305", date(2026, 7, 20), unlinked, "forward").vide_links == []
+    rest = {"id": 305, "docket_number": "24-12", "docket_entries": []}
+    assert cell_context.build("scotus/305", date(2026, 7, 20), rest, "forward").vide_links is None
+
+
+def test_the_provisioned_context_carries_the_links(fixture_corpus: FixtureCorpus) -> None:
+    _seed(fixture_corpus)
+
+    result = _provision("--event", "evt-order-judgment")
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert json.loads(paths.cell_context.read_text())["vide_links"] == ["24-99", "24-777"]

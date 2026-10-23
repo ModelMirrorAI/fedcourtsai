@@ -140,7 +140,10 @@ from .process_version import (
 )
 from .schemas import (
     GRANT_FAMILY_DISPOSITIONS,
+    LINKED_KEY,
     NO_BAND_KEY,
+    NO_LINK_KEY,
+    UNLINKED_KEY,
     BigCaseLeaderboard,
     BoundaryCount,
     CommonRecordEngine,
@@ -396,6 +399,8 @@ class CellFacts:
     #: The scored prediction's harness clock (:func:`fedcourtsai.integrity.cell_clock`)
     #: — what "earliest counted cell" means when a paired event is filed under a band.
     clock: datetime
+    #: The ``by_link`` key: whether the scored prediction froze a ``Vide`` link.
+    link_key: str = NO_LINK_KEY
 
 
 def band_key(context: PredictionContext | None) -> str:
@@ -409,6 +414,19 @@ def band_key(context: PredictionContext | None) -> str:
     if context is None or context.band is None or context.salience_version is None:
         return NO_BAND_KEY
     return f"{context.salience_version}/{context.band}"
+
+
+def link_key(context: PredictionContext | None) -> str:
+    """The ``by_link`` key for a scored prediction's frozen context.
+
+    Read off the frozen ``vide_links``, never the corpus's current links, which
+    the Court can add after the forecast: a link the cell's payload did not
+    carry is not one its forecast could have depended on. A prediction that
+    froze no list files under :data:`fedcourtsai.schemas.NO_LINK_KEY`.
+    """
+    if context is None or context.vide_links is None:
+        return NO_LINK_KEY
+    return LINKED_KEY if context.vide_links else UNLINKED_KEY
 
 
 def _skill_of_means(terms: Sequence[tuple[float, float]]) -> float | None:
@@ -899,6 +917,33 @@ def _by_band(
     for ev in evals:
         fact = facts.get(_evaluation_key(ev))
         groups[fact.band_key if fact is not None else NO_BAND_KEY].append(ev)
+    return {
+        key: stratum
+        for key in sorted(groups)
+        if (stratum := _aggregate(groups[key], skills, facts, vote_scores=vote_scores)) is not None
+    }
+
+
+def _by_link(
+    evals: Sequence[Evaluation],
+    skills: Mapping[EvaluationKey, CellSkill],
+    facts: Mapping[EvaluationKey, CellFacts] | None,
+    *,
+    vote_scores: Mapping[EvaluationKey, float] | None = None,
+) -> dict[str, LeaderboardStratum] | None:
+    """The forward stratum cut by frozen ``Vide`` link, or ``None``.
+
+    The :func:`_by_band` construction over :attr:`CellFacts.link_key`: the same
+    cells and skill terms as the ``forward`` block, a cell with no facts filed
+    under :data:`fedcourtsai.schemas.NO_LINK_KEY` so the blocks' ``evaluations``
+    sum to the stratum's, and ``None`` where no cell carries facts.
+    """
+    if facts is None or not any(_evaluation_key(ev) in facts for ev in evals):
+        return None
+    groups: dict[str, list[Evaluation]] = defaultdict(list)
+    for ev in evals:
+        fact = facts.get(_evaluation_key(ev))
+        groups[fact.link_key if fact is not None else NO_LINK_KEY].append(ev)
     return {
         key: stratum
         for key in sorted(groups)
@@ -1414,6 +1459,7 @@ def cell_facts(cells: Iterable[StratifiedCell], data_root: Path) -> dict[Evaluat
         )
         facts[_evaluation_key(evaluation)] = CellFacts(
             band_key=band_key(scored.context),
+            link_key=link_key(scored.context),
             always_deny_correct=is_correct(always_deny, outcome),
             recomputed_correct=is_correct(scored, outcome),
             grant_family=outcome.actual_disposition in GRANT_FAMILY_DISPOSITIONS,
@@ -1917,6 +1963,7 @@ def _stage_entry(  # noqa: PLR0913 - one argument per per-cell reading the entry
         retrospective=_aggregate(strata[RETROSPECTIVE], skills, facts, vote_scores=vote_scores),
         procedural=_aggregate(strata[PROCEDURAL], skills, facts, vote_scores=vote_scores),
         by_band=_by_band(strata[FORWARD], skills, facts, vote_scores=vote_scores),
+        by_link=_by_link(strata[FORWARD], skills, facts, vote_scores=vote_scores),
     )
 
 
@@ -2169,6 +2216,7 @@ def build_leaderboard(  # noqa: PLR0913 - one keyword per stratify-pass input th
             ),
             procedural=_aggregate(strata[PROCEDURAL], cell_skills, facts, vote_scores=vote_scores),
             by_band=_by_band(strata[FORWARD], cell_skills, facts, vote_scores=vote_scores),
+            by_link=_by_link(strata[FORWARD], cell_skills, facts, vote_scores=vote_scores),
             big_case=(big_case or {}).get((predictor_id, window_label(window))),
         )
 

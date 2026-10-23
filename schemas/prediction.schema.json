@@ -313,6 +313,22 @@
           "default": null,
           "description": "The case's October Term, the leakage guard's key \u2014 the cert Term parsed from a `YY-NNNN` petition number, or the application Term parsed from a `YYAnnn` application number. Both baselines pool Terms strictly before it; which pool is keyed on the stage, not on this field",
           "title": "Term"
+        },
+        "vide_links": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The docket numbers the provisioned payload links as `Vide` in its `RelatedCaseNumber` list \u2014 a cross-petition, a companion, or the petition this one is held for \u2014 normalized, in the Court's order, the docket's own number dropped and the list stopped at the provisioner's staging bound. Read off the payload the cell was placed on, so it names only the links that payload carries; the list is undated, so a `truncated` payload carries the latest one. Empty where the payload carries the live channel's `CaseNumber` and links nothing; null where it carries none, the REST shape, which serves no such list. What a board's `by_link` cut files the cell under",
+          "title": "Vide Links"
         }
       },
       "required": [

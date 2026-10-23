@@ -51,7 +51,10 @@ from fedcourtsai.process_version import (
 )
 from fedcourtsai.schemas import (
     GRANTED_DISPOSITIONS,
+    LINKED_KEY,
     NO_BAND_KEY,
+    NO_LINK_KEY,
+    UNLINKED_KEY,
     BaseRateBucket,
     BigCaseAssessment,
     BigCaseLeaderboard,
@@ -4037,3 +4040,57 @@ def test_the_panel_figures_carry_their_signature_readings(tmp_path: Path) -> Non
     (first,) = agreement["eval-0"].by_signature
     assert first.cases == agreement["eval-0"].events == 3
     assert first.rank_agreement == agreement["eval-0"].rank_agreement
+
+
+def _link_context(links: list[str] | None) -> PredictionContext:
+    return _band_context("high").model_copy(update={"vide_links": links})
+
+
+def test_by_link_files_each_cell_by_its_frozen_links_and_sums_to_forward(
+    tmp_path: Path,
+) -> None:
+    for event_id, links in (
+        ("evt-a", ["24-99"]),
+        ("evt-b", []),
+        ("evt-c", []),
+        ("evt-d", None),
+    ):
+        _write_cell(tmp_path, _evaluation("alpha", event_id=event_id), context=_link_context(links))
+    (entry,) = _banded_board(tmp_path).entries
+    assert entry.forward is not None and entry.by_link is not None
+    assert {key: block.evaluations for key, block in entry.by_link.items()} == {
+        LINKED_KEY: 1,
+        UNLINKED_KEY: 2,
+        NO_LINK_KEY: 1,
+    }
+    assert sum(block.evaluations for block in entry.by_link.values()) == (entry.forward.evaluations)
+
+
+def test_by_link_never_moves_the_ranking(tmp_path: Path) -> None:
+    def board(alpha_links: list[str], beta_links: list[str]) -> Leaderboard:
+        for event_id in ("evt-a", "evt-b"):
+            _write_cell(
+                tmp_path,
+                _evaluation("alpha", event_id=event_id),
+                context=_link_context(alpha_links),
+            )
+            _write_cell(
+                tmp_path,
+                _evaluation("beta", event_id=event_id, correct=0),
+                context=_link_context(beta_links),
+            )
+        return _banded_board(tmp_path)
+
+    first, second = board(["24-9"], []), board([], ["24-9"])
+    assert [e.predictor_id for e in first.entries] == [e.predictor_id for e in second.entries]
+    for a, b in zip(first.entries, second.entries, strict=True):
+        assert a.by_link is not None and b.by_link is not None
+        assert set(a.by_link) != set(b.by_link)
+        assert a.model_copy(update={"by_link": None}) == b.model_copy(update={"by_link": None})
+
+
+def test_a_board_without_facts_carries_no_by_link() -> None:
+    ev = _evaluation("alpha", event_id="evt-a")
+    (entry,) = build_leaderboard([_forward(ev)]).entries
+    assert entry.by_link is None
+    assert "by_link" not in entry.model_dump(mode="json")
