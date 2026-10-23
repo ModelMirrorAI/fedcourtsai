@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/9026000094",
+  "run_id": "20261022T031334Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint"
+  ],
+  "helpful": [
+    "Provisioned full texts of the petition (including appendix opinions) and brief in opposition in record/documents/",
+    "Salience-band reached base rates in metrics/statpack.md",
+    "CourtListener MCP docket-entries endpoint for checking the status of the related Ninth Circuit en banc proceeding in King v. Villegas"
+  ],
+  "gaps": [],
+  "notes": "Provisioned record and documents were complete and clean."
+}

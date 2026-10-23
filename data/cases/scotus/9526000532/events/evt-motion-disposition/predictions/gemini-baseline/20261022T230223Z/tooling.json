@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000532",
+  "run_id": "20261022T230223Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (search, call_endpoint, read_document)"
+  ],
+  "helpful": [
+    "metrics/statpack.md interim docket table for strictly-prior substantive application base rates",
+    "courtlistener MCP recap-documents and read_document for originating D.N.J. and CA3 procedural history when application.txt had empty_text: true",
+    "fedcourts query for comparing recent OT2026 substantive stay dispositions"
+  ],
+  "gaps": [
+    "OCR extraction for scanned application PDFs (application.txt had empty_text: true across 16 pages)"
+  ],
+  "notes": "Because application.txt was a scanned PDF without an extractable text layer (empty_text: true), CourtListener RECAP docket entries and district court opinions from D.N.J. No. 3:19-cr-00821 and CA3 No. 26-2501 were particularly valuable for establishing the underlying procedural posture."
+}

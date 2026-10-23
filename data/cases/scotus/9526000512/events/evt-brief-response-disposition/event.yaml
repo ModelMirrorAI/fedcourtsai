@@ -6,7 +6,7 @@ event_id: evt-brief-response-disposition
 kind: brief
 moment: response-filed
 opened_at: '2026-10-19'
-resolved: false
+resolved: true
 schema_version: '1.0'
 stage: interim
 title: David M. Scanlan, Secretary of State of New Hampshire, et al. v. Coalition

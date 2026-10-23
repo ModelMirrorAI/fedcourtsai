@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000094",
+  "run_id": "20261022T031334Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["statpack.md", "courtlistener search"],
+  "helpful": ["Provisioned petition/BIO text", "sal-v4 reached-rate table"],
+  "gaps": ["Reply brief text not provisioned; distribution_count conflates a pre-response distribution with a real conference"],
+  "notes": "The first distribution preceded a response request, so the count of 2 overstates relist history."
+}

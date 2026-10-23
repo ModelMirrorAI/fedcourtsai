@@ -1,0 +1,11 @@
+# Forecast
+
+The Court will most likely deny certiorari without a separate writing. The record shows one distribution, on October 21, for the November 6, 2026 conference, and no CVSG. My modal path is no further distribution and a denial on the next regular orders list after that conference, approximately November 9. A request for a response would move disposition later, potentially into early 2027; a CVSG would move it substantially further out.
+
+I assign a 23% probability to at least one additional distribution beyond the recorded one. If another distribution occurs, one or two additional distributions are more likely than an extended succession. I assign a 16% probability to a new CVSG before disposition, plausibly after the Court obtains an opposition and reconsiders the petition later in 2026 or early 2027. The petition expressly seeks the Solicitor General's views and describes federal support for manufacturers in related litigation, but neither is itself a Court-issued invitation.
+
+If the Court grants review, it will most likely take the federal-preemption question as applied to Mississippi's restrictions on manufacturer contract-pharmacy policies, rather than purport to decide the validity of every state 340B law. The central issue would be whether the federal program preserves manufacturer discretion against state supplementation, or merely leaves pharmacy distribution available for state regulation. If granted, a ruling for Novartis would most naturally rest on conflict with the federal program's allocation of authority and manufacturer discretion; that is conditional merits context, not a prediction that an opinion will issue.
+
+Conditional on any grant, I put only 10% on disposition in the cert order itself and 90% on plenary proceedings. The provisioned record identifies no intervening controlling decision requiring a GVR, and the distinction between federal administrative power and state regulation is too contested for summary reversal to be the natural route.
+
+Conditional on denial, I assign 7% to any noted dissent or statement respecting denial. My affirmative forecast is a routine denial without an explanation, not an identifiable Justice's separate writing.

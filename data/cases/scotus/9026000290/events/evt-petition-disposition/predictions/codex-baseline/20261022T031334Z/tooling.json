@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000290",
+  "run_id": "20261022T031334Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned record", "committed statpack", "jq", "fedcourts paths", "fedcourts corpus-info (unsuccessful)", "web search/open (no usable response)"],
+  "helpful": ["Frozen band and distribution count", "Readable questions presented and petition", "Exact reached-band denominators in statpack.json"],
+  "gaps": ["Substantive lower-court reasoning absent from the supplied appendix text", "Corpus freshness unavailable through corpus-info on the cell's service backend", "General web attempts returned no usable content"],
+  "notes": "Used a temporary writable uv cache after the default cache was refused. Forecast rests on provisioned evidence and committed prior-Term rates; no case-specific live retrieval was needed."
+}

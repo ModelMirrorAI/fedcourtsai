@@ -1,10 +1,10 @@
 {
-  "cases": 311,
+  "cases": 314,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 277,
+      "cases": 280,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 931,
+  "current_reads": 940,
   "declared_no_view": 20,
   "frozen_process": {
     "digests": [
@@ -8021,7 +8021,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a416.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-brief-response-disposition",
           "reads": [
             {
@@ -8067,11 +8067,11 @@
               "run_id": "20261009T143059Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-21",
           "title": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al."
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -8117,11 +8117,11 @@
               "run_id": "20260929T212928Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-21",
           "title": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al."
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-order-response-requested-disposition",
           "reads": [
             {
@@ -8167,7 +8167,7 @@
               "run_id": "20260929T212928Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-21",
           "title": "Donald J. Trump, President of the United States, et al. v. Alishea Sophia Kingdom, et al."
         }
       ],
@@ -8194,7 +8194,7 @@
       "score_min": 0.6,
       "score_range": 0.25,
       "short_caption": "Trump v. Alishea Sophia Kingdom",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -8657,7 +8657,10 @@
           "side": "not-granted"
         }
       ],
-      "scheduled": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.8,
       "score_min": 0.62,
       "score_range": 0.18,
@@ -19019,173 +19022,6 @@
       "status": "resolved"
     },
     {
-      "asking_declined": null,
-      "asking_party": "Louisiana",
-      "caption": "Louisiana, et al. v. Devon Energy Production Company, L.P.",
-      "caption_event_id": "evt-order-response-requested-disposition",
-      "case_id": "scotus/9526000499",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A real, acknowledged circuit split on whether a post-transmittal federal-officer remand appeal automatically stays state-court proceedings. It recurs in the climate/coastal/opioid removal wave, but it is a procedural federal-courts question rather than a merits blockbuster.",
-          "big_case_score": 0.35,
-          "event_id": "evt-order-response-requested-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261015T142602Z"
-        },
-        {
-          "big_case_rationale": "The automatic-stay question affects federal-officer removal litigation and state judicial authority beyond this coastal-enforcement suit. Those systemic stakes are substantial, but this interim application does not itself determine environmental liability or the merits of removal.",
-          "big_case_score": 0.57,
-          "event_id": "evt-order-response-requested-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261015T142602Z"
-        },
-        {
-          "big_case_rationale": "Involves a circuit split on a recurring jurisdictional issue (federal-officer removal and Griggs automatic stays) with broader federalism implications.",
-          "big_case_score": 0.7,
-          "event_id": "evt-order-response-requested-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261015T142602Z"
-        }
-      ],
-      "docket_id": 9526000499,
-      "docket_number": "26A499",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a499.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-motion-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A recurring procedural question (whether a post-transmittal \u00a71447(d) appeal automatically stays a remand under Griggs) with a real circuit split and federalism stakes across the Louisiana coastal suits, but technical and low-salience outside that litigation.",
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/claude-baseline/20261015T142602Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/claude-baseline/20261015T142602Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.09,
-              "run_id": "20261015T142602Z"
-            },
-            {
-              "big_case_rationale": "The application concerns control of state-court litigation during federal-officer remand appeals, with implications beyond this coastal-restoration suit. Significant federalism and environmental-enforcement stakes, but the immediate relief is procedural rather than a final liability judgment.",
-              "big_case_score": 0.64,
-              "cell_path": "data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/codex-baseline/20261015T142602Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/codex-baseline/20261015T142602Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.27,
-              "run_id": "20261015T142602Z"
-            },
-            {
-              "big_case_rationale": "High-profile federalism issue regarding whether Coinbase/Griggs automatic stays apply to remand orders already transmitted to state courts, involving climate-related litigation against energy companies.",
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/gemini-baseline/20261015T173805Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/gemini-baseline/20261015T173805Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.35,
-              "run_id": "20261015T173805Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Louisiana, et al. v. Devon Energy Production Company, L.P."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-response-requested-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A real, acknowledged circuit split on whether a post-transmittal federal-officer remand appeal automatically stays state-court proceedings. It recurs in the climate/coastal/opioid removal wave, but it is a procedural federal-courts question rather than a merits blockbuster.",
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261015T142602Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261015T142602Z",
-              "confidence": 0.7,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.14,
-              "run_id": "20261015T142602Z"
-            },
-            {
-              "big_case_rationale": "The automatic-stay question affects federal-officer removal litigation and state judicial authority beyond this coastal-enforcement suit. Those systemic stakes are substantial, but this interim application does not itself determine environmental liability or the merits of removal.",
-              "big_case_score": 0.57,
-              "cell_path": "data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261015T142602Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261015T142602Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.28,
-              "run_id": "20261015T142602Z"
-            },
-            {
-              "big_case_rationale": "Involves a circuit split on a recurring jurisdictional issue (federal-officer removal and Griggs automatic stays) with broader federalism implications.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261015T142602Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261015T142602Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.15,
-              "run_id": "20261015T142602Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Louisiana, et al. v. Devon Energy Production Company, L.P."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.54,
-      "moment": "evt-order-response-requested-disposition",
-      "moment_opened_at": "2026-10-14",
-      "n": 3,
-      "other_party": "Devon Energy Production",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "Louisiana gets the relief requested, for now; the case continues in the lower courts.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Louisiana does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.7,
-      "score_min": 0.35,
-      "score_range": 0.35,
-      "short_caption": "Louisiana v. Devon Energy Production",
-      "status": "pending"
-    },
-    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Kevin Isaac Montoya Palacios v. Vernon Liggins, Acting Field Office Director, Baltimore Field Office, United States Immigration and Customs Enforcement, et al.",
@@ -19813,6 +19649,223 @@
       "score_min": 0.35,
       "score_range": 0.3,
       "short_caption": "Eric Alan Isaacson v. Moses",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Scanlan",
+      "caption": "David M. Scanlan, Secretary of State of New Hampshire, et al. v. Coalition for Open Democracy",
+      "caption_event_id": "evt-brief-response-disposition",
+      "case_id": "scotus/9526000512",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A state election-administration stay two weeks before a general election, on student-ID use under a statutory safety valve; real but state-confined stakes, with Purcell-doctrine interest beyond New Hampshire.",
+          "big_case_score": 0.35,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261021T170410Z"
+        },
+        {
+          "big_case_rationale": "Statewide voter-identification rules immediately before a federal general election affect student access to the ballot and the reach of Purcell, but the application concerns a narrow New Hampshire guidance rule rather than a nationwide remedy.",
+          "big_case_score": 0.64,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261021T170410Z"
+        },
+        {
+          "big_case_rationale": "Emergency election-law stay application by New Hampshire's Secretary of State invoking Purcell ahead of the 2026 midterm election, though substantively confined to a narrow executive gloss on a state statutory voter-ID safety valve rather than the underlying voter-ID statute.",
+          "big_case_score": 0.55,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261021T170410Z"
+        }
+      ],
+      "docket_id": 9526000512,
+      "docket_number": "26A512",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a512.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A state election-administration stay two weeks before a general election, on student-ID use under a statutory safety valve; real but state-confined stakes, with Purcell-doctrine interest beyond New Hampshire.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9526000512/events/evt-brief-response-disposition/predictions/claude-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000512/events/evt-brief-response-disposition/predictions/claude-baseline/20261021T170410Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.36,
+              "run_id": "20261021T170410Z"
+            },
+            {
+              "big_case_rationale": "Statewide voter-identification rules immediately before a federal general election affect student access to the ballot and the reach of Purcell, but the application concerns a narrow New Hampshire guidance rule rather than a nationwide remedy.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/9526000512/events/evt-brief-response-disposition/predictions/codex-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000512/events/evt-brief-response-disposition/predictions/codex-baseline/20261021T170410Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.41,
+              "run_id": "20261021T170410Z"
+            },
+            {
+              "big_case_rationale": "Emergency election-law stay application by New Hampshire's Secretary of State invoking Purcell ahead of the 2026 midterm election, though substantively confined to a narrow executive gloss on a state statutory voter-ID safety valve rather than the underlying voter-ID statute.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9526000512/events/evt-brief-response-disposition/predictions/gemini-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000512/events/evt-brief-response-disposition/predictions/gemini-baseline/20261021T170410Z",
+              "confidence": 0.65,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.35,
+              "run_id": "20261021T170410Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "David M. Scanlan, Secretary of State of New Hampshire, et al. v. Coalition for Open Democracy"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "State voter-ID guidance weeks before a general election under Purcell: real election-administration stakes and a live Purcell question, but the injunction is narrow (guidance on considering student IDs as non-dispositive evidence) and turns on state-law interpretation in one state.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9526000512/events/evt-motion-disposition/predictions/claude-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000512/events/evt-motion-disposition/predictions/claude-baseline/20261021T170410Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.33,
+              "run_id": "20261021T170410Z"
+            },
+            {
+              "big_case_rationale": "Statewide voter-identification guidance immediately before a federal general election implicates student voting access and the reach of election-timing restraints, although this application need not settle the underlying constitutional challenge.",
+              "big_case_score": 0.67,
+              "cell_path": "data/cases/scotus/9526000512/events/evt-motion-disposition/predictions/codex-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000512/events/evt-motion-disposition/predictions/codex-baseline/20261021T170410Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.64,
+              "run_id": "20261021T170410Z"
+            },
+            {
+              "big_case_rationale": "Emergency Purcell election-law stay application by New Hampshire state officials regarding student ID voter verification ahead of the November 2026 general election, though narrow in scope because the statute itself (HB 323) was upheld and only an executive guidance sentence on discretionary safety-valve review was enjoined.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9526000512/events/evt-motion-disposition/predictions/gemini-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000512/events/evt-motion-disposition/predictions/gemini-baseline/20261021T170410Z",
+              "confidence": 0.72,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.22,
+              "run_id": "20261021T170410Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "David M. Scanlan, Secretary of State of New Hampshire, et al. v. Coalition for Open Democracy"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-response-requested-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A state voter-ID administration dispute weeks before a general election that tests how far Purcell reaches a narrow, already-complied-with guidance injunction; significant to New Hampshire and to election-stay doctrine, but not a national question.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9526000512/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000512/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261021T170410Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.42,
+              "run_id": "20261021T170410Z"
+            },
+            {
+              "big_case_rationale": "Statewide voter-identification procedures affecting student voters shortly before a general election have substantial practical and constitutional stakes, although the immediate question is temporary relief rather than a nationwide merits ruling.",
+              "big_case_score": 0.59,
+              "cell_path": "data/cases/scotus/9526000512/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000512/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261021T170410Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.7,
+              "run_id": "20261021T170410Z"
+            },
+            {
+              "big_case_rationale": "Emergency pre-election stay application by New Hampshire's Secretary of State and Attorney General challenging a federal district court's October 5 preliminary injunction altering voter-ID verification guidance 29 days before the November 3, 2026 general election, testing the reach of the Purcell principle where a district court enjoins administrative election guidance rather than the underlying statute.",
+              "big_case_score": 0.52,
+              "cell_path": "data/cases/scotus/9526000512/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000512/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261021T170410Z",
+              "confidence": 0.65,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.58,
+              "run_id": "20261021T170410Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "David M. Scanlan, Secretary of State of New Hampshire, et al. v. Coalition for Open Democracy"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5133,
+      "moment": "evt-brief-response-disposition",
+      "moment_opened_at": "2026-10-19",
+      "n": 3,
+      "other_party": "Coalition for Open Democracy",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Scanlan gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Scanlan does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.64,
+      "score_min": 0.35,
+      "score_range": 0.29,
+      "short_caption": "Scanlan v. Coalition for Open Democracy",
       "status": "pending"
     },
     {
@@ -24145,6 +24198,223 @@
       "score_min": 0.3,
       "score_range": 0.34,
       "short_caption": "City of North Las Vegas v. Jones",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Louisiana",
+      "caption": "Louisiana, et al. v. Devon Energy Production Company, L.P.",
+      "caption_event_id": "evt-brief-response-disposition",
+      "case_id": "scotus/9526000499",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Recurring procedural question (whether a \u00a7 1447(d) appeal automatically stays an already-transmitted remand) that matters across the Louisiana coastal-parish suits and federal-officer removal generally, but the application itself is interim relief on a procedural point the Court just declined to review.",
+          "big_case_score": 0.3,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261021T170410Z"
+        },
+        {
+          "big_case_rationale": "A consequential federal-state forum dispute affecting coastal-restoration litigation and federal-officer removal appeals nationally, but this application concerns a temporary procedural stay rather than environmental liability itself.",
+          "big_case_score": 0.58,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261021T170410Z"
+        },
+        {
+          "big_case_rationale": "Recurring procedural split over whether a post-transmittal 28 U.S.C. 1447(d) appeal triggers an automatic Griggs/Coinbase stay of state-court remand proceedings in high-dollar Louisiana coastal-erosion litigation, though interlocutory and procedural in posture.",
+          "big_case_score": 0.35,
+          "event_id": "evt-brief-response-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261021T170410Z"
+        }
+      ],
+      "docket_id": 9526000499,
+      "docket_number": "26A499",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a499.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-response-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Recurring procedural question (whether a \u00a7 1447(d) appeal automatically stays an already-transmitted remand) that matters across the Louisiana coastal-parish suits and federal-officer removal generally, but the application itself is interim relief on a procedural point the Court just declined to review.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-brief-response-disposition/predictions/claude-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-brief-response-disposition/predictions/claude-baseline/20261021T170410Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261021T170410Z"
+            },
+            {
+              "big_case_rationale": "A consequential federal-state forum dispute affecting coastal-restoration litigation and federal-officer removal appeals nationally, but this application concerns a temporary procedural stay rather than environmental liability itself.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-brief-response-disposition/predictions/codex-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-brief-response-disposition/predictions/codex-baseline/20261021T170410Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.06,
+              "run_id": "20261021T170410Z"
+            },
+            {
+              "big_case_rationale": "Recurring procedural split over whether a post-transmittal 28 U.S.C. 1447(d) appeal triggers an automatic Griggs/Coinbase stay of state-court remand proceedings in high-dollar Louisiana coastal-erosion litigation, though interlocutory and procedural in posture.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-brief-response-disposition/predictions/gemini-baseline/20261021T170410Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-brief-response-disposition/predictions/gemini-baseline/20261021T170410Z",
+              "confidence": 0.88,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.03,
+              "run_id": "20261021T170410Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Louisiana, et al. v. Devon Energy Production Company, L.P."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring procedural question (whether a post-transmittal \u00a71447(d) appeal automatically stays a remand under Griggs) with a real circuit split and federalism stakes across the Louisiana coastal suits, but technical and low-salience outside that litigation.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/claude-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/claude-baseline/20261015T142602Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.09,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "The application concerns control of state-court litigation during federal-officer remand appeals, with implications beyond this coastal-restoration suit. Significant federalism and environmental-enforcement stakes, but the immediate relief is procedural rather than a final liability judgment.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/codex-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/codex-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.27,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "High-profile federalism issue regarding whether Coinbase/Griggs automatic stays apply to remand orders already transmitted to state courts, involving climate-related litigation against energy companies.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/gemini-baseline/20261015T173805Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-motion-disposition/predictions/gemini-baseline/20261015T173805Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.35,
+              "run_id": "20261015T173805Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Louisiana, et al. v. Devon Energy Production Company, L.P."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-response-requested-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A real, acknowledged circuit split on whether a post-transmittal federal-officer remand appeal automatically stays state-court proceedings. It recurs in the climate/coastal/opioid removal wave, but it is a procedural federal-courts question rather than a merits blockbuster.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261015T142602Z",
+              "confidence": 0.7,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.14,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "The automatic-stay question affects federal-officer removal litigation and state judicial authority beyond this coastal-enforcement suit. Those systemic stakes are substantial, but this interim application does not itself determine environmental liability or the merits of removal.",
+              "big_case_score": 0.57,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.28,
+              "run_id": "20261015T142602Z"
+            },
+            {
+              "big_case_rationale": "Involves a circuit split on a recurring jurisdictional issue (federal-officer removal and Griggs automatic stays) with broader federalism implications.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000499/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261015T142602Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.15,
+              "run_id": "20261015T142602Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Louisiana, et al. v. Devon Energy Production Company, L.P."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.41,
+      "moment": "evt-brief-response-disposition",
+      "moment_opened_at": "2026-10-21",
+      "n": 3,
+      "other_party": "Devon Energy Production",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Louisiana gets the relief requested, for now; the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Louisiana does not get the relief requested, for now; things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.58,
+      "score_min": 0.3,
+      "score_range": 0.28,
+      "short_caption": "Louisiana v. Devon Energy Production",
       "status": "pending"
     },
     {
@@ -32985,6 +33255,123 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Becker",
+      "caption": "Craig R. Becker v. United States",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000529",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fact-bound evidentiary ruling in a single court-martial murder conviction; no broad doctrinal stakes beyond the parties.",
+          "big_case_score": 0.08,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261021T191329Z"
+        },
+        {
+          "big_case_rationale": "A grave individual criminal case raising the right to present a defense, but the question is a fact-specific application of settled evidentiary principles rather than an identified national rule conflict.",
+          "big_case_score": 0.32,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261021T191329Z"
+        },
+        {
+          "big_case_rationale": "If decided, the case would clarify the application of Chambers/Holmes right-to-present-a-complete-defense principles to Military Rule of Evidence 403 exclusions of state-of-mind hearsay in courts-martial, a narrow evidentiary question of modest national salience beyond the military justice system.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261021T191329Z"
+        }
+      ],
+      "docket_id": 9026000529,
+      "docket_number": "26-529",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-529.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound evidentiary ruling in a single court-martial murder conviction; no broad doctrinal stakes beyond the parties.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261021T191329Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261021T191329Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.02,
+              "run_id": "20261021T191329Z"
+            },
+            {
+              "big_case_rationale": "A grave individual criminal case raising the right to present a defense, but the question is a fact-specific application of settled evidentiary principles rather than an identified national rule conflict.",
+              "big_case_score": 0.32,
+              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261021T191329Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261021T191329Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.02,
+              "run_id": "20261021T191329Z"
+            },
+            {
+              "big_case_rationale": "If decided, the case would clarify the application of Chambers/Holmes right-to-present-a-complete-defense principles to Military Rule of Evidence 403 exclusions of state-of-mind hearsay in courts-martial, a narrow evidentiary question of modest national salience beyond the military justice system.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261021T191329Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000529/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261021T191329Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261021T191329Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Craig R. Becker v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1833,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-21",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Becker's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Becker's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.32,
+      "score_min": 0.08,
+      "score_range": 0.24,
+      "short_caption": "Becker v. United States",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Ricky Darnell Patterson",
       "caption": "Ricky Darnell Patterson v. Michigan",
       "caption_event_id": "evt-petition-disposition",
@@ -36110,7 +36497,10 @@
           "side": "not-granted"
         }
       ],
-      "scheduled": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.2,
       "score_min": 0.03,
       "score_range": 0.17,
@@ -36980,6 +37370,123 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Green",
+      "caption": "John O. Green v. United States",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000531",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A fact-bound question about Section 2255(f)(1) finality in a rare posture (co-defendants filing separate cert petitions on different dates), reached through a COA denial; it would matter to very few litigants.",
+          "big_case_score": 0.04,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261021T211131Z"
+        },
+        {
+          "big_case_rationale": "The finality rule could affect collateral-review access for jointly tried defendants, but the petition concerns a narrow timing configuration, identifies no circuit split, and arises from unpublished rulings.",
+          "big_case_score": 0.18,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261021T211131Z"
+        },
+        {
+          "big_case_rationale": "Routine individual 28 U.S.C. \u00a7 2255 timeliness and COA dispute arising from an unpublished single-judge Fifth Circuit order with narrow procedural stakes and no circuit split.",
+          "big_case_score": 0.08,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261021T211131Z"
+        }
+      ],
+      "docket_id": 9026000531,
+      "docket_number": "26-531",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-531.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A fact-bound question about Section 2255(f)(1) finality in a rare posture (co-defendants filing separate cert petitions on different dates), reached through a COA denial; it would matter to very few litigants.",
+              "big_case_score": 0.04,
+              "cell_path": "data/cases/scotus/9026000531/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261021T211131Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000531/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261021T211131Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.01,
+              "run_id": "20261021T211131Z"
+            },
+            {
+              "big_case_rationale": "The finality rule could affect collateral-review access for jointly tried defendants, but the petition concerns a narrow timing configuration, identifies no circuit split, and arises from unpublished rulings.",
+              "big_case_score": 0.18,
+              "cell_path": "data/cases/scotus/9026000531/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261021T211131Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000531/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261021T211131Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.008,
+              "run_id": "20261021T211131Z"
+            },
+            {
+              "big_case_rationale": "Routine individual 28 U.S.C. \u00a7 2255 timeliness and COA dispute arising from an unpublished single-judge Fifth Circuit order with narrow procedural stakes and no circuit split.",
+              "big_case_score": 0.08,
+              "cell_path": "data/cases/scotus/9026000531/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261021T211131Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000531/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261021T211131Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.01,
+              "run_id": "20261021T211131Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "John O. Green v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-21",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Green's case; a grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Green's petition ends and the lower court's decision stands; that is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.18,
+      "score_min": 0.04,
+      "score_range": 0.14,
+      "short_caption": "Green v. United States",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "John Paul Gomez",
       "caption": "John Paul Gomez v. David Ryan, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -37776,7 +38283,10 @@
           "side": "not-granted"
         }
       ],
-      "scheduled": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.2,
       "score_min": 0.01,
       "score_range": 0.19,
@@ -40377,5 +40887,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.3",
-  "scored_reads": 897
+  "scored_reads": 906
 }

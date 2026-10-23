@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.72,
+    "notes": "Nationwide federal-prison treatment restrictions and interruption of existing care create substantial human and institutional stakes. This application concerns temporary relief pending appellate review, not a final nationwide merits holding."
+  },
+  "brier_score": 0.5184,
+  "brier_skill_score": -58.63473494809687,
+  "case_id": "scotus/9526000416",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.09323583180987204,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.72,
+        "score": -0.5097070796667212
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 1.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.93,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 1,
+        "probability": 0.88,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": -0.5097070796667212,
+    "total": -0.5097070796667212
+  },
+  "correct": 0,
+  "created_at": "2026-10-22T16:04:03.243208Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-order-response-requested-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The captured calls run on September 29, before the October 21 resolution. Corpus results with legible dates reach September 29; case-specific lower-court searches and docket-entry calls carry dates no later than September 22. The reasoning treats the Supreme Court application as pending. No call or prose shows its disposing order. Result capture coverage is 1.0; this is not a guarantee that every result's full contents are recoverable from the staged digest.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20260929T212928Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+    "label": "proc-v10",
+    "pipeline_sha": "e8d8df932e28a45cd52ae25887b584fd8474bc89",
+    "stamped_at": "2026-10-22T16:04:24.260142Z"
+  },
+  "reasoning_quality": 0.73,
+  "run_id": "20261022T154741Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.09323583180987204,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

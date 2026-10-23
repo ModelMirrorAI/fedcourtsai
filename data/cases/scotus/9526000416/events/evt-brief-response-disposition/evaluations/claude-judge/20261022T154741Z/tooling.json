@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000416",
+  "run_id": "20261022T154741Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["The staged retrieval_log.json, whose call classes and retrieved_doc_date made the forward-leakage check quick", "The interim stage rules, which state clearly that the baseline is the harness's"],
+  "gaps": ["The statpack's interim table changed between prediction time and evaluation time, and the evaluator cannot see the prediction-time pack directly. A pointer to the statpack digest each prediction read would help."],
+  "notes": "Interim cell. All three candidates were forward and predicted a grant; the Court denied."
+}
