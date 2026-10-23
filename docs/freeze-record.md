@@ -12968,3 +12968,77 @@ freeze commit is recorded here.
     `prediction.json` lands under `events/evt-brief-sg-disposition/`,
     `events/evt-order-relist-disposition/` or `events/evt-argument-judgment/`
     in that round's collect PR.
+
+- **A predict cell's context freezes its docket's `Vide` links, and the board
+  cuts the forward stratum by them; recorded 2026-10-22.** A
+  **reading-rule** change with a conditioning half, recorded before any
+  outcome the cut reads.
+
+  **Why.** A forecast on a held petition, a cross-petition or a companion
+  case may depend on another docket's course. A held petition's grant-side
+  mass is mostly a hold-then-GVR route. Nothing on the board told those
+  forecasts apart, so a pooled figure could not show whether linked dockets
+  score differently.
+
+  **The conditioning half.** `PredictionContext` gains `vide_links`: the
+  docket numbers the provisioned payload links as `Vide`, read by the same
+  rule that stages them under `record/related/` (own number dropped, at most
+  four, in the Court's order). The value is an empty list where a live-shape
+  payload links nothing, and null where the payload is not the live shape. The
+  cell reads `record/context.json`, so the field joins its information set.
+  It adds nothing the cell could not already read: the same list is in the
+  payload's `RelatedCaseNumber`, and each linked docket the corpus holds is
+  staged under `record/related/`. No prompt text or other digest input changes, so no
+  digest moves.
+  - **The registry row.** The boundary is `context-vide-links`. It applies to
+    every predictor, with reach `all`, and is not gradual: every cell
+    provisioned after the carrying merge freezes the field. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`). Its
+    `merge` and `at` stay null until the promotion merge that carries it to
+    `main` stamps them (`promotion-record`).
+
+  **The reading rule.** Each cert entry's forward stratum, and each later
+  cert moment's stage entry, carries `by_link`. The cut has three keys:
+  - `linked`: the scored prediction's frozen `vide_links` names a docket;
+  - `unlinked`: it names none;
+  - `(none)`: it froze no list. This holds every prediction made before the
+    carrying merge.
+
+  The cut is built as `by_band` is, over the same cells and skill terms, and
+  the blocks' `evaluations` sum to the forward stratum's.
+  - **Descriptive only.** It is never a rank key or a headline. It has no
+    paired filing, so no ordering of engines within a key may be read off it.
+    It carries no set-aside sensitivity line, and `release-sensitivity` does
+    not project it. `linked` is a different population from `unlinked`: its
+    grant-side outcomes run through hold-then-GVR, and the band anchor was not
+    pooled for it, so the two blocks are not a like-for-like comparison.
+  - **Not before its cells exist.** The `linked` and `unlinked` blocks read
+    only cells provisioned after the carrying merge. Until those cells are
+    graded, each entry's whole forward stratum files under `(none)`.
+  - **Expected population.** Measured over the production blob `6701546c…`
+    (the `origin/main` pointer at `6d56d6a9f`): 7 of the 134 open queued live
+    rows link one `Vide` docket each, and 15 of the 372 queued rows overall.
+    The blob's `corpus-info` vintage was not recorded when it was read, so
+    a later blob may count differently. Either way, `linked` stays a small
+    block, and a figure on it may not be read without its `evaluations`.
+
+  **What it moves.** No scored figure: the pooled strata, the ranks, `paired`
+  and every floor field are unchanged. Once cells sit on both sides of the
+  stamped boundary, each pooled entry's and each paired engine's `boundaries`
+  list gains a `context-vide-links` row. That row is composition, not a cut.
+  The `(none)` block of a board built after the merge equals its forward
+  stratum until a post-merge cell is graded.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_related_dockets.py tests/test_leaderboard.py
+    -k "link"` is green;
+  - on the first predict run's collect PR after the carrying merge, `jq -c
+    '.context | has("vide_links")' data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json`
+    prints `true` for every file;
+  - on `main`, `uv run python -c
+    "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('context-vide-links' in {b.name for b in H})"` prints `True` once
+    the promotion record has stamped the row.

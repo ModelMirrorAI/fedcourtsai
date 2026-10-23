@@ -26,7 +26,7 @@ from typing import Any, Literal
 
 from .. import corpus
 from ..schemas import PredictionContext
-from . import arrival_cut
+from . import arrival_cut, vide_links
 from .asof import project_row
 from .salience import SALIENCE_VERSION, salience_band, scorer
 
@@ -141,6 +141,12 @@ def build(
     term = corpus.scotus_term_year(docket_number) if docket_number else None
     if term is None and application:
         term = corpus.scotus_application_term_year(docket_number)
+    # The links the cell's own payload carries, frozen so a board can cut a
+    # forecast by whether its docket was tied to another. The test is the live
+    # channel's `CaseNumber`, not its proceedings: the link list rides beside the
+    # number whether or not a cut emptied the proceedings, and the REST shape,
+    # which carries neither, records the links as unobserved.
+    links = list(vide_links.vide_docket_numbers(payload)) if "CaseNumber" in payload else None
     return PredictionContext(
         mode=mode,
         snapshot_date=snapshot_date,
@@ -158,4 +164,5 @@ def build(
         referred_to_court=projected.row.referred_to_court if application else None,
         amicus_briefs=projected.row.amicus_briefs if application else None,
         term=term,
+        vide_links=links,
     )

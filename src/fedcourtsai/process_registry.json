@@ -468,6 +468,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "context-vide-links",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
     }
   ]
 }
