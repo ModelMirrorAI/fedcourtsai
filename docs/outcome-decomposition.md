@@ -2204,8 +2204,9 @@ reports, so the report cannot be chosen after the grades are read.
 - **Reference labels.** The maintainer grades **10** cert and interim pilot
   documents on the same rubric to start, more as needed, chosen to span the
   scale. The maintainer grades blind to predictor identity and before seeing
-  any judge's grade, and the labels' hash is recorded in the pilot report
-  before the panel's grades are read. For merits, published commentary on
+  any judge's grade, and the labels' hash is recorded before the panel's
+  grades are read; the pilot report carries it and refuses a sheet that no
+  longer matches it. For merits, published commentary on
   decided cases — argument previews and analyses whose quality is roughly
   known — is graded alongside as exemplars, a weaker test since commentary is
   recognisable by its authors. A label is a reference point, not ground truth:
@@ -2259,9 +2260,10 @@ committed evaluations are never edited.
    text, and the content store holds a majority-opinion body for only a sliver
    of the granted cases. Storing each writing's text from the documents the
    `opinion-record` pass already reads is a corpus change on a repair pass.
-2. **The pilot mode.** The schema fields and the draft prompt section exist; the
-   pilot still needs a way to run that section over a named set of resolved
-   cells without committing the result, and a command that computes the
-   report's figures from what it produced.
+2. **The pilot mode.** The schema fields, the draft prompt section, the sample
+   (`fedcourts reasoning-pilot-sample`, which also writes the blind labeling
+   packet) and the report (`fedcourts reasoning-pilot-report`) exist; the pilot
+   still needs a way to run that section over the sampled cells without
+   committing the result.
 3. **The reference labels and the pilot run itself.**
 4. **Registration**, as above.
