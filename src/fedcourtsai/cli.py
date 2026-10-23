@@ -15150,16 +15150,16 @@ def summarize_plan_cmd(
         if found.latest is None:
             return None
         day, payload = found.latest
-        # The argument transcript is a post-argument cell's input alone
-        # (`provision.documents_for_moment`); a summary is written from the
-        # record every predict cell shares.
+        # The argument transcript is a post-argument cell's input alone, and a
+        # withheld kind no cell's (`provision.documents_for_moment`); a summary
+        # is written from the record every predict cell shares.
         return summaries.CaseRecord(
             snapshot=day,
             payload=payload,
             documents=[
                 (doc.kind, doc.text)
                 for doc in found.documents
-                if doc.kind != KIND_ARGUMENT_TRANSCRIPT
+                if doc.kind != KIND_ARGUMENT_TRANSCRIPT and doc.kind not in provision.WITHHELD_KINDS
             ],
         )
 

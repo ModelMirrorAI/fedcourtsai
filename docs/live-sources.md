@@ -467,6 +467,36 @@ the docket form, so one function serves both lanes:
   than a party's is left unfetched rather than guessed at, since no party-word
   anchor can read it. The reply arms read the same two further spellings the
   briefs do ("Reply brief for the petitioner …", a leading "Redacted").
+- **`supplemental-brief`** / **`party-letter`** — **stored, not yet given to any
+  cell** (`provision.WITHHELD_KINDS`; a kind leaves that set in the re-bless
+  whose prompt tells cells about it, since a newly staged kind changes the
+  predictors' information set under an unchanged digest). Every party's **Rule
+  15.8 supplemental brief** ("Supplemental brief of petitioner … filed.",
+  "Second supplemental brief of respondent … filed.", a "letter brief"
+  included), and every party's **letter to the Clerk** that bears on the case —
+  a suggestion of mootness, a settlement, a withdrawal, a notice of an
+  intervening decision or new law, a change of position. Each is one combined
+  row, as the opposition is, of every distinct `Main Document` link in docket
+  order under a per-filing header where there is more than one. Both arms read
+  only the **pending petition** — before the grant and before the first
+  disposition entry — and they are the last two arms of the selector, so no
+  entry an earlier arm takes ever reaches them and they change nothing an
+  existing kind selects. The filer must carry a party word (petitioner,
+  respondent, appellant, appellee): an amicus's supplemental brief is out, and
+  so is a filer named without one ("Supplemental brief of United States
+  filed.", "Letter from the Solicitor General filed."), which the entry alone
+  cannot tell from an amicus. A letter is out when it changes no question before
+  the Court, only when or how it is handled: a waiver (the 14-day distribution
+  period, the right to respond), a request about time, the scheduling of
+  distribution, a consent to amicus filings, a corporate-disclosure, Rule 12.6
+  or Rule 35.3 notice, a letter about a motion or a rehearing petition, the
+  Clerk's own letter and one the Clerk did not accept. **Dated by the latest
+  constituent**, the opposite of the opposition's call: these filings arrive
+  independently across the life of the petition, so the earliest date would
+  admit a later letter — a mootness suggestion, say — to a cell placed before
+  it was written; the latest cannot, at the cost of a cell placed between two
+  constituents reading neither. A constituent whose date does not parse dates
+  the row by its fetch instead.
 
 - **`questions-presented`** — derived from the `petition` text alone, never
   fetched and never derived from an `application`.
@@ -965,7 +995,8 @@ slice, since nothing selects them before a grant, rather than a coverage gap
 docket carries a reply at all); the `appendix`, `cert-reply` and
 `sg-invited-brief` counts are bounded the same way, by the dockets that post a
 separate appendix, carry a cert-stage reply, or were answered after a call for
-the Solicitor General's views; and an empty
+the Solicitor General's views; the `supplemental-brief` and `party-letter`
+counts, stored and not yet staged, by the dockets that carry one; and an empty
 derived questions-presented row is as likely to be a capture the deriver would
 not vouch for. And the command reports the **absent** petition
 beside the empty one, because that is the larger failure and a different

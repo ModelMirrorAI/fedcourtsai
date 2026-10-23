@@ -45,6 +45,8 @@ from .pipeline import arrival_cut, cell_context, cert_signals, interim_signals, 
 from .pipeline.documents import (
     KIND_ARGUMENT_TRANSCRIPT,
     KIND_DESCRIPTIONS,
+    KIND_PARTY_LETTER,
+    KIND_SUPPLEMENTAL_BRIEF,
     OTHER_LIST,
     ScrubbedSnapshot,
     ScrubbedText,
@@ -566,8 +568,24 @@ def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
     return str(raw) if raw else None
 
 
+WITHHELD_KINDS: frozenset[str] = frozenset({KIND_SUPPLEMENTAL_BRIEF, KIND_PARTY_LETTER})
+"""The document kinds the corpus stores and no cell is given, at any moment.
+
+Which kinds a cell reads is part of its information set, and the process digest
+does not see it: a kind staged under an unchanged prompt changes what the
+predictors answer from with nothing in the record to mark the boundary
+(``docs/process-version.md``). So a new kind is fetched and stored first, and
+held here until the re-bless whose prompt tells cells about it; a kind leaves
+this set in that re-bless, never on its own. Read by
+:func:`documents_for_moment`, so every placement honours it, and by the
+case-summary plan, which reads the record every predict cell shares.
+"""
+
+
 def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> list[CaseDocument]:
     """The documents a cell for ``event_id`` may be handed at all, before any date cut.
+
+    No kind in :data:`WITHHELD_KINDS` is handed to any cell.
 
     The argument transcript belongs to the post-argument moment alone. The date
     rule already keeps it from a grant or briefed cell, which are cut before the
@@ -579,7 +597,10 @@ def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> li
     spec = moments.spec_for(event_id)
     argued = spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
     return [
-        document for document in documents if argued or document.kind != KIND_ARGUMENT_TRANSCRIPT
+        document
+        for document in documents
+        if (argued or document.kind != KIND_ARGUMENT_TRANSCRIPT)
+        and document.kind not in WITHHELD_KINDS
     ]
 
 
@@ -612,6 +633,10 @@ def documents_before(documents: Iterable[CaseDocument], cutoff: date) -> list[Ca
     opposition, lead respondent included, dropped from every cell placed between
     the two. Nothing here can cut inside a stored row, so what bounds this
     residual is how narrow the selector's arm for the kind is, not this function.
+    The other combined rows, ``supplemental-brief`` and ``party-letter``, are
+    dated by their *latest* constituent instead, so they carry no such residual
+    — only the opposite cost, a cell placed between two constituents reading
+    neither.
 
     The second is **supersession**. Documents are keyed ``(case_id, kind)``
     and the latest fetch of a kind wins, so a *corrected* filing supersedes the
