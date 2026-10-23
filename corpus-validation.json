@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2153677,
-      "detail": "2153677 rows vs baseline 2153657",
+      "checked": 2153682,
+      "detail": "2153682 rows vs baseline 2153677",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4310615,
+      "checked": 4310650,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2153677,
+      "checked": 2153682,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -34,7 +34,7 @@
     },
     {
       "checked": 3073,
-      "detail": "as of 2026-10-22",
+      "detail": "as of 2026-10-23",
       "failures": 0,
       "name": "snapshot_not_future_dated",
       "passed": true,
@@ -42,15 +42,15 @@
     },
     {
       "checked": 675,
-      "detail": "granted before 2024-10-22 (730 days); 12 resolved by termination (1 abated, 1 grant-vacated, 1 judgment-issued, 9 voluntary-dismissal)",
+      "detail": "granted before 2024-10-23 (730 days); 12 resolved by termination (1 abated, 1 grant-vacated, 1 judgment-issued, 9 voluntary-dismissal)",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 2153677,
-      "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-22); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
+      "checked": 2153682,
+      "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-23); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 34,
       "name": "case_dates_ordered",
       "passed": true,
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4307542,
+      "checked": 4307577,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4310615,
+      "checked": 4310650,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 17452,
+      "checked": 17461,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 168,
+      "checked": 193,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 29038,
+      "checked": 29069,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -134,7 +134,7 @@
       "problems": []
     },
     {
-      "checked": 2794,
+      "checked": 2806,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -142,7 +142,7 @@
       "problems": []
     },
     {
-      "checked": 1192,
+      "checked": 1198,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -182,7 +182,7 @@
       "problems": []
     },
     {
-      "checked": 14104,
+      "checked": 14107,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -198,7 +198,7 @@
       "problems": []
     },
     {
-      "checked": 14104,
+      "checked": 14107,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -206,8 +206,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2153865,
-  "corpus_rows": 2153677,
+  "corpus_events": 2153895,
+  "corpus_rows": 2153682,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
