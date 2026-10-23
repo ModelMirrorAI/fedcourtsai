@@ -12332,8 +12332,7 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `promotion/2026-10-22` (merge commit `<FILL: merge
-  commit>`, merged `<FILL: merge time, UTC>`).
+  Carried to `main` by `promotion/2026-10-22` (merge commit `76323ef6e`, merged `2026-10-22T22:40:22Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_merits_signals.py tests/test_documents.py -k
@@ -12446,8 +12445,7 @@ freeze commit is recorded here.
 
   **The amendment debt.** It is unchanged. This entry adds no new token.
 
-  Carried to `main` by `promotion/2026-10-22` (merge commit `<FILL: merge
-  commit>`, merged `<FILL: merge time, UTC>`).
+  Carried to `main` by `promotion/2026-10-22` (merge commit `76323ef6e`, merged `2026-10-22T22:40:22Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_related_dockets.py` is green;
