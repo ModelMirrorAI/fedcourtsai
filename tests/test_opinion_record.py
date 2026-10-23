@@ -1517,3 +1517,116 @@ def test_a_planned_listing_number_with_a_trailing_newline_is_refused(
     plan_file.write_text(json.dumps(raw))
     with pytest.raises(HandoffRefused, match="malformed listing number"):
         _apply(_corpus, plan_file, max_rows=10)
+
+
+def test_a_re_read_that_counts_other_words_stores_no_text(
+    _corpus: Path, _store: casestore.InMemoryObjectTransport, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Same writings, other counts: the text is not the one the stored rows were counted over."""
+    fetcher = _Fetcher([_listing("1", "25-1")])
+    _build(_corpus, fetcher)
+    with corpus.connect(_corpus) as conn:
+        conn.execute("DELETE FROM opinion_texts")
+        conn.commit()
+    _store.objects.clear()
+
+    def recounted(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
+        reading = _reading(entry, data)
+        dissent = reading.opinions[1].model_copy(update=_texted(51, 0))
+        return reading.model_copy(update={"opinions": [reading.opinions[0], dissent]})
+
+    monkeypatch.setattr(opinion_record, "read_document", recounted)
+    result = _build(_corpus, fetcher)
+    assert (result.rows, result.benches, result.texts) == (0, 0, 1)
+    assert result.reread_conflicts == [
+        "backfill-opinion-record: OT2025 listing row 1: the re-read word counts differ "
+        + "from the stored rows, so its text row(s) record none"
+    ]
+    assert _texts(_corpus)["1"]["object_key"] is None and _store.objects == {}
+
+
+def test_a_document_owing_both_rows_is_read_once_for_both(
+    _corpus: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(opinion_record, "read_document", _seated)
+    _build(_corpus, _Fetcher([_listing("1", "25-1")]))
+    with corpus.connect(_corpus) as conn:
+        conn.execute("DELETE FROM opinion_texts")
+        conn.execute("DELETE FROM opinion_benches")
+        conn.commit()
+    plan_file = _split_plan(_corpus, _Fetcher([_listing("1", "25-1")]), tmp_path)
+    plan = read_handoff(plan_file, opinion_record.OpinionRecordPlan)
+    assert [r.listing_number for r in plan.readings] == ["1"]
+    done = _apply(_corpus, plan_file, max_rows=2)
+    assert (done.rows, done.benches, done.texts) == (0, 1, 1)
+    assert (done.benches_inserted, done.texts_inserted) == (1, 1)
+
+
+def test_a_per_curiam_re_read_as_other_writings_gets_a_null_text_row(
+    _corpus: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def per_curiam(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
+        lead = OpinionEntry(
+            position=1,
+            kind=WritingKind.per_curiam,
+            author=None,
+            header="PER CURIAM.",
+            **_texted(10, 0),
+        )
+        return opinion_record._base(
+            entry,
+            status="read",
+            source_format="slip",
+            lineup="scotus-opinion-headers/1",
+            opinions=[lead],
+        )
+
+    monkeypatch.setattr(opinion_record, "read_document", per_curiam)
+    fetcher = _Fetcher([_listing("1", "25-1")])
+    _build(_corpus, fetcher)
+    with corpus.connect(_corpus) as conn:
+        conn.execute("DELETE FROM opinion_texts")
+        conn.commit()
+
+    def joined(entry: OpinionListing, data: bytes) -> OpinionDocumentReading:
+        reading = per_curiam(entry, data)
+        extra = reading.opinions[0].model_copy(
+            update={"position": 2, "kind": WritingKind.dissent, "author": "Alito"}
+        )
+        return reading.model_copy(update={"opinions": [reading.opinions[0], extra]})
+
+    monkeypatch.setattr(opinion_record, "read_document", joined)
+    result = _build(_corpus, fetcher)
+    assert (result.rows, result.benches, result.texts) == (0, 0, 1)
+    assert len(result.reread_conflicts) == 1
+    assert _texts(_corpus)["1"]["object_key"] is None and _benches(_corpus) == {}
+
+
+def test_a_blob_without_the_text_table_reads_every_record_as_owing_its_text(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "legacy.db"
+    raw = sqlite3.connect(path)
+    raw.execute(
+        "CREATE TABLE opinions (term INTEGER, listing_number TEXT, position INTEGER, kind TEXT)"
+    )
+    raw.execute("INSERT INTO opinions VALUES (2025, '1', 1, 'per-curiam')")
+    raw.commit()
+    raw.close()
+    ro = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        assert opinion_record.texted_documents(ro) == set()
+        assert opinion_record.retext_documents(ro) == {(2025, "1")}
+        assert opinion_record.complete_documents(ro) == set()
+    finally:
+        ro.close()
+
+
+def test_a_planned_text_padded_past_its_words_is_refused(_corpus: Path, tmp_path: Path) -> None:
+    plan_file = _split_plan(_corpus, _Fetcher([_listing("1", "25-1")]), tmp_path)
+    raw = json.loads(plan_file.read_text())
+    opinion = raw["readings"][0]["opinions"][1]
+    opinion["text"] = opinion["text"] + " " + "." * 5000
+    plan_file.write_text(json.dumps(raw))
+    with pytest.raises(HandoffRefused, match="more characters than its words"):
+        _apply(_corpus, plan_file, max_rows=10)

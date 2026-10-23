@@ -27,9 +27,10 @@ Layout (under the configured ``s3://<bucket>/<prefix>``)::
 "what did a cell see?" stays reproducible: document text leaves are
 content-addressed (a superseding brief lands at a *new* key), as are the opinion
 documents' writings, and dated snapshots are naturally immutable per day.
-``case.json`` / ``events.json`` / ``documents.json`` are small mutable manifests overwritten as the case evolves —
-S3 object versioning retains their history, and a consumer pins the exact content
-it read via the recorded object key + digest (:class:`ObjectRef`). The store is
+``case.json`` / ``events.json`` / ``documents.json`` are small mutable manifests
+overwritten as the case evolves — S3 object versioning retains their history, and
+a consumer pins the exact content it read via the recorded object key + digest
+(:class:`ObjectRef`). The store is
 therefore append-friendly: it fits the read-write role's no-delete posture (see
 SECURITY.md) — a mutable manifest is a new *version*, never a delete.
 

@@ -90,9 +90,9 @@ writings go to the content store as one content-addressed object per document
 (:func:`opinion_text`, :func:`casestore.opinion_text_key`), and the corpus
 holds only its pointer, one ``opinion_texts`` row: text is payload, and the
 index stays payload-free. A document recorded before its text row is read once
-more for it, on the bench row's terms: the text is stored only where the
-re-read writings are the stored ones, and a re-read that reads them
-differently gets a null row instead.
+more for it, on the bench row's terms and one more: the text is stored only
+where the re-read writings, and their word counts and headers, are the stored
+ones, and a re-read that reads them differently gets a null row instead.
 
 **Fill-only.** A whole document (:func:`complete_documents`) is never read
 again, so a new :data:`WORD_RULE_VERSION`, :data:`TEXT_RULE_VERSION` or reader
@@ -608,6 +608,10 @@ def split_print(
 # --- reading a document ------------------------------------------------------------
 
 
+#: The most characters a writing's text may carry per counted word: a word and
+#: its spacing run to about six, so a text far above this is not the one the
+#: words were counted over.
+_CHARS_PER_WORD: Final = 20
 #: The longest text a writing's body or footnotes may carry, in characters: the
 #: longest opinions run to some 40,000 words, well under a fifth of this.
 WRITING_TEXT_CAP: Final = 1_000_000
@@ -1018,6 +1022,38 @@ def stored_writings(conn: corpus.ReadConnection) -> dict[tuple[int, str], tuple[
     return {key: tuple(writings) for key, writings in found.items()}
 
 
+_Counts = tuple[int, int, str]
+
+
+def stored_counts(conn: corpus.ReadConnection) -> dict[tuple[int, str], tuple[_Counts, ...]]:
+    """Each recorded document's word counts and headers as stored, in position order.
+
+    A text is stored beside rows only where it is the text those rows were
+    counted over, so the text check compares these as well as the writings.
+    """
+    try:
+        rows = conn.execute(
+            "SELECT term, listing_number, words, footnote_words, header "
+            "FROM opinions ORDER BY term, listing_number, position"
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc):
+            raise
+        return {}
+    found: dict[tuple[int, str], list[_Counts]] = {}
+    for row in rows:
+        found.setdefault(_row_key(int(row[0]), str(row[1])), []).append(
+            (int(row[2]), int(row[3]), str(row[4]))
+        )
+    return {key: tuple(counts) for key, counts in found.items()}
+
+
+def _entry_counts(opinions: Iterable[OpinionEntry]) -> tuple[_Counts, ...]:
+    return tuple(
+        (o.words, o.footnote_words, o.header) for o in sorted(opinions, key=lambda o: o.position)
+    )
+
+
 def case_ids_by_docket(conn: corpus.ReadConnection, dockets: Iterable[str]) -> dict[str, str]:
     """The SCOTUS case id of each docket number, keyed by its normalized form.
 
@@ -1193,15 +1229,18 @@ def _land(
     and the text row it lacks, and fills them only where its writings are the
     stored ones: a bench says who sat for the writings it was read with, and a
     text is those writings' words, so beside rows read differently either
-    would describe a decision the table does not hold. Such a document gets
-    null rows instead — read, but nothing observed for what is stored — which
-    also ends its re-reading, and is reported in ``reread_conflicts``.
+    would describe a decision the table does not hold. A text is held to more:
+    the stored rows' word counts and headers too, since it must be the text
+    they were counted over. Such a document gets null rows instead — read, but
+    nothing observed for what is stored — which also ends its re-reading, and
+    is reported in ``reread_conflicts``.
     """
     ids = case_ids_by_docket(conn, (r.dockets[0] for r in result.readings if r.dockets))
     for reading in result.readings:
         if reading.dockets:
             reading.case_id = ids.get(corpus.normalize_docket_number(reading.dockets[0]) or "")
     stored = stored_writings(conn)
+    counted = stored_counts(conn)
     seated = _seated_documents(conn)
     texted = texted_documents(conn)
     pairs: Pairs = []
@@ -1213,18 +1252,24 @@ def _land(
         if key not in stored:
             pairs.extend((reading, o) for o in reading.opinions)
         same = key not in stored or stored[key] == _entry_writings(reading.opinions)
+        recounts = same and (key not in stored or counted[key] == _entry_counts(reading.opinions))
         owes_bench = _seats(reading) and (key not in stored or key not in seated)
         owes_text = key not in stored or key not in texted
-        if not same and (owes_bench or owes_text):
+        nulled = [
+            *(["bench"] if owes_bench and not same else []),
+            *(["text"] if owes_text and not recounts else []),
+        ]
+        if nulled:
             result.reread_conflicts.append(
                 f"backfill-opinion-record: OT{key[0]} listing row {key[1]}: the re-read "
-                "writings differ from the stored rows, so it records no bench and no text"
+                f"{'writings' if not same else 'word counts'} differ from the stored rows, "
+                f"so its {' and '.join(nulled)} row(s) record none"
             )
         if owes_bench:
             unobserved = {"bench": None, "took_no_part": None}
             benches.append(reading if same else reading.model_copy(update=unobserved))
         if owes_text:
-            texts.append((reading, same))
+            texts.append((reading, recounts))
     result.rows = len(pairs)
     result.benches = len(benches)
     result.texts = len(texts)
@@ -1447,6 +1492,8 @@ def _text_problem(opinion: OpinionEntry) -> str | None:
     body = count_words(_strip_reference_marks(opinion.text))
     if body + opinion.footnote_words != opinion.words:
         return "carries a text the word rule does not count to its words"
+    if len(opinion.text) + len(opinion.footnotes) > _CHARS_PER_WORD * max(opinion.words, 1):
+        return "carries more characters than its words could print"
     return None
 
 

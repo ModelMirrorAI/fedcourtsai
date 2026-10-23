@@ -417,7 +417,8 @@ only its key, digest and size. Written only by
 `fedcourts backfill-opinion-record`, fill-only, after the object is stored, in
 the transaction that inserts the document's other rows, or on a later pass
 for a document recorded without one; that pass stores the text only where
-the re-read writings are the stored ones, and otherwise writes a row whose
+the re-read writings, with their word counts and headers, are the stored
+ones, and otherwise writes a row whose
 pointer is null, which also ends the re-reading. A write with no content
 store addressed stores no text and writes no text row for a document whose
 text it would store, so the document stays owed.
