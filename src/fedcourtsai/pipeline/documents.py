@@ -678,7 +678,20 @@ def _is_party_letter_entry(text: str) -> bool:
 # Authoring constraint for the phrase tuple: word sequences whose only regex
 # constructs are (?:...) groups and escaped literals — the blanket
 # space-to-\s+ rewrite below would corrupt a space inside a character class.
-_QP_START_RE = re.compile(r"QUESTIONS?\s+PRESENTED", re.IGNORECASE)
+# `QUESTION\s?S?`: pypdf can recover a small-caps "QUESTIONS" with the plural's
+# "S" set apart ("QUESTION S PRESENTED"), and the singular and plural headings
+# are otherwise the same rule. A heading's "FOR REVIEW" tail is part of the
+# heading, not the first words of the section.
+_QP_START_RE = re.compile(r"QUESTION\s?S?\s+PRESENTED(?:\s+FOR\s+REVIEW\b)?", re.IGNORECASE)
+# The other wording a petition heads the page with ("Questions to Review",
+# "Question for Review"). Unlike the start rule above, ordinary prose says these
+# words too, so a match opens the section only where it is set as a heading
+# (:func:`_is_heading_match`).
+_QP_REVIEW_HEADING_RE = re.compile(r"QUESTIONS?\s+(?:TO|FOR)\s+REVIEW", re.IGNORECASE)
+# A page folio left alone on the section's last line, the page break the
+# extraction carried in before the next heading ("ii", "1"): a print artifact,
+# never part of a question.
+_QP_TRAILING_FOLIO_RE = re.compile(r"\n[ \t]*(?:[ivx]{1,6}|\d{1,3})[ \t]*\Z", re.IGNORECASE)
 _QP_END_PHRASES = (
     "PARTIES TO THE PROCEEDING",
     "CORPORATE DISCLOSURE",
@@ -3622,19 +3635,53 @@ def extract_questions_presented(petition_text: str) -> str | None:
     text layer. A fragment stored as text reads to every downstream consumer as
     the questions this case presents.
     """
+    return _extract_questions_presented(petition_text)[0]
+
+
+def questions_presented_capped(petition_text: str) -> bool:
+    """Whether the section :func:`extract_questions_presented` returns was cut at the cap.
+
+    True where the section ran on past :data:`_QP_MAX_CHARS` — no end heading
+    within reach, or a terminated section that long — so the stored text ends
+    mid-question and its row is marked ``truncated``.
+    """
+    return _extract_questions_presented(petition_text)[1]
+
+
+def _extract_questions_presented(petition_text: str) -> tuple[str | None, bool]:
+    """The section and whether it was cut at the cap; see :func:`extract_questions_presented`."""
     heading_seen = False
-    for start in _QP_START_RE.finditer(petition_text):
+    for start in _qp_starts(petition_text):
         heading_seen = True
         rest = petition_text[start.end() :]
         end = _qp_section_end(rest)
+        capped = end is None and len(rest) > _QP_MAX_CHARS
         capture = rest[:end] if end is not None else rest[:_QP_MAX_CHARS]
         if _is_toc_capture(capture):
             continue  # a TOC entry, dotted or space-aligned — not the questions body
-        section = capture.strip()
+        section = _QP_TRAILING_FOLIO_RE.sub("", capture.rstrip()).strip()
         if len(section) < _QP_MIN_CHARS:
             continue  # an empty capture or a front-matter crumb
-        return section[:_QP_MAX_CHARS]
-    return "" if heading_seen else None
+        return section[:_QP_MAX_CHARS], capped or len(section) > _QP_MAX_CHARS
+    return ("" if heading_seen else None), False
+
+
+def _qp_starts(petition_text: str) -> list[re.Match[str]]:
+    """Every place a questions-presented section may open, in text order.
+
+    The QUESTION(S) PRESENTED phrase wherever it falls, as the scan has always
+    read it, plus a "Questions to/for Review" heading where it is set as one.
+    An alternative heading overlapping a start already taken is dropped.
+    """
+    starts = list(_QP_START_RE.finditer(petition_text))
+    taken = [(m.start(), m.end()) for m in starts]
+    for match in _QP_REVIEW_HEADING_RE.finditer(petition_text):
+        if not _is_heading_match(petition_text, match):
+            continue
+        if any(a < match.end() and match.start() < b for a, b in taken):
+            continue
+        starts.append(match)
+    return sorted(starts, key=lambda m: m.start())
 
 
 # The ways a selected document produces no stored row. A missing document is an
@@ -4266,8 +4313,10 @@ def _derived_questions_document(
     """The ``questions-presented`` row derived from one stored petition.
 
     Its identity is the petition's — same case, same source URL, same docket
-    entry — because that is what the text was read out of; ``pages`` is 0 and
-    ``truncated`` false because nothing was paged or capped here.
+    entry — because that is what the text was read out of; ``pages`` is 0
+    because nothing was paged here. ``truncated`` is whether the extractor cut
+    the section at its cap (:func:`questions_presented_capped`), so a reader
+    must not take its last question as complete.
     ``ocr_derived`` is the petition's rather than false for the same reason the
     identity is: text cut out of an OCR reading is an OCR reading, and the
     questions presented are exactly where a misread character costs most.
@@ -4279,7 +4328,7 @@ def _derived_questions_document(
         entry_date=petition.entry_date,
         fetched_at=fetched_at,
         pages=0,
-        truncated=False,
+        truncated=bool(questions) and questions_presented_capped(petition.text),
         ocr_derived=petition.ocr_derived,
         text=questions,
     )
@@ -4447,7 +4496,16 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
         # under it) both mean "no questions to store" for an existing row.
         derived = extract_questions_presented(petition.text) or ""
         current = stored.text if stored is not None else ""
+        capped = bool(derived) and questions_presented_capped(petition.text)
         if derived == current:
+            if stored is not None and stored.truncated != capped:
+                # The text stands; only its cap mark was wrong, as on every row
+                # derived before the mark was set. Rewritten under its own reason
+                # so a dry run shows the flag-only rewrites apart.
+                updates.append(stored.model_copy(update={"truncated": capped}))
+                reasons["cap-mark"] += 1
+                changes[case_id] = "cap-mark"
+                return
             unchanged += 1
             return
         if (
@@ -4474,7 +4532,13 @@ def backfill_questions_presented(conn: sqlite3.Connection, *, apply: bool) -> QP
             # makes this an OCR reading too, and a stale marker would present it
             # as an extraction.
             updates.append(
-                stored.model_copy(update={"text": derived, "ocr_derived": petition.ocr_derived})
+                stored.model_copy(
+                    update={
+                        "text": derived,
+                        "ocr_derived": petition.ocr_derived,
+                        "truncated": capped,
+                    }
+                )
             )
             if not derived and len(current) >= _QP_MIN_CHARS:
                 # Reaching here empty-over-floor means the fragment test
