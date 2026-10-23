@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277583",
+  "run_id": "20261023T012839Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md",
+    "courtlistener"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "provisioned merits briefs (merits-brief-petitioner.txt and merits-brief-respondent.txt)",
+    "metrics/statpack.md merits docket table",
+    "provisioned snapshot 2026-08-26.json"
+  ],
+  "gaps": [
+    "Court-appointed amicus curiae brief filed Aug. 25, 2026 was not provisioned in record/documents/"
+  ],
+  "notes": "Provisioned petitioner and respondent merits briefs provided full doctrinal context, including the Solicitor General's brief supporting vacatur."
+}

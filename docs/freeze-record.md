@@ -12689,8 +12689,8 @@ freeze commit is recorded here.
 
 - **`proc-v11`: the predict prompt names the sg-brief, first-relist and
   post-argument moments, which the fan-out now forecasts; recorded
-  2026-10-22.** Carried to `main` by `<FILL: promotion tag>` (merge
-  `<FILL: merge sha>`, `<FILL: merged-at>`), to be tagged
+  2026-10-22.** Carried to `main` by `promotion/2026-10-23` (merge
+  `fd98eda9327806f1a0eed032377e05e480c6c33e`, `2026-10-23T02:37:11Z`), to be tagged
   **`prereg/proc-v11`**. Registered under the merge-stamped rule, so its
   counting instant, its three bless moments and every window edge it moves
   are the carrying merge's committer time. It is the third supersession
@@ -12835,7 +12835,7 @@ freeze commit is recorded here.
   the three newly blessed digests, and `git grep -l '"process_version": {'
   origin/main -- data/cases | wc -l` is **2929** stamped cells. At the
   carrying merge the newly blessed predictor digests stamp
-  <FILL: census predictions digest=d1487fc0,a711152d,c4213d78> committed
+  0 committed
   predictions.
 
   **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
@@ -13027,8 +13027,8 @@ freeze commit is recorded here.
   The `(none)` block of a board built after the merge equals its forward
   stratum until a post-merge cell is graded.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-23` (merge commit
+  `fd98eda9327806f1a0eed032377e05e480c6c33e`, merged `2026-10-23T02:37:11Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_related_dockets.py tests/test_leaderboard.py

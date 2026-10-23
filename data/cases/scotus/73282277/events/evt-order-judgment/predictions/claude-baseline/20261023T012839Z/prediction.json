@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "Whether to overrule Williams v. Florida (1970) and require 12-person juries for serious state felonies: a constitutional criminal-procedure question touching Florida's and other states' jury systems, with dozens of amici and two 13-state coalitions.",
+  "big_case_score": 0.82,
+  "case_id": "scotus/73282277",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.76
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-06-16",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 5,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-06-16",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-23T01:57:37Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-06-16.json",
+  "judgment": "reversed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.76,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+    "label": "proc-v10",
+    "pipeline_sha": "d6d456dd3f5d3ccb34dfdfef2ba8620958d12d10",
+    "stamped_at": "2026-10-23T01:58:08.501118Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds, on the original public meaning of 'trial by an impartial jury' in the Sixth Amendment as incorporated through the Fourteenth (following Ramos v. Louisiana's historical method), that the jury right includes the common-law requirement of twelve jurors, and expressly overrules Williams v. Florida as egregiously wrong and unsupported by reliance interests that stare decisis must protect."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is a categorical rule reaching beyond Kian's case: every state prosecution for a serious (non-petty) offense must be tried to a twelve-person jury, and the Court does not itself decide whether the error here was harmless, leaving harmless-error/structural-error and retroactivity questions to remand or later cases."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

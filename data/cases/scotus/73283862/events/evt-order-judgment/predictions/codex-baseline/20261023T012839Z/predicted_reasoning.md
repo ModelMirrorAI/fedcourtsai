@@ -1,0 +1,11 @@
+# Forecast of the Court's judgment
+
+The Court will **vacate the Eleventh Circuit's order denying a certificate of appealability and remand**, rather than affirm the denial or itself invalidate Berry's conviction. The predicted division is **7–2**: Roberts, Sotomayor, Kagan, Gorsuch, Kavanaugh, Barrett, and Jackson in the majority; Thomas and Alito dissenting. No authorship or separate-writing assignment is forecast.
+
+The majority will reject the proposition that a claim necessarily ceases to be debatable merely because binding precedent forecloses it within the prisoner's home circuit. Where another circuit has squarely accepted the contrary resolution of the same constitutional issue, circuit precedent cannot alone defeat reasonable-jurist debatability. A certificate permits an appeal; it does not overturn precedent or establish entitlement to habeas relief. The majority will distinguish that threshold inquiry from the appellate panel's eventual duty to follow precedent unless it is properly overruled.
+
+The stated rule will govern section 2253(c) generally, including both federal-prisoner and state-prisoner proceedings, rather than being an exception for Berry or for residual-clause litigation. Its breadth will concern the COA standard, not an automatic right to relief whenever a prisoner cites an out-of-circuit decision. Independent procedural obstacles remain separate questions.
+
+The Court will decide the COA question presented without resolving the correctness of the Eleventh Circuit's Beeman burden of proof, whether attempted carjacking qualifies under section 924(c)'s elements clause, or whether Berry ultimately overcomes successive-motion, timeliness, and default obstacles. Those unresolved matters favor a vacatur and remand over an unconditional direction to set aside his conviction.
+
+A DIG is a live minority possibility because the government identifies alternative barriers to relief, but the Court will leave their preservation and effect for further proceedings. No recusal appears in the provisioned record, so an equally divided affirmance is not the expected exit. Expect a plenary judgment during the 2026 October Term, most likely by June 2027; that timing is a forecast, not a docketed argument date.

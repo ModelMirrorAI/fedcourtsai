@@ -1,0 +1,27 @@
+# Rationale for the probability
+
+## Information set
+
+This is a **forward, merits-stage, grant-moment** prediction. I read the provisioned `2026-04-21.json` snapshot and `context.json`, with a date cutoff of April 21, 2026. The snapshot ends with the April 20 limited grant asking whether Stinson still correctly states the deference rule for Guidelines commentary. I condition on that grant, not on the broader three-question petition. The frozen high cert-salience band and seven distributions are not judgment predictors or the baseline for this cell.
+
+The document manifest lists usable, untruncated petition, opposition, and appendix text, plus the questions-presented extract. I read the questions, the petition's Stinson discussion and magazine argument (printed pages 15–21), the government's response on that issue (printed pages 8–12), and the Fifth Circuit opinion in Appendix A. **No merits briefs or argument transcript were provisioned or consulted.** The petition and opposition, not later advocacy, supply the parties' positions used here. I did not use the snapshot's undated attorney and other-party roster as evidence of later proceedings.
+
+No disposition of this case or subsequent history was sought or encountered, and I do not have a known outcome for this case. General-precedent retrieval was unsuccessful: web calls returned no usable content and a CourtListener lookup for Kisor was throttled. I therefore relied on the provisioned descriptions of Stinson and Kisor, together with general legal knowledge, rather than claiming to have independently checked an additional opinion.
+
+## Anchor and adjustment
+
+The grant date places this case in **grant Term 2025**. The committed `metrics/statpack.md` merits section publishes the required excluded counts. Within the prescribed ten-Term window, 2015–2024, its available rows are 2017–2024; it supplies no additional rows for 2015–2016. Pooling the available strictly-prior rows gives **360 disturbed judgments / 516 parsed judgments = 69.77%**, with **516 parsed / 539 granted = 95.73% coverage**. This clears the 30-judgment floor. Excluded cert-order dispositions are outside those granted counts, not an additional nested denominator. The 2025 row and the all-Term aggregate do not enter my anchor.
+
+Those are figures from the committed pack, not a fresh live-corpus estimate. I did not pull a corpus blob or obtain a corpus-wide pull/snapshot vintage, and the pack does not state a build timestamp at its heading; no claim of current corpus completeness is intended. Even the prior-Term coverage gap mixes pendency and parsing gaps, so this is an anchor for the parsed slice rather than a universal reversal rate.
+
+I raise P(disturbed) from that approximately 0.70 anchor to **0.78**. The grant's wording directly puts the continuing validity of Stinson's rule at issue. The lower court treated the commentary objection as foreclosed by circuit precedent rather than deciding the guideline afresh. A decision rejecting the governing deference rule therefore has a straightforward vacate-and-remand implementation. The general movement toward independent judicial interpretation supports that possibility, although it does not itself determine how a judicial-branch commission's commentary must be treated.
+
+The strongest downward adjustment is the government's concrete same-result argument. Its opposition, pages 11–12, identifies decisions applying Kisor that nevertheless found this exact magazine language genuinely ambiguous and deferred to the commentary. Thus merely importing Kisor's ambiguity prerequisite need not change Beaird's sentencing range. Nor does rejecting binding deference establish that the commentary's interpretation is unpersuasive. Stinson's precedent value, the Commission's distinctive institutional role, and the guideline's continuing advisory status also give an affirmance substantial room. The petition's assertion that ordinary commercial magazines cannot be large-capacity magazines is advocacy, not an established textual conclusion.
+
+My central forecast nevertheless goes beyond a Kisor-only adjustment: independent interpretation with persuasive commentary, followed by remand. An illustrative allocation is vacated 0.57, reversed 0.18, mixed affirmed-in-part/reversed-in-part 0.03, affirmed 0.18, DIG 0.035, and equally divided affirmance 0.005. The first three sum to the reported **0.78** disturbed probability. This makes vacatur the modal judgment without confusing the probability of that exact label with the broader scored binary.
+
+## Votes, breadth, and stakes
+
+The six-to-three lineup prices a broad rejection of binding deference, not just agreement that courts should examine ambiguity first. The votes are less secure than the disturbed probability: the criminal-sentencing setting could attract cross-ideological agreement, and a narrower Kisor-based disposition could produce a larger coalition. No authorship or writing roles are asserted.
+
+The semantic forecast deliberately commits to the broader, falsifiable proposition that commentary is persuasive only, including for ambiguous guidelines, and to a Guidelines-wide rule rather than a firearm-specific exception. A decision preserving Kisor-style controlling deference would contradict the first proposition even if it vacated the judgment. Stakes are **0.72** because the rule affects recurring federal sentencing calculations nationwide. The limited grant does not make this a case deciding the constitutionality of the federal felon-in-possession prohibition.

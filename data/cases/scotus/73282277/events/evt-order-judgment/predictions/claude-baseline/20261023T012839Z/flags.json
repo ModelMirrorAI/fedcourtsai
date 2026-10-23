@@ -1,0 +1,25 @@
+{
+  "actor_id": "claude-baseline",
+  "case_id": "scotus/73282277",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-judgment",
+      "message": "Snapshot 2026-06-16.json is date-cut at the grant (ProceedingsandOrder ends 2026-06-15), but its attorney roster ('Other') still lists 28 amicus filers, the United States among them, who apparently filed merits-stage briefs after the cutoff. The date cut seems to cover the proceedings but not the party/attorney lists, so a grant-moment cell can see post-cutoff names. The roster shows names only, not sides, and was not used in the forecast. Forward cell, so there is no leakage breach, but the shared grant-moment baseline is not as narrow as the moment declares.",
+      "normalised": false,
+      "severity": "info",
+      "source": "agent"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-order-judgment",
+      "message": "Harness check: this cell's logged tool calls named a committed predictions/ or evaluations/ path other than this cell's own run directory (another predictor's output, an earlier run, or a glob over them): 2 call(s), e.g. 'predictions/claude-baseline/*', 'predictions/*/*'. Read from retrieval_log.json, which records that a call named the path, not what it returned; check the transcript before treating it as a read.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0"
+}

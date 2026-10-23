@@ -1,0 +1,21 @@
+# Retrieval Log
+
+- **Cell Mode**: `forward` (`cutoff: 2026-09-29`, `snapshot_date: 2026-09-29`, `snapshot_provenance: truncated`)
+- **Provisioned Inputs Read**:
+  - `data/cases/scotus/73282277/events/evt-brief-judgment/event.yaml`
+  - `data/cases/scotus/73282277/record/context.json`
+  - `data/cases/scotus/73282277/record/snapshots/2026-09-29.json`
+  - `data/cases/scotus/73282277/record/documents/documents.json`
+  - `data/cases/scotus/73282277/record/documents/questions-presented.txt`
+  - `data/cases/scotus/73282277/record/documents/appendix.txt`
+  - `data/cases/scotus/73282277/record/documents/merits-brief-petitioner.txt`
+  - `data/cases/scotus/73282277/record/documents/merits-brief-respondent.txt`
+  - `metrics/statpack.md`
+- **Corpus Queries**:
+  - `uv run fedcourts query --court scotus --docket-number 25-166 --include-open`
+    - `ranged corpus reads: 5 GET(s), 1310720 byte(s)`
+    - Retrieved `scotus/73274854` (*Jose Joya Parada et al. v. United States*, No. 25-166, cert. denied `2026-01-12`), confirming that the Court denied the companion 11-juror Fed. R. Crim. P. 23(b)(3) petition before granting *Kian v. Florida*.
+  - `uv run fedcourts query --court scotus --docket-number 24-7489 --include-open`
+    - `ranged corpus reads: 594 GET(s), 155713536 byte(s)`
+    - Retrieved `scotus/72486976` (No. 24-7489, *Minor v. Florida*, originating from `fladistctapp4`).
+- **External Searches**: None required; the provisioned merits briefs and appendix thoroughly set out the record, historical authorities, and precedential arguments.

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000328",
+  "run_id": "20261023T012839Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot and document text", "committed statpack", "fedcourts paths", "fedcourts query", "CourtListener MCP search", "web search", "fedcourts validate"],
+  "helpful": ["Frozen conditioning context", "Lower-court opinion in provisioned appendix", "Prior-Term reached-band base rates", "Provisioned related-docket snapshot"],
+  "gaps": ["CourtListener MCP was throttled with HTTP 429", "Corpus reporter-citation lookup had sparse coverage and returned no prior", "General web-search tool returned no results"],
+  "notes": "External retrieval supplied no substantive evidence; the forecast uses the provisioned record and committed statpack. A temporary-directory uv cache allowed CLI execution without writes outside the permitted workspace and temporary directory."
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73281102",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-judgment",
+      "message": "The grant-moment snapshot's proceedings end with the June 1, 2026 grant, but its non-proceedings attorney roster includes a court-appointed amicus and other merits-style amici without appearance dates. The roster may reflect updates after the proceedings cutoff. I disregarded it as evidence of later participation or adversarial alignment and used only the dated grant-stage record. No outcome information was encountered.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0"
+}

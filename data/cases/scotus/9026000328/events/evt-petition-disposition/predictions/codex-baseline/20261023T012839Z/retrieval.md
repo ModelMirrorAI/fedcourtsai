@@ -1,0 +1,9 @@
+# Retrieval record
+
+- Read the committed `metrics/statpack.md`, including the modern-cert, paid-segment relist and CVSG cuts and the `sal-v4` per-Term band table. Computed the approximate pooled prior-Term baseline reached rate from the printed 2017–2025 rows. Also inspected `metrics/statpack.json` top-level keys and its coverage metadata; these supplied no additional outcome evidence or corpus freshness date.
+- General web search queries: `site.supremecourt.gov Rule 10 certiorari state court federal question conflict court of appeals` and `site.loc.gov Cox Broadcasting Cohn 420 U.S. 469 finality 1975`. The web tool response contained no results. Neither query named the target case; no target-case outcome was surfaced.
+- CourtListener MCP `search`: `type=o`, `citation=420 U.S. 469`, `num_results=1`, fields `caseName`, `citation`, `dateFiled`, `absolute_url`, `opinions`. Returned HTTP 429, with an indicated wait of 1831 seconds; no opinion or metadata was retrieved. No direct REST fallback attempted.
+- Corpus fallback command: `UV_CACHE_DIR=/tmp/uv-cache uv run fedcourts query --court scotus --citation '420 U.S. 469' --decided-before 2026 --limit 1`. No matching prior returned. Transfer report: `ranged corpus reads: 10 GET(s), 2621440 byte(s)`. The command warned that only 200 in-scope SCOTUS rows carried any reporter citation and that an empty result was likely a coverage limitation. No repeat sparse-filter query or full-text hydration attempted.
+- Operational commands included `fedcourts paths`, `fedcourts query --help`, schema inspection, and validation. The default uv cache path was read-only; using `UV_CACHE_DIR=/tmp/uv-cache` resolved that local execution issue.
+
+The provisioned target snapshot, context, filed-document excerpts, and related-docket files are baseline inputs rather than external retrieval. No target-case outcome, subsequent history, other predictor output, or labeling-measurement artifact was read.
