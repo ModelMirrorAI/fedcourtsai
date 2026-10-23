@@ -165,6 +165,16 @@ class _JusticeTally:
     unattributed: _Tally = field(default_factory=_Tally)
 
 
+_AMICUS_SIDES: dict[tuple[bool, ArgumentAlignment], ArgumentSide] = {
+    (True, "petitioner"): "united-states-supporting-petitioner",
+    (True, "respondent"): "united-states-supporting-respondent",
+    (True, "neither"): "united-states-supporting-neither",
+    (False, "petitioner"): "amicus-supporting-petitioner",
+    (False, "respondent"): "amicus-supporting-respondent",
+    (False, "neither"): "amicus-supporting-neither",
+}
+
+
 def _side(role: ArgumentRole | None, supports: ArgumentAlignment | None) -> ArgumentSide | None:
     if role == "petitioner":
         return "petitioner"
@@ -172,22 +182,7 @@ def _side(role: ArgumentRole | None, supports: ArgumentAlignment | None) -> Argu
         return "respondent"
     if role is None or supports is None:
         return None
-    prefix = "united-states" if role == "united-states-amicus" else "amicus"
-    side: ArgumentSide
-    match (prefix, supports):
-        case ("united-states", "petitioner"):
-            side = "united-states-supporting-petitioner"
-        case ("united-states", "respondent"):
-            side = "united-states-supporting-respondent"
-        case ("united-states", _):
-            side = "united-states-supporting-neither"
-        case (_, "petitioner"):
-            side = "amicus-supporting-petitioner"
-        case (_, "respondent"):
-            side = "amicus-supporting-respondent"
-        case _:
-            side = "amicus-supporting-neither"
-    return side
+    return _AMICUS_SIDES[(role == "united-states-amicus", supports)]
 
 
 def _supports(text: str) -> ArgumentAlignment | None:
