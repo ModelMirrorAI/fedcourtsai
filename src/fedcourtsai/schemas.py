@@ -1077,6 +1077,188 @@ class StagedOpinion(_Strict):
     )
 
 
+#: Which side an argument segment's advocate stood for, as its header names it:
+#: a party (``petitioner``, an appellant read as one; ``respondent``, an appellee
+#: read as one), or an amicus — the United States or any other — keyed with the
+#: party it supported. ``*-supporting-neither`` is a header that supported
+#: vacatur or neither party; an amicus header naming no support has no side.
+ArgumentSide = Literal[
+    "petitioner",
+    "respondent",
+    "united-states-supporting-petitioner",
+    "united-states-supporting-respondent",
+    "united-states-supporting-neither",
+    "amicus-supporting-petitioner",
+    "amicus-supporting-respondent",
+    "amicus-supporting-neither",
+]
+
+#: Whom an argument segment's advocate appeared for: a party (an appellant read
+#: as petitioner, an appellee as respondent), the United States as amicus
+#: curiae, or another amicus, court-appointed ones included.
+ArgumentRole = Literal["petitioner", "respondent", "united-states-amicus", "amicus"]
+
+#: Which party's position a segment argued for, whatever its advocate's role:
+#: a respondent's counsel "in support of the petitioner" argues the petitioner's
+#: position, and a court-appointed amicus "in support of the judgment below"
+#: argues the respondent's.
+ArgumentAlignment = Literal["petitioner", "respondent", "neither"]
+
+
+class ArgumentTurnCount(_Strict):
+    """Turns and words, one count pair of :class:`ArgumentFeatures`."""
+
+    turns: int = Field(ge=0, description="Speaker turns: one per printed speaker label")
+    words: int = Field(
+        ge=0,
+        description="Words spoken in those turns: whitespace-separated tokens carrying a "
+        "letter or digit, the speaker label and the reporter's parentheticals excluded",
+    )
+
+
+class ArgumentSegment(_Strict):
+    """One advocate's argument or rebuttal, as its header in the transcript names it."""
+
+    index: int = Field(ge=0, description="Position in the argument, from 0")
+    kind: Literal["argument", "rebuttal"] = Field(
+        description="'rebuttal' for a 'REBUTTAL ARGUMENT OF' header, else 'argument'"
+    )
+    header: str = Field(
+        description="The header as printed, its lines joined by single spaces: the "
+        "text the side was read from"
+    )
+    role: ArgumentRole | None = Field(
+        description="Whom the advocate appeared for: a party (an appellant read as "
+        "petitioner, an appellee as respondent), the United States as amicus curiae, "
+        "or another amicus. Null where the header names none"
+    )
+    supports: ArgumentAlignment | None = Field(
+        description="The position the header says the advocate supported ('supporting "
+        "the petitioner', 'in support of the judgment below', 'supporting vacatur'); a "
+        "party header naming none supports its own party. Null for an amicus header "
+        "naming no support, and wherever role is null; a rebuttal whose header names no "
+        "side is read as the petitioner's, so its role is never null"
+    )
+    side: ArgumentSide | None = Field(
+        description="The key this segment's Justice turns are counted under: the role, "
+        "and for an amicus the position it supported. Null where either is unread, and "
+        "the segment's Justice turns are then counted unattributed"
+    )
+    case_number: str | None = Field(
+        description="The docket number an 'IN CASE <number>' header names, which is how "
+        "a consolidated argument marks whose counsel is speaking. Null otherwise"
+    )
+    justice: ArgumentTurnCount = Field(
+        description="Turns and words of every Justice in the segment, resolved or not"
+    )
+    advocate: ArgumentTurnCount = Field(
+        description="Turns and words of the advocate the header names: a label whose "
+        "surname appears in the header"
+    )
+    other_turns: int = Field(
+        ge=0,
+        description="Turns of any other speaker label: counsel the header does not name",
+    )
+
+
+class JusticeArgumentFeatures(_Strict):
+    """One Justice's questioning, split by the side of the segment each turn fell in."""
+
+    justice: str = Field(description="The roster surname the label resolved to, e.g. 'Kagan'")
+    total: ArgumentTurnCount = Field(
+        description="Every attributed turn: the sum over by_side, and over by_alignment"
+    )
+    by_side: dict[ArgumentSide, ArgumentTurnCount] = Field(
+        description="Attributed turns by segment side; a side the Justice never spoke in is absent"
+    )
+    by_alignment: dict[ArgumentAlignment, ArgumentTurnCount] = Field(
+        description="The same turns by the position the segment argued for"
+    )
+    unattributed: ArgumentTurnCount = Field(
+        description="Turns in segments whose side is unread. Never folded into a side"
+    )
+
+
+class ArgumentParseCoverage(_Strict):
+    """How much of a transcript :class:`ArgumentFeatures` attributed, and how much not.
+
+    Every Justice turn lands in exactly one of the four counts below
+    ``justice_turns``, checked on construction: the parse states what it could
+    not read rather than spreading it over the sides.
+    """
+
+    segments: int = Field(ge=0, description="Argument and rebuttal headers read")
+    segments_attributed: int = Field(ge=0, description="Segments with a side")
+    segments_unattributed: int = Field(ge=0, description="Segments whose side is null")
+    justice_turns: int = Field(ge=0, description="Every Justice-labelled turn in the text")
+    justice_turns_attributed: int = Field(
+        ge=0, description="Turns of a resolved Justice in a segment with a side"
+    )
+    justice_turns_outside_segments: int = Field(
+        ge=0,
+        description="Turns before the first segment header: the Chief Justice calling "
+        "the case, or every turn of a text where no header was read",
+    )
+    justice_turns_unresolved: int = Field(
+        ge=0,
+        description="Turns inside a segment under a Justice label whose surname the "
+        "roster does not carry (a misprint, or a Justice outside the roster)",
+    )
+    justice_turns_unattributed_segment: int = Field(
+        ge=0, description="Turns of a resolved Justice in a segment whose side is null"
+    )
+    unresolved_labels: list[str] = Field(
+        description="The distinct Justice labels the roster did not resolve, as printed"
+    )
+    closing_line: bool = Field(
+        description="Whether the reporter's closing '(Whereupon … submitted.)' line was "
+        "found. Without it the parse ran to the end of the text, which may then end "
+        "inside the argument (a head-cut row) or run on into the word index"
+    )
+    notes: list[str] = Field(description="One line for each segment or read worth a reader's eye")
+
+    @model_validator(mode="after")
+    def _partitions(self) -> ArgumentParseCoverage:
+        if self.segments_attributed + self.segments_unattributed != self.segments:
+            raise ValueError("segments_attributed + segments_unattributed != segments")
+        parts = (
+            self.justice_turns_attributed
+            + self.justice_turns_outside_segments
+            + self.justice_turns_unresolved
+            + self.justice_turns_unattributed_segment
+        )
+        if parts != self.justice_turns:
+            raise ValueError("the four justice-turn counts do not sum to justice_turns")
+        return self
+
+
+class ArgumentFeatures(_Strict):
+    """Per-Justice questioning by side, read from one cleaned argument transcript.
+
+    Computed by :func:`fedcourtsai.pipeline.argument_features.parse_argument_features`
+    from the text :func:`fedcourtsai.pipeline.documents.extract_transcript_text`
+    stores, deterministically and with no model in the loop, so every predictor
+    that is given it reads the same count. ``assignment`` states the reading that
+    turns a speaker label into a side.
+    """
+
+    parser_version: Literal["1"] = Field(
+        description="The parse rules' version; a change to what a given text yields moves it"
+    )
+    assignment: str = Field(description="How a speaker turn was assigned to a side, in one line")
+    segments: list[ArgumentSegment] = Field(description="Every segment, in argument order")
+    justices: list[JusticeArgumentFeatures] = Field(
+        description="One row per resolved Justice who spoke, by surname"
+    )
+    side_totals: dict[ArgumentSide, ArgumentTurnCount] = Field(
+        description="Every resolved Justice's attributed turns, summed by segment side"
+    )
+    alignment_totals: dict[ArgumentAlignment, ArgumentTurnCount] = Field(
+        description="The same turns summed by the position the segment argued for"
+    )
+    coverage: ArgumentParseCoverage = Field(description="What was and was not attributed")
+
+
 class ClaimProbability(_Strict):
     """One declared claim's stated probability, inside ``Prediction.claims``.
 
