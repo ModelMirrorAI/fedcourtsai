@@ -963,9 +963,9 @@ jobs:
       # with `git restore .`, `git checkout -- .` or `git reset --hard` cannot
       # write them back — a plain deletion shows as a change, which an agent
       # may restore. Deliberate access through git history (`git show`)
-      # stays possible: the predict prompt forbids reading data/qp-topics but
-      # states no read rule for the committed cell trees, so a deliberate read
-      # of those is recorded by the logged-tool-call audit alone. The bits are
+      # stays possible: the predict prompt forbids reading data/qp-topics and
+      # the committed cell trees, and a deliberate read of either is recorded
+      # by the logged-tool-call audit. The bits are
       # never cleared: the runner is discarded, and nothing after the agent
       # reads git's view of the tree.
       # Neither the deletion nor the move can propagate to the run PR: the

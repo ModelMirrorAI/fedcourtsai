@@ -228,7 +228,8 @@ absent optional field as null.
     "response_requested": null,
     "referred_to_court": null,
     "amicus_briefs": null,
-    "term": 2025
+    "term": 2025,
+    "vide_links": []
   },
   "process_version": {
     "label": "proc-v8",
@@ -762,8 +763,8 @@ directory without knowing which part is which invites trusting the wrong half.
   cutoff** (`cut_kind`, with `cut_anchor_index` beside it), and the
   conditioning state frozen at provisioning: the
   salience band, the distribution count and CVSG date as at that cutoff (as at
-  the snapshot where there is none), the Term, and — on an application cell only
-  — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
+  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), and — on an
+  application cell only — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would
   condition a forecast's baseline on its own future — and the `mode` is a

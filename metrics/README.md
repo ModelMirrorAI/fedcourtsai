@@ -970,6 +970,29 @@ stays outside the gate:
   and no unpaired event, so each engine's own per-band figures and its paired
   ones are the same numbers.
 
+  The same forward stratum is also cut **by link**: `by_link` files each cell
+  under `linked` where the scored prediction's frozen `context.vide_links`
+  names at least one docket the Court links as `Vide` (a cross-petition, a
+  companion, or the petition the docket is held for), `unlinked` where it
+  names none, and `(none)` where the prediction froze no list. It is built
+  exactly as `by_band` is, over the same cells and skill terms, so the blocks'
+  `evaluations` sum to the forward stratum's, and it appears on each entry,
+  each `by_protocol` entry and each cert stage entry — never in `paired`. The key is the link list the cell's payload carried, never the
+  corpus's current one, so a link the Court added after the forecast does not
+  move it. A forecast on a linked docket may be derivative of the other
+  docket's course, which is why it is shown apart. But the cut is
+  **descriptive**. `linked` is a different population: a held petition's
+  grant-side mass is mostly a hold-then-GVR route, and the band anchor its
+  skill terms are scored against was pooled over the band as a whole, not for
+  linked dockets. The cut also pools across bands. So `linked` against
+  `unlinked` is not a like-for-like comparison of forecast quality. The
+  `linked` block is small (about one open queued docket in twenty links
+  another), and no figure on it is read without its `evaluations`. Each block
+  spans one engine's own events, with no pairing, so no ordering of engines
+  within a key is read off it. It is never a rank key, and `release-sensitivity`
+  does not project it. Predictions made before the context carried the list file under
+  `(none)`.
+
   Each engine in `paired` carries its aggregate over its qualifying gradings on
   the paired events, the windows those gradings come from with their `n` in
   gradings, and its `unpaired_events`. An event whose cells come from a closed window and the
@@ -1590,10 +1613,10 @@ predictor, stratum) a set-aside moved, the **pooled entry's** figure
 recomputed by the same code with the set-aside gradings counted — on the
 leaderboard the pooled entry's stratum (and, where a ranked-board cell was set
 aside, the paired figure the ranks are read off), on `claim-scores.json` the
-cert-stage claim stratum. The `by_protocol` and `by_band` cuts are
+cert-stage claim stratum. The `by_protocol`, `by_band` and `by_link` cuts are
 default-only, and so are `claim-scores.json`'s judge-agreement pairs
 (`forward_agreement`): none carries a sensitivity line, so a per-window,
-per-band or judge-agreement figure is read without the set-aside cells. The default is
+per-band, per-link or judge-agreement figure is read without the set-aside cells. The default is
 the headline; a sensitivity line is a disclosure, never a rank key, and never
 stacked with another departure. Each reason is a dated freeze-record entry.
 Three cell-grain reasons exist, and one claim-grain reason (below):
@@ -2342,8 +2365,8 @@ the rendered table) and
   declared moment carries the same `dated`/`truncated` split, so no forward
   figure over placed cells may be published without those counts stated inline.
   The split is not cosmetic on either axis. It is **selected**: `dated` needs a
-  pull that landed on the trigger day — and, on the `cvsg`,
-  `response-requested` and `response-filed` moments, one carrying the trigger
+  pull that landed on the trigger day — and, on the `cvsg`, `sg-brief`,
+  `relist`, `response-requested` and `response-filed` moments, one carrying the trigger
   entry dated on the day the event opened — which the live poller does for
   watchlisted and salient dockets and not for the rest, so the residual
   concentrates in the `truncated` arm rather than spreading evenly. And the two
@@ -2351,7 +2374,7 @@ the rendered table) and
   is the docket as pulled, so it can miss entries filed later the same day),
   `truncated` from above (it reconstructs to the cutoff but carries the undated
   counsel/amici blocks as at a much later pull). Pooling them averages a
-  selected mixture of two different biases. On those three trigger moments a
+  selected mixture of two different biases. On those trigger moments a
   cell no stored payload places is refused rather than placed, so placed-cell
   counts exclude it, and the refused count is not derivable from the ledger:
   the refusal writes no cause into the cell's status, and `collect` books it as
@@ -3013,8 +3036,8 @@ the rendered table) and
   case first predicted after the freeze stays in scope through its own
   resolution. The re-predict rule (`REPREDICT_MOMENTS` in `pipeline/pull.py`)
   re-owes only the cert distribution, the CVSG and the three interim moments, so
-  a case sitting at a cert **arrival** moment or at either **merits** moment is
-  never refilled however long it waits. Those are a floor rather than the whole
+  a case sitting at the cert **arrival**, **sg-brief** or **relist** moment, or
+  at any **merits** moment, is never refilled however long it waits. Those are a floor rather than the whole
   of it: a pending case at a moment the rule does re-owe can still sit outside,
   because a distribution is re-owed only until the conference it was distributed
   for has considered it, and because a re-owed cell has to be minted and land before it counts.

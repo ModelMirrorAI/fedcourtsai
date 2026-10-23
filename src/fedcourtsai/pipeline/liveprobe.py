@@ -29,7 +29,7 @@ from collections.abc import Callable, Iterable, Sequence
 import httpx
 from pydantic import BaseModel, Field
 
-from .cert_signals import match_disposition_signal
+from .cert_signals import docket_disposition_signals
 
 DOCKET_JSON_URL = "https://www.supremecourt.gov/rss/cases/JSON/{term:02d}-{number}.json"
 
@@ -69,7 +69,7 @@ class RecordProbe(BaseModel):
     disposition_label: str | None = Field(
         default=None,
         description="First cert-disposition signal matched in the proceedings text "
-        "(cert_signals.match_disposition_signal), e.g. 'cert denied'; None if no order matched",
+        "(cert_signals.docket_disposition_signals), e.g. 'cert denied'; None if no order matched",
     )
 
 
@@ -125,8 +125,7 @@ def classify_record(term: int, number: int, payload: object) -> RecordProbe:
         if isinstance(link, dict)
     )
     label: str | None = None
-    for entry in entries:
-        matched = match_disposition_signal(str(entry.get("Text") or ""))
+    for matched in docket_disposition_signals([str(e.get("Text") or "") for e in entries]):
         if matched is not None:
             label = matched[1]
             break

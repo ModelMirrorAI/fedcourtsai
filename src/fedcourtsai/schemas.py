@@ -69,13 +69,17 @@ class Disposition(StrEnum):
     the parse gap and so needs no calendar. On mandatory-jurisdiction direct
     appeals the convention is grant-side for plenary review, and the
     denied/dismissed side for summary affirmance and dismissal for want of a
-    substantial federal question. The resolver reads the grant side: the
+    substantial federal question. The resolver reads both sides: the
     vacatur-remand form as ``gvr``, and probable jurisdiction noted — or further
     consideration of jurisdiction postponed to the hearing on the merits, which
     sets the appeal for the same briefing and argument — as ``granted``, which
-    opens the merits proceeding a cert grant does. Summary affirmance and
-    want-of-a-question are deliberate resolver misses that reach maintainer
-    triage.
+    opens the merits proceeding a cert grant does; a summary affirmance as
+    ``denied``, since the Court declines plenary review and the judgment below
+    stands, as on a cert denial; and a dismissal for want of a substantial
+    federal question, for want of jurisdiction or as moot as ``dismissed``, the
+    Court's own word for an appeal it disposes of without reaching the merits. A
+    summary affirmance opens no merits proceeding and latches no merits
+    judgment.
     """
 
     granted = "granted"
@@ -990,6 +994,19 @@ class PredictionContext(_Strict):
         "Term parsed from a `YY-NNNN` petition number, or the application Term "
         "parsed from a `YYAnnn` application number. Both baselines pool Terms "
         "strictly before it; which pool is keyed on the stage, not on this field",
+    )
+    vide_links: list[str] | None = Field(
+        default=None,
+        description="The docket numbers the provisioned payload links as `Vide` in "
+        "its `RelatedCaseNumber` list — a cross-petition, a companion, or the "
+        "petition this one is held for — normalized, in the Court's order, the "
+        "docket's own number dropped and the list stopped at the provisioner's "
+        "staging bound. Read off the payload the cell was placed on, so it names "
+        "only the links that payload carries; the list is undated, so a "
+        "`truncated` payload carries the latest one. Empty where the payload "
+        "carries the live channel's `CaseNumber` and links nothing; null where it "
+        "carries none, the REST shape, which serves no such list. What a board's "
+        "`by_link` cut files the cell under",
     )
 
     @model_validator(mode="after")
@@ -4073,6 +4090,27 @@ _BY_BAND_DESCRIPTION = (
 )
 
 
+#: The :attr:`LeaderboardEntry.by_link` keys: the scored prediction froze a
+#: ``Vide`` link, froze none, or froze no list at all (a payload not of the live
+#: shape, or a prediction made before the context carried the list).
+LINKED_KEY: Final = "linked"
+UNLINKED_KEY: Final = "unlinked"
+NO_LINK_KEY: Final = "(none)"
+
+_BY_LINK_DESCRIPTION = (
+    "The **forward** stratum cut by whether the docket was tied to another: one "
+    "LeaderboardStratum per key, aggregated exactly as `forward` is — the same "
+    "cells, after the run collapse and both exclusions, with the same skill "
+    "terms. Keyed off the scored prediction's frozen `context.vide_links`: "
+    "`linked` where it names at least one `Vide` link (a cross-petition, a "
+    "companion, or the petition the docket is held for), `unlinked` where it "
+    "names none, and `(none)` where it froze no list, so the blocks' "
+    "`evaluations` sum to `forward.evaluations`. Cert stage only, and omitted "
+    "while there is no forward cert cell or no cell facts were supplied. "
+    "Descriptive: never a rank key"
+)
+
+
 _BY_PROTOCOL_DESCRIPTION = (
     "The by-protocol cut: one entry per (predictor, counting window), each over that "
     "window's counted cells alone, listed by predictor_id then the window's opening and "
@@ -4177,6 +4215,10 @@ class LeaderboardEntry(_Strict):
         default=None,
         description=_BY_BAND_DESCRIPTION,
     )
+    by_link: dict[str, LeaderboardStratum] | None = Field(
+        default=None,
+        description=_BY_LINK_DESCRIPTION,
+    )
     big_case: BigCaseLeaderboard | None = Field(
         default=None,
         description="The predictor's big-case-score rank-agreement with the "
@@ -4190,6 +4232,7 @@ class LeaderboardEntry(_Strict):
         """Drop ``by_band`` and an empty ``windows`` — see :func:`_drop_empty_by_band`."""
         return _omit_empty(
             _drop_empty_by_band(handler(self), self.by_band),
+            by_link=self.by_link,
             windows=self.windows,
             boundaries=self.boundaries,
             self_provisioning=self.self_provisioning,
@@ -4251,12 +4294,17 @@ class LeaderboardStageEntry(_Strict):
         default=None,
         description=_BY_BAND_DESCRIPTION,
     )
+    by_link: dict[str, LeaderboardStratum] | None = Field(
+        default=None,
+        description=_BY_LINK_DESCRIPTION,
+    )
 
     @model_serializer(mode="wrap")
     def _omit_empty_by_band(self, handler: SerializerFunctionWrapHandler) -> Any:
         """Drop ``by_band`` and an empty ``windows`` — see :func:`_drop_empty_by_band`."""
         return _omit_empty(
             _drop_empty_by_band(handler(self), self.by_band),
+            by_link=self.by_link,
             windows=self.windows,
             boundaries=self.boundaries,
             self_provisioning=self.self_provisioning,
@@ -9969,8 +10017,8 @@ class BigCaseBoard(_Strict):
         "`cases_without_score` counts in-scope decliners alone and is not comparable to the "
         "`all` build's. The held-out set is selected rather than sampled (a resolved case "
         "is never re-predicted, so one whose reads predate the freeze can never be refilled "
-        "into scope; and the re-predict rule re-owes neither the cert arrival moment nor "
-        "either merits moment), so it is never read as a random thinning",
+        "into scope; and the re-predict rule re-owes no cert arrival, sg-brief or relist "
+        "moment and no merits moment), so it is never read as a random thinning",
     )
     predictors: list[str] = Field(
         default_factory=list,

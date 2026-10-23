@@ -142,9 +142,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
     MomentSpec(
         # Chronologically after the CVSG moment it follows: the invitation opens
         # that one, and the brief it asked for opens this one, typically months
-        # later. Declared but switched off: the predict prompt describes the
-        # cert moments a cell can be filed under, so a cell here waits for the
-        # process version whose prompt names it.
+        # later.
         event_id=ids.event_id(EventKind.brief.value, "sg-disposition"),
         kind=EventKind.brief,
         stage=Stage.cert,
@@ -156,7 +154,6 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "filed the brief the Court invited."
         ),
         claim_set_version=CLAIM_SET_CERT_V2,
-        forecastable=False,
     ),
     MomentSpec(
         # The cert stage's call for a response, typically after the respondent
@@ -179,8 +176,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
     MomentSpec(
         # The cert stage's first relist: a conference considered the petition and
         # the Court listed it again rather than deciding it. Only the first relist
-        # opens it; a later one repeats the same signal. Declared but switched off
-        # until the predict prompt names it.
+        # opens it; a later one repeats the same signal.
         event_id=ids.event_id(EventKind.order.value, "relist-disposition"),
         kind=EventKind.order,
         stage=Stage.cert,
@@ -192,7 +188,6 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "for another conference."
         ),
         claim_set_version=CLAIM_SET_CERT_V2,
-        forecastable=False,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.motion.value, "disposition"),
@@ -252,9 +247,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
     MomentSpec(
         # Opened by the argument transcript rather than by a docket entry: the
         # Court posts it the day the case is argued, on a per-Term list the
-        # docket does not link. Declared but switched off: the transcript is a
-        # cell input the predict prompt has to describe, so a cell here waits for
-        # the process version whose prompt names it.
+        # docket does not link.
         event_id=ids.event_id(EventKind.argument.value, "judgment"),
         kind=EventKind.argument,
         stage=Stage.merits,
@@ -266,7 +259,6 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "oral argument is posted."
         ),
         claim_set_version=CLAIM_SET_MERITS_V1,
-        forecastable=False,
     ),
 )
 

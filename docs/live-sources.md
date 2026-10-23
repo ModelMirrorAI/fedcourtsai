@@ -669,8 +669,7 @@ pass, after document freshness (`live.fetch_argument_transcripts`):
   not taken. That date opens the merits
   post-argument moment (`evt-argument-judgment`) at the case's next poll, behind
   the briefed moment's guards: a merits proceeding, no judgment, the grant
-  moment still open. The moment is declared and switched off, so no cell is
-  filed under it yet.
+  moment still open.
 - **Who reads it.** Only a cell of the post-argument moment
   (`provision.documents_for_moment`). The date rule keeps the transcript from a
   grant or briefed cell already, since both are cut before the argument; the
@@ -1297,29 +1296,17 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   remote blob as-is and cannot be migrated — naming a column the blob predates
   would fail the whole document set rather than the one field. Provisioning then
   carries the whole row minus its text onto the cell manifest, so the marker
-  lands beside `empty_text`. Still outstanding: the predict prompt's reading
-  rule, which pairs with the manifest key — a bare key teaches an agent nothing
-  — and moves the pre-registered prompt digest, so it rides a re-bless; and the
-  coverage read's count of what was repaired. **A second reading rule rides the
-  same re-bless**, for the same reason and with the same shape: an interim cell
-  is now provisioned with `application.txt` — the text of the very filing it is
-  forecasting on — while the prompt's interim section tells it to read the
-  escalation ladder off the docket and says nothing about the document. The
-  input arrives before the instruction does, which is the argument for pairing
-  them on the next bless rather than letting either land alone. **A third rides
-  with them**: the contact scrub stages text carrying
-  `[contact detail withheld]` and four manifest keys (`contact_scrubbed`,
-  `contact_replacements`, `contact_residuals`, `contact_scrub_passes`) the prompt describes none
-  of — it has `documents.json` listing what is present, pages and truncation —
-  so until that re-bless a cell meeting the token has to account for it
-  unaided, and the likeliest cost is a `data-quality` flag spent on it. **A
-  fourth rides with them**: the `appendix`, `cert-reply`, `sg-invited-brief`,
-  `application-response` and `application-reply` kinds and the appendix-aware
-  cut's `[pipeline note: …]` lines reach a cell
-  before the prompt names them. Each manifest row's `kind_description` is what
-  carries them meanwhile — the prompt already sends a cell to `documents.json`
-  for what is present — and the prompt's list of provisioned files gains the
-  five kinds, and a reading rule for the cut notes, at that re-bless.
+  lands beside `empty_text`, and the predict prompt's reading rule pairs with
+  it: a bare key teaches an agent nothing. Still outstanding: the coverage
+  read's count of what was repaired. The prompt also names the other inputs
+  this pass and its neighbours stage: `application.txt`, the very filing an
+  interim cell forecasts on; the `appendix`, `cert-reply`, `sg-invited-brief`,
+  `application-response` and `application-reply` kinds; the appendix-aware
+  cut's `[pipeline note: …]` lines; and the contact scrub's
+  `[contact detail withheld]` token with its four manifest keys
+  (`contact_scrubbed`, `contact_replacements`, `contact_residuals`,
+  `contact_scrub_passes`). Each manifest row's `kind_description` says what
+  its file is as well.
 - **What follows a recovery.** A recovered **petition** re-derives its
   questions-presented row through the existing deriver — the pass's one
   follow-on write, and petitions alone have it, since no other recoverable kind

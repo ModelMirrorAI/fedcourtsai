@@ -25,39 +25,47 @@
         "merge": "7d4f2c6c58e01b22f17adb850b5203418f71925e",
         "source": "merge"
       }
+    },
+    {
+      "label": "proc-v11",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
     }
   ],
   "blessings": [
     {
-      "digest": "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734",
+      "digest": "sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54",
       "role": "predictor",
       "actor_id": "claude-baseline",
-      "label": "proc-v9",
+      "label": "proc-v11",
       "blessed": {
-        "at": "2026-10-11T00:12:02Z",
-        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4",
+      "digest": "sha256:a711152d3e0082a9f5311e40348116c753247aba102ddc60e5979c7d292abe64",
       "role": "predictor",
       "actor_id": "codex-baseline",
-      "label": "proc-v10",
+      "label": "proc-v11",
       "blessed": {
-        "at": "2026-10-20T15:24:42Z",
-        "merge": "7d4f2c6c58e01b22f17adb850b5203418f71925e",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434",
+      "digest": "sha256:c4213d78e7a7a6fc5f13d070a3bda326254c0189b7979f5e7b91a23d5608ad66",
       "role": "predictor",
       "actor_id": "gemini-baseline",
-      "label": "proc-v10",
+      "label": "proc-v11",
       "blessed": {
-        "at": "2026-10-20T15:24:42Z",
-        "merge": "7d4f2c6c58e01b22f17adb850b5203418f71925e",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
@@ -153,7 +161,11 @@
         "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
         "source": "hand"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -165,7 +177,11 @@
         "merge": "7d4f2c6c58e01b22f17adb850b5203418f71925e",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -175,6 +191,46 @@
       "opens": {
         "at": "2026-10-20T15:24:42Z",
         "merge": "7d4f2c6c58e01b22f17adb850b5203418f71925e",
+        "source": "merge"
+      },
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v11",
+      "digest": "sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v11",
+      "digest": "sha256:a711152d3e0082a9f5311e40348116c753247aba102ddc60e5979c7d292abe64",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v11",
+      "digest": "sha256:c4213d78e7a7a6fc5f13d070a3bda326254c0189b7979f5e7b91a23d5608ad66",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
         "source": "merge"
       },
       "closes": null,
@@ -193,7 +249,8 @@
     ],
     "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": [
       "proc-v9",
-      "proc-v10"
+      "proc-v10",
+      "proc-v11"
     ],
     "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": [
       "proc-v9"
@@ -202,10 +259,12 @@
       "proc-v9"
     ],
     "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac": [
-      "proc-v10"
+      "proc-v10",
+      "proc-v11"
     ],
     "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4": [
-      "proc-v10"
+      "proc-v10",
+      "proc-v11"
     ]
   },
   "harness_boundaries": [
@@ -385,6 +444,38 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "merits-brief-confession-of-error",
+      "merge": "76323ef6e884a97d42fbd41aac078312d7b4e167",
+      "at": "2026-10-22T22:40:22Z",
+      "predictors": null,
+      "reach": "granted dockets",
+      "gradual": true
+    },
+    {
+      "name": "vide-related-dockets",
+      "merge": "76323ef6e884a97d42fbd41aac078312d7b4e167",
+      "at": "2026-10-22T22:40:22Z",
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
+    },
+    {
+      "name": "direct-appeal-summary-exit",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
+    },
+    {
+      "name": "context-vide-links",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
     }
   ]
 }

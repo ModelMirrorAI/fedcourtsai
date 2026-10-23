@@ -641,8 +641,8 @@ Drawn from the above, and cheaper to apply than to rediscover:
 ## What is scoreable today
 
 **The declared cert set: `cert-v2`.** Every declared cert **moment** — the
-petition baseline, the CVSG moment, the arrival moment, and the sg-brief,
-call-for-response and relist moments once they are switched on — carries
+petition baseline, the CVSG moment, the arrival moment, the sg-brief and
+relist moments, and the call-for-response moment once it is switched on — carries
 exactly five claims, declared in `pipeline.claims` and answered in full by
 every predictor (`Prediction.claims`); the harness scores them into
 `Evaluation.claim_scores` at the evaluator's post-run stamp (`stamp-cell`,
@@ -879,7 +879,7 @@ from a cell run under a different process digest — `metrics/README.md`'s
 
 **The declared merits set: `merits-v1`.** Every declared merits moment — the
 grant moment `evt-order-judgment`, the briefed moment `evt-brief-judgment`, and
-the post-argument moment `evt-argument-judgment` once it is switched on —
+the post-argument moment `evt-argument-judgment` —
 carries it, reached through the declared-moment table rather than by event id or
 kind: a forecast taken after briefing answers the same claim as one taken at
 the grant, and only the evidence behind the answer differs. The set declares

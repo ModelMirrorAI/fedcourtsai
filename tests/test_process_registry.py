@@ -47,12 +47,10 @@ _V9_SINCE = datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC)
 _V10 = datetime(2026, 10, 20, 15, 24, 42, tzinfo=UTC)
 _CODEX_AND_GEMINI = frozenset({"codex-baseline", "gemini-baseline"})
 
-# proc-v10 replaces the codex and gemini pairs' blessings with its own four;
-# the claude pair's two carry forward from proc-v9.
+# proc-v11 replaces the three predictor blessings with its own pending three,
+# which bless nothing until the carrying merge stamps them; the evaluator
+# blessings carry forward from proc-v9 and proc-v10.
 GOLDEN_DIGESTS = {
-    "sha256:605201bd8358473bcb8e7d59ee2d236d7be099756241333eec0f386b3400b734": _V9_MERGE,
-    "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4": _V10,
-    "sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434": _V10,
     "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": _V9_MERGE,
     "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac": _V10,
     "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4": _V10,
@@ -107,11 +105,18 @@ GOLDEN_BLESSING_LABELS = {
     "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12": (
         "proc-v9",
         "proc-v10",
+        "proc-v11",
     ),
     "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456": ("proc-v9",),
     "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300": ("proc-v9",),
-    "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac": ("proc-v10",),
-    "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4": ("proc-v10",),
+    "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac": (
+        "proc-v10",
+        "proc-v11",
+    ),
+    "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4": (
+        "proc-v10",
+        "proc-v11",
+    ),
 }
 
 _SCRUB_0921 = "a2f84f2eedb4e3b3dcc222522a55b8a93ae1eff0"
@@ -123,6 +128,7 @@ _PROMOTION_1011_2 = "c432a95a9073bcae6651eb6b75fddd30aefbd8d8"
 _PROMOTION_1016 = "1c1cd1f257e1bcbcd4f5339173fff2dab68ed317"
 _PROMOTION_1018 = "dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c"
 _PROMOTION_1020 = "7d4f2c6c58e01b22f17adb850b5203418f71925e"
+_PROMOTION_1022 = "76323ef6e884a97d42fbd41aac078312d7b4e167"
 _SR: BoundaryReach = "self-represented dockets"
 
 GOLDEN_BOUNDARIES = (
@@ -263,6 +269,21 @@ GOLDEN_BOUNDARIES = (
     ),
     HarnessBoundary(
         "direct-appeal-plenary-review-grant", _PROMOTION_1020, _V10, None, "all", gradual=True
+    ),
+    HarnessBoundary(
+        "merits-brief-confession-of-error",
+        _PROMOTION_1022,
+        datetime(2026, 10, 22, 22, 40, 22, tzinfo=UTC),
+        None,
+        "granted dockets",
+        gradual=True,
+    ),
+    HarnessBoundary(
+        "vide-related-dockets",
+        _PROMOTION_1022,
+        datetime(2026, 10, 22, 22, 40, 22, tzinfo=UTC),
+        None,
+        "all",
     ),
 )
 

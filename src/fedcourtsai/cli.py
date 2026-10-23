@@ -277,6 +277,7 @@ from .pipeline import (
     pre_mint,
     qp_topics,
     semantic,
+    vide_links,
     vote_sources,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
@@ -8012,8 +8013,8 @@ def big_cases(
             "window). "
             "Either way the per-event history is unfiltered. The frozen build's hold-out "
             "is selected, not sampled — a resolved case is never re-predicted and the "
-            "re-predict rule re-owes neither the cert "
-            "arrival moment nor either merits moment — so no count, mean, rate or spread "
+            "re-predict rule re-owes no cert arrival, sg-brief "
+            "or relist moment and no merits moment — so no count, mean, rate or spread "
             "statistic is differenced across a scope change.",
         ),
     ] = "all",
@@ -8042,7 +8043,7 @@ def big_cases(
     de-counted, shakedown or unstamped run is then history under its event, never a
     current read, never in ``n`` and never in a mean. That build is not this one
     with fewer rows — a resolved case is never re-predicted and the re-predict
-    rule re-owes neither the cert arrival moment nor either merits moment, so it
+    rule re-owes no cert arrival, sg-brief or relist moment and no merits moment, so it
     is a live-cert-and-interim slice, and the artifact states the hold-out
     (``cases_out_of_scope``) beside its own row count. The scope and the freeze
     record it keys on are published on the artifact either way, and the per-event
@@ -14640,7 +14641,7 @@ def _read_related(
     each companion's snapshot comes from the content store as the cell's own
     did; a link with no index reachable is recorded as such, never dropped.
     """
-    numbers = provision.vide_docket_numbers(payload)
+    numbers = vide_links.vide_docket_numbers(payload)
     if not numbers:
         return ()
     if backend == "casestore":
@@ -15745,9 +15746,7 @@ def hide_cell_record_cmd(
 
     This narrows the accidental surface, not the deliberate one — the checkout
     carries full history, so the hidden bytes stay one ``git show`` away, under
-    the evaluate prompt's prohibition and the logged-tool-call audit in an
-    evaluate cell, and under the audit alone in a predict cell, whose prompt
-    states no read rule for those trees.
+    each prompt's prohibition and the logged-tool-call audit in either cell.
 
     Exits 1 before moving anything when the stash already holds a manifest — any
     earlier hide, restored or not, since a second sweep over an emptied tree

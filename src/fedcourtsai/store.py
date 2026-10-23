@@ -36,7 +36,7 @@ from .integrity import (
 )
 from .paths import CasePaths
 from .pipeline import moments
-from .pipeline.cert_signals import considering_conference
+from .pipeline.cert_signals import conference_sat_since, considering_conference
 from .pipeline.moments import first_moment
 from .process_version import (
     counted_on_event,
@@ -464,6 +464,41 @@ def _distribution_cell_closed(
     )
 
 
+#: The cert moments whose information set closes when the next conference sits
+#: (:func:`fedcourtsai.pipeline.cert_signals.conference_sat_since`).
+_CONFERENCE_BOUNDED_MOMENTS = frozenset({Moment.relist, Moment.sg_brief})
+
+
+def _conference_bounded_cell_closed(
+    event: corpus.CorpusEvent, *, day: date, payloads: PayloadReader
+) -> bool:
+    """Whether a relist or sg-brief cell's conference has already considered the petition.
+
+    The relist moment forecasts the conference the petition was relisted for,
+    and the sg-brief moment the first conference after the brief. A petition
+    still pending after that conference sat has been relisted again or held,
+    so a cell placed back at the trigger would be scored against a population
+    the petition has left: the same reason a distribution cell is refused once
+    its conference has considered the petition. An event with no recorded
+    opening date, or a docket with no readable live payload, refuses.
+    """
+    spec = moments.spec_for(event.event_id)
+    if spec is None or spec.moment not in _CONFERENCE_BOUNDED_MOMENTS:
+        return False
+    if event.opened_at is None:
+        return True
+    found = payloads(event.case_id)
+    if found is None:
+        return True
+    return conference_sat_since(
+        found[1],
+        found[0],
+        day,
+        event.opened_at,
+        trigger_is_distribution=spec.moment is Moment.relist,
+    )
+
+
 def _cert_forecastable(
     event: corpus.CorpusEvent, row: corpus.CorpusRow | None, *, day: date, payloads: PayloadReader
 ) -> bool:
@@ -473,8 +508,11 @@ def _cert_forecastable(
     on a scotus row that is neither an application docket nor already decided,
     whose declared moment is still open — its information set exists and,
     for the distribution moment, the conference has not already considered
-    the petition (:func:`_distribution_cell_closed`). In practice this arm carries the
-    **CVSG order** and the **arrival moment** — the cert moments past the
+    the petition (:func:`_distribution_cell_closed`), and for the relist and
+    sg-brief moments, no conference after the trigger has considered it
+    (:func:`_conference_bounded_cell_closed`). In practice this arm carries the
+    **CVSG order**, the **arrival moment**, the **sg-brief** and the **first
+    relist** — the cert moments past the
     registry's first position (the arrival moment is chronologically the
     *earliest*; registry order is not chronology) — since the petition
     baseline the register also declares is already admitted by the
@@ -508,6 +546,7 @@ def _cert_forecastable(
         and corpus.resolution_date(row) is None
         and corpus.out_of_scope_reason(row) is None
         and not _distribution_cell_closed(event, row, day=day, payloads=payloads)
+        and not _conference_bounded_cell_closed(event, day=day, payloads=payloads)
     )
 
 
@@ -550,20 +589,20 @@ def _merits_forecastable(
 ) -> bool:
     """Whether an event is the forecastable merits event of a granted case.
 
-    The merits admission: an **order-kind** event carrying the **merits
-    stage**, on a row whose cert grant actually opened a merits proceeding, whose
-    judgment is not already latched and whose proceeding is not recorded
-    terminated, whose grant is not stale
+    The merits admission: a declared merits moment (the grant's order event,
+    the briefed moment's brief event, the post-argument moment's argument
+    event) carrying the **merits stage**, on a row whose cert grant actually
+    opened a merits proceeding, whose judgment is not already latched and whose
+    proceeding is not recorded terminated, whose grant is not stale
     (:func:`fedcourtsai.corpus.is_stale_unparsed_grant` — the merits analogue
     of the petition stage's stale-Term refusal: a grant two Terms past with
     neither column latched is a decided docket the record never resolved, and
     a forward cell on it is a mislabeled backtest with unrestricted
     retrieval; the first post-freeze fan-out spent ~25 events' cells on
     exactly this class), and which the row-only scope rules keep in
-    scope. The stage carries the event test — an order event of any other sort
-    carries no stage at all — with the kind checked defensively beside it, since
-    only the merits mint produces an order-kind event today and a second one
-    would have to declare its own stage to reach here.
+    scope. The declared register carries the event test, with each moment's
+    kind and stage checked against the event's own beside it
+    (:func:`_declares_forecastable`).
 
     The latched-judgment check is not redundant with the event's open flag: a
     parsed judgment whose entry carries no usable date surfaces for triage

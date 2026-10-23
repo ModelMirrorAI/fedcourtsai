@@ -21,7 +21,7 @@ your shell, substitute the literals from your kickoff prompt.
 | `EVENT_ID`     | The event to predict, e.g. `evt-motion-stay`        |
 | `PREDICTOR_ID` | Your predictor id; names your output directory      |
 | `RUN_ID`       | Shared run id for this fan-out (a UTC timestamp)    |
-| `MODEL_ID`     | The model you are running as, e.g. `claude-fable-5-1` |
+| `MODEL_ID`     | The model you are running as, e.g. `claude-opus-5-5` |
 
 Run `uv run fedcourts paths --court "$COURT_ID" --docket "$DOCKET_ID" --event
 "$EVENT_ID" --role predictor` to resolve the case, corpus, and event paths. It
@@ -80,10 +80,16 @@ the output directory you will write to.
    a forward cell; the leakage clock on a replay cell). Never invent facts.
 5. Any provisioned **filed-document text** under `record/documents/` — for a
    live cert petition typically `questions-presented.txt` (the petition's QP
-   section), `petition.txt`, and `brief-in-opposition.txt`; on a granted
-   docket also each side's brief on the merits, which *Stage: merits* below
-   governs; with
-   `documents.json` listing what is present (pages, truncation). These are
+   section), `petition.txt`, `brief-in-opposition.txt`, and where filed
+   `appendix.txt` (an appendix filed under its own link), `cert-reply.txt`
+   (the petitioner's reply to the opposition) and `sg-invited-brief.txt` (the
+   Solicitor General's brief, once invited); on an application docket
+   `application.txt`, `application-response.txt` (the first response) and
+   `application-reply.txt` (the applicant's reply); on a granted
+   docket also each side's brief on the merits and reply, which *Stage:
+   merits* below governs; with
+   `documents.json` listing what is present (pages, truncation) and a
+   `kind_description` saying what each file is. These are
    pipeline-fetched inputs with the same standing as the snapshot: for a cert
    prediction, anchor on the questions presented and weigh the petition against
    the BIO, and cite what you used in `reasoning.md`. A document with
@@ -96,6 +102,36 @@ the output directory you will write to.
    the petition had text but its questions-presented section could not be
    usably cut. Otherwise their absence just means
    the pipeline had nothing to fetch — predict from the snapshot as before.
+   A long filing is cut to a cap: where the cut is made around an appendix, a
+   `[pipeline note: …]` line in the text marks it and says how much was left
+   out; that line is the pipeline's, not the filer's, so never quote it as the
+   filing or read the gap as the filing's silence. A row with
+   `ocr_derived: true` was read off page images of a scanned filing, so its
+   text can misread words and numbers: rely on it for the argument, check any
+   figure or citation you use against another source, and say so in
+   `reasoning.md` where your forecast leans on one.
+
+   Where a party or amicus is self-represented, the staged text and snapshot
+   withhold its contact details. `[contact detail withheld]` stands in for an
+   address, telephone number, email or similar, and `[register number
+   withheld]` for a prisoner register number, whose presence still says the
+   filer is incarcerated. Each `documents.json` row says what the scrub did:
+   `contact_scrubbed` (whether it ran and, where its shape pass ran, left
+   nothing contact-shaped on the document's opening or closing),
+   `contact_replacements` (how many details it withheld),
+   `contact_residuals` (contact-shaped matches it still found) and
+   `contact_scrub_passes` (which passes ran). A placeholder is not missing
+   evidence, so never try to recover what it replaced, and never repeat a
+   residual contact detail in what you write.
+
+   Where the Court's docket links this case to another as `Vide` (a
+   cross-petition, a companion, the petition this one asks to be held for),
+   `record/related/` holds that docket's snapshot as `<docket number>.json`,
+   cut by the same date rule to strictly before your cutoff, or before your
+   own snapshot's date where you have none. `related.json` lists each link it
+   read, staged or not, and why not (`reason`). Read a companion's distribution,
+   grant or hold there rather than fetching it, and say in `reasoning.md` where
+   your forecast rests on it. Its absence means the docket links none.
 6. `record/context.json` — your cell's **mode** (`forward` or `replay`) and the
    **conditioning state** the harness froze for you: `band` (your
    grant-likelihood tier under the salience version named beside it in
@@ -238,7 +274,11 @@ case as of a past moment (a back-test): pass `--decided-before "$DECIDED_BEFORE"
 on every `fedcourts query` call so retrieval surfaces only priors that provably
 precede this case — and in the statpack, anchor **only on Term rows strictly
 preceding your clock** (the per-Term table exists for exactly this
-self-selection; later Terms post-date what you are allowed to know).
+self-selection; later Terms post-date what you are allowed to know). Under the
+clock a prior's decision record and tracking stamps are withheld, so a
+withheld column reads empty, `null` or `false` and a
+`--citation` lookup can come back empty. Read such a value as masked under the
+clock, not as absent from the record.
 The statpack anchoring that follows governs **cert-stage** cells; an interim
 cell anchors on the pack's interim-docket section — which carries a scored base
 rate of its own, on its own population — and a merits cell on its merits
@@ -297,7 +337,7 @@ band), the five-claim `claims` block, and the relist/CVSG forecast content
 under `predicted_reasoning.md` below all govern a cert-stage cell and only a
 cert-stage cell.
 
-**Three cert cells, three moments.** `event.yaml`'s `moment` says which you are:
+**Five cert cells, five moments.** `event.yaml`'s `moment` says which you are:
 
 - `moment: distribution` — event `evt-petition-disposition`, opened when the
   petition was filed and forecast once it is first distributed for conference.
@@ -329,13 +369,44 @@ cert-stage cell.
   wrong, and never the relist-count cut's relist-0 figure, which is the rate
   among petitions that *ended* undistributed and understates an arrival's
   future severalfold.
+- `moment: sg-brief` — event `evt-brief-sg-disposition`, opened the day the
+  Solicitor General filed the brief the Court invited, months after the CVSG.
+  The brief is the evidence this moment adds: read
+  `record/documents/sg-invited-brief.txt` where it was provisioned (listed in
+  `documents.json`), and state in `reasoning.md` what the Solicitor General
+  recommended — grant, deny, GVR, hold — and how far your forecast follows it.
+  Where the brief was not provisioned or has `empty_text: true`, say so and
+  forecast from the docket rather than guessing its recommendation. Anchor on
+  the statpack's CVSG cut, which is every petition that drew a CVSG, reading
+  its `n` and the grant family (`granted` and `gvr`); the cut pools every
+  Term, so on a replay cell it is a shape, not a strictly-prior anchor. No
+  committed table splits that population by the recommendation, so how much
+  the recommendation moves you is your judgement, and `reasoning.md` should
+  say what it rests on.
+- `moment: relist` — event `evt-order-relist-disposition`, opened the day the
+  Court first relisted the petition: a conference sat on it and the Court
+  distributed it again for a later one instead of deciding it. Only the first
+  relist opens this moment, so later relists never earn another cell. Your
+  snapshot stops on the relist day, so your `band` and `distribution_count`
+  already include it, and the band anchoring above governs as on any cert
+  cell. Use the statpack's relist-count cut as a cross-check, pooling every
+  bucket from 1 up and reading the `n` beside each bucket and the grant family
+  (`granted` and `gvr`), which is what `granted` resolves to. Both that pool
+  and your band count a reschedule before the first conference as a relist,
+  so both likely read low for a petition the Court truly relisted. The cut
+  pools every Term, so on a replay cell it is a shape, not a strictly-prior
+  anchor.
 
-Scored separately, never pooled — the CVSG cell answers the same question from
-a strictly better evidence base, and the arrival cell from a strictly earlier
-one. Forecast from what this moment's record shows rather than revising an
-earlier call, and never treat another moment's evidence as owed to you. Claim
-masking per moment: on a CVSG cell the `cvsg-increment` claim is vacuous by
-construction (the CVSG is already on the docket), so the harness masks it; on
+Scored separately, never pooled — the CVSG, sg-brief and relist cells answer
+the same question as the distribution cell from a strictly better evidence
+base, and the arrival cell from a strictly earlier one. Forecast from what
+this moment's record shows rather than revising an earlier call, and never
+treat another moment's evidence as owed to you. Claim
+masking per moment: on a CVSG or sg-brief cell the `cvsg-increment` claim is
+vacuous by construction (the CVSG is already on the docket), so the harness
+masks it; on a relist cell `relist-increment` asks whether the petition is
+distributed **again**, since the first relist is already in your count (a
+further relist or a reschedule both count); on
 an arrival cell the `relist-increment` prediction-time count is the record's
 zero-distribution state (where the snapshot discloses proceedings at all — a
 context with `signals_observable: false` masks the increment claims exactly as
@@ -362,6 +433,13 @@ resolves them against what later accrues.
 Scored separately, never pooled. Be aware the later two often leave very little
 time: a filed response precedes the disposition by a median of two days. Forecast
 from this moment's record and commit; do not wait for more.
+
+Read `record/documents/application.txt` where it was provisioned: it is the
+filing you are forecasting on, and what relief it asks for, on what grounds
+and against which order below is the core of the forecast. A response-filed
+cell may also hold `application-response.txt`, and later the applicant's
+reply, cut by the same moment rule. Summarize rather than quote, and where no
+application text was provisioned, say so and forecast from the docket.
 
 An interim cell predicts a substantive application — a stay, an injunction, a
 vacatur pending certiorari — and the event resolves as the **grant or denial
@@ -507,8 +585,9 @@ it has already agreed to hear, and it resolves as the **judgment the Court
 enters** after briefing and argument. Certiorari is settled history here;
 nothing about the grant is in play.
 
-**Two merits cells, two moments.** The same judgment is forecast twice, from
-different evidence, and `event.yaml`'s `moment` says which one you are:
+**Three merits cells, three moments.** The same judgment is forecast three
+times, from different evidence, and `event.yaml`'s `moment` says which one you
+are:
 
 - `moment: grant` — event `evt-order-judgment`, opened the day certiorari was
   granted. You have the petition, the brief in opposition, and the questions
@@ -516,13 +595,23 @@ different evidence, and `event.yaml`'s `moment` says which one you are:
 - `moment: briefed` — event `evt-brief-judgment`, opened the day the
   respondent's brief on the merits was filed. Both sides' merits arguments are
   now on the record, and typically several months remain before the judgment.
+- `moment: argued` — event `evt-argument-judgment`, opened the day the case
+  was argued, which is the day the Court posts the transcript. The transcript
+  is the evidence this moment adds: read
+  `record/documents/argument-transcript.txt` where it was provisioned (listed
+  in `documents.json`). Only this moment's cells are handed it. Weigh what the
+  Justices asked and of whom, and summarize rather than quote, as for the
+  briefs below. A question from the bench is not a vote, so say in
+  `reasoning.md` how far you read one as a lean. Where no transcript was
+  provisioned, or it has `empty_text: true`, say so and forecast from the
+  briefs and the docket.
 
-They are **scored separately and never pooled**, because the later one answers
-the same question with strictly more evidence. So do not treat the briefed cell
-as a revision of the grant cell, and do not go looking for what you predicted
-before: forecast the judgment from what this moment's record shows. If your two
-forecasts differ, that difference is the measurement — it is what the briefing
-was worth.
+They are **scored separately and never pooled**, because each later one answers
+the same question with strictly more evidence. So do not treat a later cell as
+a revision of an earlier one, and do not go looking for what you predicted
+before: forecast the judgment from what this moment's record shows. If your
+forecasts differ, that difference is the measurement — it is what the briefing,
+or the argument, was worth.
 
 - **`judgment`, and `probability` as P(disturbed).** A merits prediction
   carries a `judgment` from its own six-label vocabulary, which is **not** the
@@ -563,17 +652,20 @@ was worth.
   there**, and read `documents.json` for the list: beside the cert-stage text
   (the petition, the BIO, the QP section) the document pipeline also fetches
   each side's **brief on the merits**, stored as `merits-brief-petitioner.txt`
-  and `merits-brief-respondent.txt` — one row per side, selected only from
-  filings after the grant. Which of them reaches *your* desk is your moment's
-  doing: the same date bound that cuts your snapshot cuts this directory, so
-  where `context.cutoff` is set a `moment: grant` cell's briefs fall outside it
-  and a `moment: briefed` cell's fall inside — routinely both, and possibly
-  neither on a case the pipeline has not reached. Read the rule rather than the
-  outcome, because a **null** `cutoff` means nothing was cut and the directory
-  is the case's latest whatever your moment. So a merits brief on a
+  and `merits-brief-respondent.txt`, and each side's **reply on the merits**,
+  `merits-reply-petitioner.txt` and `merits-reply-respondent.txt` (the
+  respondent files one only where the posture gives it the last word) — one row
+  per side, selected only from filings after the grant. Which of them reaches
+  *your* desk is your moment's doing: the same date bound that cuts your
+  snapshot cuts this directory, so where `context.cutoff` is set a `moment:
+  grant` cell's briefs fall outside it and a `moment: briefed` or `moment:
+  argued` cell's fall inside — routinely both, and possibly neither on a case
+  the pipeline has not reached. Read the rule rather than the outcome, because
+  a **null** `cutoff` means nothing was cut and the directory is the case's
+  latest whatever your moment. So a merits brief on a
   `moment: grant` cell's disk is a provisioning anomaly and not evidence you
   are owed: **disclose it in `flags.json`** (`data-quality`) and do not fold it
-  into the forecast, or the two merits moments collapse into the one the later
+  into the forecast, or the merits moments collapse into the one the later
   of them was declared to be. Otherwise the QPs are real evidence, a
   provisioned merits brief is real evidence and the parties' own words rather
   than a docket line about them — **summarize rather than reproduce**, since
@@ -588,7 +680,9 @@ was worth.
   date. Say in `reasoning.md` which of the two you were working from — name the
   provisioned briefs you read, and say so where you had none; a
   forecast made on the docket skeleton alone is a legitimate forecast, but the
-  reader has to know it was one.
+  reader has to know it was one. Where a forward cell retrieves what a later
+  moment adds — the argument, on a grant or briefed cell that runs after it —
+  say so too, since the moments are compared on what each was handed.
 - **The cert signals are spent, and the salience band is not yours.** Relist
   count and CVSG status are cert observations that already did their work: the
   petition was granted, so the increments they feed are settled, and a high
@@ -617,8 +711,10 @@ was worth.
   - **The Term axis is the grant Term** — the October Term certiorari was
     granted in — which does **not** align with the cert tables' docket-number
     Terms: a petition docketed in one Term is routinely granted in the next.
-    Take your case's grant date from the event's `opened_at`, not from its
-    docket number.
+    Take your case's grant date from the grant order on the docket (on a
+    `moment: grant` cell that is also the event's `opened_at`; on a later
+    moment `opened_at` is the brief or the argument), not from its docket
+    number.
   - **The rate covers the `parsed` slice only**, and `parsed` against `granted`
     states that coverage. The gap blends still-pending cases with genuine parse
     gaps, so a recent Term's thin `parsed` is mostly pendency. That cuts a
@@ -806,8 +902,8 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     are the same bytes in the ledger, and only the line beside it records that
     you took up the question. On the number branch `big_case_rationale` is
     optional and worth a line where it helps a reader place the score. It is
-    judged later by an independent evaluator's agreement with its own read,
-    never against a ground truth.
+    compared later with each evaluator's own read, made with your score in
+    view, never against a ground truth.
   - `claims` — the **harness-declared claim set** for this event, one
     `{claim_id, probability}` entry per declared claim. The harness declares
     the set (`fedcourtsai.pipeline.claims`); you state a probability for every
@@ -865,12 +961,13 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     guidance under the forecast document below says what the shape does tell
     you. The declaration is
     keyed on the event's declared moment, never on a rule of thumb about its
-    kind — every cert moment (the petition, the CVSG order, and the arrival
-    event) declares `cert-v2`, all three interim moments (arrival, the
-    requested response, the filed response) declare `interim-v1`, and both
-    merits moments (the judgment order and the respondent-brief re-predict)
-    declare `merits-v1`. A **petition-kind event that is not one of those
-    moments** — an entry-pinned filing, a legacy id — falls back to `cert-v1`'s
+    kind — every cert moment (the petition, the CVSG order, the arrival event,
+    the SG's invited brief and the first relist) declares `cert-v2`, all
+    three interim moments (arrival, the requested response, the filed
+    response) declare `interim-v1`, and all three merits moments (the
+    judgment order, the respondent-brief re-predict and the post-argument
+    re-predict) declare `merits-v1`. A **petition-kind event that is not one
+    of those moments** — an entry-pinned filing, a legacy id — falls back to `cert-v1`'s
     first three claims instead, because that is the contract its cohort was
     elicited under: state the five, and the harness scores the three its own
     declaration names. An event outside that register — an entry-pinned motion,
@@ -985,7 +1082,7 @@ willing to be scored on, not a hedge.
   `AgentFlags` model). This is the **durable channel** for a question, a
   data-quality problem, a scope concern, or the reason you were blocked: the
   `collect` job rolls every cell's flags into the run PR and the Actions summary, so
-  your note survives the trigger issue's closure and a maintainer sees it without
+  your note outlives the run and a maintainer sees it without
   reading every `reasoning.md`. Set `case_id` = `$COURT_ID/$DOCKET_ID`,
   `run_id` = `$RUN_ID`, `role` = `predictor`, `actor_id` = `$PREDICTOR_ID`, and
   `flags` = a non-empty list of `{category, severity, message, event_id?}` — where
@@ -1020,8 +1117,17 @@ willing to be scored on, not a hedge.
 - **Never read anything under `data/qp-topics/`.** Those are labeling-measurement
   artifacts whose case membership encodes cert outcomes; they carry nothing a
   prediction may use, and a read of that path in your logged tool calls is graded
-  as retrieved outcome material by the evaluation. If you have already read it,
-  say so in `flags.json` (`category` `other`) and disregard what you saw.
+  as retrieved outcome material by the evaluation. The cell removes that
+  directory before you start, on purpose, so do not restore it. If you have
+  already read it, say so in `flags.json` (`category` `other`) and disregard
+  what you saw.
+- **Never read another cell's committed output.** The cell removes every
+  committed `predictions/` and `evaluations/` tree before you start, on
+  purpose: another engine's forecast, or an earlier moment's forecast of this
+  case, is not an input to yours. Do not restore them or read them through
+  git (`git show`, `git log -p` and the like). Your own output directory is
+  the one exception. If you have already read one, say so in `flags.json`
+  (`category` `other`) and disregard what you saw.
 - Stay in your lane: write **only** under your own
   `predictions/$PREDICTOR_ID/$RUN_ID/` path (the `flags.json` / `tooling.json` above
   live here too). Never edit the snapshot, the event, another predictor's output, or
@@ -1038,8 +1144,7 @@ willing to be scored on, not a hedge.
   the case per the first rule above — do not retrieve its
   current docket state or outcome. Make the most
   conservative reasonable call rather than guessing widely. `flags.json` is the
-  channel that survives — the trigger issue is closed when the run lands, so do
-  not rely on issue comments.
+  channel that survives, so do not rely on issue comments.
 - **Do not commit, push, or open a PR** — the workflow handles git.
 - Before finishing, make sure `uv run fedcourts validate data` would pass for your
   files (correct schema, well-formed JSON).

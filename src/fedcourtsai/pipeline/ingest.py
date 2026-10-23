@@ -48,8 +48,8 @@ from .cert_signals import (
     DISTRIBUTED_RE,
     call_for_response_date,
     distribution_pattern,
+    docket_disposition_signals,
     first_relist_date,
-    match_disposition_signal,
     proceedings_entries,
     sg_brief_date,
 )
@@ -866,9 +866,15 @@ def _live_resolution(
     granted-set no-op in :mod:`fedcourtsai.pipeline.outcome` reads a null
     ``date_decided`` as the retained-grant shape: dating it here would be a
     change to that reading, not to this one.
+
+    The read is docket-level (:func:`docket_disposition_signals`), so a direct
+    appeal's non-plenary exit lands as an ordinary exit: a summary affirmance
+    as ``denied``, dating ``date_cert_denied`` and the termination like a cert
+    denial, and a dismissal for want of a substantial federal question, for
+    want of jurisdiction or as moot as ``dismissed``, dating the termination.
     """
-    for entry in entries:
-        matched = match_disposition_signal(str(entry.get("description") or ""))
+    signals = docket_disposition_signals([str(e.get("description") or "") for e in entries])
+    for entry, matched in zip(entries, signals, strict=True):
         if matched is None:
             continue
         disposition = matched[0].value

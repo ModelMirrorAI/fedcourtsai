@@ -30,22 +30,31 @@ cell each cycle (its event never resolves to be scored); its denial and
 dismissal siblings, whose miss costs nothing but a triage parking, stay
 routing-only.
 
-A mandatory-jurisdiction direct appeal reaches the same table. Its
-plenary-review orders — probable jurisdiction noted, and jurisdiction postponed
-to the hearing on the merits — read as ``granted`` and its vacate-and-remand as
-``gvr``, the grant side of :class:`~fedcourtsai.schemas.Disposition`'s
-convention. Its summary affirmance and its dismissal for want of a substantial
-federal question are deliberate misses, left to maintainer triage. Until those
-exits are read, a direct appeal can reach the base-rate pools only on the grant
-side, which is why the corpus's hollow direct-appeal rows are left for a
-re-serve once the exits land rather than onboarded now (``docs/freeze-record.md``,
-the 2026-10-19 direct-appeal entry).
+A mandatory-jurisdiction direct appeal reaches the same table on both sides of
+:class:`~fedcourtsai.schemas.Disposition`'s convention. Its plenary-review
+orders — probable jurisdiction noted, and jurisdiction postponed to the hearing
+on the merits — read as ``granted`` and its vacate-and-remand as ``gvr``. Its
+non-plenary exits read from a second table (:data:`_DIRECT_APPEAL_EXIT_SIGNALS`)
+that only a docket-level reader can open: a summary affirmance ("Adjudged to be
+AFFIRMED.", "The judgment is affirmed.", "Motion to affirm GRANTED.") as
+``denied``, and a dismissal for want of a substantial federal question, for want
+of jurisdiction, or as moot as ``dismissed``. Those words are also how a merits
+judgment reads after argument on a granted cert docket, so the entry text alone
+cannot say which it is; the docket can. :func:`docket_disposition_signals` opens
+the exit table only on a docket whose own entries show a direct appeal (a
+jurisdictional statement, a motion to affirm, a motion to dismiss or affirm),
+and only up to the first entry that shows plenary review under way (argument,
+merits briefing, a joint appendix), so the docket-level readers — ingest-time
+resolution, the historical loader, the reachability probe and the forward
+leakage guard — read both sides of a direct appeal while every entry-level
+reader keeps the cert table alone (``docs/freeze-record.md``, the 2026-10-19 and
+2026-10-22 direct-appeal entries).
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import date, datetime, timedelta
 from types import MappingProxyType
 from typing import Any, Literal
@@ -181,10 +190,110 @@ _ENTRY_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
     ),
 )
 
+# The mandatory-jurisdiction direct appeal's non-plenary exits, on the not-granted
+# side by the Disposition convention: the Court disposes of the appeal without
+# setting it for briefing and argument, and the judgment below stands or the
+# appeal leaves the docket, which is what a cert denial or dismissal records on
+# the binary axis. Read only through :func:`docket_disposition_signals` — never
+# by an entry-level reader — because the words are the same ones a merits
+# judgment uses after argument ("Judgment AFFIRMED."), and only the docket
+# around the entry says whether plenary review happened. Scanned after
+# :data:`_ENTRY_SIGNALS`, so a plenary-review row or a cert row in the same entry
+# wins. Every row reads only where its phrase opens its sentence and the sentence
+# names no docket number (:func:`_off_its_sentence`): a combined order disposing
+# of "the appeal in No. 17-2" may be disposing of another docket, and a recital
+# ("Brief ... in support of affirmance") opens with something else. Every row
+# also stays behind the existing guards (:func:`_is_refused`), the motion-opening
+# guard aside for the motion-to-affirm row, whose subject *is* the motion it
+# decides; the partial-scope veto still refuses a scoped exit. Deliberate
+# misses: a split order ("AFFIRMED in part and REVERSED in part", a dismissal
+# "with respect to" one district beside an affirmance as to another), a bare
+# "Appeal dismissed." that names no basis, and any exit whose entry names an
+# opinion of the Court or a per curiam opinion (:data:`_OPINION_RE`).
+#
+# The dismissal rows come first, so an entry that dismisses in part and affirms
+# in part reads ``dismissed`` rather than ``denied``; both are the not-granted
+# side, so the order moves only the label axis.
+_APPEAL_DISMISSED = r"\b(?:the\s+)?appeals?\s+(?:is\s+|are\s+)?(?:hereby\s+)?dismissed\s+"
+_DIRECT_APPEAL_EXIT_SIGNALS: tuple[tuple[re.Pattern[str], Disposition, str], ...] = (
+    (
+        re.compile(
+            _APPEAL_DISMISSED
+            + r"for\s+(?:the\s+)?want\s+of\s+(?:a\s+)?(?:properly\s+presented\s+)?"
+            + r"substantial\s+federal\s+questions?\b",
+            re.IGNORECASE,
+        ),
+        Disposition.dismissed,
+        "appeal dismissed for want of a substantial federal question",
+    ),
+    (
+        re.compile(
+            _APPEAL_DISMISSED + r"for\s+(?:the\s+)?(?:want|lack)\s+of\s+jurisdiction\b",
+            re.IGNORECASE,
+        ),
+        Disposition.dismissed,
+        "appeal dismissed for want of jurisdiction",
+    ),
+    (
+        re.compile(_APPEAL_DISMISSED + r"as\s+moot\b", re.IGNORECASE),
+        Disposition.dismissed,
+        "appeal dismissed as moot",
+    ),
+    (
+        re.compile(
+            r"\b(?:the\s+)?motions?\s+(?:of\s+[^.;]{1,120}?\s+)?to\s+affirm\s+"
+            + r"(?:is\s+|are\s+)?(?:hereby\s+)?granted\b",
+            re.IGNORECASE,
+        ),
+        Disposition.denied,
+        "motion to affirm granted",
+    ),
+    (
+        re.compile(
+            r"\b(?:adjudged\s+to\s+be\s+|(?:the\s+)?judgments?\s+(?:of\s+[^.;]{1,120}?\s+)?"
+            + r"(?:is\s+|are\s+)?(?:hereby\s+)?)affirmed\b"
+            + r"(?!\s+in\s+part)(?!\s+by\s+an\s+equally\s+divided)",
+            re.IGNORECASE,
+        ),
+        Disposition.denied,
+        "summary affirmance",
+    ),
+)
+
 #: The rows that read only as the opening of a sentence naming no docket number
-#: (:func:`_off_its_sentence`) — the direct appeal's plenary-review orders.
+#: (:func:`_off_its_sentence`) — the direct appeal's plenary-review orders and
+#: its non-plenary exits.
 _SENTENCE_INITIAL_LABELS: frozenset[str] = frozenset(
     {"probable jurisdiction noted", "jurisdiction postponed to the merits"}
+    | {label for _pattern, _disposition, label in _DIRECT_APPEAL_EXIT_SIGNALS}
+)
+#: The exit row whose subject is the motion it decides, so the motion-opening
+#: guard (:func:`_is_non_order_sentence`) does not apply to it.
+_MOTION_SUBJECT_LABELS: frozenset[str] = frozenset({"motion to affirm granted"})
+
+# What marks a docket as a mandatory-jurisdiction direct appeal: the appellant's
+# opening filing ("Statement as to jurisdiction filed.", an application to extend
+# the time to file "a jurisdictional statement") and the appellee's answer to it
+# ("Motion to affirm filed", "Motion to dismiss or affirm filed", "Motion to
+# affirm or dismiss"). A cert docket carries none of these papers.
+_DIRECT_APPEAL_MARK_RE = re.compile(
+    r"\bjurisdictional\s+statement\b|\bstatement\s+as\s+to\s+jurisdiction\b"
+    r"|\bmotions?\s+(?:of\s+[^.;]{1,120}?\s+)?to\s+(?:dismiss\s+or\s+)?affirm\b",
+    re.IGNORECASE,
+)
+# What shows plenary review under way on the docket: the argument entry, merits
+# briefing, and the joint appendix. Once an entry carries one, a later
+# affirmance or dismissal is the judgment of a plenary proceeding (whose noting
+# a resolver row may have missed), never a summary exit.
+_PLENARY_TRACE_RE = re.compile(
+    r"^\s*argued\b|\bset\s+for\s+(?:oral\s+)?argument\b|\bbriefs?\s+on\s+the\s+merits\b"
+    r"|\bjoint\s+appendix\b",
+    re.IGNORECASE,
+)
+# An exit entry naming an opinion of the Court, or a per curiam opinion, is a
+# decided case rather than a summary order; the exit table does not read it.
+_OPINION_RE = re.compile(
+    r"\bopinion\s+of\s+the\s+court\b|\bdelivered\s+the\b|\bper\s+curiam\b", re.IGNORECASE
 )
 # A docket number in the sentence ("No. 21-1086", "Nos. 24-109 and 24-110"):
 # the order may be disposing of another docket than the one whose entry it is.
@@ -404,16 +513,76 @@ def _is_non_order_sentence(sentence: str) -> bool:
     return bool(_MOTION_OPEN_RE.match(sentence)) and not _CONJOINED_PETITION_RE.search(sentence)
 
 
-def _is_refused(sentence: str, disposition: Disposition) -> bool:
+def _is_refused(sentence: str, disposition: Disposition, label: str = "") -> bool:
     """Whether a ``disposition`` match in this sentence is refused as an order.
 
     The non-order guard for every row, plus the partial-scope veto for the
     exits (:data:`_EXIT_DISPOSITIONS`): a scoped denial or dismissal is a step
-    on a docket that goes on, not the petition's disposition.
+    on a docket that goes on, not the petition's disposition. A row in
+    :data:`_MOTION_SUBJECT_LABELS` decides the motion that opens its sentence,
+    so for it the motion-opening half of the guard is skipped and only the
+    recital and conditional halves run.
     """
-    if _is_non_order_sentence(sentence):
+    if label in _MOTION_SUBJECT_LABELS:
+        if _FILED_RECITAL_RE.search(sentence) or _CONDITIONAL_PETITION_RE.search(sentence):
+            return True
+    elif _is_non_order_sentence(sentence):
         return True
     return disposition in _EXIT_DISPOSITIONS and bool(_PARTIAL_SCOPE_RE.search(sentence))
+
+
+def _signal_tables(
+    text: str, direct_appeal_exit: bool
+) -> tuple[tuple[re.Pattern[str], Disposition, str], ...]:
+    """The rows a match over ``text`` scans, in scan order.
+
+    :data:`_ENTRY_SIGNALS` always; :data:`_DIRECT_APPEAL_EXIT_SIGNALS` after it
+    only where the docket-level reader opened the exit table for this entry
+    (``direct_appeal_exit``) and the entry names no opinion (:data:`_OPINION_RE`).
+    """
+    if direct_appeal_exit and not _OPINION_RE.search(text):
+        return _ENTRY_SIGNALS + _DIRECT_APPEAL_EXIT_SIGNALS
+    return _ENTRY_SIGNALS
+
+
+def direct_appeal_exit_gates(texts: Sequence[str]) -> list[bool]:
+    """Per entry, in docket order, whether the direct-appeal exit table may read it.
+
+    All ``False`` unless some entry on the docket marks it as a direct appeal
+    (:data:`_DIRECT_APPEAL_MARK_RE`: a jurisdictional statement, a motion to
+    affirm, a motion to dismiss or affirm). On such a docket an entry is open
+    until an *earlier* entry shows plenary review under way
+    (:data:`_PLENARY_TRACE_RE`), and closed from there on, so the affirmance
+    that follows argument is never read as a summary one. The mark is read over
+    the whole docket, which is safe because it is a paper only an appeal
+    carries, wherever it sits.
+    """
+    if not any(_DIRECT_APPEAL_MARK_RE.search(text) for text in texts):
+        return [False] * len(texts)
+    gates: list[bool] = []
+    plenary = False
+    for text in texts:
+        gates.append(not plenary)
+        plenary = plenary or bool(_PLENARY_TRACE_RE.search(text))
+    return gates
+
+
+def docket_disposition_signals(
+    texts: Sequence[str],
+) -> list[tuple[Disposition, str, str] | None]:
+    """:func:`match_disposition_signal` over every entry of one docket, in docket order.
+
+    The docket-level reading every resolver that holds the whole docket takes,
+    so a direct appeal's non-plenary exit reads where the docket shows one
+    (:func:`direct_appeal_exit_gates`) and nowhere else. The caller keeps its
+    own rule about which match decides — the first, for every cert-stage
+    resolver.
+    """
+    gates = direct_appeal_exit_gates(texts)
+    return [
+        match_disposition_signal(text, direct_appeal_exit=gate)
+        for text, gate in zip(texts, gates, strict=True)
+    ]
 
 
 def refused_grant_sentence(text: str) -> str | None:
@@ -489,7 +658,7 @@ _MOOTNESS_RE = re.compile(r"\bmoot\w*\b", re.IGNORECASE)
 _CLAUSE_SPLIT_RE = re.compile(r",\s+and\s+", re.IGNORECASE)
 
 
-def mootness_disposition(text: str) -> bool:
+def mootness_disposition(text: str, *, direct_appeal_exit: bool = False) -> bool:
     """Whether ``text``'s disposition order is mootness practice, not a merits call.
 
     True when the matched disposition's *own sentence* carries mootness language
@@ -499,13 +668,15 @@ def mootness_disposition(text: str) -> bool:
     cert-worthiness, so scoring segments these cells into their own leaderboard
     stratum (see ``Outcome.disposition_basis``). Sentence-scoped on purpose: a
     denial followed by a separate sentence discussing mootness stays a merits
-    disposition. False when no disposition matches at all.
+    disposition. False when no disposition matches at all. ``direct_appeal_exit``
+    is :func:`match_disposition_signal`'s, so the basis is read off the match
+    that reader takes — an appeal "dismissed as moot" among them.
     """
-    for pattern, matched_disposition, label in _ENTRY_SIGNALS:
+    for pattern, matched_disposition, label in _signal_tables(text, direct_appeal_exit):
         position = 0
         while (match := pattern.search(text, position)) is not None:
             if _off_its_sentence(text, match.start(), label) or _is_refused(
-                _containing_sentence(text, match.start()), matched_disposition
+                _containing_sentence(text, match.start()), matched_disposition, label
             ):
                 position = match.end()
                 continue
@@ -564,19 +735,26 @@ def _gvr_tail_sentence(text: str) -> str | None:
     return None
 
 
-def match_disposition_signal(text: str) -> tuple[Disposition, str, str] | None:
+def match_disposition_signal(
+    text: str, *, direct_appeal_exit: bool = False
+) -> tuple[Disposition, str, str] | None:
     """First cert-disposition signal in ``text``, as (disposition, label, snippet).
 
     ``None`` when no order language matches — the caller's cue that the text
     carries no machine-readable cert disposition. A match inside a non-order
     sentence (a filing recital, an order on a motion about the petition) is skipped and the
     scan continues, so a later genuine order in the same entry still reads.
+
+    ``direct_appeal_exit`` opens the direct appeal's non-plenary exit table
+    (:data:`_DIRECT_APPEAL_EXIT_SIGNALS`) behind the cert table. It is the
+    docket's answer, not the entry's — :func:`docket_disposition_signals` gives
+    it — so an entry-level caller leaves it off and reads the cert table alone.
     """
-    for pattern, disposition, label in _ENTRY_SIGNALS:
+    for pattern, disposition, label in _signal_tables(text, direct_appeal_exit):
         position = 0
         while (match := pattern.search(text, position)) is not None:
             if _off_its_sentence(text, match.start(), label) or _is_refused(
-                _containing_sentence(text, match.start()), disposition
+                _containing_sentence(text, match.start()), disposition, label
             ):
                 position = match.end()
                 continue
@@ -1042,6 +1220,64 @@ def relisted_past(payload: Mapping[str, Any], run_day: date) -> bool:
     if not distributions or distributions[-1][1] <= run_day:
         return False
     return any(conference <= run_day for _filed, conference in distributions[:-1])
+
+
+def conference_sat_since(
+    payload: Mapping[str, Any],
+    payload_date: date,
+    run_day: date,
+    trigger: date,
+    *,
+    trigger_is_distribution: bool = False,
+) -> bool:
+    """Whether a conference the petition was distributed for on or after ``trigger`` has sat.
+
+    The bound on a cert moment whose information set lasts only until the next
+    conference considers the petition: the first relist, forecast against the
+    conference it was relisted for, and the Solicitor General's invited brief,
+    forecast against the first conference after it. Once such a conference has
+    sat on the petition by ``run_day`` and left it undecided, the petition has
+    been relisted or held, and a cell placed back at ``trigger`` would be
+    forecasting a population it has already left.
+
+    Reads every **petition** distribution docketed from ``trigger`` through
+    ``run_day`` (the relist entry itself is one, dated on the trigger day). A
+    conference on or before ``run_day`` counts as sat, as
+    :func:`considering_conference` counts it, and one the petition was taken off
+    before it sat (a call for response or a bare reschedule between the
+    distribution and the conference day) does not count. A payload stored
+    before such a conference cannot say whether it sat, so it reads as sat:
+    the cost of a wrong refusal is one deferred cell, of a wrong admission a
+    forecast of a moment that is over. Where the trigger is itself a
+    distribution (``trigger_is_distribution``, the relist), finding none from
+    the trigger on means the payload could not be read as the trigger was, and
+    reads as sat for the same reason.
+    """
+    distributions = [
+        (distributed, conference)
+        for distributed, conference in petition_distributions(payload, through=run_day)
+        if distributed >= trigger
+    ]
+    if trigger_is_distribution and not distributions:
+        return True
+    entries = [
+        (text, filed)
+        for text, raw in proceedings_entries(payload)
+        if (filed := entry_date(raw)) is not None
+    ]
+    for distributed, conference in distributions:
+        if conference > run_day:
+            continue
+        if payload_date < conference:
+            return True
+        taken_off = any(
+            distributed <= filed <= conference
+            and (_RESPONSE_REQUESTED_RE.search(text) or _RESCHEDULED_RE.search(text))
+            for text, filed in entries
+        )
+        if not taken_off:
+            return True
+    return False
 
 
 #: How long after a conference a relist entry may be docketed and still be that
