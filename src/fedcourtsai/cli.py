@@ -297,6 +297,7 @@ from .pipeline.base_rates import (
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
 from .pipeline.cascade import CascadeError, run_cascade
+from .pipeline.cert_amicus_rederive import rederive_cert_amicus_briefs
 from .pipeline.cert_signals import (
     DEFAULT_DISTRIBUTION_PARSE,
     DISTRIBUTION_PARSES,
@@ -1320,6 +1321,129 @@ def rederive_amicus_briefs_cmd(
             "record did not reconstruct moved (expected — that arm is unmeasured), or "
             "that the reading is not the widening it claims. The first two are ordinary; "
             "triage the per-row moves above before raising it.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command("rederive-cert-amicus-briefs")
+def rederive_cert_amicus_briefs_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the back-filled column; omit for a dry-run plan."),
+    ] = False,
+    max_changes: Annotated[
+        int | None,
+        typer.Option(
+            "--max-changes",
+            help="Blast-radius bound: refuse to apply more row writes (fills plus raises) "
+            "than this. Required with --apply.",
+        ),
+        # No default: the dry run is where the number comes from, and a default
+        # would stand in for the maintainer's reading of it.
+    ] = None,
+) -> None:
+    """Back-fill the cert-stage `cert_amicus_briefs` column over the cert live slice.
+
+    The live poll writes the column only for rows it still polls, so resolved
+    history stays NULL and the stat pack's amicus cut would read `(unknown)`. This
+    pass recounts every cert-form live-slice SCOTUS row (paid and IFP — the rows
+    the live cert branch writes, selected by the same docket-number parse the poll
+    addresses them with) from its latest live-shaped snapshot, exactly as ingest
+    counts it: `pipeline.cert_amicus.cert_amicus_briefs`, the count at
+    disposition, less the Court's orders on amicus motions. Open petitions are
+    included, since the write is one the next poll could only raise.
+
+    The write keeps the column's **max latch** (`corpus.raise_cert_amicus_briefs`):
+    a NULL is filled and a lower stored count is raised, while a recount *below*
+    the stored value is reported as `latch_held` and never written — the column
+    has had one reading since its first write, so a lower recount means a snapshot
+    that lost entries. A row with no readable snapshot is `unobservable` and left
+    as it is. Corpus only: no committed artifact carries this count.
+
+    Prints the ledger — rows read, `unobservable`, `unchanged`, `filled`
+    (NULL → value), `raised` (value → value), `latch_held` — then each raise and
+    each held row, then the `CertAmicusRederiveResult` as JSON. **Read
+    `unobservable` first**: the snapshot read is split-aware, so against an
+    index-only pull with no content store addressed every row lands there and the
+    empty ledger reads like a filled corpus. One pass per invocation (the plan is
+    the write set), the batch in one transaction. `--apply` requires an explicit
+    `--max-changes` and refuses above it, printing the ledger first. Idempotent:
+    re-running after an apply reports `total_changes = 0`. Run where the corpus
+    is pulled (`run-repair`'s `cert-amicus-rederive` pass in production; a dev
+    checkout serves the dry run). Exits 1 when the corpus is absent or the apply
+    is refused.
+    """
+    settings = get_settings()
+    if apply and max_changes is None:
+        typer.echo(
+            "rederive-cert-amicus-briefs: --apply requires an explicit --max-changes. "
+            "Read the dry run first and pass the total_changes you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before back-filling the cert amicus counts.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # The blob this pass read, resolved as the other re-derivations resolve it.
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    elif settings.corpus_pointer is None:
+        pointer_file = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = (
+            corpus_ranged.read_index_pointer(pointer_file).sha256 if pointer_file.is_file() else ""
+        )
+    else:
+        corpus_sha = corpus.resolve_read_pointer(db_path).sha256
+        typer.echo(
+            "corpus provenance: out-of-band pointer override in effect — the "
+            "recorded corpus_sha256 names the override's blob",
+            err=True,
+        )
+    with corpus.connect(db_path) as conn:
+        result = rederive_cert_amicus_briefs(
+            conn, apply=apply, corpus_sha256=corpus_sha, max_changes=max_changes
+        )
+    verb = "wrote" if apply else "would write"
+    if result.refused:
+        verb = "refused to write"
+    typer.echo(
+        f"rederive-cert-amicus-briefs ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} cert-form live-slice row(s); {result.read} read, "
+        f"{result.unobservable} unobservable (untouched). Read `unobservable` first: "
+        "against an index-only pull every row lands there and the empty ledger below "
+        "is a wrong-blob reading rather than a filled corpus"
+    )
+    typer.echo(
+        f"  {verb} {result.total_changes}: {result.filled} NULL -> value, "
+        f"{result.raised} value -> higher value; {result.unchanged} unchanged; "
+        f"{result.latch_held} held by the latch (recount below the stored value, "
+        f"never written); {result.open_petitions} of the read rows still open. "
+        f"filled values: {result.filled_distribution}"
+    )
+    for move in result.raised_moves:
+        typer.echo(f"  raise {move.case_id}: {move.was} -> {move.now}")
+    for move in result.latch_held_moves:
+        typer.echo(f"  held {move.case_id}: stored {move.was}, recount {move.now}")
+    if not apply and max_changes is not None and result.total_changes > max_changes:
+        typer.echo(
+            f"note: {result.total_changes} total changes is above --max-changes {max_changes}; "
+            "an apply would refuse.",
+            err=True,
+        )
+    typer.echo(result.model_dump_json())
+    if result.refused:
+        typer.echo(
+            f"rederive-cert-amicus-briefs: refusing to apply {result.total_changes} "
+            f"change(s) (--max-changes {max_changes}). Nothing was written. A row the "
+            "poll read since the dry run is already written, so the total ordinarily "
+            "falls between the two dispatches; one above the dry run's means the "
+            "population widened — triage the ledger before raising the bound.",
             err=True,
         )
         raise typer.Exit(code=1)
