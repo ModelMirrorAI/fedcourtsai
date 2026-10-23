@@ -258,8 +258,9 @@ what happened to their cells. A termination never scores as *undisturbed*.
 **Owed:** a terminal record for a terminated merits event, so its cells are
 de-counted visibly rather than left on an open event.
 
-**Prose (settled).** Vote split, margin and authorship are pre-registered as
-outcomes only. They are not in the declared claim set and are not scored.
+**Prose (settled).** Vote split and margin are pre-registered as outcomes
+only. Authorship is declared as distribution claims under a set version no
+moment names yet. None of the three is scored.
 
 ## 7. Retrospective evidence
 

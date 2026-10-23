@@ -41,6 +41,7 @@ from .corpus import CorpusRow, strip_docket_annotation
 from .integrity import cell_clock, leakage_excluded
 from .paths import CasePaths
 from .pipeline import moments as moment_registry
+from .pipeline.authorship_rates import authorship_section
 from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind
@@ -98,6 +99,7 @@ from .schemas import (
     Schedule,
     Stage,
     StatPack,
+    StatPackAuthorship,
     StatPackCoverage,
     StatPackInterim,
     StatPackInterimTerm,
@@ -297,6 +299,26 @@ def _capital_case_key(row: CorpusRow) -> str:
     if row.capital_case:
         return "capital"
     return "unmarked" if row.last_live_polled is not None else _UNKNOWN_KEY
+
+
+def _cert_amicus_key(row: CorpusRow) -> str:
+    """The cert-stage amicus bucket: 0 / 1 / 2+, or ``(unknown)`` before a parse.
+
+    Read off ``cert_amicus_briefs``, the count at the petition's disposition
+    (:func:`fedcourtsai.pipeline.cert_amicus.cert_amicus_briefs`). NULL means the
+    live channel has not read the docket since the column existed, which is a
+    different fact from "no amicus brief".
+
+    Two buckets above zero rather than the relist cut's three, because the
+    count is concentrated: most paid petitions draw none, and the petitions that
+    draw several are few enough that splitting them further leaves cells whose
+    rates are noise. ``2+`` is where coordinated amicus support starts, which
+    is the signal the cut is for.
+    """
+    count = row.cert_amicus_briefs
+    if count is None:
+        return _UNKNOWN_KEY
+    return "2+" if count >= 2 else str(count)
 
 
 def _fee_class(row: CorpusRow) -> FeeClass | None:
@@ -501,7 +523,8 @@ def _require_servable_dimension(query: AnalyticsQuery) -> None:
 
     The CLI offers only servable cuts, but this contract belongs to the
     aggregation itself: a section dimension's keys come from an artifact, not a
-    corpus row, so grouping by one has no key function. Checked before the
+    corpus row, or from a column withheld from this surface, so grouping by one
+    has no key function here. Checked before the
     absent-corpus grace too — that grace covers a missing corpus, never a
     caller-supplied bad dimension.
     """
@@ -511,8 +534,9 @@ def _require_servable_dimension(query: AnalyticsQuery) -> None:
     if dimension not in STATS_DIMENSIONS:
         choices = ", ".join(g.value for g in STATS_DIMENSIONS)
         raise ValueError(
-            f"cannot group by {dimension.value!r}: its keys come from "
-            f"an artifact, not a corpus row; choose one of: {choices}"
+            f"cannot group by {dimension.value!r}: it is a section-only dimension "
+            "(its keys come from an artifact, not a corpus row, or from a column "
+            f"withheld from this surface); choose one of: {choices}"
         )
 
 
@@ -681,6 +705,41 @@ _CERT_BY_CVSG_PAID = _SectionSpec(
     True,
     GroupBy.cvsg,
     row_filter=_is_scored_segment_row,
+)
+# The amicus cut states its timing because the count is only a cert signal under
+# a cut: a granted case draws its merits amici after the grant, and counting
+# them would read the outcome into the bucket.
+_CERT_AMICUS_NOTE = (
+    "Amicus briefs are counted at the petition's disposition — every docket "
+    "entry before the first disposition entry, the same where-it-ended timing "
+    "the relist cut reads off its stored count — so a granted case's merits "
+    "amici are not counted. The per-entry reading is the interim amicus "
+    "count's: each entry naming amicus or amici curiae, plus each distinct lead "
+    "filer docketed as submitted and not yet accepted, less the Court's orders "
+    "on amicus motions, so a brief filed by motion counts once. It is a stakes "
+    "proxy, not a census of briefs: a multi-filer brief counts once, a paper "
+    "reciting the phrase (a consent to amicus filings, a certificate of service "
+    "on a brief) counts beside the briefs, and the Solicitor "
+    "General's invited brief counts, so a CVSG petition whose invited brief "
+    "is on the record sits at 1 or above by construction. `(unknown)` is a "
+    "row the live poll has not read since the count was stored. The split is "
+    "a marginal one — it describes the populations, not what the count adds "
+    "over the relist and CVSG cuts."
+)
+# Not yet in `_STATPACK_SECTIONS`: the column fills only as the live poll re-reads
+# a docket, and the poll skips resolved rows, so until a re-derivation fills the
+# resolved history this section would be almost all `(unknown)` — noise in a
+# table cells read. `cert_amicus_section` builds it on its own meanwhile.
+_CERT_BY_AMICUS_PAID = _SectionSpec(
+    "Cert petitions by amicus-brief count (paid scored segment)",
+    "scotus",
+    True,
+    True,
+    True,
+    GroupBy.cert_amicus,
+    key_fn=_cert_amicus_key,
+    row_filter=_is_scored_segment_row,
+    scope_note=_CERT_AMICUS_NOTE,
 )
 # The capital cuts name their coverage sentinel for the same reason the relist
 # cuts name their parse: `unmarked` is a negative only one channel can assert,
@@ -1871,6 +1930,26 @@ def _sections(
     return sections
 
 
+def cert_amicus_section(*, corpus_db_path: Path) -> StatPackSection:
+    """The cert-stage amicus cut over the paid scored segment, built on its own.
+
+    The same population, weighting and bucket rollup as the relist and CVSG
+    cuts beside it in the statpack, over one streamed pass. It is not a
+    statpack section yet (:data:`_CERT_BY_AMICUS_PAID` says why), so this is the
+    one way to read it; an absent corpus yields the empty section.
+    """
+    specs = (_CERT_BY_AMICUS_PAID,)
+    if not corpus_db_path.exists():
+        return _sections(specs)[0]
+    return _sections(specs, _scan_corpus(corpus_db_path, specs))[0]
+
+
+def _authorship_section(corpus_db_path: Path) -> StatPackAuthorship | None:
+    """The authorship section, off the per-opinion record the blob holds."""
+    with corpus.connect_local_read(corpus_db_path) as conn:
+        return authorship_section(conn)
+
+
 def build_statpack(*, corpus_db_path: Path) -> StatPack:
     """Roll the whole corpus into a base-rate statpack, or the empty pack if it is absent.
 
@@ -1886,7 +1965,9 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
     Two more populations ride beside them as their own stage sections: the
     interim application docket (``interim``), present only once the corpus
     holds application rows, and the granted-merits cohort (``merits``), present
-    only once a row carries a parsed merits judgment.
+    only once a row carries a parsed merits judgment. The per-opinion record
+    rides beside them as the authorship section, present once it holds an
+    argued decision.
     """
     if not corpus_db_path.exists():
         return StatPack(sections=_sections(_STATPACK_SECTIONS))
@@ -1917,6 +1998,7 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
         terms=[_term_entry(year, term_accs.get(year), census) for year in term_years],
         interim=_interim_section(scan.interim),
         merits=_merits_section(scan.merits),
+        authorship=_authorship_section(corpus_db_path),
     )
 
 
@@ -2616,8 +2698,8 @@ _DOCKET_GAPS = (
     + "reversed in part, or dismissed in part and affirmed in part) is read on "
     + "neither side and leaves the docket unresolved.",
     "**Justice-level statistics.** Vote frequencies, agreement matrices, and "
-    + "opinion authorship are per-justice facts; this corpus is docket-first and "
-    + "holds no per-justice vote record.",
+    + "opinion authorship are per-justice facts this docket pack does not carry; "
+    + "the statpack's authorship section rolls up the per-opinion record instead.",
 )
 
 

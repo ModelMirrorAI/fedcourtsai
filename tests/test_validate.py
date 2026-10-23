@@ -1657,6 +1657,23 @@ def test_stamped_prediction_without_a_forecast_document_fails(tmp_path: Path) ->
     assert _docs_check(data_root).passed
 
 
+def test_unnamed_forecast_document_fails_before_the_stamp(tmp_path: Path) -> None:
+    """A forecast document written but left unnamed is broken on an unstamped cell.
+
+    The stamp lands after the engine exits, so the stamped-cell rule above cannot
+    fire on the agent's own `validate` run. A document written beside a null
+    pointer is never a legacy shape, so it fails with or without the stamp.
+    """
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1", forecast=False)
+    ep = CasePaths(data_root, "ca9", 1).event("evt-motion-stay")
+    ep.predicted_reasoning("p1", "2026-01-01T00-00-00Z").write_text("what the court will do\n")
+    check = _docs_check(data_root)
+    assert not check.passed
+    assert any("is written beside it" in p for p in check.problems)
+
+
 def test_prediction_document_pointing_outside_its_directory_fails(tmp_path: Path) -> None:
     # A pointer is a filename beside the prediction, never a path: following one out
     # of the cell's own directory would read another agent's output.

@@ -107,10 +107,12 @@ with the one the public cares about most:
   and the opinion-record standing sweep on run-seed's daily window keeps the
   current and previous Term in it; the live poll back-fills the sittings of
   every Term from OT2020 on, so the tally reads the Terms that record holds.
-  The tally is context, not a claim: declaring the moment still owes the
-  eight tests in [outcome-decomposition.md](outcome-decomposition.md), which
-  the authorship claims have failed so far for want of a committed resolution
-  channel and a strictly-prior baseline ([decision-model.md](decision-model.md)).
+  The tally is context, not a claim. The claims it informs are declared as
+  distribution claims (`majority-author`, `separate-writers`, *The authorship
+  claims* in [outcome-decomposition.md](outcome-decomposition.md)) in a set
+  version no moment names until the predict prompt elicits them; scoring them
+  waits on their strictly-prior baselines, and the late-Term moment still owes
+  the eight tests.
 - **First-relist re-forecast** and **call for response** — the strongest public
   cert-stage signals. Both are declared, parsed and minted. The first relist
   (`evt-order-relist-disposition`, moment `relist`), which fires once per

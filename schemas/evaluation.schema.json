@@ -130,6 +130,14 @@
           "title": "Declared Set Version",
           "type": "string"
         },
+        "distributions": {
+          "description": "One row per declared distribution claim (the authorship claims), in the declaration's order. Reported beside the claims and never added into `total`, `floor` or `lift`: the authorship block stands on its own until the criterion registered for joining it is met. Omitted from the file while empty",
+          "items": {
+            "$ref": "#/$defs/DistributionScore"
+          },
+          "title": "Distributions",
+          "type": "array"
+        },
         "floor": {
           "anyOf": [
             {
@@ -174,6 +182,82 @@
         "declared_set_version"
       ],
       "title": "ClaimScoreBlock",
+      "type": "object"
+    },
+    "DistributionScore": {
+      "additionalProperties": false,
+      "description": "One declared distribution claim's row inside ``ClaimScoreBlock.distributions``.\n\nThe bench-shaped counterpart of :class:`ClaimScore`, under the same\ndiscipline: everything except ``probabilities`` is the harness's. The\nregistered rule is applied once per label, ``(b - y)^2 - (p - y)^2``, and\nthe claim's declared weighting combines the label terms: a categorical\nclaim adds them (bounded by 2), a per-Justice claim averages them over the\nJustices it resolves (bounded by 1), so a bench of nine weighs as one\nclaim (`docs/outcome-decomposition.md`, *The authorship claims*). A claim\nthe declaration marks collected-only is resolved and never scored.",
+      "properties": {
+        "baseline": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The harness-computed baseline by label, from Terms strictly before the October Term of the cell's snapshot. None where the committed statpack publishes no cut supporting one; the claim then goes unscored",
+          "title": "Baseline"
+        },
+        "claim_id": {
+          "description": "The declared distribution claim this row scores",
+          "title": "Claim Id",
+          "type": "string"
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How each label resolved, 1 or 0, over the labels the record settles. None when the record does not disclose the claim \u2014 the availability mask: no observed writing roles, an unclassified decision method, or (for majority-author) no deciding opinion",
+          "title": "Outcome"
+        },
+        "probabilities": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "The predictor's stated probabilities by label, copied from the prediction's `claim_distributions` block",
+          "title": "Probabilities",
+          "type": "object"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The per-label rule combined by the claim's declared weighting. None when unscored, or when outcome or baseline is None",
+          "title": "Score"
+        },
+        "scored": {
+          "description": "Whether the declaration scores this claim. False for a collected-only claim (order-writers), whose row carries its resolution and never a score",
+          "title": "Scored",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "claim_id",
+        "probabilities",
+        "scored"
+      ],
+      "title": "DistributionScore",
       "type": "object"
     },
     "Engine": {

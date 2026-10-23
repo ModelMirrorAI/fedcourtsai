@@ -53,7 +53,11 @@ fields that mean the same thing at every stage:
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
   a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
   sit beside every event of the case rather than under the event being
-  predicted. The staged `documents/` carry a `documents.json` manifest stating
+  predicted. The staged `documents/` hold the kinds provisioning gives cells,
+  never one the corpus stores but withholds from every cell until a re-bless
+  (`provision.WITHHELD_KINDS`: the supplemental briefs and party letters,
+  [document-provisioning.md](document-provisioning.md)), and carry a
+  `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
   facts (a `petition`, `application` or `appendix` cut at the cap also marks
   each cut in its text), and what the contact-detail scrub did to its text:
@@ -401,7 +405,11 @@ Written on every live cell. `predicted_reasoning_doc` is nullable only so
 records written before the field existed still validate — not so a cell can
 skip the document, and `validate` enforces exactly that split: a
 process-stamped cell provably post-dates the field, so a null pointer on one
-fails validation, while unstamped shakedown records stay valid.
+fails validation, while unstamped shakedown records stay valid. A
+`predicted_reasoning.md` written beside a null pointer fails whatever the
+stamp, because no legacy record has that shape, and because the stamp lands
+after the engine exits, so this is the form of the miss a cell's own
+`validate` run can catch before it finishes.
 
 ## `reasoning.md`
 

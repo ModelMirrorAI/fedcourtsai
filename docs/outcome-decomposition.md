@@ -21,9 +21,11 @@ availability mask beside it; `Prediction.claims` carries the predictor's
 probabilities and `Evaluation.claim_scores` the harness-computed block. The
 first set proposed against the rule was specified in a way that did not
 resolve, and *A claim set that failed* records why, in detail, because its
-tests are what the declared sets were chosen against. The merits vote,
-split, and writing claims remain pre-registered only —
-`docs/decision-model.md` records why the vote claims failed the tests. The
+tests are what the declared sets were chosen against. The merits vote and
+split claims remain pre-registered only —
+`docs/decision-model.md` records why they failed the tests — while the
+writing claims are declared as distribution claims under set versions no
+moment names yet (*The authorship claims*). The
 semantic family is declared but not pre-registered: `semantic-v1` (*The
 semantic family, alpha*) declares two claims on the merits moments and is an
 **alpha** — a methodology that has never met an opinion, explicitly not a
@@ -92,7 +94,7 @@ signal it resolves against.
 
 | Claim | Resolves against |
 | --- | --- |
-| Disposition (`disposition`) | `Outcome.actual_granted` — the declared form is the binary grant projection; the multi-class form waits on a per-label distribution no schema field carries |
+| Disposition (`disposition`) | `Outcome.actual_granted` — the declared form is the binary grant projection; the multi-class form waits on a per-label distribution claim of its own (`Prediction.claim_distributions` carries the authorship claims only) |
 | The petition is distributed at least once more (`relist-increment`) | `Outcome.signals.distribution_count` past `Prediction.context.distribution_count` — comparable only under one distribution parse, so masked where the parse the frozen `salience_version` pins differs from the one the outcome's signals block stamps |
 | The Court calls for the Solicitor General's views (`cvsg-increment`) | `Outcome.signals.cvsg_date` becoming non-null, from null (and observable) at prediction |
 | The grant disposes in the cert order (`summary-disposition-route`) | `Outcome.disposition_route` — a GVR or a judgment riding the grant order, against a grant set down for plenary review; masked on every non-grant |
@@ -112,7 +114,7 @@ docket's disposition entry):
 
 | Claim | Resolves against |
 | --- | --- |
-| Judgment (`judgment-disturbed`, declared under `merits-v1`) | `Outcome.judgment` through the disturbed projection (`pipeline.judgment.judgment_disturbed`) — the declared form is binary, exactly as the cert disposition claim's is; the multi-class form waits on a per-label distribution no schema field carries |
+| Judgment (`judgment-disturbed`, declared under `merits-v1`) | `Outcome.judgment` through the disturbed projection (`pipeline.judgment.judgment_disturbed`) — the declared form is binary, exactly as the cert disposition claim's is; the multi-class form waits on a per-label distribution claim of its own |
 | Each justice's vote | `Outcome.votes`, per justice — **not declared**: the merits outcome writer records no votes (docket text discloses no provenance denominator), and the registered opinions source is written only by a dispatched `run-repair` pass (`opinion-votes`), so the resolution channel is empty until that pass stamps a merits outcome; see `docs/decision-model.md` |
 | Majority author | `Outcome.votes[].writing` and `Outcome.writing_roles` — fields exist, **not declared**, and unpopulated until a vote writer stamps a merits outcome |
 | A concurrence is filed | `Outcome.writing_roles` — field exists, **not declared**, unpopulated on merits outcomes |
@@ -149,9 +151,10 @@ It is also the set's one candidate for a multi-class score: the disposition
 vocabulary has eight values, so its full-resolution form is the sum of
 per-value Brier terms, which has the same properties as the binary rule. The
 **declared** form is nonetheless binary — the grant projection — because a
-multi-class claim needs a per-label distribution and no schema field carries
-one; when such a field exists, the fineness preference below points at the
-multi-class form. The binary form covers every declared claim.
+multi-class claim needs a per-label distribution, and the field that carries
+one (`Prediction.claim_distributions`) declares only the authorship claims;
+when the disposition gets a distribution claim of its own, the fineness
+preference below points at the multi-class form.
 
 ### Semantic claims
 
@@ -208,7 +211,8 @@ process version: a harness field, not an agent's word.
 
 A multi-class disposition claim would take the sum of per-value Brier terms,
 which has the same properties; the declared disposition claim is binary (see
-*Mechanical claims*), so today every claim takes the binary form.
+*Mechanical claims*), so every claim takes the binary form except
+`majority-author` (*The authorship claims*), the one multi-class claim.
 
 ### What the rule does and does not protect against
 
@@ -669,7 +673,7 @@ land.
 
 | Claim | Resolver | Baseline |
 | --- | --- | --- |
-| `disposition` | `Outcome.actual_granted` — the binary grant projection, restating the headline `probability` so the set is complete and self-describing (the block is advisory, so the headline Brier path is not paid twice on any ranked number); the multi-class form waits on a schema field carrying a per-label distribution | The frozen band's risk-set rate pooled over strictly-prior Terms (`prediction_base_rate`) — the same leakage-safe baseline the headline skill score uses, reused rather than duplicated, and never the terminal-band fallback, which conditions on the petition's own future |
+| `disposition` | `Outcome.actual_granted` — the binary grant projection, restating the headline `probability` so the set is complete and self-describing (the block is advisory, so the headline Brier path is not paid twice on any ranked number); the multi-class form waits on a per-label distribution claim of its own | The frozen band's risk-set rate pooled over strictly-prior Terms (`prediction_base_rate`) — the same leakage-safe baseline the headline skill score uses, reused rather than duplicated, and never the terminal-band fallback, which conditions on the petition's own future |
 | `relist-increment` | 1 iff `Outcome.signals.distribution_count` rose past `Prediction.context.distribution_count`; masked where either end is undisclosed, and where the two ends' recorded parses differ — the frozen `salience_version`'s pinned distribution parse against the `distribution_parse` the outcome's signals block stamps (an unstamped block discloses no parse and masks — an outcome's only date is the docket's decision date, which cannot say when or under which reading the block was written). A pair straddling a parse activation holds counts neither end can restate under the other's reading, so the strict comparison would read across the boundary — low against a narrowed column (suppressing a genuine increment), high against a wider-parse block (minting a spurious one) — and a mis-grade in either direction is what the mask refuses. Read any pooled rate for this claim with the mask's selection axis in mind: the masked set at an activation is *frozen-before ∧ resolved-after* — a **duration** cut, and duration is what relists are — so a scored set spanning an activation under-represents long-lived petitions and understates the realized increment rate relative to the population's | None yet. The honest baseline is the per-count risk-set hazard over strictly-prior Terms — and the hazard moves steeply in the count (≈26% at one distribution, 27% at two, 47% at three, 71% at four, denial-reweighted), so nothing coarser is properly conditioned. The pack's relist cut pools every Term, the case's own included, and its per-Term surface carries no relist cut — so the claim goes unscored until a per-Term relist-bucket cut over the scored segment lands |
 | `cvsg-increment` | 1 iff `Outcome.signals.cvsg_date` is non-null, given null — and observable — at prediction; masked as **vacuous** where a CVSG already sat on the docket, there being nothing left to forecast, and where the case's caption names a federal party on either side (`party-v2`'s federal class, read off the committed event's `title`), since the Court does not invite the Solicitor General's views where the United States is already a party | None yet, for the same strictly-prior gap — and the future per-Term cut must correct for the CVSG censoring recorded above, since a resolved-only rate in an open Term runs at a fraction of the true one — and must be taken over the non-federal-caption population the resolver scores, or the cases that structurally cannot draw a CVSG dilute it |
 | `summary-disposition-route` | 1 iff the grant disposed in the cert order — a GVR, or a judgment riding the grant order — 0 for a grant set down for briefing and argument, read **only** from `Outcome.disposition_route`. Masked as **vacuous** on every non-grant — a denial, a dismissal, a withdrawal — and as **not assessed** on any grant carrying no marker: a record with no order text, no cert-grant date, or an undated judgment entry. Never read off the `gvr` label where the marker is absent, which would make assessability depend on the answer — see below | The prior Terms' cert-order share of grants (`summary_route_base_rate`): pooled `gvr` + `summary-reversal` over pooled grant-family counts from each Term's **paid** fee-class cut — the scored population — strictly prior, above a stated minimum. Conditioned on the grant family, matching the resolver's own conditioning, and carrying one residual downward bias — see below |
@@ -1005,8 +1009,9 @@ because the question is whether the moment earns its cells at all, not whether
 the harness can mint it. Retiring it costs the set nothing, whereas a claim
 declared on it would settle that question by inertia.
 
-**What stays out, and why.** The merits vote and writing claims wait for a
-populated vote source:
+**What stays out, and why.** The merits vote claims, and any scored reading of
+the writing claims (*The authorship claims* below), wait for a populated vote
+source:
 `Outcome.votes` is `[]` on every committed merits outcome — the merits outcome
 writer deliberately records none, because docket text discloses no
 provenance denominator — and no committed merits outcome carries
@@ -1068,7 +1073,7 @@ pre-registered rule that keeps it there permanently.
 | interim | How many further amicus briefs arrive | `amicus-increment` (`interim-v1`) | Declared and resolved; same gap, sharpened — the published column collapses the count to a flag |
 | interim | How the application is disposed of | `interim-disposition` (`interim-v1`) | **Scored** above the pool's registered floor, against the strictly-prior substantive grant rate |
 | interim | *When* it is disposed of | Context-only | The timing row above, on the interim docket |
-| merits | Which of the six judgment labels the Court enters | `judgment-disturbed` (`merits-v1`) on the binary; the multi-class form is context-only | The binary is **scored**; the six-way form waits on a schema field carrying a per-label distribution, exactly as the cert disposition claim's does |
+| merits | Which of the six judgment labels the Court enters | `judgment-disturbed` (`merits-v1`) on the binary; the multi-class form is context-only | The binary is **scored**; the six-way form waits on a per-label distribution claim of its own, exactly as the cert disposition claim's does |
 | merits | Whether a procedural exit (a DIG, an equally divided Court) is live | Folded into `judgment-disturbed` | Both resolve *undisturbed*, so the binary prices them; the label-level call rides the multi-class row above |
 | merits | The ground the majority rests on | `majority-ground` (`semantic-v1`) | **Graded**, not scored. The machinery is live end to end; every unit masks until opinion bodies accrue, and the vantage caveat travels as prose |
 | merits | How broad that ground is | `ground-breadth` (`semantic-v1`) | The same, on a separate axis — never a conjunct of the row above |
@@ -1076,7 +1081,7 @@ pre-registered rule that keeps it there permanently.
 | merits | The vote lineup and the split | Context-only, banked in `votes` | Pre-registered pending a populated vote source: `Outcome.votes` is empty on every committed merits outcome because docket text discloses no provenance denominator, and the registered opinions source is written only by the dispatched `opinion-votes` pass. Merits votes are banked and scored against complete records the day one is written; cert votes never are |
 | merits | Whether a separate writing splits the rationale from the result | Context-only; **mechanical** family the day a field records it | Existence is a countable docket fact, not a reader's judgment, so it belongs with a real baseline and a proper score rather than as prose graded by impression. `semantic-v1` holds no place for it |
 | merits | Which question presented the Court reaches and which it leaves | Context-only | The merits-side twin of the cert QP row, with the same framing gap |
-| merits | Authorship and the writing roles | Context-only | `Outcome.writing_roles` and `votes[].writing` hold them once the opinions writer stamps a merits outcome, and none is stamped yet; the prompt tells the cell not to present them as the scoreable part |
+| merits | Authorship and the writing roles | `majority-author`, `separate-writers` (`merits-v2`) | Distribution claims declared ahead of their elicitation (*The authorship claims*); they resolve from the `writing_roles` the opinions writer stamps on a merits outcome. Until a moment names `merits-v2`, the prompt tells the cell not to present them as the scoreable part |
 | any | The rationale for the predictor's own number | Never scored, by construction | That is `reasoning.md`, a different document with a different epistemic status: it resolves against nothing. `reasoning_quality` grades its soundness and grades no forecast |
 
 Three properties of the table are worth reading off it. **Every scored route is
@@ -1138,10 +1143,12 @@ never-parsed.
 
 ### What that adds up to
 
-The merits *vote and writing* half of this document is blocked on data that is
-not scheduled:
-per-justice votes and opinion bodies. That is the honest state of it, and it is
-why that half of the taxonomy is pre-registered rather than implemented. The
+The merits *vote* half of this document is blocked on data that is not
+scheduled: per-justice votes and opinion bodies. That is the honest state of
+it, and it is why that half of the taxonomy is pre-registered rather than
+implemented. The *writing* half is implemented as distribution claims
+(*The authorship claims*), resolving from the writing roles the opinions
+writer stamps. The
 merits *judgment* half is not blocked: judgment detection resolves
 `Outcome.judgment` from the docket, and `merits-v1` declares its one claim.
 
@@ -1186,6 +1193,110 @@ Two consequences worth stating plainly:
   resolve against fixed sources and the floor above is computed beside them.
   `metrics/README.md` governs what may be claimed from a number, and a claim
   total is not an exception to it.
+
+### The authorship claims
+
+A prediction under these sets forecasts the writings of the decision its
+moment predicts.
+One probability cannot carry a forecast over the bench, so these are
+**distribution claims** (`Prediction.claim_distributions`): a claim id with a
+probability per label, a label being a Justice's name as the roster spells it.
+They are declared beside a set's binary claims, under `merits-v2`, `cert-v3` and
+`interim-v2`, which carry their predecessors' binary claims unchanged and in the
+same order (`pipeline.claims`). No moment names those versions until the predict
+prompt elicits the forecast: the declaration and the prompt move together, as
+the paragraph above requires.
+
+| Claim | Sets | Kind | Resolves from | Masked when |
+| --- | --- | --- | --- | --- |
+| `majority-author` | `merits-v2` | Categorical over the bench and `per-curiam`, summing to 1 | The one lead role (the opinion of the Court or a plurality) in the outcome's observed `writing_roles`; `per-curiam` from `merits_decision_method`, never from a missing author | An unclassified decision method (else the mask would depend on who wrote, since an unclassified per curiam carries no roles), no deciding opinion (a DIG, a summary order), a per curiam whose roles name a lead writer, unobserved roles, or roles naming no single lead writer — which includes an author who also wrote separately, recorded as a null role, so those cases mask on the answer |
+| `separate-writers` | `merits-v2` | Per Justice, each probability on its own | Whether each participating Justice wrote anything but the lead opinion: a concurrence, a dissent, either in part, or a writing of mixed role | Unobserved roles, which covers every per curiam the opinion record derives no lineup for, and a signed decision whose roles name no single lead writer (a null role there may be the lead opinion in part) |
+| `order-writers` | `cert-v3`, `interim-v2` | Per Justice | Whether each participating Justice wrote on the order, off the orders source's observed roles | Unobserved roles, and any merits outcome |
+
+**Scoring.** The rule above, `(b - y)^2 - (p - y)^2`, is applied once per
+label, and the claim's kind fixes how the terms combine before any outcome
+exists. A categorical claim **adds** its terms over every label either side
+names, a label the forecast leaves out stating 0, so mass on a Justice who did
+not sit is a miss rather than dropped (the baseline prices the whole seated
+bench, so a forecaster who knows of a public recusal earns that knowledge); it
+is bounded by 2, the multi-class form
+this document already registers. A per-Justice claim **averages** its terms
+over the Justices the outcome resolves, so a bench of nine weighs as one claim
+rather than nine, the weighting the *No claim may be derived from another*
+section requires the harness to declare; it is bounded by 1, and it scores
+nothing when the forecast or the baseline omits a Justice the outcome resolves.
+Each combination of proper terms with weights independent of the forecast
+is proper. The categorical bound assumes the baseline is a distribution too,
+which a baseline cut must satisfy.
+
+**`order-writers` is collected and never scored.** A writing on a cert order
+sits near 0.2% per Justice-order (about 0.5% for the most frequent writer):
+on the committed orders-source outcomes of 2026-10-23, 48 of 2,921 carry any
+writing, concentrated in three Justices, and 7 of those 48 carry two. The per-Justice form fails test 8, and a "who, given someone writes"
+categorical has no single answer on an order with two writers. The existing
+`dissent-from-denial` claim stays the scored part of the cert stage; the
+writers forecast is resolved and banked beside it.
+
+**Baselines.** Both scored claims' baselines pool the statpack's authorship
+section (`metrics/README.md`), the per-opinion record per Term, over the
+October Terms strictly before the one the cell's snapshot falls in, inside the
+lookback band `salience.base_rate_lookback_terms` sets (the record starts at
+OT2020, so the band reaches no further back), priced over the Justices sitting
+on the snapshot date (`pipeline.base_rates`). Only argued decisions count, the
+population a merits forecast is made on: a summary per curiam, which the
+author claim would resolve as `per-curiam`, is a population a merits case
+rarely sees, and a signed decision the claims mask (its author also wrote
+separately, or it carries a second lead writing) is counted by neither.
+
+- `majority-author`: the per curiam takes its pooled share of argued
+  decisions, plus half a per curiam over one added decision, so a window that
+  saw none still prices one above zero. Each Justice's share of the signed rest
+  is their majority opinions over the decisions decided while seated, shrunk
+  toward an even split by 20 pseudo-decisions so a newly seated Justice is not
+  priced at 0, then scaled so the baseline sums to 1.
+- `separate-writers`: each Justice's separate writings over the observed
+  signed decisions they took part in, shrunk toward the bench-wide pooled rate
+  by the same 20 pseudo-decisions. Observed means a filled bench row, and the
+  record fills those only for Terms the opinion-record pass has read whole
+  lineups for, so this pool can cover far fewer Terms than the author's and sit
+  near the floor; a later bench back-fill re-bases every separate-writers row
+  on re-grade. The pool is signed decisions, while the claim also resolves a
+  dismissal or summary disposition whose roles were observed, so those are
+  priced at the signed rate (an observed DIG is likely one that drew a dissent,
+  so this direction under-prices).
+
+Either is `None`, and its claim unscored, below 30 pooled decisions (argued
+decisions for the author, observed ones for separate writing), and neither
+conditions on the case. A late-Term author baseline would down-weight, never
+zero, the Justices who have already written for the case's sitting, since a
+sitting sometimes gives one Justice two opinions and a zero baseline against a
+hit hands out an unearned point. It would read the tally frozen into the
+prediction's context at cell time, which no context field carries yet: a tally
+computed at resolution would carry the opinions issued after the cell ran,
+which test 3 names as leakage. A row scores only where the committed pack's
+section clears the floor and the outcome resolves the claim; a pack without the
+section scores neither.
+
+**`majority-author` is not yet scoreable as resolved.** Its mask must not
+depend on the answer, and today it does: a per curiam resolves from
+`merits_decision_method` alone, while a signed decision resolves only once the
+opinions source has stamped its `writing_roles`, which a per curiam never
+receives. Scored as it stands, its pool would over-represent per curiams, and a
+forecast stating a per curiam everywhere would collect on them while losing
+nothing on the masked signed decisions. The author must therefore resolve from
+a stamp written for every decision the opinion record reads, signed or per
+curiam, before any moment names `merits-v2`.
+
+**Reporting.** The rows sit in `ClaimScoreBlock.distributions`, beside the
+binary claims and never added into `total`, `floor` or `lift`. A malformed
+distribution block — a declared claim left out, one stated twice, a categorical
+forecast not summing to 1, a label off the roster, a per-Justice forecast
+leaving out a Justice sitting on the cell's snapshot date — yields no rows and
+leaves the binary block as it is; `validate` reports it through
+`claim_block_problems`. The rows ride the binary block, though: where that block
+is void or absent the rows go with it, and `validate` reports a distribution
+block stated without a `claims` block. The rows carry no floor or lift; the
+floor is identically 0, as the binary claims' is.
 
 ### The mechanical↔semantic agreement, pre-registered
 

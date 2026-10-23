@@ -66,6 +66,7 @@ from .outcome import (
     granted_flag,
     interim_resolution_signals,
     is_machine_readable,
+    known_decision_method,
     read_order_markers,
     resolution_signals,
 )
@@ -448,6 +449,7 @@ def _outcome_for_resolved(
             distribution_count=row.distribution_count,
             cvsg_date=row.cvsg_date,
             source=row.citations[0] if row.citations else None,
+            decision_method=known_decision_method(row.merits_decision_method),
         )
     if not (is_machine_readable(row.disposition) and row.date_decided is not None):
         return None

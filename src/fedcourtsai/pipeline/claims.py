@@ -38,32 +38,41 @@ graded, and alpha) home is :mod:`fedcourtsai.pipeline.semantic`.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from typing import Literal, Protocol
 
 from ..ids import parse_event_kind
 from ..schemas import (
+    ClaimDistribution,
     ClaimProbability,
     ClaimScore,
     ClaimScoreBlock,
     Disposition,
+    DistributionScore,
     EventKind,
     Judgment,
+    MeritsDecisionMethod,
     Outcome,
     Prediction,
     PredictionContext,
     StatPack,
+    WritingRole,
 )
 from ..set_aside import IncrementTiming
+from ..supremecourt import october_term_year
 from . import moments
 from .base_rates import (
+    PER_CURIAM_LABEL,
     claim_score,
     interim_base_rate,
+    majority_author_base_rate,
     merits_base_rate,
     prediction_base_rate,
+    separate_writing_base_rate,
     summary_route_base_rate,
 )
 from .judgment import judgment_disturbed
+from .justices import SERVICE, SERVICE_FLOOR, bench_on
 from .salience import scorer
 
 # The declared cert-stage claim ids, in the fixed order the block reports them.
@@ -95,13 +104,13 @@ CLAIM_REFERRAL_INCREMENT = "referral-increment"
 CLAIM_AMICUS_INCREMENT = "amicus-increment"
 
 # The declared merits-stage claim id: the binary disturbed projection of the
-# judgment axis. The multi-class judgment form waits on a schema field carrying
-# a per-label distribution, exactly as the cert disposition claim's does; the
-# per-Justice vote, split, and writing claims are deliberately NOT declared —
-# their committed resolution channel (a real vote record on the outcome) does
-# not exist, no strictly-prior committed cut carries their baselines, and nine
-# per-Justice claims re-encode one correlated insight ninefold
-# (docs/outcome-decomposition.md, *What stays out*; docs/decision-model.md).
+# judgment axis. The multi-class judgment form waits on its own distribution
+# claim, exactly as the cert disposition claim's does. The per-Justice vote and
+# split claims are deliberately NOT declared — no strictly-prior committed cut
+# carries their baselines, and nine per-Justice claims re-encode one correlated
+# insight ninefold (docs/outcome-decomposition.md, *What stays out*;
+# docs/decision-model.md). The writings are declared, as distribution claims
+# whose declared weighting counts the bench once (below).
 CLAIM_JUDGMENT_DISTURBED = "judgment-disturbed"
 
 # The versioned set ids stamped into every block these declarations produce. A
@@ -109,8 +118,49 @@ CLAIM_JUDGMENT_DISTURBED = "judgment-disturbed"
 # edit — same discipline as the salience function's `sal-v1`.
 CLAIM_SET_CERT_V1 = "cert-v1"
 CLAIM_SET_CERT_V2 = "cert-v2"
+CLAIM_SET_CERT_V3 = "cert-v3"
 CLAIM_SET_INTERIM_V1 = "interim-v1"
+CLAIM_SET_INTERIM_V2 = "interim-v2"
 CLAIM_SET_MERITS_V1 = "merits-v1"
+CLAIM_SET_MERITS_V2 = "merits-v2"
+
+# The authorship claims: each forecasts the writings of the decision its moment
+# predicts, as a probability per label rather than one number, so they are
+# **distribution claims** (`Prediction.claim_distributions`), declared beside a
+# set's binary claims and scored apart from them
+# (docs/outcome-decomposition.md, *The authorship claims*).
+#
+# - `majority-author` (merits): one distribution over the bench and the
+#   per-curiam label, summing to 1 — who delivers the opinion of the Court.
+#   Categorical, so its per-label terms add (bounded by 2).
+# - `separate-writers` (merits): an independent probability per Justice of
+#   writing any concurrence or dissent. Per-Justice, so its terms average over
+#   the Justices it resolves (bounded by 1): a bench of nine weighs as one claim.
+# - `order-writers` (cert, interim): an independent probability per Justice of
+#   writing on the order. Collected and resolved, never scored: a writing sits
+#   near 0.2% per Justice per order, and an order can carry two, so
+#   the eight tests' baseline-level condition fails at any honest aggregation
+#   short of the existing `dissent-from-denial` claim.
+CLAIM_MAJORITY_AUTHOR = "majority-author"
+CLAIM_SEPARATE_WRITERS = "separate-writers"
+CLAIM_ORDER_WRITERS = "order-writers"
+
+DistributionKind = Literal["categorical", "per-justice"]
+
+#: Each distribution claim's kind and whether it is scored.
+DISTRIBUTION_CLAIMS: Mapping[str, tuple[DistributionKind, bool]] = {
+    CLAIM_MAJORITY_AUTHOR: ("categorical", True),
+    CLAIM_SEPARATE_WRITERS: ("per-justice", True),
+    CLAIM_ORDER_WRITERS: ("per-justice", False),
+}
+
+#: The labels a distribution may name: every Justice the roster carries, and
+#: the per-curiam label on the categorical claim.
+_JUSTICE_LABELS: frozenset[str] = frozenset(service.justice for service in SERVICE)
+
+# How far a categorical distribution's sum may stray from 1: ten labels each
+# rounded to three decimals, never a second belief.
+_SUM_TOLERANCE = 5e-3
 
 # Per event kind: the set id and the declared claims, in reporting order. The
 # set is fixed and mandatory (docs/outcome-decomposition.md, *Why the set is
@@ -179,12 +229,25 @@ _INTERIM_CLAIM_SET: tuple[str, tuple[str, ...]] = (
 
 #: Set version -> its declaration, the resolution the moment table names by
 #: string. The table stays a leaf module; the claim ids stay here with their
-#: resolvers.
+#: resolvers. The authorship versions carry their predecessors' binary claims
+#: unchanged, in the same order, and add the distribution claims below; no
+#: moment names them until the predict prompt elicits the authorship forecast.
 _SETS_BY_VERSION: Mapping[str, tuple[str, tuple[str, ...]]] = {
     CLAIM_SET_CERT_V1: DECLARED_CLAIM_SETS[EventKind.petition],
     CLAIM_SET_CERT_V2: _CERT_V2_CLAIM_SET,
+    CLAIM_SET_CERT_V3: (CLAIM_SET_CERT_V3, _CERT_V2_CLAIM_SET[1]),
     CLAIM_SET_INTERIM_V1: _INTERIM_CLAIM_SET,
+    CLAIM_SET_INTERIM_V2: (CLAIM_SET_INTERIM_V2, _INTERIM_CLAIM_SET[1]),
     CLAIM_SET_MERITS_V1: _MERITS_CLAIM_SET,
+    CLAIM_SET_MERITS_V2: (CLAIM_SET_MERITS_V2, _MERITS_CLAIM_SET[1]),
+}
+
+#: Set version -> the distribution claims it declares, in reporting order. A
+#: version absent here declares none.
+_DISTRIBUTIONS_BY_VERSION: Mapping[str, tuple[str, ...]] = {
+    CLAIM_SET_CERT_V3: (CLAIM_ORDER_WRITERS,),
+    CLAIM_SET_INTERIM_V2: (CLAIM_ORDER_WRITERS,),
+    CLAIM_SET_MERITS_V2: (CLAIM_MAJORITY_AUTHOR, CLAIM_SEPARATE_WRITERS),
 }
 
 # The claims that restate the prediction's headline `probability` — one belief
@@ -223,6 +286,19 @@ def declared_claim_set(event_id: str) -> tuple[str, tuple[str, ...]] | None:
     except ValueError:
         return None
     return DECLARED_CLAIM_SETS.get(kind)
+
+
+def declared_distribution_claims(event_id: str) -> tuple[str, ...]:
+    """The distribution claims an event declares, in reporting order; empty for none.
+
+    Reached through the declared-moment table only, as the interim and merits
+    sets are: the kind-keyed fallback is the legacy cert set, which predates
+    the authorship forecast and declares none.
+    """
+    spec = moments.spec_for(event_id)
+    if spec is None:
+        return ()
+    return _DISTRIBUTIONS_BY_VERSION.get(spec.claim_set_version or "", ())
 
 
 def _resolve_disposition(context: PredictionContext, outcome: Outcome) -> int | None:
@@ -761,6 +837,259 @@ _RESOLVERS: Mapping[str, Callable[[PredictionContext, Outcome], int | None]] = {
 }
 
 
+# The writing roles that are the opinion deciding the case, not a separate writing.
+_LEAD_ROLES = frozenset({WritingRole.majority, WritingRole.plurality})
+
+# The roles that are no separate writing: the lead opinion, and writing nothing.
+# A null role is a writing of mixed role, so it counts.
+_NOT_SEPARATE = frozenset({*_LEAD_ROLES, WritingRole.none})
+
+# The decision methods whose deciding opinion no Justice signs, and those with
+# no deciding opinion at all.
+
+_PER_CURIAM_METHODS = frozenset(
+    {MeritsDecisionMethod.argued_per_curiam, MeritsDecisionMethod.summary_opinion}
+)
+_NO_OPINION_METHODS = frozenset({MeritsDecisionMethod.summary_order, MeritsDecisionMethod.dig})
+
+
+def _resolve_majority_author(outcome: Outcome) -> dict[str, int] | None:
+    """Who delivered the opinion deciding the merits, by label; ``None`` masked.
+
+    Only a classified ``merits_decision_method`` resolves the claim, so whether
+    a case is scored never depends on who wrote: an unclassified per curiam
+    carries no lineup to resolve from, and resolving the unclassified signed
+    opinions alone would score a population that under-counts per curiam. A
+    per curiam resolves from the method, never from a missing author, and a
+    per curiam whose roles name a lead writer contradicts itself and is masked.
+    A signed opinion after argument resolves from the observed
+    ``writing_roles``, its one lead role (the opinion of the Court or a
+    plurality) the author, over the participating bench. Masked on an
+    unclassified method, on a decision with no deciding opinion (a DIG, a
+    summary order), on unobserved roles, and where the roles name no single
+    lead writer.
+    """
+    if outcome.judgment is None:
+        return None
+    method = outcome.merits_decision_method
+    roles = outcome.writing_roles
+    authors = [role.justice for role in roles or () if role.writing in _LEAD_ROLES]
+    if method in _PER_CURIAM_METHODS:
+        return None if authors else {PER_CURIAM_LABEL: 1}
+    if method != MeritsDecisionMethod.argued_signed or roles is None or len(authors) != 1:
+        return None
+    return {role.justice: int(role.justice == authors[0]) for role in roles} | {PER_CURIAM_LABEL: 0}
+
+
+def _resolve_separate_writers(outcome: Outcome) -> dict[str, int] | None:
+    """Whether each participating Justice wrote separately on the merits; ``None`` masked.
+
+    A separate writing is anything but the lead opinion and silence: a
+    concurrence, a dissent, either in part, or a writing whose roles differ
+    (a null role, which the record keeps for exactly those). Read off the
+    observed ``writing_roles``, which list the participating bench, so a
+    Justice who took no part is not a label. A signed decision whose roles name
+    no single lead writer is masked: its author's null role may be a lead
+    opinion written in part, which is no separate writing, and the roles cannot
+    tell the two apart. Resolved on a DIG or a summary
+    disposition too, which ``majority-author`` masks: a dissent from a DIG is
+    a separate writing though no opinion decides the case. Masked where the
+    roles are unobserved, which covers every per curiam the opinion record
+    derives no lineup for.
+    """
+    roles = outcome.writing_roles
+    if outcome.judgment is None or roles is None:
+        return None
+    method = outcome.merits_decision_method
+    leads = sum(role.writing in _LEAD_ROLES for role in roles)
+    if method not in _PER_CURIAM_METHODS | _NO_OPINION_METHODS and leads != 1:
+        return None
+    return {role.justice: int(role.writing not in _NOT_SEPARATE) for role in roles}
+
+
+def _resolve_order_writers(outcome: Outcome) -> dict[str, int] | None:
+    """Whether each participating Justice wrote on the order; ``None`` masked.
+
+    The cert and interim twin of ``separate-writers``, off the orders source's
+    observed roles, where ``none`` is the observation that a Justice wrote
+    nothing. Masked on unobserved roles and on a merits outcome.
+    """
+    if outcome.judgment is not None or outcome.writing_roles is None:
+        return None
+    return {role.justice: int(role.writing != WritingRole.none) for role in outcome.writing_roles}
+
+
+_DISTRIBUTION_RESOLVERS: Mapping[str, Callable[[Outcome], dict[str, int] | None]] = {
+    CLAIM_MAJORITY_AUTHOR: _resolve_majority_author,
+    CLAIM_SEPARATE_WRITERS: _resolve_separate_writers,
+    CLAIM_ORDER_WRITERS: _resolve_order_writers,
+}
+
+
+def _distribution_baseline(
+    claim_id: str, context: PredictionContext, statpack: StatPack, *, lookback_terms: int
+) -> dict[str, float] | None:
+    """A scored authorship claim's strictly-prior baseline, priced over the cell's bench.
+
+    Pooled from the statpack authorship section over the October Terms before
+    the one the cell's snapshot falls in, over the Justices sitting on its
+    snapshot date (``pipeline.base_rates``). Late in a Term the author baseline
+    would down-weight, never zero, the Justices who have already written for the
+    case's sitting, off a tally frozen into the context at cell time; no context
+    field carries one yet, so the baseline is the season-blind rate. ``None``
+    where the pack cannot support one, and for a claim declared unscored.
+    """
+    if context.snapshot_date < SERVICE_FLOOR:
+        return None
+    term = october_term_year(context.snapshot_date)
+    bench = bench_on(context.snapshot_date)
+    if claim_id == CLAIM_MAJORITY_AUTHOR:
+        return majority_author_base_rate(term, bench, statpack, lookback_terms=lookback_terms)
+    if claim_id == CLAIM_SEPARATE_WRITERS:
+        return separate_writing_base_rate(term, bench, statpack, lookback_terms=lookback_terms)
+    return None
+
+
+def distribution_score(
+    probabilities: Mapping[str, float],
+    outcome: Mapping[str, int],
+    baseline: Mapping[str, float],
+    *,
+    kind: DistributionKind,
+) -> float | None:
+    """The registered rule applied per label, combined by the claim's kind.
+
+    Each label scores ``claim_score(p, y, b)``. A **categorical** claim adds
+    the terms over every label either side names, a label the forecast leaves
+    out stating 0 and a label the baseline leaves out pricing 0 — so mass put
+    on a Justice off the bench is a miss, never ignored. A **per-Justice**
+    claim averages the terms over the Justices the outcome resolves, so its
+    weight is one claim whatever the bench's size; it is ``None`` when the
+    forecast or the baseline omits any of them, since the set is mandatory and
+    a partial answer scores nothing. Proper either way: each term is, and a
+    sum or a mean with weights independent of the forecast keeps that.
+    """
+    if kind == "categorical":
+        labels = set(outcome) | set(probabilities) | set(baseline)
+        return sum(
+            claim_score(
+                probabilities.get(label, 0.0), outcome.get(label, 0), baseline.get(label, 0.0)
+            )
+            for label in labels
+        )
+    if not outcome or any(label not in probabilities or label not in baseline for label in outcome):
+        return None
+    terms = [claim_score(probabilities[label], y, baseline[label]) for label, y in outcome.items()]
+    return sum(terms) / len(terms)
+
+
+def distribution_problems(
+    claim_id: str, probabilities: Mapping[str, float], bench: Collection[str] = ()
+) -> list[str]:
+    """Why one stated distribution is malformed for its declared claim, in words.
+
+    ``bench`` is the Justices sitting on the cell's snapshot date: a
+    per-Justice forecast leaving one out scores nothing once that Justice
+    resolves, so the omission is reported while the cell can still be fixed.
+    """
+    kind, _ = DISTRIBUTION_CLAIMS[claim_id]
+    allowed = _JUSTICE_LABELS | ({PER_CURIAM_LABEL} if kind == "categorical" else set())
+    problems = [
+        f"distribution claim {claim_id!r} names {label!r}, which is not a Justice the "
+        "roster carries" + (" or 'per-curiam'" if kind == "categorical" else "")
+        for label in sorted(set(probabilities) - allowed)
+    ]
+    if kind == "categorical" and abs(sum(probabilities.values()) - 1.0) > _SUM_TOLERANCE:
+        problems.append(
+            f"distribution claim {claim_id!r} sums to {sum(probabilities.values())!r}, not 1 — "
+            "one author, so one distribution"
+        )
+    if kind == "per-justice":
+        problems.extend(
+            f"distribution claim {claim_id!r} states nothing for {justice!r}, who sits "
+            "on the cell's snapshot date — a per-Justice forecast covers the bench"
+            for justice in sorted(set(bench) - set(probabilities))
+        )
+    return problems
+
+
+def _cell_bench(prediction: Prediction) -> tuple[str, ...]:
+    """The Justices sitting on the cell's snapshot date; empty with no context."""
+    if prediction.context is None or prediction.context.snapshot_date < SERVICE_FLOOR:
+        return ()
+    return bench_on(prediction.context.snapshot_date)
+
+
+def score_distributions(
+    prediction: Prediction,
+    outcome: Outcome,
+    statpack: StatPack,
+    *,
+    lookback_terms: int,
+) -> list[DistributionScore]:
+    """One row per declared distribution claim, or none where the block cannot carry them.
+
+    Empty where the event declares no distribution claim, the prediction
+    states none (every prediction written before the authorship forecast), or
+    the frozen ``context`` is missing. A stated block that leaves a declared
+    claim out, states one twice, or states a malformed one yields no rows at
+    all, as a partial binary set yields no block: the set is mandatory. The
+    binary block is never voided by these rows, which are reported beside it;
+    the rows ride that block, though, so where :func:`score_claims` yields no
+    block they are not reported at all.
+    """
+    declared = declared_distribution_claims(prediction.event_id)
+    if not declared or prediction.claim_distributions is None or prediction.context is None:
+        return []
+    stated = _stated_distributions(prediction.claim_distributions)
+    bench = _cell_bench(prediction)
+    if stated is None or any(
+        claim_id not in stated or distribution_problems(claim_id, stated[claim_id], bench)
+        for claim_id in declared
+    ):
+        return []
+    rows: list[DistributionScore] = []
+    for claim_id in declared:
+        kind, scored = DISTRIBUTION_CLAIMS[claim_id]
+        probabilities = stated[claim_id]
+        resolved = _DISTRIBUTION_RESOLVERS[claim_id](outcome)
+        baseline = (
+            _distribution_baseline(
+                claim_id, prediction.context, statpack, lookback_terms=lookback_terms
+            )
+            if scored
+            else None
+        )
+        score = (
+            distribution_score(probabilities, resolved, baseline, kind=kind)
+            if scored and resolved is not None and baseline is not None
+            else None
+        )
+        rows.append(
+            DistributionScore(
+                claim_id=claim_id,
+                probabilities=probabilities,
+                baseline=baseline,
+                outcome=resolved,
+                scored=scored,
+                score=score,
+            )
+        )
+    return rows
+
+
+def _stated_distributions(
+    distributions: list[ClaimDistribution],
+) -> dict[str, dict[str, float]] | None:
+    """The stated distributions by claim id, or ``None`` on a duplicate."""
+    stated: dict[str, dict[str, float]] = {}
+    for distribution in distributions:
+        if distribution.claim_id in stated:
+            return None
+        stated[distribution.claim_id] = dict(distribution.probabilities)
+    return stated
+
+
 class _BaselineFn(Protocol):
     """A claim's baseline function: frozen conditioning + statpack -> rate | None."""
 
@@ -851,10 +1180,10 @@ def claim_block_problems(prediction: Prediction) -> list[str]:
     check. A test pins the enumerated shapes to the scorer's refusals; a new
     void condition in :func:`score_claims` needs a matching arm here.
     """
+    problems = _distribution_block_problems(prediction)
     declared = declared_claim_set(prediction.event_id)
     if declared is None or prediction.claims is None:
-        return []
-    problems: list[str] = []
+        return problems
     set_version, claim_ids = declared
     stated = _stated_probabilities(prediction.claims)
     if stated is None:
@@ -876,6 +1205,42 @@ def claim_block_problems(prediction: Prediction) -> list[str]:
         for headline in _HEADLINE_CLAIMS
         if headline in stated and stated[headline] != prediction.probability
     )
+    return problems
+
+
+def _distribution_block_problems(prediction: Prediction) -> list[str]:
+    """The distribution half of :func:`claim_block_problems`: what voids its rows.
+
+    An absent block is not reported, as an absent ``claims`` block is not; a
+    block stated without the ``claims`` block is, because its rows ride the
+    binary block and are dropped with it.
+    """
+    declared = declared_distribution_claims(prediction.event_id)
+    if not declared or prediction.claim_distributions is None:
+        return []
+    if prediction.claims is None:
+        return [
+            "distribution claims are stated without the claims block — they are "
+            "reported beside it, so they go unscored without it"
+        ]
+    stated = _stated_distributions(prediction.claim_distributions)
+    if stated is None:
+        counts = Counter(distribution.claim_id for distribution in prediction.claim_distributions)
+        duplicated = sorted(claim_id for claim_id, n in counts.items() if n > 1)
+        return [
+            "distribution claim id(s) stated twice — two forecasts for one belief: "
+            + ", ".join(duplicated)
+        ]
+    problems = [
+        f"declared distribution claim {claim_id!r} is not stated"
+        for claim_id in declared
+        if claim_id not in stated
+    ]
+    for claim_id in declared:
+        if claim_id in stated:
+            problems.extend(
+                distribution_problems(claim_id, stated[claim_id], _cell_bench(prediction))
+            )
     return problems
 
 
@@ -983,7 +1348,14 @@ def score_claims(
         )
     lift = total - floor if total is not None and floor is not None else None
     return ClaimScoreBlock(
-        declared_set_version=set_version, claims=rows, total=total, floor=floor, lift=lift
+        declared_set_version=set_version,
+        claims=rows,
+        total=total,
+        floor=floor,
+        lift=lift,
+        distributions=score_distributions(
+            prediction, outcome, statpack, lookback_terms=lookback_terms
+        ),
     )
 
 

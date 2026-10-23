@@ -526,6 +526,23 @@ class CorpusRow(BaseModel):
         "and applies the cut, and the latch strands that row at its unbounded "
         "value until a re-derivation). Live application branch only.",
     )
+    cert_amicus_briefs: int | None = Field(
+        default=None,
+        description="How many amicus briefs a cert petition's docket recorded "
+        "before the Court disposed of the petition "
+        "(`pipeline.cert_amicus.cert_amicus_briefs`): the interim count's per-entry "
+        "reading (`interim_signals.amicus_briefs`) over the entries before the "
+        "first disposition entry in docket order, less the Court's orders on "
+        "amicus motions, so a granted case's merits amici never reach it and a "
+        "brief filed by motion counts once. A stakes proxy with that reading's "
+        "other approximations. Max-latched: the cut fixes a resolved petition's "
+        "value and an open petition's only grows, so a degraded parse's "
+        "confident 0 never regresses it. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = not cert-parsed since the column "
+        "existed: a row the live poll has not read since then, which a resolved "
+        "row the poll rotation skips stays until a re-derivation fills it. Live "
+        "cert branch only.",
+    )
     sample_weight: int | None = Field(
         default=None,
         description="Inverse inclusion probability of this row under the corpus's "
@@ -1011,7 +1028,13 @@ CREATE TABLE IF NOT EXISTS cases (
     -- stage's post-argument moment. Written by the live poll's transcript pass;
     -- fill-in latched. Withheld from the retrieval surface. NULL = no transcript
     -- stored yet.
-    argument_transcript_at TEXT
+    argument_transcript_at TEXT,
+    -- The cert-stage amicus count (see CorpusRow and pipeline/cert_amicus.py):
+    -- the amicus briefs a petition's docket recorded before its first
+    -- disposition entry. Written by the live poll's cert branch at ingest;
+    -- max-latched. Withheld from the retrieval surface. NULL = never
+    -- cert-parsed since the column existed.
+    cert_amicus_briefs INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1191,6 +1214,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "merits_brief_on_lead": "TEXT",
     "relisted_at": "TEXT",
     "argument_transcript_at": "TEXT",
+    "cert_amicus_briefs": "INTEGER",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1345,9 +1369,10 @@ def _migrate_documents(conn: sqlite3.Connection) -> None:
 # opinions listing links, keyed by the listing row (Term, listing number) and
 # the opinion's order in the document. A historical decision record, like the
 # case row's decision columns, written only by the `backfill-opinion-record`
-# pass and read by no retrieval, provisioning, outcome or scoring path. The
-# table is created from this map and migrated by it, the same one-object
-# construction the other tables use.
+# pass and read by no retrieval, provisioning or outcome path; scoring reaches
+# it only through the statpack's authorship section. The table is created
+# from this map and migrated by it, the same one-object construction the other
+# tables use.
 OPINIONS_COLUMN_DDL: dict[str, str] = {
     "term": "INTEGER NOT NULL",
     "listing_number": "TEXT NOT NULL",
@@ -1972,6 +1997,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "argument_transcript_at": (
             row.argument_transcript_at.isoformat() if row.argument_transcript_at else None
         ),
+        "cert_amicus_briefs": row.cert_amicus_briefs,
         "capital_case": int(row.capital_case),
     }
 
@@ -2091,6 +2117,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         merits_brief_on_lead=_optional_date(record, "merits_brief_on_lead"),
         relisted_at=_optional_date(record, "relisted_at"),
         argument_transcript_at=_optional_date(record, "argument_transcript_at"),
+        cert_amicus_briefs=_optional_int(record, "cert_amicus_briefs"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -2109,6 +2136,7 @@ def _update_clause(column: str) -> str:
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
+    the cert-stage ``cert_amicus_briefs`` count,
     the ``has_opinion`` presence bit, and the ``capital_case`` marking
     are max-latches (proceedings are append-only and the signals monotone —
     an opinion once linked is never unlinked, and only one channel can even see
@@ -2185,6 +2213,7 @@ def _update_clause(column: str) -> str:
         "response_requested",
         "referred_to_court",
         "amicus_briefs",
+        "cert_amicus_briefs",
         "has_opinion",
         "capital_case",
     ):
@@ -2202,7 +2231,12 @@ def _update_clause(column: str) -> str:
         # first reads a disposition date can produce a value below an earlier
         # unbounded one. The latch keeps the higher number, which is the accepted
         # cost of protecting every other row from a degraded parse — bringing such
-        # a row down is a re-derivation, not a poll.
+        # a row down is a re-derivation, not a poll. The cert-stage amicus count
+        # has no such fall from a poll: its cut is the first disposition entry,
+        # which every later poll of the same docket reads in the same place. It
+        # shares the other exposure, though: a narrower reading of an entry,
+        # shipped later, cannot lower a value already latched either, and needs
+        # a re-derivation to reach the stored rows.
         # `has_opinion` is the same shape again: an opinion once linked is never
         # unlinked, and every writer asserts the bit (NOT NULL, default False),
         # so a channel that does not carry the body would otherwise flip a
@@ -4067,9 +4101,10 @@ def opinion_body(row: CorpusRow) -> str | None:
 #: invited-brief, call-for-response, first-relist and argument-transcript dates are mint
 #: triggers, a consolidated
 #: member's lead-filed respondent brief dates a moment no mint reads yet, and the
-#: merits decision record is an analytics surface — what a stat-pack or a
+#: merits decision record and the cert-stage amicus count are analytics
+#: surfaces — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
-#: it to what a predict or
+#: either to what a predict or
 #: evaluate cell retrieves. A column added to the rows a cell retrieves changes a
 #: frozen process's inputs without moving its digest, which is the one kind of
 #: process change the digest cannot see. Withholding them here means a ``query``
@@ -4086,6 +4121,7 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "merits_brief_on_lead",
         "relisted_at",
         "argument_transcript_at",
+        "cert_amicus_briefs",
     }
 )
 
