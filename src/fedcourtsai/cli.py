@@ -280,6 +280,7 @@ from .pipeline import (
     order_lineups,
     pre_mint,
     qp_topics,
+    same_question,
     semantic,
     vide_links,
     vote_sources,
@@ -5941,6 +5942,93 @@ def _labeling_batch(
     typer.echo(qp_topics.render_batch(batch), err=True)
     selected = set(batch.case_ids)
     return [row for row in frame if row.case_id in selected]
+
+
+@app.command("same-question")
+def same_question_cmd(
+    docket: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--docket", help="A petition's docket number to list matches for (repeatable)."
+        ),
+    ] = None,
+    as_of: Annotated[
+        str | None,
+        typer.Option("--as-of", help="Cutoff date (YYYY-MM-DD) for the lists. Default: today."),
+    ] = None,
+    threshold: Annotated[
+        float, typer.Option("--threshold", help="Least score a match must reach.")
+    ] = same_question.DEFAULT_THRESHOLD,
+    vide_check: Annotated[
+        bool,
+        typer.Option(
+            "--vide-check",
+            help="Also measure the match against every petition's Vide links "
+            "(one snapshot read per petition).",
+        ),
+    ] = False,
+) -> None:
+    """List petitions raising the same question as a docket's, by QP text similarity. Read-only.
+
+    Builds a TF-IDF index over the stored questions-presented texts of the QP
+    labeling frame (`pipeline/same_question.py`) and, for each `--docket`,
+    lists the other petitions docketed by `--as-of` whose cosine reaches
+    `--threshold`, with each one's status as of that date. `--vide-check`
+    reads each petition's Vide links and reports how the match ranks them.
+    Counts and identifiers only, never filing text. Nothing a cell sees reads
+    it. JSON `{"lists", "vide_check"}` to stdout; a malformed date exits 2, a
+    missing corpus 1.
+    """
+    try:
+        cutoff = date.fromisoformat(as_of) if as_of else datetime.now(UTC).date()
+    except ValueError:
+        typer.echo(f"same-question: --as-of {as_of!r} is not a YYYY-MM-DD date.", err=True)
+        raise typer.Exit(code=2) from None
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before matching questions.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        petitions = same_question.read_petitions(conn)
+        index = same_question.QuestionIndex(petitions)
+        links = (
+            same_question.read_vide_links(conn, [p.case_id for p in petitions])
+            if vide_check
+            else {}
+        )
+    by_number = {p.docket_number: p.case_id for p in petitions}
+    lists: dict[str, list[dict[str, object]] | None] = {}
+    for number in docket or []:
+        normalized = corpus.normalize_docket_number(number) or number
+        case_id = by_number.get(normalized)
+        if case_id is None:
+            lists[normalized] = None
+            typer.echo(f"{normalized}: no stored questions presented in the frame", err=True)
+            continue
+        entries = same_question.same_question_petitions(index, case_id, cutoff, threshold=threshold)
+        lists[normalized] = [entry.model_dump(mode="json") for entry in entries]
+        typer.echo(f"{normalized}: {len(entries)} match(es) at {threshold} or above", err=True)
+    agreement = same_question.vide_agreement(index, links) if vide_check else None
+    typer.echo(f"same-question: {len(index.vectors)} petition(s) indexed", err=True)
+    if agreement is not None:
+        typer.echo(
+            f"vide-check: {agreement.top1_linked} of {agreement.linked} linked petition(s) "
+            f"rank a Vide link first, {agreement.top5_linked} in the top five",
+            err=True,
+        )
+    typer.echo(
+        json.dumps(
+            {
+                "lists": lists,
+                "vide_check": agreement.model_dump(mode="json") if agreement else None,
+            }
+        )
+    )
 
 
 @app.command("qp-corpus")
