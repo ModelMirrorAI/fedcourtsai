@@ -115,6 +115,15 @@ Each of these is stated, with its reason, where the code makes the choice:
   document's opening and closing, not its middle, and does not run where only
   the value pass ran. A document it flags is still staged to the cell
   (live-sources.md, the contact-detail scrub).
+- **A Rule 34.6 docket stages no filings, and says so.** The Court's entry
+  putting a docket's filings on paper only (Rule 34.6 and Paragraph 9 of its
+  electronic filing guidelines; mostly immigration and detention cases) means
+  nothing is posted behind them, so the selector finds no link. The cell's
+  `record/context.json` freezes `paper_only_filings` from the placed payload,
+  so the empty `record/documents/` reads as the Court's choice rather than a
+  provisioning failure. The flag clears once the Court quotes the rule to call
+  for electronic versions, after briefing and argument are scheduled
+  (`pipeline/documents.py`: `paper_only_filings`).
 - **A consolidated member is checked for freshness on its own docket.** A merits
   filing entered only on the lead is left to the selection sweep
   (live-sources.md, *Document freshness*).

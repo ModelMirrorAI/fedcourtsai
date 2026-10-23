@@ -476,6 +476,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": false
+    },
+    {
+      "name": "context-paper-only-filings",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
     }
   ]
 }

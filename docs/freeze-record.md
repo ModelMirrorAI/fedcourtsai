@@ -13040,3 +13040,63 @@ freeze commit is recorded here.
     "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('context-vide-links' in {b.name for b in H})"` prints `True` once
     the promotion record has stamped the row.
+
+- **A predict cell's context freezes whether its docket's filings are on
+  paper only; recorded 2026-10-23.** A **conditioning** change with no
+  reading rule and no scored figure.
+
+  **Why.** Under Rule 34.6 and Paragraph 9 of the Court's electronic filing
+  guidelines, some dockets file on paper only, and the Court posts nothing
+  behind those filings. These are mostly immigration and detention cases, and
+  the Solicitor General is often a party. A cell on one gets an empty
+  `record/documents/`. Every engine read that as a provisioning failure and
+  flagged it: 13 cells over 9 predict runs, 2026-10-03 to 10-17. The pipeline
+  already counted this class as the back-fill's `no_link` floor. Only the
+  cell was not told.
+
+  **The conditioning half.** `PredictionContext` gains `paper_only_filings`,
+  read off the placed payload in docket order:
+  - `true` where the payload carries the Court's paper-only entry, with no
+    later entry quoting the rule to call for electronic versions (the Court
+    makes that call once briefing and argument are scheduled);
+  - `false` where the payload carries neither entry, or the lift follows the
+    paper-only entry;
+  - null where the payload has no proceedings list, the REST shape.
+
+  A `truncated` payload answers as at its cut. The cell reads
+  `record/context.json`, so the field joins its information set. It adds
+  nothing the cell could not already read, because the entry is in the staged
+  snapshot. No prompt text or other digest input changes, so no digest moves.
+  Telling cells in the prompt that this is expected is left for the next
+  re-bless.
+  - **The registry row.** The boundary is `context-paper-only-filings`. It
+    applies to every predictor, with reach `all`, and is not gradual: every
+    cell provisioned after the carrying merge freezes the field. It is
+    registered **pending** in this change's own PR
+    (`fedcourts register-boundary`). Its `merge` and `at` stay null until the
+    promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **Expected population.** Read from the production per-case content store
+    on 2026-10-23, newest stored snapshot 2026-10-23. It covered the 285
+    SCOTUS cases holding a prediction run in September or October 2026. The
+    reader marks 7 of them `true`, and each of the 7 has no stored document. Two
+    more carry the paper-only entry followed by the lift; they read `false`
+    and hold stored filings (4 and 7).
+
+  **What it moves.** No scored figure. Once cells sit on both sides of the
+  stamped boundary, each pooled entry's and each paired engine's `boundaries`
+  list gains a `context-paper-only-filings` row. That row is composition, not
+  a cut.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_paper_only_filings.py` is green;
+  - on the first predict run's collect PR after the carrying merge, `jq -c
+    '.context | has("paper_only_filings")' data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json`
+    prints `true` for every file;
+  - on `main`, `uv run python -c
+    "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('context-paper-only-filings' in {b.name for b in H})"` prints `True`
+    once the promotion record has stamped the row.

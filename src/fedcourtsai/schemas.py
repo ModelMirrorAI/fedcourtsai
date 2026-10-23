@@ -1015,6 +1015,19 @@ class PredictionContext(_Strict):
         "carries none, the REST shape, which serves no such list. What a board's "
         "`by_link` cut files the cell under",
     )
+    paper_only_filings: bool | None = Field(
+        default=None,
+        description="Whether the provisioned payload puts the docket's party filings "
+        "on paper only: it carries the Court's Rule 34.6 / Paragraph 9 entry "
+        "(filings 'submitted in paper form only'), with no later entry quoting the "
+        "rule to call for electronic versions once briefing and argument are "
+        "scheduled. The Court posts nothing behind such filings, so the cell's "
+        "`record/documents/` lacks them for a reason no fetch reaches, and their "
+        "absence is not a provisioning failure. Read in docket order off the payload "
+        "the cell was placed on, so a `truncated` payload answers as at its cut. "
+        "False where the proceedings carry neither entry or the lift follows; null "
+        "where the payload carries no proceedings list, the REST shape",
+    )
 
     @model_validator(mode="after")
     def _cut_fields_cohere(self) -> PredictionContext:
