@@ -6347,6 +6347,27 @@ def latest_snapshot_date(conn: ReadConnection) -> date | None:
     return date.fromisoformat(stamp) if stamp else None
 
 
+def legacy_sample_rows(conn: ReadConnection) -> dict[int, int]:
+    """SCOTUS rows still carrying a legacy sample weight, by October-Term year.
+
+    An early historical walk kept one IFP denial in ten and stored each at
+    ``sample_weight`` 10; a row returns to 1 only when a walk serves it again
+    with its neighbours stored. Re-walking a Term from its numbering base is
+    what completes it, so a Term's count reaching zero is the effect check that
+    its sample is complete. A row whose docket number parses to no Term is
+    counted under ``0``. It reads every ``cases`` row, since no index covers
+    the weight: over a ranged connection that is a full scan of the table.
+    """
+    counts: dict[int, int] = {}
+    cur = conn.execute(
+        "SELECT docket_number FROM cases WHERE court = 'scotus' AND sample_weight > 1"
+    )
+    for record in cur.fetchall():
+        term = scotus_term_year(record["docket_number"] or "") or 0
+        counts[term] = counts.get(term, 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def latest_pull_date(conn: ReadConnection) -> date | None:
     """The newest ``last_pulled`` stamp across cases, or ``None`` if none is set.
 
