@@ -1,0 +1,27 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73278467",
+  "gaps": [
+    "A statpack breakdown of post-CVSG outcomes conditioned on the Solicitor General's specific recommendation (grant, GVR, hold, deny) would sharpen anchoring for moment: sg-brief cells."
+  ],
+  "helpful": [
+    "Provisioned full text of sg-invited-brief.txt, petition.txt, brief-in-opposition.txt, and cert-reply.txt in record/documents/",
+    "metrics/statpack.md CVSG, relist, and salience-band base-rate tables",
+    "fedcourts query CLI for inspecting GVR prior rows"
+  ],
+  "notes": "All provisioned filings including the Solicitor General's September 2026 invited amicus brief were cleanly extracted and complete.",
+  "role": "predictor",
+  "run_id": "20261023T142833Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
