@@ -291,6 +291,21 @@ def render(census: Census, *, listings: bool, same: bool | None = None) -> str:
 
 #: How long the `--text-coverage` read may take before its line is reported unread.
 TEXT_SOURCE_TIMEOUT_SECONDS = 300
+# The class of the exception a failed run raised, off the last line of its
+# traceback. Only the class name reaches the summary, which the lane posts
+# publicly: an exception's message can carry a path, a key or docket text.
+_EXCEPTION_LINE = re.compile(
+    r"^\s*([A-Za-z_][\w.]{0,79}(?:Error|Exception|Exit|Interrupt|Failure))(?::|\s*$)"
+)
+
+
+def failure_class(stderr: str) -> str | None:
+    """The exception class a failed run's stderr ends on, or ``None``."""
+    for line in reversed(stderr.splitlines()):
+        match = _EXCEPTION_LINE.match(line)
+        if match:
+            return match.group(1)
+    return None
 
 
 def text_source_line() -> str:
@@ -308,7 +323,9 @@ def text_source_line() -> str:
     for line in run.stdout.splitlines():
         if line.startswith("text source:"):
             return line
-    return f"text source: not printed (exit {run.returncode})"
+    raised = failure_class(run.stderr)
+    reason = f"exit {run.returncode}: {raised}" if raised else f"exit {run.returncode}"
+    return f"text source: not printed ({reason})"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
