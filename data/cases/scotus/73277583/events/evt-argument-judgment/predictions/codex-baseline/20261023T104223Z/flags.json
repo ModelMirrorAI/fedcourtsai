@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277583",
+  "run_id": "20261023T104223Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-argument-judgment",
+      "message": "The snapshot records an August 25, 2026 merits brief by the Court-appointed amicus defending Stinson and the judgment below, but documents.json contains no corresponding brief. Both provisioned party briefs support vacatur. The complete argument transcript includes the appointed amicus's presentation, which I used to assess the affirmance position; prediction is not blocked. Provisioning the appointed defender's brief would improve balance in this posture."
+    }
+  ]
+}

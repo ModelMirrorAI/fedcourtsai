@@ -1,0 +1,111 @@
+{
+  "big_case_rationale": "Sets the interpretive weight of Guidelines commentary across roughly 60,000+ federal sentencings a year and tests how far Loper Bright/Kisor reach beyond executive agencies; technical, low public salience.",
+  "big_case_score": 0.6,
+  "case_id": "scotus/73277583",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.3
+    }
+  ],
+  "confidence": 0.55,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 7,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-14",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-23T10:50:57Z",
+  "engine": "claude-code",
+  "event_id": "evt-argument-judgment",
+  "granted": 0,
+  "input_snapshot": "2026-10-14.json",
+  "judgment": "affirmed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.3,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54",
+    "label": "proc-v11",
+    "pipeline_sha": "ae1f293fef4cdf9ea2550e5ee23338f62e16f1c8",
+    "stamped_at": "2026-10-23T10:52:49.330622Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T104223Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority reaffirms Stinson rather than replacing it with Kisor's genuine-ambiguity framework or with no deference: Guidelines commentary interpreting a guideline is authoritative unless it is plainly erroneous or inconsistent with the guideline's text, grounded in the Sentencing Reform Act's grant of authority to issue policy statements regarding application of the guidelines (Williams, USSG 1B1.7) and in the guidelines' advisory status after Booker, so Kisor and Loper Bright, which address executive agencies, do not displace it; the 15-round large-capacity-magazine note is therefore applied as written."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is a categorical rule for all Sentencing Guidelines commentary rather than a ruling confined to USSG 2K2.1 or to this defendant, and the majority expressly cabins it to the Sentencing Commission, stating that it does not revive Auer/Seminole Rock-style or Chevron-style deference for executive agencies."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

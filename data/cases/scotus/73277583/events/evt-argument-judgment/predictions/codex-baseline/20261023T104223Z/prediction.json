@@ -1,0 +1,111 @@
+{
+  "big_case_rationale": "A systemwide rule for interpreting federal sentencing commentary affects many guideline calculations and sentencing appeals, but the granted question does not decide the constitutionality of firearm possession bans or executive-agency deference generally.",
+  "big_case_score": 0.59,
+  "case_id": "scotus/73277583",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.24
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 7,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-14",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-23T10:53:16Z",
+  "engine": "codex",
+  "event_id": "evt-argument-judgment",
+  "granted": 0,
+  "input_snapshot": "2026-10-14.json",
+  "judgment": "affirmed",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.24,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a711152d3e0082a9f5311e40348116c753247aba102ddc60e5979c7d292abe64",
+    "label": "proc-v11",
+    "pipeline_sha": "ae1f293fef4cdf9ea2550e5ee23338f62e16f1c8",
+    "stamped_at": "2026-10-23T10:56:05.018327Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T104223Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will retain Stinson's authoritative-commentary rule, reasoning that the Sentencing Reform Act's Commission-centered sentencing scheme and the advisory character of the Guidelines distinguish commentary from executive-agency interpretations, so Kisor's genuine-ambiguity prerequisite does not govern it."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding will prescribe a generally applicable rule for interpretive Sentencing Guidelines commentary, rather than turn only on the meaning of large-capacity magazine or harmless error in Beaird's sentence, while leaving executive-agency deference unchanged."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

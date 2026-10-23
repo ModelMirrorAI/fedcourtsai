@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500240",
+  "run_id": "20261023T104223Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["functions.exec_command", "web.run"],
+  "helpful": [
+    "The case-level snapshot and frozen context clearly identify the two-distribution vantage point.",
+    "The petition appendix contains both the panel opinion and the actual en banc vote order.",
+    "The statpack JSON supplies exact reached-band denominators and grant rates."
+  ],
+  "gaps": [
+    "General-precedent web calls returned no usable content.",
+    "The actual recordings were not provisioned; their interpretation remains contested in the filings."
+  ],
+  "notes": "The default uv cache path was read-only; setting UV_CACHE_DIR=/tmp/uv-cache allowed the paths command to run. No live corpus query or case-outcome retrieval was performed."
+}

@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73292081",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-relist-disposition",
+      "message": "The snapshot lists an August 14 motion to defer consideration, an August 24 opposition, and a September 17 letter, but their text is not provisioned. Their basis and any requested timing are unknown, limiting interpretation of the November 6 redistribution. Prediction completed from the available briefs and docket; no current docket or outcome was retrieved.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261023T104223Z",
+  "schema_version": "1.0"
+}

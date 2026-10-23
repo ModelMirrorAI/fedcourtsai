@@ -1,0 +1,72 @@
+{
+  "big_case_rationale": "Police deadly force and qualified immunity have substantial national stakes, especially if the Court limits which precedents clearly establish law; this record nevertheless presents a fact-specific shooting dispute rather than a clean vehicle for wholesale doctrinal revision.",
+  "big_case_score": 0.58,
+  "case_id": "scotus/73500240",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.36
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.55
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.82
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.2
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-08",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-07",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-23T11:12:07Z",
+  "engine": "codex",
+  "event_id": "evt-order-relist-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-07.json",
+  "judgment": null,
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.36,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a711152d3e0082a9f5311e40348116c753247aba102ddc60e5979c7d292abe64",
+    "label": "proc-v11",
+    "pipeline_sha": "ae1f293fef4cdf9ea2550e5ee23338f62e16f1c8",
+    "stamped_at": "2026-10-23T11:13:51.938579Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T104223Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

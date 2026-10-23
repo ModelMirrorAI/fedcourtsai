@@ -1,0 +1,233 @@
+{
+  "actor_id": "claude-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5d1055a0b7d06b00",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; cat .github/prompts/predict.md; ls -R data/cases/scotus/73292081 | head -50",
+      "result_capture": "captured",
+      "result_digest": "0baaa45c92a15376",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:05:11.086Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "00e185d934a1d8e6",
+      "query": "{\"file_path\": \"/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/02277ba7-491b-41f4-9f99-e3db2b985f9c/tool-results/bglqeps23.txt\"}",
+      "result_capture": "captured",
+      "result_digest": "115d6403ddf49997",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:05:13.723Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "d6ed633e728d5d33",
+      "query": "{\"file_path\": \"/home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/02277ba7-491b-41f4-9f99-e3db2b985f9c/tool-results/bglqeps23.txt\", \"offset\": 928}",
+      "result_capture": "captured",
+      "result_digest": "b7c07259ae02033a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:05:17.826Z",
+      "tool": "Read"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "40c6fc3616754461",
+      "query": "cd data/cases/scotus/73292081; cat events/evt-order-relist-disposition/event.yaml record/context.json; python3 -c \"\nimport json;d=json.load(open('record/snapshots/2026-10-07.json'));print(json.dumps(d,indent=1)[:6000])\"; cat record/documents/documents.json | head -80; cat record/documents/questions-presented.txt; wc -c record/documents/*",
+      "result_capture": "captured",
+      "result_digest": "2dc4a6c3388eb81b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:05:22.086Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "1327ed55d175fb68",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292081; python3 -c \"\nimport json;d=json.load(open('record/snapshots/2026-10-07.json'))\nfor p in d['ProceedingsandOrder']: print(p['Date'],'|',p['Text'])\nprint({k:v for k,v in d.items() if k not in('ProceedingsandOrder','Petitioner','Respondent')})\"",
+      "result_capture": "captured",
+      "result_digest": "114711a789a0e8cd",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:05:28.101Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "01fb004876bdbe45",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292081/record/documents; head -c 9000 cert-reply.txt; echo ======; grep -n -i \"defer\\|district attorney\\|Harris County\\|Ogg\\|Teare\" brief-in-opposition.txt | head -40",
+      "result_capture": "captured",
+      "result_digest": "bddc9e30da218ee1",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:05:38.963Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "cdbe622c8440702d",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; grep -n \"^#\" metrics/statpack.md | head -60",
+      "result_capture": "captured",
+      "result_digest": "0c18405c57f0372a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:05:44.562Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8c81ffbafe7eefbf",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; sed -n 57,136p metrics/statpack.md; sed -n 169,204p metrics/statpack.md",
+      "result_capture": "captured",
+      "result_digest": "9400f61ece043bfe",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:05:46.862Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8201580de54bd9dc",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai/data/cases/scotus/73292081; python3 -c \"\nimport json;d=json.load(open('record/snapshots/2026-10-07.json'))\nfor p in d['ProceedingsandOrder'][-6:]:\n  for l in p.get('Links',[]): print(p['Date'],l['DocumentUrl'])\"; grep -n -i \"innocen\\|district attorney\\|toxicolog\" record/documents/petition.txt | head -30",
+      "result_capture": "captured",
+      "result_digest": "aa7c470dacc37dd0",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:05:55.354Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c9e5aaf7956f5661",
+      "query": "select:WebFetch",
+      "result_capture": "captured",
+      "result_digest": "c4e348966a824a36",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:05:58.500Z",
+      "tool": "ToolSearch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8801d0b48e9dfd5a",
+      "query": "https://www.supremecourt.gov/DocketPDF/25/25-1246/419058/20260814084813919_Motion%20to%20Defer%20Petition%20for%20Writ%20of%20Cert.pdf\nSummarize: why does petitioner ask to defer consideration of the cert petition, until when / pending what proceeding? Max 150 words.",
+      "result_capture": "captured",
+      "result_digest": "58311a7d4864c65b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:06:01.648Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "df26b64bc4648952",
+      "query": "https://www.supremecourt.gov/DocketPDF/25/25-1246/424728/20260917163855805_2026.09.17%20Letter%20to%20Scott%20S.%20Harris.pdf\nSummarize what this letter to the Clerk says and requests. Max 120 words.",
+      "result_capture": "captured",
+      "result_digest": "489fe7d4423bd1a5",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:06:02.701Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "0760811ffa90e376",
+      "query": "https://www.supremecourt.gov/DocketPDF/25/25-1246/419996/20260824171558118_Vasquez.SCT%20RIO.pdf\nSummarize the State's opposition to deferral. Max 120 words.",
+      "result_capture": "captured",
+      "result_digest": "74a57df6c7a5136c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:06:03.587Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a4cba1889d9ab284",
+      "query": "cd /home/runner/.claude/projects/-home-runner-work-fedcourtsai-fedcourtsai/02277ba7-491b-41f4-9f99-e3db2b985f9c/tool-results/; for f in webfetch-1792753562376-i3boqs.pdf webfetch-1792753563153-n5tthe.pdf webfetch-1792753564138-qlreyq.pdf; do echo \"=== $f\"; (pdftotext $f - 2>/dev/null || uv run --with pypdf python -c \"import pypdf,sys;print('\\n'.join(p.extract_text() for p in pypdf.PdfReader('$f').pages))\") | head -c 5000; done",
+      "result_capture": "captured",
+      "result_digest": "76b7f459b34b920a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:06:11.233Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "2b1cb015170f715b",
+      "query": "https://www.supremecourt.gov/search.aspx?filename=/docket/docketfiles/html/public/26-353.html\nList every docket entry (date and text) verbatim.",
+      "result_capture": "captured",
+      "result_digest": "4e6d428aa4cd1819",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:06:20.952Z",
+      "tool": "WebFetch"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "52f50a355001cc43",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; timeout 120 uv run fedcourts query --help 2>&1 | head -30",
+      "result_capture": "captured",
+      "result_digest": "7767ffddcd656c30",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:06:28.423Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "016c5812628f3f84",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/73292081/events/evt-order-relist-disposition/predictions/claude-baseline/20261023T104223Z; mkdir -p $D; NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)\ncat > $D/prediction.json <<EOF\n{\n  \"schema_version\": \"1.0\",\n  \"case_id\": \"scotus/73292081\",\n  \"event_id\": \"evt-order-relist-disposition\",\n  \"predictor_id\": \"claude-baseline\",\n  \"run_id\": \"20261023T104223Z\",\n  \"engine\": \"claude-code\",\n  \"model\": \"claude-opus-5-5\",\n  \"created_at\": \"$NOW\",\n  \"inpu",
+      "result_capture": "captured",
+      "result_digest": "9f64475b8a67848a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:06:42.170Z",
+      "tool": "Bash"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "3162e7c7d813107b",
+      "query": "cd /home/runner/work/fedcourtsai/fedcourtsai; D=data/cases/scotus/73292081/events/evt-order-relist-disposition/predictions/claude-baseline/20261023T104223Z\ncat > $D/predicted_reasoning.md <<'EOF'\n# Predicted course: Vasquez v. Guerrero, No. 25-1246 (capital)\n\n**Where the docket stands.** The petition has been distributed twice. The first distribution was for the 9/28/2026 long conference. On 10/7 it was distributed again for 11/6/2026, with no order on the petition in between. Petitioner's motio",
+      "result_capture": "captured",
+      "result_digest": "d6a20517c768561b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-23T11:07:15.036Z",
+      "tool": "Bash"
+    }
+  ],
+  "case_id": "scotus/73292081",
+  "engine": "claude-code",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261023T104223Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 3,
+  "throttled_calls": null
+}

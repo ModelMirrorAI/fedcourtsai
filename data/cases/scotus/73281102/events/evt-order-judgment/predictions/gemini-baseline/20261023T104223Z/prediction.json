@@ -1,0 +1,111 @@
+{
+  "big_case_rationale": "Routine federal prisoner litigation concerning the procedural vehicle (28 U.S.C. \u00a7 2241 habeas vs. civil action) for challenging BOP community-confinement denials and liberal construction of pro se FTCA pleadings; significant for prison litigation practice but modest broader public salience.",
+  "big_case_score": 0.25,
+  "case_id": "scotus/73281102",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.78
+    }
+  ],
+  "confidence": 0.72,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-06-02",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-06-02",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-23T10:50:00Z",
+  "engine": "gemini",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-06-02.json",
+  "judgment": "vacated",
+  "model": "gemini-4-argon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.78,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:c4213d78e7a7a6fc5f13d070a3bda326254c0189b7979f5e7b91a23d5608ad66",
+    "label": "proc-v11",
+    "pipeline_sha": "ae1f293fef4cdf9ea2550e5ee23338f62e16f1c8",
+    "stamped_at": "2026-10-23T11:22:02.620421Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T104223Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Court holds that under Federal Rule of Civil Procedure 8 and Erickson v. Pardus, 551 U.S. 89 (2007), the lower courts erred by dismissing petitioner's pro se action with prejudice without addressing his expressly pleaded Federal Tort Claims Act claims or construing his non-habeas challenges to BOP's community-confinement consideration according to their substance rather than the 28 U.S.C. \u00a7 2241 form label."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court issues a general procedural rule governing federal prisoner pleadings\u2014holding that district courts may not dismiss a pro se prisoner's mislabeled filing with prejudice without addressing explicit statutory tort claims or permitting liberal construction/amendment as a civil action\u2014rather than expanding 28 U.S.C. \u00a7 2241 habeas corpus jurisdiction to encompass discretionary prison-transfer determinations."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": "concurrence"
+    },
+    {
+      "justice": "Alito",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": "none"
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": "concurrence"
+    }
+  ]
+}

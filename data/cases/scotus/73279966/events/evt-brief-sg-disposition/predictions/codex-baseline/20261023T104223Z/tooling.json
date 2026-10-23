@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73279966",
+  "gaps": [
+    "Combined opposition truncation leaves the detainee brief incomplete after a lengthy state appendix",
+    "No committed CVSG grant-family table split by SG recommendation",
+    "Statpack artifacts do not expose a corpus vintage timestamp"
+  ],
+  "helpful": [
+    "Complete invited SG brief with an explicit grant recommendation",
+    "Frozen context and distribution count distinguish routine post-SG distribution from a true relist",
+    "JSON statpack permits exact prior-Term risk-set pooling",
+    "CourtListener MCP supplied primary precedent without retrieving this petition's current status"
+  ],
+  "notes": "No live corpus query was needed. The default uv cache was read-only; using a temporary cache enabled the CLI. No outcome of this petition was sought or encountered.",
+  "role": "predictor",
+  "run_id": "20261023T104223Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "committed statpack Markdown and JSON",
+    "CourtListener MCP search, search_document, read_document",
+    "web search/open attempted without usable returned content",
+    "fedcourts paths",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
