@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs (snapshot `2026-09-29.json`, `record/documents/*`) and the committed `metrics/statpack.md` (merits docket section). No `fedcourts query`, no CourtListener MCP calls, no web searches.

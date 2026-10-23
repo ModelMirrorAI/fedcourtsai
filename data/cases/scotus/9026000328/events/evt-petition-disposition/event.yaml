@@ -1,0 +1,14 @@
+case_id: scotus/9026000328
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-09-10'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Charter Consolidated, Ltd., et al. v. Cape Intermediate Holdings Limited, Individually
+  and as Successor in Interest to Cape Asbestos Company Limited, By and Through Its
+  Receiver Peter D. Protopapas, et al.

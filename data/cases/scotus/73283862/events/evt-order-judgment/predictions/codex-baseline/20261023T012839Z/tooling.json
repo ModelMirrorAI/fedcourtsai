@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73283862",
+  "gaps": [
+    "CourtListener's shared rate limit prevented retrieval of an independent precedent opinion.",
+    "General web search returned no usable content.",
+    "The default uv cache location was read-only; setting a temporary writable cache restored CLI access."
+  ],
+  "helpful": [
+    "The appendix contains the reasoned COA denial, allowing its ground to be distinguished from the underlying section 2255 merits.",
+    "The grant-moment document manifest clearly distinguishes available cert-stage advocacy from absent merits briefing.",
+    "The merits pack publishes excluded counts and grant-Term rows, allowing an auditable prior-Term baseline."
+  ],
+  "notes": "Completed from provisioned pre-decision inputs and committed base rates. No live corpus queries, no case-specific external retrieval, and no direct CourtListener REST fallback. Missing merits briefs are expected at this grant moment.",
+  "role": "predictor",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and filed-document text",
+    "fedcourts paths",
+    "committed merits statpack",
+    "CourtListener MCP search (throttled)",
+    "web search (no usable content)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

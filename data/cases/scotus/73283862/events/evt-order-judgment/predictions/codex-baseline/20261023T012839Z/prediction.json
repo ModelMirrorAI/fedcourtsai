@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "A nationwide rule governing access to appellate review in federal and state-prisoner habeas cases, including capital cases; important procedural reach, but no direct resolution of conviction validity or substantive sentencing law.",
+  "big_case_score": 0.65,
+  "case_id": "scotus/73283862",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.84
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 5,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-13",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-23T02:02:59.941052Z",
+  "engine": "codex",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-13.json",
+  "judgment": "vacated",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.84,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4",
+    "label": "proc-v10",
+    "pipeline_sha": "d6d456dd3f5d3ccb34dfdfef2ba8620958d12d10",
+    "stamped_at": "2026-10-23T02:03:45.452374Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that adverse binding circuit precedent cannot by itself defeat the reasonable-jurist debatability required for a certificate of appealability when another circuit has squarely resolved the same constitutional issue in the prisoner's favor, and sets aside the Eleventh Circuit's contrary COA analysis."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority states a generally applicable COA rule under section 2253(c), extending beyond Berry and residual-clause claims to federal and state-prisoner habeas proceedings, while leaving independent procedural obstacles and ultimate entitlement to collateral relief for separate consideration."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

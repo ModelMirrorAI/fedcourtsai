@@ -1,0 +1,11 @@
+# Forecast of the Court's judgment
+
+The Court will **reverse and remand** the Fifth Circuit's judgment. It will hold that a claim for application of First Step Act earned time credits seeking earlier transfer to a halfway house or home confinement is cognizable under 28 U.S.C. §2241. This is a forecast of the eventual merits judgment, not a renewed prediction of certiorari or an order directing Maxwell's immediate transfer.
+
+I predict a **9–0 judgment**, with Roberts, Thomas, Alito, Sotomayor, Kagan, Gorsuch, Kavanaugh, Barrett, and Jackson joining the majority. The narrow statutory holding permits agreement across different views about collateral review. Separate writings remain possible; I do not predict an author.
+
+The majority will reject the Fifth Circuit's requirement that success necessarily accelerate release from all custody. The relevant distinction is between a challenge to the legal basis for a prisoner's present level of custody and a complaint about ordinary prison conditions. An earned-credit claim seeking the statutorily required transition from prison to prerelease custody falls on the former side. The reasoning will draw support from Section 2241's custody language and the sentence-execution discussion in Jones v. Hendrix, 599 U.S. 465, 475 (2023), rather than creating a general equitable right to preferred prison placement.
+
+The holding will be limited to the First Step Act earned-credit/prerelease-custody setting. The Court will not announce that every complaint about prison conditions or discretionary placement belongs in habeas, and it will not decide whether Maxwell has established eligibility or a particular number of credits.
+
+The Court will leave the contested administrative-exhaustion issue for proceedings on remand. Its limited grant reaches the availability of Section 2241, not the petition's separate proposed jury/exhaustion question. Success on the procedural vehicle therefore will not itself establish entitlement to relief. Affirmance on an alternative exhaustion ground and a DIG are live minority possibilities, while a vacatur rather than a reversal is a substantial alternative form of a favorable judgment. I predict disposition during the merits cycle ending in June 2027, without asserting that argument has already occurred.

@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73283862",
+  "gaps": [],
+  "helpful": [
+    "Provisioned cert-stage filings and lower-court orders in record/documents/",
+    "Merits Outcomes by Grant Term table in metrics/statpack.md",
+    "fedcourts query --docket-number lookup for related prior Fernandez v. United States (No. 24-7240)"
+  ],
+  "notes": "Provisioned snapshot and cert-stage filings (petition, BIO, reply, QP, and appendix with Eleventh Circuit and SDFL orders) provided complete context for a moment: grant merits prediction.",
+  "role": "predictor",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

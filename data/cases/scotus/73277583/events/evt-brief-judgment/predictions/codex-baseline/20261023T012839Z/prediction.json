@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "The treatment of Sentencing Commission commentary affects federal sentencing across many guidelines and implicates judicial independence and criminal-law safeguards, but the granted question is technical and does not reach the petition's gun-rights challenges.",
+  "big_case_score": 0.67,
+  "case_id": "scotus/73277583",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.93
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-08-26",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 7,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-08-26",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-23T01:43:29Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-08-26.json",
+  "judgment": "vacated",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.93,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:7ab92dd4fb4d5e0889c4269bb2921676ad3917b6f86f71c8b26d3ac34a6574a4",
+    "label": "proc-v10",
+    "pipeline_sha": "d6d456dd3f5d3ccb34dfdfef2ba8620958d12d10",
+    "stamped_at": "2026-10-23T01:45:33.589783Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Stinson deference to interpretive Guidelines commentary is subject to Kisor's genuine-ambiguity requirement after exhaustion of ordinary interpretive tools; the Fifth Circuit therefore erred in treating commentary as controlling without applying those limits."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding will govern interpretive Sentencing Guidelines commentary generally, not just firearm-magazine commentary, but will leave the meaning of 'large capacity magazine' and Beaird's entitlement to resentencing for the lower courts on remand."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "concur-in-judgment",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "concur-in-judgment",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

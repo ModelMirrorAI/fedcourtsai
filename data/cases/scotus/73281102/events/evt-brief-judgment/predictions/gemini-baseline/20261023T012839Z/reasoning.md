@@ -1,0 +1,59 @@
+# Predictor Rationale — *William Maxwell v. Sandra Dinis, Acting Warden* (No. 25-5930)
+
+## 1. Summary of Forecast Numbers
+
+- **`probability` = `0.79` (`granted = 1`, `predicted_disposition = "other"`, `judgment = "vacated"`):**
+  On this `stage: merits`, `moment: briefed` event (`evt-brief-judgment`), `probability` and the single declared mechanical claim `judgment-disturbed` represent **P(the judgment below is disturbed)**—the sum of the probabilities that the Fifth Circuit's judgment is `vacated` (`0.62`), `reversed` (`0.16`), or `affirmed-in-part-reversed-in-part` (`0.01`), totaling **`0.79`**. The complement (`0.21`) comprises `dismissed-as-improvidently-granted` (`0.14`), `affirmed` (`0.07`), and `affirmed-by-an-equally-divided-court` (`0.00`).
+- **`judgment` = `"vacated"`:**
+  Vacatur (`0.62`) is nearly four times as likely as outright reversal (`0.16`) because the Solicitor General has filed a merits brief *Supporting Vacatur* and because the Fifth Circuit affirmed dismissal solely on a threshold procedural-vehicle ground (holding 28 U.S.C. § 2241 unavailable) without reaching the district court's administrative-exhaustion holding or the Government's newly raised argument that 18 U.S.C. § 3621(b) bars judicial review.
+- **`big_case_score` = `0.38`:**
+  The case resolves a recurring 3–2 circuit split affecting thousands of federal prisoners seeking First Step Act prerelease custody transfers, and clarifies the boundary between habeas corpus (§ 2241) and civil-rights actions (*Bivens* / § 1983). At the same time, it is a statutory/procedural habeas vehicle case in which both parties agree on the Question Presented and the Court is likely to issue a narrow opinion remanding threshold defenses, placing its broader legal and public salience in the moderate range (`0.38`).
+
+---
+
+## 2. Provisioned Record Consulted
+
+This prediction is formed in `forward` mode from the provisioned snapshot (`2026-09-19.json`, `cutoff = 2026-09-19`, `cut_kind = "date"`, `snapshot_provenance = "truncated"`) and the full set of seven provisioned documents listed in `record/documents/documents.json` (none with `empty_text: true` or `truncated: true`):
+
+1. **`questions-presented.txt` and `petition.txt`:** Pro se petition for certiorari filed by William Maxwell on August 20, 2025 (docketed October 22, 2025), challenging the Fifth Circuit's holding that 28 U.S.C. § 2241 is not a proper vehicle to seek transfer from prison to a halfway house or home confinement under the First Step Act.
+2. **`appendix.txt`:** Contains (a) the Fifth Circuit's published per curiam opinion (`133 F.4th 453`, Apr. 3, 2025), which bypassed the district court's exhaustion ruling and affirmed dismissal solely under *Melot v. Bergami*, 970 F.3d 596, 599 (5th Cir. 2020), on the ground that transfer to a halfway house or home confinement would not automatically entitle Maxwell to accelerated release from custody and therefore must be brought under *Bivens*; (b) the Eastern District of Texas Magistrate Judge's Report and Recommendation (`2023 WL 6578464`, Sept. 6, 2023) and District Judge Truncale's Memorandum Order Overruling Objections and Adopting the Report (`2023 WL 6635074`, Oct. 6, 2023), which granted summary judgment to the Warden because Maxwell exhausted only his CARES Act request and failed to exhaust his First Step Act earned-time-credit claims; and (c) the Fifth Circuit's June 23, 2025 order denying rehearing.
+3. **`brief-in-opposition.txt` (Apr. 2026):** The Solicitor General's cert-stage BIO, which conceded (at 6–9) that the Fifth Circuit's categorical rule is inconsistent with *Jones v. Hendrix*, 599 U.S. 465, 475 (2023), and *Woodall v. Federal Bureau of Prisons*, 432 F.3d 235, 243 (3d Cir. 2005), while opposing certiorari on vehicle/exhaustion grounds.
+4. **`cert-reply.txt` (May 2026):** Cert reply filed by newly retained counsel (Masha G. Hansford of Davis Polk & Wardwell and Paul, Weiss), detailing the 3–2 circuit split between the First, Second, and Third Circuits (*Gonzalez-Fuentes v. Molina*, 607 F.3d 864 (1st Cir. 2010); *Levine v. Apker*, 455 F.3d 71 (2d Cir. 2006); *Woodall*, 432 F.3d 235) and the Fifth and Eighth Circuits (*Melot*, 970 F.3d 596; *Fortner v. Eischen*, 170 F.4th 655 (8th Cir. 2026)).
+5. **`merits-brief-petitioner.txt` (Aug. 18, 2026):** Opening merits brief for Petitioner Maxwell, arguing that text, history, and precedent (*Preiser v. Rodriguez*, 411 U.S. 475 (1973); *Wilkinson v. Dotson*, 544 U.S. 74 (2005); *Skinner v. Switzer*, 562 U.S. 521 (2011); *Jones v. Hendrix*, 599 U.S. 465 (2023); *Trump v. J.G.G.*, 604 U.S. 670 (2025)) establish that § 2241 encompasses claims seeking a "quantum change in the level of custody," and at a minimum claims seeking release from physical imprisonment in a prison to a halfway house or home confinement; and demonstrating that *Bivens* offers no alternative cause of action.
+6. **`merits-brief-respondent.txt` (Aug. 18, 2026):** *Brief for the Respondent Supporting Vacatur* filed by the Solicitor General, agreeing that a prisoner's claim seeking accelerated transfer out of prison to a halfway house or home confinement is analogous to parole and cognizable in habeas under § 2241, urging the Court to adopt a narrow holding limited to transfers out of prison into the community, and arguing in Part C (at 35–41) that although Maxwell's petition fails on exhaustion and under 18 U.S.C. § 3621(b)'s judicial-review bar (citing *Osorio-Calderon v. Warden*, 179 F.4th 1158 (8th Cir. 2026)), the Court should **vacate and remand** for the Fifth Circuit to consider those alternative grounds in the first instance (or, alternatively, DIG the case in light of § 3621(b) and Maxwell's projected January 2027 eligibility for halfway-house transfer).
+
+Note from the snapshot (`2026-09-19.json`): On June 25, 2026, the Court invited Cody L. Reaves to brief and argue the case as amicus curiae in support of the judgment below. As of the September 19, 2026 cutoff, amicus curiae's brief had not yet been filed.
+
+---
+
+## 3. Statpack Merits Baseline and Adjustments
+
+Per `predict.md` (*Stage: merits*), the scored baseline is the per-Term **disturbed rate** from the **"The merits docket (granted cases)"** section of `metrics/statpack.md`, which publishes an `excluded (not in granted)` column (confirming the grant-to-judgment pool guard ran).
+
+- **Grant Term Determination:** Certiorari was granted on June 1, 2026, and `event.yaml` records `opened_at: '2026-09-18'`. Both dates fall in **October Term 2025** (`grant_term = 2025`, since OT2026 begins on the first Monday in October 2026).
+- **Strictly-Prior Pooled Disturbed Rate (`2015 <= T < 2025`):**
+  Pooling `disturbed` over `parsed` across the grant Terms strictly preceding OT2025 in the statpack merits table (OT2017–OT2024, 8 rendered Terms):
+  - `parsed` = `73 + 55 + 73 + 65 + 69 + 54 + 75 + 52 = 516` (well above the 30-case minimum floor), out of `granted` = `75 + 55 + 74 + 67 + 79 + 56 + 77 + 56 = 539` (**coverage: 516 / 539 = 95.7%**), with `excluded (not in granted)` = `34 + 13 + 1 + 1 + 2 + 2 + 0 + 3 = 56`.
+  - `disturbed` = `50 + 34 + 50 + 46 + 57 + 42 + 50 + 31 = 360`.
+  - **Pooled strictly-prior disturbed rate (`2017 <= T < 2025`):** **`360 / 516 = 69.77%` (~69.8%)** (comprising `235` reversed [45.5%], `115` vacated [22.3%], and `10` affirmed-in-part [1.9%], against `140` affirmed [27.1%], `12` DIG [2.3%], and `4` equally divided [0.8%]).
+  - *(Note: If keyed on `grant_term = 2026` to include the partially resolved OT2025 grant Term—which has `17 / 24 = 70.8%` disturbed, coverage `24 / 51 = 47.1%`, and `10` excluded—the pooled disturbed rate across OT2017–OT2025 is `377 / 540 = 69.81%`, virtually identical at **69.8%**.)*
+
+### Adjustments from the 69.8% Disturbed Baseline to `probability = 0.79`:
+
+1. **Upward Adjustment (+18% toward disturbance) — Solicitor General Confession of Error and Doctrinal Alignment:**
+   Unlike an ordinary argued case where Respondent defends the judgment below, here the Solicitor General agrees with Petitioner that the Fifth Circuit's bright-line rule under *Melot* is wrong and requests vacatur. On the merits of the Question Presented, the Fifth Circuit's holding—that § 2241 applies only where success would accelerate termination of all legal custody and that federal prisoners seeking prerelease transfer must instead use *Bivens*—contradicts *Preiser*, *Dotson*, *Jones v. Hendrix* (written by Justice Thomas for a six-Justice conservative majority), and *Egbert v. Boule*. When Petitioner and the Solicitor General align against a circuit's outlier procedural rule and ask to vacate and remand, the Court disturbs the judgment below at a rate exceeding 85% conditional on reaching the merits.
+
+2. **Downward Adjustment (-9% toward undisturbed, primarily DIG/mootness) — Vehicle and Mootness Risks Flagged by the SG:**
+   Two concrete risks prevent pushing `probability` above `0.79`:
+   - **Mootness / DIG Risk (`0.14`):** The Solicitor General explicitly flags (Resp. Br. 14, 41) that BOP projects Maxwell will likely become eligible for transfer to a halfway house in January 2027 under BOP's own First Step Act calculations, and suggests (at 41) that the Court "may wish to dismiss the writ of certiorari as improvidently granted" in light of that timeline and 18 U.S.C. § 3621(b). Recall that in *Fortner v. Eischen*, 170 F.4th 655, 659 (8th Cir. 2026), the Eighth Circuit appeal became moot after oral argument when BOP transferred the prisoner out of the prison camp. While Maxwell also sought *home confinement* and additional time credits (which can apply to supervised release), a DIG or mootness disposition remains a real ~14% risk.
+   - **Alternative-Ground Affirmance or Merits Affirmance (`0.07`):** Court-appointed amicus Cody L. Reaves will defend the judgment below, both by arguing that prerelease custody under 18 U.S.C. § 3624(c) and (g) is a change in place/conditions of confinement within continuing BOP custody (*Reno v. Koray*, 515 U.S. 50 (1995)) and potentially by inviting affirmance on the alternative ground of 18 U.S.C. § 3621(b) or failure to exhaust. Because the Government explicitly waived reliance on § 3621(b) in the Fifth Circuit and urges the Court *not* to affirm on either alternative ground in the first instance (Resp. Br. 36 n.3, 40–41), outright affirmance is unlikely (~7%).
+
+3. **Why `judgment = "vacated"` (`0.62`) Rather Than `"reversed"` (`0.16`):**
+   Both parties agree that even if § 2241 is the proper vehicle, the Fifth Circuit has not yet addressed the district court's administrative-exhaustion holding or 18 U.S.C. § 3621(b). Furthermore, the Solicitor General's brief is specifically captioned *Brief for the Respondent Supporting Vacatur* and asks that "[t]he judgment of the court of appeals should be vacated" (Resp. Br. 42). Under Supreme Court practice, when the court of appeals errs on a threshold barrier and substantial unreached defenses remain that could support the same ultimate dismissal on remand, the Court enters `vacated` and remands for further proceedings.
+
+---
+
+## 4. Key Uncertainties and Where to Discount This Forecast
+
+- **Unseen Amicus Curiae Brief and Oral Argument:** Because the snapshot stops on September 19, 2026, court-appointed amicus curiae's brief and the reply briefs are not yet on the record. If amicus curiae convinces several Justices at oral argument that 18 U.S.C. § 3621(b) is a non-waivable jurisdictional bar that must be decided before § 2241 cognizability, the probabilities of `dismissed-as-improvidently-granted` or `affirmed` would rise materially.
+- **Timing Relative to January 2027:** If oral argument is scheduled for January 2027 or later and BOP transfers Maxwell directly to home confinement rather than a halfway house, mootness could overtake the merits before decision.

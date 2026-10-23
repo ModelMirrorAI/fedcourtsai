@@ -1,0 +1,110 @@
+{
+  "big_case_rationale": "Landmark Sixth Amendment challenge asking the Court to overrule Williams v. Florida (1970) and mandate 12-person juries in state felony prosecutions, implicating criminal jury statutes in six states and roughly 5,000 pending felony appeals in Florida.",
+  "big_case_score": 0.92,
+  "case_id": "scotus/73282277",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.72
+    }
+  ],
+  "confidence": 0.7,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-06-16",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 5,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-06-16",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025
+  },
+  "created_at": "2026-10-23T01:38:00Z",
+  "engine": "gemini",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-06-16.json",
+  "judgment": "reversed",
+  "model": "gemini-4-argon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.72,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:bee46e92d923594056bdb6c9770521ef5251b0d065c5957262d7f5a55dd7b434",
+    "label": "proc-v10",
+    "pipeline_sha": "d6d456dd3f5d3ccb34dfdfef2ba8620958d12d10",
+    "stamped_at": "2026-10-23T02:10:03.526571Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T012839Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Court overrules Williams v. Florida, 399 U.S. 78 (1970), on originalist grounds under Ramos v. Louisiana, 590 U.S. 83 (2020), holding that the Sixth Amendment right to 'trial, by an impartial jury' incorporates the Founding-era common-law requirement of twelve jurors as applied to the States through the Fourteenth Amendment, and that Williams's functionalist cost-benefit methodology is an egregiously wrong departure from original public meaning that stare decisis does not preserve."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court announces a categorical rule requiring a twelve-person jury for all serious state and federal felony prosecutions within the scope of the Sixth Amendment jury-trial guarantee, rather than a narrow fact-bound ruling limited to Petitioner's conviction, while expressly leaving Seventh Amendment civil jury size under Colgrove v. Battin, 413 U.S. 149 (1973), undisturbed."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "majority",
+      "writing": "concurrence"
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}
