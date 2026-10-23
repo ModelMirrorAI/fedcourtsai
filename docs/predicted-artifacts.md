@@ -911,6 +911,13 @@ in prose.
   could never be the harness's word, unlike `claim_scores`, since resolving a
   semantic claim needs a reader; that is why inter-grader agreement is what a
   published grade would have to travel with.
+  `predicted_reasoning_quality` grades `predicted_reasoning.md` alone, 0–1,
+  with `predicted_reasoning_review` listing the central claims it rests on (or,
+  beside a null grade, the record's ground for it). It is designed, awaiting
+  its pilot, and not registered, so it is null on every committed evaluation:
+  `validate`'s `predicted_reasoning_grade_awaits_registration` refuses a
+  committed one (*Grading the forecast document, design* in
+  `docs/outcome-decomposition.md`).
 - **`evaluation.md`** — free-form: what the prediction got right or wrong and
   why, and what drove the `reasoning_quality` score.
 

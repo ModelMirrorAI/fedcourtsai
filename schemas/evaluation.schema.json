@@ -32,6 +32,48 @@
       "title": "BigCaseAssessment",
       "type": "object"
     },
+    "CentralClaim": {
+      "additionalProperties": false,
+      "description": "One claim a judge treated as central to a predicted-reasoning document.\n\nThe audit trail beside ``Evaluation.predicted_reasoning_quality``: it shows\nwhich claims the grade rests on, so a reviewer can see whether the judge\ngraded the claims the document led with or hunted for a detail to dock.\nNever scored and never aggregated (``docs/outcome-decomposition.md``,\n*Grading the forecast document, design*).",
+      "properties": {
+        "basis": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What in the staged record the status rests on, briefly. Null when the judge recorded none",
+          "title": "Basis"
+        },
+        "claim": {
+          "description": "The claim as the document committed to it, in a sentence",
+          "maxLength": 500,
+          "title": "Claim",
+          "type": "string"
+        },
+        "status": {
+          "description": "Whether the outcome bore the claim out. `unresolved` is the staged record failing to settle it \u2014 conditional content an outcome never tested, or a writing the record does not carry \u2014 and is never read as a miss",
+          "enum": [
+            "borne-out",
+            "not-borne-out",
+            "unresolved"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claim",
+        "status"
+      ],
+      "title": "CentralClaim",
+      "type": "object"
+    },
     "ClaimScore": {
       "additionalProperties": false,
       "description": "One declared claim's scored row inside ``Evaluation.claim_scores``.\n\nEverything here except ``probability`` is the harness's: the outcome is\nresolved in code from committed artifacts, and the baseline is computed\nfrom history strictly prior to the case's Term \u2014 never the predictor's\nword, never a corpus column that keeps moving. The scoring rule and its\nproperties are pre-registered in ``docs/outcome-decomposition.md``.",
@@ -323,6 +365,37 @@
         "influenced_prediction"
       ],
       "title": "LeakageAssessment",
+      "type": "object"
+    },
+    "PredictedReasoningReview": {
+      "additionalProperties": false,
+      "description": "A judge's review of one prediction's ``predicted_reasoning.md``.\n\nCarries what stands behind ``Evaluation.predicted_reasoning_quality``: the\nclaims the judge treated as central, or, where the judge returned no\ngrade, the record's ground for that. Designed and piloted before it is\nregistered (``docs/outcome-decomposition.md``, *Grading the forecast\ndocument, design*); no evaluate prompt asks for it until registration.",
+      "properties": {
+        "central_claims": {
+          "description": "The claims, at most five, the judge treated as central to the document, in the order the document gives them weight. Required beside a grade; may be empty beside a null one",
+          "items": {
+            "$ref": "#/$defs/CentralClaim"
+          },
+          "maxItems": 5,
+          "title": "Central Claims",
+          "type": "array"
+        },
+        "not_gradeable": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Where the grade is null, the record's ground for that: the staged record is silent on everything the document's central claims turn on. Never a ground about the predictor \u2014 a vague, hedged or all-conditional document is gradeable, and graded low. Null beside a grade",
+          "title": "Not Gradeable"
+        }
+      },
+      "title": "PredictedReasoningReview",
       "type": "object"
     },
     "ProcessVersion": {
@@ -666,6 +739,33 @@
       "default": "evaluation.md",
       "title": "Notes Doc",
       "type": "string"
+    },
+    "predicted_reasoning_quality": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The judge's 0-1 grade of the prediction's `predicted_reasoning.md` alone \u2014 how well its forecast of what the Court would do and say held up \u2014 on the anchored rubric in `docs/outcome-decomposition.md` (*Grading the forecast document, design*). Not a grade of the prediction as a whole, and never folded into `reasoning_quality`, which grades `reasoning.md`. Null where the record cannot grade it (`predicted_reasoning_review.not_gradeable` says why) and on every evaluation whose prompt did not ask for it",
+      "title": "Predicted Reasoning Quality"
+    },
+    "predicted_reasoning_review": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PredictedReasoningReview"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What stands behind `predicted_reasoning_quality`: the central claims the grade rests on, or the record's ground for a null grade. Null wherever the grade was not asked for"
     },
     "prediction_run_id": {
       "anyOf": [

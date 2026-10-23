@@ -57,6 +57,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Final
 
 from pydantic import ValidationError
 
@@ -145,6 +146,17 @@ CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
 CHECK_PREDICTION_SEMANTIC = "prediction_semantic_claims_conform"
 CHECK_EVALUATION_SEMANTIC = "evaluation_semantic_grades_gradeable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
+# A grade of `predicted_reasoning.md` reaches the ledger only once its protocol
+# is registered; until then the pilot grades it off the ledger.
+CHECK_PREDICTED_REASONING_HELD = "predicted_reasoning_grade_awaits_registration"
+
+#: Whether the `predicted_reasoning_quality` grade is registered. Until it is,
+#: no committed evaluation may carry the grade or its review: the pilot grades
+#: off the ledger, and a registered evaluate cell that filled the fields from
+#: the schema alone would commit a grade no pre-registration covers
+#: (``docs/outcome-decomposition.md``, *Grading the forecast document, design*).
+#: Flipped in the change that registers it.
+PREDICTED_REASONING_GRADE_REGISTERED: Final = False
 CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 # `correct` is a function of two committed artifacts, so one cell's current
 # gradings must record the same bit whichever evaluator wrote them.
@@ -1327,6 +1339,38 @@ def check_evaluation_semantic_grades(data_root: Path) -> CorpusCheck:
     return _check(CHECK_EVALUATION_SEMANTIC, problems, checked=checked)
 
 
+def check_predicted_reasoning_grade_held(
+    data_root: Path, *, registered: bool = PREDICTED_REASONING_GRADE_REGISTERED
+) -> CorpusCheck:
+    """No committed evaluation carries a predicted-reasoning grade before it is registered.
+
+    The schema carries ``predicted_reasoning_quality`` and its review ahead of
+    registration so the pilot can write them, and nothing in a cell's digest
+    stops a registered evaluate cell from filling them too: its prompt points
+    it at the schema. This check is what keeps the pilot's promise that no
+    unregistered grade is committed. A file that does not parse is
+    ``validate_ledger``'s concern and is skipped here.
+    """
+    problems: list[str] = []
+    checked = 0
+    if not registered:
+        for path in _ledger_files(data_root, "*/*/events/*/evaluations/*/*/*/evaluation.json"):
+            try:
+                evaluation = Evaluation.model_validate(json.loads(path.read_text()))
+            except (OSError, ValueError, ValidationError):
+                continue
+            checked += 1
+            if (
+                evaluation.predicted_reasoning_quality is not None
+                or evaluation.predicted_reasoning_review is not None
+            ):
+                problems.append(
+                    f"evaluation {path}: carries a `predicted_reasoning_quality` grade or "
+                    "review, which no registered protocol covers yet"
+                )
+    return _check(CHECK_PREDICTED_REASONING_HELD, problems, checked=checked)
+
+
 def check_merits_predictions(data_root: Path) -> CorpusCheck:
     """A merits-stage event's latest prediction per predictor must carry a judgment.
 
@@ -1927,6 +1971,7 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_prediction_claims(data_root),
         check_prediction_semantic_claims(data_root),
         check_evaluation_semantic_grades(data_root),
+        check_predicted_reasoning_grade_held(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
         check_outcome_votes_held(data_root),
@@ -1968,6 +2013,7 @@ def _run_checks(
         check_prediction_claims(data_root),
         check_prediction_semantic_claims(data_root),
         check_evaluation_semantic_grades(data_root),
+        check_predicted_reasoning_grade_held(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
         check_outcome_votes_held(data_root),

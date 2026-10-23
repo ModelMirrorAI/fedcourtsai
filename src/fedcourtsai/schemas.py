@@ -540,6 +540,12 @@ MaskGround = Literal["no-judgment", "not-ingested", "silent-on-axis"]
 # would report a ground nobody asserted.
 MASK_GROUND_UNSTATED = "unstated"
 
+# What became of one claim a judge treated as central to a predicted-reasoning
+# document (`Evaluation.predicted_reasoning_review`). Three values and closed:
+# a claim the outcome bore out, one it did not, and one the staged record
+# cannot settle either way — the last never read as a miss.
+CentralClaimStatus = Literal["borne-out", "not-borne-out", "unresolved"]
+
 
 # The pre-registration stratum a scored cell belongs to. Defined here, beside
 # the models that carry it, so a field can be typed on the closed vocabulary
@@ -2237,6 +2243,62 @@ class SemanticGradeBlock(_Strict):
     )
 
 
+class CentralClaim(_Strict):
+    """One claim a judge treated as central to a predicted-reasoning document.
+
+    The audit trail beside ``Evaluation.predicted_reasoning_quality``: it shows
+    which claims the grade rests on, so a reviewer can see whether the judge
+    graded the claims the document led with or hunted for a detail to dock.
+    Never scored and never aggregated (``docs/outcome-decomposition.md``,
+    *Grading the forecast document, design*).
+    """
+
+    claim: str = Field(
+        max_length=500,
+        description="The claim as the document committed to it, in a sentence",
+    )
+    status: CentralClaimStatus = Field(
+        description="Whether the outcome bore the claim out. `unresolved` is the "
+        "staged record failing to settle it — conditional content an outcome "
+        "never tested, or a writing the record does not carry — and is never "
+        "read as a miss"
+    )
+    basis: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="What in the staged record the status rests on, briefly. "
+        "Null when the judge recorded none",
+    )
+
+
+class PredictedReasoningReview(_Strict):
+    """A judge's review of one prediction's ``predicted_reasoning.md``.
+
+    Carries what stands behind ``Evaluation.predicted_reasoning_quality``: the
+    claims the judge treated as central, or, where the judge returned no
+    grade, the record's ground for that. Designed and piloted before it is
+    registered (``docs/outcome-decomposition.md``, *Grading the forecast
+    document, design*); no evaluate prompt asks for it until registration.
+    """
+
+    central_claims: list[CentralClaim] = Field(
+        default_factory=list,
+        max_length=5,
+        description="The claims, at most five, the judge treated as central to "
+        "the document, in the order the document gives them weight. Required "
+        "beside a grade; may be empty beside a null one",
+    )
+    not_gradeable: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Where the grade is null, the record's ground for that: the "
+        "staged record is silent on everything the document's central claims "
+        "turn on. Never a ground about the predictor — a vague, hedged or "
+        "all-conditional document is gradeable, and graded low. Null beside a "
+        "grade",
+    )
+
+
 class Evaluation(_Strict):
     """``evaluation.json`` — one evaluator scoring one predictor's prediction."""
 
@@ -2340,6 +2402,25 @@ class Evaluation(_Strict):
         "participating-bench accuracy (`pipeline.evaluate.bench_vote_accuracy`)",
     )
     reasoning_quality: float | None = Field(default=None, ge=0.0, le=1.0)
+    predicted_reasoning_quality: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The judge's 0-1 grade of the prediction's "
+        "`predicted_reasoning.md` alone — how well its forecast of what the Court "
+        "would do and say held up — on the anchored rubric in "
+        "`docs/outcome-decomposition.md` (*Grading the forecast document, "
+        "design*). Not a grade of the prediction as a whole, and never folded "
+        "into `reasoning_quality`, which grades `reasoning.md`. Null where the "
+        "record cannot grade it (`predicted_reasoning_review.not_gradeable` says "
+        "why) and on every evaluation whose prompt did not ask for it",
+    )
+    predicted_reasoning_review: PredictedReasoningReview | None = Field(
+        default=None,
+        description="What stands behind `predicted_reasoning_quality`: the "
+        "central claims the grade rests on, or the record's ground for a null "
+        "grade. Null wherever the grade was not asked for",
+    )
     leakage_suspected: bool | None = Field(
         default=None,
         description="Coarse leakage bit, kept in step with `leakage`: true when "
@@ -2510,6 +2591,28 @@ class Evaluation(_Strict):
         "shakedown cells). Provenance for the judge process; the leaderboard's "
         "frozen partition keys on the *prediction's* stamp, not this one.",
     )
+
+    @model_validator(mode="after")
+    def _predicted_reasoning_review_coheres(self) -> Evaluation:
+        """A grade stands on central claims; a null beside a review states the record's ground."""
+        review = self.predicted_reasoning_review
+        if self.predicted_reasoning_quality is not None:
+            if review is None or not review.central_claims:
+                raise ValueError(
+                    "`predicted_reasoning_quality` needs a `predicted_reasoning_review` "
+                    "listing the central claims it rests on"
+                )
+            if review.not_gradeable is not None:
+                raise ValueError(
+                    "`predicted_reasoning_review.not_gradeable` is the ground for a null "
+                    "grade and cannot stand beside a grade"
+                )
+        elif review is not None and review.not_gradeable is None:
+            raise ValueError(
+                "a `predicted_reasoning_review` beside a null grade must say in "
+                "`not_gradeable` why the record cannot grade the document"
+            )
+        return self
 
 
 class PolledSignal(_Strict):
