@@ -3390,3 +3390,66 @@ def test_hold_decision_reads_a_real_evaluate_plan(tmp_path: Path) -> None:
     )
     assert decision.auto_release, decision.auto_release_reason
     assert not decision.drain_more
+
+
+def test_a_pilot_round_carries_its_draft_section_on_every_row(tmp_path: Path) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    section = tmp_path / "pilot.md"
+    section.write_text("draft\n")
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    result = runner.invoke(
+        app,
+        [
+            "evaluate-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--pilot-section",
+            str(section),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 0, result.output
+    cells = _cells(result.stdout)
+    assert cells
+    assert {c["pilot_section"] for c in cells} == {section.as_posix()}
+    # The registered prompt is untouched: the section rides beside it.
+    assert all(c["prompt"] != c["pilot_section"] for c in cells)
+
+
+@pytest.mark.parametrize("which", ["missing", "registered"])
+def test_a_pilot_section_must_be_a_draft_file(tmp_path: Path, which: str) -> None:
+    body = tmp_path / "issue-body.md"
+    body.write_text(_BATCH_BODY)
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001", "scotus/24002"))
+    section = tmp_path / "absent.md" if which == "missing" else Path(".github/prompts/evaluate.md")
+    result = runner.invoke(
+        app,
+        [
+            "evaluate-matrix",
+            "--run-id",
+            "RID",
+            "--body-file",
+            str(body),
+            "--pilot-section",
+            str(section),
+        ],
+        env=env,
+    )
+    assert result.exit_code == 1
+    assert ("no such file" if which == "missing" else "registered evaluate prompt") in (
+        result.output
+    )
+
+
+def test_the_backlog_is_never_a_pilot(tmp_path: Path) -> None:
+    section = tmp_path / "pilot.md"
+    section.write_text("draft\n")
+    env = _env(tmp_path, scope="scotus_docket", cases=("scotus/24001",))
+    result = runner.invoke(
+        app, ["evaluate-matrix", "--run-id", "RID", "--pilot-section", str(section)], env=env
+    )
+    assert result.exit_code == 1
+    assert "the backlog is never a pilot" in result.output

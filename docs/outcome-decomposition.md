@@ -2209,7 +2209,9 @@ reports, so the report cannot be chosen after the grades are read.
   any judge's grade, and the labels' hash is recorded before the panel's
   grades are read, out of band; the pilot report records the sheet's hash
   and, given the one recorded beforehand, refuses a sheet that no longer
-  matches it, saying whether it checked. For merits, published commentary on
+  matches it, saying whether it checked. The labels join a round through a
+  packet sampled at the commit the round ran, whose sample's hash must match
+  the one the round's report records. For merits, published commentary on
   decided cases — argument previews and analyses whose quality is roughly
   known — is graded alongside as exemplars, a weaker test since commentary is
   recognisable by its authors. A label is a reference point, not ground truth:
@@ -2263,11 +2265,12 @@ committed evaluations are never edited.
    text, and the content store holds a majority-opinion body for only a sliver
    of the granted cases. Storing each writing's text from the documents the
    `opinion-record` pass already reads is a corpus change on a repair pass.
-2. **The pilot mode.** The schema fields, the draft prompt section, the cert
-   and interim sample (`fedcourts reasoning-pilot-sample`, which also writes
-   the blind labeling packet) and the report (`fedcourts reasoning-pilot-report`)
-   exist; the replay merits calibration cells are not yet sampled, and the
-   pilot still needs a way to run the section over the sampled cells without
-   committing the result.
+2. **The merits calibration cells.** The schema fields, the draft prompt
+   section, the cert and interim sample (`fedcourts reasoning-pilot-sample`,
+   which also writes the blind labeling packet), the report (`fedcourts
+   reasoning-pilot-report`) and the round itself (run-evaluate's
+   `reasoning-pilot` dispatch mode, which grades the sample with the section
+   and uploads the evaluations and the report rather than committing them)
+   exist; the replay merits calibration cells are not yet sampled.
 3. **The reference labels and the pilot run itself.**
 4. **Registration**, as above.

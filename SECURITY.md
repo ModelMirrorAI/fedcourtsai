@@ -438,7 +438,11 @@ runbook, [docs/security.md](docs/security.md).
   spends staging's engine keys unattended — about one paid suite per
   candidate, outside the auto-release budget — bounded by the train's own
   daily cap (`max_gate_dispatches_per_day` in the code-owned
-  `config/promotion-train.yaml`) and by never re-dispatching at a head. The
+  `config/promotion-train.yaml`) and by never re-dispatching at a head.
+  run-evaluate's `reasoning-pilot` round spends outside the budget the other
+  way: it always waits on the `review` hold, but it commits nothing, so its
+  measured spend never reaches the ledger the trailing budget is projected
+  over, and the manual release is its only bound. The
   pull window chains only on a forecast-relevant change, and neither chain job
   dispatches while a promotion is about to merge.
   Three workflows *do* take an outside-reachable trigger — `ci.yml`,

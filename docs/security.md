@@ -729,7 +729,11 @@ it can fetch its run's cell artifacts per artifact (four at a time) instead of
 as a single fail-fast batch (a transient failure of which once discarded a
 whole run's output). The grant is repo-wide read, as Actions scopes cannot be run-scoped; it
 is acceptable here because `collect` runs no agent code and nothing
-agent-controlled steers which API it calls.
+agent-controlled steers which API it calls. A `reasoning-pilot` round skips
+`collect`; its `pilot-report` job binds no environment, holds no secret and a
+`contents: read` token, reads the round's artifacts through the runtime token
+(the sample by artifact id), parses the agent-written evaluations as data, and
+uploads one seven-day artifact of the round's own evaluations and the report.
 
 The cells make no issue write of their own. The engine watchdog (*Graceful
 degradation on limits* in [pipeline.md](pipeline.md)) brackets every engine's

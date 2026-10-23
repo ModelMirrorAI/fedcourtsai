@@ -326,3 +326,22 @@ def test_a_label_sheet_changed_after_its_hash_was_recorded_is_refused(tmp_path: 
     _labels(out, {"claude-baseline": 0.75})
     with pytest.raises(ValueError, match="changed after its hash was recorded"):
         pilot_report(tmp_path, out, labels=labels, expect_labels_sha256=recorded)
+
+
+def test_a_round_id_reads_only_that_rounds_evaluations(tmp_path: Path) -> None:
+    """A cell artifact carries its event's committed evaluations beside the round's."""
+    data = tmp_path / "data"
+    pilot = tmp_path / "pilot"
+    _ledger(data, 1, CERT, predictors=("claude-baseline",))
+    _grade(pilot, 1, CERT, "claude-judge", "claude-baseline", 0.75, run_id="20261005T000000Z")
+    # Another judge's committed, ungraded evaluation from an earlier round, and
+    # a newer null from another round by the pilot's own judge, which would
+    # supersede the round's grade were the reads not restricted to the round.
+    _grade(pilot, 1, CERT, "codex-judge", "claude-baseline", None, run_id="20260910T000000Z")
+    _grade(pilot, 1, CERT, "claude-judge", "claude-baseline", None, run_id="20261009T000000Z")
+    out = tmp_path / "sample"
+    write_sample(pilot_population(data), out)
+    report = pilot_report(pilot, out, round_id="20261005T000000Z")
+    assert report.other_round == 2 and report.round_id == "20261005T000000Z"
+    (stage,) = report.stages
+    assert [(j.evaluator_id, j.graded, j.null) for j in stage.judges] == [("claude-judge", 1, 0)]

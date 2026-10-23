@@ -44,14 +44,35 @@ on:
     # dropped with no record, and a newly registered cron sometimes never
     # indexes until the file changes again on the default branch. A missed slot
     # costs a day's drain, nothing else (the backlog is level-triggered); the
-    # input-less dispatch below is the manual twin that drains it on demand.
+    # backlog dispatch below is the manual twin that drains it on demand.
     - cron: "39 15 * * *"
   # The same derivation, on demand — for a backlog that should drain now rather
-  # than at the next window. Deliberately input-less: the backlog is the only
-  # case list this workflow has, and a run that wants to spend on hand-picked
-  # cases is an `evaluate-plan` reading plus a maintainer's judgement, not a
-  # trigger input that would reintroduce an unauthenticated case list.
+  # than at the next window. Its one input picks which derivation, never a
+  # case: the backlog is the case list a grading round has, and a run that
+  # wants to spend on hand-picked cases is an `evaluate-plan` reading plus a
+  # maintainer's judgement, not a trigger input that would reintroduce an
+  # unauthenticated case list.
+  #
+  # `reasoning-pilot` runs the pilot of the unregistered
+  # `predicted_reasoning_quality` grade (docs/outcome-decomposition.md, *The
+  # pilot, and what it reports*). Its cells are derived too, by
+  # `reasoning-pilot-sample` over the committed ledger at a fixed seed, and
+  # each cell reads the draft section beside its registered prompt. A pilot
+  # round commits nothing: `collect` is skipped, and `pilot-report` uploads the
+  # round's evaluations and its report as an artifact instead. It always waits
+  # on the `review` hold.
   workflow_dispatch:
+    inputs:
+      mode:
+        description: >-
+          backlog = grade what committed state still owes; reasoning-pilot =
+          the predicted_reasoning_quality pilot over its seeded sample (commits
+          nothing; always held for review).
+        type: choice
+        options:
+          - backlog
+          - reasoning-pilot
+        default: backlog
 
 permissions: {}
 
@@ -70,8 +91,12 @@ permissions: {}
 # can park a round for days — every round here is level-triggered and loses
 # nothing when its successor replaces it in the queue, since the backlog it
 # would have drained is re-derived by whichever round does run.
+#
+# A pilot round takes a group of its own: it commits nothing, so it cannot
+# overlap a backlog round's uncommitted gradings, and a backlog round's cron
+# arrival must not supersede a pilot parked on the hold.
 concurrency:
-  group: run-evaluate
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot' && 'run-evaluate-pilot' || 'run-evaluate' }}
   cancel-in-progress: false
 
 jobs:
@@ -145,6 +170,13 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
       auto_release: ${{ steps.hold.outputs.auto_release }}
+      run_id: ${{ steps.plan.outputs.run_id }}
+      # The pilot report downloads the sample by this id rather than by name:
+      # a name is claimable by any job in the run holding the runtime token.
+      sample_artifact_id: ${{ steps.sample-upload.outputs.artifact-id }}
+      # Written affirmatively: a scheduled run carries no inputs, so a test of
+      # `inputs.mode != 'backlog'` would read a schedule as a pilot.
+      pilot: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot' }}
     steps:
       # No authorization gate here, and none is missing: this workflow carries no
       # trigger an outside actor can reach. A `schedule` fires only from the
@@ -180,15 +212,33 @@ jobs:
 
       - name: Build evaluator x case x event matrix
         id: plan
+        env:
+          PILOT: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot' }}
         run: |
           set -euo pipefail
           run_id=$(date -u +%Y%m%dT%H%M%SZ)
-          # No case list is passed, and that is the request: given no --body-file
-          # and no --court/--docket, `evaluate-matrix` derives the cases from the
-          # corpus-level evaluate backlog itself. The report step below passes
-          # none either — both invocations must select the same cases, or the plan
-          # a maintainer approves is not the fan-out.
-          matrix=$(uv run fedcourts evaluate-matrix --run-id "$run_id")
+          # A backlog round passes no case list, and that is the request: given
+          # no --body-file and no --court/--docket, `evaluate-matrix` derives the
+          # cases from the corpus-level evaluate backlog itself. A pilot round
+          # derives its own from the committed ledger at the sample's fixed seed,
+          # and re-grades those events by design (--force: every one is already
+          # graded). The report step below reads back the same arguments — both
+          # invocations must select the same cases, or the plan a maintainer
+          # approves is not the fan-out.
+          args=()
+          if [ "$PILOT" = "true" ]; then
+            uv run fedcourts reasoning-pilot-sample pilot-sample
+            args=(--body-file pilot-sample/body.md --force)
+            matrix=$(uv run fedcourts evaluate-matrix --run-id "$run_id" "${args[@]}" \
+              --pilot-section .github/prompts/pilot/predicted-reasoning-quality.md)
+          else
+            matrix=$(uv run fedcourts evaluate-matrix --run-id "$run_id")
+          fi
+          # One argument a line, and an empty file for none: the report step
+          # reads it back with `mapfile`, which would turn a lone blank line
+          # into an empty argument.
+          : > plan-args.txt
+          if [ "${#args[@]}" -gt 0 ]; then printf '%s\n' "${args[@]}" > plan-args.txt; fi
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           # Kept for the hold decision, which refuses to auto-release unless this
           # minted matrix holds exactly the cells the plan below prices.
@@ -219,6 +269,18 @@ jobs:
             echo "Nothing to grade this cycle: the evaluate backlog is drained, or every grading it still owes is held for its opinion body. No resolved event with a committed prediction is missing an enabled evaluator's grading (within this cycle's cap) except those held. Nothing to run; no spend — the run ends cleanly here. Held cells are counted in this step's log, and are graded once the body lands or the 14-day hold runs out." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # The pilot's sample travels with the round: the report job reads which
+      # cells, and which prediction runs, the round was meant to grade.
+      - name: Upload the pilot sample
+        id: sample-upload
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reasoning-pilot-sample
+          path: pilot-sample
+          if-no-files-found: error
+          retention-days: 7
+
       # The plan report the approval below is judged on: the tested plan
       # command re-derives the same fan-out the matrix step just minted (same
       # helpers, zero spend) and renders per-step counts, the would-grade
@@ -246,11 +308,13 @@ jobs:
           PLAN_RUN_ID: ${{ steps.plan.outputs.run_id }}
         run: |
           set -euo pipefail
-          # No case list, exactly as the matrix step above passed none: the plan
-          # must re-derive the fan-out that was actually minted, or the plan a
-          # maintainer approves is not the run. Read-only either way.
+          # The same case arguments the matrix step passed (none on a backlog
+          # round): the plan must re-derive the fan-out that was actually
+          # minted, or the plan a maintainer approves is not the run. Read-only
+          # either way.
+          mapfile -t args < plan-args.txt
           uv run fedcourts evaluate-plan \
-            --run-id "$PLAN_RUN_ID" \
+            --run-id "$PLAN_RUN_ID" "${args[@]}" \
             --approval-report plan-report.md \
             --approval-report-run-url "$RUN_URL" >plan.json 2>plan-stderr.txt \
             || { cat plan-stderr.txt; exit 1; }
@@ -282,10 +346,13 @@ jobs:
       # and the summary are the command's. An evaluate round never chains
       # another — the drain is run-predict's alone. On `main` only:
       # `review-auto`'s branch policy admits no other ref, so a rehearsal
-      # always holds.
+      # always holds, and so does a pilot round, which spends outside the
+      # committed spend ledger the budget is projected over.
       - name: Decide the hold
         id: hold
-        if: ${{ steps.plan.outputs.has_jobs == 'true' && github.ref == 'refs/heads/main' }}
+        if: >-
+          ${{ steps.plan.outputs.has_jobs == 'true' && github.ref == 'refs/heads/main'
+          && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot') }}
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}
@@ -908,6 +975,7 @@ jobs:
           prompt: |
             Read ${{ matrix.prompt }} and AGENTS.md, then score every predictor's
             prediction for this cell against its outcome.json:
+            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
 
             COURT_ID=${{ matrix.court }}
             DOCKET_ID=${{ matrix.docket }}
@@ -978,6 +1046,7 @@ jobs:
           prompt: |
             Read ${{ matrix.prompt }} and AGENTS.md, then score every predictor's
             prediction for this cell against its outcome.json:
+            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
 
             COURT_ID=${{ matrix.court }}
             DOCKET_ID=${{ matrix.docket }}
@@ -1073,6 +1142,7 @@ jobs:
           PROMPT: |
             Read ${{ matrix.prompt }} and AGENTS.md, then score every predictor's
             prediction for this cell against its outcome.json:
+            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
 
             COURT_ID=${{ matrix.court }}
             DOCKET_ID=${{ matrix.docket }}
@@ -1545,6 +1615,94 @@ jobs:
             fi
           done
 
+  # A pilot round's output: the round's own evaluations and the pilot report,
+  # as one artifact, and nothing anywhere else. No environment, no secret, and
+  # a `contents: read` token: it reads this run's artifacts through the
+  # runtime token, and the checkout's ledger only as the place the round's
+  # root must sit outside. The artifact keeps the cell artifacts' seven-day
+  # retention, since its agent-written prose passes no secret scan, as theirs
+  # does not. The maintainer downloads it and joins the labels locally, with
+  # `reasoning-pilot-report --labels` over a `--packet` sample taken at the
+  # commit this round ran, whose `sample.json` must hash to the report's
+  # `sample_sha256` (the workflow writes no packet, so no alias key is
+  # published). The cells' download fails as a unit;
+  # their artifacts outlive it, so re-running this job alone recovers the
+  # report.
+  pilot-report:
+    needs: [authorize, plan, approval, evaluate]
+    if: >-
+      ${{ !cancelled() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success'
+      && needs.plan.outputs.pilot == 'true'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Download the round's cells
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: evaluate-*
+          path: pilot-round
+          merge-multiple: true
+
+      - name: Download the sample
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.plan.outputs.sample_artifact_id }}
+          path: pilot-sample
+
+      # Restricted to this round's run id: each cell artifact carries its
+      # event's committed evaluations beside the round's own, and only the
+      # round's own are read or kept.
+      - name: Report the round
+        env:
+          ROUND_ID: ${{ needs.plan.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [ ! -d pilot-round/data/cases ]; then
+            echo "::error::no cell of this round uploaded an evaluation; nothing to report"
+            exit 1
+          fi
+          uv run fedcourts reasoning-pilot-report pilot-round/data \
+            --sample pilot-sample --round-id "$ROUND_ID" \
+            --prompt .github/prompts/pilot/predicted-reasoning-quality.md \
+            --out pilot-report.json 2>report-stderr.txt \
+            || { cat report-stderr.txt; exit 1; }
+          {
+            echo "## reasoning pilot — round ${ROUND_ID}"
+            echo ''
+            echo '```'
+            cat report-stderr.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          mkdir -p reasoning-pilot
+          cp pilot-report.json reasoning-pilot/
+          cp -r pilot-sample reasoning-pilot/sample
+          (cd pilot-round/data && find cases -path "*/evaluations/*/${ROUND_ID}/*" -type f) \
+            | while read -r rel; do
+                mkdir -p "reasoning-pilot/data/$(dirname "$rel")"
+                cp "pilot-round/data/$rel" "reasoning-pilot/data/$rel"
+              done
+
+      - name: Upload the round
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reasoning-pilot-${{ needs.plan.outputs.run_id }}
+          path: reasoning-pilot
+          if-no-files-found: error
+          retention-days: 7
+
   collect:
     # Defence in depth only. Both attempts of a re-run share `run_id`, so this
     # groups them — but GitHub refuses to re-run a run that is still in
@@ -1564,8 +1722,12 @@ jobs:
     # only writer: it unions the cells' artifacts into one
     # PR per run (merged by this job when green) plus, if any cell left salvageable
     # partial output, one draft PR a maintainer finishes.
+    #
+    # A pilot round never reaches it: its grades are unregistered, and the
+    # ledger refuses them (`predicted_reasoning_grade_awaits_registration`).
     if: >-
       ${{ always() && needs.plan.outputs.has_jobs == 'true' && needs.approval.result == 'success'
+      && needs.plan.outputs.pilot != 'true'
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -1806,7 +1968,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, plan, approval, rejected, evaluate, collect]
+    needs: [authorize, plan, approval, rejected, evaluate, collect, pilot-report]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
