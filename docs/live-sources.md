@@ -734,6 +734,29 @@ pass, after document freshness (`live.fetch_argument_transcripts`):
   sittings, and none once all hold them. It runs last and only with an
   estimated document's time left before the deadline.
   `fedcourts authorship-tally` reads them; no cell does.
+- **Features.** `argument_features.parse_argument_features` reads a stored,
+  cleaned transcript into per-Justice turn and word counts by advocate side.
+  The side of each segment is read from its header ("ORAL ARGUMENT OF … ON
+  BEHALF OF THE PETITIONERS", "… FOR THE UNITED STATES, AS AMICUS CURIAE,
+  SUPPORTING THE RESPONDENT", "REBUTTAL ARGUMENT OF …"), and a Justice's turn
+  counts toward the segment it falls in. Each side is keyed twice: by the
+  advocate's role (petitioner, respondent, the United States or another amicus
+  with the party it supported) and by the position argued, so a respondent
+  "in support of the petitioner" counts toward the petitioner's position. A
+  rebuttal is the petitioner's. Turns before the first header, in a segment
+  whose header names no side, or under a Justice label the roster does not
+  resolve are counted apart in the coverage, never spread over the sides.
+  The headers do not separate everything. Consolidated and divided arguments
+  are summed under their side, and only the segment list keeps each advocate
+  and case number apart. "Supporting vacatur" is kept as neither party's. A
+  Justice speaking to anyone but the advocate at the lectern still counts
+  toward that advocate's side. The parse is computed on demand
+  (`fedcourts argument-features`) and is **not yet given to any cell**.
+  Staging it beside the transcript would change the post-argument moment's
+  information set, so it waits for a process-version re-bless
+  ([process-version.md](process-version.md)). A transcript longer than
+  `document_text_cap` once cleaned is stored head-cut, often without its
+  rebuttal. On such a row the parse finds no closing line and says so.
 - **Ledger.** The `Argument transcripts:` line carries listed, unmatched, held,
   owed, stored (empty among them), unavailable, failed, deferred, sittings,
   sittings back-filled (sittings stored, not Terms) and sittings unserved

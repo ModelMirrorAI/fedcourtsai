@@ -264,6 +264,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     application_backfill,
+    argument_features,
     authorship,
     decision_below,
     granted_noted,
@@ -4453,6 +4454,48 @@ def authorship_tally_cmd(
             indent=2,
         )
     )
+
+
+@app.command("argument-features")
+def argument_features_cmd(
+    transcript: Annotated[
+        Path,
+        typer.Argument(
+            help="A cleaned argument transcript: a provisioned cell's "
+            "record/documents/argument-transcript.txt, or any text "
+            "documents.extract_transcript_text produced."
+        ),
+    ],
+) -> None:
+    """Count each Justice's turns and words by advocate side in one transcript. Read-only.
+
+    The deterministic parse of `pipeline/argument_features.py`: the side of
+    each segment read from its header, each Justice turn counted toward the
+    segment it falls in, and the turns it could not attribute counted apart.
+    Prints a coverage line to stderr and the `ArgumentFeatures` JSON to stdout.
+    No cell is given this output.
+    """
+    if not transcript.is_file():
+        typer.echo(f"no transcript text at {transcript}", err=True)
+        raise typer.Exit(code=1)
+    try:
+        text = transcript.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        typer.echo(f"{transcript} is not UTF-8 text; pass the cleaned transcript text", err=True)
+        raise typer.Exit(code=1) from None
+    features = argument_features.parse_argument_features(text)
+    coverage = features.coverage
+    typer.echo(
+        f"{coverage.segments} segment(s), {coverage.segments_unattributed} with no side; "
+        f"{coverage.justice_turns} Justice turn(s): {coverage.justice_turns_attributed} "
+        f"attributed, {coverage.justice_turns_outside_segments} outside a segment, "
+        f"{coverage.justice_turns_unresolved} unresolved, "
+        f"{coverage.justice_turns_unattributed_segment} in a segment with no side",
+        err=True,
+    )
+    for note in coverage.notes:
+        typer.echo(f"note: {note}", err=True)
+    typer.echo(features.model_dump_json(indent=2))
 
 
 @app.command("merits-lineups")
