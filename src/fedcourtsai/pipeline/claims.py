@@ -856,29 +856,42 @@ _NO_OPINION_METHODS = frozenset({MeritsDecisionMethod.summary_order, MeritsDecis
 def _resolve_majority_author(outcome: Outcome) -> dict[str, int] | None:
     """Who delivered the opinion deciding the merits, by label; ``None`` masked.
 
-    Only a classified ``merits_decision_method`` resolves the claim, so whether
-    a case is scored never depends on who wrote: an unclassified per curiam
-    carries no lineup to resolve from, and resolving the unclassified signed
-    opinions alone would score a population that under-counts per curiam. A
-    per curiam resolves from the method, never from a missing author, and a
-    per curiam whose roles name a lead writer contradicts itself and is masked.
-    A signed opinion after argument resolves from the observed
-    ``writing_roles``, its one lead role (the opinion of the Court or a
-    plurality) the author, over the participating bench. Masked on an
-    unclassified method, on a decision with no deciding opinion (a DIG, a
-    summary order), on unobserved roles, and where the roles name no single
-    lead writer.
+    Resolves from ``merits_author``, which the opinions-source writer stamps off
+    the Court's listing for every decision it finds, signed or per curiam, so
+    the stamp's coverage does not depend on who wrote. The classified
+    ``merits_decision_method`` must agree, and only an argued decision
+    resolves, the population the baseline pools: a per curiam author under a
+    per curiam after argument, a Justice under a signed opinion after argument.
+    A summary opinion is masked as a per curiam, as an argued case whose
+    argument entry was missed already masks a signed one. Labels run
+    over the participating bench where ``writing_roles`` were observed, which
+    must then name the author among them, else over the author alone, a label
+    the outcome leaves out resolving 0 either way. Masked with no stamped
+    author, an unclassified method, a decision with no deciding opinion (a DIG,
+    a summary order), and where the author and the method disagree or the
+    observed roles contradict the stamp (the author missing from them, holding a
+    role other than the lead or a mixed one, or another Justice holding a lead).
     """
-    if outcome.judgment is None:
-        return None
+    author = outcome.merits_author
     method = outcome.merits_decision_method
-    roles = outcome.writing_roles
-    authors = [role.justice for role in roles or () if role.writing in _LEAD_ROLES]
-    if method in _PER_CURIAM_METHODS:
-        return None if authors else {PER_CURIAM_LABEL: 1}
-    if method != MeritsDecisionMethod.argued_signed or roles is None or len(authors) != 1:
+    if outcome.judgment is None or author is None or method is None:
         return None
-    return {role.justice: int(role.justice == authors[0]) for role in roles} | {PER_CURIAM_LABEL: 0}
+    if author == PER_CURIAM_LABEL:
+        return {PER_CURIAM_LABEL: 1} if method == MeritsDecisionMethod.argued_per_curiam else None
+    if method != MeritsDecisionMethod.argued_signed:
+        return None
+    roles = {role.justice: role.writing for role in outcome.writing_roles or ()}
+    bench = list(roles) or [author]
+    if author not in bench:
+        return None
+    # The roles must not contradict the stamp: the author holds the lead or a
+    # mixed (null) role, and no other Justice holds a lead role.
+    off_lead = roles and roles[author] is not None and roles[author] not in _LEAD_ROLES
+    if off_lead or any(
+        writing in _LEAD_ROLES for justice, writing in roles.items() if justice != author
+    ):
+        return None
+    return {justice: int(justice == author) for justice in bench} | {PER_CURIAM_LABEL: 0}
 
 
 def _resolve_separate_writers(outcome: Outcome) -> dict[str, int] | None:

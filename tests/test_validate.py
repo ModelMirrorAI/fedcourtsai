@@ -2295,6 +2295,31 @@ def test_a_voteless_outcome_passes_the_source_hold(tmp_path: Path) -> None:
     assert check.passed and check.checked == 1
 
 
+@pytest.mark.parametrize(
+    ("author", "problem"),
+    [
+        ("per-curiam", None),
+        ("Kagan", None),
+        ("kagan", "is not spelled as the roster spells a Justice"),
+        ("Breyer", "did not sit on 2026-01-02"),
+    ],
+)
+def test_a_stamped_merits_author_is_held_to_the_seated_bench(
+    tmp_path: Path, author: str, problem: str | None
+) -> None:
+    """An author-only stamp carries no provenance, and is still checked."""
+    data_root = tmp_path / "data"
+    path = _write_outcome(data_root, "scotus", 22451, "evt-order-judgment")
+    payload = json.loads(path.read_text())
+    payload |= {"judgment": "reversed", "merits_author": author}
+    path.write_text(json.dumps(payload))
+    check = _votes_hold_check(data_root)
+    if problem is None:
+        assert check.passed, check.problems
+    else:
+        assert not check.passed and any(problem in p for p in check.problems)
+
+
 # --- the orders vote source ----------------------------------------------------
 
 _ORDER_LIST_URL = "https://www.supremecourt.gov/orders/courtorders/062226zor_g314.pdf"

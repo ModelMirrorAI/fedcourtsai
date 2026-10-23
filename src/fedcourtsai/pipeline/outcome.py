@@ -1073,8 +1073,8 @@ def build_merits_outcome(
       (``merits_decided``); detection refuses to resolve on an undated parse
       rather than stamping a guess.
     - ``merits_decision_method`` is the row's decision record as read, null
-      where it is unclassified: the per curiam that resolves the
-      majority-author claim's ``per-curiam`` label, which no writing role names.
+      where it is unclassified: what the majority-author claim checks the
+      opinions writer's ``merits_author`` stamp against.
     """
     return Outcome(
         case_id=case_id,

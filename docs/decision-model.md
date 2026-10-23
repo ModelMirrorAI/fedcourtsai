@@ -359,8 +359,9 @@ baseline, and nine-to-one re-encoding of one correlated insight), so they are
 deliberately not declared. Authorship is not a set of nine binaries: the
 `merits-v2` set carries it as two distribution claims, `majority-author` and
 `separate-writers`, each weighing as one claim per prediction over the whole
-bench, unscored until a strictly-prior baseline lands, and
-resolved against the committed writing roles and decision method
+bench, scored against a strictly-prior baseline once a moment names the set,
+and resolved against the committed `merits_author` stamp (checked against the
+decision method) and writing roles
 (*The authorship claims* in `docs/outcome-decomposition.md`).
 
 **The baseline is the strictly-prior pooled disturbed rate.** The statpack's

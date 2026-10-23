@@ -9,12 +9,13 @@ holding only what the writer reads from it: each case's docket number.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import sqlite3
 from collections.abc import Callable
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import httpx
 import pytest
@@ -26,6 +27,7 @@ from fedcourtsai.cli import app
 from fedcourtsai.handoff import HandoffRefused, read_handoff, write_handoff
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import opinion_lineups, order_lineups, vote_sources
+from fedcourtsai.pipeline.base_rates import PER_CURIAM_LABEL
 from fedcourtsai.pipeline.documents import ExtractedText
 from fedcourtsai.pipeline.opinion_lineups import OpinionFetcher
 from fedcourtsai.pipeline.order_lineups import OrderDocketReading, OrderFetcher, OrderPartReading
@@ -202,7 +204,7 @@ def test_the_orders_dry_run_plans_each_outcome_and_writes_nothing(
         ("Thomas", VoteValue.grant, WritingRole.none),
         ("Alito", VoteValue.grant, WritingRole.dissent),
     ]
-    assert carter.provenance.complete is False
+    assert carter.provenance is not None and carter.provenance.complete is False
     assert carter.provenance.participating == 9
     assert sorted(g.grammar for g in carter.provenance.grammars) == [
         "scotus-order-notations",
@@ -213,7 +215,7 @@ def test_the_orders_dry_run_plans_each_outcome_and_writes_nothing(
 
     carr = stamps["scotus/2"]
     assert [(v.justice, v.vote) for v in carr.votes] == [("Alito", VoteValue.did_not_participate)]
-    assert carr.provenance.participating == 8
+    assert carr.provenance is not None and carr.provenance.participating == 8
     assert carr.writing_roles is not None
     assert "Alito" not in {r.justice for r in carr.writing_roles}
 
@@ -390,7 +392,8 @@ def test_an_order_record_is_held_back_off_the_cert_or_application_act() -> None:
     assert order_record(silent) == (None, None)
     record, why = order_record(_reading([_part("list-entry", "The petition is denied.")]))
     assert why is None and record is not None
-    assert record.provenance.participating == 8 and record.writing_roles is None
+    assert record.provenance is not None and record.provenance.participating == 8
+    assert record.writing_roles is None
 
 
 # --- the opinions pass -----------------------------------------------------------
@@ -475,7 +478,8 @@ def test_a_granted_noted_disagreement_holds_the_record_back(
     data_root, conn = _merits_ledger(tmp_path)
     wrong = GRANTED_NOTED.replace("Gorsuch (C);", "Gorsuch (D);")
     result = _stamp_opinions(data_root, conn, wrong, apply=False)
-    assert result.stamps == []
+    # The listing's author still stamps; no vote record does.
+    assert result.stamps and all(s.record.provenance is None for s in result.stamps)
     reasons = [reason for _, reason in result.held_back]
     assert reasons and all(r.startswith("Granted & Noted disagrees") for r in reasons)
     assert any("Gorsuch (dissent)" in r for r in reasons)
@@ -487,7 +491,8 @@ def test_an_unreadable_granted_noted_list_refuses_the_apply(
     _stub_extraction(monkeypatch, opinion_lineups)
     data_root, conn = _merits_ledger(tmp_path)
     result = _stamp_opinions(data_root, conn, None, apply=True, max_stamps=5)
-    assert result.refused and result.failures and result.stamps == []
+    assert result.refused and result.failures
+    assert all(s.record.provenance is None for s in result.stamps)
 
 
 def test_an_opinion_dated_off_the_outcome_is_held_back(
@@ -642,10 +647,115 @@ def test_a_dockets_own_listing_row_is_never_replaced_by_a_group_mates(
         result = stamp_opinion_votes(
             conn, data_root, OpinionFetcher(client), lambda _t: GRANTED_NOTED, apply=False
         )
-    assert [s.target.case_id for s in result.stamps] == ["scotus/43"]
-    assert dict(result.skipped)["scotus/38/evt-order-judgment"].startswith(
+    voted = [s.target.case_id for s in result.stamps if s.record.provenance is not None]
+    assert voted == ["scotus/43"]
+    authors = {s.target.case_id: s.record.merits_author for s in result.stamps}
+    assert authors["scotus/38"] == "per-curiam"
+    assert dict(result.votes_unread)["scotus/38/evt-order-judgment"].startswith(
         "the listing's opinion is not read: per curiam"
     )
+
+
+def test_an_author_only_stamp_round_trips_through_the_plan(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A per curiam row's author reaches the outcome through the plan, with no votes."""
+    _stub_extraction(monkeypatch, opinion_lineups)
+    per_curiam = (
+        "<tr><td>69</td><td>6/30/26</td><td>24-38</td>"
+        + "<td><a href='/opinions/25pdf/24-38_pc.pdf'>Little v. Hecox</a></td>"
+        + "<td>PC</td><td><span>609/3</span></td></tr></table>"
+    )
+    listing = LISTING.replace("</table>", per_curiam)
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/opinions/slipopinion/25":
+            return httpx.Response(200, text=listing)
+        if request.url.path.endswith("24-43_2b35.pdf"):
+            return httpx.Response(200, content=SLIP.encode())
+        return httpx.Response(404)
+
+    data_root, conn = _merits_ledger(tmp_path)
+    with _client(handle) as client:
+        dry = stamp_opinion_votes(
+            conn, data_root, OpinionFetcher(client), lambda _t: GRANTED_NOTED, apply=False
+        )
+    plan_file = tmp_path / "plan.json"
+    write_handoff(plan_file, vote_writer.vote_plan(dry))
+    split = vote_writer.apply_vote_plan(
+        read_handoff(plan_file, vote_writer.VoteStampPlan),
+        data_root,
+        source="supremecourt-opinions",
+        today=LATER,
+        apply=True,
+        max_stamps=2,
+    )
+    assert split.applied and len(split.stamps) == 2
+    paths = CasePaths(data_root, "scotus", 38).event("evt-order-judgment")
+    outcome = read_model(paths.outcome, Outcome)
+    assert outcome.merits_author == "per-curiam"
+    assert outcome.vote_provenance is None and not outcome.votes
+    signed = read_model(
+        CasePaths(data_root, "scotus", 43).event("evt-order-judgment").outcome, Outcome
+    )
+    assert signed.merits_author == "Kavanaugh" and signed.vote_provenance is not None
+
+
+def test_an_author_only_record_fills_beside_a_vote_record_and_never_clobbers_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _stub_extraction(monkeypatch, opinion_lineups)
+    data_root, conn = _merits_ledger(tmp_path)
+    _stamp_opinions(data_root, conn, GRANTED_NOTED, apply=True, max_stamps=2)
+    path = CasePaths(data_root, "scotus", 43).event("evt-order-judgment").outcome
+    carried = read_model(path, Outcome)
+    assert carried.merits_author == "Kavanaugh" and carried.vote_provenance is not None
+    bare = carried.model_copy(update={"merits_author": None})
+    target = vote_writer.OutcomeTarget(path, "scotus/43", "evt-order-judgment", "merits", bare)
+
+    def classify(author: str, *, replace: bool = False) -> vote_writer.VoteWriteResult:
+        result = vote_writer.VoteWriteResult(source="supremecourt-opinions")
+        record = vote_writer.VoteRecord((), None, None, merits_author=author)
+        vote_writer._classify(target, record, result, replace_differing=replace)
+        return result
+
+    filled = classify("Kavanaugh")
+    ((stamp,),) = (filled.stamps,)
+    assert not stamp.replaces
+    assert vote_writer.stamped(bare, stamp.record).model_dump() == carried.model_dump()
+    target = dataclasses.replace(target, outcome=carried)
+    assert classify("Kavanaugh").unchanged == ["scotus/43/evt-order-judgment"]
+    ((_, why),) = classify("Thomas").held_back
+    assert why.startswith("carries a different merits author;")
+    ((swap,),) = (classify("Thomas", replace=True).stamps,)
+    assert swap.replaces
+    swapped = vote_writer.stamped(carried, swap.record)
+    assert swapped.merits_author == "Thomas" and swapped.votes == carried.votes
+
+
+def test_a_listing_row_dated_off_the_resolution_names_no_author(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _stub_extraction(monkeypatch, opinion_lineups)
+    data_root = tmp_path / "data"
+    for docket in (43, 38):
+        _outcome(
+            data_root,
+            docket,
+            event_id="evt-order-judgment",
+            stage=Stage.merits,
+            resolved_at=date(2026, 6, 29),
+        )
+    conn = _corpus(tmp_path, {43: "24-43", 38: "24-38"})
+    result = _stamp_opinions(data_root, conn, GRANTED_NOTED, apply=False)
+    assert all(s.record.merits_author is None for s in result.stamps)
+
+
+def test_the_plans_author_vocabulary_is_the_listings() -> None:
+    assert set(get_args(vote_writer._Author)) == {
+        *opinion_lineups.LISTING_AUTHOR_CODES.values(),
+        PER_CURIAM_LABEL,
+    }
 
 
 def test_docket_numbers_read_the_real_corpus_schema(tmp_path: Path) -> None:
@@ -769,7 +879,7 @@ def test_the_split_apply_holds_back_what_moved_since_the_plan(
     assert [s.replaces for s in replaced.stamps] == [True]
 
 
-def _tamper_votes(plan: dict[str, Any], change: str) -> None:
+def _tamper_votes(plan: dict[str, Any], change: str) -> None:  # noqa: PLR0912
     stamp = plan["stamps"][0]
     if change == "unknown-outcome":
         stamp["case_id"] = "scotus/999"
@@ -792,9 +902,18 @@ def _tamper_votes(plan: dict[str, Any], change: str) -> None:
     elif change == "extra-field":
         stamp["note"] = "x"
     elif change == "version":
-        plan["version"] = 2
+        plan["version"] = 3
     elif change == "bad-vote":
         stamp["votes"] = [{"justice": "Thomas", "vote": "maybe"}]
+    elif change == "orders-author":
+        stamp["merits_author"] = "Thomas"
+    elif change == "off-roster-author":
+        stamp["merits_author"] = "Holmes"
+    elif change == "no-part":
+        stamp["votes"], stamp["vote_provenance"] = [], None
+        stamp.pop("writing_roles", None)
+    elif change == "unprovenanced-votes":
+        stamp["vote_provenance"] = None
 
 
 @pytest.mark.parametrize(
@@ -812,6 +931,10 @@ def _tamper_votes(plan: dict[str, Any], change: str) -> None:
         "extra-field",
         "version",
         "bad-vote",
+        "orders-author",
+        "off-roster-author",
+        "no-part",
+        "unprovenanced-votes",
     ],
 )
 def test_a_tampered_or_malformed_plan_is_refused_whole(

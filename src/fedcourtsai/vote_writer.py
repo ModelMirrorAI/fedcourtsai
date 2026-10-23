@@ -6,7 +6,8 @@ already exist — :mod:`fedcourtsai.pipeline.opinion_lineups` for a merits
 opinion's syllabus lineup, :mod:`fedcourtsai.pipeline.order_lineups` for the
 notations and separate-writing headers of the Court's orders. This module maps
 a reading onto the committed ``outcome.json`` it describes and writes
-``votes``, ``vote_provenance`` and ``writing_roles`` there, and nothing else.
+``votes``, ``vote_provenance`` and ``writing_roles`` there, and on a merits
+outcome ``merits_author``, and nothing else.
 
 **Where outcomes live.** Only in the ledger: ``outcome.json`` under
 ``data/cases/<court>/<docket>/events/<event>/``. The corpus holds no outcome,
@@ -25,7 +26,15 @@ record shapes share nothing but the stamping:
   listing, and the Term's Granted & Noted list both maps a consolidated case's
   other dockets onto the one listed opinion and cross-checks the reading: a
   lead author, decision date or separate writer the list prints differently
-  holds the record back.
+  holds the record back. Apart from the lineup, every outcome whose listing
+  row is dated its ``resolved_at`` is stamped with ``merits_author``, the
+  author code the row prints (a Justice, or ``per-curiam``): the row prints it
+  for every decision, signed or per curiam, so which outcomes carry an author
+  never depends on who wrote, and a lineup held back or unread leaves an
+  author-only stamp. The author is not held to the Granted & Noted
+  comparison, which runs only on a lineup the syllabus was read for, a signed
+  decision: holding it back there would mask signed decisions a per curiam is
+  never masked for.
 - :func:`stamp_order_votes` — cert- and interim-stage outcomes resolved from
   :data:`ORDER_VOTE_TERM_FLOOR` through the current October Term
   (:func:`order_vote_terms`). The record is read from every document the Court
@@ -82,11 +91,19 @@ from pathlib import Path
 from typing import Annotated, Final, Literal
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationError,
+    model_validator,
+)
 
 from .corpus import ReadConnection
 from .handoff import HandoffRefused
 from .pipeline import granted_noted, moments, opinion_lineups, order_lineups
+from .pipeline.base_rates import PER_CURIAM_LABEL
 from .pipeline.lineup import WritingKind
 from .pipeline.vote_sources import SUPREMECOURT_OPINIONS, SUPREMECOURT_ORDERS
 from .schemas import (
@@ -140,11 +157,18 @@ _APPLICATION_RE: Final = re.compile(r"^\d{2}A\d+$")
 
 @dataclass(frozen=True)
 class VoteRecord:
-    """What one reading would stamp onto an outcome."""
+    """What one reading would stamp onto an outcome.
+
+    Two parts, either of which may be absent: the vote part (``votes``,
+    ``provenance``, ``writing_roles``), present only where a whole lineup was
+    read, and the opinions pass's ``merits_author``, read off the listing row
+    for every decision it finds. A record carries at least one.
+    """
 
     votes: tuple[JusticeVote, ...]
-    provenance: VoteProvenance
+    provenance: VoteProvenance | None
     writing_roles: tuple[JusticeWriting, ...] | None
+    merits_author: str | None = None
 
 
 @dataclass(frozen=True)
@@ -209,13 +233,16 @@ class VoteWriteResult:
     population: int = 0
     #: On a sweep, the records found past the window's cap, left for the next one.
     deferred: int = 0
+    #: ``(ref, reason)``: a record carrying the author alone, and why no vote part was
+    #: read; a vote part held back is filed under ``held_back`` instead.
+    votes_unread: list[tuple[str, str]] = field(default_factory=list)
 
 
-def _blank(outcome: Outcome) -> bool:
+def _votes_blank(outcome: Outcome) -> bool:
     return outcome.vote_provenance is None and not outcome.votes and outcome.writing_roles is None
 
 
-def _same(outcome: Outcome, record: VoteRecord) -> bool:
+def _votes_same(outcome: Outcome, record: VoteRecord) -> bool:
     return (
         outcome.vote_provenance == record.provenance
         and list(outcome.votes) == list(record.votes)
@@ -224,23 +251,51 @@ def _same(outcome: Outcome, record: VoteRecord) -> bool:
     )
 
 
+def _same(outcome: Outcome, record: VoteRecord) -> bool:
+    """Whether every part ``record`` carries is already on ``outcome``."""
+    return (record.provenance is None or _votes_same(outcome, record)) and (
+        record.merits_author is None or outcome.merits_author == record.merits_author
+    )
+
+
+def _fillable(outcome: Outcome, record: VoteRecord) -> bool:
+    """Whether each part ``record`` carries is blank on ``outcome`` or already the same."""
+    votes = record.provenance is None or _votes_blank(outcome) or _votes_same(outcome, record)
+    author = record.merits_author is None or outcome.merits_author in (None, record.merits_author)
+    return votes and author
+
+
+def _differing(outcome: Outcome, record: VoteRecord) -> str:
+    """Which part of ``outcome`` keeps ``record`` from filling it."""
+    votes = record.provenance is not None and not (
+        _votes_blank(outcome) or _votes_same(outcome, record)
+    )
+    author = record.merits_author is not None and outcome.merits_author not in (
+        None,
+        record.merits_author,
+    )
+    return " and ".join(
+        part for part, differs in (("vote record", votes), ("merits author", author)) if differs
+    )
+
+
 def stamped(outcome: Outcome, record: VoteRecord) -> Outcome:
-    """``outcome`` with ``record``'s three fields written, validated whole.
+    """``outcome`` with the parts ``record`` carries written, validated whole.
 
     Raises ``pydantic.ValidationError`` on a record the model refuses.
     """
-    return Outcome.model_validate(
-        {
-            **outcome.model_dump(mode="json"),
-            "votes": [v.model_dump(mode="json") for v in record.votes],
-            "vote_provenance": record.provenance.model_dump(mode="json"),
-            "writing_roles": (
-                None
-                if record.writing_roles is None
-                else [r.model_dump(mode="json") for r in record.writing_roles]
-            ),
-        }
-    )
+    payload = outcome.model_dump(mode="json")
+    if record.provenance is not None:
+        payload["votes"] = [v.model_dump(mode="json") for v in record.votes]
+        payload["vote_provenance"] = record.provenance.model_dump(mode="json")
+        payload["writing_roles"] = (
+            None
+            if record.writing_roles is None
+            else [r.model_dump(mode="json") for r in record.writing_roles]
+        )
+    if record.merits_author is not None:
+        payload["merits_author"] = record.merits_author
+    return Outcome.model_validate(payload)
 
 
 def _conformance(target: OutcomeTarget, record: VoteRecord) -> str | None:
@@ -276,7 +331,7 @@ def _classify(
     if (why := _conformance(target, record)) is not None:
         result.held_back.append((target.ref, why))
         return
-    if _blank(outcome):
+    if _fillable(outcome, record):
         result.stamps.append(VoteStamp(target, record))
     elif replace_differing:
         result.stamps.append(VoteStamp(target, record, replaces=True))
@@ -284,7 +339,8 @@ def _classify(
         result.held_back.append(
             (
                 target.ref,
-                "carries a different vote record; pass replace-differing to replace it",
+                f"carries a different {_differing(outcome, record)}; "
+                "pass replace-differing to replace it",
             )
         )
 
@@ -391,7 +447,63 @@ def opinion_record(
     return VoteRecord(tuple(reading.votes), reading.vote_provenance, roles), None
 
 
-def _opinion_target(  # noqa: PLR0911 - one return per reason an outcome gets no record
+def _listing_row(
+    number: str,
+    listing: Sequence[opinion_lineups.OpinionListing],
+    entry: granted_noted.GrantedNotedEntry | None,
+) -> tuple[opinion_lineups.OpinionListing | None, str | None, bool]:
+    """The one listing row deciding ``number``, or why none and whether that is a hold-back.
+
+    The docket's own row where the listing prints one; a consolidated group's
+    row only where the docket has none of its own. Either way exactly one
+    opinion, or the record is held back: a group-mate's opinion must never
+    stand in for one the listing prints for this docket.
+    """
+    group = set(entry.dockets) if entry is not None else {number}
+    own = [row for row in listing if number in _listed_dockets(row)]
+    rows = own or [row for row in listing if _listed_dockets(row) & group]
+    if not rows:
+        return None, f"no opinion on the listing names the docket: {number}", False
+    if len({row.url for row in rows}) > 1:
+        return None, f"several opinions on the listing name the docket: {number}", True
+    return rows[0], None, False
+
+
+def listed_author(row: opinion_lineups.OpinionListing) -> str | None:
+    """The deciding opinion's author as the listing row prints it, or ``None`` off the roster.
+
+    A Justice's roster name, or ``per-curiam`` for the per curiam code.
+    """
+    if row.author_code == opinion_lineups.PER_CURIAM_CODE:
+        return PER_CURIAM_LABEL
+    return opinion_lineups.LISTING_AUTHOR_CODES.get(row.author_code)
+
+
+def _with_author(
+    target: OutcomeTarget,
+    row: opinion_lineups.OpinionListing | None,
+    record: VoteRecord | None,
+) -> VoteRecord | None:
+    """``record`` with the listing row's author added, where the row decides the outcome.
+
+    The author is read off the row alone, so it is stamped for every decision
+    the listing prints, signed or per curiam, whether or not its lineup was
+    read: which outcomes carry it never depends on who wrote. Only a row
+    dated the outcome's own ``resolved_at`` names its author.
+    """
+    author = (
+        listed_author(row)
+        if row is not None and row.decided == target.outcome.resolved_at
+        else None
+    )
+    if author is None:
+        return record
+    if record is None:
+        return VoteRecord((), None, None, merits_author=author)
+    return VoteRecord(record.votes, record.provenance, record.writing_roles, merits_author=author)
+
+
+def _opinion_target(
     target: OutcomeTarget,
     number: str | None,
     listing: Sequence[opinion_lineups.OpinionListing],
@@ -401,24 +513,31 @@ def _opinion_target(  # noqa: PLR0911 - one return per reason an outcome gets no
 ) -> tuple[VoteRecord | None, str | None, bool]:
     """One merits outcome's record, or why none and whether that is a hold-back.
 
-    ``readings`` caches one reading per opinion URL across a Term, since a
-    consolidated case's dockets share an opinion.
+    The vote part comes from the opinion's lineup, the author from the listing
+    row (:func:`_with_author`); the reason and hold-back describe the vote part
+    and stand only where neither part was read. ``readings`` caches one reading
+    per opinion URL across a Term, since a consolidated case's dockets share an
+    opinion.
     """
     if number is None:
         return None, "the corpus holds no docket number", False
-    entry = entries.get(number)
-    group = set(entry.dockets) if entry is not None else {number}
-    # The docket's own row where the listing prints one; a consolidated
-    # group's row only where the docket has none of its own. Either way
-    # exactly one opinion, or the record is held back: a group-mate's opinion
-    # must never stand in for one the listing prints for this docket.
-    own = [row for row in listing if number in _listed_dockets(row)]
-    rows = own or [row for row in listing if _listed_dockets(row) & group]
-    if not rows:
-        return None, f"no opinion on the listing names the docket: {number}", False
-    if len({row.url for row in rows}) > 1:
-        return None, f"several opinions on the listing name the docket: {number}", True
-    row = rows[0]
+    row, why, held = _listing_row(number, listing, entries.get(number))
+    record, why, held = (
+        (None, why, held)
+        if row is None
+        else _row_votes(target, row, entries.get(number), fetcher, readings)
+    )
+    return _with_author(target, row, record), why, held
+
+
+def _row_votes(
+    target: OutcomeTarget,
+    row: opinion_lineups.OpinionListing,
+    entry: granted_noted.GrantedNotedEntry | None,
+    fetcher: opinion_lineups.OpinionFetcher,
+    readings: dict[str, opinion_lineups.OpinionLineupReading],
+) -> tuple[VoteRecord | None, str | None, bool]:
+    """The vote part one listing row yields for ``target``, or why none."""
     if (reason := opinion_lineups.skip_reason(row)) is not None:
         return None, f"the listing's opinion is not read: {reason}", False
     reading = readings.get(row.url)
@@ -491,6 +610,9 @@ def stamp_opinion_votes(
             )
             if record is not None:
                 _classify(target, record, result, replace_differing=replace_differing)
+                if record.provenance is None and reason is not None:
+                    # The author stamps; the lineup's reason still says why no votes did.
+                    (result.held_back if held else result.votes_unread).append((target.ref, reason))
             elif reason is not None:
                 (result.held_back if held else result.skipped).append((target.ref, reason))
     return _finish(result, apply=apply, max_stamps=max_stamps)
@@ -758,6 +880,22 @@ _EventId = Annotated[str, StringConstraints(pattern=r"^evt-[a-z0-9-]{1,80}$")]
 #: shell or a Markdown summary reads specially.
 _DOCKET_NUMBER_RE: Final = re.compile(r"^[0-9A-Z][0-9A-Z.,\- ]{0,31}$")
 _DocketNumber = Annotated[str, StringConstraints(pattern=_DOCKET_NUMBER_RE.pattern)]
+#: A merits author as the listing names one: a roster Justice, or the per curiam label.
+_Author = Literal[
+    "per-curiam",
+    "Roberts",
+    "Kennedy",
+    "Thomas",
+    "Ginsburg",
+    "Breyer",
+    "Alito",
+    "Sotomayor",
+    "Kagan",
+    "Gorsuch",
+    "Kavanaugh",
+    "Barrett",
+    "Jackson",
+]
 
 #: The largest population or plan either pass could plausibly carry; a file
 #: past it is refused before any row is read.
@@ -792,8 +930,10 @@ class VoteDocketNumbers(BaseModel):
 class PlannedVoteStamp(BaseModel):
     """One record the parse job read for one outcome: what the writer would stamp.
 
-    Public by construction: the ledger keys and the three fields the writer
-    commits to public git, each read off a Court order or opinion.
+    Public by construction: the ledger keys and the fields the writer commits
+    to public git, each read off a Court order or opinion. The vote part
+    (``votes``, ``vote_provenance``, ``writing_roles``) and the opinions pass's
+    ``merits_author`` are each optional, and a stamp carries at least one.
     """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -802,9 +942,18 @@ class PlannedVoteStamp(BaseModel):
     event_id: _EventId
     resolved_at: date = Field(description="The outcome's resolved_at the record was read for")
     replaces: bool = Field(description="The outcome carried a different record when planned")
-    votes: list[JusticeVote] = Field(max_length=20)
-    vote_provenance: VoteProvenance
+    votes: list[JusticeVote] = Field(default_factory=list, max_length=20)
+    vote_provenance: VoteProvenance | None = None
     writing_roles: list[JusticeWriting] | None = Field(default=None, max_length=20)
+    merits_author: _Author | None = None
+
+    @model_validator(mode="after")
+    def _carries_a_part(self) -> PlannedVoteStamp:
+        if self.vote_provenance is None and self.merits_author is None:
+            raise ValueError("a planned stamp carries neither a vote record nor an author")
+        if self.vote_provenance is None and (self.votes or self.writing_roles is not None):
+            raise ValueError("votes or writing roles with no vote_provenance")
+        return self
 
 
 class VoteStampPlan(BaseModel):
@@ -818,7 +967,7 @@ class VoteStampPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     format: Literal["fedcourts/vote-stamp-plan"] = "fedcourts/vote-stamp-plan"
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     source: VoteSourceName
     population: int = Field(ge=0, le=_MAX_ROWS)
     failures: list[
@@ -890,19 +1039,24 @@ def vote_plan(result: VoteWriteResult) -> VoteStampPlan:
                 writing_roles=(
                     None if stamp.record.writing_roles is None else list(stamp.record.writing_roles)
                 ),
+                merits_author=stamp.record.merits_author,
             )
             for stamp in result.stamps
         ],
     )
 
 
-def _plan_problem(
+def _plan_problem(  # noqa: PLR0911 - one return per reason a planned stamp is refused
     planned: PlannedVoteStamp, target: OutcomeTarget | None, source: VoteSourceName, today: date
 ) -> str | None:
     """Why a planned stamp cannot have come from an honest parse of this ledger."""
     if target is None:
         return "names no outcome in the pass's population"
+    if planned.merits_author is not None and source != SUPREMECOURT_OPINIONS:
+        return f"carries a merits author on the {source} pass, which reads none"
     provenance = planned.vote_provenance
+    if provenance is None:
+        return None
     if provenance.source != source:
         return f"carries a {provenance.source} record on the {source} pass"
     if source == SUPREMECOURT_ORDERS:
@@ -972,6 +1126,7 @@ def apply_vote_plan(  # noqa: PLR0913 - the plan, the ledger and the write's key
             tuple(planned.votes),
             planned.vote_provenance,
             None if planned.writing_roles is None else tuple(planned.writing_roles),
+            merits_author=planned.merits_author,
         )
         if not _same(target.outcome, record) and (why := _conformance(target, record)):
             raise HandoffRefused(f"the plan's stamp for {ref} fails the ledger's check: {why}")

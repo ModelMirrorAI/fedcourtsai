@@ -1736,9 +1736,10 @@ class Outcome(_Strict):
         "observed-as-none. Kept off `votes` because at the cert and interim "
         "stages the roles are observable for every Justice while the votes are "
         "not, and a vote entry needs a vote. Vote scoring and its completeness "
-        "gate read `votes` and `vote_provenance` only; the authorship claims "
-        "(`majority-author`, `separate-writers`, `order-writers`) resolve from "
-        "these roles. Read beside `vote_provenance`, which it requires",
+        "gate read `votes` and `vote_provenance` only; the `separate-writers` and "
+        "`order-writers` claims resolve from these roles, and `majority-author` "
+        "reads its labels off them beside `merits_author`. Read beside "
+        "`vote_provenance`, which it requires",
     )
     judgment: Judgment | None = Field(
         default=None,
@@ -1755,10 +1756,21 @@ class Outcome(_Strict):
         "judgment (`MeritsDecisionMethod`): a signed opinion after argument, a "
         "per curiam after argument, a summary opinion or order, or a DIG. Read "
         "from the corpus row's decision record when the merits outcome is "
-        "written; what resolves the majority-author claim's per-curiam label, "
-        "since a per curiam names no author for `writing_roles` to carry. Null "
-        "off the merits stage and where the record left the method unclassified, "
-        "never an observed absence; omitted from the file while null",
+        "written; the majority-author claim resolves only where it is "
+        "classified and agrees with `merits_author`. Null off the merits stage "
+        "and where the record left the method unclassified, never an observed "
+        "absence; omitted from the file while null",
+    )
+    merits_author: str | None = Field(
+        default=None,
+        description="Who delivered the opinion deciding the merits, as the Court's "
+        "opinions listing prints it: a Justice's name as the roster spells it, or "
+        "`per-curiam` for an unsigned opinion. Stamped by the opinions-source "
+        "writer off the listing row for every decision it finds, signed or per "
+        "curiam, whether or not the lineup was read, so which outcomes carry it "
+        "never depends on who wrote: what resolves the majority-author claim. "
+        "Null off the merits stage and where no listing row was matched, never "
+        "an observed absence; omitted from the file while null",
     )
     source: str | None = Field(default=None, description="Docket entry id or citation")
     disposition_basis: Literal["standard", "mootness"] = Field(
@@ -1799,6 +1811,8 @@ class Outcome(_Strict):
         """How the Court decided is a merits fact: no judgment, no method."""
         if self.merits_decision_method is not None and self.judgment is None:
             raise ValueError("`merits_decision_method` is set off the merits stage")
+        if self.merits_author is not None and self.judgment is None:
+            raise ValueError("`merits_author` is set off the merits stage")
         return self
 
     @model_validator(mode="after")
@@ -1861,10 +1875,13 @@ class Outcome(_Strict):
 
     @model_serializer(mode="wrap")
     def _omit_unclassified_method(self, handler: SerializerFunctionWrapHandler) -> Any:
-        """Drop ``merits_decision_method`` while null, so an older outcome reads as before."""
+        """Drop the decision fields while null, so an older outcome reads as before."""
         payload = handler(self)
-        if isinstance(payload, dict) and self.merits_decision_method is None:
-            payload.pop("merits_decision_method", None)
+        if isinstance(payload, dict):
+            if self.merits_decision_method is None:
+                payload.pop("merits_decision_method", None)
+            if self.merits_author is None:
+                payload.pop("merits_author", None)
         return payload
 
 

@@ -12751,7 +12751,10 @@ def _report_vote_write(
         )
     verb = "stamped" if result.applied else "would stamp"
     new = sum(1 for s in result.stamps if not s.replaces)
-    complete = sum(1 for s in result.stamps if s.record.provenance.complete)
+    complete = sum(
+        1 for s in result.stamps if s.record.provenance is not None and s.record.provenance.complete
+    )
+    with_author = sum(1 for s in result.stamps if s.record.merits_author is not None)
     with_votes = sum(1 for s in result.stamps if s.record.votes)
     with_roles = sum(1 for s in result.stamps if s.record.writing_roles is not None)
     by_stage: dict[str, int] = {}
@@ -12763,12 +12766,18 @@ def _report_vote_write(
         f"{result.population} outcome(s) in the population; {verb} {len(result.stamps)} "
         f"({new} new, {len(result.stamps) - new} replacing a different record; "
         f"{stages or 'none'}) — {complete} complete, {with_votes} with votes, "
-        f"{with_roles} with writing roles; {len(result.unchanged)} already carry the same "
-        f"record; {len(result.held_back)} held back; {len(result.skipped)} with nothing to stamp"
+        f"{with_roles} with writing roles, {with_author} with a merits author; "
+        f"{len(result.unchanged)} already carry the same "
+        f"record; {len(result.held_back)} held back; {len(result.votes_unread)} author only; "
+        f"{len(result.skipped)} with nothing to stamp"
     )
     for failure in result.failures:
         typer.echo(f"  failed: {failure}")
-    for label, entries in (("held back", result.held_back), ("nothing to stamp", result.skipped)):
+    for label, entries in (
+        ("held back", result.held_back),
+        ("nothing to stamp", result.skipped),
+        ("author only", result.votes_unread),
+    ):
         for reason, count in reason_counts(entries).items():
             typer.echo(f"  {label} ({count}): {reason}")
     for stamp in result.stamps:
