@@ -4940,9 +4940,11 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
     read signed decision also gets a bench row (`opinion_benches`): who sat,
     where its syllabus lineup accounts for the whole bench, else null. A signed
     decision recorded without one is read again to add it, beside rows it
-    leaves untouched.
-    ``--apply`` refuses above ``--max-rows``, which counts the opinion rows and
-    bench rows it would insert; the apply half belongs in run-repair's `opinion-record` pass,
+    leaves untouched. Each read document's writings are also stored as text in
+    the content store, pointed at from `opinion_texts`, and a document recorded
+    without its text row is read again on the same terms.
+    ``--apply`` refuses above ``--max-rows``, which counts the opinion, bench
+    and text rows it would insert; the apply half belongs in run-repair's `opinion-record` pass,
     which on an apply holds the corpus-write credentials. ``--sweep`` is the
     standing half on run-seed's daily window, so each decision of the current
     Term is recorded within a day or so of its issue: every mode reads the
@@ -5147,6 +5149,12 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
         )
     for conflict in result.reread_conflicts:
         typer.echo(conflict, err=True)
+    if result.applied and result.texts_inserted < result.texts:
+        typer.echo(
+            f"backfill-opinion-record: stored {result.texts_inserted} of {result.texts} text(s); "
+            "no content store was addressed for the rest, so their documents stay owed",
+            err=True,
+        )
     total = result.rows + result.benches + result.texts
     done = (
         f"inserted {result.inserted + result.benches_inserted + result.texts_inserted} of {total}"

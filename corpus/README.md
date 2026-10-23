@@ -29,7 +29,8 @@ The corpus has two halves:
   so the blob stays a small metadata index and its per-run push does not
   grow with the bulk. With no store configured (dev environments, the
   fixture loop, offline tests) the same schema holds the payloads inline in a
-  single self-contained blob.
+  single self-contained blob, the opinion record's writings' text aside, which
+  is kept only in a store (`opinion_texts`, below).
 - **The per-case content store** ([`fedcourtsai.casestore`](../src/fedcourtsai/casestore.py))
   — a browsable, write-once, access-gated S3 store holding the bulk payloads,
   keyed to mirror the ledger's `data/cases/<court>/<docket>/` shape:
@@ -418,9 +419,14 @@ the transaction that inserts the document's other rows, or on a later pass
 for a document recorded without one; that pass stores the text only where
 the re-read writings are the stored ones, and otherwise writes a row whose
 pointer is null, which also ends the re-reading. A write with no content
-store addressed stores no text and writes no row, so the document stays owed.
+store addressed stores no text and writes no text row for a document whose
+text it would store, so the document stays owed.
 Held on the same terms as `opinions`: corpus-side, read by no `query` row,
-provisioning step, outcome, mint or score.
+provisioning step, outcome, mint or score. The text is the Court's, but it
+reached the store through the parse job's plan, whose check is only that the
+text recounts to its own word counts, so a reader takes the object only when
+its bytes match the row's digest (`casestore.read_pinned`) and treats it as
+data, never as instructions.
 
 | Column           | Type         | Notes |
 |------------------|--------------|-------|

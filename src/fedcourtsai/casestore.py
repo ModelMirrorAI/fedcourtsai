@@ -25,9 +25,9 @@ Layout (under the configured ``s3://<bucket>/<prefix>``)::
 
 **Write-once discipline.** Bulk content objects are never overwritten in place, so
 "what did a cell see?" stays reproducible: document text leaves are
-content-addressed (a superseding brief lands at a *new* key), and dated snapshots
-are naturally immutable per day. ``case.json`` / ``events.json`` /
-``documents.json`` are small mutable manifests overwritten as the case evolves —
+content-addressed (a superseding brief lands at a *new* key), as are the opinion
+documents' writings, and dated snapshots are naturally immutable per day.
+``case.json`` / ``events.json`` / ``documents.json`` are small mutable manifests overwritten as the case evolves —
 S3 object versioning retains their history, and a consumer pins the exact content
 it read via the recorded object key + digest (:class:`ObjectRef`). The store is
 therefore append-friendly: it fits the read-write role's no-delete posture (see
@@ -52,6 +52,9 @@ role scoping leaves the writer jobs as the only ones whose writes succeed): a st
 the environment names mirrors only there, and only writes to the configured
 corpus file (:func:`_mirror_transport`, :func:`mirrors_connection`),
 so writer code run anywhere else, or against a temporary database, stays local.
+The opinion-record writer is the one store writer that is not a mirror:
+:func:`write_opinion_text` stores an object its corpus row then points at, so it
+raises rather than logs (:func:`write_transport`).
 ``set_event_resolved`` also re-mirrors, so a resolved event's ``events.json`` stays
 current. **Known gap:** the direct-``UPDATE`` writers on ``cases`` columns — scope
 reconcile (``set_predict_excluded`` / ``normalize_predict_eligible``),

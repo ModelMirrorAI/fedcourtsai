@@ -2052,8 +2052,18 @@ honest parse whose class has widened. Those rows go to the corpus index, not git
 review sees them, and the record is fill-only, so a forged row stays until a
 pass built to replace rows exists. Nothing a predict or evaluate cell sees
 reads the table; its readers are the analytic `merits-lineups` and
-`authorship-tally`. That residual is likewise **pending the maintainer's
-acceptance**, which merging the sweep's jobs gives. The plan is the
+`authorship-tally`. The same plan carries each writing's text, which the
+writer stores in the content store under `scotus/opinions/`, each writing's
+body and footnotes up to 1,000,000 characters apiece within the plan's 64 MB
+handoff cap. The one check on it, that it recounts to the word counts, is
+no control against a forged plan, which writes those counts too, so a
+compromised parse could store arbitrary text there, kept, like the rows,
+until a replacing pass exists. Nothing a cell reads it today; a reader built
+to grade a merits forecast against it inherits the cells'
+data-not-instructions guard and takes an object only where its bytes match
+the row's digest. That residual is likewise **pending the maintainer's
+acceptance**, which merging the sweep's jobs gives; the text half of it is
+added by the change that stores the text, and waits on the same acceptance. The plan is the
 Court's word only as far as the parse job can be trusted; what the split
 removes is that job's reach to any credential. The parse job's steps run as
 one user on one runner, so a parse that

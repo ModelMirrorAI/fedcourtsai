@@ -1506,3 +1506,14 @@ def test_the_printed_readings_leave_the_texts_to_the_plan(
     assert "footnotes" not in printed[0]["opinions"][0]
     written = read_handoff(plan, opinion_record.OpinionRecordPlan)
     assert written.readings[0].opinions[0].text == " ".join(["word"] * 90)
+
+
+def test_a_planned_listing_number_with_a_trailing_newline_is_refused(
+    _corpus: Path, tmp_path: Path
+) -> None:
+    plan_file = _split_plan(_corpus, _Fetcher([_listing("1", "25-1")]), tmp_path)
+    raw = json.loads(plan_file.read_text())
+    raw["readings"][0]["listing_number"] = "1\n"
+    plan_file.write_text(json.dumps(raw))
+    with pytest.raises(HandoffRefused, match="malformed listing number"):
+        _apply(_corpus, plan_file, max_rows=10)

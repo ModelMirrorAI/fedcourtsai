@@ -879,7 +879,8 @@ pass on a schedule over the current and previous October Term, so each opinion
 the Court issues reaches the per-opinion record within a day, rather than only
 when a maintainer dispatches the pass, which is pinned to the Terms the record
 began with. `opinion-record-projection` holds the read-only role and writes the
-listing keys the record holds whole. `opinion-record-parse` holds no credential,
+listing keys the record holds whole, and those it holds without a bench or a
+text row. `opinion-record-parse` holds no credential,
 reads both Terms' listings and at most `historical.sweep_caps.opinion_record`
 fetched documents (two thirds newest decision first, the last third rotated
 through the older rows a window at a time), deferring the rest to the next
@@ -1273,8 +1274,8 @@ id, stores each text, inserts and pushes, and mints the App token only after
 the push. The bound is the dry run's "would insert N": opinion, bench and text
 rows together. Each run fetches again, so an apply does not lead
 with a dry run, and a re-dispatched dry run after the apply is the control.
-Nothing a cell sees moves: the table is no part of a `query` row, and no gate,
-mint, outcome or score reads it.
+Nothing a cell sees moves: the tables and the stored texts are no part of a
+`query` row, and no gate, mint, outcome or score reads them.
 
 `amicus-rederive` writes both stores, and what is distinctive is *which* two: a
 corpus column and the committed `outcome.json` field that column was frozen onto,

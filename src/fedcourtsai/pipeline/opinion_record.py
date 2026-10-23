@@ -1490,7 +1490,7 @@ def reading_problems(  # noqa: PLR0911 - one return per check
     """
     if reading.term not in terms:
         return f"is for OT{reading.term}, which the pass did not read"
-    if not _LISTING_NUMBER_RE.match(reading.listing_number):
+    if not _LISTING_NUMBER_RE.fullmatch(reading.listing_number):
         return "carries a malformed listing number"
     if not is_opinion_pdf(reading.url):
         return "links no opinion PDF on the Court's own host"
@@ -1555,7 +1555,7 @@ def apply_opinion_record_plan(
 
 
 #: A sweep apply's row bound per document of its slice: opinion rows plus the
-#: bench row. A decision prints one lead opinion and a handful of separate
+#: bench and text rows. A decision prints one lead opinion and a handful of separate
 #: writings, so an honest slice stays far under it, and a plan padding its
 #: readings with invented rows is refused whole rather than inserted.
 SWEEP_ROWS_PER_DOCUMENT: Final = 20

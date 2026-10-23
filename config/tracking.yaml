@@ -272,9 +272,10 @@ historical:
     # opinion documents read into the per-opinion record, two thirds newest
     # decision first and the rest rotated through the older rows, sliced in
     # the parse because each is a fetch from the Court's site (about four
-    # seconds). The Court issues at most about ten on a June day;
-    # the 57 OT2025 documents still owed a bench row or a reading on the index
-    # blob of 2026-10-22 drain in four windows.
+    # seconds). The Court issues at most about ten on a June day. Every
+    # recorded document of the two Terms is owed its text row once the pass
+    # stores texts, some 140 at about 70 documents a Term, which drain in about
+    # ten windows.
     opinion_record: 15
     # Ceilings, each well above the fill class a converged corpus holds. Upper
     # bounds on that class, on the index blob of 2026-10-02 (sha 2b356dbd):
