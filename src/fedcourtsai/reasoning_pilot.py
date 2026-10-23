@@ -12,8 +12,8 @@ grades are read: per stage, and never pooled across stages, each judge's grades
 beside the labels, the leave-one-out inter-evaluator agreement with the cell as
 the unit, the predictor-tracking check, each judge's own-family grades beside
 its others', and every judge's and predictor's null count. A cell some judges
-grade and others leave null is a split on the mask: it enters no mean and no
-coefficient and is counted on its own.
+grade and others leave null is a split on the mask: it enters no grade mean
+and no coefficient and is counted on its own.
 """
 
 from __future__ import annotations

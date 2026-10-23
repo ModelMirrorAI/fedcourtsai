@@ -2201,13 +2201,15 @@ reports, so the report cannot be chosen after the grades are read.
 - **Output.** A pilot report, outside `data/`. A pilot grade is never committed
   to the ledger and never read by any metrics artifact. Each round the draft
   prompt section goes through gets its own report, stamped with the section's
-  hash, so the reports together list every round.
+  hash, which the operator supplies since the evaluations do not record it, so
+  the reports together list every round.
 - **Reference labels.** The maintainer grades **10** cert and interim pilot
   documents on the same rubric to start, more as needed, chosen to span the
   scale. The maintainer grades blind to predictor identity and before seeing
   any judge's grade, and the labels' hash is recorded before the panel's
-  grades are read; the pilot report carries it and refuses a sheet that no
-  longer matches it. For merits, published commentary on
+  grades are read, out of band; the pilot report records the sheet's hash
+  and, given the one recorded beforehand, refuses a sheet that no longer
+  matches it, saying whether it checked. For merits, published commentary on
   decided cases — argument previews and analyses whose quality is roughly
   known — is graded alongside as exemplars, a weaker test since commentary is
   recognisable by its authors. A label is a reference point, not ground truth:
@@ -2261,10 +2263,11 @@ committed evaluations are never edited.
    text, and the content store holds a majority-opinion body for only a sliver
    of the granted cases. Storing each writing's text from the documents the
    `opinion-record` pass already reads is a corpus change on a repair pass.
-2. **The pilot mode.** The schema fields, the draft prompt section, the sample
-   (`fedcourts reasoning-pilot-sample`, which also writes the blind labeling
-   packet) and the report (`fedcourts reasoning-pilot-report`) exist; the pilot
-   still needs a way to run that section over the sampled cells without
+2. **The pilot mode.** The schema fields, the draft prompt section, the cert
+   and interim sample (`fedcourts reasoning-pilot-sample`, which also writes
+   the blind labeling packet) and the report (`fedcourts reasoning-pilot-report`)
+   exist; the replay merits calibration cells are not yet sampled, and the
+   pilot still needs a way to run the section over the sampled cells without
    committing the result.
 3. **The reference labels and the pilot run itself.**
 4. **Registration**, as above.
