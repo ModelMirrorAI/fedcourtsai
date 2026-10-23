@@ -674,6 +674,20 @@ _LIVE_LOWER_COURT_IDS: Final[dict[str, str]] = {
     "united states court of appeals for the federal circuit": "cafc",
 }
 
+
+def live_lower_court_id(name: str | None) -> str | None:
+    """The CourtListener court id for a docket JSON ``LowerCourt`` name, or ``None``.
+
+    Only the federal courts of appeals map (:data:`_LIVE_LOWER_COURT_IDS`); a
+    state court, a district court, or any other tribunal answers ``None``, and
+    the raw name is what identifies it. The comparison ignores case and
+    surrounding whitespace, the way the record builder reads the name.
+    """
+    if name is None:
+        return None
+    return _LIVE_LOWER_COURT_IDS.get(name.strip().lower())
+
+
 # Trailing role labels on the JSON's party titles ("Acme Corp., Petitioner",
 # "..., et al., Petitioners"), stripped so the caption reads `X v. Y`.
 _LIVE_TITLE_ROLE_RE = re.compile(r",\s*(?:petitioner|respondent|applicant|appellant)s?\s*$", re.I)
@@ -1145,7 +1159,7 @@ def map_live_docket(
         "parties": parties,
         "attorneys": attorneys,
         "counsel": [c.model_dump(mode="json") for c in counsel],
-        "appeal_from_id": _LIVE_LOWER_COURT_IDS.get(lower_court.lower()) if lower_court else None,
+        "appeal_from_id": live_lower_court_id(lower_court),
         "originating_court_information": (
             # The JSON parenthesizes the lower-court numbers ("(21-5166)").
             {"docket_number": lower_numbers.strip("()")} if lower_numbers else None
