@@ -608,9 +608,9 @@ def fetch_argument_transcripts(
     the Court posts it the day the case is argued, on one page per October Term
     (:meth:`~fedcourtsai.supremecourt.SupremeCourtClient.get_transcript_listing`).
     So the pass reads that list for the Term ``today`` falls in and the one
-    before it — two paced GETs a cycle, the earlier Term covering the spring
-    sittings across the October roll and the back-fill of the last Term — and
-    matches each row to a corpus case by docket number. The sittings heading
+    before it — two paced GETs a cycle for the listing, the earlier Term
+    covering the spring sittings across the October roll and the back-fill of
+    the last Term — and matches each row to a corpus case by docket number. The sittings heading
     each list are stored as they read (:func:`~fedcourtsai.corpus.upsert_argument_sittings`),
     the Court's own grouping of the Term's argument days. A matched case whose
     stored ``argument-transcript`` row is missing or holds another URL owes the
@@ -619,7 +619,10 @@ def fetch_argument_transcripts(
     :func:`~fedcourtsai.pipeline.documents.extract_transcript_text`, stored under
     the argument day, and the day latched into ``argument_transcript_at``
     (:func:`~fedcourtsai.corpus.latch_argument_transcript_at`), which opens the
-    moment at the case's next poll.
+    moment at the case's next poll. Last, within the deadline, an older Term
+    whose sittings are not stored has them back-filled
+    (:func:`_backfill_sittings`), a GET or more until every Term from OT2020
+    holds them.
 
     Every argued case is stored, decided or not: the transcript is a fact of the
     case and costs one download, while the moment's mint guards decide whether
@@ -641,6 +644,8 @@ def fetch_argument_transcripts(
             "unavailable",
             "failed",
             "deferred",
+            "sittings_backfilled",
+            "sittings_unserved",
         ),
         0,
     )
@@ -674,14 +679,63 @@ def fetch_argument_transcripts(
             logger.warning("argument-transcripts: %s failed: %s", case_id, type(exc).__name__)
             outcome = "failed"
         outcomes[outcome] += 1
+    backfilled = unserved = backfill_failed = 0
+    if deadline is None or deadline - time_fn() >= ESTIMATED_DOCUMENT_SECONDS:
+        backfilled, unserved, backfill_failed = _backfill_sittings(client, corpus_db_path, today)
     ledger.update(
         stored=outcomes["stored"] + outcomes["empty"],
         empty=outcomes["empty"],
         unavailable=outcomes["unavailable"],
-        failed=failed + outcomes["failed"],
+        failed=failed + outcomes["failed"] + backfill_failed,
         deferred=deferred,
+        sittings_backfilled=backfilled,
+        sittings_unserved=unserved,
     )
     return ledger
+
+
+#: The earliest October Term whose sittings the transcript pass back-fills: the
+#: per-opinion record's first Term, so the authorship tally can read every Term
+#: that record holds.
+SITTINGS_BACKFILL_FLOOR = 2020
+
+
+def _backfill_sittings(
+    client: SupremeCourtClient, corpus_db_path: Path, today: date
+) -> tuple[int, int, int]:
+    """Store the sittings of the newest older Term that holds none; ``(stored, unserved, failed)``.
+
+    The two Terms the pass lists every cycle keep their own sittings current;
+    an older Term's headings do not change, so each is read once. The Terms
+    from :data:`SITTINGS_BACKFILL_FLOOR` up to the one before those two that
+    hold no stored sitting are asked for newest first, one paced GET each,
+    until one yields sittings; only its headings are kept, since its
+    transcripts belong to decided cases no moment opens on. A Term whose list
+    is not served or heads no sitting is counted as unserved and passed over,
+    so it does not hold back the Terms before it, and is asked again next
+    cycle. A failed GET ends the step for the cycle. Once every such Term holds
+    its sittings the step costs one index read.
+    """
+    with corpus.connect(corpus_db_path) as conn:
+        held = {sitting.term for sitting in corpus.argument_sittings(conn)}
+    newest = october_term_year(today) - 2
+    unserved = 0
+    for term in range(newest, SITTINGS_BACKFILL_FLOOR - 1, -1):
+        if term in held:
+            continue
+        try:
+            listing = client.get_transcript_listing(term)
+        except Exception as exc:  # the client's deadline among them; the cycle's counts come first
+            logger.warning("argument-sittings: OT%d list failed: %s", term, type(exc).__name__)
+            return 0, unserved, 1
+        if listing is None or not listing.sittings:
+            logger.warning("argument-sittings: OT%d list heads no sitting", term)
+            unserved += 1
+            continue
+        with corpus.connect(corpus_db_path) as conn:
+            corpus.upsert_argument_sittings(conn, listing.sittings, read_at=today)
+        return len(listing.sittings), unserved, 0
+    return 0, unserved, 0
 
 
 def _listed_transcripts(

@@ -392,7 +392,7 @@ class LiveConfig(BaseModel):
     # (`live.fetch_argument_transcripts`): the oral argument transcripts the
     # Court lists for the current and previous October Term that the corpus does
     # not hold. A spend cap, not a refusal — a transcript past it is owed again
-    # next cycle. 0 disables the pass.
+    # next cycle. 0 disables the pass, its sittings back-fill with it.
     argument_transcripts_per_run: int = Field(default=5, ge=0)
     # Days after the July docket-number roll during which discovery also probes
     # the *outgoing* Term (`supremecourt.current_docket_term`). At the roll new

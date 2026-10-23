@@ -105,8 +105,8 @@ with the one the public cares about most:
   `fedcourts authorship-tally` reads each sitting's authors and undecided cases
   as of a day from the per-opinion record. That record holds OT2020–OT2025,
   and the opinion-record standing sweep on run-seed's daily window keeps the
-  current and previous Term in it; sittings are stored for the current and
-  previous Term, so the tally reads those two.
+  current and previous Term in it; the live poll back-fills the sittings of
+  every Term from OT2020 on, so the tally reads the Terms that record holds.
   The tally is context, not a claim: declaring the moment still owes the
   eight tests in [outcome-decomposition.md](outcome-decomposition.md), which
   the authorship claims have failed so far for want of a committed resolution
