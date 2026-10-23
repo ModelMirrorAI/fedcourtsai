@@ -2035,9 +2035,14 @@ advance, so the most informative part of a forecast — the specific, checkable
 things a predictor volunteered beyond the declared sets — earns nothing and
 costs nothing. A grade of the document is what makes that content count.
 
-**This section is a design, not a registered process.** No prompt asks for the
-grade, no schema carries it, and no artifact reads it; the register's opening
-position above stands until the grade is registered (*Registration* below). It is settled here,
+**This section is a design, not a registered process.** The schema carries the
+grade (`Evaluation.predicted_reasoning_quality`, with the central-claims list in
+`predicted_reasoning_review`) and a draft prompt section asks for it
+(`.github/prompts/pilot/predicted-reasoning-quality.md`), but no registered
+evaluate prompt reads that section, no artifact reads the grade, and `validate`
+refuses a committed one (`predicted_reasoning_grade_awaits_registration`); the
+register's opening position above stands until the grade is registered
+(*Registration* below). It is settled here,
 before a single grade exists, for the same reason the rest of this document is:
 a rubric chosen after reading the grades is a rubric fitted to them.
 
@@ -2234,8 +2239,9 @@ reports, so the report cannot be chosen after the grades are read.
 ### Registration
 
 The grade is registered at a process re-bless, as one coordinated change: the
-evaluate prompt's section asking for it, the schema field with its
-central-claims list, the matching site change if the grade is published, a
+evaluate prompt's section asking for it (the schema already carries the field
+and its central-claims list), lifting the `validate` check that refuses a
+committed grade until then, the matching site change if the grade is published, a
 freeze-record entry, and the register revised to match: its opening paragraph
 and its "every scored route is mechanical or graded, never prose" property name
 the registered grade, and a row routes the document to it. The prompt change
@@ -2253,8 +2259,9 @@ committed evaluations are never edited.
    text, and the content store holds a majority-opinion body for only a sliver
    of the granted cases. Storing each writing's text from the documents the
    `opinion-record` pass already reads is a corpus change on a repair pass.
-2. **The draft prompt section and the pilot mode.** The pilot needs a way to run
-   the draft section over a named set of resolved cells without committing the
-   result.
+2. **The pilot mode.** The schema fields and the draft prompt section exist; the
+   pilot still needs a way to run that section over a named set of resolved
+   cells without committing the result, and a command that computes the
+   report's figures from what it produced.
 3. **The reference labels and the pilot run itself.**
 4. **Registration**, as above.
