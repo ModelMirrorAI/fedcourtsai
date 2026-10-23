@@ -1,0 +1,13 @@
+# Evaluation — claude-baseline, scotus/9526000512 evt-motion-disposition
+
+**Prediction:** P(grant) = 0.33, predicted `denied`. **Outcome:** `granted` (stay of the October 2 and October 5 preliminary-injunction orders pending appeal, after referral to the full Court). `correct` = 0, Brier = (0.33 − 1)² = 0.4489.
+
+**Reasoning quality (0.55).** The anchor is right: it pools the statpack's interim substantive slice over 2016–2025 to 51/547 ≈ 9.3% and notes that only three Terms are parsed. It correctly treats state election applicants as a much stronger subpopulation than the pooled slice. It also names the decisive consideration in its uncertainty paragraph: the Court's current Purcell practice is close to a strong presumption for staying late federal injunctions, so 0.33 "could be low". It then weighted the case-specific negatives too heavily: the narrow injunction, the State having already complied, and the state-law vehicle. That left a denial call against a factor it had itself flagged as dominant. The analysis is balanced and honest about what it did not see (the appendix and the response). Its misstep is calibration, not a factual error.
+
+**Stage and baseline.** This is an **interim** cell, a stay application. The segment base rate and Brier skill score are the harness's: `stamp-cell` pools the statpack's interim substantive slice over application-Terms strictly before 2026 and writes both, or clears them where the pool falls below its floor. I wrote neither, and `base_rate_basis` stays null by rule. The prediction's frozen `context.band` is null, the ordinary interim shape. `claim_scores` (the interim-v1 ladder) is computed by the harness and not graded here.
+
+**Leakage.** Mode `forward`. The prediction was created 2026-10-21, and the application was granted 2026-10-22. Forward cell, created 2026-10-21, before the 2026-10-22 disposition. One captured CourtListener search; its legible document date is 2026-10-06 (lower-court material), before resolution. Reasoning does not presuppose the outcome. No data/qp-topics read observed. → `not_applicable`, `leakage_suspected` = false.
+
+**Semantic grades.** Not applicable: no semantic set is declared on an interim cell.
+
+**Big case (my read, 0.45).** A State's Purcell stay application over voter-ID guidance weeks before a general election; the full Court granted the stay pending appeal. Real election-administration stakes and another data point in the Court's late-injunction practice, but the injunction reached only executive guidance under a state statute left in force, in one state, without settling the constitutional challenge.

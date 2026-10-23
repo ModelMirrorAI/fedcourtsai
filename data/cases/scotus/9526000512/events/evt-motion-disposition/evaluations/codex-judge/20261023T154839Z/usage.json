@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-judge",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 1584176,
+  "case_id": "scotus/9526000512",
+  "created_at": "2026-10-23T15:48:39Z",
+  "engine": "codex",
+  "engine_version": "0.144.1",
+  "engine_version_discrepancy": null,
+  "estimated_cost_usd": 0.4195776,
+  "event_id": "evt-motion-disposition",
+  "input_tokens": 90560,
+  "model": "gpt-6.1-sol",
+  "output_tokens": 8004,
+  "pipeline_sha": "e5b0efc3f3d5ce9584da9eb77ecf48fc8b83984e",
+  "post_run_poll": null,
+  "pre_mint_poll": null,
+  "role": "evaluator",
+  "run_id": "20261023T154839Z",
+  "schema_version": "1.0"
+}

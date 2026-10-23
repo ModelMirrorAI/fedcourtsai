@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000512",
+  "gaps": [
+    "Unobserved candidate retrieval results limit independent exposure auditing; captured rows supply digests rather than full returned text."
+  ],
+  "helpful": [
+    "Alias-keyed candidates preserve identity blinding.",
+    "Result-capture markers distinguish unobserved results from empty responses.",
+    "Explicit outcome fields and stage rules support reproducible scoring."
+  ],
+  "notes": "All three candidates were scored using provisioned inputs and committed statistical context only. No live retrieval was needed. Baseline, skill and claim scores remain harness-owned; no material cell blockage or data-quality anomaly required flags.",
+  "role": "evaluator",
+  "run_id": "20261023T154839Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell file reads",
+    "blinded candidate retrieval logs",
+    "metrics/statpack.md",
+    "JSON Schema validation",
+    "fedcourtsai.paths",
+    "fedcourtsai.serialize"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
