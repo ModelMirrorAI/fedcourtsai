@@ -9574,6 +9574,67 @@ class StatPackAuthorship(_Strict):
     )
 
 
+class AuthorshipTallyCase(_Strict):
+    """One case of an argument sitting in a cell's authorship tally."""
+
+    key: str = Field(
+        description="The corpus case id, or `docket:<number>` where the per-opinion "
+        "record links the opinion to no corpus row"
+    )
+    docket: str = Field(description="The docket number as the record prints it")
+    argued: date = Field(description="The day the case was argued")
+    decided: date | None = Field(
+        description="The day the case was decided, on or before the tally's `as_of`; "
+        "null while undecided as of that day"
+    )
+    author: str | None = Field(
+        description="The lead opinion's author (the opinion of the Court or a "
+        "plurality), as the roster spells the Justice; null while undecided, for a "
+        "decision no opinion names an author for (a per curiam, a dismissal), and "
+        "for one the per-opinion record does not hold (`recorded` false)"
+    )
+    recorded: bool = Field(
+        description="Whether the per-opinion record holds the case's lead opinion; "
+        "a decided case it does not hold has an unknown author, not a missing one"
+    )
+
+
+class AuthorshipTallySitting(_Strict):
+    """One argument sitting of a cell's authorship tally."""
+
+    start: date = Field(description="The sitting's first day, as the Court heads it")
+    end: date = Field(description="The sitting's last day, as the Court heads it")
+    bench: list[str] = Field(
+        description="The Justices serving on the sitting's first day, oldest oath first"
+    )
+    yet_to_write: list[str] = Field(
+        description="The bench's Justices with no lead opinion recorded for the "
+        "sitting as of the tally's day, oldest oath first"
+    )
+    cases: list[AuthorshipTallyCase] = Field(
+        description="The sitting's cases, by argument day then key"
+    )
+
+
+class AuthorshipTally(_Strict):
+    """Who has written from each argument sitting of a Term, as of one day.
+
+    Written by ``fedcourts authorship-tally`` and, for a post-argument merits
+    predict cell in forward mode once released (``provision.AUTHORSHIP_TALLY_WITHHELD``),
+    into its ``record/authorship-tally.json`` (``pipeline.authorship``): the tally
+    as of the day before the cell's cutoff, so the cell reads no decision its
+    moment postdates.
+    """
+
+    term: int = Field(description="The October Term tallied")
+    as_of: date = Field(description="The last day whose decisions are read, inclusive")
+    sittings: list[AuthorshipTallySitting] = Field(
+        default_factory=list,
+        description="The Term's sittings that opened by `as_of`, earliest first; "
+        "empty where the corpus stores none",
+    )
+
+
 class StatPackCoverage(_Strict):
     """The statpack's own denominators: how much trustworthy data backs it.
 
@@ -12755,6 +12816,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "live_frontier": LiveFrontier,
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
+    "authorship_tally": AuthorshipTally,
     "docket": DocketPack,
     "big_case_board": BigCaseBoard,
     "agent_flags": AgentFlags,

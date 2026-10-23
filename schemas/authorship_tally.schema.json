@@ -1,0 +1,146 @@
+{
+  "$defs": {
+    "AuthorshipTallyCase": {
+      "additionalProperties": false,
+      "description": "One case of an argument sitting in a cell's authorship tally.",
+      "properties": {
+        "argued": {
+          "description": "The day the case was argued",
+          "format": "date",
+          "title": "Argued",
+          "type": "string"
+        },
+        "author": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The lead opinion's author (the opinion of the Court or a plurality), as the roster spells the Justice; null while undecided, for a decision no opinion names an author for (a per curiam, a dismissal), and for one the per-opinion record does not hold (`recorded` false)",
+          "title": "Author"
+        },
+        "decided": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The day the case was decided, on or before the tally's `as_of`; null while undecided as of that day",
+          "title": "Decided"
+        },
+        "docket": {
+          "description": "The docket number as the record prints it",
+          "title": "Docket",
+          "type": "string"
+        },
+        "key": {
+          "description": "The corpus case id, or `docket:<number>` where the per-opinion record links the opinion to no corpus row",
+          "title": "Key",
+          "type": "string"
+        },
+        "recorded": {
+          "description": "Whether the per-opinion record holds the case's lead opinion; a decided case it does not hold has an unknown author, not a missing one",
+          "title": "Recorded",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "key",
+        "docket",
+        "argued",
+        "decided",
+        "author",
+        "recorded"
+      ],
+      "title": "AuthorshipTallyCase",
+      "type": "object"
+    },
+    "AuthorshipTallySitting": {
+      "additionalProperties": false,
+      "description": "One argument sitting of a cell's authorship tally.",
+      "properties": {
+        "bench": {
+          "description": "The Justices serving on the sitting's first day, oldest oath first",
+          "items": {
+            "type": "string"
+          },
+          "title": "Bench",
+          "type": "array"
+        },
+        "cases": {
+          "description": "The sitting's cases, by argument day then key",
+          "items": {
+            "$ref": "#/$defs/AuthorshipTallyCase"
+          },
+          "title": "Cases",
+          "type": "array"
+        },
+        "end": {
+          "description": "The sitting's last day, as the Court heads it",
+          "format": "date",
+          "title": "End",
+          "type": "string"
+        },
+        "start": {
+          "description": "The sitting's first day, as the Court heads it",
+          "format": "date",
+          "title": "Start",
+          "type": "string"
+        },
+        "yet_to_write": {
+          "description": "The bench's Justices with no lead opinion recorded for the sitting as of the tally's day, oldest oath first",
+          "items": {
+            "type": "string"
+          },
+          "title": "Yet To Write",
+          "type": "array"
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "bench",
+        "yet_to_write",
+        "cases"
+      ],
+      "title": "AuthorshipTallySitting",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Who has written from each argument sitting of a Term, as of one day.\n\nWritten by ``fedcourts authorship-tally`` and, for a post-argument merits\npredict cell in forward mode once released (``provision.AUTHORSHIP_TALLY_WITHHELD``),\ninto its ``record/authorship-tally.json`` (``pipeline.authorship``): the tally\nas of the day before the cell's cutoff, so the cell reads no decision its\nmoment postdates.",
+  "properties": {
+    "as_of": {
+      "description": "The last day whose decisions are read, inclusive",
+      "format": "date",
+      "title": "As Of",
+      "type": "string"
+    },
+    "sittings": {
+      "description": "The Term's sittings that opened by `as_of`, earliest first; empty where the corpus stores none",
+      "items": {
+        "$ref": "#/$defs/AuthorshipTallySitting"
+      },
+      "title": "Sittings",
+      "type": "array"
+    },
+    "term": {
+      "description": "The October Term tallied",
+      "title": "Term",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "term",
+    "as_of"
+  ],
+  "title": "AuthorshipTally",
+  "type": "object"
+}

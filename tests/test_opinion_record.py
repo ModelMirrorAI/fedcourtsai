@@ -545,9 +545,10 @@ def test_only_the_record_s_own_modules_touch_the_table() -> None:
     """No module but the writer, the schema and the lineup reader names the record's tables in SQL.
 
     The ``opinions`` and ``opinion_benches`` tables. So no retrieval,
-    provisioning or outcome path — nothing a predict or evaluate cell is shown —
-    can read them without this test changing, and scoring reads them only
-    through the statpack's authorship section, the baseline feed
+    provisioning or outcome path can read them without this test changing:
+    provisioning reaches them only through ``pipeline/authorship.py``'s tally,
+    held back from every cell until a re-bless, and scoring only through the
+    statpack's authorship section, the baseline feed
     ``pipeline/authorship_rates.py`` rolls up.
     """
     root = Path(__file__).resolve().parents[1] / "src" / "fedcourtsai"

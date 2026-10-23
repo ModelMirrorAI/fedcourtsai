@@ -439,6 +439,7 @@ from .schemas import (
     AgentFlag,
     AgentFlags,
     AgentToolingFeedback,
+    AuthorshipTally,
     Backtest,
     CellFailure,
     CellMode,
@@ -4427,30 +4428,7 @@ def authorship_tally_cmd(
         )
     typer.echo(
         json.dumps(
-            {
-                "term": term,
-                "as_of": day.isoformat(),
-                "sittings": [
-                    {
-                        "start": sitting.sitting.start.isoformat(),
-                        "end": sitting.sitting.end.isoformat(),
-                        "bench": list(sitting.bench),
-                        "yet_to_write": list(sitting.yet_to_write),
-                        "cases": [
-                            {
-                                "key": case.key,
-                                "docket": case.docket,
-                                "argued": case.argued.isoformat(),
-                                "decided": case.decided.isoformat() if case.decided else None,
-                                "author": case.author,
-                                "recorded": case.recorded,
-                            }
-                            for case in sitting.cases
-                        ],
-                    }
-                    for sitting in tally
-                ],
-            },
+            authorship.tally_record(tally, term=term, as_of=day).model_dump(mode="json"),
             indent=2,
         )
     )
@@ -14879,6 +14857,44 @@ def _read_related(
     return reads
 
 
+def _read_authorship_tally(
+    backend: corpus.CorpusBackend,
+    db_path: Path,
+    event: str,
+    *,
+    cutoff: date | None,
+    snapshot_date: date,
+    mode: str,
+) -> AuthorshipTally | None:
+    """The Term's authorship tally a merits cell is given, read after its gates.
+
+    Nothing is read while the tally is held back
+    (:data:`provision.AUTHORSHIP_TALLY_WITHHELD`) or for a moment that carries
+    none. Under the casestore backend, which carries no index, the read runs over
+    the ordinary read backend the row gate also reaches; with no index
+    answering, the cell goes without a tally and the log says so.
+    """
+    if provision.AUTHORSHIP_TALLY_WITHHELD or not provision.carries_authorship_tally(event):
+        return None
+    choice = corpus.resolve_backend(None) if backend == "casestore" else backend
+    if choice == "local" and not db_path.exists():
+        typer.echo("::warning::no authorship tally: no corpus index to read", err=True)
+        return None
+    try:
+        with corpus.connect_readonly(db_path, backend=choice) as conn:
+            tally = provision.authorship_tally_for(
+                conn, event, cutoff=cutoff, snapshot_date=snapshot_date, mode=mode
+            )
+            _echo_read_stats(conn)
+    except (OSError, corpus_ranged.RangedBackendError):
+        typer.echo("::warning::no authorship tally: the corpus index did not answer", err=True)
+        return None
+    except ValueError as exc:
+        typer.echo(f"::warning::no authorship tally: {exc}", err=True)
+        return None
+    return tally
+
+
 def _place_at_moment(
     case: str,
     event: str,
@@ -15246,6 +15262,18 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         if event and out is None
         else []
     )
+    tally = (
+        _read_authorship_tally(
+            backend,
+            db_path,
+            event,
+            cutoff=cutoff,
+            snapshot_date=placement.snapshot_date,
+            mode=mode,
+        )
+        if event and out is None
+        else None
+    )
     # The whole record — snapshot, context.json, documents and manifest, each
     # staged copy through the contact-detail scrubs — goes through the one
     # writer the local cascade shares (`provision.write_cell_record`), so the
@@ -15260,6 +15288,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             cutoff=cutoff,
             snapshot_dest=out,
             related=related,
+            authorship_tally=tally,
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)
@@ -15290,6 +15319,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             for item in written.related
         )
         typer.echo(f"{case} related ({linked}) -> {paths.related_dir}")
+    if written.authorship_tally is not None:
+        # Counts only: the cases are public, and the file holds them.
+        tallied = written.authorship_tally
+        typer.echo(
+            f"{case} authorship tally OT{tallied.term} as of {tallied.as_of.isoformat()} "
+            f"({len(tallied.sittings)} sitting(s), "
+            f"{sum(len(s.cases) for s in tallied.sittings)} case(s)) -> {paths.authorship_tally}"
+        )
     if written.staged:
         kinds = ", ".join(doc.kind for doc, _ in written.staged)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")

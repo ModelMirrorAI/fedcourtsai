@@ -58,7 +58,10 @@ reads is part of its information set, and the process digest does not see it
 ([process-version.md](process-version.md)), so a new kind is fetched and stored
 first and staged only in the re-bless whose prompt tells cells about it. Until
 then `provision.WITHHELD_KINDS` keeps it from every cell at every moment, and
-the case-summary plan leaves it out of the record it reads.
+the case-summary plan leaves it out of the record it reads. One record input
+that is not a document is held back on the same rule: the post-argument merits
+cell's `record/authorship-tally.json`, the Term's tally of who has written from
+each argument sitting (`provision.AUTHORSHIP_TALLY_WITHHELD`).
 
 | Kind | Filing | Docket |
 | --- | --- | --- |

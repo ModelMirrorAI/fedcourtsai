@@ -317,6 +317,13 @@ class CasePaths:
         return self.related_dir / "related.json"
 
     @property
+    def authorship_tally(self) -> Path:
+        # A merits cell's tally of who has written from each argument sitting of
+        # the Term, as of the day before its cutoff (`provision.authorship_tally_for`).
+        # Gitignored with the rest of record/.
+        return self.record / "authorship-tally.json"
+
+    @property
     def opinion_dir(self) -> Path:
         # Provisioning location for the case's **majority opinion body** — the
         # evaluate cell's slot, and only ever that. Deliberately not under

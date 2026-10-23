@@ -339,8 +339,9 @@ to replace them, which does not exist yet; `word_rule` and `lineup` say which
 version each row was read under. Its readers outside its writer are `fedcourts merits-lineups`,
 which derives each decision's per-Justice votes from it, and `fedcourts authorship-tally`,
 which reads each lead opinion's author against its argument sitting; it is read by no `query`
-retrieval row, provisioning step, outcome, mint or scoring gate, so nothing a
-predict or evaluate cell sees includes it; a test pins which modules may name
+retrieval row, outcome, mint or scoring gate, and provisioning reads it only for
+the tally a post-argument merits cell would be given, which is held back from
+every cell (`provision.AUTHORSHIP_TALLY_WITHHELD`); a test pins which modules may name
 it. It is metadata, not payload, so it stays in the index blob under the
 corpus-split mode and has no content-store mirror. The source, the cross-check
 and the word-counting rule are in [docs/data-sources.md](../docs/data-sources.md).
@@ -408,8 +409,11 @@ widens takes its new last day. A heading the Court drops or re-dates is not
 deleted, and can overlap its replacement. A Term the pass has never listed has
 no rows.
 Its one reader is `fedcourts authorship-tally` (`pipeline/authorship.py`), which
-groups a Term's argued cases by sitting; it is read by no `query` retrieval row,
-provisioning step, outcome, mint or scoring gate. Kept in the index blob.
+groups a Term's argued cases by sitting, and the same tally a post-argument
+merits cell would be given in `record/authorship-tally.json`, which is held back
+from every cell until a re-bless (`provision.AUTHORSHIP_TALLY_WITHHELD`); it is
+read by no `query` retrieval row, outcome, mint or scoring gate. Kept in the
+index blob.
 
 | Column    | Type          | Notes |
 |-----------|---------------|-------|

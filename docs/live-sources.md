@@ -753,7 +753,9 @@ pass, after document freshness (`live.fetch_argument_transcripts`):
   GET a cycle, one more per unserved Term, while any Term from OT2020 lacks its
   sittings, and none once all hold them. It runs last and only with an
   estimated document's time left before the deadline.
-  `fedcourts authorship-tally` reads them; no cell does.
+  `fedcourts authorship-tally` reads them, and so would a post-argument merits
+  cell's `record/authorship-tally.json`, which is held back from every cell
+  until a re-bless.
 - **Features.** `argument_features.parse_argument_features` reads a stored,
   cleaned transcript into per-Justice turn and word counts by advocate side.
   The side of each segment is read from its header ("ORAL ARGUMENT OF … ON
