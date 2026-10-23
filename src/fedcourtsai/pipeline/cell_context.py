@@ -28,7 +28,7 @@ from .. import corpus
 from ..schemas import PredictionContext
 from . import arrival_cut, vide_links
 from .asof import project_row
-from .documents import paper_only_filings
+from .paper_only import paper_only_filings
 from .salience import SALIENCE_VERSION, salience_band, scorer
 
 

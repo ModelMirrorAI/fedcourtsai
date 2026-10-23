@@ -13049,10 +13049,11 @@ freeze commit is recorded here.
   guidelines, some dockets file on paper only, and the Court posts nothing
   behind those filings. These are mostly immigration and detention cases, and
   the Solicitor General is often a party. A cell on one gets an empty
-  `record/documents/`. Every engine read that as a provisioning failure and
-  flagged it: 13 cells over 9 predict runs, 2026-10-03 to 10-17. The pipeline
-  already counted this class as the back-fill's `no_link` floor. Only the
-  cell was not told.
+  `record/documents/`. Cells read that as a provisioning failure and flagged
+  it: 13 cells over 9 predict runs, 2026-10-03 to 10-17, counted from the
+  agent-flag roll-ups on the agent-feedback tracking issue. The pipeline
+  already counted this class as the back-fill's `no_link` floor. Nothing in a
+  cell's record said so.
 
   **The conditioning half.** `PredictionContext` gains `paper_only_filings`,
   read off the placed payload in docket order:
@@ -13061,14 +13062,17 @@ freeze commit is recorded here.
     makes that call once briefing and argument are scheduled);
   - `false` where the payload carries neither entry, or the lift follows the
     paper-only entry;
-  - null where the payload has no proceedings list, the REST shape.
+  - null where the payload has no `ProceedingsandOrder` list: the REST
+    shape, or a cut that dropped the list because no moment could be placed.
 
   A `truncated` payload answers as at its cut. The cell reads
   `record/context.json`, so the field joins its information set. It adds
   nothing the cell could not already read, because the entry is in the staged
   snapshot. No prompt text or other digest input changes, so no digest moves.
   Telling cells in the prompt that this is expected is left for the next
-  re-bless.
+  re-bless. The cert back-test's replay contexts are built by the same
+  builder and carry the field too, though those cells stage no documents at
+  all.
   - **The registry row.** The boundary is `context-paper-only-filings`. It
     applies to every predictor, with reach `all`, and is not gradual: every
     cell provisioned after the carrying merge freezes the field. It is
@@ -13076,8 +13080,9 @@ freeze commit is recorded here.
     (`fedcourts register-boundary`). Its `merge` and `at` stay null until the
     promotion merge that carries it to `main` stamps them
     (`promotion-record`).
-  - **Expected population.** Read from the production per-case content store
-    on 2026-10-23, newest stored snapshot 2026-10-23. It covered the 285
+  - **Expected population.** Read directly from the production per-case
+    content store on 2026-10-23, not from a pulled index blob, over each
+    case's newest stored snapshot (the newest dated 2026-10-23). It covered the 285
     SCOTUS cases holding a prediction run in September or October 2026. The
     reader marks 7 of them `true`, and each of the 7 has no stored document. Two
     more carry the paper-only entry followed by the lift; they read `false`
@@ -13086,7 +13091,8 @@ freeze commit is recorded here.
   **What it moves.** No scored figure. Once cells sit on both sides of the
   stamped boundary, each pooled entry's and each paired engine's `boundaries`
   list gains a `context-paper-only-filings` row. That row is composition, not
-  a cut.
+  a cut. The field is no cut, exclusion or rank key on any board. A later
+  dated entry must register one before any figure reads it.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit
   `<FILL: merge hash>`, merged `<FILL: merged-at>`).

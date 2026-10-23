@@ -1747,54 +1747,6 @@ def primary_entry_matched(payload: Mapping[str, Any], *, kind: str) -> bool:
     return False
 
 
-# The Court's entry putting a docket's filings on paper: "Pursuant to Rule 34.6
-# and Paragraph 9 of the Guidelines for the Submission of Documents to the
-# Supreme Court's Electronic Filing System, filings in this case should be
-# submitted in paper form only ...". Anchored at the entry's start, since the
-# rule is also quoted mid-sentence by the entry that lifts it.
-_PAPER_ONLY_ENTRY_RE = re.compile(r"^\s*pursuant to rule 34\.6 and paragraph 9\b", re.IGNORECASE)
-# The entry that lifts it once briefing and argument are scheduled: "As Rule
-# 34.6 provides, 'If the Court schedules briefing and oral argument in a case
-# ... the parties shall submit electronic versions of all prior and subsequent
-# filings ...'".
-_PAPER_ONLY_LIFTED_RE = re.compile(
-    r"^\s*as rule 34\.6 provides\b.*\belectronic versions\b", re.IGNORECASE | re.DOTALL
-)
-
-
-def paper_only_filings(payload: Mapping[str, Any]) -> bool | None:
-    """Whether the docket's party filings are on paper only, so none is posted.
-
-    The Court puts a docket under Rule 34.6 and Paragraph 9 of its electronic
-    filing guidelines (a case that was sealed or privacy-restricted below, most
-    often immigration or detention) with an entry saying filings are to be
-    submitted in paper form only. Nothing is posted behind them, so
-    :func:`select_documents` finds no link and a cell gets no ``documents/``
-    for a reason no repair reaches. Once the Court schedules briefing and
-    argument, a second entry quoting the rule calls for electronic versions,
-    and filings are posted again from then on.
-
-    ``True`` where the payload carries the paper-only entry and no later entry
-    lifting it; ``False`` where its proceedings carry neither, or the lift
-    follows; ``None`` where the payload carries no proceedings list at all, the
-    REST shape, which says nothing either way. Read in docket order over the
-    payload as handed in, so a truncated payload answers as at its cut.
-    """
-    entries = payload.get("ProceedingsandOrder")
-    if not isinstance(entries, list):
-        return None
-    paper_only = False
-    for entry in entries:
-        if not isinstance(entry, Mapping):
-            continue
-        text = str(entry.get("Text") or "")
-        if _PAPER_ONLY_ENTRY_RE.search(text):
-            paper_only = True
-        elif _PAPER_ONLY_LIFTED_RE.search(text):
-            paper_only = False
-    return paper_only
-
-
 # Which text predicate reads each merits kind, for the floor test below. The
 # selector's own arms, keyed by the kind they store, so a docket is measured
 # against exactly what would have selected it.

@@ -6,7 +6,8 @@ from datetime import date
 from typing import Any
 
 from fedcourtsai.pipeline import cell_context
-from fedcourtsai.pipeline.documents import paper_only_filings, select_documents
+from fedcourtsai.pipeline.paper_only import paper_only_filings
+from fedcourtsai.provision import truncate_snapshot
 
 _PAPER_ONLY = (
     "Pursuant to Rule 34.6 and Paragraph 9 of the Guidelines for the Submission of "
@@ -36,8 +37,6 @@ _PETITION = _entry("Jul 01 2026", "Petition for a writ of certiorari filed.")
 def test_the_paper_only_entry_marks_the_docket() -> None:
     payload = _payload(_PETITION, _entry("Jul 07 2026", _PAPER_ONLY))
     assert paper_only_filings(payload) is True
-    # The reason it matters: the selector finds nothing to fetch on such a docket.
-    assert select_documents(payload) == []
 
 
 def test_a_later_call_for_electronic_versions_lifts_it() -> None:
@@ -74,3 +73,24 @@ def test_the_context_freezes_the_flag() -> None:
         cell_context.build("scotus/305", date(2026, 7, 20), rest, "forward").paper_only_filings
         is None
     )
+
+
+def test_a_truncated_payload_answers_as_at_its_cut() -> None:
+    payload = _payload(
+        _PETITION,
+        _entry("Jul 07 2026", _PAPER_ONLY),
+        _entry("Jan 12 2027", "Petition GRANTED."),
+        _entry("Jan 12 2027", _LIFTED),
+    )
+    before_grant, _ = truncate_snapshot(payload, date(2026, 10, 1))
+    assert paper_only_filings(before_grant) is True
+    after_lift, _ = truncate_snapshot(payload, date(2027, 2, 1))
+    assert paper_only_filings(after_lift) is False
+    # A cut with no moment drops the proceedings key: nothing is observed.
+    blind, _ = truncate_snapshot(payload, None)
+    assert paper_only_filings(blind) is None
+
+
+def test_the_entry_survives_irregular_spacing() -> None:
+    spaced = _PAPER_ONLY.replace("Rule 34.6 and", "Rule\u00a034.6  and")
+    assert paper_only_filings(_payload(_PETITION, _entry("Jul 07 2026", spaced))) is True

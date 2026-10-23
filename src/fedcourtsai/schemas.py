@@ -1026,7 +1026,8 @@ class PredictionContext(_Strict):
         "absence is not a provisioning failure. Read in docket order off the payload "
         "the cell was placed on, so a `truncated` payload answers as at its cut. "
         "False where the proceedings carry neither entry or the lift follows; null "
-        "where the payload carries no proceedings list, the REST shape",
+        "where the payload carries no live `ProceedingsandOrder` list (the REST "
+        "shape, or a cut that dropped it)",
     )
 
     @model_validator(mode="after")
