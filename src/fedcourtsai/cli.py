@@ -13894,6 +13894,17 @@ def corpus_info(
             "default vintage report stays a few KB.",
         ),
     ] = False,
+    legacy_sample: Annotated[
+        bool,
+        typer.Option(
+            "--legacy-sample",
+            help="Also count the SCOTUS rows still carrying the legacy one-in-ten "
+            "IFP denial sample weight, per October Term: the effect check for "
+            "completing a Term's sample by re-walking it. Opt-in: no index covers "
+            "the weight, so it scans every case row (a few hundred MB under "
+            "the ranged backend).",
+        ),
+    ] = False,
 ) -> None:
     """Show the corpus location, row count, and freshness (after `corpus-pull`, or ranged).
 
@@ -13943,6 +13954,11 @@ def corpus_info(
     trip each, under the corpus split), and it names the source that served
     those reads: a blob-only run against a split corpus finds no documents at
     all, and must not be read as a corpus with none.
+
+    `--legacy-sample` counts the rows still standing for the early walk's
+    one-in-ten IFP denial sample, per Term. Re-walking a Term from its
+    numbering base serves each of them again and writes weight 1, so the
+    Term's count reaching zero is how that re-walk is checked.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -13981,9 +13997,23 @@ def corpus_info(
             else:
                 typer.echo(f"pointer: out-of-band override set (not read by the {backend} backend)")
         _echo_pointer_provenance(db_path, backend, override_set=settings.corpus_pointer is not None)
+        if legacy_sample:
+            _echo_legacy_sample(corpus.legacy_sample_rows(conn))
         if text_coverage:
             _echo_text_coverage(document_text_coverage(conn, settings.data_root))
         _echo_read_stats(conn)
+
+
+def _echo_legacy_sample(counts: dict[int, int]) -> None:
+    """The `legacy sample:` line: weighted rows left, in all and per Term."""
+    if not counts:
+        typer.echo("legacy sample: no weighted rows")
+        return
+    per_term = ", ".join(
+        f"OT{term % 100:02d} {count}" if term else f"unparsed {count}"
+        for term, count in counts.items()
+    )
+    typer.echo(f"legacy sample: {sum(counts.values())} weighted row(s) ({per_term})")
 
 
 def _echo_pointer_provenance(db_path: Path, backend: str, *, override_set: bool) -> None:
