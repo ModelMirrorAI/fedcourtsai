@@ -1027,3 +1027,34 @@ def test_refresh_dockets_rejects_a_number_from_another_sequence(tmp_path: Path) 
         env={"FEDCOURTS_CORPUS_ROOT": str(tmp_path / "corpus")},
     )
     assert result.exit_code == 2
+
+
+def test_reopening_a_term_rewalks_a_legacy_sampled_row_to_weight_one(tmp_path: Path) -> None:
+    # The legacy sample is completed by re-opening a Term's IFP stream: the walk
+    # restarts at the numbering base, and a forward walk writes weight 1, which
+    # the upsert latch takes over the stored 10.
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    cfg = _config(frontier_misses=12)
+    grid = {number: _decided(number, _DENIED_ENTRY) for number in ("22-5010", "22-5020")}
+    with _serving_client(grid) as client:
+        load_terms(client, db, tmp_path / "data", cfg, today=date(2026, 7, 10))
+    with corpus.connect(db) as conn:
+        conn.execute("UPDATE cases SET sample_weight = 10")
+        conn.commit()
+
+    def weights() -> dict[str, int | None]:
+        with corpus.connect(db) as conn:
+            rows = conn.execute("SELECT docket_number, sample_weight FROM cases").fetchall()
+        return {str(row["docket_number"]): row["sample_weight"] for row in rows}
+
+    full = {f"22-{serial}": _decided(f"22-{serial}", _DENIED_ENTRY) for serial in range(5001, 5026)}
+    with _serving_client(full) as client:
+        load_terms(client, db, tmp_path / "data", cfg, today=date(2026, 7, 11))
+    # Without the reset the walk resumes past the sampled serials and never
+    # serves them again.
+    assert weights()["22-5010"] == 10 and weights()["22-5020"] == 10
+    historical_module.reset_walk(db, [22], ["historical-ifp"])
+    with _serving_client(full) as client:
+        load_terms(client, db, tmp_path / "data", cfg, today=date(2026, 7, 12))
+    after = weights()
+    assert len(after) == 25 and set(after.values()) == {1}

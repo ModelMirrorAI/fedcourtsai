@@ -13898,9 +13898,10 @@ def corpus_info(
         bool,
         typer.Option(
             "--legacy-sample",
-            help="Also count the SCOTUS rows still carrying the legacy one-in-ten "
-            "IFP denial sample weight, per October Term: the effect check for "
-            "completing a Term's sample by re-walking it. Opt-in: no index covers "
+            help="Also count the SCOTUS rows still carrying a legacy sample weight "
+            "(above 1; the early walk's one-in-ten IFP denials), per October Term: "
+            "the effect check for completing a Term's sample by re-walking its IFP "
+            "stream. Opt-in: no index covers "
             "the weight, so it scans every case row (a few hundred MB under "
             "the ranged backend).",
         ),
@@ -13956,9 +13957,10 @@ def corpus_info(
     all, and must not be read as a corpus with none.
 
     `--legacy-sample` counts the rows still standing for the early walk's
-    one-in-ten IFP denial sample, per Term. Re-walking a Term from its
-    numbering base serves each of them again and writes weight 1, so the
-    Term's count reaching zero is how that re-walk is checked.
+    one-in-ten IFP denial sample, per Term. Re-walking a Term's IFP stream
+    from its numbering base serves each of them again and writes weight 1, so
+    the Term's count reaching zero, with its IFP cursor back where it stood
+    before the re-walk, is how that re-walk is checked.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
