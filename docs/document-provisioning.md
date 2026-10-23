@@ -100,6 +100,11 @@ which overrides the code's defaults.
 
 Each of these is stated, with its reason, where the code makes the choice:
 
+- **A petition raising the same question without a `Vide` link is not staged.**
+  Only linked companions reach `record/related/`. `fedcourts same-question`
+  lists the unlinked ones by questions-presented text similarity, cut to a date,
+  but no cell reads it yet (`pipeline/same_question.py`).
+
 - **A combined opposition is kept or dropped whole.** It is dated by its
   earliest brief, so a cutoff between two respondents' briefs admits the later
   one (`documents_before`).
