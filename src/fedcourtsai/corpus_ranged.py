@@ -26,7 +26,8 @@ Three seams, each swappable on its own:
 * **VFS** — a private apsw VFS serving ``xRead`` from block-aligned ranged GETs
   (:data:`BLOCK_SIZE` bytes) through an in-process LRU cache, with the file
   size taken from the pointer (no HEAD request) and every write/lock/journal
-  operation rejected or a no-op per the read-only contract.
+  operation rejected or a no-op per the read-only contract. SQLite's own
+  scratch files (a sort that spills, a temp table) go to local temp disk.
 
 Reference implementations (both MIT): michalc/sqlite-s3-query and
 litements/s3sqlite. Implemented in-repo rather than depended on — both are
@@ -528,6 +529,16 @@ class _RangedFile:
         pass
 
 
+# The file kinds SQLite opens as private scratch space: a temp database, its
+# journal, a transient table and a statement subjournal.
+_LOCAL_SCRATCH = (
+    apsw.SQLITE_OPEN_TEMP_DB
+    | apsw.SQLITE_OPEN_TEMP_JOURNAL
+    | apsw.SQLITE_OPEN_TRANSIENT_DB
+    | apsw.SQLITE_OPEN_SUBJOURNAL
+)
+
+
 class _RangedVFS(apsw.VFS):
     """A VFS serving exactly one immutable remote object as the main database."""
 
@@ -538,6 +549,12 @@ class _RangedVFS(apsw.VFS):
         super().__init__(name, base="")
 
     def xOpen(self, name: object, flags: list[int]) -> apsw.VFSFile:
+        if flags[0] & _LOCAL_SCRATCH and not flags[0] & apsw.SQLITE_OPEN_MAIN_DB:
+            # A sort or DISTINCT too large for the page cache spills to a temp
+            # file. It is scratch space, never the corpus, so it goes to local
+            # temp disk through the default VFS rather than into memory
+            # without a bound.
+            return apsw.VFSFile("", cast(str | None, name), flags)
         if not flags[0] & apsw.SQLITE_OPEN_MAIN_DB:
             # Journals/WAL never exist for an immutable read-only object.
             raise apsw.CantOpenError("the ranged VFS serves only the main database")
@@ -646,9 +663,6 @@ def connect_ranged(
             flags=apsw.SQLITE_OPEN_READONLY,
             vfs=vfs_name,
         )
-        # A sort or DISTINCT too large for SQLite's cache spills to a temp
-        # file, which this VFS cannot open; hold temp structures in memory.
-        connection.execute("PRAGMA temp_store = MEMORY")
         try:
             yield RangedConnection(connection, reader.stats)
         finally:

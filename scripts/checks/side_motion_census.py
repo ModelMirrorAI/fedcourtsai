@@ -307,7 +307,7 @@ def failure_class(stderr: str) -> str | None:
     frame_ends = [
         index
         for index, line in enumerate(lines)
-        if line.startswith('  File "') or line.lstrip().startswith("╰")
+        if line.startswith('  File "') or line.startswith("╰")
     ]
     if not frame_ends:
         return None
