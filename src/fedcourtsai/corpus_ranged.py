@@ -646,6 +646,9 @@ def connect_ranged(
             flags=apsw.SQLITE_OPEN_READONLY,
             vfs=vfs_name,
         )
+        # A sort or DISTINCT too large for SQLite's cache spills to a temp
+        # file, which this VFS cannot open; hold temp structures in memory.
+        connection.execute("PRAGMA temp_store = MEMORY")
         try:
             yield RangedConnection(connection, reader.stats)
         finally:

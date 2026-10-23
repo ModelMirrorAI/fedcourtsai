@@ -678,3 +678,12 @@ def test_successful_read_neither_sleeps_nor_warns(
     assert _stub_calls(transport) == [{"Bucket": "test-bucket", "Key": _KEY, "Range": "bytes=0-6"}]
     assert sleeps == []
     assert capsys.readouterr().err == ""
+
+
+def test_temp_structures_stay_in_memory(tmp_path: Path) -> None:
+    # The VFS opens only the main database, so a sort that spills to a temp
+    # file would fail with CantOpenError partway through a long read.
+    pointer, transport = _fixture_remote(tmp_path)
+    with corpus_ranged.connect_ranged(pointer, REMOTE_URL, transport=transport) as ranged:
+        row = ranged.execute("PRAGMA temp_store").fetchone()
+        assert row is not None and row[0] == 2  # MEMORY

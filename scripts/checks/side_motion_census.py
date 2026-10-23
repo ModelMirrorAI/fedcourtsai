@@ -291,20 +291,31 @@ def render(census: Census, *, listings: bool, same: bool | None = None) -> str:
 
 #: How long the `--text-coverage` read may take before its line is reported unread.
 TEXT_SOURCE_TIMEOUT_SECONDS = 300
-# The class of the exception a failed run raised, off the last line of its
-# traceback. Only the class name reaches the summary, which the lane posts
-# publicly: an exception's message can carry a path, a key or docket text.
+# The class of the exception a failed run raised, off the first line after the
+# traceback's last frame: a plain traceback's last `File "…"` line, or the
+# closing border of the panel the CLI's pretty traceback draws. Only the class
+# name reaches the summary, which the lane posts publicly: an exception's
+# message can carry a path, a key or docket text.
 _EXCEPTION_LINE = re.compile(
-    r"^\s*([A-Za-z_][\w.]{0,79}(?:Error|Exception|Exit|Interrupt|Failure))(?::|\s*$)"
+    r"([A-Za-z_][A-Za-z0-9_.]{0,79}(?:Error|Exception|Exit|Interrupt|Failure))(?::|\s*$)"
 )
 
 
 def failure_class(stderr: str) -> str | None:
-    """The exception class a failed run's stderr ends on, or ``None``."""
-    for line in reversed(stderr.splitlines()):
+    """The exception class a failed run's traceback ends on, or ``None``."""
+    lines = stderr.splitlines()
+    frame_ends = [
+        index
+        for index, line in enumerate(lines)
+        if line.startswith('  File "') or line.lstrip().startswith("╰")
+    ]
+    if not frame_ends:
+        return None
+    for line in lines[frame_ends[-1] + 1 :]:
+        if line.startswith((" ", "\t")) or not line.strip():
+            continue  # the frame's source line, or blank space before the class
         match = _EXCEPTION_LINE.match(line)
-        if match:
-            return match.group(1)
+        return match.group(1) if match else None
     return None
 
 

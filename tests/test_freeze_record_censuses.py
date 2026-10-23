@@ -255,7 +255,19 @@ def test_the_side_motion_census_names_what_a_failed_text_coverage_run_raised(
         + "botocore.exceptions.NoCredentialsError: Unable to locate credentials at /home/x\n"
     )
     assert census.failure_class(traceback) == "botocore.exceptions.NoCredentialsError"
-    assert census.failure_class("PermissionError: [Errno 13] /srv/data\n") == "PermissionError"
+    pretty = (
+        "╭──── Traceback (most recent call last) ────╮\n"
+        + "│ /x/cli.py:1 in corpus_info                │\n"
+        + "╰───────────────────────────────────────────╯\n"
+        + "CantOpenError: the ranged VFS serves only the main database\n"
+    )
+    assert census.failure_class(pretty) == "CantOpenError"
+    # Only the line that ends the traceback names the class: a later line that
+    # merely looks like one, or an indented one, is message text.
+    assert census.failure_class(traceback + "SecretTokenError\n") == (
+        "botocore.exceptions.NoCredentialsError"
+    )
+    assert census.failure_class(pretty.replace("CantOpenError", "   CantOpenError")) is None
     assert census.failure_class("No corpus at /x\n") is None
 
     def run(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
@@ -265,6 +277,12 @@ def test_the_side_motion_census_names_what_a_failed_text_coverage_run_raised(
     line = census.text_source_line()
     assert line == "text source: not printed (exit 1: botocore.exceptions.NoCredentialsError)"
     assert "/home/x" not in line
+
+    def bare(*_: object, **__: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([], 1, stdout="", stderr="Killed\n")
+
+    monkeypatch.setattr(census.subprocess, "run", bare)
+    assert census.text_source_line() == "text source: not printed (exit 1)"
 
 
 def test_the_wrapper_clamps_a_section_at_a_line_boundary(monkeypatch: pytest.MonkeyPatch) -> None:
