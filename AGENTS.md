@@ -55,6 +55,43 @@ non-interactive** container. Two consequences shape everything you do:
   mutation a scheduled window can converge toward on its own is a standing sweep
   on the walker instead. See `docs/data-pipeline.md`.
 
+## Where you run: an interactive cloud session
+
+A session in the Claude app or Claude Code on the web runs in a cloud
+container cloned for it. It differs from a dev checkout in ways worth knowing
+before the first command rather than mid-task:
+
+- **Only attached repositories can be cloned or pushed to.** A cross-repository
+  change, such as the site PR *The public site reads this repository* asks for,
+  needs `fedcourts.ai` attached to the session first.
+- **The clone may be shallow.** A shallow history answers `git merge-base` and
+  "is this commit on `main`?" wrongly, so run `git fetch --unshallow` (or fetch
+  the branch you compare against in full) before any ancestry question. Fetch
+  `staging` before branching from it, since a single-branch clone has no
+  `origin/staging`. A fetch refspec left behind for a branch since deleted
+  fails every later `git fetch origin` ("couldn't find remote ref") until
+  `git config --unset --fixed-value remote.origin.fetch '<refspec>'` removes
+  it, with the refspec exactly as `git config --get-all remote.origin.fetch`
+  prints it.
+- **GitHub goes through the session's connection.** Which routes it accepts
+  depends on how the session was set up: where `gh pr …` or `gh issue …`
+  fails on a GraphQL refusal, try the same call over REST (`gh api
+  repos/{owner}/{repo}/…`) or the session's GitHub tools, which also read
+  Actions job logs. Dispatch, re-run and environment administration stay
+  refused whatever the route (*You cannot dispatch a workflow*, below), and
+  admin-read checks such as `scripts/promotion-gate.sh contexts` are the
+  maintainer's to run.
+- **The container runs as root, behind an HTTPS proxy.** A test that relies on
+  a file's mode bits, or on a client that ignores the proxy environment
+  variables, has to set that up itself, or it passes in CI and fails here.
+- **Corpus access and identity** are covered where they bind: *Corpus-dependent
+  claims state corpus freshness* says what a session started in the corpus
+  environment may read and how any other session asks the corpus-check lane
+  (the full contract is *Developer access* in `docs/data-pipeline.md`); *You
+  merge to `staging`* says which account a session acts as; and *Don't commit
+  personal or organizational email addresses* gives a hosted session's commit
+  identity.
+
 ## The golden rules
 
 - **Branch and PR.** Never commit to `main` or `staging` directly. Create a
