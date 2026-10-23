@@ -55,6 +55,37 @@ non-interactive** container. Two consequences shape everything you do:
   mutation a scheduled window can converge toward on its own is a standing sweep
   on the walker instead. See `docs/data-pipeline.md`.
 
+## Where you run: an interactive cloud session
+
+A session in the Claude app or Claude Code on the web runs in a cloud
+container cloned for it. It differs from a dev checkout in ways worth knowing
+before the first command rather than mid-task:
+
+- **Only attached repositories are reachable.** Another repository has to be
+  attached to the session before it can be cloned or read.
+- **The clone may be shallow.** A shallow history answers `git merge-base` and
+  "is this commit on `main`?" wrongly, so run `git fetch --unshallow` (or fetch
+  the branch you compare against in full) before any ancestry question, and
+  fetch `staging` before branching from it. A fetch refspec left behind for a
+  branch since deleted fails every later `git fetch origin` ("couldn't find
+  remote ref") until `git config --unset remote.origin.fetch '<pattern>'`
+  removes it.
+- **GitHub goes through the session's connection.** Which routes it accepts
+  depends on how the session was set up: where `gh pr …` or `gh issue …`
+  fails on a GraphQL refusal, the same call over REST (`gh api
+  repos/{owner}/{repo}/…`) or the session's GitHub tools works, and Actions
+  job logs are readable through those tools. Dispatch, re-run and
+  environment administration stay refused whatever the route (*You cannot
+  dispatch a workflow*, below), and admin-read checks such as
+  `scripts/promotion-gate.sh contexts` are the maintainer's to run.
+- **The container runs as root, behind an HTTPS proxy.** A test that relies on
+  a file's mode bits or on an unproxied client has to set that up itself, or
+  it passes in CI and fails here.
+- **Corpus access and identity** are covered where they bind: the
+  corpus-freshness rule says what a session started in the corpus environment
+  may read and how any other session asks the corpus-check lane, and the merge
+  rule says which account a session acts as.
+
 ## The golden rules
 
 - **Branch and PR.** Never commit to `main` or `staging` directly. Create a
