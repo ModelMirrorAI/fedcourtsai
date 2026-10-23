@@ -8,9 +8,10 @@ defines the decomposition that makes those parts scoreable, and the rule that
 scores them.
 
 **The mechanical family is implemented at all three stages; everything else here
-is pre-registration — with one carve-out, the
-semantic family, which is declared but neither pre-registered nor producing
-anything.** The scoring rule is `pipeline.base_rates.claim_score`; the
+is pre-registration — with two carve-outs: the semantic family, which is
+declared but neither pre-registered nor producing anything; and a design for
+grading `predicted_reasoning.md` itself (*Grading the forecast document,
+design*), not yet registered.** The scoring rule is `pipeline.base_rates.claim_score`; the
 declared sets — five cert-stage claims under `cert-v2`, carried by every
 declared cert moment, four interim claims under `interim-v1` carried by every
 interim moment, and the one merits claim (`judgment-disturbed`) under
@@ -39,8 +40,11 @@ declared claim masks.
 Everything else — the whole document up to *The semantic family, alpha* — is
 pre-registration: the decomposition and the rule are settled before there is
 data to fit them to, which is the only order in which the choice of rule is
-credible. That last section is the exception, and says so at its own head; no published
-number depends on it, and it is superseded rather than edited.
+credible. That section is the exception, and says so at its own head; no
+published number depends on it, and it is superseded rather than edited. The
+section after it, *Grading the forecast document, design*, is a design for a
+grade of `predicted_reasoning.md` itself, settled before any grade exists and
+not yet registered.
 
 ## Naming
 
@@ -1038,10 +1042,12 @@ does not yet decide — is *The semantic family, alpha*.
 
 `predicted_reasoning.md` is a forecast document, and the whole point of keeping
 it apart from `reasoning.md` is that a forecast can be scored while a rationale
-cannot. Nothing scores the document itself, and nothing ever will: prose is not
-a resolvable object. What is scored are the **structured** claims that carry the
-same content — the mechanical `claims` block, and on a merits cell the graded
-`semantic_claims` block. This register is the join between the two. Every
+cannot. Nothing in the registered process grades the document itself: prose
+is not resolvable deterministically, and the graded protocol designed for it
+(*Grading the forecast document, design*) is not yet registered. What is
+scored are the **structured** claims that carry the same content — the
+mechanical `claims` block, and on a merits cell the graded `semantic_claims`
+block. This register is the join between the two. Every
 content class the predict prompt asks a cell to commit to appears here with its
 route, so that *unscored* is a stated position rather than an oversight. A class
 the prompt elicits and this table does not name is a defect in one of them.
@@ -1995,3 +2001,239 @@ residuals its module docstring names, the call-class profile among them. So what
 separates a declared set from a produced grade is a decided merits case — its
 resolution to mint the grading cell, and its opinion text for the grader to read
 — not a shape, and not an elicitation.
+
+## Grading the forecast document, design (`predicted_reasoning_quality`)
+
+The register above routes every content class the predict prompt elicits to a
+structured claim or to context-only, and leaves `predicted_reasoning.md` itself
+ungraded. That position says less than it seems to: prose is not resolvable
+**deterministically**, but the project already resolves non-deterministic objects
+by a reader under discipline (`reasoning_quality`, the `semantic-v1` grades, the
+QP-topic labeler). And the structured blocks score only what was declared in
+advance, so the most informative part of a forecast — the specific, checkable
+things a predictor volunteered beyond the declared sets — earns nothing and
+costs nothing. A grade of the document is what makes that content count.
+
+**This section is a design, not a registered process.** No prompt asks for the
+grade, no schema carries it, and no artifact reads it; the register's opening
+position above stands until the grade is registered (*Registration* below). It is settled here,
+before a single grade exists, for the same reason the rest of this document is:
+a rubric chosen after reading the grades is a rubric fitted to them.
+
+### What is graded, and by whom
+
+- **The document, and only the document.** `predicted_reasoning_quality` grades
+  `predicted_reasoning.md` — the predictor's forecast of what the Court will do
+  and say. It is not a grade of the prediction as a whole: the probability, the
+  `claims` block, the votes and the `semantic_claims` keep their own scores, and
+  the grade is never folded into any of them. It is the sibling of
+  `reasoning_quality`, which grades `reasoning.md`, and the two are never mixed
+  in either direction, for the reason the evaluate prompt already gives:
+  a number that means two things is comparable across cells as neither.
+- **Every stage.** Cert, interim and merits cells are all graded. The merits
+  documents carry the richest content, but a document grade that exists only
+  where opinions do would leave the cert and interim record with no measure of
+  the prose at all, and those stages hold almost every resolved cell today.
+- **Every evaluator grades every predictor.** The grade rides the evaluate
+  cell's existing evaluator × predictor fan-out, under the same blinding
+  bracket, beside `reasoning_quality`. No single engine extracts claims for the
+  others: a pipeline in which one model decides what the propositions are and
+  the panel only resolves them would make that one model's reading the object
+  every grade measures.
+- **Holistic, on the thrust.** The grader reads the whole document and judges
+  how well its forecast held up. It chooses for itself which claims are central
+  — the disposition and route, the vote and who writes, the ground, the
+  procedural path, whatever the document leads with — and it grades the thrust,
+  not the margins. A minor detail wrong in an otherwise borne-out forecast
+  costs little; a confident central call that failed costs most of the grade.
+
+### The scale and the rubric
+
+The grade is a number in `[0, 1]`, the scale `reasoning_quality` uses, so the
+existing tau-b estimator (`kendall_tau_b`) applies without rescaling; the
+figures that use it are new (*Relation to the other numbers*, *The pilot*). It
+is anchored, because a bare scale drifts apart across graders:
+
+| Grade | Anchor |
+| --- | --- |
+| 1.0 | The central claims are specific and borne out; the document called what a competent reader of the pre-decision record could plausibly have called otherwise |
+| 0.75 | The central claims are specific and mostly borne out; one secondary claim failed, or one central claim held only in part |
+| 0.5 | The forecast is right in direction but generic — it commits to little beyond the outcome itself — or a specific forecast is split between borne out and not |
+| 0.25 | A central claim failed, with the rest generic or mixed |
+| 0.0 | The central claims are specific and failed, or the forecast is wrong in direction |
+
+Three rules hold the anchors in place:
+
+- **Specificity is in the anchors, not a separate axis.** A document that is
+  right but says nothing a reader could have been wrong about caps near the
+  middle. This is the anchor that keeps a graded document from rewarding hedged
+  prose: a hedge cannot reach the top of the scale, because it never commits to
+  the specific claims the top requires.
+- **Discriminating content only.** A claim entailed by the question presented,
+  the syllabus or the standard of review earns no credit however cleanly the
+  outcome matches it, because it was never at issue — the same paraphrase rule
+  the semantic grading protocol applies.
+- **Length earns nothing.** A longer document is not a more specific one. The
+  grade reads what the document committed to, not how much it wrote.
+
+Beside the grade, the grader lists the **three to five claims it treated as
+central**, each with a status — borne out, not borne out, or unresolved — and a
+one-line basis naming what in the record it rests on. The list is not scored and
+never aggregates into anything. It is the audit trail that makes "grade the
+thrust, not the margins" checkable: a reviewer can see whether the grader graded
+the claims the document led with, or hunted for a detail to dock.
+
+### What the grade is checked against
+
+The grader reads what the evaluate cell already stages — the committed outcome,
+the docket record, the order text — and, on a merits cell, the text of **every
+writing** in the case: the majority opinion, each concurrence and each dissent.
+What resolves differs by stage:
+
+| Stage | What the outcome can show |
+| --- | --- |
+| cert | The disposition and its route, further relists, a CVSG, a summary disposition, any dissent from or statement respecting denial and who wrote it |
+| interim | The disposition, a referral, a call for a response, any separate writing and who wrote it |
+| merits | The judgment, the lineup, who wrote each opinion, which Justices wrote separately and what each writing argues, the ground and its breadth |
+
+The grade rests on the staged record alone, as the semantic grades do: an
+absent writing is never a licence to fetch its text from somewhere else, because
+a basis has to resolve against text whose digest the cell recorded. A central
+claim that the staged record cannot settle — a writing the corpus does not yet
+hold, an order the record omits — is listed as unresolved; the grader does not
+guess.
+
+**Content the outcome never tests earns nothing either way.** A cert document
+forecasts the merits only conditionally ("if granted, the ground is likely …"),
+and a denial never tests that condition. Untriggered conditional content earns
+neither credit nor penalty — but it does not excuse the document from a grade.
+Every document at every stage faces something the outcome resolves (at the
+least, the disposition), so a document whose central claims are all
+conditional on an event that did not happen is graded as a **generic** one, at
+the anchors that cap it near the middle or below. Otherwise writing only in
+conditionals would trade a low grade for none.
+
+**Not gradeable is the record's ground only.** The grade is null, with a stated
+ground, only where the staged record is silent on everything the document's
+central claims turn on — never because the predictor declined, hedged, or wrote
+conditionally, the same rule the availability mask above states. A null is
+never a middling number standing in for "could not tell", and each predictor's
+null count publishes beside its figures, so a pattern of nulls is visible
+rather than absorbed into a denominator. Where some judges return null and
+others grade, the cell is a **split on the mask**, handled as the semantic
+agreement requirement handles one: it enters neither the panel mean nor any
+coefficient, and is counted on its own row, and a published figure says it
+holds only where the panel agreed the record spoke.
+
+### Blinding
+
+The grade is formed under the blinding bracket every evaluate cell runs inside,
+with its named residuals. Two of them bind harder here than for any other grade.
+**Prose style**, because the grader reads a whole document in the predictor's
+voice rather than a set of propositions. And **family**, because a judge reading
+its own model family's document may prefer that family's way of writing, which
+blinding the name does not hide. Both are accepted rather than solved, and both
+are measured: the pilot reports the predictor-tracking check below, and reports
+each judge's grades of its own family's documents separately from its grades
+of the others'.
+
+### Relation to the other numbers
+
+- **Never inside `reasoning_quality`, never inside a claim total.** The grade is
+  its own field and its own series.
+- **Per stage, per process version, per rubric, never a rank key** — the
+  publishing rules a claim total travels under apply unchanged, a cert-stage
+  grade never pools with a merits-stage one, and a mean grade reads per
+  (evaluator, digest) the way `metrics/README.md` reads every judge-authored
+  figure, never as one mean pooled across judges.
+- **Paired with the mechanical record, with its built-in part stated.** The
+  pre-registered mechanical↔semantic agreement above keeps its pairing with
+  `reasoning_quality`. This grade is paired with the mechanical claim total as
+  a separate, parallel figure under the same estimator and floors, so neither
+  series is redefined. That pairing is partly built in: the anchors grade
+  whether the disposition held, and the claim total scores the same
+  disposition. So the figure also publishes **within** the cells where the
+  disposition was called correctly and within those where it was not, and only
+  those within-group coefficients speak to whether the grade measures more than
+  the disposition.
+
+### The pilot, and what it reports
+
+The grade is exploratory as much as it is a measurement: part of its value is
+seeing what the judges say about a forecast, in the grade, the central-claims
+list and the write-up. So the pilot is not a pass/fail gate against the
+maintainer's labels. It reads what the judges do, reports how far they agree
+with each other and with the maintainer, and fixes in advance *what* it
+reports, so the report cannot be chosen after the grades are read.
+
+- **Population.** About 60 already-resolved cert and interim documents, graded
+  by every configured judge with the draft prompt section, plus replay merits
+  cells on 10–20 decided OT2024–25 cases. The replay merits grades are
+  **calibration evidence only**, reported separately: those opinions are
+  public, so a replay document can carry its outcome, and the grades never
+  test a predictor.
+- **Output.** A pilot report, outside `data/`. A pilot grade is never committed
+  to the ledger and never read by any metrics artifact. The report lists every
+  round the draft prompt section went through.
+- **Reference labels.** The maintainer grades **10** cert and interim pilot
+  documents on the same rubric to start, more as needed, chosen to span the
+  scale. The maintainer grades blind to predictor identity and before seeing
+  any judge's grade, and the labels' hash is recorded in the pilot report
+  before the panel's grades are read. For merits, published commentary on
+  decided cases — argument previews and analyses whose quality is roughly
+  known — is graded alongside as exemplars, a weaker test since commentary is
+  recognisable by its authors. A label is a reference point, not ground truth:
+  where the judges and the maintainer part ways, the report reads the
+  disagreement rather than scoring the judges against it.
+- **What the report carries**, each over the cert and interim documents and
+  never pooled across stages:
+  - each judge's grade beside the maintainer's on every reference document,
+    with the share within 0.2 and Kendall tau-b against the labels (on 10
+    points a description, not a measurement);
+  - leave-one-out inter-evaluator agreement — the same leave-one-out tau-b
+    construction as the board's `evaluator_agreement`, with the cell (case,
+    event, predictor) as the unit rather than the case, since a document grade
+    is a property of the cell — with the distinct-case count beside the unit
+    count, and an undefined coefficient reported as undefined rather than read
+    as agreement, for the reason the semantic agreement requirement gives;
+  - the **predictor-tracking check**: the same leave-one-out tau-b computed
+    within each predictor's documents and averaged. A pooled coefficient well
+    above the within-predictor one says judges agree on which predictor wrote
+    a document more than on how good it was;
+  - each judge's grades of its own family's documents beside its grades of the
+    others';
+  - a reading of the central-claims lists and write-ups: what the judges
+    treated as central, where they diverged, and whether they graded the
+    thrust or hunted details.
+- **What decides registration** is the maintainer's reading of that report, not
+  a threshold. The figures above travel with the grade once it is published —
+  every published mean carries its agreement figure beside it, and a low or
+  undefined one is a caveat a reader sees, not a figure withheld.
+
+### Registration
+
+The grade is registered at a process re-bless, as one coordinated change: the
+evaluate prompt's section asking for it, the schema field with its
+central-claims list, the matching site change if the grade is published, a
+freeze-record entry, and the register revised to match: its opening paragraph
+and its "every scored route is mechanical or graded, never prose" property name
+the registered grade, and a row routes the document to it. The prompt change
+moves **every** evaluate digest, not only this grade's: the existing
+`reasoning_quality`, `big_case` and agreement readings start new signatures at
+that boundary, which is the cost of asking for the grade inside the evaluate
+cell. After registration the already-resolved forward documents are graded
+**once**, in new evaluation runs stamped with the grading's process version;
+committed evaluations are never edited.
+
+### What remains unbuilt
+
+1. **Per-writing opinion text.** The `opinions` table records each writing's
+   kind, author, joiners and length from the Court's own documents, but stores no
+   text, and the content store holds a majority-opinion body for only a sliver
+   of the granted cases. Storing each writing's text from the documents the
+   `opinion-record` pass already reads is a corpus change on a repair pass.
+2. **The draft prompt section and the pilot mode.** The pilot needs a way to run
+   the draft section over a named set of resolved cells without committing the
+   result.
+3. **The reference labels and the pilot run itself.**
+4. **Registration**, as above.
