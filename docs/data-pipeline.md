@@ -1422,6 +1422,10 @@ or network.
      `fedcourts merits-lineups` derives each decision's lineup from those rows
      and the pass's `opinion_benches` (who sat), read-only and never stored, by
      the rule the merits vote source stamps forecast outcomes with.
+     `fedcourts justice-priors` rolls those lineups, with each case row's
+     parsed judgment, into per-Justice majority, disturb and pairwise-agreement
+     tallies per Term, pooled strictly before a given Term; also read-only, and
+     not yet staged to any cell.
 
      An event pinned to one docket entry is never a claimant of its stage's
      disposition: it resolves on its own filing's terms, so an application
