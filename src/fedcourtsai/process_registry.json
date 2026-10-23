@@ -484,6 +484,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": false
+    },
+    {
+      "name": "qp-cutter-split-and-review-headings",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

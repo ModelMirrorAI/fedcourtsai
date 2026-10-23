@@ -13106,3 +13106,84 @@ freeze commit is recorded here.
     "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('context-paper-only-filings' in {b.name for b in H})"` prints `True`
     once the promotion record has stamped the row.
+
+- **The questions-presented cut opens at the petition's real heading, drops
+  page folios, and marks a capped section; recorded 2026-10-23.** A change to
+  a cell input and to the QP-topic labeler's input, with no reading rule and
+  no scored figure.
+
+  **Why.** The stored `questions-presented` row is what a cert cell reads as
+  `record/documents/questions-presented.txt`, and what the QP-topic labeler
+  labels. Agent flags named five bad rows. Read from the stored petition text,
+  they come from four faults:
+  - pypdf recovered a small-caps heading as "QUESTION S PRESENTED", which the
+    start rule missed. The cut then opened at prose ("the questions presented
+    are:") or at an argument heading that spells the phrase. On 73280982 the
+    row held printed pages 31 to 33 of the argument.
+  - A "Questions to Review" heading was not read at all, so no row was stored.
+  - The page folio before the next heading ("ii") was kept as the row's last
+    line.
+  - A section longer than the 4,000-character cap was cut there, but the row
+    was stored with `truncated: false`.
+
+  The fifth flag (73331499, "cut mid-Q2") is the filing's own text: the
+  petition's second question ends mid-sentence.
+
+  **The change.**
+  - The start rule reads `QUESTION\s?S?\s+PRESENTED`, and absorbs a heading's
+    `FOR REVIEW` tail.
+  - A `Questions to Review` or `Question for Review` heading opens the section
+    only where it is set as a heading. Prose says those words too.
+  - A lone folio on the section's last line is dropped.
+  - A section cut at the cap is stored with `truncated: true`.
+  - `backfill-questions-presented` re-derives stored rows from their stored
+    petition text, as it does after any cutter change. A row whose text is
+    unchanged but whose cap mark is wrong is rewritten under its own reason
+    class, `cap-mark`.
+  - New rows take the cut at ingest.
+  - **The registry row.** The boundary is `qp-cutter-split-and-review-headings`.
+    It applies to every predictor, with reach `all`, and is **gradual**: stored
+    rows change only when a maintainer-dispatched back-fill applies. It is
+    registered pending in this change's own PR (`fedcourts register-boundary`).
+    The promotion merge that carries it stamps it (`promotion-record`).
+
+  **Measured effect.** The current and the new extractor were each run over
+  the stored petition text of every live-slice SCOTUS case. The read went
+  directly to the production per-case content store on 2026-10-23, with the
+  case list taken from the index blob `2c899403…` (latest pull 2026-10-23,
+  latest snapshot row 2026-07-13). Of the 8,759 petitions that carry a QP
+  heading under either rule, 6,450 derive a different section.
+
+  | Class | Rows |
+  | --- | ---: |
+  | Only a trailing page folio dropped | 5,601 |
+  | Folio and a leading `FOR REVIEW` dropped | 430 |
+  | Only a leading `FOR REVIEW` dropped | 297 |
+  | Reopened at the real heading (mostly the split heading) | 93 |
+  | Heading now found where none was read | 24 |
+  | Empty before, now derived | 5 |
+  | Derived before, now empty | 0 |
+
+  No row loses a question that the current extractor captures. Against the
+  rows actually stored, a dry run would also set the cap mark on 261 rows
+  whose text is unchanged.
+  - **The labeler.** The QP-topic labels already committed were read off the
+    rows as stored. A batch labeled after the back-fill applies reads the new
+    rows, so a QP whose row changed class "reopened" or "newly derived" can
+    label differently from a batch before it. Folio and `FOR REVIEW` drops
+    change no question text.
+
+  **What it moves.** No scored figure and no digest: no prompt or other digest
+  input changes. Once cells sit on both sides of the stamped boundary, each
+  pooled entry's and each paired engine's `boundaries` list gains a
+  `qp-cutter-split-and-review-headings` row, which is composition, not a cut.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_documents.py -k "questions_presented"` is green;
+  - after the carrying merge, a `run-repair` dry run of
+    `backfill-questions-presented` reports about 6,700 rows to rewrite,
+    including a `cap-mark` class of about 260. Its apply is the maintainer's
+    dispatch.
