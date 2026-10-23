@@ -1,0 +1,13 @@
+case_id: scotus/6350889
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2017-09-01'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: O. John Benisek, et al., Appellants v. Linda H. Lamone, Administrator, Maryland
+  State Board of Elections, et al.

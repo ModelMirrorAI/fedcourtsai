@@ -1,0 +1,12 @@
+case_id: scotus/62608359
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2021-09-30'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Federal Election Commission v. Ted Cruz for Senate, et al.
