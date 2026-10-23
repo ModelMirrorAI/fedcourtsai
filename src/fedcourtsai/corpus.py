@@ -540,8 +540,9 @@ class CorpusRow(BaseModel):
         "confident 0 never regresses it. Withheld from the retrieval surface "
         "(`RETRIEVAL_WITHHELD_COLUMNS`). None = not cert-parsed since the column "
         "existed: a row the live poll has not read since then, which a resolved "
-        "row the poll rotation skips stays until a re-derivation fills it. Live "
-        "cert branch only.",
+        "row the poll rotation skips stays until the cert amicus back-fill "
+        "(`rederive-cert-amicus-briefs`, a run-repair pass) fills it. Written by "
+        "the live cert branch and that back-fill only.",
     )
     sample_weight: int | None = Field(
         default=None,
@@ -1031,7 +1032,8 @@ CREATE TABLE IF NOT EXISTS cases (
     argument_transcript_at TEXT,
     -- The cert-stage amicus count (see CorpusRow and pipeline/cert_amicus.py):
     -- the amicus briefs a petition's docket recorded before its first
-    -- disposition entry. Written by the live poll's cert branch at ingest;
+    -- disposition entry. Written by the live poll's cert branch at ingest and
+    -- by the cert amicus back-fill (pipeline/cert_amicus_rederive.py);
     -- max-latched. Withheld from the retrieval surface. NULL = never
     -- cert-parsed since the column existed.
     cert_amicus_briefs INTEGER
@@ -3852,6 +3854,44 @@ def set_amicus_briefs(conn: sqlite3.Connection, counts: Iterable[tuple[str, int]
         for case_id, count in counts:
             cursor = conn.execute(
                 "UPDATE cases SET amicus_briefs = ? WHERE case_id = ?", (count, case_id)
+            )
+            written += cursor.rowcount
+    return written
+
+
+def raise_cert_amicus_briefs(conn: sqlite3.Connection, counts: Iterable[tuple[str, int]]) -> int:
+    """Write re-derived cert-stage ``cert_amicus_briefs`` counts **under the max latch**.
+
+    The back-fill writer of :mod:`fedcourtsai.pipeline.cert_amicus_rederive`,
+    and deliberately *not* a twin of :func:`set_amicus_briefs`: each statement
+    lands only where the stored value is NULL or below the incoming one, which is
+    the rule :func:`_update_clause` applies to this column on every upsert. A
+    lower recount touches nothing. Lowering this column is never a legitimate
+    write — its reading is the one ingest has used since the column's first write,
+    and its cut is the docket's first disposition entry, which every read of the
+    same docket finds in the same place — so a recount below the stored value
+    reads a snapshot that has lost entries, the degradation the latch exists to
+    reject.
+
+    A guarded ``UPDATE`` rather than :func:`upsert_rows`, because an upsert
+    re-asserts the whole row and mirrors its ``case.json`` to the content store:
+    for a one-column back-fill over the cert live slice that is one store write
+    per row for a single integer, and a mirror of rows read from a split-mode
+    blob, which carries no opinion body. Like its ``set_*`` siblings it writes the
+    index only. A store-side rebuild from ``case.json`` would therefore bring
+    back NULL on a resolved row the live rotation no longer polls; re-running the
+    back-fill fills it again.
+
+    One transaction over the whole batch; returns the rows the statements
+    actually touched, which a caller compares against what it planned to write.
+    """
+    written = 0
+    with conn:
+        for case_id, count in counts:
+            cursor = conn.execute(
+                "UPDATE cases SET cert_amicus_briefs = ? WHERE case_id = ? "
+                "AND (cert_amicus_briefs IS NULL OR cert_amicus_briefs < ?)",
+                (count, case_id, count),
             )
             written += cursor.rowcount
     return written

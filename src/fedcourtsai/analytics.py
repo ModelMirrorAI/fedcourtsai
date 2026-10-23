@@ -727,9 +727,12 @@ _CERT_AMICUS_NOTE = (
     "over the relist and CVSG cuts."
 )
 # Not yet in `_STATPACK_SECTIONS`: the column fills only as the live poll re-reads
-# a docket, and the poll skips resolved rows, so until a re-derivation fills the
+# a docket, and the poll skips resolved rows, so until `run-repair`'s
+# `cert-amicus-rederive` pass (`fedcourts rederive-cert-amicus-briefs`) fills the
 # resolved history this section would be almost all `(unknown)` — noise in a
-# table cells read. `cert_amicus_section` builds it on its own meanwhile.
+# table cells read. Admitting it to the statpack is a change to what cells read,
+# and waits for its own re-bless. `cert_amicus_section` builds it on its own
+# meanwhile.
 _CERT_BY_AMICUS_PAID = _SectionSpec(
     "Cert petitions by amicus-brief count (paid scored segment)",
     "scotus",

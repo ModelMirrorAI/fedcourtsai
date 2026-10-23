@@ -1306,6 +1306,22 @@ the maintainer's: it presupposes the widened reading is **promoted**, since it
 corrects rows frozen under the old one, and because it moves a scored claim's
 resolution end its apply owes a `regrade-stale` follow-through.
 
+`cert-amicus-rederive` is corpus-only: it fills the cert-stage
+`cert_amicus_briefs` column on the cert live slice the poll no longer reaches
+(`fedcourts rederive-cert-amicus-briefs`), counting each row from its latest
+live-shaped snapshot exactly as ingest's cert branch counts it, open petitions
+included. Unlike `amicus-rederive` it keeps the column's max latch, filling a
+NULL and raising a lower count but never lowering one: this column has had one
+reading since its first write, so a recount below the stored value reads a
+snapshot that lost entries, and it is reported rather than written. Nothing
+committed carries the count, so its commit is the corpus pointer alone. It is
+a dispatched pass rather than a standing sweep because its class does not
+regrow: every poll writes the column on the row it reads, so once the history is
+filled there is nothing for a window to converge, and a sweep would re-read the
+whole slice from the content store each window to find that. The stat pack's
+amicus cut waits on it, and stays out of the statpack until a re-bless admits it
+to what cells read.
+
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
 evaluator cell's graded fields under the cell's original stamp and rewrites
