@@ -1,0 +1,111 @@
+{
+  "big_case_rationale": "Governs how every federal sentencing court treats Guidelines commentary (tens of thousands of sentences a year) and tests whether Kisor/Loper Bright reach the Sentencing Commission; technical and low-salience to the public.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/73277583",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.27
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 7,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-14",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-23T10:24:38Z",
+  "engine": "claude-code",
+  "event_id": "evt-argument-judgment",
+  "granted": 0,
+  "input_snapshot": "2026-10-14.json",
+  "judgment": "affirmed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.27,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54",
+    "label": "proc-v11",
+    "pipeline_sha": "aaafd2a8e347e74699136354b7903d4bbbf881e2",
+    "stamped_at": "2026-10-23T10:25:09.968873Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T031441Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority reaffirms Stinson rather than overruling it or importing Kisor's genuine-ambiguity prerequisite, grounding the Commission's interpretive authority in the Sentencing Reform Act's express grant of power to issue policy statements regarding application of the guidelines (28 U.S.C. 994(a)(2), as read in Williams v. United States), so commentary binds unless plainly erroneous or inconsistent with the guideline; it treats Booker's advisory regime as strengthening, not weakening, stare decisis for Stinson."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is a categorical rule for all Guidelines commentary interpreting a guideline, not a ruling confined to the 15-round magazine definition in 2K2.1 note 2: it rejects any Kisor-style ambiguity threshold across the Manual, while noting in passing that commentary flatly inconsistent with guideline text never controls."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

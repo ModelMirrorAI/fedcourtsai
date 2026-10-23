@@ -1,0 +1,24 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73277583",
+  "gaps": [
+    "A corpus filter on granted merits questions or statutory/Guideline provisions would help surface functionally analogous merits priors."
+  ],
+  "helpful": [
+    "metrics/statpack.md merits docket table with per-Term parsed and disturbed counts",
+    "provisioned cert-stage filings (petition.txt, brief-in-opposition.txt, appendix.txt, questions-presented.txt)",
+    "provisioned snapshot 2026-04-21.json with grant order text and counsel/amici metadata"
+  ],
+  "notes": "Provisioned cert-stage documents and the statpack merits table provided a complete baseline for this moment: grant merits forecast.",
+  "role": "predictor",
+  "run_id": "20261023T031441Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "metrics/statpack.md",
+    "fedcourts paths",
+    "fedcourts query",
+    "courtlistener MCP search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

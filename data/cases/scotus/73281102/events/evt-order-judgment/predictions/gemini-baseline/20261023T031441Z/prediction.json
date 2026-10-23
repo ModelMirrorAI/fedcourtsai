@@ -1,0 +1,111 @@
+{
+  "big_case_rationale": "Resolves an entrenched circuit split affecting thousands of federal prisoners' ability to enforce First Step Act earned time credits for halfway-house or home-confinement transfer via 28 U.S.C. \u00a7 2241 habeas petitions, though the issue is a technical statutory habeas-vehicle question rather than a major constitutional dispute.",
+  "big_case_score": 0.35,
+  "case_id": "scotus/73281102",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.88
+    }
+  ],
+  "confidence": 0.82,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-06-02",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-06-02",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-23T03:22:00Z",
+  "engine": "gemini",
+  "event_id": "evt-order-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-06-02.json",
+  "judgment": "reversed",
+  "model": "gemini-4-argon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.88,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:c4213d78e7a7a6fc5f13d070a3bda326254c0189b7979f5e7b91a23d5608ad66",
+    "label": "proc-v11",
+    "pipeline_sha": "aaafd2a8e347e74699136354b7903d4bbbf881e2",
+    "stamped_at": "2026-10-23T10:30:52.219096Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T031441Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Applying Preiser v. Rodriguez, 411 U.S. 475 (1973), Wilkinson v. Dotson, 544 U.S. 74 (2005), and Jones v. Hendrix, 599 U.S. 465, 475 (2023), the majority holds that 28 U.S.C. \u00a7 2241(c)(3)'s 'in custody' requirement encompasses challenges to the execution of a federal sentence that seek a quantum reduction in the level or place of custody\u2014including mandatory application of First Step Act earned time credits under 18 U.S.C. \u00a7\u00a7 3632(d)(4)(C) and 3624(g)(2) to accelerate transfer from a prison facility to a halfway house or home confinement\u2014rejecting the Fifth Circuit's rule limiting habeas solely to claims that accelerate complete release from custody."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority announces a categorical rule across federal prisoners that any claim seeking application of statutory time credits under 18 U.S.C. \u00a7\u00a7 3632(d)(4)(C) and 3624(g) to accelerate transfer from secure prison confinement into prerelease custody (a residential reentry center or home confinement) is cognizable in habeas under 28 U.S.C. \u00a7 2241, while declining to extend \u00a7 2241 to ordinary prison-transfer or conditions-of-confinement claims within secure facilities and remanding case-specific administrative-exhaustion and eligibility defenses to the Fifth Circuit."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}
