@@ -352,11 +352,16 @@ because the baseline's denominator holds them too (next paragraph), keeping
 the scored population and its baseline the same population. The
 mechanical-claim mirror is the `merits-v1` set (`pipeline.claims`): one
 declared claim, `judgment-disturbed`, restating the headline probability the
-way the cert set's `disposition` claim does; the per-Justice vote, split, and
-authorship claims were tested against `docs/outcome-decomposition.md`'s eight
-tests and **failed** (no committed resolution channel, no conditioned
-strictly-prior baseline, and nine-to-one re-encoding of one correlated
-insight), so they are deliberately not declared.
+way the cert set's `disposition` claim does; the per-Justice vote and split
+claims were tested against `docs/outcome-decomposition.md`'s eight tests and
+**failed** (no committed resolution channel, no conditioned strictly-prior
+baseline, and nine-to-one re-encoding of one correlated insight), so they are
+deliberately not declared. Authorship is not a set of nine binaries: the
+`merits-v2` set carries it as two distribution claims, `majority-author` and
+`separate-writers`, each weighing as one claim per prediction over the whole
+bench, unscored until a strictly-prior baseline lands, and
+resolved against the committed writing roles and decision method
+(*The authorship claims* in `docs/outcome-decomposition.md`).
 
 **The baseline is the strictly-prior pooled disturbed rate.** The statpack's
 merits section publishes per-grant-Term counts;
@@ -590,8 +595,9 @@ What it adds beside the partial list is `Outcome.writing_roles`: every
 participating Justice's observed writing role, `none` included, set only
 from every document the Court lists for an order's date, each read without
 a problem, and only once the order is a week old. Nothing scores that field
-either; it is the observation the writing claim above would resolve against,
-banked ahead of any decision to score it. (Every source passes a separate
+either; it is the observation the `order-writers` distribution claim resolves
+against, declared collected and never scored (*The authorship claims* in
+`docs/outcome-decomposition.md`). (Every source passes a separate
 gate first: `validate`'s `outcome_votes_await_a_registered_source` refuses
 any committed vote list whose source is not registered in
 [data-sources.md](data-sources.md), or that departs from its registration —
