@@ -20,7 +20,7 @@ from fedcourtsai.reasoning_pilot import (
     pilot_population,
     pilot_report,
     pilot_sample,
-    write_packet,
+    write_sample,
 )
 from fedcourtsai.schemas import (
     CentralClaim,
@@ -34,6 +34,8 @@ from fedcourtsai.schemas import (
 from fedcourtsai.serialize import write_json
 
 CERT = "evt-petition-disposition"
+OLDER = "20260901T000000Z"
+NEWEST = "20260902T000000Z"
 INTERIM = "evt-motion-disposition"
 PREDICTORS = {
     "claude-baseline": Engine.claude_code,
@@ -62,7 +64,7 @@ def _prediction(
         predictor_id=predictor_id,
         engine=PREDICTORS[predictor_id],
         run_id=run_id,
-        created_at=datetime(2026, 9, 1, tzinfo=UTC),
+        created_at=datetime.strptime(run_id, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC),
         input_snapshot="2026-09-01.json",
         granted=0,
         probability=0.2,
@@ -93,7 +95,7 @@ def _ledger(
     if resolved:
         ep.outcome.write_text("{}")
     for predictor_id in predictors:
-        for run_id in ("20260901T000000Z", "20260902T000000Z"):
+        for run_id in (OLDER, NEWEST):
             write_json(
                 ep.prediction(predictor_id, run_id),
                 _prediction(f"scotus/{docket}", event_id, predictor_id, run_id, mode=mode),
@@ -112,6 +114,7 @@ def _grade(
     grade: float | None,
     *,
     run_id: str = "20261001T000000Z",
+    prediction_run_id: str = NEWEST,
 ) -> None:
     review = (
         PredictedReasoningReview(central_claims=[CentralClaim(claim="Denied.", status="borne-out")])
@@ -128,6 +131,7 @@ def _grade(
             evaluator_id=evaluator_id,
             engine=JUDGES[evaluator_id],
             run_id=run_id,
+            prediction_run_id=prediction_run_id,
             created_at=datetime(2026, 10, 1, tzinfo=UTC),
             correct=True,
             predicted_reasoning_quality=grade,
@@ -148,19 +152,21 @@ def test_the_population_is_resolved_forward_cert_and_interim_documents(tmp_path:
         ("scotus/1", Stage.cert),
         ("scotus/2", Stage.interim),
     }
-    # One document per (event, predictor): the predictor's newest run.
+    # One document per (event, predictor): the run an evaluate cell stages.
     assert len(population) == 6
-    assert {d.run_id for d in population} == {"20260902T000000Z"}
+    assert {d.run_id for d in population} == {NEWEST}
 
 
-def test_a_prediction_naming_no_document_is_not_in_the_population(tmp_path: Path) -> None:
+def test_a_cell_whose_staged_run_is_unusable_is_left_out_not_replaced(tmp_path: Path) -> None:
+    """An older run never stands in: the judge would be shown the newer one."""
     data = tmp_path / "data"
-    _ledger(data, 1, CERT, predictors=("claude-baseline",))
+    _ledger(data, 1, CERT, predictors=("claude-baseline", "codex-baseline"))
     ep = CasePaths(data, "scotus", 1).event(CERT)
-    ep.predicted_reasoning("claude-baseline", "20260902T000000Z").unlink()
-    (document,) = pilot_population(data)
-    # The newest run lacks its document, so the run before it stands in.
-    assert document.run_id == "20260901T000000Z"
+    ep.predicted_reasoning("claude-baseline", NEWEST).unlink()
+    replay = _prediction("scotus/1", CERT, "codex-baseline", "20260903T000000Z", mode="replay")
+    write_json(ep.prediction("codex-baseline", replay.run_id), replay)
+    ep.predicted_reasoning("codex-baseline", replay.run_id).write_text("replay\n")
+    assert pilot_population(data) == []
 
 
 def test_the_sample_takes_whole_events_split_across_stages_and_is_seeded(
@@ -197,24 +203,37 @@ def test_the_matrix_body_parses_as_an_evaluate_case_list(tmp_path: Path) -> None
 def test_the_packet_hides_the_predictor_and_keeps_the_key_apart(tmp_path: Path) -> None:
     data = tmp_path / "data"
     _ledger(data, 1, CERT)
-    packet = tmp_path / "packet"
-    write_packet(pilot_population(data), packet)
-    sheet = json.loads((packet / "labels.json").read_text())
-    key = json.loads((packet / "key.json").read_text())
+    out = tmp_path / "sample"
+    write_sample(pilot_population(data), out, packet=True)
+    sheet = json.loads((out / "packet" / "labels.json").read_text())
+    key = json.loads((out / "key.json").read_text())
     assert [entry["doc"] for entry in sheet] == ["D01", "D02", "D03"]
     assert all("predictor_id" not in entry and entry["grade"] is None for entry in sheet)
     assert {entry["predictor_id"] for entry in key} == set(PREDICTORS)
+    assert not (out / "packet" / "key.json").exists()
     for entry in key:
-        text = (packet / "documents" / f"{entry['doc']}.md").read_text()
+        text = (out / "packet" / "documents" / f"{entry['doc']}.md").read_text()
         assert text.startswith(entry["predictor_id"])
+    sampled = json.loads((out / "sample.json").read_text())
+    assert {entry["run_id"] for entry in sampled} == {NEWEST}
+    assert parse_cases((out / "body.md").read_text())[0].docket == 1
 
 
-def _labels(packet: Path, grades: dict[str, float]) -> Path:
-    key = {e["doc"]: e["predictor_id"] for e in json.loads((packet / "key.json").read_text())}
-    sheet = json.loads((packet / "labels.json").read_text())
+def test_a_sample_is_never_written_over_another(tmp_path: Path) -> None:
+    data = tmp_path / "data"
+    _ledger(data, 1, CERT)
+    out = tmp_path / "sample"
+    write_sample(pilot_population(data), out, packet=True)
+    with pytest.raises(ValueError, match="already holds files"):
+        write_sample(pilot_population(data), out, packet=True)
+
+
+def _labels(out: Path, grades: dict[str, float]) -> Path:
+    key = {e["doc"]: e["predictor_id"] for e in json.loads((out / "key.json").read_text())}
+    path = out / "packet" / "labels.json"
+    sheet = json.loads(path.read_text())
     for entry in sheet:
         entry["grade"] = grades.get(key[entry["doc"]])
-    path = packet / "labels.json"
     path.write_text(json.dumps(sheet))
     return path
 
@@ -232,65 +251,78 @@ def test_the_report_reads_agreement_nulls_splits_and_labels(tmp_path: Path) -> N
     for predictor_id, row in grades.items():
         for judge, grade in zip(JUDGES, row, strict=True):
             _grade(pilot, 1, CERT, judge, predictor_id, grade)
-    # Docket 2: one cell split on the mask, one null by every judge.
+    # Docket 2: one cell split on the mask, one null by every judge, one unread.
     _grade(pilot, 2, CERT, "claude-judge", "claude-baseline", 0.5)
     _grade(pilot, 2, CERT, "codex-judge", "claude-baseline", None)
     for judge in JUDGES:
         _grade(pilot, 2, CERT, judge, "codex-baseline", None)
     # A re-grade: the newer run is the judge's read.
     _grade(pilot, 1, CERT, "claude-judge", "claude-baseline", 0.0, run_id="20261002T000000Z")
+    # Set aside: a grade of another run, and a grade of a cell outside the sample.
+    _grade(
+        pilot,
+        1,
+        CERT,
+        "codex-judge",
+        "gemini-baseline",
+        0.0,
+        run_id="20261003T000000Z",
+        prediction_run_id=OLDER,
+    )
+    _grade(pilot, 9, CERT, "codex-judge", "gemini-baseline", 0.0)
 
-    packet = tmp_path / "packet"
-    write_packet(pilot_population(data), packet)
-    labels = _labels(packet, {"claude-baseline": 0.0, "gemini-baseline": 1.0})
-    report = pilot_report(pilot, data, labels=labels, key=packet / "key.json")
+    out = tmp_path / "sample"
+    write_sample(pilot_population(data), out, packet=True)
+    labels = _labels(out, {"claude-baseline": 0.0, "gemini-baseline": 1.0})
+    report = pilot_report(pilot, out, labels=labels)
 
+    assert (report.off_sample, report.off_run, report.superseded) == (1, 1, 1)
+    assert not report.labels_hash_verified and report.key_sha256 is not None
     (stage,) = report.stages
     assert stage.stage is Stage.cert
-    assert (stage.cells, stage.cases) == (5, 2)
+    assert (stage.sampled, stage.cells, stage.cases, stage.unread) == (6, 5, 2, 1)
     assert (stage.graded_by_all, stage.null_by_all, stage.split_on_mask) == (3, 1, 1)
+    assert stage.missing_judge == 1
     claude = next(j for j in stage.judges if j.evaluator_id == "claude-judge")
     assert claude.mean == pytest.approx((0.0 + 0.5 + 1.0) / 3)
+    assert claude.mean_n == 3
     assert (claude.graded, claude.null) == (4, 1)
     assert claude.claim_status == {"borne-out": 4}
-    nulls = {p.predictor_id: (p.graded, p.null) for p in stage.predictor_nulls}
-    assert nulls["codex-baseline"] == (3, 3)
-    # Four labels: three on cells some judge read, one on a cell no judge did.
+    nulls = {p.predictor_id: (p.cells, p.graded, p.null) for p in stage.predictor_nulls}
+    assert nulls["codex-baseline"] == (2, 3, 3)
+    # Four labels: three on cells some judge read, one on the unread cell.
     # The split cell's label is listed but enters no agreement figure.
     assert len(stage.labels) == 3
     assert len(report.unmatched_labels) == 1
     panel = next(a for a in stage.label_agreement if a.evaluator_id == "panel")
     assert panel.n == 2 and panel.tau_b == pytest.approx(1.0)
-    assert report.labels_sha256 is not None
     # Leave-one-out over the three clean cells; within one predictor there is
     # a single cell, so no within-predictor coefficient is defined.
     loo = next(a for a in stage.leave_one_out if a.evaluator_id == "claude-judge")
     assert (loo.units, loo.cases) == (3, 1)
     assert loo.tau_b == pytest.approx(1.0)
-    assert loo.within_predictor_tau_b is None and loo.within_predictor_defined == 0
+    assert loo.within_predictor_tau_b is None
+    assert [(w.units, w.tau_b) for w in loo.within_predictor] == [(1, None)] * 3
     family = next(f for f in stage.family if f.evaluator_id == "gemini-judge")
     assert (family.own_n, family.own_mean) == (1, 0.75)
     assert family.other_n == 2
 
 
-def test_labels_and_key_travel_together(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="travel together"):
-        pilot_report(tmp_path, tmp_path, labels=tmp_path / "labels.json")
+def test_an_expected_labels_hash_needs_its_sheet(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="needs the label sheet"):
+        pilot_report(tmp_path, tmp_path, expect_labels_sha256="0" * 64)
 
 
 def test_a_label_sheet_changed_after_its_hash_was_recorded_is_refused(tmp_path: Path) -> None:
     data = tmp_path / "data"
     _ledger(data, 1, CERT)
-    packet = tmp_path / "packet"
-    write_packet(pilot_population(data), packet)
-    labels = _labels(packet, {"claude-baseline": 0.5})
-    recorded = pilot_report(tmp_path, data, labels=labels, key=packet / "key.json").labels_sha256
+    out = tmp_path / "sample"
+    write_sample(pilot_population(data), out, packet=True)
+    labels = _labels(out, {"claude-baseline": 0.5})
+    recorded = pilot_report(tmp_path, out, labels=labels).labels_sha256
     assert recorded is not None
-    pilot_report(
-        tmp_path, data, labels=labels, key=packet / "key.json", expect_labels_sha256=recorded
-    )
-    _labels(packet, {"claude-baseline": 0.75})
+    report = pilot_report(tmp_path, out, labels=labels, expect_labels_sha256=recorded)
+    assert report.labels_hash_verified
+    _labels(out, {"claude-baseline": 0.75})
     with pytest.raises(ValueError, match="changed after its hash was recorded"):
-        pilot_report(
-            tmp_path, data, labels=labels, key=packet / "key.json", expect_labels_sha256=recorded
-        )
+        pilot_report(tmp_path, out, labels=labels, expect_labels_sha256=recorded)

@@ -2199,8 +2199,9 @@ reports, so the report cannot be chosen after the grades are read.
   public, so a replay document can carry its outcome, and the grades never
   test a predictor.
 - **Output.** A pilot report, outside `data/`. A pilot grade is never committed
-  to the ledger and never read by any metrics artifact. The report lists every
-  round the draft prompt section went through.
+  to the ledger and never read by any metrics artifact. Each round the draft
+  prompt section goes through gets its own report, stamped with the section's
+  hash, so the reports together list every round.
 - **Reference labels.** The maintainer grades **10** cert and interim pilot
   documents on the same rubric to start, more as needed, chosen to span the
   scale. The maintainer grades blind to predictor identity and before seeing

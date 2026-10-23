@@ -4562,13 +4562,10 @@ def authorship_tally_cmd(
 
 @app.command("reasoning-pilot-sample")
 def reasoning_pilot_sample_cmd(
-    body_out: Annotated[
-        Path, typer.Option("--body-out", help="Write the evaluate matrix --body-file here.")
-    ],
+    out: Annotated[Path, typer.Argument(help="A new or empty directory to write the sample into.")],
     packet: Annotated[
-        Path | None,
-        typer.Option(help="Also write the blind labeling packet into this directory."),
-    ] = None,
+        bool, typer.Option(help="Also write the blind labeling packet and its key.")
+    ] = False,
     data_root: Annotated[Path, typer.Option(help="The git-ledger root.")] = Path("data"),
     target: Annotated[
         int, typer.Option(help="About how many documents to sample.")
@@ -4579,30 +4576,34 @@ def reasoning_pilot_sample_cmd(
 ) -> None:
     """Sample resolved cert and interim forecast documents for the reasoning-grade pilot.
 
-    Reads the committed ledger only. Takes whole events, split evenly across
-    cert and interim and ordered by the seed, from the resolved forward
-    predictions that name a ``predicted_reasoning.md``
+    Reads the committed ledger only. Each (event, predictor) offers the run an
+    evaluate cell would stage for it, where that run is forward and names a
+    ``predicted_reasoning.md``; the sample takes whole events, split evenly
+    across cert and interim and ordered by the seed
     (`docs/outcome-decomposition.md`, *The pilot, and what it reports*). Writes
-    the case list an evaluate round takes as ``--body-file``, and with
-    ``--packet`` the maintainer's blind labeling packet: aliased copies of the
-    documents, a label sheet, and the alias key. Prints the sample's counts.
+    ``body.md`` (the evaluate round's ``--body-file``) and ``sample.json`` (each
+    cell with the run to grade, which the report reads), and with ``--packet``
+    the maintainer's blind labeling packet under ``packet/`` with its
+    ``key.json`` beside it. Refuses a directory that already holds files.
+    Prints the population's and the sample's counts per stage.
     """
     population = reasoning_pilot.pilot_population(data_root)
     sample = reasoning_pilot.pilot_sample(population, target=target, seed=seed)
     if not sample:
         typer.echo("no resolved forward cert or interim forecast document to sample.", err=True)
         raise typer.Exit(code=1)
-    body_out.parent.mkdir(parents=True, exist_ok=True)
-    body_out.write_text(reasoning_pilot.matrix_body(sample))
-    if packet is not None:
-        reasoning_pilot.write_packet(sample, packet, seed=seed)
+    try:
+        reasoning_pilot.write_sample(sample, out, packet=packet, seed=seed)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
     for stage in reasoning_pilot.PILOT_STAGES:
-        chosen = [d for d in sample if d.stage is stage]
-        pool = [d for d in population if d.stage is stage]
+        chosen = [d for d in sample if d.stage == stage]
+        pool = [d for d in population if d.stage == stage]
         typer.echo(
             f"{stage.value}: {len(chosen)} document(s) on "
-            f"{len({(d.case_id, d.event_id) for d in chosen})} event(s), "
-            f"from {len(pool)} eligible",
+            f"{len({(d.case_id, d.event_id) for d in chosen})} event(s), from {len(pool)} "
+            f"eligible on {len({(d.case_id, d.event_id) for d in pool})} event(s)",
             err=True,
         )
 
@@ -4611,15 +4612,12 @@ def reasoning_pilot_sample_cmd(
 def reasoning_pilot_report_cmd(
     pilot_root: Annotated[
         Path,
-        typer.Argument(help="A pilot round's evaluations, laid out like data/ (cases/...)."),
+        typer.Argument(help="One pilot round's evaluations, laid out like data/ (cases/...)."),
     ],
-    data_root: Annotated[Path, typer.Option(help="The git-ledger root the round graded.")] = Path(
-        "data"
-    ),
+    sample: Annotated[Path, typer.Option(help="The directory reasoning-pilot-sample wrote.")],
     labels: Annotated[
         Path | None, typer.Option(help="The filled-in label sheet from the packet.")
     ] = None,
-    key: Annotated[Path | None, typer.Option(help="The packet's alias key.")] = None,
     expect_labels_sha256: Annotated[
         str | None,
         typer.Option(help="The label sheet's sha256 as recorded before the round; refuse others."),
@@ -4627,26 +4625,36 @@ def reasoning_pilot_report_cmd(
     prompt: Annotated[
         Path | None, typer.Option(help="The draft prompt section the round ran, to hash.")
     ] = None,
+    data_root: Annotated[
+        Path, typer.Option(help="The git ledger, which the pilot root must not be or hold.")
+    ] = Path("data"),
     out: Annotated[
         Path | None, typer.Option(help="Write the report JSON here rather than stdout.")
     ] = None,
 ) -> None:
     """Report one pilot round of the reasoning grade, per stage. Read-only.
 
-    The figures `docs/outcome-decomposition.md` fixes for the pilot: each
-    judge's grades and nulls, its grades beside the labels, leave-one-out
-    agreement with the cell as the unit, the predictor-tracking check, own-family
-    against other-family grades, and the splits on the mask. Records the label
-    sheet's and the prompt section's sha256, and with ``--expect-labels-sha256``
-    refuses a sheet that changed after its hash was recorded. Never reads or writes the ledger's
-    evaluations.
+    The figures `docs/outcome-decomposition.md` fixes for the pilot, over the
+    sampled cells only and only where the evaluation graded the sampled run:
+    each judge's grades and nulls, its grades beside the labels, leave-one-out
+    agreement with the cell as the unit, the predictor-tracking check,
+    own-family against other-family grades, and the splits on the mask.
+    Records the sample's, label sheet's, key's and prompt section's sha256, and
+    with ``--expect-labels-sha256`` refuses a sheet that changed after its hash
+    was recorded. Refuses a pilot root that is or holds the ledger, whose
+    evaluations no pilot reads.
     """
+    root, ledger = pilot_root.resolve(), data_root.resolve()
+    if root == ledger or ledger.is_relative_to(root):
+        typer.echo(
+            f"{pilot_root} is or holds the ledger; a pilot round lives outside it.", err=True
+        )
+        raise typer.Exit(code=1)
     try:
         report = reasoning_pilot.pilot_report(
             pilot_root,
-            data_root,
+            sample,
             labels=labels,
-            key=key,
             prompt_sha256=hashlib.sha256(prompt.read_bytes()).hexdigest() if prompt else None,
             expect_labels_sha256=expect_labels_sha256,
         )
@@ -4654,11 +4662,17 @@ def reasoning_pilot_report_cmd(
         typer.echo(str(exc), err=True)
         raise typer.Exit(code=1) from exc
     text = json.dumps(report.model_dump(mode="json"), indent=2) + "\n"
+    typer.echo(
+        f"{report.off_sample} off-sample, {report.off_run} off-run and {report.superseded} "
+        "superseded evaluation(s) set aside",
+        err=True,
+    )
     for stage in report.stages:
         typer.echo(
-            f"{stage.stage.value}: {stage.cells} cell(s) on {stage.cases} case(s); "
-            f"{stage.graded_by_all} graded by all, {stage.null_by_all} null by all, "
-            f"{stage.split_on_mask} split on the mask; {len(stage.labels)} labeled",
+            f"{stage.stage.value}: {stage.cells} of {stage.sampled} sampled cell(s) read on "
+            f"{stage.cases} case(s); {stage.graded_by_all} graded by all, {stage.null_by_all} "
+            f"null by all, {stage.split_on_mask} split on the mask, {stage.missing_judge} "
+            f"missing a judge; {len(stage.labels)} labeled",
             err=True,
         )
     if out is None:
