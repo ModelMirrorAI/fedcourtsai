@@ -7,6 +7,7 @@ ready-vs-draft partition that keeps a failed cell out of the auto-merging PR.
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -431,8 +432,8 @@ def test_union_refuses_an_unreadable_source_file_and_carries_on(
         {"cases/s/1/events/e/locked.json": "{}", "cases/s/1/events/e/ok.json": "{}"},
     )
     (src / "cases/s/1/events/e/locked.json").chmod(0o000)
-    # Root reads a mode-000 file anyway, so the copy refuses it as an ordinary
-    # user's would: a source with no read bit raises the PermissionError the
+    # Root reads a mode-000 file anyway, so under root the copy refuses it as an
+    # ordinary user's would: a source with no read bit raises the PermissionError the
     # kernel raises for everyone but root.
     real_copy2 = shutil.copy2
 
@@ -441,7 +442,8 @@ def test_union_refuses_an_unreadable_source_file_and_carries_on(
             raise PermissionError(13, "Permission denied", str(source))
         return real_copy2(source, target)
 
-    monkeypatch.setattr(shutil, "copy2", copy2_as_non_root)
+    if os.geteuid() == 0:
+        monkeypatch.setattr(shutil, "copy2", copy2_as_non_root)
     dest = tmp_path / "dest"
     dest.mkdir()
     try:
