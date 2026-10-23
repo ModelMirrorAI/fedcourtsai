@@ -1436,8 +1436,8 @@ def _migrate_opinion_benches(conn: sqlite3.Connection) -> None:
 # the session's first day. Written by the live poll's transcript pass, which
 # re-reads the current and previous Term's headings every cycle and upserts each
 # by its key, so a widened heading takes its new last day and ``read_at`` is the
-# last read. Metadata, not payload: it stays in the index blob under the
-# corpus-split mode.
+# last read; an older Term from OT2020 on is back-filled once. Metadata, not
+# payload: it stays in the index blob under the corpus-split mode.
 ARGUMENT_SITTINGS_COLUMN_DDL: dict[str, str] = {
     "term": "INTEGER NOT NULL",
     "start": "TEXT NOT NULL",

@@ -224,7 +224,8 @@ class PullQueues:
     # Live-channel only: the argument-transcript pass's ledger for the run log
     # (`live.fetch_argument_transcripts`) — transcripts listed, unmatched to a
     # corpus case, already held, owed, stored (empty among them), unavailable
-    # upstream, failed, and deferred by the cap or the deadline — or
+    # upstream, failed, deferred by the cap or the deadline, and the older
+    # Term's sittings back-filled and the older Terms passed over unserved — or
     # ``{"error": <type>}`` when the pass itself raised. Empty when disabled.
     argument_transcripts: dict[str, object] = field(default_factory=dict)
 

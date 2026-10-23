@@ -642,9 +642,9 @@ number linking the transcript PDF beside the date it was argued
 (`supremecourt.parse_transcript_listing`). The live cycle reads it in its own
 pass, after document freshness (`live.fetch_argument_transcripts`):
 
-- **List.** Two paced GETs a cycle, the Term today falls in and the one before
-  it, so the spring sittings survive the October roll and the last Term is
-  back-filled. A row is kept only where the link text is a Term-form docket
+- **List.** Two paced GETs a cycle, more while the sittings back-fill below is
+  owed: the Term today falls in and the one before it, so the spring sittings
+  survive the October roll and the last Term is back-filled. A row is kept only where the link text is a Term-form docket
   number and the link resolves to the Court's own host; an application argued
   on the interim docket has no merits stage, and a row whose date cannot be read
   is left out. A docket listed twice in one Term keeps its later row.
@@ -683,8 +683,18 @@ pass, after document freshness (`live.fetch_argument_transcripts`):
   sitting is the Court's own grouping, which a reading of gaps between argument
   days does not reproduce: the Court widens a heading to take in a special
   session (OT2023's February sitting opens on its February 8 special session,
-  OT2024's April sitting runs to its May 15 add-on). `fedcourts authorship-tally`
-  reads them; no cell does.
+  OT2024's April sitting runs to its May 15 add-on). The two listed Terms'
+  headings are re-read every cycle; an older Term's do not change, so the pass
+  back-fills them one Term a cycle, newest first, down to OT2020, the
+  per-opinion record's first Term (`live.SITTINGS_BACKFILL_FLOOR`). Only the
+  headings are kept, never the older Term's transcripts. A Term whose list is
+  not served or heads no sitting is counted unserved and passed over for the
+  next older one in the same cycle, and asked again next cycle; a failed GET is
+  counted as failed and ends the step for the cycle. So the step costs a paced
+  GET a cycle, one more per unserved Term, while any Term from OT2020 lacks its
+  sittings, and none once all hold them. It runs last and only with an
+  estimated document's time left before the deadline.
+  `fedcourts authorship-tally` reads them; no cell does.
 - **Features.** `argument_features.parse_argument_features` reads a stored,
   cleaned transcript into per-Justice turn and word counts by advocate side.
   The side of each segment is read from its header ("ORAL ARGUMENT OF … ON
@@ -709,8 +719,9 @@ pass, after document freshness (`live.fetch_argument_transcripts`):
   `document_text_cap` once cleaned is stored head-cut, often without its
   rebuttal. On such a row the parse finds no closing line and says so.
 - **Ledger.** The `Argument transcripts:` line carries listed, unmatched, held,
-  owed, stored (empty among them), unavailable, failed, deferred and sittings
-  counts. The
+  owed, stored (empty among them), unavailable, failed, deferred, sittings,
+  sittings back-filled (sittings stored, not Terms) and sittings unserved
+  (Terms passed over) counts. The
   pass is failure-isolated as document freshness is.
 
 One residual: a transcript stored with no text latches nothing, and the OCR

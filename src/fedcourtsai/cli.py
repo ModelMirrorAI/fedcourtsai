@@ -4400,7 +4400,7 @@ def authorship_tally_cmd(
         raise typer.BadParameter(f"not a YYYY-MM-DD date: {as_of!r}", param_hint="--as-of") from exc
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    if not db_path.exists():
+    if settings.corpus_backend == "local" and not db_path.exists():
         typer.echo(
             f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
             "before tallying authorship.",
