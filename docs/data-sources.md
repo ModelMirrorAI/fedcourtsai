@@ -400,9 +400,9 @@ says `complete`, which this source's never does
 `outcome.json`. It reads the corpus for one column — each case's docket
 number, which is how a ledger case is found in the Court's documents — and
 writes nothing but committed `outcome.json` files: `votes`,
-`vote_provenance` and `writing_roles`. It runs as two `run-repair` passes,
-dry run first ([data-pipeline.md](data-pipeline.md), *Maintenance passes*),
-and the orders pass also as a standing sweep on run-seed's daily window, which
+`vote_provenance`, `writing_roles` and, on a merits outcome, `merits_author`.
+It runs as two `run-repair` passes, dry run first
+([data-pipeline.md](data-pipeline.md), *Maintenance passes*), and the orders pass also as a standing sweep on run-seed's daily window, which
 stamps each settled order list under a per-window cap and never replaces a
 record:
 
@@ -412,7 +412,9 @@ record:
   Noted list to every docket decided with it, reads the one opinion the
   listing prints for them, and stamps only a complete record that the Granted
   & Noted list agrees with, onto an outcome resolved on the date the opinion
-  is dated.
+  is dated. Apart from that record it stamps `merits_author`, the author code
+  the listing prints on the decision's row (a Justice or `per-curiam`), onto
+  every outcome whose row is dated its resolution, signed or per curiam.
 - `order-votes` (`fedcourts stamp-order-votes`) stamps cert- and
   interim-stage outcomes resolved from OT2024 through the current October
   Term. OT2024 and OT2025 sat the same bench, both grammars were checked
@@ -542,8 +544,11 @@ outcome's decision date by the seat roster; `participating` equal to that
 bench less the Justices recorded not taking part; for a record claiming
 `complete`, exactly that bench, since that bit is what vote scoring is gated
 on; and `writing_roles`, where present, naming exactly the Justices who took
-part. A source that has not registered, SCDB included, stays refused; an
-SCDB import additionally settles the terms above before it writes any value.
+part. A stamped `merits_author`, which needs no `vote_provenance`, is held to
+the same rule: `per-curiam`, or a Justice spelled as the roster spells them and
+seated on the outcome's `resolved_at`. A source that has not registered, SCDB
+included, stays refused; an SCDB import additionally settles the terms above
+before it writes any value.
 
 **The Solicitor General's office roster** is reference data for an analytics
 annotation, not case data and not a vote source. The counsel annotation

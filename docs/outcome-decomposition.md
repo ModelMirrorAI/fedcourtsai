@@ -116,7 +116,7 @@ docket's disposition entry):
 | --- | --- |
 | Judgment (`judgment-disturbed`, declared under `merits-v1`) | `Outcome.judgment` through the disturbed projection (`pipeline.judgment.judgment_disturbed`) — the declared form is binary, exactly as the cert disposition claim's is; the multi-class form waits on a per-label distribution claim of its own |
 | Each justice's vote | `Outcome.votes`, per justice — **not declared**: the merits outcome writer records no votes (docket text discloses no provenance denominator), and the registered opinions source is written only by a dispatched `run-repair` pass (`opinion-votes`), so the resolution channel is empty until that pass stamps a merits outcome; see `docs/decision-model.md` |
-| Majority author | `Outcome.votes[].writing` and `Outcome.writing_roles` — fields exist, **not declared**, and unpopulated until a vote writer stamps a merits outcome |
+| Majority author | `Outcome.merits_author`, checked against `merits_decision_method` — declared as the `majority-author` distribution claim of `merits-v2` (*The authorship claims*), which no moment names yet; unpopulated until the opinions writer stamps a merits outcome |
 | A concurrence is filed | `Outcome.writing_roles` — field exists, **not declared**, unpopulated on merits outcomes |
 | A dissent is filed | `Outcome.writing_roles` — field exists, **not declared**, unpopulated on merits outcomes |
 
@@ -1015,8 +1015,9 @@ source:
 `Outcome.votes` is `[]` on every committed merits outcome — the merits outcome
 writer deliberately records none, because docket text discloses no
 provenance denominator — and no committed merits outcome carries
-authorship or separate writings yet (`Outcome.writing_roles` exists and the
-opinions writer fills it, but no merits outcome has been stamped); the per-Justice forms also
+authorship or separate writings yet (`Outcome.merits_author` and
+`Outcome.writing_roles` exist and the opinions writer fills them, but no merits
+outcome has been stamped); the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
 coverage — the operator-run channel that fills it (`fedcourts
@@ -1081,7 +1082,7 @@ pre-registered rule that keeps it there permanently.
 | merits | The vote lineup and the split | Context-only, banked in `votes` | Pre-registered pending a populated vote source: `Outcome.votes` is empty on every committed merits outcome because docket text discloses no provenance denominator, and the registered opinions source is written only by the dispatched `opinion-votes` pass. Merits votes are banked and scored against complete records the day one is written; cert votes never are |
 | merits | Whether a separate writing splits the rationale from the result | Context-only; **mechanical** family the day a field records it | Existence is a countable docket fact, not a reader's judgment, so it belongs with a real baseline and a proper score rather than as prose graded by impression. `semantic-v1` holds no place for it |
 | merits | Which question presented the Court reaches and which it leaves | Context-only | The merits-side twin of the cert QP row, with the same framing gap |
-| merits | Authorship and the writing roles | `majority-author`, `separate-writers` (`merits-v2`) | Distribution claims declared ahead of their elicitation (*The authorship claims*); they resolve from the `writing_roles` the opinions writer stamps on a merits outcome. Until a moment names `merits-v2`, the prompt tells the cell not to present them as the scoreable part |
+| merits | Authorship and the writing roles | `majority-author`, `separate-writers` (`merits-v2`) | Distribution claims declared ahead of their elicitation (*The authorship claims*); they resolve from the `merits_author` and `writing_roles` the opinions writer stamps on a merits outcome. Until a moment names `merits-v2`, the prompt tells the cell not to present them as the scoreable part |
 | any | The rationale for the predictor's own number | Never scored, by construction | That is `reasoning.md`, a different document with a different epistemic status: it resolves against nothing. `reasoning_quality` grades its soundness and grades no forecast |
 
 Three properties of the table are worth reading off it. **Every scored route is
@@ -1209,7 +1210,7 @@ the paragraph above requires.
 
 | Claim | Sets | Kind | Resolves from | Masked when |
 | --- | --- | --- | --- | --- |
-| `majority-author` | `merits-v2` | Categorical over the bench and `per-curiam`, summing to 1 | The one lead role (the opinion of the Court or a plurality) in the outcome's observed `writing_roles`; `per-curiam` from `merits_decision_method`, never from a missing author | An unclassified decision method (else the mask would depend on who wrote, since an unclassified per curiam carries no roles), no deciding opinion (a DIG, a summary order), a per curiam whose roles name a lead writer, unobserved roles, or roles naming no single lead writer — which includes an author who also wrote separately, recorded as a null role, so those cases mask on the answer |
+| `majority-author` | `merits-v2` | Categorical over the bench and `per-curiam`, summing to 1 | `merits_author`, the author the opinions listing prints on the decision's row, which the opinions writer stamps for every decision it finds, signed or per curiam (*Why the author resolves from its own stamp*); the label set is the Justices in the outcome's `writing_roles` where observed, else the author alone, and the score is the same either way, since a label the outcome leaves out resolves 0 | No stamped author (no listing row dated the outcome's resolution, or a row whose author code is not on the roster), an unclassified decision method, a method that disagrees with the stamp or falls outside the argued population (a stamped Justice off `argued-signed`, a stamped `per-curiam` off `argued-per-curiam`), so a summary opinion and a decision with no deciding opinion (a DIG, a summary order), or observed roles that contradict the stamp (the stamped Justice missing from them, holding a role other than the lead or a mixed one, or another Justice holding a lead) |
 | `separate-writers` | `merits-v2` | Per Justice, each probability on its own | Whether each participating Justice wrote anything but the lead opinion: a concurrence, a dissent, either in part, or a writing of mixed role | Unobserved roles, which covers every per curiam the opinion record derives no lineup for, and a signed decision whose roles name no single lead writer (a null role there may be the lead opinion in part) |
 | `order-writers` | `cert-v3`, `interim-v2` | Per Justice | Whether each participating Justice wrote on the order, off the orders source's observed roles | Unobserved roles, and any merits outcome |
 
@@ -1245,8 +1246,14 @@ OT2020, so the band reaches no further back), priced over the Justices sitting
 on the snapshot date (`pipeline.base_rates`). Only argued decisions count, the
 population a merits forecast is made on: a summary per curiam, which the
 author claim would resolve as `per-curiam`, is a population a merits case
-rarely sees, and a signed decision the claims mask (its author also wrote
-separately, or it carries a second lead writing) is counted by neither.
+rarely sees. A signed decision the separate-writers claim masks (its author
+also wrote separately, or it carries a second lead writing) is left out of that
+pool only; the author pool keeps it, since the author claim resolves it from
+the stamp. The author pool takes a signed decision on its opinion's printed
+argument date, while the claim resolves one only where the docket classified
+it `argued-signed`; a per curiam enters both only where classified. Where
+signed decisions go unclassified, the baseline's per-curiam share sits below
+the resolved pool's.
 
 - `majority-author`: the per curiam takes its pooled share of argued
   decisions, plus half a per curiam over one added decision, so a window that
@@ -1277,15 +1284,29 @@ which test 3 names as leakage. A row scores only where the committed pack's
 section clears the floor and the outcome resolves the claim; a pack without the
 section scores neither.
 
-**`majority-author` is not yet scoreable as resolved.** Its mask must not
-depend on the answer, and today it does: a per curiam resolves from
-`merits_decision_method` alone, while a signed decision resolves only once the
-opinions source has stamped its `writing_roles`, which a per curiam never
-receives. Scored as it stands, its pool would over-represent per curiams, and a
+**Why the author resolves from its own stamp.** The claim's mask must not
+depend on the answer. A per curiam never receives `writing_roles`, so an author
+read off the roles would resolve every per curiam and only the signed decisions
+whose lineup was read whole: the pool would over-represent per curiams, and a
 forecast stating a per curiam everywhere would collect on them while losing
-nothing on the masked signed decisions. The author must therefore resolve from
-a stamp written for every decision the opinion record reads, signed or per
-curiam, before any moment names `merits-v2`.
+nothing on the masked signed decisions. So the opinions writer stamps
+`Outcome.merits_author` from the author code the Court's opinions listing
+prints on the decision's row, which it prints for every decision, signed or per
+curiam, whether or not the lineup is read, so the stamp's coverage does not
+depend on who wrote. The decision method, read from the docket, still has to
+agree, and only an argued decision resolves, the population the baseline pools:
+a stamped `per-curiam` resolves only under `argued-per-curiam`, a stamped
+Justice only under `argued-signed`. A summary opinion is masked, as an argued
+case whose argument entry the docket read missed already masks a signed one.
+Whether the docket's method classification misses one kind of decision more
+often than the other is not yet measured: a census of stamped outcomes masked
+for an unclassified or disagreeing method, by stamped kind, is owed before a
+moment names `merits-v2`. The author is the listing's own and is not
+cross-checked against the Granted & Noted list, which compares only lineups the
+syllabus was read for (signed decisions): holding the author back on that
+comparison would mask signed decisions a per curiam could never be masked for.
+`validate` holds a stamped Justice to the roster's spelling and to the bench
+seated on the outcome's `resolved_at`.
 
 **Reporting.** The rows sit in `ClaimScoreBlock.distributions`, beside the
 binary claims and never added into `total`, `floor` or `lift`. A malformed

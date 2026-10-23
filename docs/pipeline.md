@@ -1201,7 +1201,8 @@ every step the OIDC request pair after the step's own `env:`, so no step there
 can be put out of reach of minting a token.
 
 `opinion-votes` and `order-votes` are the vote writer: they stamp `votes`,
-`vote_provenance` and `writing_roles` onto committed outcomes from the Court's
+`vote_provenance`, `writing_roles` and, on a merits outcome, `merits_author`
+onto committed outcomes from the Court's
 own documents — merits outcomes from their opinion's syllabus lineup, cert and
 interim outcomes from the notations and writing headers of the order that
 disposed of them ([data-sources.md](data-sources.md), *The vote writer*). They

@@ -140,16 +140,17 @@ def test_the_section_counts_argued_decisions_and_observed_separate_writings(
         section = authorship_section(conn)
     assert section is not None
     (term,) = section.terms
-    assert (term.term, term.decisions, term.per_curiam, term.observed) == (2024, 3, 1, 1)
+    assert (term.term, term.decisions, term.per_curiam, term.observed) == (2024, 4, 1, 1)
     rows = {row.justice: row for row in term.justices}
     assert [row.justice for row in term.justices] == list(_BENCH)
-    assert all(row.decisions == 3 for row in term.justices)
+    assert all(row.decisions == 4 for row in term.justices)
     assert (rows["Kagan"].majority, rows["Alito"].majority, rows["Thomas"].majority) == (1, 1, 0)
     # Only the observed decision counts toward separate writing, and Barrett took no part.
     assert rows["Barrett"].sat == 0 and rows["Kagan"].sat == 1
     assert {name for name, row in rows.items() if row.separate} == {"Thomas", "Alito", "Gorsuch"}
     assert rows["Sotomayor"].separate == 0  # her dissent rode an unobserved decision
-    assert rows["Jackson"].separate == 0 and rows["Kavanaugh"].majority == 0
+    # The author tally keeps it; the separate-writing tally does not.
+    assert rows["Jackson"].separate == 0 and rows["Kavanaugh"].majority == 1
 
 
 def test_a_blob_without_the_record_has_no_section(tmp_path: Path) -> None:
@@ -164,7 +165,7 @@ def test_a_blob_without_the_record_has_no_section(tmp_path: Path) -> None:
 
 def test_the_statpack_carries_the_section(tmp_path: Path) -> None:
     pack = build_statpack(corpus_db_path=_seed(tmp_path))
-    assert pack.authorship is not None and pack.authorship.terms[0].decisions == 3
+    assert pack.authorship is not None and pack.authorship.terms[0].decisions == 4
 
 
 def test_a_blob_without_the_tables_reads_as_an_empty_record(tmp_path: Path) -> None:

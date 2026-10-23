@@ -20,11 +20,6 @@ links to classifies it as a per curiam after argument (``merits_decision_method`
 the one per curiam the claim resolves on a merits case; one linked to no row,
 or to a row not yet classified, is left out, as the claim masks it.
 
-A signed decision whose writings put its lead author on a second writing, or
-carry a second lead-kind writing (an opinion of the Court for one part by
-another Justice), is counted by neither tally: the claims record such a Justice
-with a mixed role, no single lead, and mask the decision.
-
 **Majority authorship** counts, for each Justice serving on a decision's date
 (:func:`~.justices.bench_on`), the decisions decided while seated and the
 signed ones the Justice delivered. A Justice is counted as one who could have
@@ -36,11 +31,15 @@ the observation that the writings were read whole and that says who took part.
 Over the Justices taking part, it counts those who wrote or co-wrote any
 writing but the deciding one. A per curiam carries no bench observation the
 claim can resolve against, and an unobserved decision would misread a Justice
-who signed nothing as one who wrote nothing, so neither is counted. The
-population is the argued signed decisions alone, while the claim also
-resolves a dismissal or a summary disposition whose roles were observed; the
-record carries no bench observation for those, so the baseline cannot price
-them apart.
+who signed nothing as one who wrote nothing, so neither is counted. Nor is a
+decision whose writings put its lead author on a second writing, or carry a
+second lead-kind writing (an opinion of the Court for one part by another
+Justice): the claim records such a Justice with a mixed role, no single lead,
+and masks it. The author tally keeps those, since the author claim resolves
+from the listing's stamp rather than the roles. The population is the argued
+signed decisions alone, while the claim also resolves a dismissal or a summary
+disposition whose roles were observed; the record carries no bench observation
+for those, so the baseline cannot price them apart.
 
 Read-only, and a pure function of the two tables and the per curiams' case
 rows: a blob without the tables reads as an empty record.
@@ -185,15 +184,6 @@ def authorship_section(conn: corpus.ReadConnection) -> StatPackAuthorship | None
             continue
         if decision.decided < SERVICE_FLOOR:
             continue
-        separate = [decision.writings[position] for position in positions[1:]]
-        writers = {
-            name for writing in separate for name in (writing.author, *writing.coauthors) if name
-        }
-        if signed and (
-            lead.author in writers or any(writing.kind in LEAD_KINDS for writing in separate)
-        ):
-            # A mixed role or no single lead: the claims mask it, so neither counts it.
-            continue
         acc = accs.setdefault(key[0], _TermAcc())
         acc.decisions += 1
         acc.per_curiam += not signed
@@ -203,6 +193,13 @@ def authorship_section(conn: corpus.ReadConnection) -> StatPackAuthorship | None
             seat.majority += signed and lead.author == justice
         bench = benches.get(key)
         if not signed or bench is None:
+            continue
+        separate = [decision.writings[position] for position in positions[1:]]
+        writers = {
+            name for writing in separate for name in (writing.author, *writing.coauthors) if name
+        }
+        if lead.author in writers or any(writing.kind in LEAD_KINDS for writing in separate):
+            # A mixed role or no single lead: the separate-writing claim masks it.
             continue
         acc.observed += 1
         seated, took_no_part = bench

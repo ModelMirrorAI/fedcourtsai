@@ -53,6 +53,7 @@ import json
 import sqlite3
 from collections import Counter
 from collections.abc import Callable, Iterator
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
@@ -63,9 +64,10 @@ from . import corpus, ids
 from .integrity import cell_clock, latest_evaluation_runs
 from .paths import CasePaths
 from .pipeline import moments
+from .pipeline.base_rates import PER_CURIAM_LABEL
 from .pipeline.claims import claim_block_problems
 from .pipeline.interim_signals import ApplicationKind
-from .pipeline.justices import resolve_surname
+from .pipeline.justices import bench_on, resolve_surname
 from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
 from .pipeline.vote_sources import REGISTERED_VOTE_SOURCES, VoteSource
 from .process_version import resolvable_runs
@@ -1478,6 +1480,12 @@ def check_outcome_votes_held(data_root: Path) -> CorpusCheck:
         if not isinstance(payload, dict):
             continue
         checked += 1
+        if payload.get("merits_author") is not None:
+            with suppress(ValidationError):
+                problems.extend(
+                    f"outcome {path}: {problem}"
+                    for problem in merits_author_problems(Outcome.model_validate(payload))
+                )
         provenance = payload.get("vote_provenance")
         if provenance is None:
             if payload.get("votes"):
@@ -1514,13 +1522,34 @@ def vote_record_problems(outcome: Outcome, event_dir: Path) -> list[str]:
     ledger directory the outcome sits in (``cases/<court>/<docket>/events/<id>``),
     whose ``event.yaml`` names the stage. Empty for an outcome with no record.
     """
+    found = merits_author_problems(outcome)
     provenance = outcome.vote_provenance
     if provenance is None:
-        return ["votes with no vote_provenance block"] if outcome.votes else []
+        return [*found, "votes with no vote_provenance block"] if outcome.votes else found
     source = REGISTERED_VOTE_SOURCES.get(provenance.source)
     if source is None:
-        return [f"vote source {provenance.source!r} is not registered"]
-    return _vote_source_problems(outcome, source, event_dir.parents[2].name, event_dir)
+        return [*found, f"vote source {provenance.source!r} is not registered"]
+    return [*found, *_vote_source_problems(outcome, source, event_dir.parents[2].name, event_dir)]
+
+
+def merits_author_problems(outcome: Outcome) -> list[str]:
+    """How a stamped ``merits_author`` departs from the bench that decided the case.
+
+    The stamp is a roster spelling of a Justice seated on the outcome's
+    ``resolved_at``, or ``per-curiam``; empty for an outcome with no stamp.
+    """
+    author = outcome.merits_author
+    if author is None or author == PER_CURIAM_LABEL:
+        return []
+    if resolve_surname(author) != author:
+        return [f"merits_author {author!r} is not spelled as the roster spells a Justice"]
+    try:
+        seated = bench_on(outcome.resolved_at)
+    except ValueError:
+        return [f"merits_author is stamped on {outcome.resolved_at}, before the roster's floor"]
+    if author not in seated:
+        return [f"merits_author {author!r} did not sit on {outcome.resolved_at}"]
+    return []
 
 
 def _vote_source_problems(

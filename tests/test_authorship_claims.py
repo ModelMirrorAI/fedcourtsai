@@ -109,6 +109,7 @@ def _merits_outcome(
     roles: list[dict[str, Any]] | None,
     method: MeritsDecisionMethod | None = MeritsDecisionMethod.argued_signed,
     judgment: Judgment = Judgment.reversed,
+    author: str | None = None,
 ) -> Outcome:
     payload: dict[str, Any] = {
         "case_id": "scotus/1",
@@ -118,6 +119,7 @@ def _merits_outcome(
         "actual_granted": 1,
         "judgment": judgment.value,
         "merits_decision_method": method.value if method is not None else None,
+        "merits_author": author,
     }
     if roles is not None:
         payload["writing_roles"] = roles
@@ -151,43 +153,53 @@ def _order_outcome(roles: list[dict[str, Any]] | None) -> Outcome:
     return Outcome.model_validate(payload)
 
 
-def test_the_majority_author_is_the_one_lead_role() -> None:
+def test_the_majority_author_is_the_stamped_author_over_the_bench() -> None:
     resolved = claims_module._resolve_majority_author(
-        _merits_outcome(roles=_roles(Kagan="majority", Thomas="dissent"))
+        _merits_outcome(roles=_roles(Kagan="majority", Thomas="dissent"), author="Kagan")
     )
     assert resolved is not None
     assert resolved["Kagan"] == 1 and resolved[PER_CURIAM_LABEL] == 0
     assert sum(resolved.values()) == 1 and set(resolved) == {*_BENCH, PER_CURIAM_LABEL}
-    plurality = claims_module._resolve_majority_author(
-        _merits_outcome(roles=_roles(Alito="plurality"))
+    # An author who also wrote separately carries a mixed role; the stamp still names them.
+    mixed = claims_module._resolve_majority_author(
+        _merits_outcome(roles=_roles(Alito=None), author="Alito")
     )
-    assert plurality is not None and plurality["Alito"] == 1
+    assert mixed is not None and mixed["Alito"] == 1
+    # With no roles observed, the author alone is a label; the rest resolve 0 by omission.
+    bare = claims_module._resolve_majority_author(_merits_outcome(roles=None, author="Kagan"))
+    assert bare == {"Kagan": 1, PER_CURIAM_LABEL: 0}
 
 
-def test_a_per_curiam_resolves_from_the_decision_method_alone() -> None:
-    outcome = _merits_outcome(roles=None, method=MeritsDecisionMethod.argued_per_curiam)
+def test_a_per_curiam_resolves_from_the_stamp_under_a_per_curiam_method() -> None:
+    outcome = _merits_outcome(
+        roles=None, method=MeritsDecisionMethod.argued_per_curiam, author=PER_CURIAM_LABEL
+    )
     assert claims_module._resolve_majority_author(outcome) == {PER_CURIAM_LABEL: 1}
 
 
 @pytest.mark.parametrize(
     "outcome",
     [
+        # No stamped author: masked whoever wrote, so the mask never reads the answer.
+        _merits_outcome(roles=_roles(Kagan="majority")),
+        _merits_outcome(roles=None, method=MeritsDecisionMethod.argued_per_curiam),
         # No deciding opinion: nobody to author it, per curiam or not.
-        _merits_outcome(roles=_roles(Kagan="majority"), method=MeritsDecisionMethod.dig),
-        _merits_outcome(roles=None, method=MeritsDecisionMethod.summary_order),
-        # A signed decision whose roles were not observed is not a per curiam.
-        _merits_outcome(roles=None),
-        _merits_outcome(roles=None, method=None),
-        # An unclassified method masks even a named author: scoring the unclassified
-        # signed opinions alone would score a population short of its per curiams.
-        _merits_outcome(roles=_roles(Kagan="majority"), method=None),
-        # A per curiam whose roles name a lead writer contradicts itself.
+        _merits_outcome(roles=None, method=MeritsDecisionMethod.dig, author=PER_CURIAM_LABEL),
+        _merits_outcome(roles=None, method=MeritsDecisionMethod.summary_order, author="Kagan"),
+        # An unclassified method masks every author alike.
+        _merits_outcome(roles=None, method=None, author="Kagan"),
+        _merits_outcome(roles=None, method=None, author=PER_CURIAM_LABEL),
+        # A summary opinion is outside the argued population the baseline pools.
         _merits_outcome(
-            roles=_roles(Kagan="majority"), method=MeritsDecisionMethod.argued_per_curiam
+            roles=None, method=MeritsDecisionMethod.summary_opinion, author=PER_CURIAM_LABEL
         ),
-        # Two lead writers, or none, name no single author.
-        _merits_outcome(roles=_roles(Kagan="majority", Alito="plurality")),
-        _merits_outcome(roles=_roles()),
+        # The stamp and the method disagree.
+        _merits_outcome(roles=None, author=PER_CURIAM_LABEL),
+        _merits_outcome(roles=None, method=MeritsDecisionMethod.argued_per_curiam, author="Kagan"),
+        # The roles contradict the stamp: off the bench, a dissent, another lead.
+        _merits_outcome(roles=_roles(), author="Breyer"),
+        _merits_outcome(roles=_roles(Kagan="dissent"), author="Kagan"),
+        _merits_outcome(roles=_roles(Thomas="majority"), author="Kagan"),
     ],
 )
 def test_the_majority_author_is_masked_where_the_record_names_none(outcome: Outcome) -> None:
@@ -348,7 +360,7 @@ def test_merits_v2_scores_both_claims_against_an_injected_baseline(
     author = {"Kagan": 0.6} | {name: 0.4 / 9 for name in _BENCH if name != "Kagan"}
     author[PER_CURIAM_LABEL] = 0.4 / 9
     separate = dict.fromkeys(_BENCH, 0.1) | {"Thomas": 0.7}
-    outcome = _merits_outcome(roles=_roles(Kagan="majority", Thomas="dissent"))
+    outcome = _merits_outcome(roles=_roles(Kagan="majority", Thomas="dissent"), author="Kagan")
     rows = score_distributions(
         _merits_prediction(_authorship(author, separate)),
         outcome,
@@ -370,7 +382,7 @@ def test_merits_v2_scores_both_claims_against_an_injected_baseline(
 
 @pytest.mark.usefixtures("merits_v2")
 def test_without_a_baseline_the_rows_bank_the_forecast_unscored() -> None:
-    outcome = _merits_outcome(roles=_roles(Kagan="majority"))
+    outcome = _merits_outcome(roles=_roles(Kagan="majority"), author="Kagan")
     block = score_claims(
         _merits_prediction(
             _authorship(_even((*_BENCH, PER_CURIAM_LABEL)), dict.fromkeys(_BENCH, 0.2))
@@ -436,7 +448,7 @@ def test_a_well_formed_block_reports_no_problem_and_an_absent_one_none() -> None
     assert (
         score_distributions(
             _merits_prediction(None),
-            _merits_outcome(roles=_roles(Kagan="majority")),
+            _merits_outcome(roles=_roles(Kagan="majority"), author="Kagan"),
             StatPack(corpus_rows=1),
             lookback_terms=3,
         )
@@ -494,6 +506,9 @@ def test_the_new_fields_leave_older_records_bytes_unchanged() -> None:
     ).model_dump(mode="json")
     outcome = _merits_outcome(roles=None, method=None)
     assert "merits_decision_method" not in outcome.model_dump(mode="json")
+    assert "merits_author" not in outcome.model_dump(mode="json")
+    stamped = _merits_outcome(roles=None, author="Kagan").model_dump(mode="json")
+    assert stamped["merits_author"] == "Kagan"
     block = ClaimScoreBlock(declared_set_version=CLAIM_SET_MERITS_V1)
     assert "distributions" not in block.model_dump(mode="json")
 
@@ -514,8 +529,11 @@ def test_the_merits_writer_stamps_the_decision_method() -> None:
     assert known_decision_method("not-a-method") is None
 
 
-def test_a_decision_method_off_the_merits_stage_does_not_validate() -> None:
-    with pytest.raises(ValueError, match="off the merits stage"):
+@pytest.mark.parametrize(
+    ("field", "value"), [("merits_decision_method", "argued-signed"), ("merits_author", "Kagan")]
+)
+def test_a_merits_fact_off_the_merits_stage_does_not_validate(field: str, value: str) -> None:
+    with pytest.raises(ValueError, match=f"`{field}` is set off the merits stage"):
         Outcome.model_validate(
             {
                 "case_id": "scotus/1",
@@ -523,7 +541,7 @@ def test_a_decision_method_off_the_merits_stage_does_not_validate() -> None:
                 "resolved_at": "2026-06-01",
                 "actual_disposition": "denied",
                 "actual_granted": 0,
-                "merits_decision_method": "argued-signed",
+                field: value,
             }
         )
 
