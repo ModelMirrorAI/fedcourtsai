@@ -59,12 +59,16 @@ from ..schemas import (
     WritingRole,
 )
 from ..set_aside import IncrementTiming
+from ..supremecourt import october_term_year
 from . import moments
 from .base_rates import (
+    PER_CURIAM_LABEL,
     claim_score,
     interim_base_rate,
+    majority_author_base_rate,
     merits_base_rate,
     prediction_base_rate,
+    separate_writing_base_rate,
     summary_route_base_rate,
 )
 from .judgment import judgment_disturbed
@@ -140,9 +144,6 @@ CLAIM_SET_MERITS_V2 = "merits-v2"
 CLAIM_MAJORITY_AUTHOR = "majority-author"
 CLAIM_SEPARATE_WRITERS = "separate-writers"
 CLAIM_ORDER_WRITERS = "order-writers"
-
-#: The majority-author label for a decision no Justice signs.
-PER_CURIAM_LABEL = "per-curiam"
 
 DistributionKind = Literal["categorical", "per-justice"]
 
@@ -928,17 +929,24 @@ _DISTRIBUTION_RESOLVERS: Mapping[str, Callable[[Outcome], dict[str, int] | None]
 def _distribution_baseline(
     claim_id: str, context: PredictionContext, statpack: StatPack, *, lookback_terms: int
 ) -> dict[str, float] | None:
-    """The authorship claims' baselines no committed artifact yet supports.
+    """A scored authorship claim's strictly-prior baseline, priced over the cell's bench.
 
-    The honest ones are strictly-prior-Term per-Justice rates from the
-    per-opinion record and the orders source — the share of majority opinions
-    each Justice delivered, the share of decided cases each wrote separately in
-    — spread over the sitting bench, and, where the cell saw the sitting tally
-    frozen into its context, narrowed to the Justices yet to write. The
-    committed statpack publishes no such cut, so ``None`` until it does: the
-    claims stay declared and their rows bank the stated distributions, the
-    standing the binary claims without a baseline already have.
+    Pooled from the statpack authorship section over the October Terms before
+    the one the cell's snapshot falls in, over the Justices sitting on its
+    snapshot date (``pipeline.base_rates``). Late in a Term the author baseline
+    would down-weight, never zero, the Justices who have already written for the
+    case's sitting, off a tally frozen into the context at cell time; no context
+    field carries one yet, so the baseline is the season-blind rate. ``None``
+    where the pack cannot support one, and for a claim declared unscored.
     """
+    if context.snapshot_date < SERVICE_FLOOR:
+        return None
+    term = october_term_year(context.snapshot_date)
+    bench = bench_on(context.snapshot_date)
+    if claim_id == CLAIM_MAJORITY_AUTHOR:
+        return majority_author_base_rate(term, bench, statpack, lookback_terms=lookback_terms)
+    if claim_id == CLAIM_SEPARATE_WRITERS:
+        return separate_writing_base_rate(term, bench, statpack, lookback_terms=lookback_terms)
     return None
 
 

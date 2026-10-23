@@ -493,7 +493,10 @@ salience:
   # Counted in Term YEARS, not statpack
   # rows: a Term missing from the pack shortens the sample rather than pulling
   # an older Term in. Move it between Terms, never part-way through one —
-  # a change re-bases every published skill number at once.
+  # a change re-bases every published skill number at once. The authorship
+  # claims' baselines (docs/outcome-decomposition.md, *The authorship claims*)
+  # pool under the same window; the per-opinion record starts at OT2020, so
+  # there it reaches back at most to that Term.
   base_rate_lookback_terms: 10
   # Cap on interim-docket tournament slots (stays, injunctions — docs/salience.md
   # "The interim docket"). Defined INSIDE N by the selection pass

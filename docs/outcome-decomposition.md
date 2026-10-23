@@ -1211,7 +1211,9 @@ the paragraph above requires.
 label, and the claim's kind fixes how the terms combine before any outcome
 exists. A categorical claim **adds** its terms over every label either side
 names, a label the forecast leaves out stating 0, so mass on a Justice who did
-not sit is a miss rather than dropped; it is bounded by 2, the multi-class form
+not sit is a miss rather than dropped (the baseline prices the whole seated
+bench, so a forecaster who knows of a public recusal earns that knowledge); it
+is bounded by 2, the multi-class form
 this document already registers. A per-Justice claim **averages** its terms
 over the Justices the outcome resolves, so a bench of nine weighs as one claim
 rather than nine, the weighting the *No claim may be derived from another*
@@ -1229,19 +1231,55 @@ categorical has no single answer on an order with two writers. The existing
 `dissent-from-denial` claim stays the scored part of the cert stage; the
 writers forecast is resolved and banked beside it.
 
-**Baselines.** The honest baselines are strictly-prior-Term per-Justice rates
-from the per-opinion record and the orders source: the share of majority
-opinions each Justice delivered, smoothed so a newly seated Justice is not
-priced at 0, spread over the sitting bench; the share of decided cases each
-wrote separately in. A late-Term author baseline would down-weight, never
+**Baselines.** Both scored claims' baselines pool the statpack's authorship
+section (`metrics/README.md`), the per-opinion record per Term, over the
+October Terms strictly before the one the cell's snapshot falls in, inside the
+lookback band `salience.base_rate_lookback_terms` sets (the record starts at
+OT2020, so the band reaches no further back), priced over the Justices sitting
+on the snapshot date (`pipeline.base_rates`). Only argued decisions count, the
+population a merits forecast is made on: a summary per curiam, which the
+author claim would resolve as `per-curiam`, is a population a merits case
+rarely sees, and a signed decision the claims mask (its author also wrote
+separately, or it carries a second lead writing) is counted by neither.
+
+- `majority-author`: the per curiam takes its pooled share of argued
+  decisions, plus half a per curiam over one added decision, so a window that
+  saw none still prices one above zero. Each Justice's share of the signed rest
+  is their majority opinions over the decisions decided while seated, shrunk
+  toward an even split by 20 pseudo-decisions so a newly seated Justice is not
+  priced at 0, then scaled so the baseline sums to 1.
+- `separate-writers`: each Justice's separate writings over the observed
+  signed decisions they took part in, shrunk toward the bench-wide pooled rate
+  by the same 20 pseudo-decisions. Observed means a filled bench row, and the
+  record fills those only for Terms the opinion-record pass has read whole
+  lineups for, so this pool can cover far fewer Terms than the author's and sit
+  near the floor; a later bench back-fill re-bases every separate-writers row
+  on re-grade. The pool is signed decisions, while the claim also resolves a
+  dismissal or summary disposition whose roles were observed, so those are
+  priced at the signed rate (an observed DIG is likely one that drew a dissent,
+  so this direction under-prices).
+
+Either is `None`, and its claim unscored, below 30 pooled decisions (argued
+decisions for the author, observed ones for separate writing), and neither
+conditions on the case. A late-Term author baseline would down-weight, never
 zero, the Justices who have already written for the case's sitting, since a
 sitting sometimes gives one Justice two opinions and a zero baseline against a
 hit hands out an unearned point. It would read the tally frozen into the
 prediction's context at cell time, which no context field carries yet: a tally
 computed at resolution would carry the opinions issued after the cell ran,
-which test 3 names as leakage. No
-committed statpack cut carries these yet, so the claims bank their stated
-distributions unscored until one does.
+which test 3 names as leakage. A row scores only where the committed pack's
+section clears the floor and the outcome resolves the claim; a pack without the
+section scores neither.
+
+**`majority-author` is not yet scoreable as resolved.** Its mask must not
+depend on the answer, and today it does: a per curiam resolves from
+`merits_decision_method` alone, while a signed decision resolves only once the
+opinions source has stamped its `writing_roles`, which a per curiam never
+receives. Scored as it stands, its pool would over-represent per curiams, and a
+forecast stating a per curiam everywhere would collect on them while losing
+nothing on the masked signed decisions. The author must therefore resolve from
+a stamp written for every decision the opinion record reads, signed or per
+curiam, before any moment names `merits-v2`.
 
 **Reporting.** The rows sit in `ClaimScoreBlock.distributions`, beside the
 binary claims and never added into `total`, `floor` or `lift`. A malformed

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 
 from ..schemas import (
     CERT_ORDER_DISPOSITIONS,
@@ -37,6 +38,7 @@ from ..schemas import (
     FeeClass,
     PredictionContext,
     StatPack,
+    StatPackAuthorshipTerm,
     StatPackTerm,
     StatPackTermSegment,
 )
@@ -673,6 +675,119 @@ def interim_base_rate(
     if resolved < INTERIM_BASE_RATE_MIN_RESOLVED:
         return None
     return granted / resolved
+
+
+#: The ``majority-author`` label for a decision no Justice signs.
+PER_CURIAM_LABEL = "per-curiam"
+
+#: The smallest strictly-prior sample an authorship baseline may rest on: argued
+#: decisions for the author distribution, observed signed decisions for the
+#: separate-writing rates. Half a Term of argued decisions, the floor below
+#: which one Justice's share is mostly noise; a stated pre-registration choice,
+#: as :data:`MERITS_BASE_RATE_MIN_PARSED` is.
+AUTHORSHIP_BASE_RATE_MIN_DECISIONS = 30
+
+#: The pseudo-count each Justice's authorship rate is shrunk toward the pooled
+#: rate with: a third of a Term's argued decisions. A newly seated Justice, with
+#: no prior decisions, is priced at the pooled rate rather than at zero, and a
+#: Justice with several Terms behind them keeps close to their own record.
+AUTHORSHIP_PRIOR_WEIGHT = 20
+
+
+def _authorship_terms(
+    term: int, statpack: StatPack, *, lookback_terms: int
+) -> list[StatPackAuthorshipTerm]:
+    """The authorship section's Terms strictly before ``term``, inside the lookback band."""
+    if statpack.authorship is None:
+        return []
+    oldest = term - lookback_terms if lookback_terms > 0 else None
+    return [
+        entry
+        for entry in statpack.authorship.terms
+        if entry.term < term and (oldest is None or entry.term >= oldest)
+    ]
+
+
+def majority_author_base_rate(
+    term: int, bench: Sequence[str], statpack: StatPack, *, lookback_terms: int = 0
+) -> dict[str, float] | None:
+    """The ``majority-author`` baseline: a distribution over ``bench`` and the per curiam.
+
+    Pools the statpack authorship section over Terms **strictly before**
+    ``term`` (the October Term of the cell's snapshot), so no decision of the
+    case's own Term or a later one contributes. The per curiam takes its pooled
+    share of argued decisions, with half a per curiam added over one added
+    decision, so a window that saw none still prices it above zero: a zero
+    baseline against a per curiam would hand any forecast naming one an
+    unearned point. Each Justice's rate is their pooled majority opinions over
+    all the argued decisions decided while they were seated, shrunk
+    toward an even split of the signed share by
+    :data:`AUTHORSHIP_PRIOR_WEIGHT` pseudo-decisions, then scaled so the bench
+    divides the signed share exactly: the result sums to 1, as the claim's
+    forecast must. A Justice seated after the snapshot is no label here, so
+    a decision they write scores against a baseline of 0 for them; it takes an
+    appointment mid-case, and the forecast could not name them either.
+    ``None`` with an empty bench, no authorship section, or fewer
+    than :data:`AUTHORSHIP_BASE_RATE_MIN_DECISIONS` pooled argued decisions.
+    """
+    entries = _authorship_terms(term, statpack, lookback_terms=lookback_terms)
+    decisions = sum(entry.decisions for entry in entries)
+    if not bench or decisions < AUTHORSHIP_BASE_RATE_MIN_DECISIONS:
+        return None
+    per_curiam = (sum(entry.per_curiam for entry in entries) + 0.5) / (decisions + 1)
+    even = (1.0 - per_curiam) / len(bench)
+    written: dict[str, int] = dict.fromkeys(bench, 0)
+    seated: dict[str, int] = dict.fromkeys(bench, 0)
+    for entry in entries:
+        for row in entry.justices:
+            if row.justice in written:
+                written[row.justice] += row.majority
+                seated[row.justice] += row.decisions
+    raw = {
+        justice: (written[justice] + AUTHORSHIP_PRIOR_WEIGHT * even)
+        / (seated[justice] + AUTHORSHIP_PRIOR_WEIGHT)
+        for justice in bench
+    }
+    scale = (1.0 - per_curiam) / sum(raw.values())
+    return {justice: rate * scale for justice, rate in raw.items()} | {PER_CURIAM_LABEL: per_curiam}
+
+
+def separate_writing_base_rate(
+    term: int, bench: Sequence[str], statpack: StatPack, *, lookback_terms: int = 0
+) -> dict[str, float] | None:
+    """The ``separate-writers`` baseline: each Justice's chance of writing separately.
+
+    Pools the statpack authorship section over Terms **strictly before**
+    ``term``, under the same leakage rule as :func:`majority_author_base_rate`.
+    Each Justice's rate is their pooled separate writings over the observed
+    signed decisions they took part in, shrunk toward the bench-wide pooled rate
+    by :data:`AUTHORSHIP_PRIOR_WEIGHT` pseudo-decisions. The pool is argued
+    signed decisions, though the claim also resolves a dismissal or summary
+    disposition whose roles were observed: the record observes no bench for
+    those, so they are priced at the signed decisions' rate. ``None`` with an empty
+    bench, no authorship section, or fewer than
+    :data:`AUTHORSHIP_BASE_RATE_MIN_DECISIONS` pooled observed decisions.
+    """
+    entries = _authorship_terms(term, statpack, lookback_terms=lookback_terms)
+    observed = sum(entry.observed for entry in entries)
+    if not bench or observed < AUTHORSHIP_BASE_RATE_MIN_DECISIONS:
+        return None
+    wrote: dict[str, int] = dict.fromkeys(bench, 0)
+    sat: dict[str, int] = dict.fromkeys(bench, 0)
+    all_wrote = all_sat = 0
+    for entry in entries:
+        for row in entry.justices:
+            all_wrote += row.separate
+            all_sat += row.sat
+            if row.justice in wrote:
+                wrote[row.justice] += row.separate
+                sat[row.justice] += row.sat
+    pooled = all_wrote / all_sat if all_sat else 0.0
+    return {
+        justice: (wrote[justice] + AUTHORSHIP_PRIOR_WEIGHT * pooled)
+        / (sat[justice] + AUTHORSHIP_PRIOR_WEIGHT)
+        for justice in bench
+    }
 
 
 def claim_score(p: float, y: int, b: float) -> float:

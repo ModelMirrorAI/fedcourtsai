@@ -2677,6 +2677,29 @@ the rendered table) and
   tables' replay self-selection rule (anchor strictly before the case's own
   docket Term, `record/context.json`'s `decided_before`).
 
+  The **authorship section** (`authorship`, JSON only, never rendered into
+  `statpack.md`) is the per-opinion record rolled up per October Term, the Term
+  the opinions listing files a decision under; it is present once the record
+  holds an argued decision and omitted otherwise. It counts **argued**
+  decisions only, the population a merits forecast is made on: a signed
+  decision whose opinion prints an argument date, and a per curiam whose corpus
+  row records an argument day and no DIG (a per curiam prints no argument date,
+  and one linked to no row is left out). Summary per curiams and DIGs, which
+  the listing also carries, are outside it. Per Term: `decisions`,
+  `per_curiam`, and `observed` (signed decisions whose bench row is filled);
+  per Justice serving that Term, `decisions` decided while seated and
+  `majority` delivered, then `sat` (observed decisions taken part in) and
+  `separate` (of those, decisions the Justice wrote or co-wrote any writing but
+  the deciding one in). The two denominators differ because the two authorship
+  claims resolve over different populations. Bench rows are filled only where
+  the opinion-record pass read a complete syllabus lineup, so `observed` can
+  sit far below `decisions`, and a Term with none observed contributes nothing
+  to the separate-writing rates. Read `observed` beside any separate-writing
+  figure. It feeds the authorship claims' baselines
+  (`pipeline.base_rates.majority_author_base_rate`, `separate_writing_base_rate`;
+  *The authorship claims* in `docs/outcome-decomposition.md`), pooled strictly
+  before the October Term of the cell's snapshot.
+
 - `docket.json` / `docket.md` — the **court-facing docket pack**: facts about the
   dockets themselves, for a reader with no interest in whether this project's
   models are any good. Composition by court and by decade era; then, over the

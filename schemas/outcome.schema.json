@@ -439,7 +439,7 @@
         }
       ],
       "default": null,
-      "description": "What every participating Justice wrote, observed apart from how they voted: present only where the source observed the whole participating bench's writings \u2014 every writing the Court published for the act read without a problem \u2014 so a Justice listed as `none` is observed to have written nothing. Absent means not observed, never observed-as-none. Kept off `votes` because at the cert and interim stages the roles are observable for every Justice while the votes are not, and a vote entry needs a vote. Nothing scores it: vote scoring and its completeness gate read `votes` and `vote_provenance` only. Read beside `vote_provenance`, which it requires",
+      "description": "What every participating Justice wrote, observed apart from how they voted: present only where the source observed the whole participating bench's writings \u2014 every writing the Court published for the act read without a problem \u2014 so a Justice listed as `none` is observed to have written nothing. Absent means not observed, never observed-as-none. Kept off `votes` because at the cert and interim stages the roles are observable for every Justice while the votes are not, and a vote entry needs a vote. Vote scoring and its completeness gate read `votes` and `vote_provenance` only; the authorship claims (`majority-author`, `separate-writers`, `order-writers`) resolve from these roles. Read beside `vote_provenance`, which it requires",
       "title": "Writing Roles"
     }
   },
