@@ -41,6 +41,7 @@ from fedcourtsai.pipeline.documents import (
     DocumentFetchLosses,
     LeadFetch,
     _derived_questions_document,
+    _qp_change_reason,
     _qp_stored_is_fragment,
     backfill_questions_presented,
     bio_block_texts,
@@ -5637,6 +5638,35 @@ def test_extract_questions_presented_ignores_questions_for_review_said_in_prose(
     assert extract_questions_presented(petition) is None
 
 
+def test_extract_questions_presented_ignores_an_argument_heading_on_the_review_words() -> None:
+    # An argument heading shouts the review wording; it does not stand alone on
+    # its line, so it opens no section.
+    petition = (
+        "REASONS FOR GRANTING THE PETITION\n"
+        "I. THIS CASE PRESENTS IMPORTANT QUESTIONS FOR REVIEW\n"
+        "The circuits are divided on the standard, and the division is entrenched.\n"
+    )
+    assert extract_questions_presented(petition) is None
+
+
+def test_extract_questions_presented_ignores_a_sentence_opening_on_the_review_words() -> None:
+    petition = (
+        "Questions for Review of this kind arise often in the lower courts, "
+        + "and this one is cleanly presented.\n"
+        + "OPINIONS BELOW\nThe opinion is reported at 1 F.4th 1.\n"
+    )
+    assert extract_questions_presented(petition) is None
+
+
+def test_qp_change_reason_sets_mechanical_trims_apart() -> None:
+    question = "Whether the agency exceeded its statutory authority under the Act?"
+    assert _qp_change_reason(question + "\nii", question) == "trim-only"
+    assert _qp_change_reason("FOR REVIEW\n" + question, question) == "trim-only"
+    assert _qp_change_reason("FOR REVIEW\n" + question + "\n 12 ", question) == "trim-only"
+    # A trim that also changes the words is not mechanical.
+    assert _qp_change_reason(question + "\nii", question[:-1] + ".") == "other-change"
+
+
 def test_extract_questions_presented_drops_the_heading_tail_and_a_trailing_folio() -> None:
     petition = (
         "QUESTIONS PRESENTED FOR REVIEW\n"
@@ -5695,3 +5725,34 @@ def test_backfill_questions_presented_sets_a_missing_cap_mark(tmp_path: Path) ->
         stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/9")}
     row = stored[KIND_QUESTIONS_PRESENTED]
     assert row.truncated is True and row.text == capped
+
+
+def test_backfill_questions_presented_marks_a_rewritten_row_that_is_capped(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    long_text = "QUESTIONS PRESENTED\n" + "Whether x. " * 600
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/9",
+                    court="scotus",
+                    docket_number="25-9",
+                    last_live_polled=date(2026, 6, 2),
+                )
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                _petition_document("scotus/9", long_text),
+                _stored_qp("scotus/9", "Whether x. Whether x. Whether x. Whether x."),
+            ],
+        )
+        backfill_questions_presented(conn, apply=True)
+    with corpus.connect(db) as conn:
+        stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/9")}
+    row = stored[KIND_QUESTIONS_PRESENTED]
+    assert row.truncated is True and row.text == extract_questions_presented(long_text)
