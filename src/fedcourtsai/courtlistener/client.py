@@ -4,7 +4,9 @@ Reads dockets and their entries (the ``pull`` channel), plus the opinion
 cluster and opinion records a decided case produced — reached from the docket
 that links them or from the court and docket number they were filed under (the
 opinion-enrichment channel —
-:mod:`fedcourtsai.pipeline.opinion_enrichment`). Every endpoint goes
+:mod:`fedcourtsai.pipeline.opinion_enrichment`), and a lower court's docket
+rows by number for the decision-below measurement
+(:mod:`fedcourtsai.pipeline.decision_below`). Every endpoint goes
 through one throttled, retried :meth:`CourtListenerClient._get`, so each shares
 the same rate governor, retry policy, and error classification.
 
@@ -185,9 +187,35 @@ class CourtListenerClient:
         """
         return self._get(f"opinions/{opinion_id}/")
 
-    def list_docket_entries(self, docket_id: int, page: int = 1) -> JsonDict:
-        """List docket entries (the timeline of filings/orders) for a docket."""
-        return self._get("docket-entries/", {"docket": docket_id, "page": page})
+    def list_dockets_by_number(
+        self, *, court: str, docket_number: str, core: bool = False
+    ) -> JsonDict:
+        """List a court's docket rows filed under one docket number (one page).
+
+        ``core`` filters on upstream's ``docket_number_core`` — the year and
+        serial digits it distils a number to, which folds spellings such as a
+        four-digit year prefix — rather than on the exact ``docket_number``
+        string. Upstream fills the core only on some rows, so a caller that
+        needs both asks twice. Either value travels as a query *parameter*,
+        url-encoded by the transport, never as a path; a caller for which the
+        join must be exact checks the court and number each returned row names.
+        """
+        key = "docket_number_core" if core else "docket_number"
+        return self._get("dockets/", {"court": court, key: docket_number})
+
+    def list_docket_entries(
+        self, docket_id: int, page: int = 1, *, date_filed_gte: date | None = None
+    ) -> JsonDict:
+        """List docket entries (the timeline of filings/orders) for a docket.
+
+        ``date_filed_gte`` narrows the page to entries filed on or after a date,
+        so a caller reading only what followed a judgment pays for nothing
+        before it.
+        """
+        params: JsonDict = {"docket": docket_id, "page": page}
+        if date_filed_gte is not None:
+            params["date_filed__gte"] = date_filed_gte.isoformat()
+        return self._get("docket-entries/", params)
 
     def iter_docket_entries(self, docket_id: int) -> list[JsonDict]:
         """Page through and collect all docket entries for a docket."""

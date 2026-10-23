@@ -101,6 +101,15 @@ Each of these is stated, with its reason, where the code makes the choice:
 - **A consolidated member is checked for freshness on its own docket.** A merits
   filing entered only on the lead is left to the selection sweep
   (live-sources.md, *Document freshness*).
+- **The decision below reaches a cell only through the petition's appendix.**
+  No kind stores the lower court's opinion or its docket: the panel, a petition
+  for rehearing en banc, its disposition and any dissent from it. A Rule 34.6
+  docket, which links no PDFs, gives its cell no decision below at all. The join
+  to CourtListener is measured, not stored: `fedcourts decision-below` reports
+  per case whether the lower court's docket and the opinion cluster on the
+  judgment date are there, and what the docket's entries say about rehearing
+  en banc ([cli.md](cli.md)). It covers the federal courts of appeals only and
+  buys nothing; a missing opinion is not fetched through RECAP Fetch.
 
 ## Measuring coverage
 

@@ -704,6 +704,14 @@ The automated consumer stays within CourtListener's published API limits by desi
   REST problem, the **database replication** channel named above remains the
   intended route to opinion bodies across the whole corpus, and nothing here is
   a step toward reading them out of the API instead.
+- **The decision-below dry run shares it too.** `decision-below` reads the
+  lower court's docket rows, clusters, opinions and post-judgment docket
+  entries for a named case or a small sample, through the same client and
+  ceilings: two requests per lower-court number at most, one per cluster and
+  opinion followed, and a page or two of entries, so a typical circuit case
+  costs four or five. It is a maintainer's measurement, not a lane, and it
+  reads only what CourtListener already holds — no RECAP Fetch request, so no
+  PACER charge ([cli.md](cli.md)).
 
 The pilot holds a paid Free Law Project **membership tier** — **Tier 4**, at 25
 requests a minute, 300 an hour and 1,400 a day, for $1,000 a year. It is the top
