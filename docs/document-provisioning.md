@@ -53,7 +53,7 @@ table below are stored and given to no cell.
 | `application-response` | The first response to the application | Application |
 | `application-reply` | The applicant's reply to it | Application |
 
-Two more kinds are **stored but not yet given to any cell**. Which kinds a cell
+Three more kinds are **stored but not yet given to any cell**. Which kinds a cell
 reads is part of its information set, and the process digest does not see it
 ([process-version.md](process-version.md)), so a new kind is fetched and stored
 first and staged only in the re-bless whose prompt tells cells about it. Until
@@ -64,9 +64,12 @@ the case-summary plan leaves it out of the record it reads.
 | --- | --- | --- |
 | `supplemental-brief` | Every party's Rule 15.8 supplemental brief while the petition is pending, combined into one row | Cert |
 | `party-letter` | Every party's letter to the Clerk bearing on the case while the petition is pending (mootness, settlement, withdrawal, an intervening decision), combined into one row | Cert |
+| `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
 
-Amicus briefs, other than the Solicitor General's invited brief, are never
-selected. A cell with retrieval rights can still reach them upstream.
+Amicus briefs other than the United States' are never selected: the Solicitor
+General's invited brief at the cert stage, and the United States' brief on the
+merits after the grant. A cell with retrieval rights can still reach the others
+upstream.
 
 ## The settings that bound it
 

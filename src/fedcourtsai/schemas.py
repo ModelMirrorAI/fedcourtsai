@@ -417,6 +417,12 @@ class GroupBy(StrEnum):
     would let a coverage gap pass for an absence of capital cases. The
     positive needs no such guard — the column max-latches, so only a writer that
     saw the signal can have raised it.
+    ``cert_amicus`` groups a cert petition by how many amicus briefs its docket
+    recorded before the Court disposed of it (``0`` / ``1`` / ``2+``, from the
+    corpus ``cert_amicus_briefs`` column); a row the live channel has not read
+    since that column existed shares the ``(unknown)`` bucket. A section supplies
+    its key function, and ``stats`` does not offer it as a cut: the column is
+    withheld from what a cell retrieves, and ``stats`` is a cell's tool too.
     ``salience_band`` groups by the active scorer's frozen grant-likelihood band
     over the paid modern-cert petitions — the
     predicted segment — so a case's base rate is its own salience tier's rate.
@@ -439,6 +445,7 @@ class GroupBy(StrEnum):
     cvsg = "cvsg"
     fee_class = "fee_class"
     capital_case = "capital_case"
+    cert_amicus = "cert_amicus"
     salience_band = "salience_band"
     qp_topic = "qp_topic"
 
