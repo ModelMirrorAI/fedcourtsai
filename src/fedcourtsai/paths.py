@@ -324,6 +324,13 @@ class CasePaths:
         return self.record / "authorship-tally.json"
 
     @property
+    def argument_features(self) -> Path:
+        # A post-argument cell's per-Justice questioning counts, parsed from the
+        # transcript it was staged (`provision.staged_argument_features`).
+        # Gitignored with the rest of record/.
+        return self.record / "argument-features.json"
+
+    @property
     def opinion_dir(self) -> Path:
         # Provisioning location for the case's **majority opinion body** — the
         # evaluate cell's slot, and only ever that. Deliberately not under

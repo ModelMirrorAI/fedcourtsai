@@ -51,14 +51,15 @@ fields that mean the same thing at every stage:
 - **`input_snapshot`** — the provisioned snapshot the cell read, which lives at
   `data/cases/<court_id>/<docket_id>/record/snapshots/<YYYY-MM-DD>.json`. That
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
-  a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
-  sit beside every event of the case rather than under the event being
+  a cell's provisioned inputs (the snapshot, `context.json`, `documents/`, and
+  on a post-argument cell `argument-features.json`) sit beside every event of the case rather than under the event being
   predicted. The staged `documents/` hold the kinds provisioning gives cells,
   never one the corpus stores but withholds from every cell until a re-bless
-  (`provision.WITHHELD_KINDS`: the supplemental briefs and party letters,
+  (`provision.WITHHELD_KINDS`, which holds none now;
   [document-provisioning.md](document-provisioning.md)); the post-argument
-  merits cell's `authorship-tally.json` is held back the same way
-  (`provision.AUTHORSHIP_TALLY_WITHHELD`). The staged documents carry a
+  merits cell's `authorship-tally.json` is held back on the same rule
+  (`provision.AUTHORSHIP_TALLY_WITHHELD`). `argument-features.json` is the
+  deterministic parse of the transcript the cell was staged. The staged documents carry a
   `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
   facts (a `petition`, `application` or `appendix` cut at the cap also marks

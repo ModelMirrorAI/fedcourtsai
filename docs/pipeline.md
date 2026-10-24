@@ -1274,8 +1274,9 @@ id, stores each text, inserts and pushes, and mints the App token only after
 the push. The bound is the dry run's "would insert N": opinion, bench and text
 rows together. Each run fetches again, so an apply does not lead
 with a dry run, and a re-dispatched dry run after the apply is the control.
-Nothing a cell sees moves: the tables and the stored texts are no part of a
-`query` row, and no gate, mint, outcome or score reads them.
+The tables reach cells only through the statpack, whose authorship and
+per-Justice votes sections roll them up; the stored texts are no part of a
+`query` row, and no gate, mint, outcome or score reads either.
 
 `amicus-rederive` writes both stores, and what is distinctive is *which* two: a
 corpus column and the committed `outcome.json` field that column was frozen onto,
@@ -1323,8 +1324,8 @@ a dispatched pass rather than a standing sweep because its class does not
 regrow: every poll writes the column on the row it reads, so once the history is
 filled there is nothing for a window to converge, and a sweep would re-read the
 whole slice from the content store each window to find that. The stat pack's
-amicus cut waits on it, and stays out of the statpack until a re-bless admits it
-to what cells read.
+amicus cut reads the column, so before the pass has applied that cut is almost
+all `(unknown)`.
 
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an

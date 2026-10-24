@@ -480,14 +480,9 @@ the docket form, so one function serves both lanes:
   every party arm, and the two arms after it read only the pending petition,
   so an entry any other arm reads is never offered to it and no other kind's
   selection moves; every other merits-stage amicus brief
-  stays unselected. **Stored, and not yet given to any cell**: it is in
-  `provision.WITHHELD_KINDS`, because admitting it changes what a merits cell
-  reads under an unchanged process digest, which rides a re-bless
-  ([process-version.md](process-version.md)).
-- **`supplemental-brief`** / **`party-letter`** — **stored, not yet given to any
-  cell** (`provision.WITHHELD_KINDS`; a kind leaves that set in the re-bless
-  whose prompt tells cells about it, since a newly staged kind changes the
-  predictors' information set under an unchanged digest). Every party's **Rule
+  stays unselected. A merits cell whose cutoff it falls before is given it
+  beside the parties' merits briefs.
+- **`supplemental-brief`** / **`party-letter`** — every party's **Rule
   15.8 supplemental brief** ("Supplemental brief of petitioner … filed.",
   "Second supplemental brief of respondent … filed.", and a "letter brief",
   supplemental or bare — "Letter brief of petitioner … filed."), and every party's **letter to the Clerk** that bears on the case —
@@ -643,10 +638,10 @@ rotations just polled:
 - **Test.** The case is stale where its stored set does not hold every link the
   selection names (`documents.unheld_document_kinds`): a kind absent, a kind at
   another link, or a combined row — the opposition, the supplemental briefs,
-  the party letters — whose set of filings differs from the selected set. The
-  two kinds no cell is given yet (`provision.WITHHELD_KINDS`) are owed here like
-  any other, since storing them ahead of the re-bless that stages them is the
-  point; the bound below is what keeps them from costing a cell anything. That is exactly the test the fetch skips a filing on, so a
+  the party letters — whose set of filings differs from the selected set. A
+  kind held in `provision.WITHHELD_KINDS` is owed here like any other, since
+  storing it ahead of the re-bless that stages it is the point; the bound below
+  is what keeps it from costing a cell anything. That is exactly the test the fetch skips a filing on, so a
   stale case is one the fetch will download for, and a held case costs nothing
   but the content-store read.
 - **Fetch.** Through the poller's own `provision_documents` — the same
@@ -772,11 +767,11 @@ pass, after document freshness (`live.fetch_argument_transcripts`):
   are summed under their side, and only the segment list keeps each advocate
   and case number apart. "Supporting vacatur" is kept as neither party's. A
   Justice speaking to anyone but the advocate at the lectern still counts
-  toward that advocate's side. The parse is computed on demand
-  (`fedcourts argument-features`) and is **not yet given to any cell**.
-  Staging it beside the transcript would change the post-argument moment's
-  information set, so it waits for a process-version re-bless
-  ([process-version.md](process-version.md)). A transcript longer than
+  toward that advocate's side. Provisioning runs the parse over the copy it
+  stages and writes it beside the transcript as
+  `record/argument-features.json`, so a post-argument cell reads the counts of
+  the text it was handed; `fedcourts argument-features` runs it on demand. A
+  parse whose totals do not reconcile writes no file. A transcript longer than
   `document_text_cap` once cleaned is stored head-cut, often without its
   rebuttal. On such a row the parse finds no closing line and says so.
 - **Ledger.** The `Argument transcripts:` line carries listed, unmatched, held,
@@ -1051,7 +1046,7 @@ docket carries a reply at all); the `appendix`, `cert-reply` and
 `sg-invited-brief` counts are bounded the same way, by the dockets that post a
 separate appendix, carry a cert-stage reply, or were answered after a call for
 the Solicitor General's views; the `supplemental-brief` and `party-letter`
-counts, stored and not yet staged, by the dockets that carry one; and an empty
+counts by the dockets that carry one; and an empty
 derived questions-presented row is as likely to be a capture the deriver would
 not vouch for. And the command reports the **absent** petition
 beside the empty one, because that is the larger failure and a different
@@ -1304,10 +1299,8 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   that arrived as a PDF: the petition, the application, the separately
   linked appendix, the response to an application and the applicant's reply,
   the brief in opposition, the cert-stage reply, the invited brief, the four
-  merits filings, and the supplemental briefs and party letters, which the
-  corpus stores and no cell is yet given (recovered all the same, since the
-  pass is local and cheap and a row recovered now is ready for the re-bless
-  that stages it); which is the text-coverage set less its one derived
+  merits filings, the United States' merits amicus brief, and the
+  supplemental briefs and party letters; which is the text-coverage set less its one derived
   member — whose text is empty or whitespace-only, whose page
   count is above zero, and whose stored URL is one link. A zero-page row is
   either a PDF the extractor could not open or a derived section — `pages`

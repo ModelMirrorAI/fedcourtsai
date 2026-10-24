@@ -13403,3 +13403,125 @@ freeze commit is recorded here.
     `["order-writers"]` on a cert or interim cell and `["majority-author",
     "separate-writers"]` on a merits cell, and `fedcourts validate data`
     stays green on its collect PR.
+
+- **`proc-v13`: the predict prompt tells cells about the inputs stored for
+  them, and provisioning hands them over; recorded 2026-10-24.**
+  Carried to `main` by `<FILL: promotion tag>` (merge `<FILL: merge sha>`,
+  `<FILL: merged-at>`), to be tagged **`prereg/proc-v13`**. Registered under
+  the merge-stamped rule, so its counting instant, its three bless moments and
+  every window edge it moves are the carrying merge's committer time. It is
+  the third supersession shape for all three predictors at once
+  ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  `.github/prompts/predict.md` changes, so each predictor's open `proc-v12`
+  window **closes** at this label's instant and a `proc-v13` window opens
+  there for each new digest. No evaluator digest moves, so the three judges
+  carry their bless moments forward and add this label to their blessing
+  labels. Nothing is de-counted and nothing is re-owed: every cell counted in
+  a closed window keeps counting under its own label.
+
+  **Why a label for inputs the digest does not see.** A process digest covers
+  the prompt bytes and the canonical config, not provisioning code, so a newly
+  staged input would change what a cell reads under an unchanged digest. Each
+  input below was stored first and held back, and is released here, in the
+  label whose prompt tells cells what it is and how to read it.
+
+  **What cells are handed from this label on.**
+  - *Documents* (`provision.WITHHELD_KINDS` is now empty): on a cert docket,
+    `supplemental-brief.txt` (every party's Rule 15.8 supplemental brief while
+    the petition is pending) and `party-letter.txt` (the parties' letters to
+    the Clerk bearing on the case); on a granted docket,
+    `merits-amicus-united-states.txt` (the United States' amicus brief on the
+    merits). Each is cut to the cell's cutoff as every other kind is.
+  - *Argument features*: a post-argument cell's
+    `record/argument-features.json`, the deterministic parse of the transcript
+    it was staged (`provision.staged_argument_features`).
+  - *Two statpack sections*: the cert amicus-brief cut over the paid scored
+    segment (`Cert petitions by amicus-brief count`, buckets `0`, `1`, `2+`),
+    and the per-Justice merits votes section (`justice_votes`), each Term's
+    complete lineups rolled up by `pipeline.justice_priors`. The amicus cut
+    reads the `cert_amicus_briefs` column, whose resolved history the
+    `cert-amicus-rederive` repair pass fills: <FILL: the vintage of that
+    pass's apply, or that it is still owed, at the carrying merge>. Until it
+    applies, the cut's known buckets are mostly petitions the live poll still
+    reads, a selected sample, and its `(unknown)` bucket is most of it.
+
+  **What moved, in the predict prompt.** The document list names the two
+  cert-stage kinds and *Stage: merits* the United States' merits brief; the
+  `argued` moment describes the features file and says a count is never a
+  vote; the cert anchoring reads the amicus cut beside the relist and CVSG
+  cuts as a marginal stakes proxy; and the vote block is pointed at the
+  per-Justice section, pooled only over Terms strictly before the case's
+  grant Term.
+
+  **What this label does not release.** The same-question petition list
+  (`fedcourts same-question`) stays out of cells: its index is built over the
+  whole frame, and staging it per cell needs a plan-job step this label does
+  not add. The decision-below input waits on its match-rate measurement. The
+  authorship tally (`record/authorship-tally.json`) stays withheld
+  (`provision.AUTHORSHIP_TALLY_WITHHELD`).
+
+  **No scored figure moves.** No baseline reads either new statpack section:
+  the amicus cut publishes rates no claim is scored against, and the
+  per-Justice section is a reference point for the vote block, whose
+  `vote_accuracy` would be scored against the outcome's recorded votes, not a
+  baseline, and no merits outcome carries recorded votes yet.
+
+  **Digests** (`uv run fedcourts process-digest --all`, at `staging`
+  `15d4b5e21` before this change and at it):
+
+  | Actor | Before | `proc-v13` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f` (`proc-v12`) | `sha256:0e9f038aa50f27c07962cefa5d1cd59c55d66db242b727a96735976c5d5075d6` (new) |
+  | `codex-baseline` | `sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4` (`proc-v12`) | `sha256:30b53868273c7d74d66b14eac3aa36741eac10086bd1469378aaa3addea843bc` (new) |
+  | `gemini-baseline` | `sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9` (`proc-v12`) | `sha256:607d0e86e54356555a4a240ef8845ddf5dd33ae1f50269f52d83cd14548824a1` (new) |
+  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | same, carried forward |
+  | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | same, carried forward |
+  | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | same, carried forward |
+
+  **Step 0.** At `origin/main` `e5bdefe40` (`2026-10-24T12:04:45Z`), `git grep
+  -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
+  the three newly blessed digests, and `git grep -l '"process_version": {'
+  origin/main -- data/cases | wc -l` is **3012** stamped cells. At the
+  carrying merge the newly blessed predictor digests stamp
+  <FILL: census predictions digest=0e9f038a,30b53868,607d0e86> committed
+  predictions.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`457d3e0e…`) | `proc-v12` | `proc-v12`'s instant | this label's instant (was open) |
+  | `codex-baseline` (`87e57da6…`) | `proc-v12` | `proc-v12`'s instant | this label's instant (was open) |
+  | `gemini-baseline` (`8057aacc…`) | `proc-v12` | `proc-v12`'s instant | this label's instant (was open) |
+  | `claude-baseline` (`0e9f038a…`) | `proc-v13` | this label's instant | open (new) |
+  | `codex-baseline` (`30b53868…`) | `proc-v13` | this label's instant | open (new) |
+  | `gemini-baseline` (`607d0e86…`) | `proc-v13` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes.** `uv run fedcourts successor-disclosures --closed
+  proc-v12 --successor proc-v13` is run once the carrying merge has stamped
+  the registry, and a dated follow-up entry quotes it before any `proc-v12`
+  window figure is quoted outside the committed board.
+
+  **Evidence for the change other than the closed windows' boards.** None:
+  the inputs were built and stored on the maintainer's review of what
+  predictor cells lacked, not on a score.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v13`, `uv run python
+    -c "from fedcourtsai.provision import WITHHELD_KINDS as W; print(W)"`
+    prints `frozenset()`, and `uv run fedcourts process-digest --all` prints
+    the six digests above;
+  - after the next `metrics-refresh`, `jq '[.sections[].title |
+    select(test("amicus"))], (.justice_votes.terms | length)'
+    metrics/statpack.json` prints the amicus cut's title and at least `1`,
+    and `jq '.sections[] | select(.title | test("amicus")) | .buckets[] |
+    select(.key == "(unknown)")' metrics/statpack.json` shows the
+    `(unknown)` share, which should be small once the repair pass has
+    applied;
+  - the first predict round after the carrying merge stages
+    `record/argument-features.json` on every `moment: argued` cell whose
+    transcript was staged, and `fedcourts validate data` stays green on its
+    collect PR.

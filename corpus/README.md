@@ -344,7 +344,8 @@ the counting rule or of a reader reaches stored rows only through a pass built
 to replace them, which does not exist yet; `word_rule` and `lineup` say which
 version each row was read under. Its readers outside its writer are `fedcourts merits-lineups`,
 which derives each decision's per-Justice votes from it, and `fedcourts authorship-tally`,
-which reads each lead opinion's author against its argument sitting; it is read by no `query`
+which reads each lead opinion's author against its argument sitting, and the statpack's authorship
+and per-Justice votes sections, which roll it up per Term; it is read by no `query`
 retrieval row, outcome, mint or scoring gate, and provisioning reads it only for
 the tally a post-argument merits cell would be given, which is held back from
 every cell (`provision.AUTHORSHIP_TALLY_WITHHELD`), and to pick the decisions whose

@@ -43,6 +43,7 @@ from . import casestore
 from .corpus import CaseDocument, CorpusEvent, CorpusRow, ReadConnection
 from .paths import CasePaths
 from .pipeline import (
+    argument_features,
     arrival_cut,
     authorship,
     cell_context,
@@ -53,9 +54,6 @@ from .pipeline import (
 from .pipeline.documents import (
     KIND_ARGUMENT_TRANSCRIPT,
     KIND_DESCRIPTIONS,
-    KIND_MERITS_AMICUS_UNITED_STATES,
-    KIND_PARTY_LETTER,
-    KIND_SUPPLEMENTAL_BRIEF,
     OTHER_LIST,
     ScrubbedSnapshot,
     ScrubbedText,
@@ -67,6 +65,7 @@ from .pipeline.documents import (
 from .pipeline.opinion_record import StoredText
 from .pipeline.vide_links import VIDE_RELATION
 from .schemas import (
+    ArgumentFeatures,
     AuthorshipTally,
     Moment,
     Stage,
@@ -586,9 +585,7 @@ def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
     return str(raw) if raw else None
 
 
-WITHHELD_KINDS: frozenset[str] = frozenset(
-    {KIND_SUPPLEMENTAL_BRIEF, KIND_PARTY_LETTER, KIND_MERITS_AMICUS_UNITED_STATES}
-)
+WITHHELD_KINDS: frozenset[str] = frozenset()
 """The document kinds the corpus stores and no cell is given, at any moment.
 
 Which kinds a cell reads is part of its information set, and the process digest
@@ -1063,7 +1060,9 @@ def write_cell_record(
     ``related`` holds any, ``related/`` with each linked docket
     :func:`place_related` placed and its ``related.json``, and, where
     ``authorship_tally`` is given and not held back
-    (:data:`AUTHORSHIP_TALLY_WITHHELD`), ``authorship-tally.json``. A caller that wrote
+    (:data:`AUTHORSHIP_TALLY_WITHHELD`), ``authorship-tally.json``, and, where
+    a transcript is staged, ``argument-features.json`` parsed from it
+    (:func:`staged_argument_features`). A caller that wrote
     only the first would hand an agent a snapshot with no frozen mode, band or
     cutoff beside it — the cell would then have to guess its own posture, which
     is the one thing provisioning exists to settle.
@@ -1095,6 +1094,7 @@ def write_cell_record(
         _clear_dir(paths.documents_dir)
         _clear_dir(paths.related_dir)
         paths.authorship_tally.unlink(missing_ok=True)
+        paths.argument_features.unlink(missing_ok=True)
         clear_opinion_slot(paths)
     payload = placement.payload
     dest = snapshot_dest or paths.snapshot(placement.snapshot_date.isoformat())
@@ -1160,6 +1160,10 @@ def write_cell_record(
         for kind, (doc, scrubbed) in zip(kinds, staged, strict=True):
             write_text(paths.document(kind), doc.text if scrubbed is None else scrubbed.text)
         write_raw_json(paths.documents_manifest, document_manifest(staged))
+        if snapshot_dest is None:
+            features = staged_argument_features(staged)
+            if features is not None:
+                write_raw_json(paths.argument_features, features.model_dump(mode="json"))
     if related and snapshot_dest is None:
         # Each linked docket as `place_related` cut and redacted it: the
         # redaction already removed the party and counsel blocks a contact
@@ -1181,6 +1185,29 @@ def write_cell_record(
         related=tuple(related) if snapshot_dest is None else (),
         authorship_tally=authorship_tally if tally_written else None,
     )
+
+
+def staged_argument_features(
+    staged: Sequence[tuple[CaseDocument, ScrubbedText | None]],
+) -> ArgumentFeatures | None:
+    """The per-Justice questioning counts of the transcript a cell was staged, or ``None``.
+
+    Read off the staged copy, so the counts describe exactly the text the cell
+    can read; only a post-argument cell is staged a transcript
+    (:func:`documents_for_moment`). A parse whose totals do not reconcile is
+    refused by the model and the cell goes without the file rather than with
+    a wrong count.
+    """
+    for doc, scrubbed in staged:
+        if doc.kind != KIND_ARGUMENT_TRANSCRIPT:
+            continue
+        try:
+            return argument_features.parse_argument_features(
+                doc.text if scrubbed is None else scrubbed.text
+            )
+        except ValueError:
+            return None
+    return None
 
 
 def document_manifest(

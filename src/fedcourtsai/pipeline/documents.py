@@ -11,7 +11,7 @@ posts under its own link, every non-amicus brief in opposition, the
 petitioner's cert-stage reply, the Solicitor General's invited brief, each
 side's brief on the merits once the petition is granted, and each party's
 supplemental briefs and letters to the Clerk while the petition is pending,
-which are stored but not yet given to any cell. Everything here
+and the United States' amicus brief on the merits. Everything here
 is **pipeline-side** —
 documents are fetched and text-extracted at ingest time (the live poller, on
 the same distribution transition that queues prediction), stored in the
@@ -198,9 +198,7 @@ logger = logging.getLogger(__name__)
 #   after the grant, read by the invited brief's own entry anchor
 #   (:func:`cert_signals.is_sg_invited_brief_entry`) on the other side of the
 #   grant. It states the federal government's position on the judgment, which
-#   no party brief does where the United States is not a party. Stored and not
-#   yet handed to any cell (``provision.WITHHELD_KINDS``): admitting it changes
-#   what a merits cell reads, which rides a re-bless.
+#   no party brief does where the United States is not a party.
 #
 # Two interim kinds sit beside the application, one row at one URL each:
 #
@@ -226,10 +224,8 @@ logger = logging.getLogger(__name__)
 #   suggestion of mootness, a settlement, a withdrawal or the notice of an
 #   intervening decision. Every one in docket order, combined into one row.
 #
-# Both are **stored, not staged**: the corpus holds them, and no cell is given
-# them until the re-bless that tells cells about them takes them out of
-# :data:`fedcourtsai.provision.WITHHELD_KINDS`. Both are dated by their *latest*
-# constituent rather than their earliest (:func:`_combine_documents`).
+# Both are dated by their *latest* constituent rather than their earliest
+# (:func:`_combine_documents`).
 KIND_PETITION = "petition"
 KIND_APPLICATION = "application"
 KIND_APPLICATION_RESPONSE = "application-response"
@@ -1005,9 +1001,7 @@ def select_documents(
       Document`` link alone, distinct URLs in docket order, read before the
       grant and before the first disposition entry, and combined by
       :func:`fetch_case_documents` into one row per kind. Read by the last two
-      arms of the chain, so no entry an earlier arm takes reaches them. Stored
-      and not staged: provisioning withholds both from every cell
-      (:data:`fedcourtsai.provision.WITHHELD_KINDS`).
+      arms of the chain, so no entry an earlier arm takes reaches them.
 
     ``QPLink`` is deliberately never selected: it is generated at grant time and
     leaks the outcome; the questions presented are derived from the petition
