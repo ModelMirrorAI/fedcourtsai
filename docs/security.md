@@ -978,8 +978,8 @@ jobs take the lock under `prod`, holding no role, and the corpus and
 decision-record jobs' dry runs bind the environment without taking the lock.) It removes
 *agents* from the write role's reach, not hostile *parsers*: the writer jobs
 parse fetched third-party content while holding or able to mint the role — the pull and seed
-windows' fetched dockets, and the corpus repair job's `ocr-recovery` and
-`document-backfill` passes, which are not split the way the fetching
+windows' fetched dockets, and the corpus repair job's `ocr-recovery`,
+`document-backfill` and `recut` passes, which are not split the way the fetching
 passes are (*S3 / the private stores* below). Configure it with:
 
 - **deployment branches**: `main` alone, as a named custom policy. The
@@ -2110,9 +2110,9 @@ and `run-analytics`'s `tool-usage`, a read-only report over committed
 retrieval logs that opens no PR and feeds no check. A poisoned entry there runs
 beside nothing worth taking: the job's own read-scoped runtime token, which the
 attacker already held to save the entry, and an output nothing trusts. The same reach, with
-every credential besides, belongs to the two passes that parse fetched
-PDFs inside the corpus job: `ocr-recovery` and `document-backfill` are not
-split. And in every job that holds `id-token: write` — the projection,
+every credential besides, belongs to the three passes that parse fetched
+PDFs inside the corpus job: `ocr-recovery`, `document-backfill` and `recut`
+are not split. And in every job that holds `id-token: write` — the projection,
 the two corpus writers, the decision-record and corpus jobs — every step can
 mint a token for every role its environment is trusted by — under `prod`
 (the projection) the read-only role alone, since the read-write role's trust

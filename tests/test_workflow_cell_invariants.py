@@ -2109,6 +2109,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Backfill the dated response signals", ()),
     ("repair", "Recover scanned filings by OCR", ("apply did not converge",)),
     ("repair", "Backfill missing primary documents", ("apply did not converge",)),
+    ("repair", "Re-cut head-cut filings", ("apply did not converge",)),
     ("repair", "Backfill the interim arrival stamps", ()),
     ("repair", "Remove ungranted merits phantoms", ()),
     ("repair", "Converge disposition labels", ()),

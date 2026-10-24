@@ -313,6 +313,13 @@ from .pipeline.decision_record import backfill_decision_record, decision_census
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.document_backfill import backfill_documents
+from .pipeline.document_recut import (
+    SCOPE_ALL_LIVE as RECUT_SCOPE_ALL_LIVE,
+)
+from .pipeline.document_recut import (
+    SCOPE_PREDICT_RELEVANT as RECUT_SCOPE_PREDICT_RELEVANT,
+)
+from .pipeline.document_recut import recut_documents
 from .pipeline.documents import (
     FETCH_LOSS_BIO_EMPTY,
     FETCH_LOSS_BIO_PARTIAL,
@@ -2919,6 +2926,162 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
             f"  probe {entry.case_id} {entry.kind}: {entry.outcome} "
             f"(status {entry.status if entry.status is not None else 'none'}, "
             f"{entry.bytes_fetched} bytes) {entry.url}"
+        )
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
+
+
+@app.command("recut-documents")
+def recut_documents_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Write the re-cut rows; omit for a dry run that re-fetches and re-cuts "
+            "the slice and reports what an apply would write.",
+        ),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Per-dispatch slice size, required with --apply: the number of stored "
+            "rows this run re-fetches and re-cuts. Honored on a dry run too, which "
+            "fetches the same PDFs. 0 takes an empty slice, which walks the class and "
+            "fetches nothing.",
+        ),
+    ] = None,
+    deadline_seconds: Annotated[
+        float | None,
+        typer.Option(
+            "--deadline-seconds",
+            help="Wall-clock budget for this run, measured from the moment the command "
+            "starts. Before each candidate the pass checks its estimated cost against "
+            "what is left and stops taking new ones once the budget will not hold it; "
+            "those are reported unreached and head the next slice. Omit for no deadline.",
+        ),
+    ] = None,
+    all_live: Annotated[
+        bool,
+        typer.Option(
+            "--all-live",
+            help="Walk the whole live slice rather than the predict-relevant rows "
+            "(queued for prediction or selected by the salience gate).",
+        ),
+    ] = False,
+) -> None:
+    """Re-cut the petitions, applications and appendices stored under the plain head cut.
+
+    Those three kinds are cut at the document cap the appendix-aware way, with a
+    `[pipeline note: …]` line at every cut. Fetching is idempotent per kind and
+    URL, so a row stored before that cut keeps a plain head cut for as long as its
+    link is unchanged. The class is every stored row of the three kinds that is
+    `truncated`, not `ocr_derived` (an OCR-recovered row is head-cut by design),
+    carries no `[pipeline note:` line, and has one Court URL; the scope is the
+    predict-relevant live-slice rows, or with `--all-live` the whole live slice.
+    Each candidate is re-fetched by its stored URL on supremecourt.gov and re-cut
+    by the fetching lanes' own extractor at the configured cap. A served PDF with
+    a different page count is another filing at that link and is skipped
+    (`pages-changed`), as is one whose text no longer opens like the stored
+    row's (`head-changed`); bytes that do not parse are `unreadable`; a re-cut
+    equal to the stored text is `unchanged`; an empty re-cut is never written.
+    A re-cut row keeps its entry date and URL and takes the new text, pages,
+    truncation flag and today's `fetched_at`; a re-cut
+    petition re-derives its `questions-presented` row from both texts and
+    writes it only where the re-cut moves the derivation; a stored row the
+    current deriver reads differently off the stored petition is left to
+    `backfill-questions-presented`. Contract: *Contract for the re-cut pass*
+    (`docs/live-sources.md`).
+
+    Both modes fetch: the dry run re-cuts and writes nothing, the apply writes
+    each re-cut as it is made. `--max-cases` is required on an apply and
+    honored on a dry run; `--deadline-seconds` declines the rest of the slice
+    once a candidate's estimate will not fit, reported unreached. The lane
+    invocation is run-repair's `recut` pass. Fails loud if the corpus is absent
+    or the walk reads no stored document of the three kinds.
+    """
+    started = time.monotonic()
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "recut-documents: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the slice you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    max_cases = _slice_bound(max_cases, command="recut-documents")
+    deadline = _slice_deadline(started, deadline_seconds, command="recut-documents")
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the re-cut.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    if apply:
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    scope = RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+    with (
+        corpus.connect(db_path) as conn,
+        SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
+    ):
+        result = recut_documents(
+            conn,
+            client=client,
+            apply=apply,
+            char_cap=cfg.document_text_cap,
+            today=date.today(),
+            max_cases=max_cases,
+            scope=scope,
+            deadline=deadline,
+        )
+    if not result.documents_seen:
+        typer.echo(
+            f"recut-documents: no stored documents of an appendix-bearing kind in {db_path} "
+            f"({scope}, {result.cases_seen} row(s)) — wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "re-cut" if apply else "would re-cut"
+    typer.echo(
+        f"recut-documents ({'applied' if apply else 'dry-run'}, {scope}): "
+        f"{result.candidates} head-cut filing(s) in the class of "
+        f"{result.documents_seen} stored document(s) over {result.cases_seen} row(s) — "
+        f"{verb} {result.recut}, {result.remaining} left in the class"
+    )
+    _echo_by_kind("class", result.candidates_by_kind)
+    if result.excluded:
+        _echo_by_kind("truncated but left out", result.excluded)
+    typer.echo(
+        f"  attempted {result.attempted} "
+        f"(bound {'none' if result.bound is None else result.bound}); "
+        f"{result.unchanged} unchanged, {result.pages_changed} pages-changed, "
+        f"{result.head_changed} head-changed, {result.unreadable} unreadable, "
+        f"{result.empty_after_recut} empty after the re-cut; "
+        f"{result.questions_rederived} questions-presented row(s) re-derived"
+    )
+    losses = ", ".join(f"{reason}: {count}" for reason, count in result.fetch_failed.items())
+    typer.echo(f"  fetch-failed: {losses or 'none'}")
+    for kind, counts in result.outcomes_by_kind.items():
+        typer.echo(
+            f"  {kind}: " + ", ".join(f"{outcome} {count}" for outcome, count in counts.items())
+        )
+    for key, detail in result.recuts.items():
+        typer.echo(f"  {key}: {verb.upper()} {detail}")
+    for key, reason in result.skipped.items():
+        typer.echo(f"  {key}: SKIPPED ({reason})")
+    _echo_unreached(result.unreached)
+    if result.bound and result.attempted == result.bound and result.recut == 0:
+        # A full slice that re-cut nothing is a head of residue (links that
+        # 404, other filings) the class order keeps returning to.
+        typer.echo(
+            "::warning::recut-documents: the whole slice was skipped; the class head is "
+            "residue every bounded run returns to — read the SKIPPED lines"
         )
     if apply:
         _ensure_corpus_layout(db_path)

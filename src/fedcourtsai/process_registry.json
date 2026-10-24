@@ -551,6 +551,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "recut-head-cut-documents",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

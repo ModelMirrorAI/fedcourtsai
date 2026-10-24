@@ -157,7 +157,7 @@ standing sweep on the walker instead.
 
 | Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   | enrich (opinions, run-pull) | repair (maintenance bench, run-repair) |
 |-----------|-----------------------------------------|-----------------------------------|---------------------------------|-----------------------------|----------------------------------------|
-| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) | the stored corpus itself, and for the two fetching passes the filings and dockets they name (supremecourt.gov) |
+| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) | the stored corpus itself, and for the three fetching passes the filings and dockets they name (supremecourt.gov) |
 | Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications, granted dockets to judgment: discovery, watchlist, outcomes | granted dockets → published opinion: reporter citations and opinion body | repair what no channel corrects: re-derive, relabel, normalize, remove |
 | Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        | shares the CourtListener budget, bounded per dispatch | ~0 API; each apply bounded by a blast-radius count, or by a slice where the cost is runner minutes |
 | Cadence   | **daily** (4 windows)                   | **daily** (4 windows)             | **daily** (12 windows, every 2h) | **dispatch only** (never scheduled) | **dispatch only** (never scheduled) |
@@ -1606,8 +1606,9 @@ pass's ledger to the run summary and writes nothing off the runner, the maintain
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Nine passes skip it: the distribution re-derivation and the
-cert amicus back-fill, whose plans *are* their write sets, and the two fetching passes,
+before the write. Ten passes skip it: the distribution re-derivation and the
+cert amicus back-fill, whose plans *are* their write sets, and the three fetching passes
+(the OCR recovery, the document back-fill and the re-cut),
 whose apply ledgers already state the class they found before writing; the
 two vote-writer passes, the application back-fill and the opinion record, whose
 every run fetches from supremecourt.gov again, so a leading dry run would double the pass's
@@ -1618,8 +1619,8 @@ response-signal back-fill, the same shape of pass, keeps its receipt because it
 sits in the corpus job, where every pass leads with one.)
 In each, the receipt would be bought with a whole extra full-population read of
 the content store — the third, on a fetching apply, which already re-reads the
-class as its own write witness — and on the document back-fill it would also
-buy a second paced docket fetch for every candidate. `repair` defaults to
+class as its own write witness — and on the document back-fill and the re-cut
+it would also buy a second paced fetch for every candidate. `repair` defaults to
 `none`, which
 is refused outright: the form's initial state cannot start a corpus write.
 
@@ -1656,6 +1657,7 @@ population and apply against another.
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
 | `ocr-recovery` | `ocr-recover-petitions` (the name is this lane's invocation string; the population is every fetched document kind, not petitions alone) | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds` — and it counts candidates, so a case holding two scanned filings spends two of it); the class is cut per kind in the ledger | — | — |
 | `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too; the class has two arms, a form-keyed opening document and, on a granted row whose respondent has filed on the merits, each side's merits brief, and the ledger's `merits_candidates` says how the **class** splits between them, which is not the mix a bounded slice takes — the class is in `case_id` order and the arms are not separated in it; an apply **stamps** each candidate it reads at a floor, and the class holds a stamped candidate out until its docket is polled again, so a floor costs one paced docket GET per docket version rather than one per dispatch and a bounded slice reaches the tail of the class — `standing_floors` on the ledger is that held-out balance, and `candidates + standing_floors` is the whole gap class this route can address. A floor the modern-docket alarm fired on is never stamped, so a selector regression cannot bank its own exclusions. Because the stamps are index columns, an applied slice that read any floor moves the pointer) | — | — |
+| `recut` | `recut-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too, since both modes re-fetch and re-cut each candidate; the class is the stored `petition`, `application` and `appendix` rows still under the plain head cut, and the ledger cuts it and each outcome by kind) | — | `all-live` (walk the whole live slice rather than the predict-relevant rows) |
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
@@ -1835,7 +1837,7 @@ the runner image rolls, and would fail the pass for a reason that has nothing to
 do with the corpus, so what a recovered text was read by is recorded by the run
 instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
-**Least privilege per pass.** Eleven of the corpus passes run in the corpus job, holding the
+**Least privilege per pass.** Fourteen of the corpus passes run in the corpus job, holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
@@ -1843,9 +1845,9 @@ corpus row, so it holds only the App token that pushes its `data/` commit.
 Four of the passes that fetch and parse third-party content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
 **credential split**, because a parser fed the Court's PDFs and docket JSON is
-the step most likely to run code nobody wrote. (`ocr-recovery` and
-`document-backfill` also parse fetched PDFs, inside the corpus job and under
-its full credential set; they are not split here. The OCR recovery's standing
+the step most likely to run code nobody wrote. (`ocr-recovery`,
+`document-backfill` and `recut` also parse fetched PDFs, inside the corpus job
+and under its full credential set; they are not split here. The OCR recovery's standing
 sweep on run-seed is split, so the scheduled route to it parses with no
 credential.) The application back-fill's
 plan carries served docket JSON with party contact details, and crosses under
@@ -2060,7 +2062,7 @@ gh workflow run run-repair.yml --ref main \
 gh workflow run run-repair.yml --ref main \
   -f repair=ocr-recovery -f repair_mode=apply -f repair_bound=15
 
-# The document back-fill's bound is a slice too, and it is the one pass whose
+# The document back-fill's bound is a slice too, and it is one of the passes whose
 # `dry-run` takes it as well — the diagnostic is a paced docket fetch per
 # candidate, so an unbounded dry run over a large class is an hour of them.
 # Size the apply off the whole dry-run class rather than off its recoverable
@@ -2081,6 +2083,18 @@ gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=dry-run -f repair_bound=40
 gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=apply -f repair_bound=15
+
+# The re-cut's bound is a slice that its `dry-run` takes too: both modes
+# re-fetch each candidate's PDF and re-cut it, which is what tells a re-cut from
+# a link now serving another filing (`pages-changed`). Read the dry run's
+# per-kind outcome lines before applying, and add `-f repair_options=all-live`
+# to both dispatches to walk the whole live slice rather than the
+# predict-relevant rows. The apply's ledger of `<case_id> <kind>` re-cuts is the
+# record of which stored rows it replaced.
+gh workflow run run-repair.yml --ref main \
+  -f repair=recut -f repair_mode=dry-run -f repair_bound=20
+gh workflow run run-repair.yml --ref main \
+  -f repair=recut -f repair_mode=apply -f repair_bound=50
 
 # The arrival back-fill's bound is an ordinary refusal threshold, so the number
 # is the fill count its dry run printed — a five-figure class is expected, and

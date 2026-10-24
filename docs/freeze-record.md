@@ -13403,3 +13403,81 @@ freeze commit is recorded here.
     `["order-writers"]` on a cert or interim cell and `["majority-author",
     "separate-writers"]` on a merits cell, and `fedcourts validate data`
     stays green on its collect PR.
+
+- **Head-cut petitions, applications and appendices are re-cut the
+  appendix-aware way, a slice at a time; recorded 2026-10-24.** A change to
+  what cells are given, under unchanged digests, with no reading rule and no
+  scored figure.
+
+  **Why.** The appendix-aware cut, carried by `promotion/2026-10-10` (entry
+  above), applies to rows stored under it. Fetching is idempotent per kind and
+  URL, so a `petition`, `application` or `appendix` row stored before it keeps
+  the plain head cut while its link is unchanged: the 150,000-character cap
+  lands inside the appendix, the lower-court decisions after the first long one
+  are dropped, and nothing in the text says so. That entry recorded the
+  residue; nothing converged it.
+
+  **The change.** A dispatched pass, `fedcourts recut-documents`, run as
+  `run-repair`'s `recut` selector value (*Contract for the re-cut pass* in
+  [live-sources.md](live-sources.md)):
+  - The class is every stored row of the three kinds that is `truncated`, not
+    `ocr_derived`, carries no `[pipeline note:` line and has one Court URL,
+    over the predict-relevant live-slice rows, or the whole live slice with
+    the `all-live` option. OCR-recovered rows keep their head cut by design.
+  - Each candidate is re-fetched by its stored URL and re-cut by the fetching
+    lanes' own `extract_filing_text`. A PDF whose page count differs from the
+    stored row's, or whose re-cut does not open with the stored text, is
+    skipped as another filing. A re-cut row keeps its kind,
+    URL and entry date and takes the new text, pages, truncation flag and the
+    apply's date as `fetched_at`.
+  - A re-cut petition's questions-presented row is rewritten only where the
+    re-cut moves the derived section and the stored row is the stored text's
+    own derivation; one a cutter change left behind is
+    `backfill-questions-presented`'s. Over the 25 petitions of the dry run
+    below, none was rewritten.
+  - New rows already take the cut at ingest; nothing about them changes.
+
+  **What it moves.** No digest: no prompt or other digest input changes. A
+  cell provisioned after an apply over a case it re-cut reads a different
+  `petition.txt`, `application.txt` or `appendix.txt` from a cell provisioned
+  before it on the same case, inside the open windows. The text a cell reads
+  changes after the filing's own body, which both cuts keep, or, where the body
+  alone fills the cap, only at its end; either way the new text states each
+  cut in a note. No scored figure, cut, exclusion or rank key reads which cut a
+  cell was given.
+  - **The registry row.** The boundary is `recut-head-cut-documents`. It
+    applies to every predictor, with reach `all`, and is **gradual**: stored
+    rows change only when a maintainer-dispatched apply reaches them, so a
+    cell after it may still read the head cut. It is registered pending in
+    this change's own PR (`fedcourts register-boundary`). The promotion merge
+    that carries it stamps it (`promotion-record`). Which rows each apply
+    replaced is its own ledger: its `<case_id> <kind>: RE-CUT …` lines in the
+    `run-repair` run summary, which a reader splitting cells by document
+    vintage reads beside each cell's `provisioned_at`.
+
+  **Expected population.** Read from corpus blob `9d209a20…` (latest pull
+  2026-10-24, latest snapshot row 2026-07-13) with its per-case content store,
+  on 2026-10-24: 548 rows in the predict-relevant scope (540 petitions, 8
+  applications, no appendix), of 2,707 stored rows of the three kinds over
+  3,708 predict-relevant live-slice rows. 90 of them (83 petitions, 7
+  applications) sit on rows queued for prediction; the other 458 on rows
+  selected by the salience gate alone. Their `fetched_at` runs 2026-07-12 to
+  2026-10-09. Left out as truncated but not candidates: 53 rows already
+  carrying a cut note and 2 OCR-derived rows, and no unfetchable URL. Over the whole live slice
+  (`all-live`) the class is 1,201 (1,193 petitions, 8 applications) of 10,025
+  stored rows over 25,961 live-slice rows, with 60 noted and 14 OCR-derived
+  rows left out.
+  A bounded dry run (`--max-cases 25`) re-fetched the first 25 candidates,
+  all petitions: all 25 re-cut, none `pages-changed`, `head-changed`,
+  `unreadable`, `unchanged` or failed, 1 to 10 cut notes each.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_document_recut.py` is green;
+  - after the carrying merge, a `run-repair` dry run with `repair: recut` and
+    `repair_bound: 20` reports a class of about 550 head-cut filings, nearly
+    all `recut` in its per-kind outcome lines. Its apply is the maintainer's
+    dispatch, and the re-walk the step makes afterwards must report the
+    class less what the apply re-cut.

@@ -1,6 +1,6 @@
 """`run-repair`'s embedded CLI strings, executed against the fixture corpus.
 
-`run-repair.yml` is dispatch-only, so its nineteen maintenance passes are argv that
+`run-repair.yml` is dispatch-only, so its twenty maintenance passes are argv that
 nothing runs until a maintainer runs one — in front of the maintainer, at the
 moment they most want it to work. A flag renamed in `cli.py` leaves the workflow
 string behind, and the whole cost of that drift lands on the dispatch as a usage
@@ -31,6 +31,7 @@ The passes' own semantics are pinned at their unit seams
 `tests/test_cert_amicus_rederive.py`,
 `tests/test_documents.py`,
 `tests/test_document_backfill.py`,
+`tests/test_document_recut.py`,
 `tests/test_arrival_backfill.py`,
 `tests/test_application_backfill.py`,
 `tests/test_opinion_record.py` and
@@ -57,6 +58,7 @@ from fedcourtsai.pipeline.document_backfill import (
     DocumentBackfillResult,
     estimated_candidate_seconds,
 )
+from fedcourtsai.pipeline.document_recut import DocumentRecutResult
 from fedcourtsai.pipeline.ocr_recovery import (
     DOCUMENT_BUDGET_SECONDS,
     ESTIMATED_CANDIDATE_OVERHEAD_SECONDS,
@@ -123,6 +125,10 @@ BENIGN_REFUSALS = {
     # Reaching it is also what keeps this pass's argv offline here — the refusal
     # fires on the walk, before a candidate, a docket fetch or a client exists.
     "backfill-documents": "no predict-relevant live-slice rows",
+    # And for the re-cut, on the documents again: the fixture stores no petition,
+    # application or appendix, so the walk has no denominator, and the refusal
+    # fires before a candidate or a fetch.
+    "recut-documents": "no stored documents",
 }
 
 
@@ -550,6 +556,67 @@ def test_the_document_backfills_witness_reads_the_ledger_fields_its_pass_writes(
         f"the witness reads ledger field(s) the pass does not write: "
         f"{sorted(read - set(DocumentBackfillResult.model_fields))}"
     )
+
+
+#: The re-cut's two reserves, on the document back-fill's terms: an apply holds
+#: back the witness re-walk, the blob push, the pointer commit and a started
+#: candidate's overshoot; a dry run writes nothing and holds back the overshoot
+#: alone. The arithmetic is stated beside the invocation.
+RECUT_DEADLINE_RESERVE_SECONDS = 600
+RECUT_DRY_RESERVE_SECONDS = 120
+
+
+@pytest.mark.parametrize(
+    ("apply", "reserve"),
+    [(True, RECUT_DEADLINE_RESERVE_SECONDS), (False, RECUT_DRY_RESERVE_SECONDS)],
+    ids=["apply", "dry-run"],
+)
+def test_the_recut_deadlines_keep_their_reserve_under_the_step_cap(
+    apply: bool, reserve: int
+) -> None:
+    """Both of the re-cut's deadlines are derived from its one step cap."""
+    (step,) = [
+        step for step in _steps_for("recut") if "--deadline-seconds" in str(step.get("run", ""))
+    ]
+    cap = int(step["timeout-minutes"]) * 60
+    (argv,) = [
+        invocation
+        for invocation in command_argv(str(step["run"]), FEDCOURTS)
+        if "--deadline-seconds" in invocation and ("--apply" in invocation) == apply
+    ]
+    deadline = float(argv[argv.index("--deadline-seconds") + 1])
+    assert deadline == cap - reserve, (
+        f"the re-cut's {'apply' if apply else 'dry-run'} deadline ({deadline:.0f}s) "
+        f"no longer leaves {reserve}s under the step's {cap}s cap"
+    )
+
+
+def test_the_recut_witness_reads_the_ledger_fields_its_pass_writes() -> None:
+    """The re-cut's convergence check names fields `DocumentRecutResult` has."""
+    (step,) = [step for step in _steps_for("recut") if "ledger_field" in str(step.get("run", ""))]
+    read = set(re.findall(r"ledger_field /tmp/[a-z-]+\.txt ([a-z_]+)", str(step["run"])))
+    assert read, "the witness reads no ledger field; this test now covers nothing"
+    assert read <= set(DocumentRecutResult.model_fields), (
+        f"the witness reads ledger field(s) the pass does not write: "
+        f"{sorted(read - set(DocumentRecutResult.model_fields))}"
+    )
+
+
+def test_every_recut_invocation_walks_the_same_scope() -> None:
+    """The apply and its witness must count one class.
+
+    The witness compares the apply's `remaining` with a re-walk's `candidates`,
+    which holds only when both walk the same scope: an `all-live` apply checked
+    by a predict-relevant re-walk would report a failed write on every dispatch.
+    """
+    (step,) = [step for step in _steps_for("recut") if "ledger_field" in str(step.get("run", ""))]
+    argvs = [
+        argv
+        for argv in command_argv(str(step["run"]), FEDCOURTS)
+        if argv and argv[0] == "recut-documents"
+    ]
+    assert len(argvs) == 3, "the re-cut step no longer runs its dry run, apply and witness"
+    assert all('"${scope_args[@]}"' in argv or "${scope_args[@]}" in argv for argv in argvs)
 
 
 def test_the_regrade_dry_run_preview_names_the_argv_it_would_run() -> None:

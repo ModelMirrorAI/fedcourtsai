@@ -71,6 +71,7 @@ on:
           - response-backfill
           - ocr-recovery
           - document-backfill
+          - recut
           - arrival-backfill
           - merits-phantom-removal
           - disposition-convergence
@@ -219,6 +220,10 @@ jobs:
             document-backfill)
               bound_flag="--max-cases"; bound_required_on_apply=1
               bound_read_on_dry_run=1 ;;
+            recut)
+              bound_flag="--max-cases"; bound_required_on_apply=1
+              bound_read_on_dry_run=1
+              accepted_options="all-live" ;;
             arrival-backfill)
               bound_flag="--max-fills"; bound_required_on_apply=1 ;;
             merits-phantom-removal)
@@ -293,9 +298,9 @@ jobs:
             echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
             exit 1
           fi
-          # The one pass whose DRY RUN also consumes the bound, because its dry
-          # run fetches a docket per candidate and the number is load-bearing in
-          # both modes. A field a pass reads must satisfy the grammar wherever it
+          # The passes whose DRY RUN also consumes the bound, because their dry
+          # runs fetch per candidate (a docket, or the filing itself) and the
+          # number is load-bearing in both modes. A field a pass reads must satisfy the grammar wherever it
           # is set, not only on an apply: the CLI's own parse takes a negative
           # integer, and a slice of `candidates[:-5]` means "every candidate but
           # the last five" — a near-unbounded fetch campaign wearing a bound.
@@ -394,7 +399,7 @@ jobs:
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
     if: >-
-      ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive","cert-amicus-rederive"]'), inputs.repair)
+      ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","recut","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive","cert-amicus-rederive"]'), inputs.repair)
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -416,7 +421,7 @@ jobs:
     # overlap a writer's push; the blob is content-addressed, so it reads one
     # consistent version either way.
     concurrency:
-      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive","cert-amicus-rederive"]'), inputs.repair) && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","recut","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive","cert-amicus-rederive"]'), inputs.repair) && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-24.04
     # Headroom over the longest chain of capped steps a dispatch can run, which
@@ -439,7 +444,8 @@ jobs:
     # every pass below reads or writes the corpus — and the passes that read
     # stored snapshots or documents out of the content store (the
     # questions-presented backfill, the distribution re-derivation, the
-    # response-signal backfill and the OCR recovery) answer empty without it.
+    # response-signal backfill, the OCR recovery, the document back-fill and the
+    # re-cut) answer empty without it.
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
       # The one switch that lets this job write the remote corpus estate at
@@ -1575,6 +1581,175 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "document backfill pointer"
 
+      # Re-cut the petitions, applications and appendices stored under the
+      # plain head cut. Those kinds are cut the appendix-aware way at ingest,
+      # with a `[pipeline note: …]` line at every cut, but fetching is
+      # idempotent per kind and URL, so a row stored before that cut keeps a
+      # head cut — the cap landing inside the appendix, with nothing in the text
+      # to say so — for as long as its link is unchanged. The class is every
+      # such row that is truncated, not OCR-derived (an OCR-recovered row is
+      # head-cut by design), carries no cut note and has one Court URL, over the
+      # predict-relevant live-slice rows, or the whole live slice with the
+      # `all-live` option. Each candidate is re-fetched by its stored URL on
+      # supremecourt.gov and re-cut by the fetching lanes' own extractor; a
+      # link now serving a PDF of another page count is skipped as another
+      # filing, and an empty re-cut is never written.
+      #
+      # Both modes fetch, because what a candidate comes to is only known from
+      # the served PDF, so the bound is honoured on a dry run as on an apply and
+      # both are deadlined. The writes are documents, which under the corpus
+      # split land in the content store, so the pointer commit cannot witness
+      # them: the walk-only re-read below does, and must find exactly the class
+      # the apply's ledger said it would leave.
+      - name: Re-cut head-cut filings
+        if: ${{ inputs.repair == 'recut' && steps.dedupe-live-rows.outcome == 'success' }}
+        # The slice is the expensive half: a throttled GET of a filing that runs
+        # to a few megabytes and a text-layer read of every page. What sizes it
+        # is the slice deadline below; this cap is the backstop behind it, and
+        # stays inside the job's so one App token covers the run.
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          REPAIR_OPTIONS: ${{ inputs.repair_options }}
+        run: |
+          set -euo pipefail
+          # Validate the bound and the option vocabulary before anything else,
+          # including the corpus guard. `Validate the repair selector`
+          # duplicates each refusal word for word so a bad dispatch dies before
+          # any credential is minted; this copy is the one of record, because
+          # the step has to be safe on whatever reaches it.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          if [ -n "${REPAIR_BOUND}" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} reads repair_bound in BOTH modes, so it must be a positive integer wherever it is set — a bound its dry run would also spend. Clear the field or correct the number."
+            exit 1
+          fi
+          accepted_options="all-live"
+          all_live=0
+          option_malformed=0
+          while IFS= read -r option; do
+            [ -n "$option" ] || continue
+            case " ${accepted_options} " in
+              *" ${option} "*) ;;
+              *)
+                echo "::error::repair=${REPAIR} does not accept the option '${option}' — it accepts: ${accepted_options:-none}."
+                option_malformed=1
+                continue ;;
+            esac
+            case "$option" in
+              all-live) all_live=1 ;;
+            esac
+          done < <(printf '%s\n' "${REPAIR_OPTIONS}" | tr -s ', \t\r' '\n')
+          if [ "$option_malformed" -ne 0 ]; then
+            echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
+            exit 1
+          fi
+          # No committed pointer means no corpus — nothing to re-cut.
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the re-cut"; exit 0
+          fi
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
+          # Read off the machine-readable ledger each run prints last, rather
+          # than off the prose above it: the field name is passed as an argument
+          # so nothing from a file is interpolated into the program.
+          # Bounded into the summary rather than tee'd whole: GitHub discards a
+          # step summary above 1 MiB entirely, and an unbounded `all-live` dry
+          # run prints a line per reached candidate before its JSON ledger. The
+          # full output stays in the step log either way.
+          summarize() {
+            head -c 300000 "$1" >> "$GITHUB_STEP_SUMMARY"
+            cat "$1"
+          }
+          ledger_field() {
+            grep -h '^{"applied"' "$1" | tail -n 1 \
+              | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
+          }
+          # The scope every invocation below walks, the witness's included: a
+          # re-read over another scope would compare two different classes.
+          scope_args=()
+          if [ "$all_live" -eq 1 ]; then
+            scope_args+=(--all-live)
+          fi
+          dry_args=()
+          if [ -n "${REPAIR_BOUND}" ]; then
+            dry_args+=(--max-cases "${REPAIR_BOUND}")
+          fi
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            # 1800 s of step budget, of which the dry run pushes nothing and
+            # commits nothing: the reserve is the overshoot of a candidate
+            # already started (one GET and the client's one retry, then the
+            # page read) rather than a write tail. Its stdout goes to a file
+            # because the ledger's last line is JSON read back as data.
+            uv run fedcourts recut-documents "${scope_args[@]}" "${dry_args[@]}" \
+              --deadline-seconds 1680 > /tmp/recut-dry.txt
+            summarize /tmp/recut-dry.txt
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          # The slice's wall clock, measured from the moment the command starts
+          # so its own population walk is charged to it. The step has 30 minutes
+          # (1800 s) and everything below still has to land inside them:
+          #
+          #   witness re-walk     300 s  one walk of the scope's stored
+          #                              documents: the predict-relevant walk is
+          #                              a subset of the OCR recovery's
+          #                              whole-live-slice walk, which measures
+          #                              133-162 s; `all-live` is that walk,
+          #                              reserved at about twice it
+          #   corpus-push         120 s  the re-cut text lands in the content
+          #                              store; reserved for an index that moved
+          #   commit + push        60 s  the pointer commit and its retrying
+          #                              push, reached only where the index moved
+          #   overshoot           120 s  the deadline is the last moment work may
+          #                              BEGIN: a started candidate's GET can time
+          #                              out and take the client's one retry
+          #   ------------------------
+          #   reserve             600 s  →  1800 - 600 = 1200
+          #
+          # Candidates the deadline declines are reported unreached — untouched,
+          # still in the class, and first next dispatch.
+          uv run fedcourts recut-documents --apply "${scope_args[@]}" \
+            --max-cases "${REPAIR_BOUND}" \
+            --deadline-seconds 1200 > /tmp/recut-apply.txt
+          summarize /tmp/recut-apply.txt
+          # The witness. `--max-cases 0` takes an empty slice, so it fetches
+          # nothing, and what it reports is the class as the corpus now holds
+          # it: a content-store write that failed would leave a re-cut row in
+          # the class, which nothing in the pointer commit would notice.
+          uv run fedcourts recut-documents "${scope_args[@]}" --max-cases 0 > /tmp/recut-verify.txt
+          summarize /tmp/recut-verify.txt
+          expected="$(ledger_field /tmp/recut-apply.txt remaining)"
+          found="$(ledger_field /tmp/recut-verify.txt candidates)"
+          if [ "$(ledger_field /tmp/recut-apply.txt attempted)" = "0" ] \
+            && [ "${expected}" != "0" ]; then
+            echo "::warning::the slice deadline started no candidate at all — ${expected} left in the class and nothing re-cut. The population walk now takes most of the slice's budget; re-read the deadline arithmetic beside the invocation rather than re-dispatching."
+          fi
+          if [ "${found}" != "${expected}" ]; then
+            echo "::error::apply did not converge — the re-read finds ${found} head-cut filing(s) where the apply's ledger left ${expected} (a content-store write may have failed; see the warnings above)"
+            exit 1
+          fi
+          # Blob before pointer commit, as everywhere. Under the corpus split
+          # the re-cut text is in the content store, so an unchanged pointer is
+          # reported rather than failed.
+          uv run fedcourts corpus-push
+          git add corpus/corpus.db.ref
+          if git diff --cached --quiet; then
+            echo "Re-cut text is in the content store; the index pointer is unchanged."
+            exit 0
+          fi
+          git commit -m "repair: re-cut head-cut filings"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "document re-cut pointer"
+
       # Re-derive the interim baseline's arrival stamp. An interim event's
       # `opened_at` is the moment it declares — the day the application was
       # submitted to a Justice — and it is where provisioning cuts, so what is
@@ -2295,8 +2470,8 @@ jobs:
   # The credential split. Four of the passes fetch and parse third-party
   # content — the Court's opinion and order PDFs, a Term's docket JSON — and a
   # parser fed attacker-shaped bytes is the step most likely to run code
-  # nobody wrote. (Two more do too and are not split: `ocr-recovery` and
-  # `document-backfill` fetch and parse filed PDFs inside the corpus job above,
+  # nobody wrote. (Three more do too and are not split: `ocr-recovery`,
+  # `document-backfill` and `recut` fetch and parse filed PDFs inside the corpus job above,
   # under its full credential set.) So for these four the parse runs in a job
   # of its own that holds NO credential,
   # and the jobs on either side talk to it only through two small JSON files
