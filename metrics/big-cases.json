@@ -1,14 +1,14 @@
 {
-  "cases": 322,
+  "cases": 324,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 286,
+      "cases": 287,
       "n": 3
     },
     {
-      "cases": 34,
+      "cases": 35,
       "n": 2
     },
     {
@@ -16,8 +16,8 @@
       "n": 1
     }
   ],
-  "current_reads": 964,
-  "declared_no_view": 22,
+  "current_reads": 970,
+  "declared_no_view": 23,
   "frozen_process": {
     "digests": [
       "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
@@ -7606,176 +7606,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Roybal",
-      "caption": "Joseph J. Roybal, Sheriff, El Paso County, Colorado, et al. v. Darlene Griffith",
-      "caption_event_id": "evt-order-cvsg-disposition",
-      "case_id": "scotus/73278467",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "If decided, it fixes the standard of review for every sex-based housing, commissary and search policy in US jails and prisons and follows Skrmetti and B.P.J. as the next transgender equal-protection ruling; narrower than those two because the prison setting bounds it, but with 23 state amici and the federal Bureau of Prisons directly affected.",
-          "big_case_score": 0.6,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260918T174135Z"
-        },
-        {
-          "big_case_rationale": "The questions concern equal-protection scrutiny of sex-based detention policies and searches of transgender detainees, with implications for prison administration and detainee rights nationwide. The pleading-stage vehicle may substantially limit any ruling.",
-          "big_case_score": 0.76,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260918T174135Z"
-        },
-        {
-          "big_case_rationale": "High profile constitutional question with national impact and significant state interest.",
-          "big_case_score": 0.9,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260918T174135Z"
-        }
-      ],
-      "docket_id": 73278467,
-      "docket_number": "25-442",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-442.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-cvsg-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "If decided, it fixes the standard of review for every sex-based housing, commissary and search policy in US jails and prisons and follows Skrmetti and B.P.J. as the next transgender equal-protection ruling; narrower than those two because the prison setting bounds it, but with 23 state amici and the federal Bureau of Prisons directly affected.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
-              "confidence": 0.45,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.52,
-              "run_id": "20260918T174135Z"
-            },
-            {
-              "big_case_rationale": "The questions concern equal-protection scrutiny of sex-based detention policies and searches of transgender detainees, with implications for prison administration and detainee rights nationwide. The pleading-stage vehicle may substantially limit any ruling.",
-              "big_case_score": 0.76,
-              "cell_path": "data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.43,
-              "run_id": "20260918T174135Z"
-            },
-            {
-              "big_case_rationale": "High profile constitutional question with national impact and significant state interest.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.7,
-              "run_id": "20260918T174135Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Joseph J. Roybal, Sheriff, El Paso County, Colorado, et al. v. Darlene Griffith"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Equal-protection standard for sex-based prison policies as applied to transgender inmates plus a cross-gender strip-search rule; nationally salient (23 States amici, SG participation) but post-Skrmetti/B.P.J. the doctrinal stakes are partly settled.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/claude-baseline/20261018T142134Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/claude-baseline/20261018T142134Z",
-              "confidence": 0.7,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "claude-baseline",
-              "probability": 0.84,
-              "run_id": "20261018T142134Z"
-            },
-            {
-              "big_case_rationale": "The questions implicate transgender detainees' equal protection, bodily privacy, and jail administration nationwide. Their potential significance is substantial even though a narrow remand, rather than a plenary ruling establishing new rules, is the likeliest disposition.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/codex-baseline/20261018T142134Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/codex-baseline/20261018T142134Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "codex-baseline",
-              "probability": 0.9,
-              "run_id": "20261018T142134Z"
-            },
-            {
-              "big_case_rationale": "The case touches on highly salient issues involving trans-identifying individuals in prisons, though a likely GVR limits its independent legal impact.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/gemini-baseline/20261018T142134Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/gemini-baseline/20261018T142134Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.95,
-              "run_id": "20261018T142134Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Joseph J. Roybal, Sheriff, El Paso County, Colorado, et al. v. Darlene Griffith"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.7533,
-      "moment": "evt-order-cvsg-disposition",
-      "moment_opened_at": "2026-06-30",
-      "n": 3,
-      "other_party": "Griffith",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Roybal's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Roybal's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
-      "score_max": 0.9,
-      "score_min": 0.6,
-      "score_range": 0.3,
-      "short_caption": "Roybal v. Griffith",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Saadeh",
       "caption": "Rajeh A. Saadeh v. New Jersey State Bar Association",
       "caption_event_id": "evt-order-cvsg-disposition",
@@ -8394,6 +8224,393 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "GEO Group",
+      "caption": "The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al.",
+      "caption_event_id": "evt-brief-sg-disposition",
+      "case_id": "scotus/73279966",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Supremacy Clause / intergovernmental-immunity question about state labor law reaching federal immigration-detention contractors nationwide; ~$37M judgment, a 3d Cir. tension, and the United States urging review.",
+          "big_case_score": 0.72,
+          "event_id": "evt-brief-sg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        },
+        {
+          "big_case_rationale": "Consequential for immigration detainees' compensation and state regulation of federal detention contractors, with potential implications for federal contracting beyond immigration.",
+          "big_case_score": 0.74,
+          "event_id": "evt-brief-sg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        },
+        {
+          "big_case_rationale": "Major constitutional and federalism question concerning whether states may impose minimum-wage laws on federal immigration detainees in contractor-operated ICE detention facilities, carrying nationwide operational consequences for federal detention contracting and intergovernmental immunity doctrine.",
+          "big_case_score": 0.76,
+          "event_id": "evt-brief-sg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        }
+      ],
+      "docket_id": 73279966,
+      "docket_number": "25-828",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-828.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-sg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Supremacy Clause / intergovernmental-immunity question about state labor law reaching federal immigration-detention contractors nationwide; ~$37M judgment, a 3d Cir. tension, and the United States urging review.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/73279966/events/evt-brief-sg-disposition/predictions/claude-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-brief-sg-disposition/predictions/claude-baseline/20261023T104223Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.8,
+              "run_id": "20261023T104223Z"
+            },
+            {
+              "big_case_rationale": "Consequential for immigration detainees' compensation and state regulation of federal detention contractors, with potential implications for federal contracting beyond immigration.",
+              "big_case_score": 0.74,
+              "cell_path": "data/cases/scotus/73279966/events/evt-brief-sg-disposition/predictions/codex-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-brief-sg-disposition/predictions/codex-baseline/20261023T104223Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20261023T104223Z"
+            },
+            {
+              "big_case_rationale": "Major constitutional and federalism question concerning whether states may impose minimum-wage laws on federal immigration detainees in contractor-operated ICE detention facilities, carrying nationwide operational consequences for federal detention contracting and intergovernmental immunity doctrine.",
+              "big_case_score": 0.76,
+              "cell_path": "data/cases/scotus/73279966/events/evt-brief-sg-disposition/predictions/gemini-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-brief-sg-disposition/predictions/gemini-baseline/20261023T104223Z",
+              "confidence": 0.82,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.78,
+              "run_id": "20261023T104223Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-cvsg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Whether states may impose minimum-wage law on federal immigration detainees at contractor-run federal facilities: a Supremacy Clause question for the whole private-detention model, a $37 million judgment, a suspended federal work program, and a live federal-state conflict over immigration enforcement. Significant and politically salient, though doctrinally incremental on United States v. Washington (2022).",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.8,
+              "run_id": "20260918T174135Z"
+            },
+            {
+              "big_case_rationale": "The dispute connects immigration detention, detainee compensation, and state regulation of federal contractors, with potential effects beyond one facility. Its stakes are substantial, although the particular wage statute and contract could limit the eventual holding.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.58,
+              "run_id": "20260918T174135Z"
+            },
+            {
+              "big_case_rationale": "High-profile clash between state labor laws and federal immigration detention, impacting thousands of detainees and federal contractors.",
+              "big_case_score": 0.85,
+              "cell_path": "data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.65,
+              "run_id": "20260918T174135Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Supremacy Clause limits on state regulation of federal immigration-detention contractors, with the SG as amicus, a $37M judgment, a nationwide private-detention footprint and a companion petition (No. 26-71); significant for immigration federalism but a narrow wage question rather than a blockbuster.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73279966/events/evt-petition-disposition/predictions/claude-baseline/20261008T143010Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-petition-disposition/predictions/claude-baseline/20261008T143010Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.78,
+              "run_id": "20261008T143010Z"
+            },
+            {
+              "big_case_rationale": "Potentially important boundary between state wage protections and federal immigration contractors' immunity, with consequences for detained workers and government contracting beyond the approximately $37 million judgment.",
+              "big_case_score": 0.74,
+              "cell_path": "data/cases/scotus/73279966/events/evt-petition-disposition/predictions/codex-baseline/20261008T143010Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-petition-disposition/predictions/codex-baseline/20261008T143010Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.68,
+              "run_id": "20261008T143010Z"
+            },
+            {
+              "big_case_rationale": "High stakes involving federal-state supremacy, immigration detainee compensation, and a major circuit split with a large monetary judgment.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/73279966/events/evt-petition-disposition/predictions/gemini-baseline/20261008T143010Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-petition-disposition/predictions/gemini-baseline/20261008T143010Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261008T143010Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.74,
+      "moment": "evt-brief-sg-disposition",
+      "moment_opened_at": "2026-09-15",
+      "n": 3,
+      "other_party": "Nwauzor",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up GEO Group's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "GEO Group's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
+      "score_max": 0.76,
+      "score_min": 0.72,
+      "score_range": 0.04,
+      "short_caption": "GEO Group v. Nwauzor",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Mullin",
+      "caption": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Friends of the Ruidosa Church, et al.",
+      "caption_event_id": "evt-order-response-requested-disposition",
+      "case_id": "scotus/9526000560",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Halts roughly 340 miles of planned border-barrier construction across a quarter of the southern border and tests whether a major-questions claim counts as a constitutional claim under IIRIRA's jurisdiction strip; nationally salient but turns on one unusual statutory review scheme.",
+          "big_case_score": 0.62,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261023T210522Z"
+        },
+        {
+          "big_case_rationale": "The application concerns extensive border construction, environmental and historic-preservation protections, and the boundary between statutory and constitutional review of federal waiver decisions. Those stakes are distinct from the probability of a stay.",
+          "big_case_score": 0.82,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261023T210522Z"
+        },
+        {
+          "big_case_rationale": "High-stakes Solicitor General application seeking to stay a 300-mile border-wall preliminary injunction across the El Paso and Big Bend Sectors, implicating $4.5 billion in OBBBA border-barrier contracts, the scope of IIRIRA \u00a7 102(c)(2)(A)'s jurisdiction-stripping bar on non-constitutional claims, the major questions doctrine after Learning Resources, and universal/sector-wide injunction overbreadth under Trump v. CASA.",
+          "big_case_score": 0.78,
+          "event_id": "evt-order-response-requested-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261023T210522Z"
+        }
+      ],
+      "docket_id": 9526000560,
+      "docket_number": "26A560",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a560.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-motion-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Halts roughly 340 miles of planned border-barrier construction (about a quarter of the southern border) and tests whether a major-questions claim can be dressed as a constitutional claim to evade IIRIRA's review bar; nationally newsworthy but turns on a narrow statutory-jurisdiction question.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9526000560/events/evt-motion-disposition/predictions/claude-baseline/20261023T210522Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000560/events/evt-motion-disposition/predictions/claude-baseline/20261023T210522Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.76,
+              "run_id": "20261023T210522Z"
+            },
+            {
+              "big_case_rationale": "The application concerns extensive border-barrier construction in the Big Bend region, environmental and historic-resource protection, and the limits of judicial review of DHS waiver authority. Its significance exceeds the immediate construction dispute.",
+              "big_case_score": 0.83,
+              "cell_path": "data/cases/scotus/9526000560/events/evt-motion-disposition/predictions/codex-baseline/20261023T210522Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000560/events/evt-motion-disposition/predictions/codex-baseline/20261023T210522Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20261023T210522Z"
+            },
+            {
+              "big_case_rationale": "High-profile separation-of-powers and border-wall dispute over IIRIRA section 102(c) waivers across 510 miles of the Big Bend Sector (including Big Bend National Park) and whether the major questions doctrine supplies a standalone constitutional cause of action.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9526000560/events/evt-motion-disposition/predictions/gemini-baseline/20261023T210522Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000560/events/evt-motion-disposition/predictions/gemini-baseline/20261023T210522Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.82,
+              "run_id": "20261023T210522Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Friends of the Ruidosa Church, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-response-requested-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Halts roughly 340 miles of planned border-barrier construction across a quarter of the southern border and tests whether a major-questions claim counts as a constitutional claim under IIRIRA's jurisdiction strip; nationally salient but turns on one unusual statutory review scheme.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/9526000560/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261023T210522Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000560/events/evt-order-response-requested-disposition/predictions/claude-baseline/20261023T210522Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.74,
+              "run_id": "20261023T210522Z"
+            },
+            {
+              "big_case_rationale": "The application concerns extensive border construction, environmental and historic-preservation protections, and the boundary between statutory and constitutional review of federal waiver decisions. Those stakes are distinct from the probability of a stay.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/9526000560/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261023T210522Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000560/events/evt-order-response-requested-disposition/predictions/codex-baseline/20261023T210522Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "codex-baseline",
+              "probability": 0.87,
+              "run_id": "20261023T210522Z"
+            },
+            {
+              "big_case_rationale": "High-stakes Solicitor General application seeking to stay a 300-mile border-wall preliminary injunction across the El Paso and Big Bend Sectors, implicating $4.5 billion in OBBBA border-barrier contracts, the scope of IIRIRA \u00a7 102(c)(2)(A)'s jurisdiction-stripping bar on non-constitutional claims, the major questions doctrine after Learning Resources, and universal/sector-wide injunction overbreadth under Trump v. CASA.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/9526000560/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261023T210522Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9526000560/events/evt-order-response-requested-disposition/predictions/gemini-baseline/20261023T210522Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.75,
+              "run_id": "20261023T210522Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Markwayne Mullin, Secretary of Homeland Security, et al. v. Friends of the Ruidosa Church, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.74,
+      "moment": "evt-order-response-requested-disposition",
+      "moment_opened_at": "2026-10-22",
+      "n": 3,
+      "other_party": "Friends of the Ruidosa Church",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "Mullin gets the relief requested for now, while the case continues in the lower courts.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Mullin does not get the relief requested for now, and things stay as the lower courts left them while the case continues.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.82,
+      "score_min": 0.62,
+      "score_range": 0.2,
+      "short_caption": "Mullin v. Friends of the Ruidosa Church",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Ream",
       "caption": "John Ream v. Department of the Treasury, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -8741,176 +8958,6 @@
       "score_min": 0.6,
       "score_range": 0.25,
       "short_caption": "Youth 71Five Ministries v. Williams",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "GEO Group",
-      "caption": "The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al.",
-      "caption_event_id": "evt-order-cvsg-disposition",
-      "case_id": "scotus/73279966",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Whether states may impose minimum-wage law on federal immigration detainees at contractor-run federal facilities: a Supremacy Clause question for the whole private-detention model, a $37 million judgment, a suspended federal work program, and a live federal-state conflict over immigration enforcement. Significant and politically salient, though doctrinally incremental on United States v. Washington (2022).",
-          "big_case_score": 0.6,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260918T174135Z"
-        },
-        {
-          "big_case_rationale": "The dispute connects immigration detention, detainee compensation, and state regulation of federal contractors, with potential effects beyond one facility. Its stakes are substantial, although the particular wage statute and contract could limit the eventual holding.",
-          "big_case_score": 0.7,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260918T174135Z"
-        },
-        {
-          "big_case_rationale": "High-profile clash between state labor laws and federal immigration detention, impacting thousands of detainees and federal contractors.",
-          "big_case_score": 0.85,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260918T174135Z"
-        }
-      ],
-      "docket_id": 73279966,
-      "docket_number": "25-828",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-828.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-cvsg-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Whether states may impose minimum-wage law on federal immigration detainees at contractor-run federal facilities: a Supremacy Clause question for the whole private-detention model, a $37 million judgment, a suspended federal work program, and a live federal-state conflict over immigration enforcement. Significant and politically salient, though doctrinally incremental on United States v. Washington (2022).",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
-              "confidence": 0.7,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.8,
-              "run_id": "20260918T174135Z"
-            },
-            {
-              "big_case_rationale": "The dispute connects immigration detention, detainee compensation, and state regulation of federal contractors, with potential effects beyond one facility. Its stakes are substantial, although the particular wage statute and contract could limit the eventual holding.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.58,
-              "run_id": "20260918T174135Z"
-            },
-            {
-              "big_case_rationale": "High-profile clash between state labor laws and federal immigration detention, impacting thousands of detainees and federal contractors.",
-              "big_case_score": 0.85,
-              "cell_path": "data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.65,
-              "run_id": "20260918T174135Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Supremacy Clause limits on state regulation of federal immigration-detention contractors, with the SG as amicus, a $37M judgment, a nationwide private-detention footprint and a companion petition (No. 26-71); significant for immigration federalism but a narrow wage question rather than a blockbuster.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73279966/events/evt-petition-disposition/predictions/claude-baseline/20261008T143010Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-petition-disposition/predictions/claude-baseline/20261008T143010Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.78,
-              "run_id": "20261008T143010Z"
-            },
-            {
-              "big_case_rationale": "Potentially important boundary between state wage protections and federal immigration contractors' immunity, with consequences for detained workers and government contracting beyond the approximately $37 million judgment.",
-              "big_case_score": 0.74,
-              "cell_path": "data/cases/scotus/73279966/events/evt-petition-disposition/predictions/codex-baseline/20261008T143010Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-petition-disposition/predictions/codex-baseline/20261008T143010Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "codex-baseline",
-              "probability": 0.68,
-              "run_id": "20261008T143010Z"
-            },
-            {
-              "big_case_rationale": "High stakes involving federal-state supremacy, immigration detainee compensation, and a major circuit split with a large monetary judgment.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/73279966/events/evt-petition-disposition/predictions/gemini-baseline/20261008T143010Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279966/events/evt-petition-disposition/predictions/gemini-baseline/20261008T143010Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20261008T143010Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "The GEO Group, Inc., a Florida Corporation v. Ugochukwu Nwauzor, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.7167,
-      "moment": "evt-order-cvsg-disposition",
-      "moment_opened_at": "2026-05-18",
-      "n": 3,
-      "other_party": "Nwauzor",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up GEO Group's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "GEO Group's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
-      "score_max": 0.85,
-      "score_min": 0.6,
-      "score_range": 0.25,
-      "short_caption": "GEO Group v. Nwauzor",
       "status": "pending"
     },
     {
@@ -10956,6 +11003,228 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Kendrick Jarrell Beaird",
+      "caption": "Kendrick Jarrell Beaird v. United States",
+      "caption_event_id": "evt-argument-judgment",
+      "case_id": "scotus/73277583",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Sets the interpretive weight of Guidelines commentary across roughly 60,000+ federal sentencings a year and tests how far Loper Bright/Kisor reach beyond executive agencies; technical, low public salience.",
+          "big_case_score": 0.6,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        },
+        {
+          "big_case_rationale": "A systemwide rule for interpreting federal sentencing commentary affects many guideline calculations and sentencing appeals, but the granted question does not decide the constitutionality of firearm possession bans or executive-agency deference generally.",
+          "big_case_score": 0.59,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        },
+        {
+          "big_case_rationale": "Resolves an entrenched 6-6 circuit split over whether Stinson v. United States still governs judicial deference to U.S. Sentencing Guidelines commentary after Kisor and Loper Bright, directly affecting advisory Guidelines calculations across roughly 66,000 federal criminal sentencings annually.",
+          "big_case_score": 0.82,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        }
+      ],
+      "docket_id": 73277583,
+      "docket_number": "25-5343",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-5343.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Sets the interpretive weight of Guidelines commentary across roughly 60,000+ federal sentencings a year and tests how far Loper Bright/Kisor reach beyond executive agencies; technical, low public salience.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73277583/events/evt-argument-judgment/predictions/claude-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-argument-judgment/predictions/claude-baseline/20261023T104223Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.3,
+              "run_id": "20261023T104223Z"
+            },
+            {
+              "big_case_rationale": "A systemwide rule for interpreting federal sentencing commentary affects many guideline calculations and sentencing appeals, but the granted question does not decide the constitutionality of firearm possession bans or executive-agency deference generally.",
+              "big_case_score": 0.59,
+              "cell_path": "data/cases/scotus/73277583/events/evt-argument-judgment/predictions/codex-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-argument-judgment/predictions/codex-baseline/20261023T104223Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261023T104223Z"
+            },
+            {
+              "big_case_rationale": "Resolves an entrenched 6-6 circuit split over whether Stinson v. United States still governs judicial deference to U.S. Sentencing Guidelines commentary after Kisor and Loper Bright, directly affecting advisory Guidelines calculations across roughly 66,000 federal criminal sentencings annually.",
+              "big_case_score": 0.82,
+              "cell_path": "data/cases/scotus/73277583/events/evt-argument-judgment/predictions/gemini-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-argument-judgment/predictions/gemini-baseline/20261023T104223Z",
+              "confidence": 0.72,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.28,
+              "run_id": "20261023T104223Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kendrick Jarrell Beaird v. United States"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Sets the deference rule for Sentencing Guidelines commentary, which touches a large share of federal sentences; doctrinally significant post-Kisor/Loper Bright, but the case itself is a single guidelines enhancement.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73277583/events/evt-brief-judgment/predictions/claude-baseline/20261023T012839Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-brief-judgment/predictions/claude-baseline/20261023T012839Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.88,
+              "run_id": "20261023T012839Z"
+            },
+            {
+              "big_case_rationale": "The treatment of Sentencing Commission commentary affects federal sentencing across many guidelines and implicates judicial independence and criminal-law safeguards, but the granted question is technical and does not reach the petition's gun-rights challenges.",
+              "big_case_score": 0.67,
+              "cell_path": "data/cases/scotus/73277583/events/evt-brief-judgment/predictions/codex-baseline/20261023T012839Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-brief-judgment/predictions/codex-baseline/20261023T012839Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.93,
+              "run_id": "20261023T012839Z"
+            },
+            {
+              "big_case_rationale": "Resolves a deep, multi-circuit en banc conflict over whether Stinson deference to Sentencing Guidelines commentary survives Kisor v. Wilkie and Loper Bright, affecting guideline calculations across tens of thousands of federal criminal sentencings annually.",
+              "big_case_score": 0.78,
+              "cell_path": "data/cases/scotus/73277583/events/evt-brief-judgment/predictions/gemini-baseline/20261023T012839Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-brief-judgment/predictions/gemini-baseline/20261023T012839Z",
+              "confidence": 0.85,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.91,
+              "run_id": "20261023T012839Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kendrick Jarrell Beaird v. United States"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Sets the deference rule for Guidelines commentary across every federal sentencing; doctrinally significant after Kisor and Loper Bright, though low public salience.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73277583/events/evt-order-judgment/predictions/claude-baseline/20261023T012839Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-order-judgment/predictions/claude-baseline/20261023T012839Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.76,
+              "run_id": "20261023T012839Z"
+            },
+            {
+              "big_case_rationale": "The granted question concerns interpretive authority across federal sentencing commentary, with recurring consequences for sentencing ranges nationwide; it does not reopen the petition's constitutional firearms questions.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/73277583/events/evt-order-judgment/predictions/codex-baseline/20261023T012839Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-order-judgment/predictions/codex-baseline/20261023T012839Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.78,
+              "run_id": "20261023T012839Z"
+            },
+            {
+              "big_case_rationale": "Resolving a 6-6 circuit split over whether Stinson v. United States survives Kisor v. Wilkie and Loper Bright governs the interpretive weight of Sentencing Guidelines commentary across roughly 66,000 federal sentencings per year.",
+              "big_case_score": 0.68,
+              "cell_path": "data/cases/scotus/73277583/events/evt-order-judgment/predictions/gemini-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-order-judgment/predictions/gemini-baseline/20261023T104223Z",
+              "confidence": 0.78,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.22,
+              "run_id": "20261023T104223Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Kendrick Jarrell Beaird v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.67,
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-10-13",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Kendrick Jarrell Beaird wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "The United States wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.82,
+      "score_min": 0.59,
+      "score_range": 0.23,
+      "short_caption": "Kendrick Jarrell Beaird v. United States",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "United States",
       "caption": "United States v. Charles Hembree",
       "caption_event_id": "evt-petition-disposition",
@@ -11070,164 +11339,6 @@
       "score_range": 0.35,
       "short_caption": "United States v. Hembree",
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Kendrick Jarrell Beaird",
-      "caption": "Kendrick Jarrell Beaird v. United States",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73277583",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Sets the deference rule for Sentencing Guidelines commentary, which touches a large share of federal sentences; doctrinally significant post-Kisor/Loper Bright, but the case itself is a single guidelines enhancement.",
-          "big_case_score": 0.55,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261023T012839Z"
-        },
-        {
-          "big_case_rationale": "The treatment of Sentencing Commission commentary affects federal sentencing across many guidelines and implicates judicial independence and criminal-law safeguards, but the granted question is technical and does not reach the petition's gun-rights challenges.",
-          "big_case_score": 0.67,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261023T012839Z"
-        },
-        {
-          "big_case_rationale": "Resolves a deep, multi-circuit en banc conflict over whether Stinson deference to Sentencing Guidelines commentary survives Kisor v. Wilkie and Loper Bright, affecting guideline calculations across tens of thousands of federal criminal sentencings annually.",
-          "big_case_score": 0.78,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261023T012839Z"
-        }
-      ],
-      "docket_id": 73277583,
-      "docket_number": "25-5343",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-5343.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Sets the deference rule for Sentencing Guidelines commentary, which touches a large share of federal sentences; doctrinally significant post-Kisor/Loper Bright, but the case itself is a single guidelines enhancement.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73277583/events/evt-brief-judgment/predictions/claude-baseline/20261023T012839Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-brief-judgment/predictions/claude-baseline/20261023T012839Z",
-              "confidence": 0.7,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.88,
-              "run_id": "20261023T012839Z"
-            },
-            {
-              "big_case_rationale": "The treatment of Sentencing Commission commentary affects federal sentencing across many guidelines and implicates judicial independence and criminal-law safeguards, but the granted question is technical and does not reach the petition's gun-rights challenges.",
-              "big_case_score": 0.67,
-              "cell_path": "data/cases/scotus/73277583/events/evt-brief-judgment/predictions/codex-baseline/20261023T012839Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-brief-judgment/predictions/codex-baseline/20261023T012839Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.93,
-              "run_id": "20261023T012839Z"
-            },
-            {
-              "big_case_rationale": "Resolves a deep, multi-circuit en banc conflict over whether Stinson deference to Sentencing Guidelines commentary survives Kisor v. Wilkie and Loper Bright, affecting guideline calculations across tens of thousands of federal criminal sentencings annually.",
-              "big_case_score": 0.78,
-              "cell_path": "data/cases/scotus/73277583/events/evt-brief-judgment/predictions/gemini-baseline/20261023T012839Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-brief-judgment/predictions/gemini-baseline/20261023T012839Z",
-              "confidence": 0.85,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.91,
-              "run_id": "20261023T012839Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Kendrick Jarrell Beaird v. United States"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Sets the deference rule for Guidelines commentary across every federal sentencing; doctrinally significant after Kisor and Loper Bright, though low public salience.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73277583/events/evt-order-judgment/predictions/claude-baseline/20261023T012839Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-order-judgment/predictions/claude-baseline/20261023T012839Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.76,
-              "run_id": "20261023T012839Z"
-            },
-            {
-              "big_case_rationale": "The granted question concerns interpretive authority across federal sentencing commentary, with recurring consequences for sentencing ranges nationwide; it does not reopen the petition's constitutional firearms questions.",
-              "big_case_score": 0.72,
-              "cell_path": "data/cases/scotus/73277583/events/evt-order-judgment/predictions/codex-baseline/20261023T012839Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73277583/events/evt-order-judgment/predictions/codex-baseline/20261023T012839Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.78,
-              "run_id": "20261023T012839Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Kendrick Jarrell Beaird v. United States"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.6667,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-08-25",
-      "n": 3,
-      "other_party": "United States",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Kendrick Jarrell Beaird wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "The United States wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.78,
-      "score_min": 0.55,
-      "score_range": 0.23,
-      "short_caption": "Kendrick Jarrell Beaird v. United States",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -14094,6 +14205,226 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Roybal",
+      "caption": "Joseph J. Roybal, Sheriff, El Paso County, Colorado, et al. v. Darlene Griffith",
+      "caption_event_id": "evt-brief-sg-disposition",
+      "case_id": "scotus/73278467",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Equal-protection and search claims of a transgender detainee against sex-segregated jail policies, with a 23-state amicus and a 3-3 split on QP1; stakes are national but the SG's GVR route would leave the questions to the Tenth Circuit on remand.",
+          "big_case_score": 0.5,
+          "event_id": "evt-brief-sg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        },
+        {
+          "big_case_rationale": "The questions affect transgender detainees' equal-protection and search rights, prison housing and staffing nationwide, and the scope of judicial deference to correctional officials. A summary remand would have narrower immediate reach than a plenary ruling.",
+          "big_case_score": 0.79,
+          "event_id": "evt-brief-sg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        },
+        {
+          "big_case_rationale": "Moderate-to-high salience constitutional dispute over whether Turner v. Safley deference or VMI heightened scrutiny governs sex-based housing, commissary, and search policies applied to transgender inmates, drawing a 23-State amicus brief and a CVSG, though its prospective doctrinal stakes are substantially narrowed after West Virginia v. B.P.J. and United States v. Skrmetti.",
+          "big_case_score": 0.58,
+          "event_id": "evt-brief-sg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261023T142833Z"
+        }
+      ],
+      "docket_id": 73278467,
+      "docket_number": "25-442",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-442.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-sg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Equal-protection and search claims of a transgender detainee against sex-segregated jail policies, with a 23-state amicus and a 3-3 split on QP1; stakes are national but the SG's GVR route would leave the questions to the Tenth Circuit on remand.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/73278467/events/evt-brief-sg-disposition/predictions/claude-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-brief-sg-disposition/predictions/claude-baseline/20261023T104223Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.82,
+              "run_id": "20261023T104223Z"
+            },
+            {
+              "big_case_rationale": "The questions affect transgender detainees' equal-protection and search rights, prison housing and staffing nationwide, and the scope of judicial deference to correctional officials. A summary remand would have narrower immediate reach than a plenary ruling.",
+              "big_case_score": 0.79,
+              "cell_path": "data/cases/scotus/73278467/events/evt-brief-sg-disposition/predictions/codex-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-brief-sg-disposition/predictions/codex-baseline/20261023T104223Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.88,
+              "run_id": "20261023T104223Z"
+            },
+            {
+              "big_case_rationale": "Moderate-to-high salience constitutional dispute over whether Turner v. Safley deference or VMI heightened scrutiny governs sex-based housing, commissary, and search policies applied to transgender inmates, drawing a 23-State amicus brief and a CVSG, though its prospective doctrinal stakes are substantially narrowed after West Virginia v. B.P.J. and United States v. Skrmetti.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/73278467/events/evt-brief-sg-disposition/predictions/gemini-baseline/20261023T142833Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-brief-sg-disposition/predictions/gemini-baseline/20261023T142833Z",
+              "confidence": 0.82,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.78,
+              "run_id": "20261023T142833Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Joseph J. Roybal, Sheriff, El Paso County, Colorado, et al. v. Darlene Griffith"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-cvsg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "If decided, it fixes the standard of review for every sex-based housing, commissary and search policy in US jails and prisons and follows Skrmetti and B.P.J. as the next transgender equal-protection ruling; narrower than those two because the prison setting bounds it, but with 23 state amici and the federal Bureau of Prisons directly affected.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
+              "confidence": 0.45,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.52,
+              "run_id": "20260918T174135Z"
+            },
+            {
+              "big_case_rationale": "The questions concern equal-protection scrutiny of sex-based detention policies and searches of transgender detainees, with implications for prison administration and detainee rights nationwide. The pleading-stage vehicle may substantially limit any ruling.",
+              "big_case_score": 0.76,
+              "cell_path": "data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.43,
+              "run_id": "20260918T174135Z"
+            },
+            {
+              "big_case_rationale": "High profile constitutional question with national impact and significant state interest.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.7,
+              "run_id": "20260918T174135Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Joseph J. Roybal, Sheriff, El Paso County, Colorado, et al. v. Darlene Griffith"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Equal-protection standard for sex-based prison policies as applied to transgender inmates plus a cross-gender strip-search rule; nationally salient (23 States amici, SG participation) but post-Skrmetti/B.P.J. the doctrinal stakes are partly settled.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/claude-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/claude-baseline/20261018T142134Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.84,
+              "run_id": "20261018T142134Z"
+            },
+            {
+              "big_case_rationale": "The questions implicate transgender detainees' equal protection, bodily privacy, and jail administration nationwide. Their potential significance is substantial even though a narrow remand, rather than a plenary ruling establishing new rules, is the likeliest disposition.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/codex-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/codex-baseline/20261018T142134Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.9,
+              "run_id": "20261018T142134Z"
+            },
+            {
+              "big_case_rationale": "The case touches on highly salient issues involving trans-identifying individuals in prisons, though a likely GVR limits its independent legal impact.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/73278467/events/evt-petition-disposition/predictions/gemini-baseline/20261018T142134Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278467/events/evt-petition-disposition/predictions/gemini-baseline/20261018T142134Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.95,
+              "run_id": "20261018T142134Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Joseph J. Roybal, Sheriff, El Paso County, Colorado, et al. v. Darlene Griffith"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6233,
+      "moment": "evt-brief-sg-disposition",
+      "moment_opened_at": "2026-09-25",
+      "n": 3,
+      "other_party": "Griffith",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Roybal's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Roybal's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
+      "score_max": 0.79,
+      "score_min": 0.5,
+      "score_range": 0.29,
+      "short_caption": "Roybal v. Griffith",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Petersen",
       "caption": "David Petersen, et al. v. Snohomish Regional Fire and Rescue",
       "caption_event_id": "evt-petition-disposition",
@@ -15838,126 +16169,6 @@
       "score_min": 0.4,
       "score_range": 0.38,
       "short_caption": "Mohan v. Watkins",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Vasquez",
-      "caption": "Richard Vasquez v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/73292081",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Capital case with both State forensic witnesses recanting and two successive Nueces County DAs saying relief is warranted; the QPs (AEDPA successive-petition diligence standard, successiveness of late-surfacing Brady claims, deference to a local DA over the AG) recur across capital habeas but are technical. Significant to the habeas bar and to Texas capital practice, not a headline case.",
-          "big_case_score": 0.4,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261005T231540Z"
-        },
-        {
-          "big_case_rationale": "A capital conviction involving disputed forensic evidence, allegedly ineffective counsel, and contested prosecutorial positions creates substantial individual stakes; the successive-habeas questions could also affect access to review beyond this case.",
-          "big_case_score": 0.67,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261005T231540Z"
-        },
-        {
-          "big_case_rationale": "Capital habeas case involving an egregious IAC and Brady claim where the local DA concedes relief but the State AG opposes.",
-          "big_case_score": 0.7,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261005T231540Z"
-        }
-      ],
-      "docket_id": 73292081,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Capital case with both State forensic witnesses recanting and two successive Nueces County DAs saying relief is warranted; the QPs (AEDPA successive-petition diligence standard, successiveness of late-surfacing Brady claims, deference to a local DA over the AG) recur across capital habeas but are technical. Significant to the habeas bar and to Texas capital practice, not a headline case.",
-              "big_case_score": 0.4,
-              "cell_path": "data/cases/scotus/73292081/events/evt-petition-disposition/predictions/claude-baseline/20261005T231540Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73292081/events/evt-petition-disposition/predictions/claude-baseline/20261005T231540Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.14,
-              "run_id": "20261005T231540Z"
-            },
-            {
-              "big_case_rationale": "A capital conviction involving disputed forensic evidence, allegedly ineffective counsel, and contested prosecutorial positions creates substantial individual stakes; the successive-habeas questions could also affect access to review beyond this case.",
-              "big_case_score": 0.67,
-              "cell_path": "data/cases/scotus/73292081/events/evt-petition-disposition/predictions/codex-baseline/20261005T231540Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73292081/events/evt-petition-disposition/predictions/codex-baseline/20261005T231540Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.08,
-              "run_id": "20261005T231540Z"
-            },
-            {
-              "big_case_rationale": "Capital habeas case involving an egregious IAC and Brady claim where the local DA concedes relief but the State AG opposes.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/73292081/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73292081/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.12,
-              "run_id": "20261005T231540Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Richard Vasquez v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.59,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-05-04",
-      "n": 3,
-      "other_party": "Guerrero",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Vasquez's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Vasquez's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
-      "score_max": 0.7,
-      "score_min": 0.4,
-      "score_range": 0.3,
-      "short_caption": "Vasquez v. Guerrero",
       "status": "pending"
     },
     {
@@ -19934,126 +20145,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Granado",
-      "caption": "Jonathan Granado v. Juanita Ramirez, Individually and as Personal Representative of the Estate of Estevan Ramirez",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/73500240",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A fact-bound qualified-immunity shooting case; a summary per curiam would be a notable but incremental entry in the Court's qualified-immunity line, and the broad QP 2/QP 3 questions (who can clearly establish law; the 1791 basis of immunity) are unpreserved and will not be reached.",
-          "big_case_score": 0.35,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261005T231540Z"
-        },
-        {
-          "big_case_rationale": "Police deadly force and qualified immunity affect civil-rights accountability nationwide. The source-of-clearly-established-law question could have broad consequences, but the record-specific dispute and preservation objections make a narrow ruling more plausible than doctrinal reconstruction.",
-          "big_case_score": 0.6,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261005T231540Z"
-        },
-        {
-          "big_case_rationale": "A highly salient qualified immunity case with an originalist challenge, though likely to be resolved narrowly via summary reversal.",
-          "big_case_score": 0.6,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20261005T231540Z"
-        }
-      ],
-      "docket_id": 73500240,
-      "docket_number": null,
-      "docket_number_source": null,
-      "docket_url": null,
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A fact-bound qualified-immunity shooting case; a summary per curiam would be a notable but incremental entry in the Court's qualified-immunity line, and the broad QP 2/QP 3 questions (who can clearly establish law; the 1791 basis of immunity) are unpreserved and will not be reached.",
-              "big_case_score": 0.35,
-              "cell_path": "data/cases/scotus/73500240/events/evt-petition-disposition/predictions/claude-baseline/20261005T231540Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500240/events/evt-petition-disposition/predictions/claude-baseline/20261005T231540Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.24,
-              "run_id": "20261005T231540Z"
-            },
-            {
-              "big_case_rationale": "Police deadly force and qualified immunity affect civil-rights accountability nationwide. The source-of-clearly-established-law question could have broad consequences, but the record-specific dispute and preservation objections make a narrow ruling more plausible than doctrinal reconstruction.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73500240/events/evt-petition-disposition/predictions/codex-baseline/20261005T231540Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500240/events/evt-petition-disposition/predictions/codex-baseline/20261005T231540Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.28,
-              "run_id": "20261005T231540Z"
-            },
-            {
-              "big_case_rationale": "A highly salient qualified immunity case with an originalist challenge, though likely to be resolved narrowly via summary reversal.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73500240/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500240/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "summary-reversal",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.65,
-              "run_id": "20261005T231540Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Jonathan Granado v. Juanita Ramirez, Individually and as Personal Representative of the Estate of Estevan Ramirez"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.5167,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-06-01",
-      "n": 3,
-      "other_party": "Ramirez",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Granado's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Granado's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
-      "score_max": 0.6,
-      "score_min": 0.35,
-      "score_range": 0.25,
-      "short_caption": "Granado v. Ramirez",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Eric Alan Isaacson",
       "caption": "Eric Alan Isaacson v. Maribel Moses, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -23227,6 +23318,20 @@
               "predictor_id": "codex-baseline",
               "probability": 0.86,
               "run_id": "20261023T012839Z"
+            },
+            {
+              "big_case_rationale": "Routine federal prisoner litigation concerning the procedural vehicle (28 U.S.C. \u00a7 2241 habeas vs. civil action) for challenging BOP community-confinement denials and liberal construction of pro se FTCA pleadings; significant for prison litigation practice but modest broader public salience.",
+              "big_case_score": 0.25,
+              "cell_path": "data/cases/scotus/73281102/events/evt-order-judgment/predictions/gemini-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281102/events/evt-order-judgment/predictions/gemini-baseline/20261023T104223Z",
+              "confidence": 0.72,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.78,
+              "run_id": "20261023T104223Z"
             }
           ],
           "resolved_at": null,
@@ -25056,6 +25161,176 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Granado",
+      "caption": "Jonathan Granado v. Juanita Ramirez, Individually and as Personal Representative of the Estate of Estevan Ramirez",
+      "caption_event_id": "evt-order-relist-disposition",
+      "case_id": "scotus/73500240",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Fact-bound qualified-immunity deadly-force case; the systemic stakes (Fifth Circuit excessive-force doctrine, 9-8 en banc) are real but the QP 2/3 vehicle questions are unlikely to be reached.",
+          "big_case_score": 0.3,
+          "event_id": "evt-order-relist-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        },
+        {
+          "big_case_rationale": "Police deadly force and qualified immunity have substantial national stakes, especially if the Court limits which precedents clearly establish law; this record nevertheless presents a fact-specific shooting dispute rather than a clean vehicle for wholesale doctrinal revision.",
+          "big_case_score": 0.58,
+          "event_id": "evt-order-relist-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        },
+        {
+          "big_case_rationale": "Moderate-stakes Fourth Amendment deadly-force and qualified-immunity dispute arising from an 8-9 Fifth Circuit en banc poll, with doctrinal relevance to how Tolan v. Cotton and Barnes v. Felix interact with clearly established law.",
+          "big_case_score": 0.35,
+          "event_id": "evt-order-relist-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        }
+      ],
+      "docket_id": 73500240,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-relist-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Fact-bound qualified-immunity deadly-force case; the systemic stakes (Fifth Circuit excessive-force doctrine, 9-8 en banc) are real but the QP 2/3 vehicle questions are unlikely to be reached.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/73500240/events/evt-order-relist-disposition/predictions/claude-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500240/events/evt-order-relist-disposition/predictions/claude-baseline/20261023T104223Z",
+              "confidence": 0.5,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.4,
+              "run_id": "20261023T104223Z"
+            },
+            {
+              "big_case_rationale": "Police deadly force and qualified immunity have substantial national stakes, especially if the Court limits which precedents clearly establish law; this record nevertheless presents a fact-specific shooting dispute rather than a clean vehicle for wholesale doctrinal revision.",
+              "big_case_score": 0.58,
+              "cell_path": "data/cases/scotus/73500240/events/evt-order-relist-disposition/predictions/codex-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500240/events/evt-order-relist-disposition/predictions/codex-baseline/20261023T104223Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.36,
+              "run_id": "20261023T104223Z"
+            },
+            {
+              "big_case_rationale": "Moderate-stakes Fourth Amendment deadly-force and qualified-immunity dispute arising from an 8-9 Fifth Circuit en banc poll, with doctrinal relevance to how Tolan v. Cotton and Barnes v. Felix interact with clearly established law.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73500240/events/evt-order-relist-disposition/predictions/gemini-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500240/events/evt-order-relist-disposition/predictions/gemini-baseline/20261023T104223Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.22,
+              "run_id": "20261023T104223Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jonathan Granado v. Juanita Ramirez, Individually and as Personal Representative of the Estate of Estevan Ramirez"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A fact-bound qualified-immunity shooting case; a summary per curiam would be a notable but incremental entry in the Court's qualified-immunity line, and the broad QP 2/QP 3 questions (who can clearly establish law; the 1791 basis of immunity) are unpreserved and will not be reached.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73500240/events/evt-petition-disposition/predictions/claude-baseline/20261005T231540Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500240/events/evt-petition-disposition/predictions/claude-baseline/20261005T231540Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.24,
+              "run_id": "20261005T231540Z"
+            },
+            {
+              "big_case_rationale": "Police deadly force and qualified immunity affect civil-rights accountability nationwide. The source-of-clearly-established-law question could have broad consequences, but the record-specific dispute and preservation objections make a narrow ruling more plausible than doctrinal reconstruction.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73500240/events/evt-petition-disposition/predictions/codex-baseline/20261005T231540Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500240/events/evt-petition-disposition/predictions/codex-baseline/20261005T231540Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.28,
+              "run_id": "20261005T231540Z"
+            },
+            {
+              "big_case_rationale": "A highly salient qualified immunity case with an originalist challenge, though likely to be resolved narrowly via summary reversal.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73500240/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500240/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "summary-reversal",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.65,
+              "run_id": "20261005T231540Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Jonathan Granado v. Juanita Ramirez, Individually and as Personal Representative of the Estate of Estevan Ramirez"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.41,
+      "moment": "evt-order-relist-disposition",
+      "moment_opened_at": "2026-10-07",
+      "n": 3,
+      "other_party": "Ramirez",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Granado's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Granado's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
+      "score_max": 0.58,
+      "score_min": 0.3,
+      "score_range": 0.28,
+      "short_caption": "Granado v. Ramirez",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Louisiana",
       "caption": "Louisiana, et al. v. Devon Energy Production Company, L.P.",
       "caption_event_id": "evt-brief-response-disposition",
@@ -25738,6 +26013,176 @@
       "score_range": 0.2,
       "short_caption": "Hanaway v. Sanderson",
       "status": "resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Vasquez",
+      "caption": "Richard Vasquez v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division",
+      "caption_event_id": "evt-order-relist-disposition",
+      "case_id": "scotus/73292081",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Capital case raising a recurring AEDPA successive-petition diligence question with a claimed circuit split, but a fact-bound vehicle with limited reach beyond capital habeas.",
+          "big_case_score": 0.2,
+          "event_id": "evt-order-relist-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        },
+        {
+          "big_case_rationale": "A capital prisoner's challenge to successive-habeas diligence rules and contested scientific evidence has substantial individual stakes and potentially broader consequences for access to review, although multiple vehicle problems may prevent a general ruling.",
+          "big_case_score": 0.64,
+          "event_id": "evt-order-relist-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        },
+        {
+          "big_case_rationale": "A merits ruling on AEDPA \u00a7 2244(b)(2)(B)(i) due-diligence imputation for successive ineffective-assistance claims or state-versus-local prosecutorial authority in federal habeas would be doctrinally consequential for capital postconviction practice, though confined to successive-habeas procedure.",
+          "big_case_score": 0.35,
+          "event_id": "evt-order-relist-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261023T104223Z"
+        }
+      ],
+      "docket_id": 73292081,
+      "docket_number": null,
+      "docket_number_source": null,
+      "docket_url": null,
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-relist-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Capital case raising a recurring AEDPA successive-petition diligence question with a claimed circuit split, but a fact-bound vehicle with limited reach beyond capital habeas.",
+              "big_case_score": 0.2,
+              "cell_path": "data/cases/scotus/73292081/events/evt-order-relist-disposition/predictions/claude-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73292081/events/evt-order-relist-disposition/predictions/claude-baseline/20261023T104223Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.07,
+              "run_id": "20261023T104223Z"
+            },
+            {
+              "big_case_rationale": "A capital prisoner's challenge to successive-habeas diligence rules and contested scientific evidence has substantial individual stakes and potentially broader consequences for access to review, although multiple vehicle problems may prevent a general ruling.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/73292081/events/evt-order-relist-disposition/predictions/codex-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73292081/events/evt-order-relist-disposition/predictions/codex-baseline/20261023T104223Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261023T104223Z"
+            },
+            {
+              "big_case_rationale": "A merits ruling on AEDPA \u00a7 2244(b)(2)(B)(i) due-diligence imputation for successive ineffective-assistance claims or state-versus-local prosecutorial authority in federal habeas would be doctrinally consequential for capital postconviction practice, though confined to successive-habeas procedure.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73292081/events/evt-order-relist-disposition/predictions/gemini-baseline/20261023T104223Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73292081/events/evt-order-relist-disposition/predictions/gemini-baseline/20261023T104223Z",
+              "confidence": 0.82,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.07,
+              "run_id": "20261023T104223Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Richard Vasquez v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Capital case with both State forensic witnesses recanting and two successive Nueces County DAs saying relief is warranted; the QPs (AEDPA successive-petition diligence standard, successiveness of late-surfacing Brady claims, deference to a local DA over the AG) recur across capital habeas but are technical. Significant to the habeas bar and to Texas capital practice, not a headline case.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/73292081/events/evt-petition-disposition/predictions/claude-baseline/20261005T231540Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73292081/events/evt-petition-disposition/predictions/claude-baseline/20261005T231540Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.14,
+              "run_id": "20261005T231540Z"
+            },
+            {
+              "big_case_rationale": "A capital conviction involving disputed forensic evidence, allegedly ineffective counsel, and contested prosecutorial positions creates substantial individual stakes; the successive-habeas questions could also affect access to review beyond this case.",
+              "big_case_score": 0.67,
+              "cell_path": "data/cases/scotus/73292081/events/evt-petition-disposition/predictions/codex-baseline/20261005T231540Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73292081/events/evt-petition-disposition/predictions/codex-baseline/20261005T231540Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.08,
+              "run_id": "20261005T231540Z"
+            },
+            {
+              "big_case_rationale": "Capital habeas case involving an egregious IAC and Brady claim where the local DA concedes relief but the State AG opposes.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/73292081/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73292081/events/evt-petition-disposition/predictions/gemini-baseline/20261005T231540Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.12,
+              "run_id": "20261005T231540Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Richard Vasquez v. Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3967,
+      "moment": "evt-order-relist-disposition",
+      "moment_opened_at": "2026-10-07",
+      "n": 3,
+      "other_party": "Guerrero",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Vasquez's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Vasquez's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
+      "score_max": 0.64,
+      "score_min": 0.2,
+      "score_range": 0.44,
+      "short_caption": "Vasquez v. Guerrero",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -41059,6 +41504,123 @@
       "status": "resolved"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Hall",
+      "caption": "Timothy Hall v. Eastern Panhandle Anesthesia Associates, et al.",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000542",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A self-represented individual's private dispute with a medical practice out of the Fourth Circuit; nothing on the docket suggests stakes beyond the parties.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261023T190754Z"
+        },
+        {
+          "big_case_rationale": "No questions presented, petition text, or lower-court opinion was provisioned; the caption and docket skeleton do not establish the issue or its broader stakes.",
+          "big_case_score": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261023T190754Z"
+        },
+        {
+          "big_case_rationale": "Pro se employment-termination and disability-discrimination dispute arising from an unpublished Fourth Circuit per curiam disposition and an interlocutory district court order compelling arbitration as to the former employer while dismissing time-barred and non-employer claims.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261023T190754Z"
+        }
+      ],
+      "docket_id": 9026000542,
+      "docket_number": "26-542",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-542.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A self-represented individual's private dispute with a medical practice out of the Fourth Circuit; nothing on the docket suggests stakes beyond the parties.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000542/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261023T190754Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000542/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261023T190754Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.006,
+              "run_id": "20261023T190754Z"
+            },
+            {
+              "big_case_rationale": "No questions presented, petition text, or lower-court opinion was provisioned; the caption and docket skeleton do not establish the issue or its broader stakes.",
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/9026000542/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261023T190754Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000542/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261023T190754Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.03,
+              "run_id": "20261023T190754Z"
+            },
+            {
+              "big_case_rationale": "Pro se employment-termination and disability-discrimination dispute arising from an unpublished Fourth Circuit per curiam disposition and an interlocutory district court order compelling arbitration as to the former employer while dismissing time-barred and non-employer claims.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000542/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261023T190754Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000542/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261023T190754Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.003,
+              "run_id": "20261023T190754Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Timothy Hall v. Eastern Panhandle Anesthesia Associates, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.03,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-23",
+      "n": 2,
+      "other_party": "Eastern Panhandle Anesthesia Associates",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Hall's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Hall's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.03,
+      "score_min": 0.03,
+      "score_range": 0.0,
+      "short_caption": "Hall v. Eastern Panhandle Anesthesia Associates",
+      "status": "pending"
+    },
+    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Katherine L. Hobbins Forester, et al. v. Adam Gerol, et al.",
@@ -41440,7 +42002,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a532.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -41486,7 +42048,7 @@
               "run_id": "20261022T230223Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-23",
           "title": "Frank Michael Monte, III v. United States"
         }
       ],
@@ -41513,7 +42075,7 @@
       "score_min": 0.01,
       "score_range": 0.02,
       "short_caption": "Frank Michael Monte v. United States",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -42198,5 +42760,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.3",
-  "scored_reads": 928
+  "scored_reads": 933
 }
