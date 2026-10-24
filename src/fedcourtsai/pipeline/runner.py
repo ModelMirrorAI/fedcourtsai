@@ -72,6 +72,7 @@ from ..ids import parse_run_id
 from ..paths import CasePaths, EventPaths
 from ..pricing import DEFAULT_MODELS
 from ..schemas import (
+    ClaimDistribution,
     ClaimProbability,
     Disposition,
     Engine,
@@ -92,8 +93,10 @@ from ..schemas import (
 )
 from ..secretscan import redact_credentials
 from ..serialize import read_model, write_json
-from .claims import declared_claim_set
+from .base_rates import PER_CURIAM_LABEL
+from .claims import DISTRIBUTION_CLAIMS, declared_claim_set, declared_distribution_claims
 from .evaluate import brier_score, is_correct, judgment_correct, vote_accuracy
+from .justices import SERVICE_FLOOR, bench_on
 from .semantic import declared_semantic_claim_set
 
 # Canned values the stub reports. Deterministic by construction — no clock, no
@@ -104,6 +107,8 @@ from .semantic import declared_semantic_claim_set
 _STUB_DISPOSITION = Disposition.denied
 _STUB_PROBABILITY = 0.0
 _STUB_GRANTED = 0
+# Every Justice's chance of writing, on a per-Justice distribution claim.
+_STUB_WRITER_PROBABILITY = 0.0
 _STUB_REASONING_QUALITY = 0.5
 # A canned mid-scale stakes read, so the stub's prediction carries the same
 # optional field a real predictor emits (exercised by the cert back-test's
@@ -229,6 +234,13 @@ def _input_snapshot(request: RunRequest) -> str:
         return snapshot.as_posix()
 
 
+def _cell_day(request: RunRequest) -> date:
+    """The cell's snapshot day, as :func:`_input_snapshot` names it."""
+    case = CasePaths(request.data_root, request.court_id, request.docket_id)
+    day = _provisioned_day(case)
+    return date.fromisoformat(day) if day else _created_at(request.run_id).date()
+
+
 def _provisioned_day(case: CasePaths) -> str | None:
     """The day ``record/context.json`` names, or ``None`` where there is no usable one.
 
@@ -317,6 +329,32 @@ class StubRunner:
         ]
 
     @staticmethod
+    def _claim_distributions(event_id: str, day: date) -> list[ClaimDistribution] | None:
+        """The stub's distributions over the event's declared distribution claims.
+
+        The distribution mirror of :meth:`_claims`: one per declared claim over
+        the bench sitting on the cell's snapshot ``day``, so the offline cascade
+        exercises the block and ``validate``'s conformance check. A categorical
+        claim spreads its mass evenly over the bench and the per-curiam label, a
+        per-Justice one gives every Justice the stub's writer probability. ``None`` for an
+        event declaring none, as an agent omitting the field produces.
+        """
+        declared = declared_distribution_claims(event_id)
+        if not declared or day < SERVICE_FLOOR:
+            return None
+        bench = bench_on(day)
+        distributions = []
+        for claim_id in declared:
+            kind, _scored = DISTRIBUTION_CLAIMS[claim_id]
+            if kind == "categorical":
+                labels = [*bench, PER_CURIAM_LABEL]
+                probabilities = {label: 1 / len(labels) for label in labels}
+            else:
+                probabilities = dict.fromkeys(bench, _STUB_WRITER_PROBABILITY)
+            distributions.append(ClaimDistribution(claim_id=claim_id, probabilities=probabilities))
+        return distributions
+
+    @staticmethod
     def _semantic_claims(event_id: str) -> list[SemanticClaim] | None:
         """The stub's propositions over the event's declared *semantic* set.
 
@@ -401,6 +439,7 @@ class StubRunner:
             votes=list(_STUB_MERITS_VOTES) if merits else [],
             big_case_score=_STUB_BIG_CASE_SCORE,
             claims=self._claims(request.event_id),
+            claim_distributions=self._claim_distributions(request.event_id, _cell_day(request)),
             semantic_claims=self._semantic_claims(request.event_id),
             predicted_reasoning_doc=events.predicted_reasoning(
                 request.actor_id, request.run_id

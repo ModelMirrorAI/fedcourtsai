@@ -39,6 +39,11 @@ from ..schemas import EventKind, Moment, Stage
 CLAIM_SET_CERT_V2 = "cert-v2"
 CLAIM_SET_INTERIM_V1 = "interim-v1"
 CLAIM_SET_MERITS_V1 = "merits-v1"
+#: The authorship versions: each carries its predecessor's binary claims and
+#: adds the stage's distribution claims (``pipeline.claims``).
+CLAIM_SET_CERT_V3 = "cert-v3"
+CLAIM_SET_INTERIM_V2 = "interim-v2"
+CLAIM_SET_MERITS_V2 = "merits-v2"
 
 
 @dataclass(frozen=True)
@@ -99,7 +104,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=0,
         decision_target="disposition",
         description="Disposition of the petition for a writ of certiorari.",
-        claim_set_version=CLAIM_SET_CERT_V2,
+        claim_set_version=CLAIM_SET_CERT_V3,
         # The one moment whose `opened_at` is not its trigger: the ingest
         # projection derives this baseline from the docket merely existing, so
         # the date is docketing. The moment is the distribution, and the
@@ -117,7 +122,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "Disposition of the petition, forecast after the Court called for "
             "the Solicitor General's views."
         ),
-        claim_set_version=CLAIM_SET_CERT_V2,
+        claim_set_version=CLAIM_SET_CERT_V3,
     ),
     MomentSpec(
         # Chronologically the EARLIEST cert moment (docketing precedes every
@@ -137,7 +142,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "Disposition of the petition, forecast at docketing — before any "
             "distribution or docket-acquired signal exists."
         ),
-        claim_set_version=CLAIM_SET_CERT_V2,
+        claim_set_version=CLAIM_SET_CERT_V3,
     ),
     MomentSpec(
         # Chronologically after the CVSG moment it follows: the invitation opens
@@ -153,7 +158,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "Disposition of the petition, forecast once the Solicitor General has "
             "filed the brief the Court invited."
         ),
-        claim_set_version=CLAIM_SET_CERT_V2,
+        claim_set_version=CLAIM_SET_CERT_V3,
     ),
     MomentSpec(
         # The cert stage's call for a response, typically after the respondent
@@ -170,7 +175,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         description=(
             "Disposition of the petition, forecast after the Court called for a response to it."
         ),
-        claim_set_version=CLAIM_SET_CERT_V2,
+        claim_set_version=CLAIM_SET_CERT_V3,
         forecastable=False,
     ),
     MomentSpec(
@@ -187,7 +192,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "Disposition of the petition, forecast after the Court first relisted it "
             "for another conference."
         ),
-        claim_set_version=CLAIM_SET_CERT_V2,
+        claim_set_version=CLAIM_SET_CERT_V3,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.motion.value, "disposition"),
@@ -197,7 +202,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=0,
         decision_target="disposition",
         description="Disposition of the application for interim relief.",
-        claim_set_version=CLAIM_SET_INTERIM_V1,
+        claim_set_version=CLAIM_SET_INTERIM_V2,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.order.value, "response-requested-disposition"),
@@ -209,7 +214,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         description=(
             "Disposition of the application, forecast after the Court called for a response."
         ),
-        claim_set_version=CLAIM_SET_INTERIM_V1,
+        claim_set_version=CLAIM_SET_INTERIM_V2,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.brief.value, "response-disposition"),
@@ -219,7 +224,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=2,
         decision_target="disposition",
         description=("Disposition of the application, forecast once a response has been filed."),
-        claim_set_version=CLAIM_SET_INTERIM_V1,
+        claim_set_version=CLAIM_SET_INTERIM_V2,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.order.value, "judgment"),
@@ -229,7 +234,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         ordinal=0,
         decision_target="judgment",
         description="Disposition of the judgment below, following the cert grant.",
-        claim_set_version=CLAIM_SET_MERITS_V1,
+        claim_set_version=CLAIM_SET_MERITS_V2,
     ),
     MomentSpec(
         event_id=ids.event_id(EventKind.brief.value, "judgment"),
@@ -242,7 +247,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "Disposition of the judgment below, forecast once both sides' merits "
             "briefs are on the record."
         ),
-        claim_set_version=CLAIM_SET_MERITS_V1,
+        claim_set_version=CLAIM_SET_MERITS_V2,
     ),
     MomentSpec(
         # Opened by the argument transcript rather than by a docket entry: the
@@ -258,7 +263,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "Disposition of the judgment below, forecast once the transcript of the "
             "oral argument is posted."
         ),
-        claim_set_version=CLAIM_SET_MERITS_V1,
+        claim_set_version=CLAIM_SET_MERITS_V2,
     ),
 )
 

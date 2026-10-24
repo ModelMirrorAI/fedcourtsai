@@ -32,8 +32,11 @@ from fedcourtsai.pipeline.claims import (
     CLAIM_RESPONSE_REQUESTED_INCREMENT,
     CLAIM_SET_CERT_V1,
     CLAIM_SET_CERT_V2,
+    CLAIM_SET_CERT_V3,
     CLAIM_SET_INTERIM_V1,
+    CLAIM_SET_INTERIM_V2,
     CLAIM_SET_MERITS_V1,
+    CLAIM_SET_MERITS_V2,
     CLAIM_SUMMARY_ROUTE,
     claim_baseline,
     claim_block_problems,
@@ -617,7 +620,7 @@ def _merits_outcome(judgment: Judgment) -> Outcome:
 def test_the_merits_event_declares_exactly_the_disturbed_claim() -> None:
     # Keyed on the minted merits event id, not the order kind: any other order
     # event still declares nothing (the `evt-order-x` case above).
-    assert declared_claim_set(_MERITS_EVENT) == (CLAIM_SET_MERITS_V1, (CLAIM_JUDGMENT_DISTURBED,))
+    assert declared_claim_set(_MERITS_EVENT) == (CLAIM_SET_MERITS_V2, (CLAIM_JUDGMENT_DISTURBED,))
 
 
 def test_judgment_disturbed_resolves_through_the_shared_projection() -> None:
@@ -769,7 +772,8 @@ def test_the_declared_cert_moment_carries_cert_v2s_five_claims() -> None:
     declared = declared_claim_set(_CERT_MOMENT)
     assert declared is not None
     version, claim_ids = declared
-    assert version == CLAIM_SET_CERT_V2
+    # cert-v3 carries cert-v2's binary claims unchanged.
+    assert version == CLAIM_SET_CERT_V3
     # Append-only against cert-v1's order, so a reader diffing two blocks reads
     # down the same rows.
     assert claim_ids == (
@@ -921,7 +925,7 @@ def test_the_interim_set_is_exactly_the_four_claims_in_stable_order() -> None:
     declared = declared_claim_set(_INTERIM_EVENT)
     assert declared is not None
     version, claim_ids = declared
-    assert version == CLAIM_SET_INTERIM_V1
+    assert version == CLAIM_SET_INTERIM_V2
     assert claim_ids == (
         CLAIM_INTERIM_DISPOSITION,
         CLAIM_RESPONSE_REQUESTED_INCREMENT,

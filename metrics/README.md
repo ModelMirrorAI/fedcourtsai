@@ -1136,8 +1136,8 @@ stays outside the gate:
 
   **Counts and comparability.** The population is the **cert stage's first
   moment's** cells: the board never blends stages or moments, so although the
-  other two stages declare their own sets (`interim-v1` on every interim
-  moment, `merits-v1` on every merits moment), a non-cert cell's block sits
+  other two stages declare their own sets (`interim-v2` on every interim
+  moment, `merits-v2` on every merits moment), a non-cert cell's block sits
   outside this surface (and
   outside its absence counts) entirely until a per-stage claim surface exists. The reporting unit is the **event**: every
   evaluator of the same prediction carries an identical harness block, so
@@ -1156,7 +1156,11 @@ stays outside the gate:
   claims-carrying process version must not be read as one population. A total
   is likewise never comparable across claim-set declarations —
   `declared_set_versions` lists what the means pool, and more than one entry
-  there demotes them to coverage figures. Retrospective aggregates are
+  there demotes them to coverage figures. That holds for an authorship
+  version beside its predecessor too (`cert-v3` beside `cert-v2`): the binary
+  claims are the same, but the two declarations were asked under different
+  prompts. The authorship rows (`ClaimScoreBlock.distributions`) are not on
+  this surface; they ride the block and enter no total. Retrospective aggregates are
   iteration signal under the backtest-as-iteration doctrine below, never
   claimable — a resolved case's claims are retrievable, not forecastable —
   and procedural aggregates never carry a cert-forecasting claim of any kind,

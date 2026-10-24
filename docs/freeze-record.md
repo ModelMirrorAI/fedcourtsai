@@ -13209,3 +13209,197 @@ freeze commit is recorded here.
     `trim-only`, about 70 `other-change` and about 260 `cap-mark`, with the
     remainder in the small classes above. Its apply is the maintainer's
     dispatch.
+
+- **`proc-v12`: the predict prompt elicits the authorship forecasts, and every
+  declared moment names its stage's authorship set; recorded 2026-10-23.**
+  Carried to `main` by `<FILL: promotion tag>` (merge `<FILL: merge sha>`,
+  `<FILL: merged-at>`), to be tagged **`prereg/proc-v12`**. Registered under
+  the merge-stamped rule, so its counting instant, its three bless moments and
+  every window edge it moves are the carrying merge's committer time. It is
+  the third supersession shape for all three predictors at once
+  ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  `.github/prompts/predict.md`, which every predictor digest reads, changes,
+  so each predictor's open `proc-v11` window **closes** at this label's
+  instant and a `proc-v12` window opens there for each new digest. No
+  evaluator digest moves: neither the evaluate prompt nor any judge's config
+  changes, so the three judges carry their bless moments forward and add this
+  label to their blessing labels. Nothing is de-counted and nothing is
+  re-owed: every cell counted in a closed window keeps counting under its own
+  label, scored under the set it was asked.
+
+  **What moved, in the predict prompt.**
+  - *Stage: merits* replaces the sentence telling a cell that authorship
+    resolves against nothing with the `merits-v2` set: the binary
+    `judgment-disturbed` claim, unchanged, and two distribution claims in
+    `claim_distributions`, `majority-author` (one distribution over the bench
+    sitting on the snapshot date and `per-curiam`, summing to 1) and
+    `separate-writers` (per Justice, each probability on its own), both
+    scored. The cell is told the baselines are strictly-prior Term history,
+    so restating it is worth zero, and to give its reasons in the forecast
+    document.
+  - *Stage: cert* and *Stage: interim* name `cert-v3` and `interim-v2` and
+    add `order-writers` (per Justice: the chance each sitting Justice writes
+    on the disposing order), banked and never scored. The
+    `dissent-from-denial` claim is unchanged and stays the cert stage's
+    scored writing claim.
+  - The `prediction.json` field list gains `claim_distributions`: the labels
+    (sitting Justices as the roster spells them, plus `per-curiam` on
+    `majority-author` alone), the sitting bench by name with the date it last
+    changed, the sum rule, no additions and no declining, and that the block
+    rides `claims`. A writer is an author or co-signing author; joining
+    another Justice's writing is not writing one, as the writing roles the
+    claims resolve against record it.
+
+  **What moved, in the code.** `pipeline/moments.py` points the six cert
+  moments at `cert-v3`, the three interim moments at `interim-v2` and the
+  three merits moments at `merits-v2`. Each carries its predecessor's binary
+  claims unchanged and in the same order. A cell stamped under a label before
+  this one (`process_version.AUTHORSHIP_CLAIMS_FROM`), or unstamped and
+  stating no distribution block, was asked the predecessor set and is scored
+  under it (`pipeline.claims.declared_claim_set_for`), so the moment table's
+  advance relabels no committed grading. An absent distribution block is
+  masked, as an absent `claims` block is; `validate` reports a block naming
+  a claim its set does not declare, and checks a distribution block stated
+  without a `claims` block. The offline stub states an even split, so the
+  cascade smoke exercises the block. The authorship tally
+  (`record/authorship-tally.json`) stays withheld from cells
+  (`provision.AUTHORSHIP_TALLY_WITHHELD`): this label releases no new input.
+
+  **The populations, pre-registered here.** The authorship rows sit in
+  `ClaimScoreBlock.distributions`, never in a binary total, and are read per
+  `<stage>@<moment>` population, never pooled across moments
+  ([metrics/README.md](../metrics/README.md)).
+  - `majority-author` and `separate-writers` on `merits@grant`,
+    `merits@briefed` and `merits@argued`, resolved as *The authorship claims*
+    in [outcome-decomposition.md](outcome-decomposition.md) states:
+    `majority-author` only on an argued decision whose stamped author agrees
+    with the docket's decision method, `separate-writers` only where the
+    writing roles were observed.
+  - `order-writers` on every cert and interim moment, resolved and banked,
+    never scored and never quoted as skill. A scored form, if one is ever
+    registered, is a new set version and scores only cells asked under it;
+    the banked cells stay unscored.
+
+  **The baseline constants, registered here.** Both scored claims' baselines
+  (`pipeline.base_rates`) pool the statpack's authorship section over the
+  October Terms strictly before the cell's, inside the salience lookback band
+  (`salience.base_rate_lookback_terms`, **10** Terms in `config/tracking.yaml`,
+  and never before OT2020, where the per-opinion record starts):
+  - a baseline is `None`, and its claim unscored, below **30** pooled
+    decisions (`AUTHORSHIP_BASE_RATE_MIN_DECISIONS`): argued decisions for
+    the author, observed ones for separate writing;
+  - each Justice's rate is shrunk toward the even split (author) or the
+    bench-wide pooled rate (separate writing) by **20** pseudo-decisions
+    (`AUTHORSHIP_PRIOR_WEIGHT`);
+  - the per-curiam share is **(per curiams + 0.5) / (argued decisions + 1)**,
+    so a window that saw no per curiam still prices one above zero, and the
+    signed remainder is scaled so the author baseline sums to 1.
+
+  None of the three was chosen against an outcome a merits-v2 cell will be
+  scored on: no cell has been asked the forecast, and no committed merits
+  outcome carries a stamped author.
+
+  **Owed before any `majority-author` figure is quoted.**
+  - The census *Why the author resolves from its own stamp* names: stamped
+    merits outcomes masked for an unclassified or disagreeing decision
+    method, by stamped kind (signed, per curiam). It can be taken only after
+    the opinions writer's first `opinion-votes` apply stamps `merits_author`
+    across the merits population, which follows this promotion. Until a dated
+    entry quotes it, a `majority-author` figure is not a claim. If the census
+    shows the method classification masking one kind more often than the
+    other, the remedy is a new set version with a changed mask, applied to
+    cells asked under it; `merits-v2` cells already graded are never
+    re-masked.
+  - The baseline and the resolved pool differ where signed decisions go
+    unclassified (*Baselines* in
+    [outcome-decomposition.md](outcome-decomposition.md)); a figure states
+    the per-curiam share of its resolved rows beside the baseline's.
+
+  **What this label does not register.** No late-Term authorship moment:
+  `fedcourts authorship-tally` reads the pattern, but no moment declares it
+  and the tally stays out of cells, and the moment still owes the eight
+  tests ([milestones.md](milestones.md)). No authorship figure is
+  pre-registered as a headline: the rows are diagnostic, and the
+  `majority-author` rows are not quoted at all until the census lands.
+
+  **The amendment debt this label leaves.** The evaluate prompt still names
+  the interim and merits sets by their predecessors' ids (`interim-v1`,
+  `merits-v1`) where it tells a judge the `claim_scores` block is the
+  harness's. The instruction it carries, that the judge neither fills nor
+  corrects the block, holds under the new ids, and editing it would move all
+  three evaluator digests, which this label holds. It is paid at the next
+  label that moves them.
+
+  **Digests** (`uv run fedcourts process-digest --all`, at `staging`
+  `b0acf7079` before this change and at it):
+
+  | Actor | Before | `proc-v12` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54` (`proc-v11`) | `sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f` (new) |
+  | `codex-baseline` | `sha256:a711152d3e0082a9f5311e40348116c753247aba102ddc60e5979c7d292abe64` (`proc-v11`) | `sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4` (new) |
+  | `gemini-baseline` | `sha256:c4213d78e7a7a6fc5f13d070a3bda326254c0189b7979f5e7b91a23d5608ad66` (`proc-v11`) | `sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9` (new) |
+  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | same, carried forward |
+  | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | same, carried forward |
+  | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | same, carried forward |
+
+  **Step 0.** At `origin/main` `b9d4087b0` (`2026-10-23T17:13:01Z`), `git grep
+  -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
+  the three newly blessed digests, and `git grep -l '"process_version": {'
+  origin/main -- data/cases | wc -l` is **3003** stamped cells. At the
+  carrying merge the newly blessed predictor digests stamp
+  <FILL: census predictions digest=457d3e0e,87e57da6,8057aacc> committed
+  predictions.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`d1487fc0…`) | `proc-v11` | `2026-10-23T02:37:11Z` | this label's instant (was open) |
+  | `codex-baseline` (`a711152d…`) | `proc-v11` | `2026-10-23T02:37:11Z` | this label's instant (was open) |
+  | `gemini-baseline` (`c4213d78…`) | `proc-v11` | `2026-10-23T02:37:11Z` | this label's instant (was open) |
+  | `claude-baseline` (`457d3e0e…`) | `proc-v12` | this label's instant | open (new) |
+  | `codex-baseline` (`87e57da6…`) | `proc-v12` | this label's instant | open (new) |
+  | `gemini-baseline` (`8057aacc…`) | `proc-v12` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** This was run with this commit's
+  pending rows stamped by hand at a provisional instant,
+  `2026-10-25T00:00:00Z`, in a scratch copy of the registry, over
+  `origin/main`'s ledger at `b9d4087b0`. `uv run fedcourts
+  successor-disclosures --closed proc-v11 --successor proc-v12`:
+
+  ```
+  successor proc-v12 closes proc-v11 at 2026-10-25T00:00:00+00:00
+    closed proc-v11 codex-baseline: 5 counted event(s) — 0 resolved, 5 pending at close
+    closed proc-v11 gemini-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    closed proc-v11 claude-baseline: 5 counted event(s) — 0 resolved, 5 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Outcomes, gradings and cells keep landing until the instant, so the run is
+  repeated once the carrying merge has stamped the registry, and a dated
+  follow-up entry quotes it. That follow-up lands before any `proc-v12`
+  window figure is quoted outside the committed board.
+
+  **Evidence for the change other than the closed windows' boards.** None of
+  the `proc-v11` windows' outcomes bears on it: none of their counted events
+  had resolved at the provisional instant. The change rests on the
+  maintainer's decision that every forecast state who writes,
+  probabilistically, and on the claim and baseline design recorded in
+  [outcome-decomposition.md](outcome-decomposition.md), not on a score.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v12`, and `uv run
+    fedcourts process-digest --all` prints the six digests above;
+  - `uv run python -c "from fedcourtsai.pipeline.claims import
+    declared_distribution_claims as d; print(d('evt-petition-disposition'),
+    d('evt-order-judgment'))"` prints `('order-writers',) ('majority-author',
+    'separate-writers')`;
+  - the first predict round after the carrying merge commits
+    `prediction.json` files carrying `claim_distributions`: `jq -c
+    '[.claim_distributions[]?.claim_id]'` over that round's cells prints
+    `["order-writers"]` on a cert or interim cell and `["majority-author",
+    "separate-writers"]` on a merits cell, and `fedcourts validate data`
+    stays green on its collect PR.

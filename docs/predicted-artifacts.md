@@ -142,6 +142,18 @@ fields that mean the same thing at every stage:
   `probability` scores nothing at all — a partial answer is malformed, not a
   choice. Where an event declares no set the cell writes no `claims` field, and
   the stamped record carries it as null; never an empty list.
+- **`claim_distributions`** — the authorship forecasts, one `{claim_id,
+  probabilities}` per distribution claim the event's set declares, each
+  probability keyed by a Justice's name as the roster spells it
+  ([outcome-decomposition.md](outcome-decomposition.md), *The authorship
+  claims*). A cert or interim cell states `order-writers`, the chance each
+  sitting Justice writes on the order; a merits cell states `majority-author`,
+  over the bench and `per-curiam` and summing to 1, and `separate-writers`, the
+  chance each sitting Justice writes anything but the opinion of the Court. It
+  rides `claims`: a block stated without one scores nothing, as does a block
+  that leaves out a declared claim or a sitting Justice, or names a claim the
+  set does not declare. A cell run under a process before the prompt asked for
+  it writes no block, and an absent block is masked, never guessed.
 - **`semantic_claims`** — the *semantic* claim set's propositions, written on a
   **merits** cell and null everywhere else: the merits moments declare
   `semantic-v1` and no other event declares a semantic set. Two propositions,
@@ -167,7 +179,9 @@ kinds resolve on the cert standard by construction.
 - `predicted_disposition` may take any label in the vocabulary. `gvr`,
   `summary-reversal`, and `granted-in-part` all count as grants on the binary
   axis, so they travel with `granted: 1`.
-- The declared set is **`cert-v2`**, five claims: `disposition` — which must
+- The declared set is **`cert-v3`**: `cert-v2`'s five binary claims and the
+  `order-writers` distribution claim, collected and never scored. The five
+  claims are `disposition` — which must
   equal the top-level `probability` exactly, being the same belief restated so
   the set is self-describing — plus `relist-increment` and `cvsg-increment`,
   plus `summary-disposition-route` and `dissent-from-denial`.
@@ -180,7 +194,8 @@ kinds resolve on the cert standard by construction.
   a named Justice. `cert-v1`'s three-claim form survives only as the fallback
   for a petition event that is not a declared moment — an entry-pinned filing,
   a legacy id — since the set is resolved from the event
-  ([outcome-decomposition.md](outcome-decomposition.md)).
+  ([outcome-decomposition.md](outcome-decomposition.md)). A cell stamped
+  before `proc-v12` was asked `cert-v2` and is scored under it.
 - `votes` is optional and `judgment` is null: no majority opinion accompanies a
   denial, so there is usually no vote to forecast.
 
@@ -263,7 +278,8 @@ grant or denial of the requested relief.
 - `predicted_disposition` draws from four labels only — `granted`, `denied`,
   `withdrawn`, `dismissed`. `gvr`, `summary-reversal`, and `granted-in-part`
   are cert-stage routes the interim vocabulary never records.
-- **A `claims` field over `interim-v1`** — `interim-disposition` (restating the
+- **A `claims` field over `interim-v2`** — `interim-v1`'s four binary claims,
+  with `order-writers` in `claim_distributions` beside them: `interim-disposition` (restating the
   headline `probability`), `response-requested-increment`, `referral-increment`,
   `amicus-increment`, in that order. Every interim moment declares the same four,
   whatever the event's kind. Only the first has a baseline today, and only above
@@ -333,9 +349,11 @@ and a summary reversal, which terminate at the cert order, mint nothing.
 - `predicted_disposition` is `other`. The cert/interim vocabulary has no merits
   member by design, so the label carries nothing here and `judgment` carries
   the forecast — mirroring how the outcome is written.
-- The declared set is **`merits-v1`**, one claim: `judgment-disturbed`, which
-  restates `probability` exactly, under the same rule as the cert `disposition`
-  claim.
+- The declared set is **`merits-v2`**: one binary claim, `judgment-disturbed`,
+  which restates `probability` exactly, under the same rule as the cert
+  `disposition` claim, and two distribution claims, `majority-author` and
+  `separate-writers`, both scored against strictly-prior baselines. A cell
+  stamped before `proc-v12` was asked `merits-v1`, the binary claim alone.
 - A merits cell is also the only one carrying **`semantic_claims`**: the
   `semantic-v1` set's two propositions, `majority-ground` and `ground-breadth`,
   each on its declared axis and each carrying no probability. They are graded

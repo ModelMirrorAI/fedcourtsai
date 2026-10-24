@@ -1259,8 +1259,9 @@ def check_prediction_claims(data_root: Path) -> CorpusCheck:
     deliberately silent at read time (``None``, never a crash), so an
     incoherent block would commit green and the claim board would simply lack
     the cell weeks later. Surfaced here instead, while the cell can still be
-    fixed. Absence stays legitimate: a prediction without a block, or on an
-    event with no declared set, is skipped, not flagged.
+    fixed. Absence stays legitimate: a prediction without either block, or on
+    an event with no declared set, is skipped, not flagged; a distribution
+    block stated alone is checked, since it rides a ``claims`` block it lacks.
     """
     problems: list[str] = []
     checked = 0
@@ -1271,7 +1272,7 @@ def check_prediction_claims(data_root: Path) -> CorpusCheck:
             prediction = Prediction.model_validate(json.loads(path.read_text()))
         except (OSError, ValueError, ValidationError):
             continue
-        if prediction.claims is None:
+        if prediction.claims is None and prediction.claim_distributions is None:
             continue
         checked += 1
         problems.extend(

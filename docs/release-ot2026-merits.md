@@ -170,7 +170,9 @@ denominator.
   [metrics/README.md](../metrics/README.md), saying what may be read from
   them and that they are never ranked;
 - a merits accuracy floor. The board's floor is cert-only today;
-- `claim-scores` coverage of the `merits-v1` claim set. `claim-scores` rolls
+- `claim-scores` coverage of the merits claim sets, `merits-v1` and
+  `merits-v2` (whose authorship rows are reported beside the binary claim and
+  enter no total). `claim-scores` rolls
   up only cert's first moment today.
 
 **Prose (settled).** A merits figure is never compared with a cert figure.
@@ -313,7 +315,7 @@ long-conference public page.
 |---|---|
 | Per-argued-case aggregation for consolidated dockets | 1 |
 | Per-window census within a leaderboard stage block | 2 |
-| Merits stage reading rule, accuracy floor and `merits-v1` claim-score coverage | 3 |
+| Merits stage reading rule, accuracy floor and merits claim-score coverage | 3 |
 | Merits calibration and the paired equal-coverage comparison (or a stated absence) | 4 |
 | Smoothing rule, only if a cut is published | 5 |
 | Naive floor for `mean_vote_accuracy` | 6 |

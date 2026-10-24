@@ -350,8 +350,8 @@ pools an affirmance with two procedural exits — the equally-divided caveat
 above is answered by declaration, not ignored. They stay in the scored pool
 because the baseline's denominator holds them too (next paragraph), keeping
 the scored population and its baseline the same population. The
-mechanical-claim mirror is the `merits-v1` set (`pipeline.claims`): one
-declared claim, `judgment-disturbed`, restating the headline probability the
+mechanical-claim mirror is the binary half of the `merits-v2` set
+(`pipeline.claims`), `merits-v1`'s one declared claim, `judgment-disturbed`, restating the headline probability the
 way the cert set's `disposition` claim does; the per-Justice vote and split
 claims were tested against `docs/outcome-decomposition.md`'s eight tests and
 **failed** (no committed resolution channel, no conditioned strictly-prior
@@ -359,7 +359,7 @@ baseline, and nine-to-one re-encoding of one correlated insight), so they are
 deliberately not declared. Authorship is not a set of nine binaries: the
 `merits-v2` set carries it as two distribution claims, `majority-author` and
 `separate-writers`, each weighing as one claim per prediction over the whole
-bench, scored against a strictly-prior baseline once a moment names the set,
+bench, scored against a strictly-prior baseline on every merits moment,
 and resolved against the committed `merits_author` stamp (checked against the
 decision method) and writing roles
 (*The authorship claims* in `docs/outcome-decomposition.md`).
@@ -637,7 +637,7 @@ cell, the whole skill record of `brier_score` / `segment_base_rate` /
 This keeps the third constraint trivially satisfied: the design's one scored
 rule is the Brier score on one submitted probability, proper over its whole
 domain, with no consistency term between submitted numbers anywhere (the
-`merits-v1` claim must *equal* the headline probability — a well-formedness
+`judgment-disturbed` claim must *equal* the headline probability — a well-formedness
 check that voids a divergent block, not a penalty that shapes it).
 
 **What remains unbuilt, and stays outside every scored total.** No schema
