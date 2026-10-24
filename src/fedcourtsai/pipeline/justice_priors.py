@@ -235,6 +235,8 @@ def justice_votes_section(conn: corpus.ReadConnection) -> StatPackJusticeVotes |
         return None
     lineups = merits_lineups(conn, first_term=span[0], last_term=span[1])
     complete = [lu.case_id for lu in lineups if lu.status == "complete" and lu.case_id]
+    # A complete lineup with no case id still tallies its votes, so test the
+    # statuses rather than the judgment lookups.
     if not any(lu.status == "complete" for lu in lineups):
         return None
     return justice_priors(lineups, case_judgments(conn, complete))

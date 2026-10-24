@@ -16,8 +16,10 @@ import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
+from fedcourtsai import provision
 from fedcourtsai.cli import app
 from fedcourtsai.corpus import CaseDocument
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.argument_features import (
     ASSIGNMENT,
     parse_argument_features,
@@ -551,3 +553,35 @@ def test_no_staged_transcript_yields_no_features() -> None:
         text="The petition.",
     )
     assert staged_argument_features([(petition, None)]) is None
+
+
+def _placement(documents: list[CaseDocument]) -> provision.Placement:
+    return provision.Placement(
+        snapshot_date=date(2026, 1, 25),
+        payload={},
+        documents=documents,
+        provenance="as-stored",
+        boundary=None,
+        dropped_entries=0,
+        dropped_documents=0,
+    )
+
+
+def test_the_record_carries_the_features_of_the_staged_transcript(tmp_path: Path) -> None:
+    paths = CasePaths(tmp_path / "data", "scotus", 1)
+    transcript = _transcript_document(clean_transcript_text("\n".join(_RAW)))
+    provision.write_cell_record(
+        paths, "scotus/1", _placement([transcript]), mode="forward", cutoff=None
+    )
+    assert ArgumentFeatures.model_validate_json(paths.argument_features.read_text()) == (
+        _features()
+    )
+    # A copy written elsewhere leaves the cell's record alone.
+    other = tmp_path / "snapshot.json"
+    provision.write_cell_record(
+        paths, "scotus/1", _placement([]), mode="forward", cutoff=None, snapshot_dest=other
+    )
+    assert paths.argument_features.exists()
+    # The next cell provisioned in the same tree, with no transcript, does not inherit it.
+    provision.write_cell_record(paths, "scotus/1", _placement([]), mode="forward", cutoff=None)
+    assert not paths.argument_features.exists()
