@@ -323,8 +323,8 @@ runbook, [docs/security.md](docs/security.md).
   role, whatever it runs. That removes *agents* from the write role's reach,
   not hostile *parsers*: the writer jobs themselves parse fetched third-party
   content while holding or able to mint it — the pull and seed windows' fetched dockets, and
-  the corpus repair job's OCR-recovery and document back-fill passes, which
-  are not split from it the way the fetching passes are. In staging it stays provenance: any `staging`-bound job could ask for
+  the corpus repair job's OCR-recovery, document back-fill and re-cut passes,
+  which are not split from it the way the fetching passes are. In staging it stays provenance: any `staging`-bound job could ask for
   the staging write role, which writes only the disposable staging pair, and
   what stops the wrong job asking is review of the code the branch policy
   admits — so a wrongly-writing change fails visibly against the disposable

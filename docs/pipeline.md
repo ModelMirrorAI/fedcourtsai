@@ -1004,7 +1004,7 @@ per-brief headings are themselves text, so such a row is not empty by the
 coverage report's per-kind test either: it reads as covered there while
 carrying no argument, so the report sizes it on a line of its own. It is the
 only pass here that installs a binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
-from the runner image's own archive), and one of the two whose bound is a
+from the runner image's own archive), and one of the three whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
 page-by-page recognition, and runner minutes are the whole cost. That makes the
 bound a *spend* cap, so the step hands the pass a wall-clock deadline as well —
@@ -1047,7 +1047,7 @@ its lead docket alone, has that lead's JSON fetched beside its own (one more
 paced GET, in either mode) and its merits kinds selected off the lead's entries
 that are the member's own, so a member briefed on its lead is recovered or
 floored rather than named by the selector-regression alarm; a lead the fetch did
-not return is counted as a docket loss. It is the other slice-bounded pass, and the one whose `dry-run`
+not return is counted as a docket loss. It is the second slice-bounded pass, and one of the two whose `dry-run`
 is bounded too: that dry run fetches each candidate's docket JSON, which is the
 whole diagnostic — it is what separates a case with a link waiting for it from
 one at a floor — and it is a paced round trip per candidate. Two floors are
@@ -1069,6 +1069,27 @@ class afterwards — an empty slice, which costs no round trip — and requires
 exactly what the apply's ledger said it would leave behind. The stamps are its
 one index write, so an applied slice that read any floor also moves the
 pointer.
+
+`recut` re-cuts the petitions, applications and appendices stored under the
+plain head cut. Those three kinds are cut the appendix-aware way at ingest —
+the filing's body kept whole, each appendix item's opening kept, a `[pipeline
+note: …]` line at every cut — but fetching is idempotent per kind and URL, so a
+row stored before that cut keeps a head cut for as long as its link is
+unchanged: the cap lands inside the appendix, and nothing in the text says so.
+Its class is every such row that is truncated, not OCR-derived (an
+OCR-recovered row is head-cut by design), carries no cut note and has one Court
+URL, over the predict-relevant live-slice rows, or the whole live slice with the
+`all-live` option. Each candidate is re-fetched by its stored URL and re-cut by
+the fetching lanes' own extractor; a link now serving a PDF of another page
+count, or a re-cut that no longer opens like the stored text, is another filing
+and is skipped (`pages-changed`, `head-changed`), an unchanged or empty
+re-cut writes nothing, and a re-cut petition rewrites its questions-presented row
+only where the re-cut moves the section. It is the third slice-bounded pass and
+the second whose `dry-run` is bounded too, since both modes fetch and re-cut
+every candidate in the slice — the dry run's per-kind outcome counts are what an
+apply is read off. Like the other two it writes documents, so the step re-walks
+the class on an empty slice afterwards and requires exactly what the apply's
+ledger said it would leave behind.
 
 `arrival-backfill` re-derives the interim baseline's arrival stamp — the day an
 application was submitted to a Justice, which is the moment that event declares
@@ -1187,8 +1208,8 @@ evaluate, so the pass moves no grade. Its bound is the dry run's
 
 Four of the passes that fetch and parse the Court's content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
-**credential split** of three jobs (`ocr-recovery` and `document-backfill`
-also parse fetched PDFs, inside the corpus job, and are not split here;
+**credential split** of three jobs (`ocr-recovery`, `document-backfill` and
+`recut` also parse fetched PDFs, inside the corpus job, and are not split here;
 run-seed's OCR sweep is the split, scheduled route to the same recovery). `handoff-projection` holds the read-only
 role, pulls the corpus and writes the few public facts the parse needs;
 `handoff-parse` holds no credential at all (no environment, no `id-token`, no

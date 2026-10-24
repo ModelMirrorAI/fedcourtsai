@@ -24,6 +24,7 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 | Argument features | Not staged. A deterministic parse of a stored transcript counts each Justice's turns and words by the side of the advocate whose time it was, read from the segment headers, and reports what it could not attribute. Computed on demand only; no cell is given it. | `pipeline/argument_features.py`: `parse_argument_features`; `fedcourts argument-features` | live-sources.md, *Argument transcripts* |
 | Back-fill | A dispatched pass fetches the selection for predict-relevant cases whose stored set is missing kinds. | `pipeline/document_backfill.py`; `fedcourts backfill-documents` | live-sources.md, *Contract for the document back-fill pass* |
 | Extract | pypdf text, cut at the cap. Petitions, applications and appendices are cut around the appendix so the argument survives; each cut leaves a `[pipeline note: …]` line. The questions presented are cut from the petition text, from the QUESTION(S) PRESENTED heading (or a "Questions to/for Review" heading) to the next front-matter heading, at most 4,000 characters; a section cut at that cap is stored `truncated`, and `backfill-questions-presented` re-derives stored rows when the cutter changes. An argument transcript is cleaned of its line numbers, headers and word index before the plain cut. | `extract_pdf_text`, `extract_filing_text`, `extract_questions_presented`, `extract_transcript_text` | live-sources.md, *The appendix-aware cut* |
+| Re-cut | A stored petition, application or appendix still under the plain head cut (truncated, not OCR-derived, no `[pipeline note:` line) is re-fetched by its stored URL and re-cut by the appendix-aware rule. run-repair's `recut` pass applies it a slice at a time. | `pipeline/document_recut.py`; `fedcourts recut-documents` | live-sources.md, *Contract for the re-cut pass* |
 | Recover | A stored document whose text is empty though its PDF has pages is OCR'd locally (pdftoppm + tesseract) and marked `ocr_derived`. A standing sweep on run-seed's walker windows catches new scans, and run-repair's `ocr-recovery` pass clears a backlog. | `pipeline/ocr_recovery.py`, `pipeline/ocr_sweep.py`; `fedcourts ocr-recover-petitions` | live-sources.md, *Contract for the recovery pass*; data-pipeline.md, *Historical — the Term walker* |
 | Cut at the moment | A document is kept only if its proceedings entry is dated before the cell's moment cutoff, so a grant-moment cell never reads the merits briefs. The argument transcript is kept only for a post-argument cell, and a stored-not-staged kind for no cell. | `provision.py`: `moment_cutoff`, `documents_for_moment`, `documents_before` | data-pipeline.md, *Provisioning: how a cell gets its record* |
 | Scrub | On a docket with a self-represented side, contact details are withheld from the staged text and the staged snapshot. Where the shape pass ran, a residual detector re-reads the scrubbed text's opening and closing, and any match records the document as **not** scrubbed. The document is still staged. | `pipeline/documents.py`: `scrub_contact_details`, `contact_residual_matches`, `scrub_snapshot_contacts`; `provision.py`: `staged_scrub` | live-sources.md, from the paragraph introducing the contact-detail scrub through *What the scrub does not reach*; data-sources.md, *PII stance* |
@@ -158,9 +159,9 @@ Each of these is stated, with its reason, where the code makes the choice:
   run it where the corpus is pulled. The `run-analytics` dispatch's
   `text-coverage` mode produces the same report as an artifact
   ([pipeline.md](pipeline.md), *`run-analytics` — corpus analysis & derived metrics*).
-- `fedcourts backfill-documents` and `fedcourts ocr-recover-petitions` each
-  dry-run by default, listing the cases and documents they would fetch or
-  recover.
+- `fedcourts backfill-documents`, `fedcourts ocr-recover-petitions` and
+  `fedcourts recut-documents` each dry-run by default, listing the cases and
+  documents they would fetch, recover or re-cut.
 - A single cell's manifest says what that cell got: `empty_text`, `truncated`,
   `ocr_derived` and the contact fields per staged kind.
 
