@@ -4874,7 +4874,8 @@ def reasoning_pilot_merits_sample_cmd(
     of ``--terms`` at ``--moment`` in a salted-hash order; and writes each one
     into ``--data-root`` as a resolved merits event, its definition and outcome
     rebuilt from the corpus and its predictions as kept. An event the root
-    already holds is refused, as is a root in the committed ledger. Writes
+    or the committed ledger already holds is refused, as is a root in the
+    committed ledger. Writes
     ``body.md`` and ``sample.json`` into ``out``, as ``reasoning-pilot-sample``
     does, every cell at the merits stage. The root is a pilot round's working
     tree: never commit what this writes, and validate it before it is graded.
@@ -4907,7 +4908,7 @@ def reasoning_pilot_merits_sample_cmd(
             raise typer.Exit(code=1)
         try:
             sample = merits_calibration.write_calibration_overlay(
-                conn, documents, population.cases, data_root
+                conn, documents, population.cases, data_root, ledger=settings.data_root
             )
             reasoning_pilot.write_sample(sample, out)
         except ValueError as exc:

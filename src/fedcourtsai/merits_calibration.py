@@ -269,6 +269,8 @@ def write_calibration_overlay(
     documents: Sequence[KeptForecast],
     cases: Sequence[MeritsReplayCase],
     data_root: Path,
+    *,
+    ledger: Path | None = None,
 ) -> list[PilotDocument]:
     """Lay ``documents`` into ``data_root`` as resolved merits events; return the sample.
 
@@ -277,8 +279,10 @@ def write_calibration_overlay(
     builds a decided merits event's; and each predictor's kept forecast files
     under ``predictions/<predictor>/<run>/``. An event the tree already holds
     anything for is refused, so an overlay never sits beside committed
-    forecasts or a committed outcome; every event is checked before the first
-    is written, so a refusal leaves the tree as it was.
+    forecasts or a committed outcome, and so is one ``ledger`` (the committed
+    ledger) holds, so the overlay can be laid into a checkout of it; every
+    event is checked before the first is written, so a refusal leaves the tree
+    as it was.
     """
     by_id = {case.case_id: case for case in cases}
     events: dict[tuple[str, str], list[KeptForecast]] = defaultdict(list)
@@ -291,6 +295,11 @@ def write_calibration_overlay(
         paths = CasePaths(data_root, court, int(docket)).event(event_id)
         if paths.base.exists():
             raise ValueError(f"{case_id} {event_id}: the tree already holds this event")
+        if (
+            ledger is not None
+            and CasePaths(ledger, court, int(docket)).event(event_id).base.exists()
+        ):
+            raise ValueError(f"{case_id} {event_id}: the committed ledger holds this event")
         cut = next((c for c in case.cutoffs if c.event_id == event_id), None)
         if cut is None:
             raise ValueError(f"{case_id} {event_id}: no replay cutoff for this event")

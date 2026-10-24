@@ -103,9 +103,11 @@ def test_the_overlay_lays_out_resolved_merits_events_an_evaluate_round_can_plan(
         case = _case(conn)
         documents = calibration_documents(run, [case])
         sample = write_calibration_overlay(conn, documents, [case], data_root)
-        # A second overlay never sits beside the first.
-        with pytest.raises(ValueError, match="already holds this event"):
+        # A second overlay never sits beside the first, nor beside the ledger.
+        with pytest.raises(ValueError, match="the tree already holds this event"):
             write_calibration_overlay(conn, documents, [case], data_root)
+        with pytest.raises(ValueError, match="the committed ledger holds this event"):
+            write_calibration_overlay(conn, documents, [case], tmp_path / "other", ledger=data_root)
 
     assert {d.moment for d in documents} == {Moment.briefed}
     assert {d.stage for d in sample} == {Stage.merits}
