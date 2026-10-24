@@ -46,7 +46,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any, Literal
 
-from .. import corpus, ids, provision
+from .. import corpus, ids, provision, store
 from ..blinding import (
     latest_prediction_dirs,
     provision_blinded_predictions,
@@ -66,6 +66,7 @@ from ..schemas import (
 from ..serialize import write_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
 from . import vide_links
+from .documents import BIO_URL_JOIN, COMBINED_KINDS, select_documents, unheld_document_kinds
 from .outcome import (
     NO_ORDER_MARKERS,
     OrderMarkers,
@@ -105,6 +106,9 @@ class CascadeReport:
     misleading on any case with both an open and a resolved event — the evaluate
     half re-provisions last, so the surviving record is the *judge's*, and a
     reader of the final ``context.json`` would conclude every cell ran uncut.
+
+    ``unforecastable`` names the ``forward`` targets the predict fan-out would
+    not forecast (:func:`_unforecastable`).
     """
 
     case_id: str
@@ -115,6 +119,7 @@ class CascadeReport:
     documents: tuple[Path, ...]
     placements: tuple[CellPlacement, ...]
     events: tuple[str, ...]
+    unforecastable: tuple[str, ...]
     predictions: tuple[Path, ...]
     outcomes: tuple[Path, ...]
     evaluations: tuple[Path, ...]
@@ -135,6 +140,28 @@ def _select_events(events: list[corpus.CorpusEvent], event: str | None) -> list[
     return events
 
 
+def _unforecastable(
+    targets: Sequence[corpus.CorpusEvent], row: corpus.CorpusRow, forecastable: Sequence[str]
+) -> list[str]:
+    """The ``forward`` targets the predict fan-out would not forecast.
+
+    ``forecastable`` is the :func:`fedcourtsai.store.forecastable_event_ids`
+    answer. A target outside it — a distribution cell whose conference has sat,
+    say — is one ``run-predict`` never mints: run here, it is placed at a moment
+    that has already closed and may read filings after it, a cell shape
+    production does not have. The cascade still runs it, since the engine
+    smoke's case resolver does not screen on it, and names it so a summary over
+    such a cell says so. A ``replay`` target is the local loop's replay of a
+    decided event, which the fan-out's open-event test does not describe.
+    """
+    admitted = set(forecastable)
+    return [
+        e.event_id
+        for e in targets
+        if _cell_mode(e, row) == "forward" and e.event_id not in admitted
+    ]
+
+
 #: Which half of the cascade a provisioning served. The predict half places each
 #: cell at the moment its event declares; the evaluate half provisions the case,
 #: as ``run-evaluate`` does.
@@ -148,7 +175,10 @@ class CellPlacement:
     Reported rather than inferred from the tree, because the tree holds only the
     last provisioning's record. ``role`` says which half of the cascade the
     provisioning served; ``event_id`` is empty for the evaluate half, which
-    provisions the case rather than a moment.
+    provisions the case rather than a moment. ``unheld`` names the document
+    kinds the placed docket selects and the cell could be handed, but the
+    content store does not hold at the selected link (:func:`_unheld_kinds`), so
+    a missing filing shows in the report rather than only in the agent's flags.
     """
 
     role: _Role
@@ -157,6 +187,7 @@ class CellPlacement:
     provenance: str
     cutoff: date | None
     documents: int
+    unheld: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -264,7 +295,42 @@ def _provision_record(  # noqa: PLR0913
             provenance=placement.provenance,
             cutoff=read.cutoff,
             documents=len(placement.documents),
+            unheld=_unheld_kinds(placement, read.documents, event_id),
         ),
+    )
+
+
+def _unheld_kinds(
+    placement: provision.Placement,
+    stored: Sequence[corpus.CaseDocument],
+    event_id: str,
+) -> tuple[str, ...]:
+    """The kinds the placed docket selects that the store does not hold, for one cell.
+
+    The freshness check's own test (:func:`unheld_document_kinds`) over the
+    placed payload, so a filing after the cut is never counted, narrowed to the
+    kinds the cell could be handed at all (:func:`provision.moment_admits_kind`):
+    a withheld kind no cell reads is not a gap in this one. The selection reads
+    the case's own docket, without a consolidation lead's merits filings.
+
+    A combined kind (:data:`COMBINED_KINDS`) is held where its stored set
+    contains every link the cut selects. The freshness test compares whole set
+    keys, so a cell placed between two oppositions would otherwise read its
+    stored set, which holds the later brief too, as a gap.
+    """
+    refs = select_documents(placement.payload)
+    stored_urls = {document.kind: document.url for document in stored}
+    unheld = unheld_document_kinds(refs, stored_urls)
+    return tuple(
+        kind
+        for kind in unheld
+        if provision.moment_admits_kind(kind, event_id)
+        and not (
+            kind in COMBINED_KINDS
+            and kind in stored_urls
+            and {ref.url for ref in refs if ref.kind == kind}
+            <= set(stored_urls[kind].split(BIO_URL_JOIN))
+        )
     )
 
 
@@ -677,6 +743,9 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
                 "run unprovisioned — no snapshot, no context.json, no documents "
                 "(--require-record)"
             )
+        unforecastable = _unforecastable(
+            targets, row, store.forecastable_event_ids(conn, court, docket)
+        )
         stored_documents = corpus.documents_for_case(conn, case_id)
         # Every target's read on this one connection — the accounting rule
         # `provision-snapshot` follows, so a ranged cascade opens one connection
@@ -807,6 +876,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
         documents=record.documents if record else (),
         placements=tuple(placements),
         events=tuple(ev.event_id for ev in targets),
+        unforecastable=tuple(unforecastable),
         predictions=tuple(predictions),
         outcomes=tuple(outcomes),
         evaluations=tuple(evaluations),

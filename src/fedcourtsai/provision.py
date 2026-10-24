@@ -614,14 +614,22 @@ def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> li
     a document kind added for one moment changes no other moment's information
     set.
     """
+    return [document for document in documents if moment_admits_kind(document.kind, event_id)]
+
+
+def moment_admits_kind(kind: str, event_id: str) -> bool:
+    """Whether a cell for ``event_id`` may be handed a document of ``kind`` at all.
+
+    The per-kind test :func:`documents_for_moment` applies, asked of a kind
+    alone so a caller holding a selection rather than stored rows (the local
+    cascade's unheld-document report) draws the same line.
+    """
+    if kind in WITHHELD_KINDS:
+        return False
+    if kind != KIND_ARGUMENT_TRANSCRIPT:
+        return True
     spec = moments.spec_for(event_id)
-    argued = spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
-    return [
-        document
-        for document in documents
-        if (argued or document.kind != KIND_ARGUMENT_TRANSCRIPT)
-        and document.kind not in WITHHELD_KINDS
-    ]
+    return spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
 
 
 AUTHORSHIP_TALLY_WITHHELD = True
