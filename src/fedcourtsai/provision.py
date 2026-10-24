@@ -1043,7 +1043,7 @@ class RecordWrite:
     authorship_tally: AuthorshipTally | None = None
 
 
-def write_cell_record(
+def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keyword
     paths: CasePaths,
     case_id: str,
     placement: Placement,
@@ -1053,6 +1053,7 @@ def write_cell_record(
     snapshot_dest: Path | None = None,
     related: Sequence[RelatedPlacement] = (),
     authorship_tally: AuthorshipTally | None = None,
+    decided_before: str | None = None,
 ) -> RecordWrite:
     """Materialize one cell's whole ``record/`` from its placement.
 
@@ -1088,6 +1089,9 @@ def write_cell_record(
     caller asking for a copy rather than for a cell's record; the clearing is
     skipped there, since emptying the record to write outside it would destroy a
     provisioned cell on behalf of a command that provisioned none.
+
+    ``decided_before`` is a replay cell's Term clock, stated in ``context.json``
+    beside the cutoff; a forward cell has none.
     """
     kinds = screen_document_kinds(placement.documents)
     if snapshot_dest is None:
@@ -1127,6 +1131,7 @@ def write_cell_record(
             provenance=placement.provenance,
             cutoff=cutoff,
             boundary=placement.boundary,
+            decided_before=decided_before,
         ).model_dump(mode="json"),
     )
     staged: list[tuple[CaseDocument, ScrubbedText | None]] = []
