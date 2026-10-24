@@ -9724,6 +9724,60 @@ class StatPackAuthorshipTerm(_Strict):
     )
 
 
+class StatPackJusticeVotesJustice(_Strict):
+    """One Justice's merits votes over one Term, or over a pooled span of Terms."""
+
+    justice: str = Field(description="The Justice's name as the vote source spells it")
+    sat: int = Field(ge=0, description="Complete-lineup decisions the Justice took part in")
+    majority: int = Field(
+        ge=0, description="Of `sat`, those voting with the judgment (majority or concurring in it)"
+    )
+    in_part: int = Field(ge=0, description="Of `sat`, those voting in part on each side")
+    disturb_eligible: int = Field(
+        ge=0,
+        description="Of `sat`, whole-side votes on a plain affirmed, reversed or vacated judgment",
+    )
+    disturb: int = Field(
+        ge=0, description="Of `disturb_eligible`, those voting to disturb the judgment below"
+    )
+
+
+class StatPackJusticeVotesPair(_Strict):
+    """Two Justices' agreement over the decisions both voted a whole side on."""
+
+    justices: tuple[str, str] = Field(description="The pair, in name order")
+    both: int = Field(ge=0, description="Decisions both Justices voted a whole side on")
+    agree: int = Field(ge=0, description="Of `both`, those where they voted the same side")
+
+
+class StatPackJusticeVotesTerm(_Strict):
+    """One October Term of per-Justice merits votes."""
+
+    term: int = Field(description="The October Term of the opinions listing")
+    documents: int = Field(ge=0, description="Listing rows the per-opinion record holds")
+    complete: int = Field(ge=0, description="Of `documents`, those with a complete lineup")
+    judged: int = Field(
+        ge=0,
+        description="Of `complete`, those whose case row carries a plain affirmed, "
+        "reversed or vacated judgment",
+    )
+    justices: list[StatPackJusticeVotesJustice] = Field(default_factory=list)
+    pairs: list[StatPackJusticeVotesPair] = Field(default_factory=list)
+
+
+class StatPackJusticeVotes(_Strict):
+    """The statpack's per-Justice merits votes, per Term, most recent Term first.
+
+    Rolled up by ``pipeline.justice_priors`` from the merits lineups (the
+    ``opinions`` and ``opinion_benches`` corpus tables) and each decided case
+    row's parsed judgment, over complete lineups only. A merits cell pools the
+    Terms strictly before its case's grant Term. Present only once the record
+    holds a complete lineup.
+    """
+
+    terms: list[StatPackJusticeVotesTerm] = Field(default_factory=list)
+
+
 class StatPackAuthorship(_Strict):
     """The statpack's authorship section: who wrote the Court's decisions, per Term.
 
@@ -9890,6 +9944,13 @@ class StatPack(_Strict):
         "record — the authorship claims' baseline feed; None — and omitted from "
         "the serialized pack — while the record holds no argued decision",
     )
+    justice_votes: StatPackJusticeVotes | None = Field(
+        default=None,
+        description="Each Justice's merits votes per Term, off the complete merits "
+        "lineups — the per-Justice priors a merits cell pools strictly before its "
+        "grant Term; None — and omitted from the serialized pack — while the record "
+        "holds no complete lineup",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_absent_stage_sections(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -9908,6 +9969,8 @@ class StatPack(_Strict):
                 payload.pop("merits", None)
             if self.authorship is None:
                 payload.pop("authorship", None)
+            if self.justice_votes is None:
+                payload.pop("justice_votes", None)
         return payload
 
 

@@ -175,6 +175,14 @@ def _derive(rows: list[Row], bench_row: Row | None) -> MeritsLineup:
     return base
 
 
+def recorded_terms(conn: corpus.ReadConnection) -> tuple[int, int] | None:
+    """The first and last Term the per-opinion record holds; None while it holds none."""
+    rows = _table_rows(conn, "SELECT MIN(term), MAX(term) FROM opinions")
+    if not rows or rows[0][0] is None:
+        return None
+    return int(rows[0][0]), int(rows[0][1])
+
+
 def merits_lineups(
     conn: corpus.ReadConnection, *, first_term: int, last_term: int
 ) -> list[MeritsLineup]:
