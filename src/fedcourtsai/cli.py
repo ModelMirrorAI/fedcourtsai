@@ -64,6 +64,7 @@ from . import (
     integration_check,
     mcp,
     merits_backtest,
+    merits_calibration,
     metrics_refresh,
     process_registration,
     process_version,
@@ -476,6 +477,7 @@ from .schemas import (
     LiveFrontier,
     MeritsBacktestDispatch,
     ModelUsage,
+    Moment,
     OpsReport,
     Outcome,
     PredictableEvent,
@@ -4833,6 +4835,90 @@ def reasoning_pilot_sample_cmd(
             f"eligible on {len({(d.case_id, d.event_id) for d in pool})} event(s)",
             err=True,
         )
+
+
+@app.command("reasoning-pilot-merits-sample")
+def reasoning_pilot_merits_sample_cmd(
+    kept: Annotated[
+        Path, typer.Argument(help="A merits back-test's kept tree (its `merits-forecasts`).")
+    ],
+    out: Annotated[Path, typer.Argument(help="A new or empty directory to write the sample into.")],
+    data_root: Annotated[
+        Path,
+        typer.Option(
+            help="A ledger-shaped root to lay the calibration events into; never the "
+            "committed ledger."
+        ),
+    ],
+    terms: Annotated[
+        str, typer.Option(help="Argued October Terms to grade, comma-separated.")
+    ] = "2025",
+    limit: Annotated[
+        int, typer.Option(min=1, help="Cases to grade, every predictor of each.")
+    ] = merits_calibration.DEFAULT_CALIBRATION_CASES,
+    moment: Annotated[
+        Moment, typer.Option(help="The replay moment whose forecasts are graded.")
+    ] = merits_calibration.DEFAULT_CALIBRATION_MOMENT,
+    allow_stub: Annotated[
+        bool,
+        typer.Option(help="Accept a stub lane's forecasts, for an offline or free rehearsal."),
+    ] = False,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Lay a merits back-test's kept forecasts into a ledger tree as pilot calibration cells.
+
+    The replay merits half of the reasoning-grade pilot
+    (`docs/outcome-decomposition.md`, *The pilot, and what it reports*): reads
+    the kept tree, refusing it whole if any entry falls outside its layout
+    (`merits_calibration.read_kept_run`); draws up to ``--limit`` decided cases
+    of ``--terms`` at ``--moment`` in a salted-hash order; and writes each one
+    into ``--data-root`` as a resolved merits event, its definition and outcome
+    rebuilt from the corpus and its predictions as kept. An event the root
+    already holds is refused, as is a root in the committed ledger. Writes
+    ``body.md`` and ``sample.json`` into ``out``, as ``reasoning-pilot-sample``
+    does, every cell at the merits stage. The root is a pilot round's working
+    tree: never commit what this writes, and validate it before it is graded.
+    """
+    wanted = _merits_terms(terms)
+    settings = get_settings()
+    ledger = settings.data_root.resolve()
+    if data_root.resolve().is_relative_to(ledger):
+        raise typer.BadParameter(
+            f"{data_root} is in the committed ledger {settings.data_root}", param_hint="--data-root"
+        )
+    backend, db_path = _merits_corpus(corpus_backend)
+    configured = {
+        p.id: str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
+    }
+    try:
+        run = merits_calibration.read_kept_run(kept, allow_stub=allow_stub, predictors=configured)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"refusing the kept tree: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        population = merits_backtest.merits_backtest_population(conn, terms=wanted)
+        documents = merits_calibration.calibration_documents(
+            run, population.cases, moment=moment, limit=limit
+        )
+        if not documents:
+            typer.echo(
+                f"no kept {moment.value} forecast of a decided {terms} case to grade.", err=True
+            )
+            raise typer.Exit(code=1)
+        try:
+            sample = merits_calibration.write_calibration_overlay(
+                conn, documents, population.cases, data_root
+            )
+            reasoning_pilot.write_sample(sample, out)
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+    typer.echo(
+        f"merits calibration: {len(sample)} document(s) on "
+        f"{len({(d.case_id, d.event_id) for d in sample})} event(s) of run {run.run_id}, "
+        f"from {len({f.case_id for f in run.forecasts})} kept case(s)",
+        err=True,
+    )
 
 
 @app.command("reasoning-pilot-report")
@@ -20045,6 +20131,15 @@ def evaluate_matrix_cmd(
             "a prompt an evaluator registers."
         ),
     ] = None,
+    calibration: Annotated[
+        bool,
+        typer.Option(
+            help="Also mark every row `calibration`: the pilot's replay merits cells, whose "
+            "events a calibration overlay laid into the tree "
+            "(`reasoning-pilot-merits-sample`) and the corpus holds no event row for, so a cell "
+            "does not project them from it. Needs --pilot-section."
+        ),
+    ] = False,
 ) -> None:
     """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
 
@@ -20079,8 +20174,12 @@ def evaluate_matrix_cmd(
     cell's kickoff names the section beside the registered prompt, so the
     registered prompt and every process digest stay as they are. A registered
     prompt is refused as a section, so a pilot can never be mistaken for a
-    registered round.
+    registered round. ``--calibration`` further marks them as the pilot's replay
+    merits calibration cells.
     """
+    if calibration and pilot_section is None:
+        typer.echo("--calibration marks pilot rows; it needs --pilot-section.", err=True)
+        raise typer.Exit(code=1)
     if pilot_section is not None:
         if body_file is None and docket is None:
             typer.echo(
@@ -20117,7 +20216,12 @@ def evaluate_matrix_cmd(
         matrix = {
             **matrix,
             "include": [
-                {**row, "pilot_section": pilot_section.as_posix()} for row in matrix["include"]
+                {
+                    **row,
+                    "pilot_section": pilot_section.as_posix(),
+                    **({"calibration": True} if calibration else {}),
+                }
+                for row in matrix["include"]
             ],
         }
     typer.echo(json.dumps(matrix, separators=(",", ":")))
