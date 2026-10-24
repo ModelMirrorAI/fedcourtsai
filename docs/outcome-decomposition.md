@@ -2289,7 +2289,10 @@ committed evaluations are never edited.
    merits`, its `merits-forecasts` artifact): `fedcourts
    reasoning-pilot-merits-sample` lays them into the round's working tree as
    resolved merits events and samples them, and `evaluate-matrix
-   --calibration` marks their rows. The round that grades them, a
-   run-evaluate mode that fetches the artifact, is not yet built.
+   --calibration` marks their rows. run-evaluate's
+   `reasoning-pilot-merits` dispatch mode is the round that grades them: it
+   takes the newest successful merits back-test's artifact on `main`, lays
+   each cell's event into its checkout, and uploads the evaluations and the
+   report as the cert and interim round does.
 2. **The reference labels and the pilot run itself.**
 3. **Registration**, as above.

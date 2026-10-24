@@ -887,12 +887,14 @@ jobs:
       # The upload reads the tree the scan passed. A process a cell left behind
       # lives until the job ends and runs as the same user, so it could still
       # swap a scanned file between the two steps; the residual is stated in
-      # SECURITY.md.
+      # SECURITY.md. A stub round's forecasts take their own name, so a free
+      # rehearsal never shadows a real round's for run-evaluate's merits pilot,
+      # which reads only `merits-forecasts`.
       - name: Upload the merits replay's forecasts
         if: ${{ !cancelled() && steps.forecasts.outputs.present == 'true' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: merits-forecasts
+          name: ${{ env.BT_ENGINE == 'stub' && 'merits-forecasts-stub' || 'merits-forecasts' }}
           path: ${{ steps.forecasts.outputs.dir }}
           if-no-files-found: error
           retention-days: 30
