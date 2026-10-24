@@ -660,7 +660,7 @@ or the argument, was worth.
   count an honest provenance block needs), so the block is elicited and banked
   ahead of its observation channel rather than scored. Use the **vote**
   vocabulary (majority / dissent / …), never a disposition.
-- **The statpack's per-Justice votes section is the vote block's anchor.**
+- **The statpack's per-Justice votes section is the vote block's reference point.**
   Where `metrics/statpack.md` carries a **"Per-Justice merits votes (complete
   lineups)"** section, it counts each Justice's votes per Term on the signed
   decisions whose writings seat the whole bench: how often each voted with the
@@ -1109,13 +1109,16 @@ well below.
 The **"Cert petitions by amicus-brief count (paid scored segment)"** cut beside
 them buckets the same population by the amicus briefs docketed before the
 petition's disposition: `0`, `1` and `2+`. Count yours off the docket the same
-way, and read its caption before you use it: the count is a stakes proxy, not a
+way (each entry naming an amicus brief, less the Court's orders on amicus
+motions, so a brief filed by motion counts once), and read its caption before you use it: the count is a stakes proxy, not a
 census (the Solicitor General's invited brief counts, and so does a paper that
 only recites the phrase), it is read at disposition rather than at your moment,
 so a pending petition's count can still rise, and the split describes the
 populations rather than what the count adds over the relist and CVSG cuts.
 Quote the `n` beside any bucket you cite, and treat a large `(unknown)` bucket
-as a coverage gap in the cut, not as petitions with no amicus support.
+as a coverage gap, not as petitions with no amicus support: where it is large
+the known buckets are themselves a selected sample, mostly petitions still
+being polled, so lean on them less.
 
 Two things the shape will tell you: most petitions are never relisted at all, and
 the first relist barely raises the chance of a second — but past that the hazard

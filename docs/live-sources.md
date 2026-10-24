@@ -638,10 +638,10 @@ rotations just polled:
 - **Test.** The case is stale where its stored set does not hold every link the
   selection names (`documents.unheld_document_kinds`): a kind absent, a kind at
   another link, or a combined row — the opposition, the supplemental briefs,
-  the party letters — whose set of filings differs from the selected set. The
-  two kinds no cell is given yet (`provision.WITHHELD_KINDS`) are owed here like
-  any other, since storing them ahead of the re-bless that stages them is the
-  point; the bound below is what keeps them from costing a cell anything. That is exactly the test the fetch skips a filing on, so a
+  the party letters — whose set of filings differs from the selected set. A
+  kind held in `provision.WITHHELD_KINDS` is owed here like any other, since
+  storing it ahead of the re-bless that stages it is the point; the bound below
+  is what keeps it from costing a cell anything. That is exactly the test the fetch skips a filing on, so a
   stale case is one the fetch will download for, and a held case costs nothing
   but the content-store read.
 - **Fetch.** Through the poller's own `provision_documents` — the same
@@ -1299,10 +1299,8 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   that arrived as a PDF: the petition, the application, the separately
   linked appendix, the response to an application and the applicant's reply,
   the brief in opposition, the cert-stage reply, the invited brief, the four
-  merits filings, and the supplemental briefs and party letters, which the
-  corpus stores and no cell is yet given (recovered all the same, since the
-  pass is local and cheap and a row recovered now is ready for the re-bless
-  that stages it); which is the text-coverage set less its one derived
+  merits filings, the United States' merits amicus brief, and the
+  supplemental briefs and party letters; which is the text-coverage set less its one derived
   member — whose text is empty or whitespace-only, whose page
   count is above zero, and whose stored URL is one link. A zero-page row is
   either a PDF the extractor could not open or a derived section — `pages`

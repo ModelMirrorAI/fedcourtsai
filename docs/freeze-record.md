@@ -13438,7 +13438,12 @@ freeze commit is recorded here.
   - *Two statpack sections*: the cert amicus-brief cut over the paid scored
     segment (`Cert petitions by amicus-brief count`, buckets `0`, `1`, `2+`),
     and the per-Justice merits votes section (`justice_votes`), each Term's
-    complete lineups rolled up by `pipeline.justice_priors`.
+    complete lineups rolled up by `pipeline.justice_priors`. The amicus cut
+    reads the `cert_amicus_briefs` column, whose resolved history the
+    `cert-amicus-rederive` repair pass fills: <FILL: the vintage of that
+    pass's apply, or that it is still owed, at the carrying merge>. Until it
+    applies, the cut's known buckets are mostly petitions the live poll still
+    reads, a selected sample, and its `(unknown)` bucket is most of it.
 
   **What moved, in the predict prompt.** The document list names the two
   cert-stage kinds and *Stage: merits* the United States' merits brief; the
@@ -13457,9 +13462,9 @@ freeze commit is recorded here.
 
   **No scored figure moves.** No baseline reads either new statpack section:
   the amicus cut publishes rates no claim is scored against, and the
-  per-Justice section is an anchor for the vote block, whose `vote_accuracy`
-  is scored against the outcome's recorded votes rather than against a
-  baseline.
+  per-Justice section is a reference point for the vote block, whose
+  `vote_accuracy` would be scored against the outcome's recorded votes, not a
+  baseline, and no merits outcome carries recorded votes yet.
 
   **Digests** (`uv run fedcourts process-digest --all`, at `staging`
   `15d4b5e21` before this change and at it):
@@ -13511,7 +13516,11 @@ freeze commit is recorded here.
     the six digests above;
   - after the next `metrics-refresh`, `jq '[.sections[].title |
     select(test("amicus"))], (.justice_votes.terms | length)'
-    metrics/statpack.json` prints the amicus cut's title and at least `1`;
+    metrics/statpack.json` prints the amicus cut's title and at least `1`,
+    and `jq '.sections[] | select(.title | test("amicus")) | .buckets[] |
+    select(.key == "(unknown)")' metrics/statpack.json` shows the
+    `(unknown)` share, which should be small once the repair pass has
+    applied;
   - the first predict round after the carrying merge stages
     `record/argument-features.json` on every `moment: argued` cell whose
     transcript was staged, and `fedcourts validate data` stays green on its

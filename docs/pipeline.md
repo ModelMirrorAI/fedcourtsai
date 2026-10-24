@@ -1274,8 +1274,9 @@ id, stores each text, inserts and pushes, and mints the App token only after
 the push. The bound is the dry run's "would insert N": opinion, bench and text
 rows together. Each run fetches again, so an apply does not lead
 with a dry run, and a re-dispatched dry run after the apply is the control.
-Nothing a cell sees moves: the tables and the stored texts are no part of a
-`query` row, and no gate, mint, outcome or score reads them.
+The tables reach cells only through the statpack, whose authorship and
+per-Justice votes sections roll them up; the stored texts are no part of a
+`query` row, and no gate, mint, outcome or score reads either.
 
 `amicus-rederive` writes both stores, and what is distinctive is *which* two: a
 corpus column and the committed `outcome.json` field that column was frozen onto,
