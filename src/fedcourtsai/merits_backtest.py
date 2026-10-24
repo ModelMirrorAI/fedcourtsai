@@ -32,28 +32,55 @@ briefed moment at ``merits_brief_filed``, the respondent's merits brief — and
 each cut the day after it opens, exclusive, as a forward cell's record is. A
 case is kept only where both open, in order, before argument: a case without a
 briefed date, or whose dates disagree with each other, is set aside by name
-rather than replayed at one moment alone, so every kept case faces both.
+rather than replayed at one moment alone, so every kept case is put to both.
 
 Read-only and outcome-blind in what it *selects on*: the judgment is read only
 to require that one exists and to carry it to the scorer, never to choose among
 cases.
+
+**A replay cell** (:func:`provision_replay_cell`) is provisioned the way a forward
+cell at the same moment is, into a scratch data root and never the ledger: the
+record goes through :func:`.provision.place_at_moment` at the moment's cutoff and
+:func:`.provision.write_cell_record` in ``replay`` mode, so the snapshot and the
+filed documents are what a forward cell placed at that moment reads, and the
+event is written open. Two things a forward cell does not need are added,
+because a decided docket is being replayed. The snapshot's top-level outcome
+fields are stripped (:func:`.provision.redact_snapshot`), as the cert replay
+strips them. And the placed snapshot is fenced with the forward merits leakage
+scan (:func:`.outcome.forward_leakage`): a cell whose kept entries still show
+the judgment is not written, and is counted. Two things a forward cell has are
+missing, so a replay figure reads as a lower bound on the same predictor's
+forward information set: the related dockets a forward cell is given, and the
+counsel blocks, which the redaction strips from every replay snapshot.
+
+**A sweep** (:func:`provision_replay_cells`) provisions every kept case at both
+moments into a fresh scratch tree and returns the ledger of what was written
+and what was fenced. A fence drops one moment's cell, not the case, so the two
+moments' cell sets can differ; a comparison *between* the moments reads only
+the cases written at both (:attr:`MeritsReplaySweep.paired`), or a lift from
+grant to briefed would be partly a difference in which cases were asked.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from . import corpus
+from . import corpus, provision
+from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.decision_record import assigned_by_term, rode_the_order
-from .pipeline.documents import consolidation_lead
+from .pipeline.documents import KIND_MERITS_BRIEF_RESPONDENT, consolidation_lead
 from .pipeline.judgment import judgment_disturbed
-from .schemas import Judgment, MeritsDecisionMethod, Moment, Stage
+from .pipeline.outcome import forward_leakage
+from .schemas import Judgment, MeritsDecisionMethod, Moment, PredictableEvent, Stage
+from .serialize import write_yaml
 
 #: The merits moments a replay is cut at, in time order.
 MERITS_BACKTEST_MOMENTS: tuple[Moment, ...] = (Moment.grant, Moment.briefed)
@@ -316,3 +343,221 @@ def merits_backtest_population(
         cases=cases,
         excluded=settled,
     )
+
+
+#: Why a replay cell was not written.
+FenceReason = Literal["no-snapshot", "shows-the-judgment", "briefs-not-staged", "bad-document-kind"]
+
+
+class MeritsReplayCell(BaseModel):
+    """One replay cell written into the scratch root, and the size of its cut."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    case_id: str
+    event_id: str
+    moment: Moment
+    cutoff: date
+    snapshot_date: date
+    provenance: Literal["as-stored", "dated", "truncated"] = Field(
+        description="`dated`: a stored snapshot from before the cutoff; `truncated`: "
+        "the latest one with its later entries removed"
+    )
+    dropped_entries: int = Field(ge=0, description="Docket entries the cut removed")
+    dropped_documents: int = Field(ge=0, description="Filed documents the cut removed")
+    documents: list[str] = Field(description="The document kinds staged, in order")
+
+
+class MeritsReplayFenced(BaseModel):
+    """A replay cell the provisioner refused to write, and why."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    case_id: str
+    event_id: str
+    moment: Moment
+    reason: FenceReason
+    detail: str
+    judgment: Judgment = Field(
+        description="The case's judgment, so the fences can be read against it"
+    )
+    disturbed: bool
+
+
+class MeritsReplaySweep(BaseModel):
+    """Every kept case's replay cells, written or fenced, at each moment."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    cells: list[MeritsReplayCell]
+    fenced: list[MeritsReplayFenced]
+
+    @property
+    def paired(self) -> list[str]:
+        """The cases written at every moment: the only set the moments compare on."""
+        written: dict[str, set[Moment]] = {}
+        for cell in self.cells:
+            written.setdefault(cell.case_id, set()).add(cell.moment)
+        return [case for case, seen in written.items() if seen == set(MERITS_BACKTEST_MOMENTS)]
+
+    def fence_counts(self) -> dict[str, dict[str, int]]:
+        """Fenced cells per moment, by reason."""
+        counts: dict[str, Counter[str]] = {m.value: Counter() for m in MERITS_BACKTEST_MOMENTS}
+        for cell in self.fenced:
+            counts[cell.moment.value][cell.reason] += 1
+        return {moment: dict(sorted(c.items())) for moment, c in counts.items()}
+
+
+def _fenced(
+    case: MeritsReplayCase, cut: MeritsReplayCutoff, reason: FenceReason, detail: str
+) -> MeritsReplayFenced:
+    return MeritsReplayFenced(
+        case_id=case.case_id,
+        event_id=cut.event_id,
+        moment=cut.moment,
+        reason=reason,
+        detail=detail,
+        judgment=case.judgment,
+        disturbed=case.disturbed,
+    )
+
+
+def _replay_event(case: MeritsReplayCase, cut: MeritsReplayCutoff) -> PredictableEvent:
+    spec = moments.spec_for(cut.event_id)
+    if spec is None or spec.stage is not Stage.merits:
+        raise ValueError(f"{cut.event_id} is not a declared merits moment")
+    return PredictableEvent(
+        event_id=spec.event_id,
+        case_id=case.case_id,
+        kind=spec.kind,
+        stage=spec.stage,
+        moment=spec.moment,
+        title=case.case_name or case.docket_number,
+        description=spec.description,
+        opened_at=cut.opened_at,
+        decision_target=spec.decision_target,
+        resolved=False,  # the pre-decision view: the outcome stays hidden
+    )
+
+
+def moment_root(work_root: Path, moment: Moment) -> Path:
+    """The scratch data root one moment's replay cells are written under.
+
+    One per moment, because a case's ``record/`` is shared by every event on it:
+    the briefed moment's record written into the grant moment's tree would
+    replace the record the grant cell reads.
+    """
+    return work_root / moment.value
+
+
+def provision_replay_cell(
+    conn: corpus.ReadConnection,
+    case: MeritsReplayCase,
+    cut: MeritsReplayCutoff,
+    work_root: Path,
+) -> MeritsReplayCell | MeritsReplayFenced:
+    """Write one case's replay cell for one moment, or say why not.
+
+    ``work_root`` is a scratch tree, never the ledger; the cell is written under
+    its moment's own root (:func:`moment_root`): the event (open) and the cell's
+    whole ``record/``. Writes nothing where the corpus holds no snapshot for the
+    case, where the placed and redacted snapshot still shows the judgment, or,
+    on the briefed moment, where the respondent's merits brief the moment opens
+    on is not among the documents staged: a cell without it would forecast from
+    the grant moment's record under the briefed moment's name. A stored document
+    kind the record cannot name a file by fences the cell too, rather than
+    stopping a sweep over the population at one row. A refusal leaves an earlier
+    cell at the same path alone, so a caller reusing a tree is reading stale
+    cells; :func:`provision_replay_cells` refuses a tree that is not empty.
+    """
+    latest = corpus.latest_snapshot(conn, case.case_id)
+    if latest is None:
+        return _fenced(
+            case,
+            cut,
+            "no-snapshot",
+            "the corpus holds no snapshot for the case",
+        )
+    documents = corpus.documents_for_case(conn, case.case_id)
+    try:
+        provision.screen_document_kinds(documents)
+    except provision.ProvisionError as refused:
+        return _fenced(case, cut, "bad-document-kind", str(refused))
+    read = provision.CellRead(
+        latest=latest,
+        documents=documents,
+        events=[],
+        row=None,
+        cutoff=cut.cutoff,
+        dated=corpus.snapshot_at(conn, case.case_id, before=cut.cutoff),
+    )
+    snapshot_date, payload = latest
+    placement = provision.place_at_moment(
+        case.case_id,
+        cut.event_id,
+        cut.cutoff,
+        read,
+        payload=payload,
+        snapshot_date=snapshot_date,
+        documents=documents,
+    )
+    placement = replace(placement, payload=provision.redact_snapshot(placement.payload))
+    court, _, docket = case.case_id.partition("/")
+    shown = forward_leakage(placement.payload, court, cut.event_id)
+    if shown is not None:
+        return _fenced(
+            case,
+            cut,
+            "shows-the-judgment",
+            detail=shown,
+        )
+    if cut.moment is Moment.briefed and not any(
+        doc.kind == KIND_MERITS_BRIEF_RESPONDENT for doc in placement.documents
+    ):
+        return _fenced(
+            case,
+            cut,
+            "briefs-not-staged",
+            detail="no respondent's merits brief filed before the cutoff is stored",
+        )
+    paths = CasePaths(moment_root(work_root, cut.moment), court, int(docket))
+    write_yaml(paths.event(cut.event_id).event_file, _replay_event(case, cut))
+    written = provision.write_cell_record(
+        paths, case.case_id, placement, mode="replay", cutoff=cut.cutoff
+    )
+    return MeritsReplayCell(
+        case_id=case.case_id,
+        event_id=cut.event_id,
+        moment=cut.moment,
+        cutoff=cut.cutoff,
+        snapshot_date=placement.snapshot_date,
+        provenance=placement.provenance,
+        dropped_entries=placement.dropped_entries,
+        dropped_documents=placement.dropped_documents,
+        documents=[doc.kind for doc, _ in written.staged],
+    )
+
+
+def provision_replay_cells(
+    conn: corpus.ReadConnection,
+    cases: Sequence[MeritsReplayCase],
+    work_root: Path,
+) -> MeritsReplaySweep:
+    """Provision every case at each of its moments into a fresh ``work_root``.
+
+    Refuses a ``work_root`` that exists and is not empty: a cell fenced on this
+    pass would otherwise leave the previous pass's cell at its path, and a
+    reader walking the tree would count it.
+    """
+    if work_root.exists() and any(work_root.iterdir()):
+        raise ValueError(f"{work_root} is not empty; a replay sweep writes into a fresh tree")
+    cells: list[MeritsReplayCell] = []
+    fenced: list[MeritsReplayFenced] = []
+    for case in cases:
+        for cut in case.cutoffs:
+            result = provision_replay_cell(conn, case, cut, work_root)
+            if isinstance(result, MeritsReplayCell):
+                cells.append(result)
+            else:
+                fenced.append(result)
+    return MeritsReplaySweep(cells=cells, fenced=fenced)
