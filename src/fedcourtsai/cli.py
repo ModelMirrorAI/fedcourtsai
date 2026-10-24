@@ -16079,12 +16079,57 @@ def summary_withdraw_cmd(
         typer.echo(path)
 
 
+def _read_writings(
+    conn: corpus.ReadConnection, case: str, row: corpus.CorpusRow
+) -> list[opinion_record.StoredText] | None:
+    """A case's stored writings, or ``None`` where the store could not be read.
+
+    Best-effort beside the majority slot: a throttled or refused store read
+    warns and stages no writings rather than costing the cell its majority.
+    """
+    try:
+        return opinion_record.case_texts(
+            conn, casestore.active_transport(), case_id=case, docket_number=row.docket_number
+        )
+    except Exception as exc:  # broad by design: the writings must never cost the majority
+        typer.echo(
+            f"::warning::{case}: the stored writings could not be read "
+            f"({type(exc).__name__}); none staged",
+            err=True,
+        )
+        return None
+
+
+def _stage_writings(paths: CasePaths, case: str, stored: list[opinion_record.StoredText]) -> None:
+    try:
+        staged = provision.stage_writings(paths, case, stored)
+    except ValueError as exc:
+        typer.echo(f"::warning::{case}: {exc}; no writings staged", err=True)
+        return
+    if staged is None:
+        typer.echo(f"{case} has no stored writings; none staged")
+        return
+    count = sum(len(d.writings) for d in staged.decisions)
+    typer.echo(
+        f"{case} writings ({count} across {len(staged.decisions)} decision(s)) "
+        f"-> {paths.opinion_writings_dir}"
+    )
+
+
 @app.command("provision-opinion")
 def provision_opinion(
     *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     corpus_backend: CorpusBackendOption = "",
+    writings: Annotated[
+        bool,
+        typer.Option(
+            "--writings",
+            help="Also stage every writing of each decision the per-opinion record stores "
+            "text for, under record/opinion/writings/ (a pilot round's cells only).",
+        ),
+    ] = False,
 ) -> None:
     """Stage a decided case's majority opinion for an **evaluate** cell to grade against.
 
@@ -16118,6 +16163,15 @@ def provision_opinion(
     (:func:`fedcourtsai.corpus.opinion_body`): the blob's own column with the
     corpus split off, the per-case content store under it.
 
+    ``--writings`` also stages **every writing** of each decision the per-opinion
+    record stores text for — the majority, each concurrence and each dissent, from
+    the Court's own documents — under ``record/opinion/writings/`` with a
+    ``writings.json`` manifest (:func:`fedcourtsai.provision.stage_writings`), each
+    object taken only where its bytes match the digest its pointer row records. It
+    is a pilot round's slot: run-evaluate passes it on a pilot row alone, so a
+    registered evaluate cell's information set is unchanged until the grade that
+    reads it is registered. A case with no stored writings gets none, and says so.
+
     Exits **1** where the corpus holds no row for the case at all, which is a
     different fact from a case with no opinion — the first says the coordinates
     are wrong, the second that this case has not been enriched yet.
@@ -16147,13 +16201,16 @@ def provision_opinion(
         raise typer.Exit(code=2)
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         row = corpus.get_row(conn, case)
+        stored = _read_writings(conn, case, row) if writings and row is not None else []
         _echo_read_stats(conn)
     if row is None:
         typer.echo(f"No corpus row for {case} (corpus-pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
     paths = CasePaths(settings.data_root, court, docket)
+    provision.clear_opinion_slot(paths)
+    if writings and stored is not None:
+        _stage_writings(paths, case, stored)
     if not row.has_opinion:
-        provision.clear_opinion_slot(paths)
         typer.echo(f"{case} has no linked opinion; nothing staged")
         return
     body = corpus.opinion_body(row)
@@ -16167,7 +16224,6 @@ def provision_opinion(
         # case yet. Spoken as a warning rather than an exit: the grader's mask on
         # "not ingested" is the correct grade either way, and failing the step
         # would cost the cell its whole evaluation over a slot it can do without.
-        provision.clear_opinion_slot(paths)
         typer.echo(
             f"::warning::{case} is marked as carrying an opinion but no usable "
             f"body was readable from the {backend} backend; nothing staged",

@@ -4841,6 +4841,26 @@ def test_the_evaluate_cell_provisions_its_snapshot_before_its_opinion() -> None:
     assert order == ["snapshot", "opinion"], order
 
 
+def test_the_evaluate_cell_stages_every_writing_on_a_pilot_row_alone() -> None:
+    """`--writings` widens a cell's information set, so only a pilot round passes it.
+
+    A registered evaluate cell's inputs are part of what its grades mean; the
+    concurrences and dissents reach a cell only on a row the pilot mode minted,
+    whose `pilot_section` the step reads, until the grade that reads them is
+    registered.
+    """
+    [step] = [
+        step
+        for job in _load("run-evaluate.yml")["jobs"].values()
+        for step in job.get("steps", []) or []
+        if "provision-opinion" in (step.get("run") or "")
+    ]
+    assert step["env"]["PILOT_SECTION"] == "${{ matrix.pilot_section }}"
+    run = step["run"]
+    assert 'if [ -n "$PILOT_SECTION" ]; then writings=(--writings); fi' in run
+    assert run.count("--writings") == 1
+
+
 def test_the_settled_case_cascades_keep_both_of_their_refusals() -> None:
     """The cascade legs' two guards, pinned where they are invisible at runtime.
 

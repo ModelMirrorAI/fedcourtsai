@@ -2050,18 +2050,22 @@ own URL). The ceiling (`opinion_record_ceiling`, 200) is no control against
 such a parse, which writes the class count it is weighed on; it stops an
 honest parse whose class has widened. Those rows go to the corpus index, not git, so no diff
 review sees them, and the record is fill-only, so a forged row stays until a
-pass built to replace rows exists. Nothing a predict or evaluate cell sees
-reads the table; its readers are the analytic `merits-lineups` and
-`authorship-tally`. The same plan carries each writing's text, which the
+pass built to replace rows exists. Nothing a predict cell or a registered
+evaluate cell sees reads the table; its readers are the analytic
+`merits-lineups` and `authorship-tally`, and `provision-opinion --writings`,
+which uses it only to pick a pilot cell's decisions and stages kind and
+author from the digest-checked text object, not from the row. The same plan carries each writing's text, which the
 writer stores in the content store under `scotus/opinions/`, each writing's
 body and footnotes up to 1,000,000 characters apiece within the plan's 64 MB
 handoff cap. The one check on it, that it recounts to the word counts, is
 no control against a forged plan, which writes those counts too, so a
 compromised parse could store arbitrary text there, kept, like the rows,
-until a replacing pass exists. Nothing a cell reads it today; a reader built
-to grade a merits forecast against it inherits the cells'
-data-not-instructions guard and takes an object only where its bytes match
-the row's digest. That residual is likewise **pending the maintainer's
+until a replacing pass exists. A pilot round's evaluate cell is its one
+cell reader (`provision-opinion --writings`, on a pilot row alone): the
+grader there reads it under the cells' data-not-instructions guard, the step
+takes an object only where its bytes match the row's digest, and the worst a
+forged text can do is mislead a pilot grade, which is uploaded for review
+rather than committed. That residual is likewise **pending the maintainer's
 acceptance**, which merging the sweep's jobs gives; the text half of it is
 added by the change that stores the text, and waits on the same acceptance. The plan is the
 Court's word only as far as the parse job can be trusted; what the split

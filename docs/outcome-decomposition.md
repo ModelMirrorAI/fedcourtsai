@@ -2260,17 +2260,15 @@ committed evaluations are never edited.
 
 ### What remains unbuilt
 
-1. **Per-writing opinion text in the cell.** The `opinion-record` pass stores
-   each writing's text in the content store beside the `opinions` rows
-   (`opinion_texts`, [corpus/README.md](../corpus/README.md)), filling the
-   documents it already records as its sweep and its repair pass re-read
-   them; nothing stages that text into a merits evaluate cell yet.
-2. **The merits calibration cells.** The schema fields, the draft prompt
+1. **The merits calibration cells.** The schema fields, the draft prompt
    section, the cert and interim sample (`fedcourts reasoning-pilot-sample`,
    which also writes the blind labeling packet), the report (`fedcourts
    reasoning-pilot-report`) and the round itself (run-evaluate's
    `reasoning-pilot` dispatch mode, which grades the sample with the section
    and uploads the evaluations and the report rather than committing them)
-   exist; the replay merits calibration cells are not yet sampled.
-3. **The reference labels and the pilot run itself.**
-4. **Registration**, as above.
+   exist, and a pilot row stages every writing of the decision (`fedcourts
+   provision-opinion --writings`, from the per-writing texts the
+   `opinion-record` pass stores); the replay merits calibration cells are not
+   yet sampled.
+2. **The reference labels and the pilot run itself.**
+3. **Registration**, as above.

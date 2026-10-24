@@ -568,6 +568,10 @@ jobs:
       # opinion, which is most cases, and the slot's *absence* is what tells the
       # grader to mask. Best-effort for the same reason the snapshot step is — a
       # read that fails must not abort a cell that can still grade everything else.
+      # A pilot row also stages every writing of the decision (`--writings`): the
+      # predicted-reasoning pilot grades against the concurrences and dissents as
+      # well as the majority, and a registered evaluate cell's inputs stay as they
+      # are until the grade that reads them is registered.
       - name: Stage the majority opinion for the grader
         id: opinion
         continue-on-error: true
@@ -589,7 +593,12 @@ jobs:
           # bit and the citation are row facts, and this command refuses the
           # rowless backends by name rather than failing obscurely inside them.
           FEDCOURTS_CORPUS_BACKEND: ranged
-        run: uv run fedcourts provision-opinion --court "$COURT_ID" --docket "$DOCKET_ID"
+          PILOT_SECTION: ${{ matrix.pilot_section }}
+        run: |
+          set -euo pipefail
+          writings=()
+          if [ -n "$PILOT_SECTION" ]; then writings=(--writings); fi
+          uv run fedcourts provision-opinion --court "$COURT_ID" --docket "$DOCKET_ID" "${writings[@]}"
 
       # A failed staging and a case with no opinion leave the grader the same
       # empty slot, and the prompt tells it to mask on `not-ingested` either way
