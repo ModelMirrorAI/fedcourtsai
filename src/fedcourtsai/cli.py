@@ -63,6 +63,7 @@ from . import (
     ids,
     integration_check,
     mcp,
+    merits_backtest,
     metrics_refresh,
     process_registration,
     process_version,
@@ -4445,6 +4446,75 @@ def decision_census_cmd(
     terminations = ", ".join(f"{k} {v}" for k, v in census.terminations.items()) or "none"
     typer.echo(f"pending {census.pending}; terminated: {terminations}", err=True)
     typer.echo(census.model_dump_json())
+
+
+@app.command("merits-backtest-plan")
+def merits_backtest_plan_cmd(
+    terms: Annotated[
+        str,
+        typer.Option(
+            help="October Terms to draw from, comma-separated, in the order the "
+            "population lists them (e.g. 2025,2024)."
+        ),
+    ] = "2025",
+    out: Annotated[
+        Path | None, typer.Option(help="Write the population JSON here rather than stdout.")
+    ] = None,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """List the decided argued cases a merits replay would forecast, and each one's cutoffs.
+
+    Read-only. Over the decision record's population for each Term
+    (`merits_backtest.merits_backtest_population`): the argued plenary dockets
+    with a parsed merits judgment, one case per docket the filings are on (a
+    consolidated member is set aside for its lead), each with the grant and
+    briefed moments it is replayed at and the day each one's record is cut, the
+    Terms in the order named. A docket set aside is listed with its reason and
+    its judgment, for the audit of what the draw left out. Prints one line per
+    Term and each set-aside docket to stderr, and the population JSON to stdout
+    or ``--out``. Reads each candidate's newest stored snapshot: over the ranged
+    backend no pulled blob is needed, though with the corpus split the snapshots
+    come from the per-case content store, which must be reachable.
+    """
+    try:
+        wanted = [int(t) for t in terms.split(",") if t.strip()]
+    except ValueError as exc:
+        raise typer.BadParameter("name Terms as four-digit years", param_hint="--terms") from exc
+    if not wanted or not all(1925 <= t <= 2100 for t in wanted):
+        raise typer.BadParameter("name Terms as four-digit years", param_hint="--terms")
+    settings = get_settings()
+    backend = _corpus_backend(corpus_backend) or settings.corpus_backend
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; corpus-pull it, or pass "
+            "--corpus-backend ranged.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        population = merits_backtest.merits_backtest_population(conn, terms=wanted)
+    typer.echo(f"corpus pulled through {population.pulled_through or 'undated'}", err=True)
+    for term in population.terms:
+        set_aside = ", ".join(f"{k} {v}" for k, v in term.excluded.items()) or "none"
+        typer.echo(
+            f"OT{term.term}: {term.cases} case(s) to replay, from {term.plenary_decided} argued "
+            f"plenary docket(s) decided ({term.assigned} assigned, {term.order_riding} "
+            f"order-riding, {term.argued_unjudged} argued with no judgment read); "
+            f"set aside: {set_aside}",
+            err=True,
+        )
+    for item in population.excluded:
+        typer.echo(
+            f"  OT{item.term} {item.docket_number}: {item.reason} ({item.detail}; "
+            f"{item.judgment.value})",
+            err=True,
+        )
+    body = population.model_dump_json(indent=2)
+    if out is None:
+        typer.echo(body)
+    else:
+        write_text(out, body + "\n")
 
 
 @app.command("merits-coverage")
