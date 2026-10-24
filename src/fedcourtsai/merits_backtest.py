@@ -462,7 +462,14 @@ def _fenced(
     )
 
 
-def _replay_event(case: MeritsReplayCase, cut: MeritsReplayCutoff) -> PredictableEvent:
+def replay_event(
+    case: MeritsReplayCase, cut: MeritsReplayCutoff, *, resolved: bool = False
+) -> PredictableEvent:
+    """The merits moment's event definition for ``case`` at ``cut``.
+
+    Unresolved by default, the pre-decision view a replay cell sees; a grading
+    overlay asks for the resolved one.
+    """
     spec = moments.spec_for(cut.event_id)
     if spec is None or spec.stage is not Stage.merits:
         raise ValueError(f"{cut.event_id} is not a declared merits moment")
@@ -476,7 +483,7 @@ def _replay_event(case: MeritsReplayCase, cut: MeritsReplayCutoff) -> Predictabl
         description=spec.description,
         opened_at=cut.opened_at,
         decision_target=spec.decision_target,
-        resolved=False,  # the pre-decision view: the outcome stays hidden
+        resolved=resolved,
     )
 
 
@@ -571,7 +578,7 @@ def provision_replay_cell(
             detail="no respondent's merits brief filed before the cutoff is stored",
         )
     paths = CasePaths(moment_root(work_root, cut.moment), court, int(docket))
-    write_yaml(paths.event(cut.event_id).event_file, _replay_event(case, cut))
+    write_yaml(paths.event(cut.event_id).event_file, replay_event(case, cut))
     written = provision.write_cell_record(
         paths,
         case.case_id,
