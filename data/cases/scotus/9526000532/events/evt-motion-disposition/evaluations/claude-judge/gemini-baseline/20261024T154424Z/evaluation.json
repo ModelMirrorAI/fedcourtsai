@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.02,
+    "notes": "Pro se criminal defendant's stay application arising from post-conviction/supervised-release litigation in D.N.J. No. 3:19-cr-00821 via CA3 No. 26-2501; denied in the ordinary course. No legal question reaching beyond the individual."
+  },
+  "brier_score": 2.5e-05,
+  "brier_skill_score": 0.9971240965013456,
+  "case_id": "scotus/9526000532",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.09323583180987204,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": 0.008667920333278746
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": 0,
+        "probability": 0.015,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.03,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.005,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.008667920333278746,
+    "total": 0.008667920333278746
+  },
+  "correct": 1,
+  "created_at": "2026-10-24T16:59:18Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-motion-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell; every call is unobserved (result_capture_coverage 0.0), so graded on queries. It queried the corpus row for its own docket 26A532 and the CA3/D.N.J. dockets via CourtListener; these ran 2026-10-22, before the 2026-10-23 denial, so the disposition did not yet exist. Post-cutoff lower-court entries it cites (CA3 judgment 2026-08-12, mandate 2026-10-16) predate the resolution and are legitimate forward signal. No data/qp-topics read.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261022T230223Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v11",
+    "pipeline_sha": "f141afa6a15c8582d8515fbf29e259b2b35c3af3",
+    "stamped_at": "2026-10-24T17:00:07.190423Z"
+  },
+  "reasoning_quality": 0.74,
+  "run_id": "20261024T154424Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.09323583180987204,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
