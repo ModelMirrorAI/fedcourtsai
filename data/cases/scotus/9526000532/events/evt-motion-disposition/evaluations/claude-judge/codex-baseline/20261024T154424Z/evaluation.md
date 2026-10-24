@@ -1,0 +1,9 @@
+# Evaluation — codex-baseline
+
+**Cell.** Interim stage (stay application 26A532, *Frank Michael Monte, III v. United States*, submitted to Justice Alito on 2026-10-10). The outcome is `denied` (`actual_granted` 0), resolved 2026-10-23, with no response request, no referral, and no amicus. Because the cell is interim, the segment base rate and Brier skill are stamped by the harness from the statpack's interim pool. I write neither, and `base_rate_basis` stays null. Vote accuracy is not scored on an interim cell. No semantic set is declared, so there is no `semantic_grades` block. `claim_scores` is computed by the harness.
+
+**Score.** Predicted `denied` at P(grant) = 0.04, which is correct. Brier = 0.0016.
+
+**Reasoning quality: 0.66.** This is the most careful document on method. It gives the anchor correctly (51/547) and states clearly that the parsed coverage covers only three of the ten window Terms. It does not treat escalation columns as conditional rates. It flags the docketed-date chronology discrepancy and states plainly that a missing text is not evidence against the merits. The analysis is much weaker on the case itself. It infers pro se status but never establishes that this is a criminal defendant against the United States, which is the strongest downward factor here. Its 4% is therefore more conservative than the posture warrants, and its null `big_case_score` reflects the same reluctance. That restraint is honest but leaves a lot on the table. No case-specific retrieval was attempted.
+
+**Leakage.** Forward. The two web attempts were generic (the stay standard and *Hollingsworth v. Perry*), unobserved, and not case-specific. A `find … -not -path 'data/qp-topics/*'` call excludes that path and opens nothing in it, so it is not a qp-topics read. Graded `not_applicable`.
