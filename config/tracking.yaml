@@ -150,7 +150,7 @@ live:
   # lack a link its docket now selects (a later opposition, reply, invited
   # brief or merits filing, a brief lost at an earlier fetch, an application's
   # response or reply). Moved dockets first. A slice, not a refusal: a case
-  # past it is owed again at its next poll. Each case costs one paced download
+  # past it is owed again the next cycle. Each case costs one paced download
   # per owed filing (every brief of an owed opposition set) (~20 s with extraction) and nothing for a link it already
   # holds, and it runs last in the cycle, on whatever the polls, the
   # convergence and the selection sweep left of --max-run-seconds. At twelve
@@ -159,6 +159,14 @@ live:
   # deadline; a larger slice would multiply the day's paced PDF downloads
   # without a matching gain. 0 disables.
   document_freshness_per_run: 10
+  # Predict-relevant cases the cycle did not poll that the freshness pass also
+  # checks, from their stored live payloads, behind every polled case and under
+  # the same per-cycle download cap above. Without them a stale case the cap
+  # declines waits for its next poll, up to max_poll_staleness_days away. Each
+  # costs two content-store reads (its manifest and its payload) and no upstream
+  # request. Sized above the predict-relevant undecided set so a cycle checks
+  # all of it; past the bound the most recently polled go first. 0 disables.
+  document_freshness_carryover_rows: 300
   # Oral argument transcripts the argument-transcript pass may download a cycle
   # (`live.fetch_argument_transcripts`): the ones the Court lists for the current
   # and previous October Term that the corpus does not hold, newest argument

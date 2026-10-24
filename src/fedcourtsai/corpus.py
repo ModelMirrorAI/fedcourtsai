@@ -32,7 +32,7 @@ import shutil
 import sqlite3
 import tempfile
 import threading
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date, timedelta
 from enum import StrEnum
@@ -5277,6 +5277,58 @@ def live_rotation(
     ]
     picked = overdue + rest
     return picked[:limit]
+
+
+def freshness_carryover_rows(
+    conn: sqlite3.Connection, *, exclude: Collection[str], limit: int
+) -> list[CorpusRow]:
+    """Undecided predict-relevant SCOTUS rows a cycle did not poll, most recently polled first.
+
+    The document-freshness pass's second source of candidates
+    (:func:`fedcourtsai.pipeline.live.refresh_stale_documents`). That pass
+    checks the cases a cycle polled; a stale case its per-cycle cap declined is
+    owed again only at its next poll, which can be a week away, while its
+    stored payload already names what it owes. These rows are offered to the
+    check from that stored payload, so a declined case is reached again the
+    next cycle without an upstream read.
+
+    Predict-relevant is :func:`fedcourtsai.pipeline.document_backfill.is_predict_relevant`:
+    queued for prediction, or selected by the salience gate. Undecided is the
+    live poller's own test (:func:`live_rotation`): no decision date, no
+    disposition or a granted one with its merits proceeding open, and an open
+    event. A row never live-polled carries no live payload to select from, so it
+    is left out. ``exclude`` names the rows the cycle already polled.
+
+    Most recently polled first, because the case a capped pass just declined is
+    a recently polled one, and the stalest-polled rows are the ones the
+    poller's own rotation reaches next.
+    """
+    if limit <= 0:
+        return []
+    sql = (
+        "SELECT * FROM cases WHERE court = 'scotus' "
+        "AND date_decided IS NULL "
+        "AND last_live_polled IS NOT NULL "
+        "AND (predict_queued_at IS NOT NULL OR salience_selected = 1) "
+        "AND (disposition IS NULL "
+        f"     OR (disposition IN ({_GRANTED_SQL}) "
+        "         AND EXISTS (SELECT 1 FROM events "
+        "                     WHERE events.case_id = cases.case_id "
+        "                     AND events.resolved = 0 AND events.stage = 'merits'))) "
+        "AND EXISTS (SELECT 1 FROM events "
+        "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
+        "ORDER BY last_live_polled DESC, case_id ASC"
+    )
+    excluded = set(exclude)
+    rows: list[CorpusRow] = []
+    for record in conn.execute(sql):
+        row = _from_record(record)
+        if row.case_id in excluded:
+            continue
+        rows.append(row)
+        if len(rows) >= limit:
+            break
+    return rows
 
 
 def application_rotation(

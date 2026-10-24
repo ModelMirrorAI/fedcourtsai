@@ -17814,7 +17814,10 @@ def live_poll(
     if queues.document_freshness:
         typer.echo(
             "Document freshness: "
-            + ", ".join(f"{key}={value}" for key, value in queues.document_freshness.items())
+            + ", ".join(
+                f"{key}={';'.join(value) if isinstance(value, list) else value}"
+                for key, value in queues.document_freshness.items()
+            )
             + "."
         )
     if queues.argument_transcripts:
