@@ -53,9 +53,6 @@ from .pipeline import (
 from .pipeline.documents import (
     KIND_ARGUMENT_TRANSCRIPT,
     KIND_DESCRIPTIONS,
-    KIND_MERITS_AMICUS_UNITED_STATES,
-    KIND_PARTY_LETTER,
-    KIND_SUPPLEMENTAL_BRIEF,
     OTHER_LIST,
     ScrubbedSnapshot,
     ScrubbedText,
@@ -586,9 +583,7 @@ def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
     return str(raw) if raw else None
 
 
-WITHHELD_KINDS: frozenset[str] = frozenset(
-    {KIND_SUPPLEMENTAL_BRIEF, KIND_PARTY_LETTER, KIND_MERITS_AMICUS_UNITED_STATES}
-)
+WITHHELD_KINDS: frozenset[str] = frozenset()
 """The document kinds the corpus stores and no cell is given, at any moment.
 
 Which kinds a cell reads is part of its information set, and the process digest

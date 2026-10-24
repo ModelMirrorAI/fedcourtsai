@@ -35,8 +35,7 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 These are the kinds, from `pipeline/documents.py`. Selection is per docket and
 the moment decides by date, so a cell gets every kind below that its docket
 carries and that was filed before its cutoff. The one exception is the argument
-transcript, which only a post-argument cell is given. The kinds in the second
-table below are stored and given to no cell.
+transcript, which only a post-argument cell is given.
 
 | Kind | Filing | Docket |
 | --- | --- | --- |
@@ -46,28 +45,26 @@ table below are stored and given to no cell.
 | `brief-in-opposition` | Every respondent's opposition, combined into one row | Cert |
 | `cert-reply` | The petitioner's reply to the opposition | Cert |
 | `sg-invited-brief` | The Solicitor General's brief when the Court called for it | Cert |
+| `supplemental-brief` | Every party's Rule 15.8 supplemental brief while the petition is pending, combined into one row | Cert |
+| `party-letter` | Every party's letter to the Clerk bearing on the case while the petition is pending (mootness, settlement, withdrawal, an intervening decision), combined into one row | Cert |
 | `merits-brief-petitioner`, `merits-brief-respondent` | Each side's brief on the merits | Granted |
 | `merits-reply-petitioner`, `merits-reply-respondent` | Each side's reply on the merits | Granted |
+| `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
 | `application-reply` | The applicant's reply to it | Application |
 
-Three more kinds are **stored but not yet given to any cell**. Which kinds a cell
-reads is part of its information set, and the process digest does not see it
-([process-version.md](process-version.md)), so a new kind is fetched and stored
-first and staged only in the re-bless whose prompt tells cells about it. Until
-then `provision.WITHHELD_KINDS` keeps it from every cell at every moment, and
-the case-summary plan leaves it out of the record it reads. One record input
-that is not a document is held back on the same rule: the post-argument merits
-cell's `record/authorship-tally.json`, the Term's tally of who has written from
-each argument sitting (`provision.AUTHORSHIP_TALLY_WITHHELD`).
-
-| Kind | Filing | Docket |
-| --- | --- | --- |
-| `supplemental-brief` | Every party's Rule 15.8 supplemental brief while the petition is pending, combined into one row | Cert |
-| `party-letter` | Every party's letter to the Clerk bearing on the case while the petition is pending (mootness, settlement, withdrawal, an intervening decision), combined into one row | Cert |
-| `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
+A new kind is fetched and stored before any cell is given it. Which kinds a
+cell reads is part of its information set, and the process digest does not see
+it ([process-version.md](process-version.md)), so a kind is staged only in the
+re-bless whose prompt tells cells about it. Until then
+`provision.WITHHELD_KINDS` keeps it from every cell at every moment, and the
+case-summary plan leaves it out of the record it reads. No kind is held there
+now. One record input that is not a document is held back on the same rule:
+the post-argument merits cell's `record/authorship-tally.json`, the Term's
+tally of who has written from each argument sitting
+(`provision.AUTHORSHIP_TALLY_WITHHELD`).
 
 Amicus briefs other than the United States' are never selected: the Solicitor
 General's invited brief at the cert stage, and the United States' brief on the

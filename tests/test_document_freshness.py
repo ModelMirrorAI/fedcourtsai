@@ -461,8 +461,12 @@ def test_the_cap_bounds_the_cases_fetched_and_moved_dockets_go_first(db: Path) -
     assert refreshed == {ids[1], ids[3]}
 
 
-def test_a_case_owing_only_a_withheld_kind_never_takes_a_staged_kinds_slot(db: Path) -> None:
-    # Two moved dockets owing only a party letter, which no cell is given yet,
+def test_a_case_owing_only_a_withheld_kind_never_takes_a_staged_kinds_slot(
+    db: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The party letter is exercised as if still withheld.
+    monkeypatch.setattr(live_module, "WITHHELD_KINDS", frozenset({KIND_PARTY_LETTER}))
+    # Two moved dockets owing only a party letter, which no cell is given,
     # ahead of an unchanged one owing its opposition: the cap goes to the
     # opposition first, and only the slot left over to a letter.
     letter = _entry("Jul 05 2026", "Letter from counsel for respondent filed.", _link("l.pdf"))

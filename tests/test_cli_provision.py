@@ -7,14 +7,14 @@ from typing import Any
 import pytest
 from typer.testing import CliRunner, Result
 
-from fedcourtsai import casestore, corpus
+from fedcourtsai import casestore, corpus, provision
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest, opinion_record
 from fedcourtsai.pipeline.cascade import CascadeError, run_cascade
 from fedcourtsai.pipeline.lineup import WritingKind
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
-from fedcourtsai.provision import WITHHELD_KINDS, stage_writings
+from fedcourtsai.provision import stage_writings
 from fedcourtsai.schemas import EventKind, Moment, Stage
 from tests.conftest import FixtureCorpus
 
@@ -1271,8 +1271,10 @@ def test_the_cut_takes_the_documents_with_it(fixture_corpus: FixtureCorpus) -> N
 
 @pytest.mark.parametrize("event", [(), ("--event", "evt-order-judgment")])
 def test_a_withheld_kind_never_lands_in_a_cells_record(
-    fixture_corpus: FixtureCorpus, event: tuple[str, ...]
+    fixture_corpus: FixtureCorpus, event: tuple[str, ...], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    held = frozenset({"supplemental-brief", "party-letter"})
+    monkeypatch.setattr(provision, "WITHHELD_KINDS", held)
     # Stored, dated well before the cutoff, and still not staged: no cell, cut or
     # uncut, is given a kind in `provision.WITHHELD_KINDS`.
     _seed_merits_event(fixture_corpus)
@@ -1289,7 +1291,7 @@ def test_a_withheld_kind_never_lands_in_a_cells_record(
                     fetched_at=date(2025, 2, 2),
                     text=f"The {kind}.",
                 )
-                for kind in ("petition", *sorted(WITHHELD_KINDS))
+                for kind in ("petition", *sorted(held))
             ],
         )
 
@@ -1298,7 +1300,7 @@ def test_a_withheld_kind_never_lands_in_a_cells_record(
     assert result.exit_code == 0, result.output
     paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
     assert paths.document("petition").exists()
-    for kind in WITHHELD_KINDS:
+    for kind in held:
         assert not paths.document(kind).exists()
     manifest = json.loads(paths.documents_manifest.read_text())
     assert [entry["kind"] for entry in manifest] == ["petition"]
