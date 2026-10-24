@@ -788,14 +788,14 @@
     {
       "case_id": "scotus/9026000436",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-10-23",
+      "last_live_polled": "2026-10-24",
       "next_conference": "2026-11-06",
       "stale_reason": null
     },
     {
       "case_id": "scotus/9026000443",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-10-23",
+      "last_live_polled": "2026-10-24",
       "next_conference": "2026-11-06",
       "stale_reason": null
     },
@@ -809,7 +809,7 @@
     {
       "case_id": "scotus/9026000457",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-10-23",
+      "last_live_polled": "2026-10-24",
       "next_conference": "2026-11-06",
       "stale_reason": null
     },
@@ -823,7 +823,7 @@
     {
       "case_id": "scotus/9026000462",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-10-23",
+      "last_live_polled": "2026-10-24",
       "next_conference": "2026-11-06",
       "stale_reason": null
     }
