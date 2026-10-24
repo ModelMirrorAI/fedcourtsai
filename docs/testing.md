@@ -354,7 +354,13 @@ silently — an estate holding no snapshot for the case the plan job settled —
 an unprovisioned run fails rather than certifying a posture it never ran in. The
 leg's evidence for all of this is the `CascadeReport` block it appends to the
 run summary, which carries a `provisioned:` line per provisioning — role,
-event, mode, provenance, cutoff, document count. Per provisioning rather than
+event, mode, provenance, cutoff, document count, and the document kinds the cell
+was owed but the content store does not hold (`unheld:`), so a slice seeded
+before a filing was fetched shows as a gap in the summary rather than only in
+the agent's flags. It also marks a cell `run-predict` would never mint: an open
+event the predict fan-out would not forecast, such as a distribution cell whose
+conference has sat. That cell's record is placed after its moment closed, so it
+is not the production posture the leg certifies. Per provisioning rather than
 per run, because the record on disk at the end is the last provisioning's: on a
 case carrying a resolved event as well as an open one the evaluate half
 re-provisions last, and its uncut record says nothing about how the

@@ -17150,6 +17150,12 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
         typer.echo(
             f"  provisioned: {placed.role} {placed.event_id or report.case_id} — "
             f"{placed.mode}, {placed.provenance}, {cut}, {placed.documents} document(s)"
+            + (f", unheld: {', '.join(placed.unheld)}" if placed.unheld else "")
+            + (
+                ", not a cell run-predict mints"
+                if placed.role == "predict" and placed.event_id in report.unforecastable
+                else ""
+            )
         )
     typer.echo(f"  predictions: {len(report.predictions)} file(s)")
     typer.echo(f"  outcomes:    {len(report.outcomes)} file(s)")
