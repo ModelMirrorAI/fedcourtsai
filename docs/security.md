@@ -751,8 +751,20 @@ corpus role needs. Predict's `plan` also holds **`actions: read`** and
 **`pull-requests: read`**, both on the same ambient token and the same reasoning
 as `collect`'s: its stranded-run guard lists recent runs and their artifact
 *names* (it downloads nothing) and reads whether this lane's collect PR has
-merged, to avoid re-minting cells that already ran. Both grants are repo-wide
-because neither scope can be narrowed to one run or one branch, both are reads
+merged, to avoid re-minting cells that already ran. Evaluate's `plan` holds
+**`actions: read`** too, on every round of the workflow since a grant is
+job-scoped, for the `reasoning-pilot-merits` round alone to use: it lists
+run-backtest's runs and downloads one artifact of them, the `merits-forecasts`
+tree a successful run of that workflow file on `main`, by dispatch or schedule,
+at a commit `main` still contains, uploaded, by artifact id, into the runner's
+temp directory. The run is chosen by that fixed derivation, not by any input,
+and the tree is agent-written, so `reasoning-pilot-merits-sample` refuses it
+whole if any entry falls outside the keep layout before anything reads it, and
+rebuilds each event's definition and outcome from the corpus rather than
+taking them from it. The kept forecasts then reach the judges the way any
+forecast does, as documents to grade under the prompt's data-not-instructions
+rule. These grants are repo-wide
+because neither scope can be narrowed to one run or one branch, all are reads
 with no write beside them, and `plan` runs no agent code — it opens, comments on
 and reviews nothing. The PR read is what `contents: read` cannot answer: the
 merge state of a branch this job never fetches.

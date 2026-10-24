@@ -163,7 +163,14 @@ runbook, [docs/security.md](docs/security.md).
   the replay contract, so it already has egress. What the gaps defeat is the
   scan as a check on an engine that would publish a key, which is why the
   reachable secret on this surface is a model key, not the CourtListener
-  token below. Holding that key makes the
+  token below. The artifact is consumed by run-evaluate's
+  `reasoning-pilot-merits` round, whose plan re-checks the whole tree
+  (`merits_calibration.read_kept_run`) before anything reads it and
+  republishes the forecast bytes, unscanned again, in the round's 7-day
+  `reasoning-pilot-calibration` artifact beside an event definition and
+  outcome rebuilt from the corpus: the bytes are the scanned artifact's own,
+  and the outcome fields are the ones a committed outcome already publishes.
+  Holding that key makes the
   scan's own **import path** part of the gate, and it follows an agent that
   writes freely in the tree the editable install resolves through — so the
   scanner is built from a checkout taken *after* the agent exits and fetched
@@ -461,10 +468,11 @@ runbook, [docs/security.md](docs/security.md).
   candidate, outside the auto-release budget — bounded by the train's own
   daily cap (`max_gate_dispatches_per_day` in the code-owned
   `config/promotion-train.yaml`) and by never re-dispatching at a head.
-  run-evaluate's `reasoning-pilot` round spends outside the budget the other
-  way: it always waits on the `review` hold, but it commits nothing, so its
-  measured spend never reaches the ledger the trailing budget is projected
-  over, and the manual release is its only bound. The
+  run-evaluate's pilot rounds (`reasoning-pilot`, `reasoning-pilot-merits`)
+  spend outside the budget the other way: they always wait on the `review`
+  hold, but they commit nothing, so their measured spend never reaches the
+  ledger the trailing budget is projected over, and the manual release is
+  their only bound. The
   pull window chains only on a forecast-relevant change, and neither chain job
   dispatches while a promotion is about to merge.
   Three workflows *do* take an outside-reachable trigger — `ci.yml`,

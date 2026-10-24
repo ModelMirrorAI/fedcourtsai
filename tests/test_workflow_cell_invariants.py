@@ -145,6 +145,10 @@ QP_FENCED_WORKFLOWS = (
     "integration-test.yml",
 )
 
+#: The merits forecasts' artifact name: a stub round's is apart, so it never
+#: shadows a real round's for the merits pilot.
+MERITS_FORECASTS = "${{ env.BT_ENGINE == 'stub' && 'merits-forecasts-stub' || 'merits-forecasts' }}"
+
 
 def _base_url_spellings() -> tuple[str, str]:
     """The env key a workflow sets and the repo variable it reads, taken from
@@ -410,7 +414,7 @@ def _backtest_report_upload(steps: list[dict[str, Any]]) -> int:
     found = [i for i in uploads if steps[i]["with"]["name"] == "backtest-report"]
     assert len(found) == 1, f"expected exactly one report upload, found {found}"
     # The one other upload is the merits forecasts', pinned below.
-    assert [steps[i]["with"]["name"] for i in uploads if i not in found] == ["merits-forecasts"]
+    assert [steps[i]["with"]["name"] for i in uploads if i not in found] == [MERITS_FORECASTS]
     upload = steps[found[0]]
     assert upload["with"]["path"] == "${{ runner.temp }}/backtest-report", (
         "only the staged report may cross, never the checkout's metrics/"
@@ -4980,7 +4984,7 @@ def test_the_merits_forecasts_leave_without_their_record_and_only_after_a_scan()
         i
         for i, step in enumerate(steps)
         if "upload-artifact" in str(step.get("uses") or "")
-        and step["with"]["name"] == "merits-forecasts"
+        and step["with"]["name"] == MERITS_FORECASTS
     ]
     assert collect < upload
     assert steps[upload]["with"]["path"] == "${{ steps.forecasts.outputs.dir }}"

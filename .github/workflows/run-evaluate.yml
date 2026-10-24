@@ -61,17 +61,27 @@ on:
   # round commits nothing: `collect` is skipped, and `pilot-report` uploads the
   # round's evaluations and its report as an artifact instead. It always waits
   # on the `review` hold.
+  #
+  # `reasoning-pilot-merits` is the same pilot over its replay merits
+  # calibration cells, which no ledger holds: the plan derives the newest
+  # `merits-forecasts` artifact a successful run-backtest run on `main` left
+  # (`replay: merits`), lays it out as resolved merits events in a working
+  # tree outside the checkout (`reasoning-pilot-merits-sample`), and hands
+  # each cell its own event from that tree. Calibration evidence only: the
+  # report keeps it as its own stage, never pooled with cert and interim.
   workflow_dispatch:
     inputs:
       mode:
         description: >-
           backlog = grade what committed state still owes; reasoning-pilot =
           the predicted_reasoning_quality pilot over its seeded sample (commits
-          nothing; always held for review).
+          nothing; always held for review); reasoning-pilot-merits = the same
+          pilot over the newest merits back-test's kept forecasts.
         type: choice
         options:
           - backlog
           - reasoning-pilot
+          - reasoning-pilot-merits
         default: backlog
 
 permissions: {}
@@ -92,11 +102,11 @@ permissions: {}
 # nothing when its successor replaces it in the queue, since the backlog it
 # would have drained is re-derived by whichever round does run.
 #
-# A pilot round takes a group of its own: it commits nothing, so it cannot
+# A pilot round, of either kind, takes a group of its own: it commits nothing, so it cannot
 # overlap a backlog round's uncommitted gradings, and a backlog round's cron
 # arrival must not supersede a pilot parked on the hold.
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot' && 'run-evaluate-pilot' || 'run-evaluate' }}
+  group: ${{ github.event_name == 'workflow_dispatch' && startsWith(inputs.mode, 'reasoning-pilot') && 'run-evaluate-pilot' || 'run-evaluate' }}
   cancel-in-progress: false
 
 jobs:
@@ -166,6 +176,9 @@ jobs:
       # only; the job creates no deployment. The commits the count is also read
       # from are `main`'s history, which `contents: read` above already covers.
       deployments: read
+      # A merits pilot reads run-backtest's run list and downloads one of its
+      # artifacts (the kept merits forecasts). Read only.
+      actions: read
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       has_jobs: ${{ steps.plan.outputs.has_jobs }}
@@ -174,9 +187,12 @@ jobs:
       # The pilot report downloads the sample by this id rather than by name:
       # a name is claimable by any job in the run holding the runtime token.
       sample_artifact_id: ${{ steps.sample-upload.outputs.artifact-id }}
+      # A merits pilot's cells take their events from this artifact, by id for
+      # the same reason.
+      calibration_artifact_id: ${{ steps.calibration-upload.outputs.artifact-id }}
       # Written affirmatively: a scheduled run carries no inputs, so a test of
       # `inputs.mode != 'backlog'` would read a schedule as a pilot.
-      pilot: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot' }}
+      pilot: ${{ github.event_name == 'workflow_dispatch' && startsWith(inputs.mode, 'reasoning-pilot') }}
     steps:
       # No authorization gate here, and none is missing: this workflow carries no
       # trigger an outside actor can reach. A `schedule` fires only from the
@@ -210,10 +226,72 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
 
+      # The merits pilot's source: the newest kept-forecasts artifact a
+      # successful run-backtest run on `main` uploaded. Only a run of that
+      # workflow file in this repository, started by a dispatch or the
+      # schedule, on `main` at a commit `main` still contains, counts, so the
+      # artifact is one a `replay: merits` round of reviewed code wrote (no
+      # other mode or workflow uploads the name). An expired artifact, or one
+      # over the size any merits replay keeps, is passed over. The contents
+      # are checked again, whole, by `reasoning-pilot-merits-sample` before
+      # anything reads them; a stub round's tree is refused there, so a free
+      # rehearsal never reaches the judges.
+      - name: Find the merits back-test's kept forecasts
+        id: source
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot-merits' }}
+        timeout-minutes: 5
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPO}/actions/workflows/run-backtest.yml/runs?branch=main&status=success&per_page=50" \
+            --jq ".workflow_runs[]
+              | select(.path == \".github/workflows/run-backtest.yml\"
+                and (.event == \"workflow_dispatch\" or .event == \"schedule\")
+                and .head_branch == \"main\"
+                and .head_repository.full_name == \"${REPO}\")
+              | \"\(.id) \(.head_sha)\"" > backtest-runs.txt
+          while read -r run sha; do
+            if ! [[ "$run" =~ ^[0-9]+$ && "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+              continue
+            fi
+            # The zipped size; the tree's own byte ceiling is checked unpacked.
+            found=$(gh api "repos/${REPO}/actions/runs/${run}/artifacts?name=merits-forecasts" \
+              --jq '[.artifacts[] | select(.name == "merits-forecasts" and (.expired | not)
+                and .size_in_bytes <= 67108864)][0] // empty | "\(.id)"')
+            if ! [[ "$found" =~ ^[0-9]+$ ]]; then
+              continue
+            fi
+            ahead=$(gh api "repos/${REPO}/compare/${sha}...main" --jq .status)
+            if [ "$ahead" != identical ] && [ "$ahead" != ahead ]; then
+              continue
+            fi
+            {
+              echo "run=$run"
+              echo "artifact=$found"
+            } >> "$GITHUB_OUTPUT"
+            echo "Merits pilot source: run-backtest run $run, artifact $found, at $sha." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          done < backtest-runs.txt
+          echo "::error::no successful run-backtest run on main holds an unexpired merits-forecasts artifact; dispatch run-backtest with replay: merits first"
+          exit 1
+
+      - name: Download the merits back-test's kept forecasts
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot-merits' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ steps.source.outputs.artifact }}
+          run-id: ${{ steps.source.outputs.run }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/merits-forecasts
+
       - name: Build evaluator x case x event matrix
         id: plan
         env:
-          PILOT: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot' }}
+          PILOT: ${{ github.event_name == 'workflow_dispatch' && startsWith(inputs.mode, 'reasoning-pilot') }}
+          MERITS: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot-merits' }}
         run: |
           set -euo pipefail
           run_id=$(date -u +%Y%m%dT%H%M%SZ)
@@ -226,7 +304,29 @@ jobs:
           # invocations must select the same cases, or the plan a maintainer
           # approves is not the fan-out.
           args=()
-          if [ "$PILOT" = "true" ]; then
+          if [ "$MERITS" = "true" ]; then
+            # The calibration events are laid out outside the checkout, checked,
+            # then copied into this checkout's ledger, where the matrix (and its
+            # spend backstop, over the committed spend ledger) reads them. The
+            # command refuses an event the ledger already holds, so the copy
+            # never lands on a committed one. This job commits nothing.
+            calibration="$RUNNER_TEMP/calibration-data"
+            uv run fedcourts reasoning-pilot-merits-sample "$RUNNER_TEMP/merits-forecasts" pilot-sample \
+              --data-root "$calibration"
+            uv run fedcourts validate "$calibration"
+            for event in "$calibration"/cases/*/*/events/*; do
+              rel="${event#"$calibration"/}"
+              if [ -e "data/$rel" ]; then
+                echo "::error::$rel is in the committed ledger; the overlay never lands on it"
+                exit 1
+              fi
+              mkdir -p "data/$(dirname "$rel")"
+              cp -R "$event" "data/$rel"
+            done
+            args=(--body-file pilot-sample/body.md --force)
+            matrix=$(uv run fedcourts evaluate-matrix --run-id "$run_id" "${args[@]}" \
+              --pilot-section .github/prompts/pilot/predicted-reasoning-quality.md --calibration)
+          elif [ "$PILOT" = "true" ]; then
             uv run fedcourts reasoning-pilot-sample pilot-sample
             args=(--body-file pilot-sample/body.md --force)
             matrix=$(uv run fedcourts evaluate-matrix --run-id "$run_id" "${args[@]}" \
@@ -273,11 +373,23 @@ jobs:
       # cells, and which prediction runs, the round was meant to grade.
       - name: Upload the pilot sample
         id: sample-upload
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && startsWith(inputs.mode, 'reasoning-pilot') }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reasoning-pilot-sample
           path: pilot-sample
+          if-no-files-found: error
+          retention-days: 7
+
+      # The merits pilot's calibration events, which each cell lays into its own
+      # checkout: they are in no ledger a cell checks out.
+      - name: Upload the merits pilot's calibration events
+        id: calibration-upload
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot-merits' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reasoning-pilot-calibration
+          path: ${{ runner.temp }}/calibration-data
           if-no-files-found: error
           retention-days: 7
 
@@ -352,7 +464,7 @@ jobs:
         id: hold
         if: >-
           ${{ steps.plan.outputs.has_jobs == 'true' && github.ref == 'refs/heads/main'
-          && !(github.event_name == 'workflow_dispatch' && inputs.mode == 'reasoning-pilot') }}
+          && !(github.event_name == 'workflow_dispatch' && startsWith(inputs.mode, 'reasoning-pilot')) }}
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}
@@ -534,6 +646,32 @@ jobs:
           # other read stayed green.
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
 
+      # A merits pilot's calibration cell grades an event no ledger holds: lay
+      # its own event directory, from the plan's checked overlay, into this
+      # checkout before anything reads the event. The cell's artifact carries
+      # it back to the pilot report like any graded event; no job commits it.
+      - name: Download the calibration events
+        if: ${{ matrix.calibration }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.plan.outputs.calibration_artifact_id }}
+          path: ${{ runner.temp }}/calibration-data
+
+      - name: Lay the calibration event into the checkout
+        if: ${{ matrix.calibration }}
+        env:
+          EVENT_DIR: cases/${{ matrix.court }}/${{ matrix.docket }}/events/${{ matrix.event_id }}
+        run: |
+          set -euo pipefail
+          if [ -e "data/$EVENT_DIR" ]; then
+            echo "::error::$EVENT_DIR is in the committed ledger; a calibration cell never grades beside it"
+            exit 1
+          fi
+          mkdir -p "data/$(dirname "$EVENT_DIR")"
+          cp -R "$RUNNER_TEMP/calibration-data/$EVENT_DIR" "data/$EVENT_DIR"
+          # The other events stay out of the cell's reach.
+          rm -rf "$RUNNER_TEMP/calibration-data"
+
       # Point-in-time snapshots are raw facts in the access-gated corpus, not git:
       # materialize this case's latest snapshot (a ranged point lookup, KB-scale)
       # to the gitignored record/ path the evaluator reads (never committed).
@@ -623,6 +761,9 @@ jobs:
       # without the corpus. Runs before the agent so a genuinely missing event fails
       # the job before any model tokens are spent.
       - name: Materialize the event definition for the ledger
+        # A calibration event has no corpus event row: its definition came with
+        # it from the overlay.
+        if: ${{ !matrix.calibration }}
         env:
           COURT_ID: ${{ matrix.court }}
           DOCKET_ID: ${{ matrix.docket }}
