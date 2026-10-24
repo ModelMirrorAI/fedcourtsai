@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000512",
+  "run_id": "20261023T154839Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval_log.json per candidate made the forward-mode leakage check quick",
+    "Interim stage rules (harness-stamped baseline) kept the scoring unambiguous"
+  ],
+  "gaps": [],
+  "notes": "Interim cell; baseline and skill left to stamp-cell, so the statpack was not consulted."
+}

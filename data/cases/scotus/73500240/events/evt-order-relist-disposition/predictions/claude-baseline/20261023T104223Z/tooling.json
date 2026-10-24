@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500240",
+  "run_id": "20261023T104223Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["statpack.md", "provisioned snapshot and documents"],
+  "helpful": ["Provisioned petition and BIO text were complete and untruncated", "Salience band reached-rate table"],
+  "gaps": ["No statpack cut conditioning on a 'Record Requested' docket entry, which is a strong summary-reversal signal on paid petitions"],
+  "notes": "Did not use corpus query; the provisioned record was sufficient."
+}

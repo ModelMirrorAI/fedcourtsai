@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/9526000560",
+  "run_id": "20261023T210522Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "courtlistener_mcp:search",
+    "courtlistener_mcp:get_endpoint_item",
+    "courtlistener_mcp:read_document"
+  ],
+  "helpful": [
+    "Provisioned application.txt in record/documents/ provided the complete 39-page emergency stay application.",
+    "CourtListener MCP RECAP search and read_document allowed direct inspection of the Western District of Texas Memorandum Opinion (ECF No. 75), Plaintiffs' Stay Opposition (ECF No. 77), and the Order Denying Stay (ECF No. 78).",
+    "fedcourts query quickly surfaced six resolved OT2026 Solicitor General substantive stay applications (26A124, 26A203, 26A308, 26A406, 26A416, 26A476) and the open 26A560 row."
+  ],
+  "gaps": [
+    "A dedicated flag on fedcourts query to filter specifically by application_kind=substantive or counsel_of_record would reduce egress when comparing Solicitor General emergency applications."
+  ],
+  "notes": "All provisioned inputs and upstream MCP/corpus services operated cleanly."
+}

@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73281102",
+  "run_id": "20261023T031441Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "record/documents/*",
+    "courtlistener search"
+  ],
+  "helpful": [
+    "Provisioned cert-stage texts (petition, appendix with lower-court opinions, SG brief in opposition, and petitioner's cert reply) provided complete context on the SG's concession on Question 1 and the Court's reformulated grant question.",
+    "The merits docket table in metrics/statpack.md made computing the strictly-prior 10-Term pooled disturbed base rate (360/516 = 69.8% across OT2017-OT2024) transparent and verifiable."
+  ],
+  "gaps": [
+    "A filter in `fedcourts query` for rows with non-null `merits_judgment` (or `--stage merits`) would make retrieving resolved merits judgment priors faster without scanning recent undecided grants."
+  ],
+  "notes": "Clean forward-mode merits cell at moment: grant."
+}

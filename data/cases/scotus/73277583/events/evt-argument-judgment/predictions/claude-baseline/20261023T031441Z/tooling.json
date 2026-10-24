@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73277583",
+  "run_id": "20261023T031441Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["Read/Bash over provisioned record", "metrics/statpack.md merits section"],
+  "helpful": ["Provisioned argument transcript was the decisive evidence", "Merits section with per-Term disturbed rates and excluded counts made the pooled anchor easy to compute"],
+  "gaps": ["No base-rate cut for confession-of-error cases with Court-appointed amicus, a posture that departs sharply from the pooled disturbed rate"],
+  "notes": "Transcript is ~120KB; a per-advocate segment index would speed reading."
+}

@@ -1,0 +1,111 @@
+{
+  "big_case_rationale": "The grant concerns a nationwide rule for interpreting federal sentencing commentary, with consequences across many Guidelines provisions and an important boundary with administrative deference, rather than only one firearm enhancement.",
+  "big_case_score": 0.76,
+  "case_id": "scotus/73277583",
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.28
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-14",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 7,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-14",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-23T10:26:51Z",
+  "engine": "codex",
+  "event_id": "evt-argument-judgment",
+  "granted": 0,
+  "input_snapshot": "2026-10-14.json",
+  "judgment": "affirmed",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.28,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a711152d3e0082a9f5311e40348116c753247aba102ddc60e5979c7d292abe64",
+    "label": "proc-v11",
+    "pipeline_sha": "aaafd2a8e347e74699136354b7903d4bbbf881e2",
+    "stamped_at": "2026-10-23T10:29:52.481424Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261023T031441Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will retain Stinson's rule for interpretive Guidelines commentary on the ground that the Sentencing Reform Act authorizes the Commission to give authoritative explanations of its own sentencing recommendations, rather than requiring Kisor's genuine-ambiguity prerequisite for executive-agency interpretations."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will announce a rule for interpretive Sentencing Guidelines commentary generally, not merely the magazine-capacity note, while expressly confining that rule to the Sentencing Commission rather than expanding deference to executive agencies."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "John G. Roberts, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Clarence Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Samuel A. Alito, Jr.",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sonia Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Elena Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Neil M. Gorsuch",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Brett M. Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Amy Coney Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Ketanji Brown Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

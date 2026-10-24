@@ -1,0 +1,79 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.5,
+    "notes": "A State's emergency application to stay a federal injunction against election-administration guidance (whether checklist supervisors may consider a student ID under New Hampshire's catch-all identity safety valves) weeks before a general election. Statewide effect on student voters and a further data point on how forcefully the Court applies Purcell; but the injunction was narrow (the statute itself was not enjoined), and an interim stay by short order sets little precedent on the merits."
+  },
+  "brier_score": 0.3481000000000001,
+  "brier_skill_score": 0.5766346379910249,
+  "case_id": "scotus/9526000512",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.09323583180987204,
+        "claim_id": "interim-disposition",
+        "outcome": 1,
+        "probability": 0.41,
+        "score": 0.47412125671353456
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 1,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.24,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.47412125671353456,
+    "total": 0.47412125671353456
+  },
+  "correct": 0,
+  "created_at": "2026-10-23T16:02:14Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (log mode forward, cutoff 2026-10-20, prediction created 2026-10-21, event resolved 2026-10-22). Two web searches for general precedent (Purcell; Merrill v. Milligan official PDF), neither naming this application or its parties; remaining calls read provisioned inputs, prompt, schemas and the statpack. No retrieved_doc_date, no reads of data/qp-topics/. The outcome did not yet exist and nothing in the log or reasoning reads it. Clean.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "prediction_run_id": "20261021T170410Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v11",
+    "pipeline_sha": "e5b0efc3f3d5ce9584da9eb77ecf48fc8b83984e",
+    "stamped_at": "2026-10-23T16:03:02.463594Z"
+  },
+  "reasoning_quality": 0.6,
+  "run_id": "20261023T154839Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.09323583180987204,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

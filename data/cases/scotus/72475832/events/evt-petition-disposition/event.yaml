@@ -1,0 +1,12 @@
+case_id: scotus/72475832
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: null
+opened_at: '2022-11-23'
+resolved: true
+schema_version: '1.0'
+stage: null
+title: Kelvin Buck, et al., Appellants v. Michael Watson, et al.

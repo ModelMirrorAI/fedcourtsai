@@ -1,0 +1,13 @@
+case_id: scotus/6350889
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2017-12-08'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: O. John Benisek, et al. v. Linda H. Lamone, Administrator, Maryland State Board
+  of Elections, et al.

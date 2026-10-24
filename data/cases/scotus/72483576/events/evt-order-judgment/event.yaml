@@ -1,0 +1,12 @@
+case_id: scotus/72483576
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2024-11-04'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Press Robinson, et al. v. Phillip Callais, et al.

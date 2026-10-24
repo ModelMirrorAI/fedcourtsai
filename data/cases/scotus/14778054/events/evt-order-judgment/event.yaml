@@ -1,0 +1,12 @@
+case_id: scotus/14778054
+decision_target: judgment
+description: Disposition of the judgment below, following the cert grant.
+docket_entry_id: null
+event_id: evt-order-judgment
+kind: order
+moment: grant
+opened_at: '2018-11-13'
+resolved: false
+schema_version: '1.0'
+stage: merits
+title: Virginia House of Delegates, et al. v. Golden Bethune-Hill, et al.

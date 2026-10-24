@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277583",
+  "run_id": "20261023T104223Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Provisioned oral argument transcript (argument-transcript.txt) and full merits briefing (opening and reply briefs for both Petitioner and the United States) in record/documents/.",
+    "The merits docket per-Term disturbed rate table in metrics/statpack.md with excluded counts and parsed coverage."
+  ],
+  "gaps": [
+    "The Court-appointed amicus curiae merits brief (Anthony J. Dick) was not provisioned as a separate file in record/documents/, though its arguments were thoroughly detailed in the two reply briefs and the oral argument transcript."
+  ],
+  "notes": "All provisioned filings and the October 13, 2026 oral argument transcript extracted cleanly with no OCR or truncation issues."
+}

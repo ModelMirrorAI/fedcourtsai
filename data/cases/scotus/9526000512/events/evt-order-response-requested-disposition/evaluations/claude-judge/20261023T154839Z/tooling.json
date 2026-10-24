@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000512",
+  "run_id": "20261023T154839Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell",
+    "file-read"
+  ],
+  "helpful": [
+    "Blinded staging with retrieval_log.json per candidate made forward-leakage checks quick",
+    "Prompt's interim-stage rules made clear the baseline and skill are harness-stamped"
+  ],
+  "gaps": [],
+  "notes": "Interim cell; the baseline is the harness's, so the statpack was not consulted. The outcome, event, and blinded candidates were sufficient. To check the output shape, I ran one git ls-files / git show over other cases' claude-judge evaluation.json files. Its output was set aside unread, apart from a preview listing other dockets' paths, and no prediction tree for this event was read. I relied on schemas/evaluation.schema.json instead."
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500240",
+  "run_id": "20261023T104223Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "metrics/statpack.md salience-band and relist-count tables for base-rate anchoring",
+    "fedcourts query --docket-number 25-297 for Zorn v. Linton distribution count and metadata",
+    "CourtListener MCP read_document for Zorn v. Linton (2026) per curiam opinion text"
+  ],
+  "gaps": [
+    "fedcourts query --disposition summary-reversal returns 0 rows in 2020s because summary reversals like Zorn v. Linton (25-297) are stored with disposition=granted and same-day merits_judgment=reversed"
+  ],
+  "notes": "Provisioned documents (questions-presented.txt, petition.txt including full 5th Cir. panel and en banc opinions, and brief-in-opposition.txt) were complete and cleanly extracted."
+}

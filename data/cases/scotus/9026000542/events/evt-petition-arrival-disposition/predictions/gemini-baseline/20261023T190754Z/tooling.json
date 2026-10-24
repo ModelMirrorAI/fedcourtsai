@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000542",
+  "run_id": "20261023T190754Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_call_endpoint",
+    "mcp_courtlistener_get_endpoint_item",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "CourtListener MCP RECAP docket-entries lookup on N.D. W. Va. No. 3:24-cv-00061 surfaced the full plain text of the District Court's August 27, 2025 Memorandum Opinion and Order (ECF No. 72), clarifying the exact claims, threshold dismissals, and arbitration stay.",
+    "metrics/statpack.md and metrics/statpack.json provided the exact sal-v4 baseline reached risk-set rates across OT2017-OT2025."
+  ],
+  "gaps": [
+    "No petition PDF/text was provisioned in record/documents/ at arrival, and the Fourth Circuit's unpublished per curiam opinion in No. 25-2149 was not uploaded to RECAP, though the CA4 docket entries and NDWV opinion provided complete procedural context."
+  ],
+  "notes": "Forward-mode arrival prediction completed cleanly using provisioned snapshot, statpack base rates, and CourtListener MCP RECAP records."
+}
