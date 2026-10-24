@@ -9,20 +9,26 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, merits_backtest
 from fedcourtsai.cli import app
 from fedcourtsai.merits_backtest import (
     MERITS_BACKTEST_MOMENTS,
     MeritsReplayCase,
     MeritsReplayCell,
     MeritsReplayFenced,
+    draw_cases,
+    draw_rank,
     merits_backtest_population,
     moment_root,
     provision_replay_cell,
     provision_replay_cells,
+    replay_merits_predictors,
+    score_merits_backtest,
 )
+from fedcourtsai.pipeline.runner import EngineFailed, EngineQuotaExhausted
 from fedcourtsai.provision import SNAPSHOT_OUTCOME_FIELDS
-from fedcourtsai.schemas import Judgment, Moment
+from fedcourtsai.registry import enabled_predictors
+from fedcourtsai.schemas import Judgment, MeritsBacktest, Moment
 
 runner = CliRunner()
 
@@ -398,7 +404,7 @@ def test_each_moment_gets_its_own_record_cut_at_its_cutoff(tmp_path: Path) -> No
         event = yaml.safe_load((root / f"cases/scotus/1/events/{event_id}/event.yaml").read_text())
         assert event["resolved"] is False
         context = json.loads((root / "cases/scotus/1/record/context.json").read_text())
-        assert context["mode"] == "replay"
+        assert (context["mode"], context["decided_before"]) == ("replay", "2024")
     assert not any("REVERSED" in text for text in _entries(briefed_root))
 
 
@@ -522,3 +528,141 @@ def test_a_sweep_refuses_a_tree_that_is_not_empty(tmp_path: Path) -> None:
     (work / "grant").mkdir(parents=True)
     with _replayable(tmp_path, _DECIDED_DOCKET) as conn, pytest.raises(ValueError, match="fresh"):
         provision_replay_cells(conn, [_case(conn)], work)
+
+
+def test_a_stub_replay_runs_every_predictor_at_both_moments(tmp_path: Path) -> None:
+    work, kept = tmp_path / "replay", tmp_path / "kept"
+    with _replayable(tmp_path, _DECIDED_DOCKET) as conn:
+        case = _case(conn)
+        outcome = replay_merits_predictors(
+            conn,
+            [case],
+            config_root=Path("config"),
+            work_root=work,
+            run_id="20261024T000000Z",
+            engine_override="stub",
+            keep_root=kept,
+        )
+
+    assert outcome.unavailable == [] and outcome.lost_cells == []
+    assert outcome.predictions
+    for by_moment in outcome.predictions.values():
+        assert set(by_moment) == set(MERITS_BACKTEST_MOMENTS)
+        assert all(set(found) == {"scotus/1"} for found in by_moment.values())
+    assert all(engine == "stub" for engine, _ in outcome.ran_on.values())
+    [cell] = [c for c in outcome.sweep.cells if c.moment is Moment.briefed]
+    context = json.loads(
+        (
+            moment_root(kept / "stub", Moment.briefed) / "cases/scotus/1/record/context.json"
+        ).read_text()
+    )
+    assert context["cutoff"] == cell.cutoff.isoformat()
+    # Each moment's trees leave the work root once its cells are read back.
+    assert not any(work.rglob("context.json"))
+
+
+def test_the_backtest_command_writes_a_report_over_a_stub_replay(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    with _replayable(tmp_path, _DECIDED_DOCKET):
+        pass
+    out = tmp_path / "merits-backtest.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "merits-backtest",
+            "--terms",
+            "2024",
+            "--engine",
+            "stub",
+            "--out",
+            str(out),
+            "--work-dir",
+            str(tmp_path / "work"),
+            "--corpus-backend",
+            "local",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    report = MeritsBacktest.model_validate_json(out.read_text())
+    assert (report.cells, report.paired_cases) == ({"grant": 1, "briefed": 1}, 1)
+    assert report.dispatch is not None and report.dispatch.engine == "stub"
+    assert report.entries
+    for entry in report.entries:
+        assert [m.events_scored for m in entry.moments] == [1, 1]
+        # One pooled judgment is below the floor: scored, with no baseline.
+        assert all(m.baselined == 0 and m.brier_skill is None for m in entry.moments)
+
+
+def test_a_limited_draw_is_keyed_by_the_vintage_alone(tmp_path: Path) -> None:
+    rows = [_argued(n, f"24-{n}00") for n in range(1, 7)]
+    with _seeded(tmp_path, rows) as conn:
+        cases = merits_backtest_population(conn, terms=[2024]).cases
+
+    first = draw_cases(cases, 3, "2026-10-24")
+    assert len(first) == 3
+    assert draw_cases(list(reversed(cases)), 3, "2026-10-24") == first
+    assert draw_cases(cases, 0, "2026-10-24") == sorted(
+        cases, key=lambda c: draw_rank("2026-10-24", c.case_id)
+    )
+
+
+class _FailingRunner:
+    """A runner whose engine fails every cell, or reports its quota spent."""
+
+    def __init__(self, fault: Exception) -> None:
+        self.fault, self.calls = fault, 0
+
+    def run(self, request: Any) -> None:
+        self.calls += 1
+        raise self.fault
+
+
+def _routed(monkeypatch: pytest.MonkeyPatch, runner: _FailingRunner) -> None:
+    predictor = next(iter(enabled_predictors(Path("config") / "predictors.yaml")))
+    monkeypatch.setattr(
+        merits_backtest, "_runners_by_predictor", lambda *_args: [(predictor, runner)]
+    )
+
+
+def test_a_predictor_that_loses_every_cell_stays_on_the_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    failing = _FailingRunner(EngineFailed("boom"))
+    _routed(monkeypatch, failing)
+    with _replayable(tmp_path, _DECIDED_DOCKET) as conn:
+        case = _case(conn)
+        outcome = replay_merits_predictors(
+            conn, [case], config_root=Path("config"), work_root=tmp_path / "w", run_id="r"
+        )
+        population = merits_backtest_population(conn, terms=[2024])
+
+    [(predictor_id, by_moment)] = outcome.predictions.items()
+    assert not any(by_moment.values())
+    assert sorted((loss.moment, loss.reason) for loss in outcome.lost_cells) == [
+        (Moment.briefed, "engine-failed"),
+        (Moment.grant, "engine-failed"),
+    ]
+    [entry] = score_merits_backtest(population, [], outcome).entries
+    assert entry.predictor_id == predictor_id
+    assert [(m.events_scored, m.lost) for m in entry.moments] == [(0, 1), (0, 1)]
+
+
+def test_a_quota_spent_at_grant_is_not_spent_again_at_briefed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    failing = _FailingRunner(EngineQuotaExhausted("spent"))
+    _routed(monkeypatch, failing)
+    with _replayable(tmp_path, _DECIDED_DOCKET) as conn:
+        outcome = replay_merits_predictors(
+            conn, [_case(conn)], config_root=Path("config"), work_root=tmp_path / "w", run_id="r"
+        )
+
+    assert failing.calls == 1
+    assert sorted((loss.moment, loss.reason) for loss in outcome.lost_cells) == [
+        (Moment.briefed, "quota-exhausted"),
+        (Moment.grant, "quota-exhausted"),
+    ]

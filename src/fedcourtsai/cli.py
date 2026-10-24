@@ -474,6 +474,7 @@ from .schemas import (
     LeaderboardStageEntry,
     LeakageExclusionRecord,
     LiveFrontier,
+    MeritsBacktestDispatch,
     ModelUsage,
     OpsReport,
     Outcome,
@@ -4476,12 +4477,31 @@ def merits_backtest_plan_cmd(
     backend no pulled blob is needed, though with the corpus split the snapshots
     come from the per-case content store, which must be reachable.
     """
+    wanted = _merits_terms(terms)
+    backend, db_path = _merits_corpus(corpus_backend)
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        population = merits_backtest.merits_backtest_population(conn, terms=wanted)
+    _echo_merits_population(population)
+    body = population.model_dump_json(indent=2)
+    if out is None:
+        typer.echo(body)
+    else:
+        write_text(out, body + "\n")
+
+
+def _merits_terms(terms: str) -> list[int]:
+    """``--terms`` as October Term years, in the order named."""
     try:
         wanted = [int(t) for t in terms.split(",") if t.strip()]
     except ValueError as exc:
         raise typer.BadParameter("name Terms as four-digit years", param_hint="--terms") from exc
     if not wanted or not all(1925 <= t <= 2100 for t in wanted):
         raise typer.BadParameter("name Terms as four-digit years", param_hint="--terms")
+    return wanted
+
+
+def _merits_corpus(corpus_backend: str) -> tuple[corpus.CorpusBackend, Path]:
+    """The backend and database a merits back-test command reads, refused if absent."""
     settings = get_settings()
     backend = _corpus_backend(corpus_backend) or settings.corpus_backend
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -4492,8 +4512,11 @@ def merits_backtest_plan_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect_readonly(db_path, backend=backend) as conn:
-        population = merits_backtest.merits_backtest_population(conn, terms=wanted)
+    return backend, db_path
+
+
+def _echo_merits_population(population: merits_backtest.MeritsBacktestPopulation) -> None:
+    """One line per Term and one per set-aside docket, to stderr."""
     typer.echo(f"corpus pulled through {population.pulled_through or 'undated'}", err=True)
     for term in population.terms:
         set_aside = ", ".join(f"{k} {v}" for k, v in term.excluded.items()) or "none"
@@ -4510,11 +4533,138 @@ def merits_backtest_plan_cmd(
             f"{item.judgment.value})",
             err=True,
         )
-    body = population.model_dump_json(indent=2)
-    if out is None:
-        typer.echo(body)
-    else:
-        write_text(out, body + "\n")
+
+
+@app.command("merits-backtest")
+def merits_backtest_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+    terms: Annotated[
+        str,
+        typer.Option(help="Argued October Terms to replay, comma-separated (e.g. 2025,2024)."),
+    ] = "2025",
+    limit: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases to draw, in the vintage-keyed hash order; 0 replays every case. "
+            "Every case costs two cells per predictor.",
+        ),
+    ] = 0,
+    engine: Annotated[
+        str,
+        typer.Option(
+            help="'auto' routes each predictor through its own configured engine; a "
+            "backend (" + ", ".join(available_backends()) + ") routes every predictor "
+            "through that one, for offline runs."
+        ),
+    ] = "auto",
+    skip_engines: Annotated[
+        str,
+        typer.Option(help="Comma-separated engines to opt out of, by the predictor's own engine."),
+    ] = "",
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/merits-backtest.json)."),
+    ] = None,
+    work_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Scratch root for the replay cells (default: a temporary directory). "
+            "Never data/; it must be empty."
+        ),
+    ] = None,
+    workers: Annotated[
+        int,
+        typer.Option(min=0, help="Engine lanes at once; 0 runs every lane at once."),
+    ] = 0,
+    keep_cells: Annotated[
+        Path | None,
+        typer.Option(
+            help="Move each moment's finished cell trees here, per engine and moment, "
+            "instead of deleting them. Outside --work-dir."
+        ),
+    ] = None,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Replay predictors over decided argued cases into ``metrics/merits-backtest.json``.
+
+    Draws the population ``merits-backtest-plan`` lists, provisions every drawn
+    case at the grant and briefed moments, runs each enabled predictor's cell at
+    both, and scores P(disturbed) per predictor and moment against the judgment
+    and an as-of base rate (``merits_backtest.score_merits_backtest``). Spends
+    tokens on every cell of a real engine. Out of band: it never writes the
+    ``data/`` ledger, and the report is labeled retrospective.
+    """
+    if engine != "auto" and engine not in available_backends():
+        raise typer.BadParameter(
+            f"unknown backend {engine!r}; choose 'auto' or one of "
+            f"{', '.join(available_backends())}",
+            param_hint="--engine",
+        )
+    wanted = _merits_terms(terms)
+    backend, db_path = _merits_corpus(corpus_backend)
+    settings = get_settings()
+    destination = out if out is not None else settings.metrics_root / "merits-backtest.json"
+    skipped = frozenset(e.strip() for e in skip_engines.split(",") if e.strip())
+    known = {str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")}
+    if skipped - known:
+        raise typer.BadParameter(
+            f"unknown engine(s): {', '.join(sorted(skipped - known))}; enabled engines "
+            f"are {', '.join(sorted(known))}",
+            param_hint="--skip-engines",
+        )
+    work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
+    if work_root.resolve().is_relative_to(settings.data_root.resolve()):
+        raise typer.BadParameter("the work root may not be under data/", param_hint="--work-dir")
+    if work_root.exists() and any(work_root.iterdir()):
+        raise typer.BadParameter(f"{work_root} is not empty", param_hint="--work-dir")
+    run_id = ids.run_id()
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        pool = merits_backtest.merits_backtest_population(
+            conn, terms=merits_backtest.baseline_pool_terms(wanted)
+        )
+        population = merits_backtest.population_for(pool, wanted)
+        _echo_merits_population(population)
+        key = population.pulled_through.isoformat() if population.pulled_through else "undated"
+        drawn = merits_backtest.draw_cases(population.cases, limit, key)
+        typer.echo(f"replaying {len(drawn)} of {len(population.cases)} case(s)", err=True)
+        with _standing_report_withheld(destination):
+            outcome = merits_backtest.replay_merits_predictors(
+                conn,
+                drawn,
+                config_root=settings.config_root,
+                work_root=work_root,
+                run_id=run_id,
+                engine_override=None if engine == "auto" else engine,
+                skip_engines=skipped,
+                workers=workers,
+                keep_root=keep_cells,
+            )
+    for predictor_id in outcome.unavailable:
+        typer.echo(f"dropped {predictor_id}: its engine is not installed", err=True)
+    for predictor_id, by_moment in sorted(outcome.predictions.items()):
+        if not any(by_moment.values()):
+            typer.echo(f"{predictor_id} scored no cell; its losses are in lost_cells", err=True)
+    drawn_ids = {case.case_id for case in drawn}
+    report = merits_backtest.score_merits_backtest(
+        population.model_copy(
+            update={"cases": [c for c in population.cases if c.case_id in drawn_ids]}
+        ),
+        pool.cases,
+        outcome,
+        run_id=run_id,
+        dispatch=MeritsBacktestDispatch(
+            engine=engine,
+            skip_engines=sorted(skipped),
+            terms=wanted,
+            limit=limit,
+            draw_key=key,
+        ),
+    )
+    write_json(destination, report)
+    typer.echo(
+        f"merits-backtest: {len(report.entries)} predictor(s) over {report.cells} cell(s), "
+        f"{report.paired_cases} case(s) at both moments; engine {engine} -> {destination}"
+    )
 
 
 @app.command("merits-coverage")

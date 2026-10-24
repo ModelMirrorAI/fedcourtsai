@@ -59,13 +59,24 @@ and what was fenced. A fence drops one moment's cell, not the case, so the two
 moments' cell sets can differ; a comparison *between* the moments reads only
 the cases written at both (:attr:`MeritsReplaySweep.paired`), or a lift from
 grant to briefed would be partly a difference in which cases were asked.
+
+**Scoring** (:func:`score_merits_backtest`) reads each cell's P(disturbed)
+against the judgment, per predictor and moment, and against an **as-of** base
+rate (:func:`as_of_base_rate`): the disturbed share of the population's lead
+dockets argued in the cell's Term or the few before it and decided strictly
+before the cell's cutoff. The forward channel's ``merits_base_rate`` pools by
+grant Term, which on a replay admits judgments handed down after the cutoff; the
+as-of rate admits none, at the cost of being a different baseline, so a skill
+figure here is never set beside a forward one.
 """
 
 from __future__ import annotations
 
+import hashlib
+import shutil
 from collections import Counter
-from collections.abc import Callable, Sequence
-from dataclasses import replace
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Literal
@@ -73,13 +84,40 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from . import corpus, provision
+from .backtest import BacktestPrediction
+from .cert_backtest import (
+    _engine_lanes,
+    _merged,
+    _ProvisionedPetition,
+    _run_lanes,
+    _runners_by_predictor,
+    replay_model,
+)
+from .config import get_settings
 from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.decision_record import assigned_by_term, rode_the_order
 from .pipeline.documents import KIND_MERITS_BRIEF_RESPONDENT, consolidation_lead
 from .pipeline.judgment import judgment_disturbed
 from .pipeline.outcome import forward_leakage
-from .schemas import Judgment, MeritsDecisionMethod, Moment, PredictableEvent, Stage
+from .pipeline.runner import RunRequest
+from .schemas import (
+    CertBacktestDisclosure,
+    Judgment,
+    MeritsBacktest,
+    MeritsBacktestBaseline,
+    MeritsBacktestCellLoss,
+    MeritsBacktestDispatch,
+    MeritsBacktestEntry,
+    MeritsBacktestMomentScore,
+    MeritsBacktestPaired,
+    MeritsBacktestTermCount,
+    MeritsDecisionMethod,
+    Moment,
+    PredictableEvent,
+    Stage,
+    UsageRole,
+)
 from .serialize import write_yaml
 
 #: The merits moments a replay is cut at, in time order.
@@ -440,6 +478,16 @@ def _replay_event(case: MeritsReplayCase, cut: MeritsReplayCutoff) -> Predictabl
     )
 
 
+def docket_term(case: MeritsReplayCase) -> int | None:
+    """The case's docket Term: the replay clock's Term half, self-excluding."""
+    return corpus.scotus_term_year(case.docket_number)
+
+
+def _term_clock(case: MeritsReplayCase) -> str | None:
+    term = docket_term(case)
+    return None if term is None else str(term)
+
+
 def moment_root(work_root: Path, moment: Moment) -> Path:
     """The scratch data root one moment's replay cells are written under.
 
@@ -523,7 +571,12 @@ def provision_replay_cell(
     paths = CasePaths(moment_root(work_root, cut.moment), court, int(docket))
     write_yaml(paths.event(cut.event_id).event_file, _replay_event(case, cut))
     written = provision.write_cell_record(
-        paths, case.case_id, placement, mode="replay", cutoff=cut.cutoff
+        paths,
+        case.case_id,
+        placement,
+        mode="replay",
+        cutoff=cut.cutoff,
+        decided_before=_term_clock(case),
     )
     return MeritsReplayCell(
         case_id=case.case_id,
@@ -542,8 +595,9 @@ def provision_replay_cells(
     conn: corpus.ReadConnection,
     cases: Sequence[MeritsReplayCase],
     work_root: Path,
+    moments: Sequence[Moment] = MERITS_BACKTEST_MOMENTS,
 ) -> MeritsReplaySweep:
-    """Provision every case at each of its moments into a fresh ``work_root``.
+    """Provision every case at each of ``moments`` into a fresh ``work_root``.
 
     Refuses a ``work_root`` that exists and is not empty: a cell fenced on this
     pass would otherwise leave the previous pass's cell at its path, and a
@@ -555,9 +609,446 @@ def provision_replay_cells(
     fenced: list[MeritsReplayFenced] = []
     for case in cases:
         for cut in case.cutoffs:
+            if cut.moment not in moments:
+                continue
             result = provision_replay_cell(conn, case, cut, work_root)
             if isinstance(result, MeritsReplayCell):
                 cells.append(result)
             else:
                 fenced.append(result)
     return MeritsReplaySweep(cells=cells, fenced=fenced)
+
+
+#: The salt every draw rank mixes in. Pre-registered and fixed, so a reader can
+#: recompute a recorded draw from its report's ``draw_key``.
+MERITS_DRAW_SALT = "fedcourtsai/merits-backtest/draw"
+
+
+def draw_rank(key: str, case_id: str) -> str:
+    """A case's place in the draw order: a function of the salt, the key and the id only."""
+    return hashlib.sha256(f"{MERITS_DRAW_SALT}|{key}|{case_id}".encode()).hexdigest()
+
+
+def draw_cases(cases: Sequence[MeritsReplayCase], limit: int, key: str) -> list[MeritsReplayCase]:
+    """The first ``limit`` cases in ``key``'s hash order, or every case at ``0``.
+
+    No outcome, date or docket number feeds the order, so a limited draw is a
+    simple random sample of the population, and the same vintage draws the same
+    cases.
+    """
+    ordered = sorted(cases, key=lambda case: draw_rank(key, case.case_id))
+    return ordered if limit <= 0 else ordered[:limit]
+
+
+def population_for(
+    population: MeritsBacktestPopulation, terms: Sequence[int]
+) -> MeritsBacktestPopulation:
+    """``population`` narrowed to ``terms``, in the order named."""
+    order = {term: index for index, term in enumerate(terms)}
+    return MeritsBacktestPopulation(
+        pulled_through=population.pulled_through,
+        terms=sorted(
+            (term for term in population.terms if term.term in order),
+            key=lambda term: order[term.term],
+        ),
+        cases=[case for case in population.cases if case.term in order],
+        excluded=[item for item in population.excluded if item.term in order],
+    )
+
+
+#: Argued Terms before a cell's own that its as-of baseline pools.
+MERITS_REPLAY_BASELINE_TERMS = 3
+
+#: The fewest pooled judgments an as-of baseline rests on, the forward merits
+#: floor (:data:`.pipeline.base_rates.MERITS_BASE_RATE_MIN_PARSED`) restated
+#: here so the report can carry it beside the rule.
+MERITS_REPLAY_BASELINE_MIN = 30
+
+
+def baseline_pool_terms(terms: Sequence[int]) -> list[int]:
+    """Every argued Term an as-of baseline for ``terms`` may pool, oldest first."""
+    if not terms:
+        return []
+    return list(range(min(terms) - MERITS_REPLAY_BASELINE_TERMS, max(terms) + 1))
+
+
+def as_of_base_rate(
+    pool: Sequence[MeritsReplayCase],
+    cutoff: date,
+    term: int,
+    *,
+    lookback_terms: int = MERITS_REPLAY_BASELINE_TERMS,
+    min_decided: int = MERITS_REPLAY_BASELINE_MIN,
+) -> float | None:
+    """The disturbed share of ``pool`` a cell cut at ``cutoff`` could have known.
+
+    Pools the cases argued in ``term`` or the ``lookback_terms`` before it and
+    decided strictly before ``cutoff``. ``None`` below ``min_decided`` pooled
+    judgments.
+    """
+    known = [
+        case.disturbed
+        for case in pool
+        if term - lookback_terms <= case.term <= term and case.decided < cutoff
+    ]
+    if len(known) < min_decided:
+        return None
+    return sum(known) / len(known)
+
+
+def _brier(probability: float, disturbed: bool) -> float:
+    return (probability - float(disturbed)) ** 2
+
+
+def _mean(values: Sequence[float]) -> float | None:
+    return sum(values) / len(values) if values else None
+
+
+def _moment_score(
+    moment: Moment,
+    cells: Sequence[MeritsReplayCell],
+    predicted: Mapping[str, BacktestPrediction],
+    cases: Mapping[str, MeritsReplayCase],
+    baselines: Mapping[tuple[str, Moment], float | None],
+    terms: Sequence[int],
+    disclosed: Sequence[CertBacktestDisclosure],
+) -> MeritsBacktestMomentScore:
+    briers: list[float] = []
+    hits: list[float] = []
+    disturbed: list[float] = []
+    skill_own: list[float] = []
+    skill_base: list[float] = []
+    per_term: Counter[int] = Counter({term: 0 for term in terms})
+    lost = 0
+    for cell in cells:
+        prediction = predicted.get(cell.case_id)
+        if prediction is None:
+            lost += 1
+            continue
+        case = cases[cell.case_id]
+        brier = _brier(prediction.probability_granted, case.disturbed)
+        briers.append(brier)
+        hits.append(float((prediction.probability_granted >= 0.5) == case.disturbed))
+        disturbed.append(float(case.disturbed))
+        per_term[case.term] += 1
+        base = baselines.get((cell.case_id, moment))
+        if base is not None:
+            skill_own.append(brier)
+            skill_base.append(_brier(base, case.disturbed))
+    base_sum = sum(skill_base)
+    share = _mean(disturbed)
+    return MeritsBacktestMomentScore(
+        moment=moment,
+        events_scored=len(briers),
+        lost=lost,
+        terms={str(term): n for term, n in sorted(per_term.items())},
+        accuracy=_mean(hits),
+        disturbed_share=share,
+        majority_accuracy=None if share is None else max(share, 1.0 - share),
+        mean_brier_score=_mean(briers),
+        baselined=len(skill_own),
+        baselined_brier_score=_mean(skill_own),
+        cells_flagged=sum(1 for d in disclosed if d.case_id in predicted),
+        exposure_candidates=sum(
+            1
+            for d in disclosed
+            if d.case_id in predicted and any(f.outcome_exposure_candidate for f in d.flags)
+        ),
+        baseline_brier_score=_mean(skill_base),
+        brier_skill=(1.0 - sum(skill_own) / base_sum) if skill_own and base_sum > 0 else None,
+    )
+
+
+def _paired(
+    by_moment: Mapping[Moment, Mapping[str, BacktestPrediction]],
+    cases: Mapping[str, MeritsReplayCase],
+) -> MeritsBacktestPaired:
+    grant, briefed = by_moment.get(Moment.grant, {}), by_moment.get(Moment.briefed, {})
+    both = sorted(set(grant) & set(briefed))
+    early = [_brier(grant[c].probability_granted, cases[c].disturbed) for c in both]
+    late = [_brier(briefed[c].probability_granted, cases[c].disturbed) for c in both]
+    early_mean, late_mean = _mean(early), _mean(late)
+    return MeritsBacktestPaired(
+        cases=len(both),
+        disturbed=sum(cases[c].disturbed for c in both),
+        grant_mean_brier=early_mean,
+        briefed_mean_brier=late_mean,
+        brier_change=(
+            late_mean - early_mean if early_mean is not None and late_mean is not None else None
+        ),
+    )
+
+
+def score_merits_backtest(
+    population: MeritsBacktestPopulation,
+    pool: Sequence[MeritsReplayCase],
+    outcome: MeritsReplayOutcome,
+    *,
+    run_id: str | None = None,
+    dispatch: MeritsBacktestDispatch | None = None,
+) -> MeritsBacktest:
+    """The merits back-test report over one replay's cells and what came back from them.
+
+    ``outcome.predictions`` maps predictor id, then moment, then case id to the
+    cell's prediction; a written cell with no prediction is counted ``lost`` for
+    that predictor and moment. A prediction for a cell the sweep did not write is
+    ignored: the sweep is the set scored. ``pool`` is the population the as-of
+    baselines are drawn from (:func:`baseline_pool_terms` says which Terms it
+    needs). The disclosures are counted over the scored cells and never move one
+    out of the scores.
+    """
+    sweep, predictions, ran_on = outcome.sweep, outcome.predictions, outcome.ran_on
+    disclosures = outcome.disclosures
+    cases = {case.case_id: case for case in population.cases}
+    terms = [term.term for term in population.terms]
+    baselines = {
+        (cell.case_id, cell.moment): as_of_base_rate(pool, cell.cutoff, cases[cell.case_id].term)
+        for cell in sweep.cells
+    }
+    by_moment = {
+        moment: [cell for cell in sweep.cells if cell.moment is moment]
+        for moment in MERITS_BACKTEST_MOMENTS
+    }
+    entries = []
+    for predictor_id in sorted(predictions):
+        written = {
+            moment: {
+                cell.case_id: predictions[predictor_id][moment][cell.case_id]
+                for cell in by_moment[moment]
+                if cell.case_id in predictions[predictor_id].get(moment, {})
+            }
+            for moment in MERITS_BACKTEST_MOMENTS
+        }
+        engine, model = ran_on.get(predictor_id, (None, None))
+        entries.append(
+            MeritsBacktestEntry(
+                predictor_id=predictor_id,
+                engine=engine,
+                model=model,
+                moments=[
+                    _moment_score(
+                        moment,
+                        by_moment[moment],
+                        written[moment],
+                        cases,
+                        baselines,
+                        terms,
+                        [
+                            found
+                            for at, found in disclosures
+                            if at is moment and found.predictor_id == predictor_id and found.scored
+                        ],
+                    )
+                    for moment in MERITS_BACKTEST_MOMENTS
+                ],
+                paired=_paired(written, cases),
+            )
+        )
+    return MeritsBacktest(
+        pulled_through=population.pulled_through,
+        run_id=run_id,
+        dispatch=dispatch,
+        terms=[
+            MeritsBacktestTermCount(
+                term=term.term,
+                cases=term.cases,
+                argued_unjudged=term.argued_unjudged,
+                excluded=term.excluded,
+                excluded_disturbed=sum(
+                    item.disturbed for item in population.excluded if item.term == term.term
+                ),
+            )
+            for term in population.terms
+        ],
+        cells={moment.value: len(by_moment[moment]) for moment in MERITS_BACKTEST_MOMENTS},
+        fenced=sweep.fence_counts(),
+        paired_cases=len(sweep.paired),
+        baseline=MeritsBacktestBaseline(
+            lookback_terms=MERITS_REPLAY_BASELINE_TERMS, min_decided=MERITS_REPLAY_BASELINE_MIN
+        ),
+        unavailable=sorted(outcome.unavailable),
+        lost_cells=sorted(
+            outcome.lost_cells, key=lambda loss: (loss.predictor_id, loss.case_id, loss.moment)
+        ),
+        entries=entries,
+    )
+
+
+@dataclass(frozen=True)
+class MeritsReplayOutcome:
+    """What one merits engine replay produced: the cells, and what came back.
+
+    Everything the report needs, because the work root is discarded with the
+    runner: the sweep (cells written and fenced), each predictor's predictions
+    by moment, the backend and model behind each predictor, the predictors whose
+    engine was missing, every lost cell, and what each cell wrote in
+    ``flags.json``.
+    """
+
+    sweep: MeritsReplaySweep
+    predictions: dict[str, dict[Moment, dict[str, BacktestPrediction]]]
+    ran_on: Mapping[str, tuple[str | None, str | None]]
+    unavailable: list[str]
+    lost_cells: list[MeritsBacktestCellLoss]
+    disclosures: list[tuple[Moment, CertBacktestDisclosure]] = field(default_factory=list)
+
+
+def _petitions(
+    sweep: MeritsReplaySweep,
+    by_case: Mapping[str, MeritsReplayCase],
+    *,
+    run_id: str,
+    data_root: Path,
+    ledger_root: Path | None,
+) -> list[_ProvisionedPetition]:
+    """Each written cell's run contract, its two per-predictor slots left open."""
+    petitions = []
+    for cell in sweep.cells:
+        court, _, docket = cell.case_id.partition("/")
+        petitions.append(
+            _ProvisionedPetition(
+                case_id=cell.case_id,
+                cell=RunRequest(
+                    role=UsageRole.predictor,
+                    court_id=court,
+                    docket_id=int(docket),
+                    event_id=cell.event_id,
+                    actor_id="",
+                    prompt=Path(),
+                    run_id=run_id,
+                    data_root=data_root,
+                    decided_before=docket_term(by_case[cell.case_id]),
+                    replay_cutoff=cell.cutoff,
+                ),
+                stray_paths=(
+                    CasePaths(ledger_root, court, int(docket)).event(cell.event_id)
+                    if ledger_root is not None
+                    else None
+                ),
+            )
+        )
+    return petitions
+
+
+def replay_merits_predictors(  # noqa: PLR0913 - the campaign's dispatch, each a keyword
+    conn: corpus.ReadConnection,
+    cases: Sequence[MeritsReplayCase],
+    *,
+    config_root: Path,
+    work_root: Path,
+    run_id: str,
+    engine_override: str | None = None,
+    skip_engines: frozenset[str] = frozenset(),
+    workers: int = 0,
+    keep_root: Path | None = None,
+) -> MeritsReplayOutcome:
+    """Provision every case at each moment, then run every routable predictor's cells.
+
+    The cert back-test's engine replay (:func:`.cert_backtest.replay_predictors`)
+    with a merits provisioner: the same routing, one lane per engine, the same
+    loss accounting and the same read-back of ``prediction.json`` and
+    ``flags.json``, with the probability read as P(disturbed). Every cell carries
+    the replay clock: its docket Term as ``DECIDED_BEFORE`` and its cutoff as
+    ``REPLAY_CUTOFF``.
+
+    **One moment at a time**, in time order. A moment's cells are provisioned
+    (:func:`provision_replay_cells`), copied under each engine lane's own root so
+    no cell sits beside another engine's forecast, run, read back, and then
+    removed from ``work_root`` (moved under ``keep_root`` when one is given)
+    before the next moment is provisioned. So a grant cell never has the briefed
+    record of its own case on disk, and a briefed cell never has its own grant
+    forecast there. Placement, not a wall: an engine with a shell can still read
+    whatever else is on the machine, ``keep_root`` included.
+
+    An engine found missing, or whose quota is spent, at one moment is not
+    invoked at the next: its predictors' remaining cells are recorded lost under
+    the same reason, unattempted. A predictor that loses every cell keeps its
+    (empty) place in ``predictions``, so the report shows it with nothing scored
+    rather than leaving it out.
+    """
+    if keep_root is not None and keep_root.resolve().is_relative_to(work_root.resolve()):
+        raise ValueError(f"{keep_root} is inside the work root {work_root}")
+    pairs = _runners_by_predictor(config_root, engine_override, skip_engines)
+    ran_on = {p.id: (engine_override or str(p.engine), replay_model(r)) for p, r in pairs}
+    engines = {pid: backend for pid, (backend, _) in ran_on.items()}
+    ledger_root = get_settings().data_root.resolve()
+    probe = ledger_root if ledger_root != work_root.resolve() else None
+    by_case = {case.case_id: case for case in cases}
+    predictions: dict[str, dict[Moment, dict[str, BacktestPrediction]]] = {
+        p.id: {} for p, _ in pairs
+    }
+    unavailable: set[str] = set()
+    exhausted: set[str] = set()
+    lost: list[MeritsBacktestCellLoss] = []
+    disclosures: list[tuple[Moment, CertBacktestDisclosure]] = []
+    sweeps: list[MeritsReplaySweep] = []
+    for moment in MERITS_BACKTEST_MOMENTS:
+        staged = work_root / "provisioned"
+        sweep = provision_replay_cells(conn, cases, staged, moments=[moment])
+        sweeps.append(sweep)
+        for predictor, _ in pairs:
+            if predictor.id in unavailable or engines[predictor.id] not in exhausted:
+                continue
+            lost.extend(
+                MeritsBacktestCellLoss(
+                    predictor_id=predictor.id,
+                    case_id=cell.case_id,
+                    moment=moment,
+                    reason="quota-exhausted",
+                )
+                for cell in sweep.cells
+            )
+        live = [
+            (p, r) for p, r in pairs if p.id not in unavailable and engines[p.id] not in exhausted
+        ]
+        lanes = _engine_lanes(live, engines)
+        lane_roots = {label: work_root / "lanes" / label for label, _ in lanes}
+        provisioned = moment_root(staged, moment)
+        for root in lane_roots.values():
+            if provisioned.is_dir():
+                shutil.copytree(provisioned, root)
+            else:
+                root.mkdir(parents=True)  # every cell of this moment was fenced
+        shutil.rmtree(staged, ignore_errors=True)
+        states = _run_lanes(
+            lanes,
+            _petitions(sweep, by_case, run_id=run_id, data_root=staged, ledger_root=probe),
+            engines=engines,
+            workers=workers,
+            lane_roots=lane_roots,
+        )
+        for state in states:
+            exhausted |= state.quota_exhausted
+        merged = _merged(states)
+        for predictor_id, found in merged.collected.items():
+            predictions[predictor_id][moment] = found
+        unavailable |= merged.unavailable
+        lost.extend(
+            MeritsBacktestCellLoss(
+                predictor_id=loss.predictor_id,
+                case_id=loss.case_id,
+                moment=moment,
+                reason=loss.reason,
+            )
+            for loss in merged.losses
+        )
+        disclosures.extend((moment, found) for found in merged.disclosures)
+        for label, root in lane_roots.items():
+            if keep_root is not None:
+                (keep_root / label).mkdir(parents=True, exist_ok=True)
+                shutil.move(root, keep_root / label / moment.value)
+            else:
+                shutil.rmtree(root)
+    return MeritsReplayOutcome(
+        sweep=MeritsReplaySweep(
+            cells=[cell for sweep in sweeps for cell in sweep.cells],
+            fenced=[cell for sweep in sweeps for cell in sweep.fenced],
+        ),
+        predictions={
+            pid: by_moment for pid, by_moment in predictions.items() if pid not in unavailable
+        },
+        ran_on=ran_on,
+        unavailable=sorted(unavailable),
+        lost_cells=lost,
+        disclosures=disclosures,
+    )
