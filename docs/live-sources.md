@@ -634,12 +634,16 @@ lost at the first fetch, or an application's response, docketed after it,
 reaches the corpus only if a later trigger happens to fire, and the cell then
 stages a current snapshot beside a stale document set. So every live cycle ends
 with a freshness pass (`live.refresh_stale_documents`) over the cases both
-rotations just polled:
+rotations just polled, and the undecided predict-relevant cases they did not:
 
 - **Population.** A polled case that is predict-relevant — queued for
   prediction or salience-selected, the document back-fill's own predicate — and
   was not provisioned on this poll's trigger. The poll has just read its docket,
-  so the selection over it is current and costs no request.
+  so the selection over it is current and costs no request. Behind those, up to
+  `live.document_freshness_carryover_rows` undecided predict-relevant cases the
+  cycle did not poll (`corpus.freshness_carryover_rows`), selected from their
+  stored live payload, the docket their last poll read: two content-store reads
+  each and no upstream request.
 - **Test.** The case is stale where its stored set does not hold every link the
   selection names (`documents.unheld_document_kinds`): a kind absent, a kind at
   another link, or a combined row — the opposition, the supplemental briefs,
@@ -662,9 +666,10 @@ rotations just polled:
   a cell-facing filing never waits on a store-only one; at most `live.document_freshness_per_run` cases a cycle, and last in
   the cycle, on what the polls, the outcome convergence and the selection sweep
   left of the soft deadline. A case past the cap or the deadline is owed again
-  at its next poll, because the test reads state rather than change; a link
-  upstream does not serve keeps its case stale and is retried at each poll,
-  behind every docket that moved, and the unchanged cases are taken in an order
+  the next cycle, from its stored payload where that cycle does not poll it,
+  because the test reads state rather than change; the ledger names the
+  deferred cases. A link upstream does not serve keeps its case stale and is
+  retried each cycle, behind every polled case, and the unchanged cases are taken in an order
   that rotates daily, so a run of such cases cannot hold the cap ahead of the
   same healthy ones every cycle — the ledger's `unwritten` count is those
   cases, refreshed and still storing nothing. The `Document freshness:` line in
@@ -672,8 +677,12 @@ rotations just polled:
   convergence is: a case whose fetch raises is counted `failed`, and a pass that
   raises as a whole records `error=<type>` and costs the window nothing it had
   already polled.
-- **Cost of the check.** Links only: the content store's document manifest, one
-  read per candidate, never a document body.
+- **Cost of the check.** No upstream request. For a polled case, links only:
+  the content store's document manifest, one read per candidate, never a
+  document body. A case the cycle did not poll adds one more, its stored live
+  payload, and is passed over where that read fails or holds a kind at a link
+  its payload does not select, since that payload may be older than the
+  stored set and its next poll settles which is current.
 - **Cutoff.** Freshness changes when a filing is *stored*, never where a cell is
   *placed*. Each row keeps its proceedings entry's own date, and provisioning
   keeps a document only where that date falls strictly before the cell's cutoff
