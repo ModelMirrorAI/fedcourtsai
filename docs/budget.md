@@ -84,6 +84,34 @@ so steady state is roughly 5–10 summaries a day, ≈$1–2 a day or ≈$30–6
 month — inside the model-spend envelope's headroom below, and bounded by the
 key's cap whatever a plan owes.
 
+**The merits replay and the grading pilot over it spend outside the ledger
+too** ([pipeline.md](pipeline.md), *The predict/evaluate matrix*, for the
+replay arm; [outcome-decomposition.md](outcome-decomposition.md), *The pilot,
+and what it reports*). Neither writes under `data/`, so the trailing-spend
+window the auto-release budget and the `spend` backstop read never sees them:
+each is bounded on its own terms instead.
+
+- **The replay** (`run-backtest`, `replay: merits`) runs every routable
+  predictor on each drawn case at two moments, the grant and the briefed
+  moment, so with the three engine predictors a case is two events. At the
+  planning table's predict rows ($4.27 claude-code + $1.88 codex + $2.12
+  gemini, $8.27 an event) a case prices at about $16.50, and the dispatch cap of 20 cases at about $330. The
+  arm has no `review` hold, so the dispatch is the release: the 1–20 case cap,
+  which the job's timeout sets, is its only bound.
+- **The pilot round** (`run-evaluate`, `mode: reasoning-pilot-merits`) grades
+  the briefed moment's kept forecasts for up to 15 cases, one grading run per
+  evaluator per event. At the table's evaluate rows ($5.92 + $1.30 + $1.29,
+  $8.51 an event) that is about $130. The round is always held for a release
+  and never auto-released. It reads every writing of the decision, not only
+  the majority opinion a ledger round stages, and the evaluate rows were
+  measured on cert-stage gradings that read no opinion at all, so the figure
+  reads low.
+
+Together, a 20-case replay and its pilot round (grading 15 of those cases)
+come to roughly $460, once. Both rates come from the planning table, not a measurement, and neither
+round's cells reach the committed ledger, so `fedcourts usage-summary` never
+counts what they spent: the provider bills do.
+
 ## Scenario 1: Bootstrapping
 
 The current state. Three predictors (Anthropic, OpenAI, Google) forecast a
