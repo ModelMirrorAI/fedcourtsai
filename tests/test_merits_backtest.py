@@ -12,12 +12,15 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus, merits_backtest
 from fedcourtsai.cli import app
 from fedcourtsai.merits_backtest import (
+    KEPT_FILE_MAX_BYTES,
+    KEPT_FORECAST_FILES,
     MERITS_BACKTEST_MOMENTS,
     MeritsReplayCase,
     MeritsReplayCell,
     MeritsReplayFenced,
     draw_cases,
     draw_rank,
+    kept_forecasts,
     merits_backtest_population,
     moment_root,
     provision_replay_cell,
@@ -550,15 +553,90 @@ def test_a_stub_replay_runs_every_predictor_at_both_moments(tmp_path: Path) -> N
         assert set(by_moment) == set(MERITS_BACKTEST_MOMENTS)
         assert all(set(found) == {"scotus/1"} for found in by_moment.values())
     assert all(engine == "stub" for engine, _ in outcome.ran_on.values())
-    [cell] = [c for c in outcome.sweep.cells if c.moment is Moment.briefed]
-    context = json.loads(
-        (
-            moment_root(kept / "stub", Moment.briefed) / "cases/scotus/1/record/context.json"
-        ).read_text()
-    )
-    assert context["cutoff"] == cell.cutoff.isoformat()
     # Each moment's trees leave the work root once its cells are read back.
     assert not any(work.rglob("context.json"))
+    # What is kept is the forecasts alone: no record, every file allowlisted.
+    assert (kept / "run-id").read_text() == "20261024T000000Z\n"
+    files = {p.relative_to(kept).as_posix() for p in kept.rglob("*") if p.is_file()}
+    assert not any("/record/" in f for f in files)
+    names = {f.rsplit("/", 1)[-1] for f in files} - {"run-id"}
+    assert names <= KEPT_FORECAST_FILES | {"event.yaml"}
+    for moment in MERITS_BACKTEST_MOMENTS:
+        event_dir = next((moment_root(kept / "stub", moment) / "cases/scotus/1/events").iterdir())
+        assert (event_dir / "event.yaml").is_file()
+        assert (
+            event_dir / "predictions/claude-baseline/20261024T000000Z/prediction.json"
+        ).is_file()
+
+
+def test_a_keep_root_written_during_the_run_keeps_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A file planted in the keep root while the cells ran is never shipped beside them."""
+    work, kept = tmp_path / "replay", tmp_path / "kept"
+    real = merits_backtest.kept_forecasts
+
+    def planting(root: Path, run_id: str) -> tuple[dict[Path, bytes], list[str]]:
+        (kept / "stub").mkdir(parents=True, exist_ok=True)
+        (kept / "stub/notes.txt").write_text("a record copy")
+        return real(root, run_id)
+
+    monkeypatch.setattr(merits_backtest, "kept_forecasts", planting)
+    with _replayable(tmp_path, _DECIDED_DOCKET) as conn:
+        outcome = replay_merits_predictors(
+            conn,
+            [_case(conn)],
+            config_root=Path("config"),
+            work_root=work,
+            run_id="20261024T000000Z",
+            engine_override="stub",
+            keep_root=kept,
+        )
+
+    assert not (kept / "run-id").exists()
+    assert [p.name for p in kept.rglob("*") if p.is_file()] == ["notes.txt"]
+    assert outcome.unkept == [f"{kept}: written during the run; nothing kept"]
+    with (
+        _replayable(tmp_path / "again", _DECIDED_DOCKET) as conn,
+        pytest.raises(ValueError, match="not empty"),
+    ):
+        replay_merits_predictors(
+            conn,
+            [_case(conn)],
+            config_root=Path("config"),
+            work_root=tmp_path / "replay2",
+            run_id="20261024T000000Z",
+            engine_override="stub",
+            keep_root=kept,
+        )
+
+
+def test_kept_forecasts_take_the_allowlist_and_refuse_links_and_bulk(tmp_path: Path) -> None:
+    run = "20261024T000000Z"
+    event = tmp_path / "cases/scotus/1/events/evt-x"
+    cell = event / "predictions/p/" / run
+    cell.mkdir(parents=True)
+    (event / "event.yaml").write_text("id: evt-x\n")
+    (cell / "prediction.json").write_text("{}")
+    (cell / "reasoning.md").write_bytes(b"x" * (KEPT_FILE_MAX_BYTES + 1))
+    (cell / "copy.md").write_text("a record copied under another name")
+    (event / "record").mkdir()
+    (event / "record/snapshot.json").write_text("{}")
+    (cell / "flags.json").symlink_to(event / "record/snapshot.json")
+    stale = event / "predictions/p/20250101T000000Z"
+    stale.mkdir()
+    (stale / "prediction.json").write_text("{}")
+
+    kept, refused = kept_forecasts(tmp_path, run)
+
+    assert {p.as_posix() for p in kept} == {
+        "cases/scotus/1/events/evt-x/event.yaml",
+        f"cases/scotus/1/events/evt-x/predictions/p/{run}/prediction.json",
+    }
+    assert refused == [
+        f"cases/scotus/1/events/evt-x/predictions/p/{run}/flags.json",
+        f"cases/scotus/1/events/evt-x/predictions/p/{run}/reasoning.md",
+    ]
 
 
 def test_the_backtest_command_writes_a_report_over_a_stub_replay(

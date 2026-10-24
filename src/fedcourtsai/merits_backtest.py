@@ -73,7 +73,9 @@ figure here is never set beside a forward one.
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
+import stat
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -891,6 +893,101 @@ class MeritsReplayOutcome:
     unavailable: list[str]
     lost_cells: list[MeritsBacktestCellLoss]
     disclosures: list[tuple[Moment, CertBacktestDisclosure]] = field(default_factory=list)
+    unkept: list[str] = field(default_factory=list)
+
+
+KEPT_FORECAST_FILES = frozenset(
+    {"prediction.json", "predicted_reasoning.md", "reasoning.md", "flags.json"}
+)
+"""The per-predictor files a kept cell contributes: what the grading pilot reads."""
+
+KEPT_FILE_MAX_BYTES = 256 * 1024
+"""A kept file larger than this is refused: a forecast is prose, not a record."""
+
+
+def _is_kept_path(parts: tuple[str, ...], run_id: str) -> bool:
+    """Whether a lane-relative path is an event definition or one of its forecasts."""
+    in_event = len(parts) > 5 and parts[0] == "cases" and parts[3] == "events"
+    if not in_event:
+        return False
+    if len(parts) == 6:
+        return parts[5] == "event.yaml"
+    return (
+        len(parts) == 9
+        and parts[5] == "predictions"
+        and parts[7] == run_id
+        and parts[8] in KEPT_FORECAST_FILES
+    )
+
+
+def _read_regular(path: Path) -> bytes | None:
+    """A regular file's bytes, read through one handle that refuses a link; ``None`` if not.
+
+    Opened without following a link and checked on the open handle, so a path
+    swapped for a link after the walk saw it is refused rather than followed,
+    and read at most one byte past the cap, so a file that grows is refused too.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    except OSError:
+        return None
+    with os.fdopen(fd, "rb") as handle:
+        if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+            return None
+        body = handle.read(KEPT_FILE_MAX_BYTES + 1)
+    return body if len(body) <= KEPT_FILE_MAX_BYTES else None
+
+
+def kept_forecasts(root: Path, run_id: str) -> tuple[dict[Path, bytes], list[str]]:
+    """The forecast files of one finished lane tree, by path, and the paths refused.
+
+    An allowlist over the cell layout, not an exclusion of the record: each
+    event's ``event.yaml`` (``cases/<court>/<docket>/events/<event>/``) and, in
+    that event's ``predictions/<predictor>/<run_id>/``, the files
+    :data:`KEPT_FORECAST_FILES` names. Nothing else a cell wrote is kept,
+    whatever it is called, so a copy of the record placed elsewhere in the tree
+    stays behind. A kept path must be a regular file, not a link, and at most
+    :data:`KEPT_FILE_MAX_BYTES`; an allowlisted path that fails either is
+    refused and listed. The walk does not follow links.
+    """
+    kept: dict[Path, bytes] = {}
+    refused: list[str] = []
+    for directory, _, names in os.walk(root, followlinks=False):
+        for name in names:
+            path = Path(directory, name)
+            rel = path.relative_to(root)
+            if not _is_kept_path(rel.parts, run_id):
+                continue
+            body = _read_regular(path)
+            if body is None:
+                refused.append(rel.as_posix())
+                continue
+            kept[rel] = body
+    return kept, sorted(refused)
+
+
+def _check_keep_root(keep_root: Path, work_root: Path) -> None:
+    """Refuse a keep root inside the work root, or one that already holds anything."""
+    if keep_root.resolve().is_relative_to(work_root.resolve()):
+        raise ValueError(f"{keep_root} is inside the work root {work_root}")
+    if keep_root.exists() and any(keep_root.iterdir()):
+        raise ValueError(f"{keep_root} is not empty")
+
+
+def _write_kept(keep_root: Path, kept: Mapping[Path, bytes], run_id: str) -> list[str]:
+    """Write the held forecasts under ``keep_root``, with the run they belong to.
+
+    A keep root something else wrote to while the cells ran gets nothing, so
+    the harness's files never ship beside a planted one; that is reported.
+    """
+    if keep_root.exists() and any(keep_root.iterdir()):
+        return [f"{keep_root}: written during the run; nothing kept"]
+    keep_root.mkdir(parents=True, exist_ok=True)
+    for rel, body in sorted(kept.items()):
+        (keep_root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (keep_root / rel).write_bytes(body)
+    (keep_root / "run-id").write_text(run_id + "\n")
+    return []
 
 
 def _petitions(
@@ -954,11 +1051,18 @@ def replay_merits_predictors(  # noqa: PLR0913 - the campaign's dispatch, each a
     **One moment at a time**, in time order. A moment's cells are provisioned
     (:func:`provision_replay_cells`), copied under each engine lane's own root so
     no cell sits beside another engine's forecast, run, read back, and then
-    removed from ``work_root`` (moved under ``keep_root`` when one is given)
-    before the next moment is provisioned. So a grant cell never has the briefed
-    record of its own case on disk, and a briefed cell never has its own grant
-    forecast there. Placement, not a wall: an engine with a shell can still read
-    whatever else is on the machine, ``keep_root`` included.
+    removed from ``work_root`` before the next moment is provisioned. So a grant
+    cell never has the briefed record of its own case on disk, and a briefed
+    cell never has its own grant forecast there. Placement, not a wall: an
+    engine with a shell can still read whatever else is on the machine.
+
+    With ``keep_root``, each moment's forecasts (:func:`kept_forecasts`) are
+    held in memory as its lane trees are removed, and written under
+    ``keep_root/<lane>/<moment>/`` only once the last moment's cells have
+    finished, so no forecast is on disk while a later moment's cells run.
+    ``keep_root/run-id`` names the run those forecasts belong to. A
+    ``keep_root`` that is not empty is refused at the start, and one found
+    written to by the time the last moment ends gets nothing.
 
     An engine found missing, or whose quota is spent, at one moment is not
     invoked at the next: its predictors' remaining cells are recorded lost under
@@ -966,8 +1070,8 @@ def replay_merits_predictors(  # noqa: PLR0913 - the campaign's dispatch, each a
     (empty) place in ``predictions``, so the report shows it with nothing scored
     rather than leaving it out.
     """
-    if keep_root is not None and keep_root.resolve().is_relative_to(work_root.resolve()):
-        raise ValueError(f"{keep_root} is inside the work root {work_root}")
+    if keep_root is not None:
+        _check_keep_root(keep_root, work_root)
     pairs = _runners_by_predictor(config_root, engine_override, skip_engines)
     ran_on = {p.id: (engine_override or str(p.engine), replay_model(r)) for p, r in pairs}
     engines = {pid: backend for pid, (backend, _) in ran_on.items()}
@@ -982,6 +1086,8 @@ def replay_merits_predictors(  # noqa: PLR0913 - the campaign's dispatch, each a
     lost: list[MeritsBacktestCellLoss] = []
     disclosures: list[tuple[Moment, CertBacktestDisclosure]] = []
     sweeps: list[MeritsReplaySweep] = []
+    kept: dict[Path, bytes] = {}
+    unkept: list[str] = []
     for moment in MERITS_BACKTEST_MOMENTS:
         staged = work_root / "provisioned"
         sweep = provision_replay_cells(conn, cases, staged, moments=[moment])
@@ -1035,10 +1141,16 @@ def replay_merits_predictors(  # noqa: PLR0913 - the campaign's dispatch, each a
         disclosures.extend((moment, found) for found in merged.disclosures)
         for label, root in lane_roots.items():
             if keep_root is not None:
-                (keep_root / label).mkdir(parents=True, exist_ok=True)
-                shutil.move(root, keep_root / label / moment.value)
-            else:
-                shutil.rmtree(root)
+                found_files, refused = kept_forecasts(root, run_id)
+                kept.update(
+                    {Path(label, moment.value, rel): body for rel, body in found_files.items()}
+                )
+                unkept.extend(
+                    f"{label}/{moment.value}/{rel}: a link, or over the size cap" for rel in refused
+                )
+            shutil.rmtree(root)
+    if keep_root is not None:
+        unkept.extend(_write_kept(keep_root, kept, run_id))
     return MeritsReplayOutcome(
         sweep=MeritsReplaySweep(
             cells=[cell for sweep in sweeps for cell in sweep.cells],
@@ -1051,4 +1163,5 @@ def replay_merits_predictors(  # noqa: PLR0913 - the campaign's dispatch, each a
         unavailable=sorted(unavailable),
         lost_cells=lost,
         disclosures=disclosures,
+        unkept=sorted(unkept),
     )

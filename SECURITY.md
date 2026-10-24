@@ -141,7 +141,29 @@ runbook, [docs/security.md](docs/security.md).
   environment — the arrangement that scanner exists to avoid
   ([docs/security.md](docs/security.md)). The label-line count on that summary is arithmetic over the file
   rather than anything read out of it, which is why it is stated whether or
-  not the file itself travels. Holding that key makes the
+  not the file itself travels. A fourth is a merits back-test replay's
+  `merits-forecasts` artifact: each cell's allowlisted forecast files and
+  event definition (`merits_backtest.kept_forecasts`, written only once the
+  last cell has finished, never the provisioned record; the upload step
+  applies the same allowlist again and withholds the whole artifact if the
+  keep folder holds any other file, since a cell can reach that path, then
+  uploads a fresh copy of what passed), kept 30 days and,
+  like every artifact of this public repository, downloadable by any
+  signed-in GitHub user. The scan (`--extra-file`, entropy rule on, the run's
+  own ledger paths exempt by `--run-id`) is its whole gate, and it fails
+  closed: a hit, a misconfigured scan, or a kept entry that is not a regular
+  file withholds the artifact while the run's report still lands. Two gaps in
+  that gate are accepted rather than closed. The scanner runs from the
+  checkout the cells held, with all three engine keys in its environment, so
+  its import path is not a fresh tree; and a process a cell left behind can
+  swap a scanned file before the upload step reads it. Neither reaches a
+  credential a cell lacked: a replay cell's parent carries those keys and the
+  job's read-only corpus credentials throughout (the same-user residual in
+  [docs/security.md](docs/security.md)), and the cell holds web tools under
+  the replay contract, so it already has egress. What the gaps defeat is the
+  scan as a check on an engine that would publish a key, which is why the
+  reachable secret on this surface is a model key, not the CourtListener
+  token below. Holding that key makes the
   scan's own **import path** part of the gate, and it follows an agent that
   writes freely in the tree the editable install resolves through — so the
   scanner is built from a checkout taken *after* the agent exits and fetched
