@@ -178,7 +178,7 @@ def classify_grant(  # noqa: PLR0911 - one return per status, in the enum's orde
 
 
 def _rode_the_order(row: corpus.CorpusRow) -> bool:
-    # The judgment-date half of `decision_record._rode_the_order` only: the
+    # The judgment-date half of `decision_record.rode_the_order` only: the
     # population is already the merits-proceeding labels, so no cert-order
     # label can reach here.
     return (
