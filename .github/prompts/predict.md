@@ -83,7 +83,11 @@ the output directory you will write to.
    section), `petition.txt`, `brief-in-opposition.txt`, and where filed
    `appendix.txt` (an appendix filed under its own link), `cert-reply.txt`
    (the petitioner's reply to the opposition) and `sg-invited-brief.txt` (the
-   Solicitor General's brief, once invited); on an application docket
+   Solicitor General's brief, once invited), `supplemental-brief.txt` (every
+   party's supplemental brief while the petition is pending, combined) and
+   `party-letter.txt` (the parties' letters to the Clerk bearing on the case
+   while it is pending — mootness, settlement, withdrawal, an intervening
+   decision — combined); on an application docket
    `application.txt`, `application-response.txt` (the first response) and
    `application-reply.txt` (the applicant's reply); on a granted
    docket also each side's brief on the merits and reply, which *Stage:
@@ -608,7 +612,16 @@ are:
   in `documents.json`). Only this moment's cells are handed it. Weigh what the
   Justices asked and of whom, and summarize rather than quote, as for the
   briefs below. A question from the bench is not a vote, so say in
-  `reasoning.md` how far you read one as a lean. Where no transcript was
+  `reasoning.md` how far you read one as a lean. Beside it,
+  `record/argument-features.json` is the pipeline's deterministic count of the
+  same transcript: each Justice's turns and words while each side's advocate
+  had the lectern, the segments it read off the transcript's headers, and a
+  coverage block counting what it could not attribute. It reads speaker labels
+  and headers and nothing else, so it measures who was questioned how much,
+  never what was asked or which way: use it to check your own reading of
+  where the questioning fell, quote its coverage beside any figure you take
+  from it, and never read a count as a vote. It is absent where no transcript
+  was staged or the parse could not read one. Where no transcript was
   provisioned, or it has `empty_text: true`, say so and forecast from the
   briefs and the docket.
 
@@ -647,6 +660,23 @@ or the argument, was worth.
   count an honest provenance block needs), so the block is elicited and banked
   ahead of its observation channel rather than scored. Use the **vote**
   vocabulary (majority / dissent / …), never a disposition.
+- **The statpack's per-Justice votes section is the vote block's anchor.**
+  Where `metrics/statpack.md` carries a **"Per-Justice merits votes (complete
+  lineups)"** section, it counts each Justice's votes per Term on the signed
+  decisions whose writings seat the whole bench: how often each voted with the
+  judgment, and how often each voted to disturb the judgment below (of the
+  plain affirmances, reversals and vacaturs). The pairwise agreement counts are
+  in `statpack.json` under `justice_votes`. Pool only the Terms **strictly
+  before your case's grant Term** — the section's Term is the decision's Term,
+  so a Term at or after your grant could hold your own case — and quote the
+  counts beside any rate you lean on. Read it with its caption's cautions: per
+  curiams and unseatable lineups are left out, and summary reversals are among
+  them, so the disturb rates are over a selected population; and its disturb
+  axis leaves out DIGs, equally divided Courts and mixed judgments, so it is
+  not the merits section's disturbed rate and the two are not to be compared.
+  Where the section is absent or no Term before your grant Term is in it, say
+  so in `reasoning.md` and forecast the votes without it rather than borrowing
+  a Term the rule excludes.
 - **What the record shows at this stage — and what it does not.** Your
   snapshot is the granted docket: the petition and its questions presented, the
   distributions and any CVSG that preceded the grant, the grant order itself,
@@ -661,7 +691,11 @@ or the argument, was worth.
   and `merits-brief-respondent.txt`, and each side's **reply on the merits**,
   `merits-reply-petitioner.txt` and `merits-reply-respondent.txt` (the
   respondent files one only where the posture gives it the last word) — one row
-  per side, selected only from filings after the grant. Which of them reaches
+  per side, selected only from filings after the grant — and, where the United
+  States filed one after the grant, its **amicus brief on the merits**,
+  `merits-amicus-united-states.txt`. Say in `reasoning.md` which side it
+  supports and how far your forecast follows it; it is the only amicus brief
+  the pipeline stages. Which of them reaches
   *your* desk is your moment's doing: the same date bound that cuts your
   snapshot cuts this directory, so where `context.cutoff` is set a `moment:
   grant` cell's briefs fall outside it and a `moment: briefed` or `moment:
@@ -1071,6 +1105,17 @@ intuition. Both are denial-reweighted over the population the salience gate
 actually predicts on, so their levels are yours to use directly — the pooled cuts
 of the same name in the court-facing docket pack include IFP petitions and sit
 well below.
+
+The **"Cert petitions by amicus-brief count (paid scored segment)"** cut beside
+them buckets the same population by the amicus briefs docketed before the
+petition's disposition: `0`, `1` and `2+`. Count yours off the docket the same
+way, and read its caption before you use it: the count is a stakes proxy, not a
+census (the Solicitor General's invited brief counts, and so does a paper that
+only recites the phrase), it is read at disposition rather than at your moment,
+so a pending petition's count can still rise, and the split describes the
+populations rather than what the count adds over the relist and CVSG cuts.
+Quote the `n` beside any bucket you cite, and treat a large `(unknown)` bucket
+as a coverage gap in the cut, not as petitions with no amicus support.
 
 Two things the shape will tell you: most petitions are never relisted at all, and
 the first relist barely raises the chance of a second — but past that the hazard

@@ -11,7 +11,7 @@ posts under its own link, every non-amicus brief in opposition, the
 petitioner's cert-stage reply, the Solicitor General's invited brief, each
 side's brief on the merits once the petition is granted, and each party's
 supplemental briefs and letters to the Clerk while the petition is pending,
-which are stored but not yet given to any cell. Everything here
+and the United States' amicus brief on the merits. Everything here
 is **pipeline-side** —
 documents are fetched and text-extracted at ingest time (the live poller, on
 the same distribution transition that queues prediction), stored in the

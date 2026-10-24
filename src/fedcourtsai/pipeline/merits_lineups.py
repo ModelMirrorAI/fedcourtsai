@@ -21,8 +21,9 @@ source:
 
 **Derived, not stored.** A lineup is recomputed from the rows on every read,
 so it cannot drift from the record it describes, and a new rule reaches every
-Term at once. Nothing a cell sees reads it: no ``query`` row, provisioning
-step, outcome, mint or score.
+Term at once. A cell reads it only through the statpack's per-Justice votes
+section (:func:`.justice_priors.justice_votes_section`): no ``query`` row,
+provisioning step, outcome, mint or score reads it.
 
 **Complete or nothing.** A lineup's ``votes`` are the whole bench or empty,
 with the reason, and only a filled bench row can complete one. Without it the

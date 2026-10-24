@@ -1938,9 +1938,9 @@ def cert_amicus_section(*, corpus_db_path: Path) -> StatPackSection:
     """The cert-stage amicus cut over the paid scored segment, built on its own.
 
     The same population, weighting and bucket rollup as the relist and CVSG
-    cuts beside it in the statpack, over one streamed pass. It is not a
-    statpack section yet (:data:`_CERT_BY_AMICUS_PAID` says why), so this is the
-    one way to read it; an absent corpus yields the empty section.
+    cuts beside it in the statpack, over one streamed pass, for a reader that
+    wants the cut without the rest of the pack; an absent corpus yields the
+    empty section.
     """
     specs = (_CERT_BY_AMICUS_PAID,)
     if not corpus_db_path.exists():

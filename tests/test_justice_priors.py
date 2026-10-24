@@ -10,8 +10,8 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus
-from fedcourtsai.cli import app
 from fedcourtsai.analytics import build_statpack, render_statpack_markdown
+from fedcourtsai.cli import app
 from fedcourtsai.pipeline.justice_priors import (
     case_judgments,
     justice_priors,
