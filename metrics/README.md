@@ -351,7 +351,9 @@ which the daily `big-cases` lane keeps current on its own cadence,
 missing week, and
 `salience-replay.json`, produced on demand by the free, deterministic
 `fedcourts salience-replay` (locally, or via the `run-backtest` dispatch's
-`replay: salience-gate` mode, landing as a reviewed PR), and
+`replay: salience-gate` mode, landing as a reviewed PR),
+`merits-backtest.json`, which only a `run-backtest` dispatch in `replay: merits`
+mode writes, as a reviewed PR, and
 `semantic-grades-<stratum>-<scope>.json`, which `fedcourts semantic-summary`
 writes **only** when the semantic census clears both preconditions below — it
 is outside the gate precisely because its absence is a state the contract

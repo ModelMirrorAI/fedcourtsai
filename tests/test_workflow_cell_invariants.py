@@ -404,8 +404,13 @@ def _backtest_report_upload(steps: list[dict[str, Any]]) -> int:
     """The replay job's one hand-off: the arm's report, staged out of the tree
     and uploaded for the publish job."""
     stage = next(i for i, step in enumerate(steps) if step.get("id") == "report")
-    found = [i for i, step in enumerate(steps) if "upload-artifact" in str(step.get("uses") or "")]
-    assert len(found) == 1, f"expected exactly one upload, found {found}"
+    uploads = [
+        i for i, step in enumerate(steps) if "upload-artifact" in str(step.get("uses") or "")
+    ]
+    found = [i for i in uploads if steps[i]["with"]["name"] == "backtest-report"]
+    assert len(found) == 1, f"expected exactly one report upload, found {found}"
+    # The one other upload is the merits forecasts', pinned below.
+    assert [steps[i]["with"]["name"] for i in uploads if i not in found] == ["merits-forecasts"]
     upload = steps[found[0]]
     assert upload["with"]["path"] == "${{ runner.temp }}/backtest-report", (
         "only the staged report may cross, never the checkout's metrics/"
@@ -447,18 +452,17 @@ def test_the_backtest_replay_brackets_its_cells_with_the_ledger_removal() -> Non
     fences = [i for i, run in enumerate(runs) if run.strip() == "rm -rf data/cases"]
     assert len(fences) == 1, f"expected exactly one bare data/cases removal, found {fences}"
     remove = fences[0]
-    # The cell step, named by the scratch root only its invocation passes:
+    # The cell steps, named by the scratch root only their invocations pass:
     # `cert-backtest` alone also matches the PR step's `cert-backtest-plan`.
-    cells = index('--work-dir "$work_dir"')
-    assert "fedcourts cert-backtest" in runs[cells]
+    first, last = _backtest_cell_steps(runs)
     restore = index("git checkout -- data/cases")
     # Likewise pinned to the invocation, not the PR body's echo of it.
     salience = index('fedcourts salience-replay --terms "$BT_TERMS"')
     upload = _backtest_report_upload(steps)
 
-    assert remove < cells, "the ledger leaves the tree before the replay cells run"
-    assert cells < restore < salience, (
-        "the restore is the first post-cell step and precedes the salience-gate arm"
+    assert remove < first, "the ledger leaves the tree before the replay cells run"
+    assert last < restore < salience, (
+        "the restore follows every cell step and precedes the salience-gate arm"
     )
     assert restore < upload, "the report leaves for the publish job from a restored tree"
     # The wipe before the checkout is what makes the restore cover untracked
@@ -511,13 +515,13 @@ def test_the_backtest_replay_brackets_its_cells_with_the_big_case_board_removal(
     fences = [i for i, run in enumerate(runs) if run.strip() == f"rm -f {paths}"]
     assert len(fences) == 1, f"expected exactly one bare removal of {paths}, found {fences}"
     remove = fences[0]
-    cells = index('--work-dir "$work_dir"')
+    first, last = _backtest_cell_steps(runs)
     restore = index(f"git checkout HEAD -- {paths}")
     salience = index('fedcourts salience-replay --terms "$BT_TERMS"')
     upload = _backtest_report_upload(steps)
 
-    assert remove < cells, "the board leaves the tree before the replay cells run"
-    assert cells < restore < salience < upload, (
+    assert remove < first, "the board leaves the tree before the replay cells run"
+    assert last < restore < salience < upload, (
         "the restore follows the cells and precedes the salience-gate arm and the upload"
     )
     assert f"git status --porcelain -- {paths}" in runs[restore], (
@@ -541,11 +545,30 @@ def test_the_backtest_replay_brackets_its_cells_with_the_update_history_removal(
     assert len(fences) == 1, f"expected exactly one bare removal of {staged}, found {fences}"
     remove = fences[0]
     assert "if" not in steps[remove]
-    cells = next(i for i, run in enumerate(runs) if '--work-dir "$work_dir"' in run)
+    first, last = _backtest_cell_steps(runs)
     restore = next(i for i, run in enumerate(runs) if f"git checkout HEAD -- {staged}" in run)
-    assert remove < cells < restore
+    assert remove < first <= last < restore
     assert f"git status --porcelain -- {staged})" in runs[restore]
     assert steps[restore].get("if") == "${{ !cancelled() }}"
+
+
+def _backtest_cell_steps(runs: list[str]) -> tuple[int, int]:
+    """The first and last of the back-test's two cell steps, cert's and merits'.
+
+    Each is named by the scratch root only a cell invocation passes, and each
+    must be the one invocation of its command, so a third arm that runs cells
+    fails here until the fences are checked around it too.
+    """
+    cells = [i for i, run in enumerate(runs) if '--work-dir "$work_dir"' in run]
+    commands = sorted(
+        name
+        for i in cells
+        for name in ("fedcourts cert-backtest", "fedcourts merits-backtest")
+        if name in runs[i]
+    )
+    assert commands == ["fedcourts cert-backtest", "fedcourts merits-backtest"], commands
+    assert len(cells) == 2, cells
+    return cells[0], cells[-1]
 
 
 def test_the_backtest_publish_job_checks_the_report_before_it_mints() -> None:
@@ -555,9 +578,9 @@ def test_the_backtest_publish_job_checks_the_report_before_it_mints() -> None:
     one report and nothing else, as a regular file; it overlays the committed
     copy rather than replacing `metrics/` (an upload drops dotfiles, and a
     replaced tree would stage their deletion); the tree may then differ from
-    the commit at that path alone; the plan is rendered and the change and
-    the prose are scanned for secrets. The token steps run only on a checked
-    change, and run git and gh alone."""
+    the commit at that path alone, modified or, for an arm's first report, new;
+    the plan is rendered and the change and the prose are scanned for secrets.
+    The token steps run only on a checked change, and run git and gh alone."""
     steps = _load("run-backtest.yml")["jobs"]["publish"]["steps"]
     names = [step.get("name") for step in steps]
     stage_at = next(i for i, step in enumerate(steps) if step.get("id") == "stage")
@@ -568,7 +591,10 @@ def test_the_backtest_publish_job_checks_the_report_before_it_mints() -> None:
     assert 'find "$dir" -mindepth 1 ! -path "$dir/$report"' in run
     assert '[ -L "$dir/$report" ]' in run
     assert 'cp "$dir/$report" "metrics/$report"' in run
-    assert 'if [ "$changed" != " M metrics/${report}" ]; then' in run
+    assert (
+        'if [ "$changed" != " M metrics/${report}" ] '
+        + '&& [ "$changed" != "?? metrics/${report}" ]; then'
+    ) in run
     assert "uv run fedcourts cert-backtest-plan" in run
     assert "uv run fedcourts scan-diff-for-secrets" in run
     assert run.index('git add "metrics/$report"') < run.index("scan-diff-for-secrets")
@@ -4925,3 +4951,40 @@ def test_every_workflow_job_runs_on_the_pinned_runner_image() -> None:
             )
             checked += 1
     assert checked >= 50, f"only {checked} jobs checked — did the workflow glob move?"
+
+
+def test_the_merits_forecasts_leave_without_their_record_and_only_after_a_scan() -> None:
+    """A merits replay cell's forecast is what the grading pilot reads, and its
+    provisioned record holds stored snapshot and document text, which never
+    leaves the runner: the kept tree is the harness's allowlist, so the upload
+    reads it and nothing else, and refuses a tree holding anything but regular
+    files and directories. The cells ran with the engine keys in their
+    environment and wrote free text, so the upload waits on a scan for the keys
+    and for credential shapes, and a fault there withholds the forecasts
+    without failing the job that hands off the report."""
+    steps = _load("run-backtest.yml")["jobs"]["backtest"]["steps"]
+    [merits] = [s for s in steps if "fedcourts merits-backtest" in str(s.get("run") or "")]
+    assert '--keep-cells "$RUNNER_TEMP/merits-cells"' in merits["run"]
+    assert '[ "$BT_LIMIT" -gt 20 ]' in merits["run"]
+    collect = next(i for i, step in enumerate(steps) if step.get("id") == "forecasts")
+    run = str(steps[collect]["run"])
+    assert "! -type f ! -type d" in run
+    assert run.index("! -type f ! -type d") < run.index("scan-diff-for-secrets")
+    assert "uv run fedcourts scan-diff-for-secrets" in run
+    assert '--run-id "$run_id"' in run
+    for key in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"):
+        assert f"--known-secret-env {key}" in run
+    assert run.index("scan-diff-for-secrets") < run.index('echo "present=true"')
+    assert steps[collect].get("continue-on-error") is True
+    [upload] = [
+        i
+        for i, step in enumerate(steps)
+        if "upload-artifact" in str(step.get("uses") or "")
+        and step["with"]["name"] == "merits-forecasts"
+    ]
+    assert collect < upload
+    assert steps[upload]["with"]["path"] == "${{ steps.forecasts.outputs.dir }}"
+    # The step re-applies the allowlist and withholds on any other file.
+    assert "outside the forecast allowlist" in run
+    assert 'mktemp -d "$RUNNER_TEMP/merits-forecasts.XXXXXXXX"' in run
+    assert "steps.forecasts.outputs.present == 'true'" in steps[upload]["if"]

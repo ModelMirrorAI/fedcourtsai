@@ -4579,8 +4579,9 @@ def merits_backtest_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
     keep_cells: Annotated[
         Path | None,
         typer.Option(
-            help="Move each moment's finished cell trees here, per engine and moment, "
-            "instead of deleting them. Outside --work-dir."
+            help="Keep each cell's forecast files and event definition here, per engine "
+            "and moment, written once every moment has run; the record is never kept. "
+            "Outside --work-dir."
         ),
     ] = None,
     corpus_backend: CorpusBackendOption = "",
@@ -4617,6 +4618,8 @@ def merits_backtest_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
         raise typer.BadParameter("the work root may not be under data/", param_hint="--work-dir")
     if work_root.exists() and any(work_root.iterdir()):
         raise typer.BadParameter(f"{work_root} is not empty", param_hint="--work-dir")
+    if keep_cells is not None and keep_cells.exists() and any(keep_cells.iterdir()):
+        raise typer.BadParameter(f"{keep_cells} is not empty", param_hint="--keep-cells")
     run_id = ids.run_id()
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         pool = merits_backtest.merits_backtest_population(
@@ -4641,6 +4644,8 @@ def merits_backtest_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options m
             )
     for predictor_id in outcome.unavailable:
         typer.echo(f"dropped {predictor_id}: its engine is not installed", err=True)
+    for path in outcome.unkept:
+        typer.echo(f"not kept: {path}", err=True)
     for predictor_id, by_moment in sorted(outcome.predictions.items()):
         if not any(by_moment.values()):
             typer.echo(f"{predictor_id} scored no cell; its losses are in lost_cells", err=True)

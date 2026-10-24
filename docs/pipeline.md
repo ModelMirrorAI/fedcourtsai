@@ -43,7 +43,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
 | `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, or the `reasoning-pilot` round of the unregistered `predicted_reasoning_quality` grade, which is always held for review and commits nothing | Claude Code + Codex + Gemini |
-| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
+| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
@@ -2711,6 +2711,26 @@ population, the snapshots and the outcomes the replay scores against all come
 from the corpus, and every cell is provisioned under `--work-dir`. The
 misplaced-write probe is unaffected — an engine following the prompt template's
 `data/cases/...` path recreates the directory the probe looks for.
+
+The merits arm (`replay: merits`) runs in the same checkout under the same
+removals and restores, with its own report, `metrics/merits-backtest.json`, the
+one file that crosses to `publish`. It adds two things of its own. Its cells
+run one moment at a time (`fedcourts merits-backtest`), so a grant cell never
+has its case's briefed record on disk, and the forecasts kept for upload are
+held in memory until both moments have run, so a briefed cell never has a
+grant forecast there either. And each cell's forecast files and event
+definition, an allowlist the harness applies (`kept_forecasts`) and never its
+provisioned `record/`, leave the runner as the run's `merits-forecasts`
+artifact, after a secret scan and kept 30 days, which is what the
+forecast-document grading pilot reads. A scan hit withholds the artifact and
+the report still lands. The dispatch draws 1 to 20 cases: the arm has no
+`review` hold, and a larger draw would outlast the job's timeout, which lands
+neither the report nor the forecasts. What the removals do not reach is accepted on the arm's
+own terms: committed prose that names a decided judgment (the freeze record
+does), the full-depth history, and the web, which a replay cell may search
+under the replay contract. The report is retrospective for exactly that
+reason, and every cell's `flags.json` disclosures are counted beside its
+scores.
 
 The fence reaches the priors a cell retrieves as well. Every `fedcourts query`
 on a dated or truncated cell runs under its replay clock, as does every query a
