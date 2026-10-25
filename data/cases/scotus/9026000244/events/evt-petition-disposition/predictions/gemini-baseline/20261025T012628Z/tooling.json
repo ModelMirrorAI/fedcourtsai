@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000244",
+  "run_id": "20261025T012628Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts segment-anchors",
+    "metrics/statpack.md",
+    "metrics/docket.md",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt, questions-presented.txt, and appendix.txt under record/documents/",
+    "fedcourts segment-anchors --term 2026 for exact sal-v4 baseline risk-set (5.00%) and terminal (1.21%) base rates",
+    "fedcourts query for inspecting No. 26-244 and Laboratory Corp. v. Davis (No. 24-304)",
+    "metrics/statpack.md and metrics/docket.md"
+  ],
+  "gaps": [
+    "A flag on fedcourts query to search SCOTUS dockets by attorney or amicus party name"
+  ],
+  "notes": "Provisioned petition and appendix documents together with statpack.md, segment-anchors, and corpus lookup of Laboratory Corp. v. Davis (No. 24-304) provided complete context for evaluating this repeat-QP Rule 23(f) cert petition."
+}

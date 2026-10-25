@@ -1,0 +1,72 @@
+{
+  "big_case_rationale": "The question (uninjured members in Rule 23(b)(3) damages classes) is nationally significant and twice granted before, but this vehicle is a small Oregon bottle-deposit class decided in an unpublished memorandum.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/9026000244",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.17
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.95
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.03
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.35
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.12
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-25",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-25T01:42:24Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-25.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.17,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54",
+    "label": "proc-v11",
+    "pipeline_sha": "64ef0ea91ce5bed3eedbfadbb3b959052daea65f",
+    "stamped_at": "2026-10-25T01:42:57.326140Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261025T012628Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

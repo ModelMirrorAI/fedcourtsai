@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500260",
+  "gaps": [
+    "The default uv cache directory was read-only; uv --no-cache worked."
+  ],
+  "helpful": [
+    "Frozen band and distribution count made the conditioning explicit.",
+    "Provisioned petition included the lower-court opinion, allowing vehicle assessment.",
+    "Official general-precedent retrieval qualified the petition's circuit-split framing."
+  ],
+  "notes": "The opposition was not provisioned and is not shown as filed; the snapshot's response deadline is November 2, 2026. No target-case live retrieval or corpus-prior lookup was used. A further distribution is likely because the response was called for after the original distribution, not because a substantive relist has already occurred.",
+  "role": "predictor",
+  "run_id": "20261025T012628Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned-record and schema reads",
+    "fedcourts paths",
+    "committed statpack",
+    "web search/open/find: primary general legal authorities",
+    "Python: pooled prior-Term baseline",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
