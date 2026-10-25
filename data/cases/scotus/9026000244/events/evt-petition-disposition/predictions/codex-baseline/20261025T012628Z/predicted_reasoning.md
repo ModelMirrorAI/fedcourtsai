@@ -1,0 +1,13 @@
+# Forecast of the Court's handling
+
+The Court will most likely deny certiorari, but plenary review is a substantial competing possibility. The forecast is 44% for any grant and 56% for no grant, with denial the modal disposition.
+
+The snapshot shows one distribution, on September 2, 2026, for the September 28 conference. The Court requested a response the next day, and the response deadline has since been extended to December 4, 2026. I expect another distribution after that response and any reply, not a disposition at the already-passed September conference. The probability of at least one additional distribution is 98%. This predicts the contract's distribution-count increment, including administrative redistribution; it does not imply a 98% probability of a substantive relist after an actual conference consideration. My modal trajectory is one further distribution, with one additional substantive relist a plausible alternative. A decision in January–March 2027 is more likely than an immediate order, assuming the response arrives on the present schedule.
+
+I expect no call for the Solicitor General's views: the probability of a new CVSG is 2.5%. Although the question concerns federal procedure and jurisdiction, the dispute is between private parties, and the Court has already examined the same general question in another vehicle.
+
+If review is granted, the Court will most likely take the petition's single question substantially as presented: whether Rule 23(b)(3) permits certification of a damages class containing members without Article III injury. A reformulation focusing on predominance and the management of uninjured members is more likely than a decision reaching every possible constitutional rule about absent-class-member standing. Conditionally on review, a restriction on certification of materially overinclusive damages classes is the likelier merits direction, not a forecast that any merits opinion will actually issue here.
+
+Plenary briefing and argument are much likelier than a disposition in the cert order. The conditional probability of a summary-disposition route is 6%. The competing circuit approaches require a substantive choice, and the record identifies no intervening controlling decision that would make a GVR the natural route. Laboratory Corp. was dismissed without resolving the question and supplies no new controlling holding to apply summarily.
+
+If the Court denies review, I expect no separate writing. The conditional probability of a noted dissent or statement respecting denial is 16%. Kavanaugh is the most plausible source of such a writing given his prior expressed position, but this is contextual attribution, not a prediction of any particular Justice's otherwise unobserved cert vote.

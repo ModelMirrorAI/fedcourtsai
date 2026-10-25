@@ -611,14 +611,22 @@ def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> li
     a document kind added for one moment changes no other moment's information
     set.
     """
+    return [document for document in documents if moment_admits_kind(document.kind, event_id)]
+
+
+def moment_admits_kind(kind: str, event_id: str) -> bool:
+    """Whether a cell for ``event_id`` may be handed a document of ``kind`` at all.
+
+    The per-kind test :func:`documents_for_moment` applies, asked of a kind
+    alone so a caller holding a selection rather than stored rows (the local
+    cascade's unheld-document report) draws the same line.
+    """
+    if kind in WITHHELD_KINDS:
+        return False
+    if kind != KIND_ARGUMENT_TRANSCRIPT:
+        return True
     spec = moments.spec_for(event_id)
-    argued = spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
-    return [
-        document
-        for document in documents
-        if (argued or document.kind != KIND_ARGUMENT_TRANSCRIPT)
-        and document.kind not in WITHHELD_KINDS
-    ]
+    return spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
 
 
 AUTHORSHIP_TALLY_WITHHELD = True
@@ -1040,7 +1048,7 @@ class RecordWrite:
     authorship_tally: AuthorshipTally | None = None
 
 
-def write_cell_record(
+def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keyword
     paths: CasePaths,
     case_id: str,
     placement: Placement,
@@ -1050,6 +1058,7 @@ def write_cell_record(
     snapshot_dest: Path | None = None,
     related: Sequence[RelatedPlacement] = (),
     authorship_tally: AuthorshipTally | None = None,
+    decided_before: str | None = None,
 ) -> RecordWrite:
     """Materialize one cell's whole ``record/`` from its placement.
 
@@ -1087,6 +1096,9 @@ def write_cell_record(
     caller asking for a copy rather than for a cell's record; the clearing is
     skipped there, since emptying the record to write outside it would destroy a
     provisioned cell on behalf of a command that provisioned none.
+
+    ``decided_before`` is a replay cell's Term clock, stated in ``context.json``
+    beside the cutoff; a forward cell has none.
     """
     kinds = screen_document_kinds(placement.documents)
     if snapshot_dest is None:
@@ -1127,6 +1139,7 @@ def write_cell_record(
             provenance=placement.provenance,
             cutoff=cutoff,
             boundary=placement.boundary,
+            decided_before=decided_before,
         ).model_dump(mode="json"),
     )
     staged: list[tuple[CaseDocument, ScrubbedText | None]] = []

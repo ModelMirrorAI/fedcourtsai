@@ -1,0 +1,72 @@
+{
+  "big_case_rationale": "A recurring federal-courts question (how Younger's important-state-interest prong treats one State's extraterritorial enforcement against out-of-state lenders) with real federalism stakes, but a doctrinal-procedural issue rather than a headline merits question.",
+  "big_case_score": 0.35,
+  "case_id": "scotus/73500260",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.09
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.95
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.05
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-25",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-25T01:38:40Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-25.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.09,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54",
+    "label": "proc-v11",
+    "pipeline_sha": "64ef0ea91ce5bed3eedbfadbb3b959052daea65f",
+    "stamped_at": "2026-10-25T01:39:43.035178Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261025T012628Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

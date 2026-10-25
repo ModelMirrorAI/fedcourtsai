@@ -2284,7 +2284,15 @@ committed evaluations are never edited.
    and uploads the evaluations and the report rather than committing them)
    exist, and a pilot row stages every writing of the decision (`fedcourts
    provision-opinion --writings`, from the per-writing texts the
-   `opinion-record` pass stores); the replay merits calibration cells are not
-   yet sampled.
+   `opinion-record` pass stores). The replay merits calibration cells come
+   from a merits back-test's kept forecasts (`run-backtest`'s `replay:
+   merits`, its `merits-forecasts` artifact): `fedcourts
+   reasoning-pilot-merits-sample` lays them into the round's working tree as
+   resolved merits events and samples them, and `evaluate-matrix
+   --calibration` marks their rows. run-evaluate's
+   `reasoning-pilot-merits` dispatch mode is the round that grades them: it
+   takes the newest successful merits back-test's artifact on `main`, lays
+   each cell's event into its checkout, and uploads the evaluations and the
+   report as the cert and interim round does.
 2. **The reference labels and the pilot run itself.**
 3. **Registration**, as above.

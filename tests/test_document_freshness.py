@@ -36,6 +36,7 @@ from fedcourtsai.pipeline.live import (
     refresh_stale_documents,
 )
 from fedcourtsai.provision import CellRead, documents_before, moment_cutoff, place_at_moment
+from fedcourtsai.schemas import EventKind
 from fedcourtsai.supremecourt import SupremeCourtClient, live_docket_id
 from tests.test_documents import _pdf
 
@@ -690,3 +691,184 @@ def test_the_unchanged_half_rotates_by_day_behind_the_moved_dockets() -> None:
     assert first[0] == second[0] == "scotus/99"
     assert first[1:] != second[1:]
     assert order(date(2026, 10, 9)) == first  # deterministic within a day
+
+
+# --- the unpolled cases: owed again before their next poll ---------------------------
+
+
+def _store_live(db: Path, case_id: str, payload: dict[str, Any], *, on: date) -> None:
+    """Keep ``payload`` as ``case_id``'s stored live snapshot, as its last poll would."""
+    with corpus.connect(db) as conn:
+        corpus.upsert_snapshot(conn, case_id, on, payload)
+
+
+def test_an_unpolled_case_is_checked_from_its_stored_payload(db: Path) -> None:
+    case_id = "scotus/9025000100"
+    _store(db, _cert_payload(_PETITION), case_id, on=date(2026, 7, 16))
+    _store_live(db, case_id, _cert_payload(_PETITION, _BIO_LEAD, _CERT_REPLY), on=date(2026, 10, 1))
+    recorder = _Recorder(_SERVED)
+    with recorder.client() as client:
+        ledger = refresh_stale_documents(
+            client,
+            db,
+            [FreshnessCandidate(case_id, None, changed=False)],
+            cap=5,
+            char_cap=10_000,
+            today=_TODAY,
+        )
+    # No docket was read upstream: the selection came off the stored payload.
+    assert sorted(recorder.asked) == [f"{_HOST}/b1.pdf", f"{_HOST}/r.pdf"]
+    assert ledger["checked"] == 1 and ledger["refreshed"] == 1
+    assert {KIND_BRIEF_IN_OPPOSITION, KIND_CERT_REPLY} <= set(_stored(db, case_id))
+
+
+def test_an_unpolled_case_with_no_stored_payload_is_passed_over(db: Path) -> None:
+    case_id = "scotus/9025000100"
+    _store(db, _cert_payload(_PETITION), case_id, on=date(2026, 7, 16))
+    with _Recorder(_SERVED).client() as client:
+        ledger = refresh_stale_documents(
+            client,
+            db,
+            [FreshnessCandidate(case_id, None, changed=False)],
+            cap=5,
+            char_cap=10_000,
+            today=_TODAY,
+        )
+    assert ledger["checked"] == 1 and ledger["stale"] == 0
+
+
+def test_unpolled_cases_go_behind_every_polled_one_and_a_deferral_is_named(db: Path) -> None:
+    polled, unpolled = "scotus/9025000100", "scotus/9025000101"
+    payload = _cert_payload(_PETITION, _BIO_LEAD)
+    for case_id in (polled, unpolled):
+        _store(db, _cert_payload(_PETITION), case_id, on=date(2026, 7, 16))
+    _store_live(db, unpolled, payload, on=date(2026, 10, 1))
+    candidates = [
+        FreshnessCandidate(unpolled, None, changed=False),
+        FreshnessCandidate(polled, payload, changed=False),
+    ]
+    with _Recorder(_SERVED).client() as client:
+        ledger = refresh_stale_documents(
+            client, db, candidates, cap=1, char_cap=10_000, today=_TODAY
+        )
+    assert ledger["stale"] == 2 and ledger["refreshed"] == 1
+    assert ledger["deferred_cases"] == [unpolled]
+    assert KIND_BRIEF_IN_OPPOSITION in _stored(db, polled)
+
+
+def test_an_unpolled_case_holding_a_set_its_payload_does_not_select_is_passed_over(
+    db: Path,
+) -> None:
+    """A stored payload older than the stored documents must not replace them."""
+    case_id = "scotus/9025000100"
+    _store(db, _cert_payload(_PETITION, _BIO_LEAD, _BIO_SECOND), case_id, on=date(2026, 8, 1))
+    _store_live(db, case_id, _cert_payload(_PETITION, _BIO_LEAD, _CERT_REPLY), on=date(2026, 7, 16))
+    recorder = _Recorder(_SERVED)
+    with recorder.client() as client:
+        ledger = refresh_stale_documents(
+            client,
+            db,
+            [FreshnessCandidate(case_id, None, changed=False)],
+            cap=5,
+            char_cap=10_000,
+            today=_TODAY,
+        )
+    assert recorder.asked == []
+    assert ledger["checked"] == 1 and ledger["stale"] == 0
+
+
+def test_an_unpolled_payload_read_that_raises_costs_only_that_case(
+    db: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    broken, healthy = "scotus/9025000100", "scotus/9025000101"
+    for case_id in (broken, healthy):
+        _store(db, _cert_payload(_PETITION), case_id, on=date(2026, 7, 16))
+        _store_live(db, case_id, _cert_payload(_PETITION, _CERT_REPLY), on=date(2026, 10, 1))
+    real = live_module._stored_live_payload
+
+    def _flaky(conn: corpus.ReadConnection, case_id: str) -> dict[str, object] | None:
+        if case_id == broken:
+            raise OSError("store unavailable")
+        return real(conn, case_id)
+
+    monkeypatch.setattr(live_module, "_stored_live_payload", _flaky)
+    candidates = [FreshnessCandidate(case_id, None, changed=False) for case_id in (broken, healthy)]
+    with _Recorder(_SERVED).client() as client:
+        ledger = refresh_stale_documents(
+            client, db, candidates, cap=5, char_cap=10_000, today=_TODAY
+        )
+    assert ledger["checked"] == 2 and ledger["stale"] == 1 and ledger["refreshed"] == 1
+    assert KIND_CERT_REPLY in _stored(db, healthy)
+    assert KIND_CERT_REPLY not in _stored(db, broken)
+
+
+def _open_event(case_id: str) -> corpus.CorpusEvent:
+    return corpus.CorpusEvent(
+        event_id="evt-petition-disposition",
+        case_id=case_id,
+        court="scotus",
+        kind=EventKind.petition,
+        title="Petition disposition",
+    )
+
+
+def test_the_carryover_rows_are_the_unpolled_undecided_predict_relevant_ones(db: Path) -> None:
+    queued = _seed(db, _cert_payload(_PETITION), live_docket_id(25, 100), predict_queued_at=_TODAY)
+    selected = _seed(
+        db,
+        _cert_payload(_PETITION, number="25-101"),
+        live_docket_id(25, 101),
+        salience_selected=True,
+        last_live_polled=date(2026, 7, 1),
+    )
+    irrelevant = _seed(db, _cert_payload(_PETITION, number="25-102"), live_docket_id(25, 102))
+    unpolled = _seed(
+        db,
+        _cert_payload(_PETITION, number="25-103"),
+        live_docket_id(25, 103),
+        predict_queued_at=_TODAY,
+        last_live_polled=None,
+    )
+    decided = _seed(
+        db,
+        _cert_payload(_PETITION, number="25-104"),
+        live_docket_id(25, 104),
+        predict_queued_at=_TODAY,
+        date_decided=date(2026, 10, 5),
+    )
+    excluded = _seed(
+        db,
+        _cert_payload(_PETITION, number="25-105"),
+        live_docket_id(25, 105),
+        predict_queued_at=_TODAY,
+    )
+    rows = (queued, selected, irrelevant, unpolled, decided, excluded)
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_open_event(row.case_id) for row in rows])
+        picked = corpus.freshness_carryover_rows(conn, exclude={excluded.case_id}, limit=10)
+        bounded = corpus.freshness_carryover_rows(conn, exclude=(), limit=1)
+    # Most recently polled first: the case a capped pass just declined.
+    assert [row.case_id for row in picked] == [queued.case_id, selected.case_id]
+    assert [row.case_id for row in bounded] == [queued.case_id]
+
+
+def test_the_cycle_reaches_a_stale_case_it_did_not_poll(db: Path, tmp_path: Path) -> None:
+    """The 2026-10-18 shape: a predict-relevant case owing its cert reply, which a
+    capped-out pass deferred and no rotation has polled since."""
+    docket_id = live_docket_id(25, 100)
+    old = _cert_payload(_PETITION)
+    row = _seed(db, old, docket_id, predict_queued_at=date(2026, 7, 16))
+    _store(db, old, row.case_id, on=date(2026, 7, 16))
+    _store_live(db, row.case_id, _cert_payload(_PETITION, _CERT_REPLY), on=date(2026, 10, 1))
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(conn, [_open_event(row.case_id)])
+    recorder = _Recorder(_SERVED)
+    config = LiveConfig(max_cases_per_run=0, max_applications_per_run=0)
+    with recorder.client() as client:
+        queues, _discovery = live_module.live_poll_all(
+            client, db, tmp_path / "data", term=25, config=config, today=_TODAY
+        )
+    assert f"{_HOST}/r.pdf" in recorder.asked
+    assert not any(url.endswith("25-100.json") for url in recorder.asked)
+    assert KIND_CERT_REPLY in _stored(db, row.case_id)
+    assert queues.document_freshness["refreshed"] == 1

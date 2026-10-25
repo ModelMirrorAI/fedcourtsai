@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/9026000244",
+  "run_id": "20261025T012628Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "other", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "Decisive forward signal from public sources predating the snapshot: the Court denied a same-question petition (Takeda v. Painters, 25-625) on 2026-03-23, and Bayer HealthCare v. Drake (26-376) is pending on the same issue as a possible lead case. Neither is Vide-linked on this docket."}
+  ]
+}

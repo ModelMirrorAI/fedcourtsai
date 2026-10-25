@@ -1,0 +1,14 @@
+case_id: scotus/9026000029
+decision_target: disposition
+description: Disposition of the petition, forecast after the Court called for a response
+  to it.
+docket_entry_id: null
+event_id: evt-order-call-for-response-disposition
+kind: order
+moment: response-requested
+opened_at: '2026-09-01'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Mead Johnson & Company, LLC, et al. v. Clarissa Greear, Individually and on
+  Behalf of Her Minor Child B. H., et al.

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from fedcourtsai import corpus, fixture
+from fedcourtsai import corpus, fixture, provision, store
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.cascade import (
     CascadeError,
@@ -21,7 +21,15 @@ from fedcourtsai.pipeline.cascade import (
     _cell_mode,
     _event_definition,
     _outcome_for_resolved,
+    _unheld_kinds,
     run_cascade,
+)
+from fedcourtsai.pipeline.documents import (
+    KIND_ARGUMENT_TRANSCRIPT,
+    KIND_BRIEF_IN_OPPOSITION,
+    KIND_CERT_REPLY,
+    KIND_PETITION,
+    KIND_SUPPLEMENTAL_BRIEF,
 )
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
 from fedcourtsai.schemas import (
@@ -570,3 +578,125 @@ def test_an_open_moment_on_a_decided_row_runs_in_replay_mode() -> None:
     assert _cell_mode(event, pending) == "forward"
     assert _cell_mode(event, decided) == "replay"
     assert _cell_mode(event.model_copy(update={"resolved": True}), pending) == "replay"
+
+
+def _refuse_every_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make the predict fan-out's admission test forecast nothing."""
+    monkeypatch.setattr(store, "forecastable_event_ids", lambda *_a, **_k: [])
+
+
+def test_an_admitted_open_event_is_not_marked(corpus_db: Path, tmp_path: Path) -> None:
+    report = _run(corpus_db, tmp_path / "data", OPEN_COURT, OPEN_DOCKET)
+
+    assert report.events == ("evt-appeal-disposition",)
+    assert report.unforecastable == ()
+
+
+def test_an_open_event_the_fan_out_refuses_runs_and_is_named(
+    corpus_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A distribution cell whose conference has sat is the real shape: a forward
+    # cell run-predict never mints, placed after its moment closed. The smoke
+    # still runs it, and its report says what it is.
+    _refuse_every_event(monkeypatch)
+
+    report = _run(corpus_db, tmp_path / "data", OPEN_COURT, OPEN_DOCKET)
+
+    assert report.events == ("evt-appeal-disposition",)
+    assert report.unforecastable == ("evt-appeal-disposition",)
+    assert report.predictions
+
+
+def test_a_replay_target_is_never_marked(
+    corpus_db: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The fan-out's test is for open events; a decided one is the local
+    # loop's replay, which it does not describe.
+    _refuse_every_event(monkeypatch)
+
+    report = _run(corpus_db, tmp_path / "data", RESOLVED_COURT, RESOLVED_DOCKET)
+
+    assert report.events == (RESOLVED_EVENT,)
+    assert report.unforecastable == ()
+
+
+_HOST = "https://www.supremecourt.gov"
+
+
+def _filed(day: str, text: str, url: str, label: str = "Main Document") -> dict[str, object]:
+    return {"Date": day, "Text": text, "Links": [{"Description": label, "DocumentUrl": url}]}
+
+
+def _placed(*entries: dict[str, object]) -> provision.Placement:
+    return provision.Placement(
+        snapshot_date=date(2026, 9, 10),
+        payload={"CaseNumber": "25-113 ", "ProceedingsandOrder": list(entries)},
+        documents=[],
+        provenance="as-stored",
+        boundary=None,
+        dropped_entries=0,
+        dropped_documents=0,
+    )
+
+
+def _stored(kind: str, url: str) -> corpus.CaseDocument:
+    return corpus.CaseDocument(
+        case_id="scotus/1", kind=kind, url=url, text="", fetched_at=date(2026, 7, 17)
+    )
+
+
+def test_the_placement_names_the_selected_kinds_the_store_lacks() -> None:
+    placement = _placed(
+        _filed(
+            "Jul 28 2025",
+            "Petition for a writ of certiorari filed.",
+            f"{_HOST}/p.pdf",
+            "Petition",
+        ),
+        _filed("Sep 10 2025", "Brief of respondent State in opposition filed.", f"{_HOST}/b.pdf"),
+        _filed("Sep 22 2025", "Reply of petitioner Jane Doe filed.", f"{_HOST}/r.pdf"),
+        # A withheld kind no cell is given is not a gap in any cell.
+        _filed("Jun 09 2026", "Supplemental brief of petitioner filed.", f"{_HOST}/s.pdf"),
+    )
+    stored = [_stored(KIND_PETITION, f"{_HOST}/p.pdf")]
+
+    assert _unheld_kinds(placement, stored, "evt-petition-disposition") == (
+        KIND_BRIEF_IN_OPPOSITION,
+        KIND_CERT_REPLY,
+    )
+    held = [*stored, _stored(KIND_BRIEF_IN_OPPOSITION, f"{_HOST}/b.pdf")]
+    assert _unheld_kinds(placement, held, "evt-petition-disposition") == (KIND_CERT_REPLY,)
+
+
+def test_a_cell_cut_between_two_oppositions_holds_the_stored_set() -> None:
+    first = _filed(
+        "Sep 10 2025", "Brief of respondent State in opposition filed.", f"{_HOST}/b1.pdf"
+    )
+    second = _filed(
+        "Oct 20 2025", "Brief of respondent County in opposition filed.", f"{_HOST}/b2.pdf"
+    )
+    stored = [_stored(KIND_BRIEF_IN_OPPOSITION, f"{_HOST}/b1.pdf|{_HOST}/b2.pdf")]
+
+    # The cut payload names only the first brief; the stored set holds both.
+    assert _unheld_kinds(_placed(first), stored, "evt-petition-disposition") == ()
+    # A stored set missing a brief the cut selects is still a gap.
+    partial = [_stored(KIND_BRIEF_IN_OPPOSITION, f"{_HOST}/b1.pdf")]
+    assert _unheld_kinds(_placed(first, second), partial, "evt-petition-disposition") == (
+        KIND_BRIEF_IN_OPPOSITION,
+    )
+
+
+@pytest.mark.parametrize(
+    ("kind", "event_id", "admitted"),
+    [
+        (KIND_PETITION, "evt-petition-disposition", True),
+        (KIND_ARGUMENT_TRANSCRIPT, "evt-argument-judgment", True),
+        (KIND_ARGUMENT_TRANSCRIPT, "evt-order-judgment", False),
+        (KIND_ARGUMENT_TRANSCRIPT, "", False),
+        (KIND_SUPPLEMENTAL_BRIEF, "evt-petition-disposition", False),
+    ],
+)
+def test_moment_admits_kind_draws_the_placement_line(
+    kind: str, event_id: str, admitted: bool
+) -> None:
+    assert provision.moment_admits_kind(kind, event_id) is admitted

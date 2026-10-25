@@ -26,7 +26,12 @@ name: run-backtest
 # gate over past Terms instead (`fedcourts salience-replay` into
 # `metrics/salience-replay.json`) — offline over the pulled corpus, no model
 # tokens, no engine credential, no agent CLI — landing its report through the
-# same reviewed-PR path.
+# same reviewed-PR path. `replay: merits` replays the predictors over decided
+# argued merits cases instead, at the grant and briefed moments
+# (`fedcourts merits-backtest` into `metrics/merits-backtest.json`): dispatch
+# only, never on the cron, spending two cells per predictor per case under
+# `engine: auto`, and uploading each cell's prediction files (never its record)
+# as a run artifact for the forecast-document grading pilot.
 on:
   schedule:
     # 06:23 UTC on Saturdays. The slot is chosen for the runway behind it, not
@@ -63,21 +68,21 @@ on:
   workflow_dispatch:
     inputs:
       replay:
-        description: "What to replay: cert = predictors over decided petitions (may spend tokens per `engine`); salience-gate = the deterministic salience gate over past Terms (free, token-free)."
+        description: "What to replay: cert = predictors over decided petitions (may spend tokens per `engine`); merits = predictors over decided argued cases at two moments (may spend tokens per `engine`); salience-gate = the deterministic salience gate over past Terms (free, token-free)."
         type: choice
-        options: [cert, salience-gate]
+        options: [cert, merits, salience-gate]
         default: cert
       engine:
-        description: "cert only. Replay backend: auto = each predictor's real engine (SPENDS TOKENS); stub = free offline dry run."
+        description: "cert and merits. Replay backend: auto = each predictor's real engine (SPENDS TOKENS); stub = free offline dry run."
         type: choice
         options: [stub, auto]
         default: stub
       limit:
-        description: "cert only. Replay N petitions: the most recently decided, or drawn at random under spread (~one cell per predictor each; model spend scales linearly)."
+        description: "cert: replay N petitions, the most recently decided or drawn at random under spread (~one cell per predictor each). merits: draw N cases at random, 1 to 20 (two cells per predictor each; a larger draw outlasts the job). Model spend scales linearly."
         type: string
         default: "25"
       terms:
-        description: "salience-gate only. Comma-separated October Terms to replay."
+        description: "salience-gate and merits. Comma-separated October Terms to replay (merits: the argued Terms, e.g. 2025,2024)."
         type: string
         default: "2022,2023,2024"
       skip_engines:
@@ -682,7 +687,7 @@ jobs:
           fi
 
       - name: Run the cert back-test
-        if: env.BT_REPLAY != 'salience-gate'
+        if: env.BT_REPLAY == 'cert'
         env:
           # Engine credentials for the replay cells; unused by the stub backend.
           # One per routable engine — claude, codex, gemini — so `auto` runs the
@@ -755,6 +760,144 @@ jobs:
             --engine "$BT_ENGINE" --limit "$BT_LIMIT" --skip-engines "$BT_SKIP_ENGINES" \
             --scope "$BT_SCOPE" "$SPREAD_FLAG" \
             --work-dir "$work_dir"
+
+      # The merits replay: the same engines, credentials, cell env and work-root
+      # placement as the cert step above (its comments hold for every line
+      # repeated here), over decided argued cases at the merits grant and
+      # briefed moments. `merits-backtest` provisions and runs one moment at a
+      # time, so a grant cell never has its case's briefed record on disk, and
+      # writes each cell's forecast files to `--keep-cells`, outside the work
+      # root, only once both moments have run, so a briefed cell never has a
+      # grant forecast on disk either. The draw is capped: this dispatch path
+      # has no `review` hold, and at 20 cases the slowest lane's 40 cells fit
+      # inside the job's timeout, where a capped-out job lands neither the
+      # report nor the forecasts.
+      - name: Run the merits back-test
+        if: env.BT_REPLAY == 'merits'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          UV_CACHE_DIR: /tmp/fedcourts-backtest-uv-cache
+        run: |
+          set -euo pipefail
+          if [ ! -f corpus/corpus.db ]; then
+            echo "::error::no corpus on disk; nothing to back-test" >&2
+            exit 1
+          fi
+          if ! [[ "$BT_LIMIT" =~ ^[0-9]+$ ]] || [ "$BT_LIMIT" -lt 1 ] || [ "$BT_LIMIT" -gt 20 ]; then
+            echo "::error::a merits replay draws 1 to 20 cases; got limit '$BT_LIMIT'" >&2
+            exit 1
+          fi
+          work_dir="$(mktemp -d /tmp/fedcourts-backtest-cells.XXXXXXXX)"
+          uv run fedcourts merits-backtest \
+            --terms "$BT_TERMS" --limit "$BT_LIMIT" \
+            --engine "$BT_ENGINE" --skip-engines "$BT_SKIP_ENGINES" \
+            --work-dir "$work_dir" --keep-cells "$RUNNER_TEMP/merits-cells"
+
+      # What the grading pilot reads off a replayed cell is its forecast, so
+      # that is all that leaves the runner: `--keep-cells` holds, per cell, only
+      # the allowlisted forecast files of this run and the event definition
+      # (`merits_backtest.kept_forecasts`), never the provisioned `record/` or
+      # anything else a cell wrote, under whatever name. The rule is about
+      # paths, not content: a forecast that quotes a filing carries the quote.
+      # A cell ran with the engine keys in its environment and wrote free text,
+      # so every kept file is scanned for the keys and for credential shapes
+      # before anything uploads, with this run's own ledger paths exempt from
+      # the entropy rule only (`--run-id`). A hit, a misconfigured scan, a
+      # non-regular entry, or any other fault here withholds the forecasts and
+      # leaves the report to land (`continue-on-error`), since the report is
+      # the run's measurement and the forecasts only the pilot's input. The
+      # repository is public, so the artifact is readable by any signed-in
+      # GitHub user until its retention expires. The scanner runs from the
+      # tree the cells held, with the keys in its environment: a cell could
+      # rig that import path, but anything it could reach that way it already
+      # held while it ran (SECURITY.md).
+      - name: Collect and scan the merits replay's forecasts
+        if: ${{ !cancelled() && env.BT_REPLAY == 'merits' }}
+        id: forecasts
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          set -euo pipefail
+          kept="$RUNNER_TEMP/merits-cells"
+          withhold() {
+            echo "::warning::$1; withholding the merits forecasts"
+            printf '### Merits forecasts withheld\n\n%s. The report still lands; no `merits-forecasts` artifact was uploaded.\n' "$1" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+          if [ ! -f "$kept/run-id" ]; then
+            exit 0
+          fi
+          if [ -n "$(find "$kept" ! -type f ! -type d -print -quit)" ]; then
+            withhold "the kept tree holds an entry that is not a regular file or directory"
+          fi
+          run_id="$(cat "$kept/run-id")"
+          if ! [[ "$run_id" =~ ^[0-9]{8}T[0-9]{6}Z$ ]]; then
+            withhold "the kept tree's run id is not a run id"
+          fi
+          # The harness's allowlist again, here, over every file the tree holds:
+          # anything else in it was written by something other than the harness
+          # (a cell can reach this path), so the whole artifact is withheld
+          # rather than filtered. The files that pass are copied into a fresh
+          # directory, and that is what is scanned and uploaded.
+          seg='[^/]+'
+          shape="^${seg}/(grant|briefed)/cases/${seg}/${seg}/events/${seg}/(event\.yaml|predictions/${seg}/${run_id}/(prediction\.json|predicted_reasoning\.md|reasoning\.md|flags\.json))$"
+          out="$(mktemp -d "$RUNNER_TEMP/merits-forecasts.XXXXXXXX")"
+          args=()
+          while IFS= read -r -d '' rel; do
+            rel="${rel#./}"
+            if [ "$rel" = run-id ]; then
+              continue
+            fi
+            if ! [[ "$rel" =~ $shape ]]; then
+              withhold "the kept tree holds a file outside the forecast allowlist"
+            fi
+            mkdir -p "$out/$(dirname "$rel")"
+            cp -P -- "$kept/$rel" "$out/$rel"
+            if [ -L "$out/$rel" ] || [ ! -f "$out/$rel" ]; then
+              withhold "a kept file changed into a link while it was copied"
+            fi
+            args+=(--extra-file "$out/$rel")
+          done < <(cd "$kept" && find . -type f -print0)
+          if [ "${#args[@]}" -eq 0 ]; then
+            exit 0
+          fi
+          cp -- "$kept/run-id" "$out/run-id"
+          : > "$RUNNER_TEMP/no-changes.txt"
+          if ! uv run fedcourts scan-diff-for-secrets \
+              --name-status-file "$RUNNER_TEMP/no-changes.txt" \
+              --known-secret-env ANTHROPIC_API_KEY \
+              --known-secret-env OPENAI_API_KEY \
+              --known-secret-env GEMINI_API_KEY \
+              --run-id "$run_id" \
+              "${args[@]}" \
+              --run-url "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"; then
+            withhold "the secret scan did not pass over the kept forecasts (its findings are in this step's log, redacted)"
+          fi
+          {
+            echo "present=true"
+            echo "dir=$out"
+          } >> "$GITHUB_OUTPUT"
+
+      # The upload reads the tree the scan passed. A process a cell left behind
+      # lives until the job ends and runs as the same user, so it could still
+      # swap a scanned file between the two steps; the residual is stated in
+      # SECURITY.md. A stub round's forecasts take their own name, so a free
+      # rehearsal never shadows a real round's for run-evaluate's merits pilot,
+      # which reads only `merits-forecasts`.
+      - name: Upload the merits replay's forecasts
+        if: ${{ !cancelled() && steps.forecasts.outputs.present == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.BT_ENGINE == 'stub' && 'merits-forecasts-stub' || 'merits-forecasts' }}
+          path: ${{ steps.forecasts.outputs.dir }}
+          if-no-files-found: error
+          retention-days: 30
 
       # Put the ledger back before anything downstream runs in this checkout —
       # the salience-gate arm and the report hand-off both do. From the commit,
@@ -845,6 +988,7 @@ jobs:
           set -euo pipefail
           case "$BT_REPLAY" in
             salience-gate) report=salience-replay.json ;;
+            merits) report=merits-backtest.json ;;
             *) report=cert-backtest.json ;;
           esac
           if [ -L "metrics/$report" ]; then
@@ -942,6 +1086,7 @@ jobs:
           set -euo pipefail
           case "$BT_REPLAY" in
             salience-gate) report=salience-replay.json ;;
+            merits) report=merits-backtest.json ;;
             *) report=cert-backtest.json ;;
           esac
           dir="$RUNNER_TEMP/backtest-report"
@@ -957,7 +1102,8 @@ jobs:
             echo "land=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [ "$changed" != " M metrics/${report}" ]; then
+          # A modified report, or the first one of its kind, and nothing else.
+          if [ "$changed" != " M metrics/${report}" ] && [ "$changed" != "?? metrics/${report}" ]; then
             echo "::error::the tree differs from the commit outside metrics/${report}"
             git status --porcelain --untracked-files=all
             exit 1
@@ -975,6 +1121,19 @@ jobs:
             {
               printf 'Deterministic salience-gate replay: `fedcourts salience-replay --terms %s`.\n\n' "$BT_TERMS"
               printf 'Refreshes `metrics/salience-replay.json`. No model ran and no tokens were spent. '
+              printf 'What the numbers may and may not be read as: `metrics/README.md`.\n'
+            } > "$pr/body.md"
+          elif [ "$BT_REPLAY" = "merits" ]; then
+            # Minimal for the same reason as the salience arm: the command line
+            # is the parameterization and the report is the content.
+            printf '%s' "metrics/merits-backtest" > "$pr/branch"
+            printf '%s' "metrics(merits): back-test over Terms ${BT_TERMS} (engine ${BT_ENGINE})" > "$pr/title"
+            printf '%s' "metrics(merits): merits back-test (run ${GITHUB_RUN_ID})" > "$pr/commit"
+            {
+              printf 'Merits back-test: `fedcourts merits-backtest --terms %s --limit %s --engine %s --skip-engines "%s"`.\n\n' \
+                "$BT_TERMS" "$BT_LIMIT" "$BT_ENGINE" "$BT_SKIP_ENGINES"
+              printf 'Refreshes `metrics/merits-backtest.json`. Retrospective: every judgment replayed was public before the run, so no figure here is a claimable forecast. '
+              printf 'The cells'"'"' forecasts are the `merits-forecasts` artifact of run %s. ' "$GITHUB_RUN_ID"
               printf 'What the numbers may and may not be read as: `metrics/README.md`.\n'
             } > "$pr/body.md"
           else

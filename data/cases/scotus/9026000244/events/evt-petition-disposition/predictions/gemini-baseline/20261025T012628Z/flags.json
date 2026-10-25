@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000244",
+  "run_id": "20261025T012628Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Forward-mode as-stored snapshot (data/cases/scotus/9026000244/record/snapshots/2026-10-25.json) for evt-petition-disposition (moment: distribution, distributed 2026-09-28 for the 2026-10-16 conference, context.json band: baseline, distribution_count: 1, response_requested: null) includes two post-distribution docket entries ('Oct 09 2026: Response Requested' and 'Oct 15 2026: Motion to extend the time to file a response is granted') because the case was queued on 2026-10-25 after the Oct 9 Call for Response took the petition off the Oct 16 conference. Reasoning is anchored on the distribution-moment record as of 2026-09-28."
+    }
+  ]
+}

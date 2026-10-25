@@ -141,7 +141,36 @@ runbook, [docs/security.md](docs/security.md).
   environment — the arrangement that scanner exists to avoid
   ([docs/security.md](docs/security.md)). The label-line count on that summary is arithmetic over the file
   rather than anything read out of it, which is why it is stated whether or
-  not the file itself travels. Holding that key makes the
+  not the file itself travels. A fourth is a merits back-test replay's
+  `merits-forecasts` artifact: each cell's allowlisted forecast files and
+  event definition (`merits_backtest.kept_forecasts`, written only once the
+  last cell has finished, never the provisioned record; the upload step
+  applies the same allowlist again and withholds the whole artifact if the
+  keep folder holds any other file, since a cell can reach that path, then
+  uploads a fresh copy of what passed), kept 30 days and,
+  like every artifact of this public repository, downloadable by any
+  signed-in GitHub user. The scan (`--extra-file`, entropy rule on, the run's
+  own ledger paths exempt by `--run-id`) is its whole gate, and it fails
+  closed: a hit, a misconfigured scan, or a kept entry that is not a regular
+  file withholds the artifact while the run's report still lands. Two gaps in
+  that gate are accepted rather than closed. The scanner runs from the
+  checkout the cells held, with all three engine keys in its environment, so
+  its import path is not a fresh tree; and a process a cell left behind can
+  swap a scanned file before the upload step reads it. Neither reaches a
+  credential a cell lacked: a replay cell's parent carries those keys and the
+  job's read-only corpus credentials throughout (the same-user residual in
+  [docs/security.md](docs/security.md)), and the cell holds web tools under
+  the replay contract, so it already has egress. What the gaps defeat is the
+  scan as a check on an engine that would publish a key, which is why the
+  reachable secret on this surface is a model key, not the CourtListener
+  token below. The artifact is consumed by run-evaluate's
+  `reasoning-pilot-merits` round, whose plan re-checks the whole tree
+  (`merits_calibration.read_kept_run`) before anything reads it and
+  republishes the forecast bytes, unscanned again, in the round's 7-day
+  `reasoning-pilot-calibration` artifact beside an event definition and
+  outcome rebuilt from the corpus: the bytes are the scanned artifact's own,
+  and the outcome fields are the ones a committed outcome already publishes.
+  Holding that key makes the
   scan's own **import path** part of the gate, and it follows an agent that
   writes freely in the tree the editable install resolves through — so the
   scanner is built from a checkout taken *after* the agent exits and fetched
@@ -301,8 +330,8 @@ runbook, [docs/security.md](docs/security.md).
   role, whatever it runs. That removes *agents* from the write role's reach,
   not hostile *parsers*: the writer jobs themselves parse fetched third-party
   content while holding or able to mint it — the pull and seed windows' fetched dockets, and
-  the corpus repair job's OCR-recovery and document back-fill passes, which
-  are not split from it the way the fetching passes are. In staging it stays provenance: any `staging`-bound job could ask for
+  the corpus repair job's OCR-recovery, document back-fill and re-cut passes,
+  which are not split from it the way the fetching passes are. In staging it stays provenance: any `staging`-bound job could ask for
   the staging write role, which writes only the disposable staging pair, and
   what stops the wrong job asking is review of the code the branch policy
   admits — so a wrongly-writing change fails visibly against the disposable
@@ -439,10 +468,11 @@ runbook, [docs/security.md](docs/security.md).
   candidate, outside the auto-release budget — bounded by the train's own
   daily cap (`max_gate_dispatches_per_day` in the code-owned
   `config/promotion-train.yaml`) and by never re-dispatching at a head.
-  run-evaluate's `reasoning-pilot` round spends outside the budget the other
-  way: it always waits on the `review` hold, but it commits nothing, so its
-  measured spend never reaches the ledger the trailing budget is projected
-  over, and the manual release is its only bound. The
+  run-evaluate's pilot rounds (`reasoning-pilot`, `reasoning-pilot-merits`)
+  spend outside the budget the other way: they always wait on the `review`
+  hold, but they commit nothing, so their measured spend never reaches the
+  ledger the trailing budget is projected over, and the manual release is
+  their only bound. The
   pull window chains only on a forecast-relevant change, and neither chain job
   dispatches while a promotion is about to merge.
   Three workflows *do* take an outside-reachable trigger — `ci.yml`,

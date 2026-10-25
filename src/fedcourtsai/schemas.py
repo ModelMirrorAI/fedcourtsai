@@ -8119,6 +8119,239 @@ class CertBacktest(_Strict):
     entries: list[CertBacktestEntry] = Field(default_factory=list)
 
 
+class MeritsBacktestTermCount(_Strict):
+    """One October Term's share of the merits back-test population."""
+
+    term: int = Field(description="The October Term the cases were argued in")
+    cases: int = Field(ge=0, description="Lead dockets kept for replay")
+    argued_unjudged: int = Field(
+        ge=0,
+        description="Argued plenary dockets with no parsed merits judgment: a parse "
+        "gap the population cannot keep, counted so it is not silent",
+    )
+    excluded: dict[str, int] = Field(
+        default_factory=dict,
+        description="Decided argued dockets set aside, by reason (`fedcourts "
+        "merits-backtest-plan` names each)",
+    )
+    excluded_disturbed: int = Field(
+        default=0,
+        ge=0,
+        description="Of the set-aside dockets, those whose judgment disturbed the "
+        "decision below: how far the kept cases, and the baseline pool drawn from "
+        "them, are a selected population",
+    )
+
+
+class MeritsBacktestBaseline(_Strict):
+    """The as-of base rate each replay cell's skill is measured against."""
+
+    rule: Literal["as-of-cutoff-v1"] = Field(
+        default="as-of-cutoff-v1",
+        description="The disturbed share of the population's lead dockets argued "
+        "in the cell's own Term or the `lookback_terms` before it and decided "
+        "strictly before the cell's cutoff. Keyed on the cutoff rather than on "
+        "the grant Term, so no judgment the cell could not have known reaches "
+        "its baseline. It is not the forward channel's `merits_base_rate`, so a "
+        "skill figure here is never comparable with a forward one",
+    )
+    lookback_terms: int = Field(ge=0, description="Argued Terms pooled before the cell's own")
+    min_decided: int = Field(
+        ge=1, description="Below this many pooled judgments a cell carries no baseline"
+    )
+
+
+class MeritsBacktestMomentScore(_Strict):
+    """One predictor's scores over one merits moment's replay cells."""
+
+    moment: Moment
+    events_scored: int = Field(ge=0, description="Cells that returned a valid prediction")
+    lost: int = Field(
+        ge=0, description="Cells provisioned at this moment that returned no scorable prediction"
+    )
+    terms: dict[str, int] = Field(
+        default_factory=dict, description="Cells scored per argued Term, a zero stated"
+    )
+    accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Share of scored cells whose call, disturbed where P(disturbed) "
+        "is at least 0.5, matched the judgment. Null when nothing was scored",
+    )
+    disturbed_share: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The disturbed share of the same scored cells",
+    )
+    majority_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The floor `accuracy` is read against: the larger of "
+        "`disturbed_share` and its complement, what always calling the majority "
+        "outcome scores on these cells",
+    )
+    mean_brier_score: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Mean Brier of P(disturbed)"
+    )
+    baselined: int = Field(
+        ge=0, description="Scored cells that carry an as-of baseline (`baseline`)"
+    )
+    cells_flagged: int = Field(
+        default=0,
+        ge=0,
+        description="Scored cells that left a `flags.json`. Nothing is excluded on a "
+        "note: a disclosed exposure left in the scores inflates them",
+    )
+    exposure_candidates: int = Field(
+        default=0,
+        ge=0,
+        description="Of the flagged cells, those carrying a note the cert back-test's "
+        "text rule marks as a possible outcome exposure",
+    )
+    baselined_brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The predictor's mean Brier over the baselined cells only: the "
+        "figure `brier_skill` compares, which differs from `mean_brier_score` "
+        "wherever some scored cells carry no baseline",
+    )
+    baseline_brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean Brier of the as-of base rate over the baselined cells",
+    )
+    brier_skill: float | None = Field(
+        default=None,
+        description="1 - (the predictor's summed Brier / the baseline's), both over "
+        "the baselined cells: a ratio of sums, so a cell whose baseline happened to "
+        "be exact does not drop out. Null with no baselined cell",
+    )
+
+
+class MeritsBacktestCellLoss(_Strict):
+    """A provisioned replay cell that produced no score, and why."""
+
+    predictor_id: str
+    case_id: str
+    moment: Moment
+    reason: CertBacktestLossReason
+
+
+class MeritsBacktestPaired(_Strict):
+    """What the briefed moment adds over the grant moment, on the same cases."""
+
+    cases: int = Field(
+        ge=0,
+        description="Cases this predictor scored at both moments; the only set the "
+        "moments are compared on, since the fences drop cells per moment. It fixes "
+        "the case mix between the moments, not the selection: a fence can track the "
+        "outcome, so this set is selected too",
+    )
+    disturbed: int = Field(
+        default=0, ge=0, description="Of `cases`, those whose judgment disturbed the decision below"
+    )
+    grant_mean_brier: float | None = Field(default=None, ge=0.0, le=1.0)
+    briefed_mean_brier: float | None = Field(default=None, ge=0.0, le=1.0)
+    brier_change: float | None = Field(
+        default=None,
+        description="Briefed minus grant mean Brier over `cases`; negative means the briefs helped",
+    )
+
+
+class MeritsBacktestEntry(_Strict):
+    """One predictor's merits back-test record."""
+
+    predictor_id: str
+    engine: str | None = Field(
+        default=None, description="The backend that ran the cells, `stub` offline"
+    )
+    model: str | None = Field(
+        default=None, description="The model the backend invoked; null for offline backends"
+    )
+    moments: list[MeritsBacktestMomentScore] = Field(default_factory=list)
+    paired: MeritsBacktestPaired
+
+
+class MeritsBacktestDispatch(_Strict):
+    """The parameters a merits back-test was run under, as dispatched."""
+
+    engine: str = Field(
+        description="'auto' (each predictor's own engine), a single backend, or empty "
+        "when no engine ran"
+    )
+    skip_engines: list[str] = Field(default_factory=list)
+    terms: list[int] = Field(description="The argued Terms the population was drawn from")
+    limit: int = Field(
+        ge=0,
+        description="Cases drawn from the population, 0 for all of them. A draw "
+        "walks the cases in `draw_key`'s hash order, so a reader can recompute it",
+    )
+    draw_key: str = Field(
+        description="The corpus vintage the draw order is keyed by (its newest pull "
+        "stamp), so the same blob draws the same cases"
+    )
+
+
+class MeritsBacktest(_Strict):
+    """``metrics/merits-backtest.json`` — predictors replayed over decided argued cases.
+
+    Each kept case is replayed at the merits stage's grant and briefed moments
+    from the record as it stood at each cutoff, outcome redacted, and scored on
+    P(disturbed) against the realized judgment. Produced by
+    ``fedcourts merits-backtest``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    stratum: Literal["retrospective"] = Field(
+        default="retrospective",
+        description="Every replayed judgment was public before the run, and most "
+        "predate the models' training cutoffs, so a cell can recall the outcome it "
+        "is asked to forecast. This measures recall, calibration and reading of a "
+        "known docket, never ex-ante forecasting skill, and no figure here is "
+        "claimable as one (the leaderboard's pre-registration rule)",
+    )
+    unit: Literal["lead-docket"] = Field(
+        default="lead-docket",
+        description="One case per docket the filings are on: a consolidated member "
+        "is set aside and its lead stands for both, in the scores and in the baseline "
+        "pool alike",
+    )
+    pulled_through: date | None = Field(
+        default=None,
+        description="The corpus vintage the population and cells were read from: "
+        "its newest pull stamp",
+    )
+    run_id: str | None = Field(
+        default=None, description="The replay's run id; null when no engine ran"
+    )
+    dispatch: MeritsBacktestDispatch | None = Field(
+        default=None, description="The parameters the run was dispatched with"
+    )
+    terms: list[MeritsBacktestTermCount] = Field(default_factory=list)
+    cells: dict[str, int] = Field(
+        default_factory=dict, description="Replay cells written per moment"
+    )
+    fenced: dict[str, dict[str, int]] = Field(
+        default_factory=dict,
+        description="Cells the provisioner refused per moment, by reason: no "
+        "snapshot, a kept entry still showing the judgment, the respondent's merits "
+        "brief not staged, or a document kind the record cannot name",
+    )
+    paired_cases: int = Field(ge=0, default=0, description="Cases written at both moments")
+    baseline: MeritsBacktestBaseline
+    unavailable: list[str] = Field(
+        default_factory=list,
+        description="Predictors dropped whole because their engine was not installed",
+    )
+    lost_cells: list[MeritsBacktestCellLoss] = Field(default_factory=list)
+    entries: list[MeritsBacktestEntry] = Field(default_factory=list)
+
+
 class WorkflowHealth(_Strict):
     """Recent-run health for one workflow, rolled up from the Actions run history."""
 
@@ -13035,6 +13268,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "backtest": Backtest,
     "tool_usage": ToolUsage,
     "cert_backtest": CertBacktest,
+    "merits_backtest": MeritsBacktest,
     "salience_replay": SalienceReplay,
     "usage": ModelUsage,
     "ops_report": OpsReport,

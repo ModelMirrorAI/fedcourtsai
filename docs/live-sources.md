@@ -629,12 +629,16 @@ lost at the first fetch, or an application's response, docketed after it,
 reaches the corpus only if a later trigger happens to fire, and the cell then
 stages a current snapshot beside a stale document set. So every live cycle ends
 with a freshness pass (`live.refresh_stale_documents`) over the cases both
-rotations just polled:
+rotations just polled, and the undecided predict-relevant cases they did not:
 
 - **Population.** A polled case that is predict-relevant — queued for
   prediction or salience-selected, the document back-fill's own predicate — and
   was not provisioned on this poll's trigger. The poll has just read its docket,
-  so the selection over it is current and costs no request.
+  so the selection over it is current and costs no request. Behind those, up to
+  `live.document_freshness_carryover_rows` undecided predict-relevant cases the
+  cycle did not poll (`corpus.freshness_carryover_rows`), selected from their
+  stored live payload, the docket their last poll read: two content-store reads
+  each and no upstream request.
 - **Test.** The case is stale where its stored set does not hold every link the
   selection names (`documents.unheld_document_kinds`): a kind absent, a kind at
   another link, or a combined row — the opposition, the supplemental briefs,
@@ -647,7 +651,8 @@ rotations just polled:
 - **Fetch.** Through the poller's own `provision_documents` — the same
   selection, idempotent per kind and URL, the same consolidation-lead GET for a
   member. An unchanged link is never re-downloaded, so a row stored under an
-  older cut keeps it (the appendix-aware cut below says what that leaves).
+  older cut keeps it until the re-cut pass reaches it (*Contract for the re-cut
+  pass*).
   A consolidated member's own docket is what the test reads, so a merits filing
   entered on its lead alone is not seen as owed here; the selection sweep, which
   re-provisions a case while a merits event is open, and the back-fill's merits
@@ -657,9 +662,10 @@ rotations just polled:
   a cell-facing filing never waits on a store-only one; at most `live.document_freshness_per_run` cases a cycle, and last in
   the cycle, on what the polls, the outcome convergence and the selection sweep
   left of the soft deadline. A case past the cap or the deadline is owed again
-  at its next poll, because the test reads state rather than change; a link
-  upstream does not serve keeps its case stale and is retried at each poll,
-  behind every docket that moved, and the unchanged cases are taken in an order
+  the next cycle, from its stored payload where that cycle does not poll it,
+  because the test reads state rather than change; the ledger names the
+  deferred cases. A link upstream does not serve keeps its case stale and is
+  retried each cycle, behind every polled case, and the unchanged cases are taken in an order
   that rotates daily, so a run of such cases cannot hold the cap ahead of the
   same healthy ones every cycle — the ledger's `unwritten` count is those
   cases, refreshed and still storing nothing. The `Document freshness:` line in
@@ -667,8 +673,12 @@ rotations just polled:
   convergence is: a case whose fetch raises is counted `failed`, and a pass that
   raises as a whole records `error=<type>` and costs the window nothing it had
   already polled.
-- **Cost of the check.** Links only: the content store's document manifest, one
-  read per candidate, never a document body.
+- **Cost of the check.** No upstream request. For a polled case, links only:
+  the content store's document manifest, one read per candidate, never a
+  document body. A case the cycle did not poll adds one more, its stored live
+  payload, and is passed over where that read fails or holds a kind at a link
+  its payload does not select, since that payload may be older than the
+  stored set and its next poll settles which is current.
 - **Cutoff.** Freshness changes when a filing is *stored*, never where a cell is
   *placed*. Each row keeps its proceedings entry's own date, and provisioning
   keeps a document only where that date falls strictly before the cell's cutoff
@@ -816,8 +826,9 @@ note names the pages never read. A page that fails to extract costs that page
 alone. The cut applies to rows stored under it: fetching is idempotent per
 kind and URL — the freshness pass included, which downloads only a link the
 stored set lacks — so a petition or application already stored keeps its head
-cut until its link changes, and the corpus holds both vintages side by side —
-which is why each kind's `kind_description` says a truncated row with no
+cut until its link changes or the dispatched re-cut pass reaches it (*Contract
+for the re-cut pass*), and until then the corpus holds both vintages side by
+side — which is why each kind's `kind_description` says a truncated row with no
 `[pipeline note:` line was cut at the cap from the end.
 
 The OCR recovery pass keeps the plain head cut for the rows it recovers: the
@@ -1274,8 +1285,8 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   one shared core* and *Maintenance passes* in
   [data-pipeline.md](data-pipeline.md)): it writes the corpus, which only a
   writer job may, and its dry run is exactly the triage list that bench exists
-  for. It is one of the two passes there that fetch — the document back-fill
-  below is the other — and the fetch is what keeps them in that lane rather than
+  for. It is one of the three passes there that fetch — the document back-fill
+  and the re-cut below are the others — and the fetch is what keeps them in that lane rather than
   the pullers': supremecourt.gov is free and politeness-capped, so no budget is
   governed and no window's schedule is implicated. Both binaries are installed by that step and by
   the OCR sweep's credential-free parse job only, so no *scheduled* job
@@ -1446,7 +1457,7 @@ corpus row rather than off a poll.
 - **Where it runs.** As a pass on `run-repair`, by the same standing rule the
   recovery pass above cites, and for the same two reasons: it writes the corpus,
   which only a writer job may, and its dry run is exactly the triage list that
-  bench exists for. It is the second fetching pass there, and its fetches are
+  bench exists for. It is the second of the three fetching passes there, and its fetches are
   the same free, politeness-capped supremecourt.gov requests — no budget is
   governed and no window's schedule is implicated. Dry run by default, bounded
   through `repair_bound` so a backlog clears in slices, and bounded again by a
@@ -1549,6 +1560,72 @@ corpus row rather than off a poll.
   from the Court's own host, and their text lands in the access-gated corpus
   under the same no-republication posture as every other extraction
   ([data-sources.md](data-sources.md)).
+
+### Contract for the re-cut pass
+
+The answer to the residue *The appendix-aware cut* leaves: a `petition`,
+`application` or `appendix` row stored before that cut keeps the plain head
+cut, because fetching is idempotent per kind and URL. It is `fedcourts
+recut-documents`, dispatched as `run-repair`'s `recut` selector value. It
+installs nothing: the route is the fetching lanes' own extractor, run again over
+the same link.
+
+- **Where it runs.** As a pass on `run-repair`, by the standing rule the two
+  passes above cite: it writes the corpus, which only a writer job may, and its
+  dry run is the triage list that bench exists for. Its fetches are the same
+  free, politeness-capped supremecourt.gov requests, through the same client
+  and the same guards as the recovery pass's re-fetch: HTTPS on the Court's own
+  host before the request and across every redirect, and a body past the
+  recovery's size ceiling refused as not-a-filing. Dry run by default, bounded
+  through `repair_bound` on an apply and on a dry run that sets it, and bounded
+  again by a **slice deadline** the step passes.
+- **What it reads.** Stored rows of the three appendix-bearing kinds that are
+  `truncated`, not `ocr_derived`, carry no `[pipeline note:` line, and whose
+  stored URL is one Court link, over the **predict-relevant** live-slice rows
+  (the document back-fill's scope) or, with the `all-live` option, the whole
+  live slice. An untruncated row was never cut, so the two cuts agree on it; an
+  OCR-recovered row is head-cut by design and has no text layer to re-read; a
+  row with a note was cut the appendix-aware way already; a set key or a link
+  off the Court's host is not one the pass will GET. The ledger tallies the
+  truncated rows left out under `ocr-derived`, `has-cut-note` and
+  `unfetchable-url`, so a truncated row a reader expects to see and does not is
+  accounted for.
+- **What it fetches and writes.** Each candidate's stored URL, in both modes:
+  what a candidate comes to is only known from the served PDF. The PDF is
+  re-cut by `extract_filing_text` at the configured document cap. A PDF whose
+  page count differs from the stored row's is another filing at the same link,
+  the fetching lanes' business rather than a re-cut, and is skipped as
+  `pages-changed`; so is one whose re-cut does not open with the stored text
+  (`head-changed`), since both cuts keep the filing's own opening; bytes that
+  do not parse as a PDF are `unreadable`; a re-cut equal to the stored text is
+  `unchanged`; a re-cut that reads no text is never written over stored text. Otherwise an apply
+  writes the row with its stored kind, URL and entry date, the re-cut's text,
+  page count and truncation flag, and today's `fetched_at`, because a fetch
+  happened. Provisioning places a document by its entry date and falls back to
+  `fetched_at` only where that is missing, so such a row can fall outside a
+  replay cell's as-of window it sat inside before — a cell sees less, never
+  more, which is why the honest date is kept. The replaced text stays
+  recoverable: the content store's text leaves are content-addressed, so the
+  write adds a leaf beside the old one.
+- **The questions-presented row.** The section sits in the petition's front
+  matter, which both cuts keep, so a re-cut petition is expected to leave it
+  where it was. The pass derives it from the stored text and from the re-cut
+  and writes it only where the two differ, under the recovery pass's guard that
+  an empty derivation never replaces a stored question. A stored row that is not
+  what the current deriver reads off the stored text is a cutter change no
+  back-fill has converged, and is left to `backfill-questions-presented`.
+- **The ledger.** The class and each outcome — `recut`, `unchanged`,
+  `pages-changed`, `head-changed`, `unreadable`, `empty-after-recut`,
+  `fetch-failed`, `unreached` — cut by
+  kind, then one `<case_id> <kind>` line per candidate the slice reached. An
+  apply's re-cut lines are the record of which stored rows it replaced. A
+  re-cut row carries a cut note or fits under the cap, and either way leaves
+  the class, so successive dispatches drain it; the skipped outcomes stay at
+  its head, and a bounded slice that re-cuts nothing warns that it is reading
+  only that residue. The step re-walks the class
+  on an **empty slice** afterwards and requires exactly what the apply's ledger
+  said it would leave behind.
+- **Terms.** Unchanged, as for the two passes above.
 
 ## The historical Term set: per-Term history through the same channel
 

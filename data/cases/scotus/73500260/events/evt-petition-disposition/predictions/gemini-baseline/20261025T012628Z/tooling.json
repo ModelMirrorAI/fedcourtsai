@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500260",
+  "run_id": "20261025T012628Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "record/snapshots/2026-10-25.json",
+    "record/documents/petition.txt",
+    "metrics/statpack.md",
+    "fedcourts query --docket-number"
+  ],
+  "gaps": [
+    "CourtListener MCP search rate-limited (HTTP 429 at 25/min shared across concurrent cells)"
+  ],
+  "notes": "Looking up the prior related cert petition (No. 21-1262, TitleMax of Delaware, Inc. v. Vague) via `fedcourts query --court scotus --docket-number 21-1262` immediately confirmed its 2022 denial after two distributions."
+}

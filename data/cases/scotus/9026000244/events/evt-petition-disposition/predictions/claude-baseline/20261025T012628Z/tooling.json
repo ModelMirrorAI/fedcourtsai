@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000244",
+  "run_id": "20261025T012628Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["statpack.md", "WebSearch", "provisioned documents"],
+  "helpful": ["Provisioned petition and appendix (Ninth Circuit memo) text", "Salience band table with reached rates"],
+  "gaps": ["No signal for same-question companion petitions pending on other dockets (e.g. 26-376) unless Vide-linked", "Band does not appear to reflect a post-waiver response request"],
+  "notes": "Forecast leaned on web search for the recent denial of a same-question petition and for a competing pending vehicle."
+}

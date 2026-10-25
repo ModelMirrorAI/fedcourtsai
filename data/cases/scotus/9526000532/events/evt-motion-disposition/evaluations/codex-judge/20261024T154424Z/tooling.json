@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000532",
+  "gaps": [
+    "The candidates' original prediction-time snapshots and document manifests are not staged; changes in extraction coverage must be assessed from their logs and prose.",
+    "Unobserved candidate tool results limit independent verification of retrieved background facts; the result-capture markers make that limit explicit."
+  ],
+  "helpful": [
+    "Blinded candidate artifacts preserve probability, frozen context, rationale, and retrieval evidence without exposing predictor identities.",
+    "The decided snapshot and OCR-derived application support an independent read of the disposition and case stakes.",
+    "The committed interim statpack separates the relevant substantive population from cert bands and extension requests."
+  ],
+  "notes": "No live corpus, CourtListener, or web retrieval was needed. The committed statpack was consulted to assess baseline use, not to write a replacement for the harness-stamped interim rate. No blocker or observed outcome leakage required a flags file.",
+  "role": "evaluator",
+  "run_id": "20261024T154424Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell reads of provisioned inputs and schemas",
+    "metrics/statpack.md",
+    "local Python validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

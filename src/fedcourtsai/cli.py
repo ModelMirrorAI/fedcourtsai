@@ -63,6 +63,8 @@ from . import (
     ids,
     integration_check,
     mcp,
+    merits_backtest,
+    merits_calibration,
     metrics_refresh,
     process_registration,
     process_version,
@@ -312,6 +314,13 @@ from .pipeline.decision_record import backfill_decision_record, decision_census
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.document_backfill import backfill_documents
+from .pipeline.document_recut import (
+    SCOPE_ALL_LIVE as RECUT_SCOPE_ALL_LIVE,
+)
+from .pipeline.document_recut import (
+    SCOPE_PREDICT_RELEVANT as RECUT_SCOPE_PREDICT_RELEVANT,
+)
+from .pipeline.document_recut import recut_documents
 from .pipeline.documents import (
     FETCH_LOSS_BIO_EMPTY,
     FETCH_LOSS_BIO_PARTIAL,
@@ -473,7 +482,9 @@ from .schemas import (
     LeaderboardStageEntry,
     LeakageExclusionRecord,
     LiveFrontier,
+    MeritsBacktestDispatch,
     ModelUsage,
+    Moment,
     OpsReport,
     Outcome,
     PredictableEvent,
@@ -2923,6 +2934,162 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
     typer.echo(result.model_dump_json())
 
 
+@app.command("recut-documents")
+def recut_documents_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Write the re-cut rows; omit for a dry run that re-fetches and re-cuts "
+            "the slice and reports what an apply would write.",
+        ),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Per-dispatch slice size, required with --apply: the number of stored "
+            "rows this run re-fetches and re-cuts. Honored on a dry run too, which "
+            "fetches the same PDFs. 0 takes an empty slice, which walks the class and "
+            "fetches nothing.",
+        ),
+    ] = None,
+    deadline_seconds: Annotated[
+        float | None,
+        typer.Option(
+            "--deadline-seconds",
+            help="Wall-clock budget for this run, measured from the moment the command "
+            "starts. Before each candidate the pass checks its estimated cost against "
+            "what is left and stops taking new ones once the budget will not hold it; "
+            "those are reported unreached and head the next slice. Omit for no deadline.",
+        ),
+    ] = None,
+    all_live: Annotated[
+        bool,
+        typer.Option(
+            "--all-live",
+            help="Walk the whole live slice rather than the predict-relevant rows "
+            "(queued for prediction or selected by the salience gate).",
+        ),
+    ] = False,
+) -> None:
+    """Re-cut the petitions, applications and appendices stored under the plain head cut.
+
+    Those three kinds are cut at the document cap the appendix-aware way, with a
+    `[pipeline note: …]` line at every cut. Fetching is idempotent per kind and
+    URL, so a row stored before that cut keeps a plain head cut for as long as its
+    link is unchanged. The class is every stored row of the three kinds that is
+    `truncated`, not `ocr_derived` (an OCR-recovered row is head-cut by design),
+    carries no `[pipeline note:` line, and has one Court URL; the scope is the
+    predict-relevant live-slice rows, or with `--all-live` the whole live slice.
+    Each candidate is re-fetched by its stored URL on supremecourt.gov and re-cut
+    by the fetching lanes' own extractor at the configured cap. A served PDF with
+    a different page count is another filing at that link and is skipped
+    (`pages-changed`), as is one whose text no longer opens like the stored
+    row's (`head-changed`); bytes that do not parse are `unreadable`; a re-cut
+    equal to the stored text is `unchanged`; an empty re-cut is never written.
+    A re-cut row keeps its entry date and URL and takes the new text, pages,
+    truncation flag and today's `fetched_at`; a re-cut
+    petition re-derives its `questions-presented` row from both texts and
+    writes it only where the re-cut moves the derivation; a stored row the
+    current deriver reads differently off the stored petition is left to
+    `backfill-questions-presented`. Contract: *Contract for the re-cut pass*
+    (`docs/live-sources.md`).
+
+    Both modes fetch: the dry run re-cuts and writes nothing, the apply writes
+    each re-cut as it is made. `--max-cases` is required on an apply and
+    honored on a dry run; `--deadline-seconds` declines the rest of the slice
+    once a candidate's estimate will not fit, reported unreached. The lane
+    invocation is run-repair's `recut` pass. Fails loud if the corpus is absent
+    or the walk reads no stored document of the three kinds.
+    """
+    started = time.monotonic()
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "recut-documents: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the slice you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    max_cases = _slice_bound(max_cases, command="recut-documents")
+    deadline = _slice_deadline(started, deadline_seconds, command="recut-documents")
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the re-cut.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    if apply:
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    scope = RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+    with (
+        corpus.connect(db_path) as conn,
+        SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
+    ):
+        result = recut_documents(
+            conn,
+            client=client,
+            apply=apply,
+            char_cap=cfg.document_text_cap,
+            today=date.today(),
+            max_cases=max_cases,
+            scope=scope,
+            deadline=deadline,
+        )
+    if not result.documents_seen:
+        typer.echo(
+            f"recut-documents: no stored documents of an appendix-bearing kind in {db_path} "
+            f"({scope}, {result.cases_seen} row(s)) — wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "re-cut" if apply else "would re-cut"
+    typer.echo(
+        f"recut-documents ({'applied' if apply else 'dry-run'}, {scope}): "
+        f"{result.candidates} head-cut filing(s) in the class of "
+        f"{result.documents_seen} stored document(s) over {result.cases_seen} row(s) — "
+        f"{verb} {result.recut}, {result.remaining} left in the class"
+    )
+    _echo_by_kind("class", result.candidates_by_kind)
+    if result.excluded:
+        _echo_by_kind("truncated but left out", result.excluded)
+    typer.echo(
+        f"  attempted {result.attempted} "
+        f"(bound {'none' if result.bound is None else result.bound}); "
+        f"{result.unchanged} unchanged, {result.pages_changed} pages-changed, "
+        f"{result.head_changed} head-changed, {result.unreadable} unreadable, "
+        f"{result.empty_after_recut} empty after the re-cut; "
+        f"{result.questions_rederived} questions-presented row(s) re-derived"
+    )
+    losses = ", ".join(f"{reason}: {count}" for reason, count in result.fetch_failed.items())
+    typer.echo(f"  fetch-failed: {losses or 'none'}")
+    for kind, counts in result.outcomes_by_kind.items():
+        typer.echo(
+            f"  {kind}: " + ", ".join(f"{outcome} {count}" for outcome, count in counts.items())
+        )
+    for key, detail in result.recuts.items():
+        typer.echo(f"  {key}: {verb.upper()} {detail}")
+    for key, reason in result.skipped.items():
+        typer.echo(f"  {key}: SKIPPED ({reason})")
+    _echo_unreached(result.unreached)
+    if result.bound and result.attempted == result.bound and result.recut == 0:
+        # A full slice that re-cut nothing is a head of residue (links that
+        # 404, other filings) the class order keeps returning to.
+        typer.echo(
+            "::warning::recut-documents: the whole slice was skipped; the class head is "
+            "residue every bounded run returns to — read the SKIPPED lines"
+        )
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
+
+
 @app.command("enrich-opinions")
 def enrich_opinions_cmd(
     apply: Annotated[
@@ -4447,6 +4614,229 @@ def decision_census_cmd(
     typer.echo(census.model_dump_json())
 
 
+@app.command("merits-backtest-plan")
+def merits_backtest_plan_cmd(
+    terms: Annotated[
+        str,
+        typer.Option(
+            help="October Terms to draw from, comma-separated, in the order the "
+            "population lists them (e.g. 2025,2024)."
+        ),
+    ] = "2025",
+    out: Annotated[
+        Path | None, typer.Option(help="Write the population JSON here rather than stdout.")
+    ] = None,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """List the decided argued cases a merits replay would forecast, and each one's cutoffs.
+
+    Read-only. Over the decision record's population for each Term
+    (`merits_backtest.merits_backtest_population`): the argued plenary dockets
+    with a parsed merits judgment, one case per docket the filings are on (a
+    consolidated member is set aside for its lead), each with the grant and
+    briefed moments it is replayed at and the day each one's record is cut, the
+    Terms in the order named. A docket set aside is listed with its reason and
+    its judgment, for the audit of what the draw left out. Prints one line per
+    Term and each set-aside docket to stderr, and the population JSON to stdout
+    or ``--out``. Reads each candidate's newest stored snapshot: over the ranged
+    backend no pulled blob is needed, though with the corpus split the snapshots
+    come from the per-case content store, which must be reachable.
+    """
+    wanted = _merits_terms(terms)
+    backend, db_path = _merits_corpus(corpus_backend)
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        population = merits_backtest.merits_backtest_population(conn, terms=wanted)
+    _echo_merits_population(population)
+    body = population.model_dump_json(indent=2)
+    if out is None:
+        typer.echo(body)
+    else:
+        write_text(out, body + "\n")
+
+
+def _merits_terms(terms: str) -> list[int]:
+    """``--terms`` as October Term years, in the order named."""
+    try:
+        wanted = [int(t) for t in terms.split(",") if t.strip()]
+    except ValueError as exc:
+        raise typer.BadParameter("name Terms as four-digit years", param_hint="--terms") from exc
+    if not wanted or not all(1925 <= t <= 2100 for t in wanted):
+        raise typer.BadParameter("name Terms as four-digit years", param_hint="--terms")
+    return wanted
+
+
+def _merits_corpus(corpus_backend: str) -> tuple[corpus.CorpusBackend, Path]:
+    """The backend and database a merits back-test command reads, refused if absent."""
+    settings = get_settings()
+    backend = _corpus_backend(corpus_backend) or settings.corpus_backend
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; corpus-pull it, or pass "
+            "--corpus-backend ranged.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    return backend, db_path
+
+
+def _echo_merits_population(population: merits_backtest.MeritsBacktestPopulation) -> None:
+    """One line per Term and one per set-aside docket, to stderr."""
+    typer.echo(f"corpus pulled through {population.pulled_through or 'undated'}", err=True)
+    for term in population.terms:
+        set_aside = ", ".join(f"{k} {v}" for k, v in term.excluded.items()) or "none"
+        typer.echo(
+            f"OT{term.term}: {term.cases} case(s) to replay, from {term.plenary_decided} argued "
+            f"plenary docket(s) decided ({term.assigned} assigned, {term.order_riding} "
+            f"order-riding, {term.argued_unjudged} argued with no judgment read); "
+            f"set aside: {set_aside}",
+            err=True,
+        )
+    for item in population.excluded:
+        typer.echo(
+            f"  OT{item.term} {item.docket_number}: {item.reason} ({item.detail}; "
+            f"{item.judgment.value})",
+            err=True,
+        )
+
+
+@app.command("merits-backtest")
+def merits_backtest_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+    terms: Annotated[
+        str,
+        typer.Option(help="Argued October Terms to replay, comma-separated (e.g. 2025,2024)."),
+    ] = "2025",
+    limit: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases to draw, in the vintage-keyed hash order; 0 replays every case. "
+            "Every case costs two cells per predictor.",
+        ),
+    ] = 0,
+    engine: Annotated[
+        str,
+        typer.Option(
+            help="'auto' routes each predictor through its own configured engine; a "
+            "backend (" + ", ".join(available_backends()) + ") routes every predictor "
+            "through that one, for offline runs."
+        ),
+    ] = "auto",
+    skip_engines: Annotated[
+        str,
+        typer.Option(help="Comma-separated engines to opt out of, by the predictor's own engine."),
+    ] = "",
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/merits-backtest.json)."),
+    ] = None,
+    work_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Scratch root for the replay cells (default: a temporary directory). "
+            "Never data/; it must be empty."
+        ),
+    ] = None,
+    workers: Annotated[
+        int,
+        typer.Option(min=0, help="Engine lanes at once; 0 runs every lane at once."),
+    ] = 0,
+    keep_cells: Annotated[
+        Path | None,
+        typer.Option(
+            help="Keep each cell's forecast files and event definition here, per engine "
+            "and moment, written once every moment has run; the record is never kept. "
+            "Outside --work-dir."
+        ),
+    ] = None,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Replay predictors over decided argued cases into ``metrics/merits-backtest.json``.
+
+    Draws the population ``merits-backtest-plan`` lists, provisions every drawn
+    case at the grant and briefed moments, runs each enabled predictor's cell at
+    both, and scores P(disturbed) per predictor and moment against the judgment
+    and an as-of base rate (``merits_backtest.score_merits_backtest``). Spends
+    tokens on every cell of a real engine. Out of band: it never writes the
+    ``data/`` ledger, and the report is labeled retrospective.
+    """
+    if engine != "auto" and engine not in available_backends():
+        raise typer.BadParameter(
+            f"unknown backend {engine!r}; choose 'auto' or one of "
+            f"{', '.join(available_backends())}",
+            param_hint="--engine",
+        )
+    wanted = _merits_terms(terms)
+    backend, db_path = _merits_corpus(corpus_backend)
+    settings = get_settings()
+    destination = out if out is not None else settings.metrics_root / "merits-backtest.json"
+    skipped = frozenset(e.strip() for e in skip_engines.split(",") if e.strip())
+    known = {str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")}
+    if skipped - known:
+        raise typer.BadParameter(
+            f"unknown engine(s): {', '.join(sorted(skipped - known))}; enabled engines "
+            f"are {', '.join(sorted(known))}",
+            param_hint="--skip-engines",
+        )
+    work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
+    if work_root.resolve().is_relative_to(settings.data_root.resolve()):
+        raise typer.BadParameter("the work root may not be under data/", param_hint="--work-dir")
+    if work_root.exists() and any(work_root.iterdir()):
+        raise typer.BadParameter(f"{work_root} is not empty", param_hint="--work-dir")
+    if keep_cells is not None and keep_cells.exists() and any(keep_cells.iterdir()):
+        raise typer.BadParameter(f"{keep_cells} is not empty", param_hint="--keep-cells")
+    run_id = ids.run_id()
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        pool = merits_backtest.merits_backtest_population(
+            conn, terms=merits_backtest.baseline_pool_terms(wanted)
+        )
+        population = merits_backtest.population_for(pool, wanted)
+        _echo_merits_population(population)
+        key = population.pulled_through.isoformat() if population.pulled_through else "undated"
+        drawn = merits_backtest.draw_cases(population.cases, limit, key)
+        typer.echo(f"replaying {len(drawn)} of {len(population.cases)} case(s)", err=True)
+        with _standing_report_withheld(destination):
+            outcome = merits_backtest.replay_merits_predictors(
+                conn,
+                drawn,
+                config_root=settings.config_root,
+                work_root=work_root,
+                run_id=run_id,
+                engine_override=None if engine == "auto" else engine,
+                skip_engines=skipped,
+                workers=workers,
+                keep_root=keep_cells,
+            )
+    for predictor_id in outcome.unavailable:
+        typer.echo(f"dropped {predictor_id}: its engine is not installed", err=True)
+    for path in outcome.unkept:
+        typer.echo(f"not kept: {path}", err=True)
+    for predictor_id, by_moment in sorted(outcome.predictions.items()):
+        if not any(by_moment.values()):
+            typer.echo(f"{predictor_id} scored no cell; its losses are in lost_cells", err=True)
+    drawn_ids = {case.case_id for case in drawn}
+    report = merits_backtest.score_merits_backtest(
+        population.model_copy(
+            update={"cases": [c for c in population.cases if c.case_id in drawn_ids]}
+        ),
+        pool.cases,
+        outcome,
+        run_id=run_id,
+        dispatch=MeritsBacktestDispatch(
+            engine=engine,
+            skip_engines=sorted(skipped),
+            terms=wanted,
+            limit=limit,
+            draw_key=key,
+        ),
+    )
+    write_json(destination, report)
+    typer.echo(
+        f"merits-backtest: {len(report.entries)} predictor(s) over {report.cells} cell(s), "
+        f"{report.paired_cases} case(s) at both moments; engine {engine} -> {destination}"
+    )
+
+
 @app.command("merits-coverage")
 def merits_coverage_cmd(
     first_term: Annotated[
@@ -4608,6 +4998,91 @@ def reasoning_pilot_sample_cmd(
             f"eligible on {len({(d.case_id, d.event_id) for d in pool})} event(s)",
             err=True,
         )
+
+
+@app.command("reasoning-pilot-merits-sample")
+def reasoning_pilot_merits_sample_cmd(
+    kept: Annotated[
+        Path, typer.Argument(help="A merits back-test's kept tree (its `merits-forecasts`).")
+    ],
+    out: Annotated[Path, typer.Argument(help="A new or empty directory to write the sample into.")],
+    data_root: Annotated[
+        Path,
+        typer.Option(
+            help="A ledger-shaped root to lay the calibration events into; never the "
+            "committed ledger."
+        ),
+    ],
+    terms: Annotated[
+        str, typer.Option(help="Argued October Terms to grade, comma-separated.")
+    ] = "2025",
+    limit: Annotated[
+        int, typer.Option(min=1, help="Cases to grade, every predictor of each.")
+    ] = merits_calibration.DEFAULT_CALIBRATION_CASES,
+    moment: Annotated[
+        Moment, typer.Option(help="The replay moment whose forecasts are graded.")
+    ] = merits_calibration.DEFAULT_CALIBRATION_MOMENT,
+    allow_stub: Annotated[
+        bool,
+        typer.Option(help="Accept a stub lane's forecasts, for an offline or free rehearsal."),
+    ] = False,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Lay a merits back-test's kept forecasts into a ledger tree as pilot calibration cells.
+
+    The replay merits half of the reasoning-grade pilot
+    (`docs/outcome-decomposition.md`, *The pilot, and what it reports*): reads
+    the kept tree, refusing it whole if any entry falls outside its layout
+    (`merits_calibration.read_kept_run`); draws up to ``--limit`` decided cases
+    of ``--terms`` at ``--moment`` in a salted-hash order; and writes each one
+    into ``--data-root`` as a resolved merits event, its definition and outcome
+    rebuilt from the corpus and its predictions as kept. An event the root
+    or the committed ledger already holds is refused, as is a root in the
+    committed ledger. Writes
+    ``body.md`` and ``sample.json`` into ``out``, as ``reasoning-pilot-sample``
+    does, every cell at the merits stage. The root is a pilot round's working
+    tree: never commit what this writes, and validate it before it is graded.
+    """
+    wanted = _merits_terms(terms)
+    settings = get_settings()
+    ledger = settings.data_root.resolve()
+    if data_root.resolve().is_relative_to(ledger):
+        raise typer.BadParameter(
+            f"{data_root} is in the committed ledger {settings.data_root}", param_hint="--data-root"
+        )
+    backend, db_path = _merits_corpus(corpus_backend)
+    configured = {
+        p.id: str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
+    }
+    try:
+        run = merits_calibration.read_kept_run(kept, allow_stub=allow_stub, predictors=configured)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"refusing the kept tree: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        population = merits_backtest.merits_backtest_population(conn, terms=wanted)
+        documents = merits_calibration.calibration_documents(
+            run, population.cases, moment=moment, limit=limit
+        )
+        if not documents:
+            typer.echo(
+                f"no kept {moment.value} forecast of a decided {terms} case to grade.", err=True
+            )
+            raise typer.Exit(code=1)
+        try:
+            sample = merits_calibration.write_calibration_overlay(
+                conn, documents, population.cases, data_root, ledger=settings.data_root
+            )
+            reasoning_pilot.write_sample(sample, out)
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+    typer.echo(
+        f"merits calibration: {len(sample)} document(s) on "
+        f"{len({(d.case_id, d.event_id) for d in sample})} event(s) of run {run.run_id}, "
+        f"from {len({f.case_id for f in run.forecasts})} kept case(s)",
+        err=True,
+    )
 
 
 @app.command("reasoning-pilot-report")
@@ -16931,6 +17406,12 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
         typer.echo(
             f"  provisioned: {placed.role} {placed.event_id or report.case_id} — "
             f"{placed.mode}, {placed.provenance}, {cut}, {placed.documents} document(s)"
+            + (f", unheld: {', '.join(placed.unheld)}" if placed.unheld else "")
+            + (
+                ", not a cell run-predict mints"
+                if placed.role == "predict" and placed.event_id in report.unforecastable
+                else ""
+            )
         )
     typer.echo(f"  predictions: {len(report.predictions)} file(s)")
     typer.echo(f"  outcomes:    {len(report.outcomes)} file(s)")
@@ -17589,7 +18070,10 @@ def live_poll(
     if queues.document_freshness:
         typer.echo(
             "Document freshness: "
-            + ", ".join(f"{key}={value}" for key, value in queues.document_freshness.items())
+            + ", ".join(
+                f"{key}={';'.join(value) if isinstance(value, list) else value}"
+                for key, value in queues.document_freshness.items()
+            )
             + "."
         )
     if queues.argument_transcripts:
@@ -19815,6 +20299,15 @@ def evaluate_matrix_cmd(
             "a prompt an evaluator registers."
         ),
     ] = None,
+    calibration: Annotated[
+        bool,
+        typer.Option(
+            help="Also mark every row `calibration`: the pilot's replay merits cells, whose "
+            "events a calibration overlay laid into the tree "
+            "(`reasoning-pilot-merits-sample`) and the corpus holds no event row for, so a cell "
+            "does not project them from it. Needs --pilot-section."
+        ),
+    ] = False,
 ) -> None:
     """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
 
@@ -19849,8 +20342,12 @@ def evaluate_matrix_cmd(
     cell's kickoff names the section beside the registered prompt, so the
     registered prompt and every process digest stay as they are. A registered
     prompt is refused as a section, so a pilot can never be mistaken for a
-    registered round.
+    registered round. ``--calibration`` further marks them as the pilot's replay
+    merits calibration cells.
     """
+    if calibration and pilot_section is None:
+        typer.echo("--calibration marks pilot rows; it needs --pilot-section.", err=True)
+        raise typer.Exit(code=1)
     if pilot_section is not None:
         if body_file is None and docket is None:
             typer.echo(
@@ -19887,7 +20384,12 @@ def evaluate_matrix_cmd(
         matrix = {
             **matrix,
             "include": [
-                {**row, "pilot_section": pilot_section.as_posix()} for row in matrix["include"]
+                {
+                    **row,
+                    "pilot_section": pilot_section.as_posix(),
+                    **({"calibration": True} if calibration else {}),
+                }
+                for row in matrix["include"]
             ],
         }
     typer.echo(json.dumps(matrix, separators=(",", ":")))

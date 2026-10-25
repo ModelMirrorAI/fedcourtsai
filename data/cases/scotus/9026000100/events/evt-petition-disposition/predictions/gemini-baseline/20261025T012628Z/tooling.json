@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000100",
+  "run_id": "20261025T012628Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "Provisioned full text of petition.txt (including lower-court opinions and declarations) and brief-in-opposition.txt",
+    "fedcourts query --docket-number 24-427 for comparing Hittle v. City of Stockton",
+    "metrics/statpack.md per-Term salience-band risk-set base rates"
+  ],
+  "gaps": [
+    "An --attorney filter on fedcourts query would be convenient for checking counsel-of-record priors directly"
+  ],
+  "notes": "Provisioned record was complete and cleanly extracted."
+}

@@ -42,8 +42,8 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-seed`       | daily schedules (4 windows), manual | script (no agent)    |
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
-| `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, or the `reasoning-pilot` round of the unregistered `predicted_reasoning_quality` grade, which is always held for review and commits nothing | Claude Code + Codex + Gemini |
-| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
+| `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the unregistered `predicted_reasoning_quality` grade, or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
+| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
@@ -1004,7 +1004,7 @@ per-brief headings are themselves text, so such a row is not empty by the
 coverage report's per-kind test either: it reads as covered there while
 carrying no argument, so the report sizes it on a line of its own. It is the
 only pass here that installs a binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
-from the runner image's own archive), and one of the two whose bound is a
+from the runner image's own archive), and one of the three whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
 page-by-page recognition, and runner minutes are the whole cost. That makes the
 bound a *spend* cap, so the step hands the pass a wall-clock deadline as well —
@@ -1047,7 +1047,7 @@ its lead docket alone, has that lead's JSON fetched beside its own (one more
 paced GET, in either mode) and its merits kinds selected off the lead's entries
 that are the member's own, so a member briefed on its lead is recovered or
 floored rather than named by the selector-regression alarm; a lead the fetch did
-not return is counted as a docket loss. It is the other slice-bounded pass, and the one whose `dry-run`
+not return is counted as a docket loss. It is the second slice-bounded pass, and one of the two whose `dry-run`
 is bounded too: that dry run fetches each candidate's docket JSON, which is the
 whole diagnostic — it is what separates a case with a link waiting for it from
 one at a floor — and it is a paced round trip per candidate. Two floors are
@@ -1069,6 +1069,27 @@ class afterwards — an empty slice, which costs no round trip — and requires
 exactly what the apply's ledger said it would leave behind. The stamps are its
 one index write, so an applied slice that read any floor also moves the
 pointer.
+
+`recut` re-cuts the petitions, applications and appendices stored under the
+plain head cut. Those three kinds are cut the appendix-aware way at ingest —
+the filing's body kept whole, each appendix item's opening kept, a `[pipeline
+note: …]` line at every cut — but fetching is idempotent per kind and URL, so a
+row stored before that cut keeps a head cut for as long as its link is
+unchanged: the cap lands inside the appendix, and nothing in the text says so.
+Its class is every such row that is truncated, not OCR-derived (an
+OCR-recovered row is head-cut by design), carries no cut note and has one Court
+URL, over the predict-relevant live-slice rows, or the whole live slice with the
+`all-live` option. Each candidate is re-fetched by its stored URL and re-cut by
+the fetching lanes' own extractor; a link now serving a PDF of another page
+count, or a re-cut that no longer opens like the stored text, is another filing
+and is skipped (`pages-changed`, `head-changed`), an unchanged or empty
+re-cut writes nothing, and a re-cut petition rewrites its questions-presented row
+only where the re-cut moves the section. It is the third slice-bounded pass and
+the second whose `dry-run` is bounded too, since both modes fetch and re-cut
+every candidate in the slice — the dry run's per-kind outcome counts are what an
+apply is read off. Like the other two it writes documents, so the step re-walks
+the class on an empty slice afterwards and requires exactly what the apply's
+ledger said it would leave behind.
 
 `arrival-backfill` re-derives the interim baseline's arrival stamp — the day an
 application was submitted to a Justice, which is the moment that event declares
@@ -1187,8 +1208,8 @@ evaluate, so the pass moves no grade. Its bound is the dry run's
 
 Four of the passes that fetch and parse the Court's content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
-**credential split** of three jobs (`ocr-recovery` and `document-backfill`
-also parse fetched PDFs, inside the corpus job, and are not split here;
+**credential split** of three jobs (`ocr-recovery`, `document-backfill` and
+`recut` also parse fetched PDFs, inside the corpus job, and are not split here;
 run-seed's OCR sweep is the split, scheduled route to the same recovery). `handoff-projection` holds the read-only
 role, pulls the corpus and writes the few public facts the parse needs;
 `handoff-parse` holds no credential at all (no environment, no `id-token`, no
@@ -2713,6 +2734,28 @@ from the corpus, and every cell is provisioned under `--work-dir`. The
 misplaced-write probe is unaffected — an engine following the prompt template's
 `data/cases/...` path recreates the directory the probe looks for.
 
+The merits arm (`replay: merits`) runs in the same checkout under the same
+removals and restores, with its own report, `metrics/merits-backtest.json`, the
+one file that crosses to `publish`. It adds two things of its own. Its cells
+run one moment at a time (`fedcourts merits-backtest`), so a grant cell never
+has its case's briefed record on disk, and the forecasts kept for upload are
+held in memory until both moments have run, so a briefed cell never has a
+grant forecast there either. And each cell's forecast files and event
+definition, an allowlist the harness applies (`kept_forecasts`) and never its
+provisioned `record/`, leave the runner as the run's `merits-forecasts`
+artifact, after a secret scan and kept 30 days, which is what the
+forecast-document grading pilot reads (run-evaluate's `reasoning-pilot-merits`
+round; a stub round's artifact is `merits-forecasts-stub`, so a free rehearsal
+never shadows a real round's). A scan hit withholds the artifact and
+the report still lands. The dispatch draws 1 to 20 cases: the arm has no
+`review` hold, and a larger draw would outlast the job's timeout, which lands
+neither the report nor the forecasts. What the removals do not reach is accepted on the arm's
+own terms: committed prose that names a decided judgment (the freeze record
+does), the full-depth history, and the web, which a replay cell may search
+under the replay contract. The report is retrospective for exactly that
+reason, and every cell's `flags.json` disclosures are counted beside its
+scores.
+
 The fence reaches the priors a cell retrieves as well. Every `fedcourts query`
 on a dated or truncated cell runs under its replay clock, as does every query a
 blind cell makes with `--decided-before`; the clock drops the priors that do not
@@ -3911,7 +3954,7 @@ against; its pre-registration standing is a dated entry in
 Because the gate reads *committed* state, it cannot see a round whose collect PR
 has not merged. What bounds a second derivation there is `run-evaluate`'s
 concurrency group, which serializes every backlog round of the workflow
-regardless of trigger — not the gate. A `reasoning-pilot` round takes a group
+regardless of trigger — not the gate. A pilot round, of either kind, takes a group
 of its own, since it commits nothing for a backlog round to overlap. Note what
 a group does and does not buy: it keeps two rounds from overlapping, but the
 next round plans the moment it releases, which can be well before the previous round's collect PR merges. Predict closes that
