@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000100",
+  "gaps": [
+    "No reply or amicus text was provisioned; their arguments were not inferred from docket titles.",
+    "The committed statpack did not expose a build timestamp in the fields inspected."
+  ],
+  "helpful": [
+    "Both party briefs had complete extracted text; the petition included the lower-court memorandum.",
+    "Frozen context and unrounded statpack risk-set fields supported an exact strictly-prior pooled anchor.",
+    "Dated docket entries distinguished expected administrative redistribution from a substantive relist."
+  ],
+  "notes": "The default uv cache was read-only; pointing UV_CACHE_DIR to /tmp/uv-cache allowed the existing environment to run. General legal web retrieval only; no target-case search or live corpus lookup. CourtListener tools were available but not needed.",
+  "role": "predictor",
+  "run_id": "20261025T012628Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "committed statpack",
+    "web search and official Supreme Court sources",
+    "local probability-pooling calculation",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

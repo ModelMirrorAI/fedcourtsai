@@ -1,0 +1,14 @@
+case_id: scotus/73500260
+decision_target: disposition
+description: Disposition of the petition, forecast after the Court called for a response
+  to it.
+docket_entry_id: null
+event_id: evt-order-call-for-response-disposition
+kind: order
+moment: response-requested
+opened_at: '2026-07-29'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: TitleMax of Virginia, Inc., et al. v. Wendy S. Spicher, Secretary, Pennsylvania
+  Department of Banking and Securities
