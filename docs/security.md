@@ -2065,9 +2065,12 @@ own URL). The ceiling (`opinion_record_ceiling`, 200) is no control against
 such a parse, which writes the class count it is weighed on; it stops an
 honest parse whose class has widened. Those rows go to the corpus index, not git, so no diff
 review sees them, and the record is fill-only, so a forged row stays until a
-pass built to replace rows exists. Nothing a predict cell or a registered
-evaluate cell sees reads the table; its readers are the analytic
-`merits-lineups` and `authorship-tally`, and `provision-opinion --writings`,
+pass built to replace rows exists. A predict or evaluate cell reads the table
+only through the committed statpack, whose authorship and per-Justice votes
+sections roll it up per Term, so a forged row moves a published count a cell
+may anchor on, in the diff of the metrics-refresh PR that carries it, and the
+section reader does not repeat the write-time roster check. Its other readers
+are the analytic `merits-lineups` and `authorship-tally`, and `provision-opinion --writings`,
 which uses it only to pick a pilot cell's decisions and stages kind and
 author from the digest-checked text object, not from the row. The same plan carries each writing's text, which the
 writer stores in the content store under `scotus/opinions/`, each writing's

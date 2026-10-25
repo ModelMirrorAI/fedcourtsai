@@ -46,6 +46,7 @@ from .pipeline.base_rates import INTERIM_BASE_RATE_MIN_RESOLVED
 from .pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE
 from .pipeline.interim_signals import ApplicationKind
 from .pipeline.judgment import judgment_disturbed, judgment_rode_the_grant_order
+from .pipeline.justice_priors import justice_votes_section
 from .pipeline.outcome import granted_flag, is_machine_readable
 
 # The reference set's per-label support floor, read here for a second job the docket
@@ -103,6 +104,7 @@ from .schemas import (
     StatPackCoverage,
     StatPackInterim,
     StatPackInterimTerm,
+    StatPackJusticeVotes,
     StatPackMerits,
     StatPackMeritsTerm,
     StatPackSection,
@@ -726,13 +728,11 @@ _CERT_AMICUS_NOTE = (
     "a marginal one — it describes the populations, not what the count adds "
     "over the relist and CVSG cuts."
 )
-# Not yet in `_STATPACK_SECTIONS`: the column fills only as the live poll re-reads
-# a docket, and the poll skips resolved rows, so until `run-repair`'s
-# `cert-amicus-rederive` pass (`fedcourts rederive-cert-amicus-briefs`) fills the
-# resolved history this section would be almost all `(unknown)` — noise in a
-# table cells read. Admitting it to the statpack is a change to what cells read,
-# and waits for its own re-bless. `cert_amicus_section` builds it on its own
-# meanwhile.
+# The column fills as the live poll re-reads a docket, and the poll skips
+# resolved rows, so the resolved history is filled by `run-repair`'s
+# `cert-amicus-rederive` pass (`fedcourts rederive-cert-amicus-briefs`); before
+# that pass has applied, this section is almost all `(unknown)`.
+# `cert_amicus_section` builds it on its own for a reader outside the statpack.
 _CERT_BY_AMICUS_PAID = _SectionSpec(
     "Cert petitions by amicus-brief count (paid scored segment)",
     "scotus",
@@ -848,6 +848,7 @@ _STATPACK_SECTIONS: tuple[_SectionSpec, ...] = (
     _CERT_BY_CIRCUIT,
     _CERT_BY_RELIST_PAID,
     _CERT_BY_CVSG_PAID,
+    _CERT_BY_AMICUS_PAID,
     _CERT_BY_CAPITAL_PAID,
     _CERT_BY_SALIENCE_BAND,
     _PETITIONS_BY_ORIGINATING_COURT,
@@ -1937,9 +1938,9 @@ def cert_amicus_section(*, corpus_db_path: Path) -> StatPackSection:
     """The cert-stage amicus cut over the paid scored segment, built on its own.
 
     The same population, weighting and bucket rollup as the relist and CVSG
-    cuts beside it in the statpack, over one streamed pass. It is not a
-    statpack section yet (:data:`_CERT_BY_AMICUS_PAID` says why), so this is the
-    one way to read it; an absent corpus yields the empty section.
+    cuts beside it in the statpack, over one streamed pass, for a reader that
+    wants the cut without the rest of the pack; an absent corpus yields the
+    empty section.
     """
     specs = (_CERT_BY_AMICUS_PAID,)
     if not corpus_db_path.exists():
@@ -1951,6 +1952,12 @@ def _authorship_section(corpus_db_path: Path) -> StatPackAuthorship | None:
     """The authorship section, off the per-opinion record the blob holds."""
     with corpus.connect_local_read(corpus_db_path) as conn:
         return authorship_section(conn)
+
+
+def _justice_votes_section(corpus_db_path: Path) -> StatPackJusticeVotes | None:
+    """The per-Justice merits votes section, off the merits lineups the blob holds."""
+    with corpus.connect_local_read(corpus_db_path) as conn:
+        return justice_votes_section(conn)
 
 
 def build_statpack(*, corpus_db_path: Path) -> StatPack:
@@ -1970,7 +1977,8 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
     holds application rows, and the granted-merits cohort (``merits``), present
     only once a row carries a parsed merits judgment. The per-opinion record
     rides beside them as the authorship section, present once it holds an
-    argued decision.
+    argued decision, and the merits lineups as the per-Justice votes section,
+    present once one is complete.
     """
     if not corpus_db_path.exists():
         return StatPack(sections=_sections(_STATPACK_SECTIONS))
@@ -2002,6 +2010,7 @@ def build_statpack(*, corpus_db_path: Path) -> StatPack:
         interim=_interim_section(scan.interim),
         merits=_merits_section(scan.merits),
         authorship=_authorship_section(corpus_db_path),
+        justice_votes=_justice_votes_section(corpus_db_path),
     )
 
 
@@ -2376,6 +2385,8 @@ def render_statpack_markdown(pack: StatPack, *, markdown_terms: int | None = Non
         lines += _interim_lines(pack.interim)
     if pack.merits is not None:
         lines += _merits_lines(pack.merits)
+    if pack.justice_votes is not None:
+        lines += _justice_votes_lines(pack.justice_votes)
     return "\n".join(lines) + "\n"
 
 
@@ -2997,6 +3008,55 @@ def _timing_summary(timing: TimingStats) -> str:
         f"median {_days(timing.median_days)}d, p90 {_days(timing.p90_days)}d "
         f"(mean {timing.mean_days}d over {timing.cases} dated case(s))"
     )
+
+
+def _justice_votes_lines(votes: StatPackJusticeVotes) -> list[str]:
+    """The per-Justice merits votes section of the statpack Markdown.
+
+    One table per Term, most recent first: each Justice's raw counts with the
+    rate beside its own denominator. The pairwise agreement counts ride in
+    ``statpack.json`` only, since a bench yields three dozen pairs a Term.
+    """
+    lines = [
+        "",
+        "## Per-Justice merits votes (complete lineups)",
+        (
+            "_Each Justice's votes on the signed decisions whose writings seat every "
+            + "Justice, by the October Term of the opinions listing (the decision's Term). "
+            + "Per curiams and lineups the record could not seat are counted in "
+            + "`documents` only, and they are not missing at random: summary reversals, "
+            + "which lean toward disturbing, are among them. **With judgment** is of "
+            + "`sat`, and a vote in part on each side is in `sat` and on neither side. "
+            + "**Disturb** is of the whole-side votes on a plain affirmed, reversed or "
+            + "vacated judgment: with the judgment where it was reversed or vacated, in "
+            + "dissent where it was affirmed. A DIG, an equally divided Court and a mixed "
+            + "judgment are left out, so this axis is narrower than the merits section's "
+            + "disturbed rate and not comparable with it. A merits forecast pools only "
+            + "the Terms **strictly before** its case's grant Term. Pairwise agreement "
+            + "counts are in `statpack.json` (`justice_votes.terms[].pairs`)._"
+        ),
+    ]
+    for term in votes.terms:
+        lines += [
+            "",
+            f"### OT{term.term}: {term.complete} of {term.documents} document(s) complete, "
+            f"{term.judged} with a plain judgment",
+            "",
+            "| Justice | Sat | With judgment | In part | Disturb |",
+            "| --- | ---: | ---: | ---: | ---: |",
+        ]
+        for row in term.justices:
+            with_judgment = f"{row.majority} ({_pct(row.majority / row.sat)})" if row.sat else "0"
+            disturb = (
+                f"{row.disturb} of {row.disturb_eligible} "
+                f"({_pct(row.disturb / row.disturb_eligible)})"
+                if row.disturb_eligible
+                else "—"
+            )
+            lines.append(
+                f"| {row.justice} | {row.sat} | {with_judgment} | {row.in_part} | {disturb} |"
+            )
+    return lines
 
 
 def _pct(share: float) -> str:

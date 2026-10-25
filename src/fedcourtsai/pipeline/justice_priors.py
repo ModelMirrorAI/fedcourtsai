@@ -41,7 +41,8 @@ decided at or after the Term it was granted in, so the pooled Terms never hold
 the forecast case's own decision.
 
 Read-only, and a pure function of the lineups and the case rows: nothing is
-stored, and nothing a cell sees reads it yet. Staging it is a re-bless step.
+stored. The per-Term tallies ride in the statpack as its ``justice_votes``
+section (:func:`justice_votes_section`), which a merits cell pools itself.
 """
 
 from __future__ import annotations
@@ -55,8 +56,15 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus
-from ..schemas import Judgment, VoteValue
-from .merits_lineups import MeritsLineup
+from ..schemas import (
+    Judgment,
+    StatPackJusticeVotes,
+    StatPackJusticeVotesJustice,
+    StatPackJusticeVotesPair,
+    StatPackJusticeVotesTerm,
+    VoteValue,
+)
+from .merits_lineups import MeritsLineup, merits_lineups, recorded_terms
 
 #: The votes that side with the judgment.
 _WITH_JUDGMENT: Final = frozenset({VoteValue.majority, VoteValue.concur_in_judgment})
@@ -74,53 +82,6 @@ _CHUNK: Final = 500
 
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
-
-class JusticeTally(_Strict):
-    """One Justice's merits votes over one Term, or over a pooled span of Terms."""
-
-    justice: str = Field(description="The Justice's name as the vote source spells it")
-    sat: int = Field(ge=0, description="Complete-lineup decisions the Justice took part in")
-    majority: int = Field(
-        ge=0, description="Of `sat`, those voting with the judgment (majority or concurring in it)"
-    )
-    in_part: int = Field(ge=0, description="Of `sat`, those voting in part on each side")
-    disturb_eligible: int = Field(
-        ge=0,
-        description="Of `sat`, whole-side votes on a plain affirmed, reversed or vacated judgment",
-    )
-    disturb: int = Field(
-        ge=0, description="Of `disturb_eligible`, those voting to disturb the judgment below"
-    )
-
-
-class PairTally(_Strict):
-    """Two Justices' agreement over the decisions both voted a whole side on."""
-
-    justices: tuple[str, str] = Field(description="The pair, in name order")
-    both: int = Field(ge=0, description="Decisions both Justices voted a whole side on")
-    agree: int = Field(ge=0, description="Of `both`, those where they voted the same side")
-
-
-class PriorTerm(_Strict):
-    """One October Term of per-Justice merits votes."""
-
-    term: int = Field(description="The October Term of the opinions listing")
-    documents: int = Field(ge=0, description="Listing rows the per-opinion record holds")
-    complete: int = Field(ge=0, description="Of `documents`, those with a complete lineup")
-    judged: int = Field(
-        ge=0,
-        description="Of `complete`, those whose case row carries a plain affirmed, "
-        "reversed or vacated judgment",
-    )
-    justices: list[JusticeTally] = Field(default_factory=list)
-    pairs: list[PairTally] = Field(default_factory=list)
-
-
-class JusticePriors(_Strict):
-    """Per-Term per-Justice merits votes, most recent Term first."""
-
-    terms: list[PriorTerm] = Field(default_factory=list)
 
 
 class JusticeRate(_Strict):
@@ -203,7 +164,7 @@ def _participated(vote: VoteValue) -> bool:
 
 def justice_priors(
     lineups: Sequence[MeritsLineup], judgments: Mapping[str, Judgment | None]
-) -> JusticePriors:
+) -> StatPackJusticeVotes:
     """Roll ``lineups`` into per-Term per-Justice tallies, most recent Term first."""
     terms = []
     for term in sorted({lu.term for lu in lineups}, reverse=True):
@@ -245,21 +206,40 @@ def justice_priors(
                 pairs[(a, b)] += 1
                 agrees[(a, b)] += sides[a] == sides[b]
         terms.append(
-            PriorTerm(
+            StatPackJusticeVotesTerm(
                 term=term,
                 documents=len(members),
                 complete=len(complete),
                 judged=judged,
                 justices=[
-                    JusticeTally(justice=name, **vars(acc)) for name, acc in sorted(accs.items())
+                    StatPackJusticeVotesJustice(justice=name, **vars(acc))
+                    for name, acc in sorted(accs.items())
                 ],
                 pairs=[
-                    PairTally(justices=pair, both=n, agree=agrees[pair])
+                    StatPackJusticeVotesPair(justices=pair, both=n, agree=agrees[pair])
                     for pair, n in sorted(pairs.items())
                 ],
             )
         )
-    return JusticePriors(terms=terms)
+    return StatPackJusticeVotes(terms=terms)
+
+
+def justice_votes_section(conn: corpus.ReadConnection) -> StatPackJusticeVotes | None:
+    """The statpack's per-Justice votes section, over every Term the record holds.
+
+    ``None`` while the record holds no complete lineup, so the pack carries no
+    ``justice_votes`` key.
+    """
+    span = recorded_terms(conn)
+    if span is None:
+        return None
+    lineups = merits_lineups(conn, first_term=span[0], last_term=span[1])
+    complete = [lu.case_id for lu in lineups if lu.status == "complete" and lu.case_id]
+    # A complete lineup with no case id still tallies its votes, so test the
+    # statuses rather than the judgment lookups.
+    if not any(lu.status == "complete" for lu in lineups):
+        return None
+    return justice_priors(lineups, case_judgments(conn, complete))
 
 
 def _rate(numerator: int, denominator: int) -> float | None:
@@ -267,7 +247,7 @@ def _rate(numerator: int, denominator: int) -> float | None:
 
 
 def pool_before(
-    priors: JusticePriors, before_term: int, *, justices: Iterable[str] | None = None
+    priors: StatPackJusticeVotes, before_term: int, *, justices: Iterable[str] | None = None
 ) -> PooledPriors:
     """Sum every Term strictly before ``before_term`` into rates.
 

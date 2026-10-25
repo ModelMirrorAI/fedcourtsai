@@ -5296,7 +5296,8 @@ def justice_priors_cmd(
     (over plain affirmed, reversed or vacated judgments), and pairwise
     agreement, over complete lineups only. The pooled rates sum the Terms
     strictly before `--before-term`, so a forecast in a Term never reads its
-    own Term's decisions. Nothing a cell sees reads it. Writes nothing. Prints
+    own Term's decisions. The statpack's `justice_votes` section carries the
+    same per-Term tallies. Writes nothing. Prints
     one coverage line per Term to stderr and `{"terms": ..., "pooled": ...}`
     JSON to stdout. Fails loud if the corpus is absent.
     """

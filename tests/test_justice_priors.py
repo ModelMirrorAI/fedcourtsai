@@ -10,10 +10,18 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus
+from fedcourtsai.analytics import build_statpack, render_statpack_markdown
 from fedcourtsai.cli import app
-from fedcourtsai.pipeline.justice_priors import case_judgments, justice_priors, pool_before
+from fedcourtsai.pipeline.justice_priors import (
+    case_judgments,
+    justice_priors,
+    justice_votes_section,
+    pool_before,
+)
 from fedcourtsai.pipeline.merits_lineups import MeritsLineup
 from fedcourtsai.schemas import Disposition, Judgment, JusticeVote, VoteValue
+
+from .test_merits_lineups import _document, _seated, _seven_two, _store
 
 runner = CliRunner()
 
@@ -170,3 +178,50 @@ def test_a_vote_with_no_merits_side_is_refused() -> None:
     lineups = [_lineup(2024, "1", {"A": M, "B": VoteValue.grant}, case_id="scotus/1")]
     with pytest.raises(ValueError, match="no merits side"):
         justice_priors(lineups, {})
+
+
+def _decided_case(db: Path, case_id: str, number: str, judgment: str) -> None:
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number=number,
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2025, 10, 6),
+                    merits_judgment=judgment,
+                    merits_decided=date(2026, 6, 30),
+                )
+            ],
+        )
+
+
+def test_the_statpack_section_reads_the_whole_record(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        assert justice_votes_section(conn) is None  # no record, no section
+    _decided_case(db, "scotus/1", "25-1", "reversed")
+    _store(db, _seated(_document("1", _seven_two()).model_copy(update={"case_id": "scotus/1"})))
+    with corpus.connect(db) as conn:
+        section = justice_votes_section(conn)
+    assert section is not None
+    (term,) = section.terms
+    assert (term.term, term.documents, term.complete, term.judged) == (2025, 1, 1, 1)
+    rows = {row.justice: row for row in term.justices}
+    assert (rows["Kagan"].disturb, rows["Alito"].disturb) == (1, 0)
+
+    pack = build_statpack(corpus_db_path=db)
+    assert pack.justice_votes == section
+    markdown = render_statpack_markdown(pack)
+    assert "## Per-Justice merits votes (complete lineups)" in markdown
+    assert "| Kagan | 1 | 1 (100.0%) | 0 | 1 of 1 (100.0%) |" in markdown
+
+
+def test_a_record_without_a_complete_lineup_has_no_section(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _store(db, _document("1", _seven_two()), benched=False)
+    with corpus.connect(db) as conn:
+        assert justice_votes_section(conn) is None
+    assert "justice_votes" not in build_statpack(corpus_db_path=db).model_dump()

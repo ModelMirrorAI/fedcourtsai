@@ -645,7 +645,10 @@ def _stored(kind: str, url: str) -> corpus.CaseDocument:
     )
 
 
-def test_the_placement_names_the_selected_kinds_the_store_lacks() -> None:
+def test_the_placement_names_the_selected_kinds_the_store_lacks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(provision, "WITHHELD_KINDS", frozenset({KIND_SUPPLEMENTAL_BRIEF}))
     placement = _placed(
         _filed(
             "Jul 28 2025",
@@ -693,10 +696,15 @@ def test_a_cell_cut_between_two_oppositions_holds_the_stored_set() -> None:
         (KIND_ARGUMENT_TRANSCRIPT, "evt-argument-judgment", True),
         (KIND_ARGUMENT_TRANSCRIPT, "evt-order-judgment", False),
         (KIND_ARGUMENT_TRANSCRIPT, "", False),
-        (KIND_SUPPLEMENTAL_BRIEF, "evt-petition-disposition", False),
+        (KIND_SUPPLEMENTAL_BRIEF, "evt-petition-disposition", True),
     ],
 )
 def test_moment_admits_kind_draws_the_placement_line(
     kind: str, event_id: str, admitted: bool
 ) -> None:
     assert provision.moment_admits_kind(kind, event_id) is admitted
+
+
+def test_a_withheld_kind_is_admitted_at_no_moment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(provision, "WITHHELD_KINDS", frozenset({KIND_SUPPLEMENTAL_BRIEF}))
+    assert not provision.moment_admits_kind(KIND_SUPPLEMENTAL_BRIEF, "evt-petition-disposition")

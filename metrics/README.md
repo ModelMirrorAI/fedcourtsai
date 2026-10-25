@@ -2541,7 +2541,8 @@ the rendered table) and
   counted `sample_weight` times so denials the earlier sampled walk kept at a
   higher weight do not bias them — the **modern discretionary-cert cut** (the calibration
   anchor, undiluted by merits-era labels), grant/deny by originating circuit,
-  by relist count, by CVSG status, by **capital-case marking** over the same
+  by relist count, by CVSG status, by **amicus-brief count** and by
+  **capital-case marking** over the same
   paid scored segment (whose `unmarked` bucket is an upper bound — read its rule
   below), and by **salience
   band** (the
@@ -2724,6 +2725,27 @@ the rendered table) and
   *The authorship claims* in `docs/outcome-decomposition.md`), pooled strictly
   before the October Term of the cell's snapshot.
 
+  The **per-Justice votes section** (`justice_votes`, rendered into
+  `statpack.md` with its pairwise counts in the JSON only) is the merits
+  lineups (`fedcourts merits-lineups`) rolled up per October Term of the
+  opinions listing, present once the record holds a complete lineup and
+  omitted otherwise. It counts **complete** lineups only: signed decisions
+  whose writings seat every Justice on a filled bench row. Per curiams and
+  lineups the record could not seat are in each Term's `documents` and nowhere
+  else, and they are not missing at random (summary reversals, which lean
+  toward disturbing, are among them). Per Term: `documents`, `complete`, and
+  `judged` (complete lineups whose case row carries a plain `affirmed`,
+  `reversed` or `vacated` judgment); per Justice, `sat`, `majority` (voting
+  with the judgment), `in_part` (a vote in part on each side, in `sat` and on
+  neither side), `disturb_eligible` and `disturb` (of the whole-side votes on a
+  judged decision, those voting to disturb the judgment below); per pair,
+  `both` and `agree`. Its disturb axis leaves out a DIG, an equally divided
+  Court and a mixed judgment, so it is **not comparable** with the merits
+  section's disturbed rate. It feeds no baseline and scores nothing: the
+  merits prompt points a cell's vote block at it, pooled over the Terms
+  strictly before the case's grant Term, as `fedcourts justice-priors
+  --before-term` pools it.
+
 - `docket.json` / `docket.md` — the **court-facing docket pack**: facts about the
   dockets themselves, for a reader with no interest in whether this project's
   models are any good. Composition by court and by decade era; then, over the
@@ -2752,7 +2774,14 @@ the rendered table) and
   prints the observed `ingested (rows)` beside the estimate.
   `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
-  *not yet parsed*, not *did not happen*. The **capital-case cut** carries the
+  *not yet parsed*, not *did not happen*, and on the **amicus-brief cut** it
+  means the live poll has not read the docket since the count was stored. That
+  cut counts the amicus briefs docketed before the petition's first
+  disposition entry, in `0`, `1` and `2+` buckets; it is a stakes proxy rather
+  than a census (the Solicitor General's invited brief counts, a multi-filer
+  brief counts once), and, like the capital cut below, marginal: it describes
+  the populations, never what the count adds over the relist and CVSG cuts. The
+  **capital-case cut** carries the
   same shape of caveat one step further, and its inline scope note says so: the
   flag is latched from
   supremecourt.gov's own `bCapitalCase` field OR-ed with the

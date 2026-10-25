@@ -21,8 +21,9 @@ source:
 
 **Derived, not stored.** A lineup is recomputed from the rows on every read,
 so it cannot drift from the record it describes, and a new rule reaches every
-Term at once. Nothing a cell sees reads it: no ``query`` row, provisioning
-step, outcome, mint or score.
+Term at once. A cell reads it only through the statpack's per-Justice votes
+section (:func:`.justice_priors.justice_votes_section`): no ``query`` row,
+provisioning step, outcome, mint or score reads it.
 
 **Complete or nothing.** A lineup's ``votes`` are the whole bench or empty,
 with the reason, and only a filled bench row can complete one. Without it the
@@ -173,6 +174,14 @@ def _derive(rows: list[Row], bench_row: Row | None) -> MeritsLineup:
         # The writings are consistent with each other; someone is just not placed.
         base.status = "unplaced"
     return base
+
+
+def recorded_terms(conn: corpus.ReadConnection) -> tuple[int, int] | None:
+    """The first and last Term the per-opinion record holds; None while it holds none."""
+    rows = _table_rows(conn, "SELECT MIN(term), MAX(term) FROM opinions")
+    if not rows or rows[0][0] is None:
+        return None
+    return int(rows[0][0]), int(rows[0][1])
 
 
 def merits_lineups(

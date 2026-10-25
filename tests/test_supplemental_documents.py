@@ -10,7 +10,7 @@ from datetime import date
 
 import pytest
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, provision
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.documents import (
     COMBINED_KINDS,
@@ -362,8 +362,21 @@ def _document(kind: str) -> corpus.CaseDocument:
     )
 
 
-def test_the_new_kinds_are_withheld() -> None:
-    assert set(_NEW_KINDS) <= WITHHELD_KINDS
+def test_the_new_kinds_are_handed_to_cells() -> None:
+    assert not set(_NEW_KINDS) & WITHHELD_KINDS
+    documents = [_document(KIND_PETITION), *(_document(kind) for kind in _NEW_KINDS)]
+    kept = documents_for_moment(documents, "evt-petition-disposition")
+    assert {doc.kind for doc in kept} == {KIND_PETITION, *_NEW_KINDS}
+
+
+# The withholding itself, exercised on the new kinds as if still held.
+_HELD = frozenset(_NEW_KINDS)
+
+
+@pytest.fixture
+def held(monkeypatch: pytest.MonkeyPatch) -> frozenset[str]:
+    monkeypatch.setattr(provision, "WITHHELD_KINDS", _HELD)
+    return _HELD
 
 
 @pytest.mark.parametrize(
@@ -374,8 +387,10 @@ def test_the_new_kinds_are_withheld() -> None:
         "evt-petition-cert",
     ],
 )
-def test_no_cell_at_any_moment_is_handed_a_withheld_kind(event_id: str) -> None:
-    documents = [_document(KIND_PETITION), *(_document(kind) for kind in sorted(WITHHELD_KINDS))]
+def test_no_cell_at_any_moment_is_handed_a_withheld_kind(
+    event_id: str, held: frozenset[str]
+) -> None:
+    documents = [_document(KIND_PETITION), *(_document(kind) for kind in sorted(held))]
     kept = documents_for_moment(documents, event_id)
     assert {doc.kind for doc in kept} == {KIND_PETITION}
     # And through the placement every provisioning caller uses, uncut and cut.
@@ -397,13 +412,15 @@ def test_no_cell_at_any_moment_is_handed_a_withheld_kind(event_id: str) -> None:
         documents=documents,
     )
     assert {doc.kind for doc in placement.documents} == {KIND_PETITION}
-    assert placement.dropped_documents == len(WITHHELD_KINDS)
+    assert placement.dropped_documents == len(held)
 
 
-def test_a_cut_cell_is_not_handed_a_withheld_kind_dated_before_its_cutoff() -> None:
+def test_a_cut_cell_is_not_handed_a_withheld_kind_dated_before_its_cutoff(
+    held: frozenset[str],
+) -> None:
     # The cut branch: a real cutoff, and every document dated well before it, so
     # only the withholding can keep the two kinds out.
-    documents = [_document(KIND_PETITION), *(_document(kind) for kind in sorted(WITHHELD_KINDS))]
+    documents = [_document(KIND_PETITION), *(_document(kind) for kind in sorted(held))]
     payload = {
         "ProceedingsandOrder": [
             {"Date": "Jun 01 2026", "Text": "Petition for a writ of certiorari filed."},
@@ -415,7 +432,7 @@ def test_a_cut_cell_is_not_handed_a_withheld_kind_dated_before_its_cutoff() -> N
     cutoff = date(2026, 9, 30)
     assert {doc.kind for doc in documents_before(documents, cutoff)} == {
         KIND_PETITION,
-        *WITHHELD_KINDS,
+        *held,
     }
     read = CellRead(
         latest=(date(2026, 10, 7), payload),
@@ -436,4 +453,4 @@ def test_a_cut_cell_is_not_handed_a_withheld_kind_dated_before_its_cutoff() -> N
     )
     assert placement.provenance == "truncated"
     assert {doc.kind for doc in placement.documents} == {KIND_PETITION}
-    assert placement.dropped_documents == len(WITHHELD_KINDS)
+    assert placement.dropped_documents == len(held)

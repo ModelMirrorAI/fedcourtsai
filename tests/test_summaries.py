@@ -14,7 +14,7 @@ import yaml
 from tenacity import wait_none
 from typer.testing import CliRunner
 
-from fedcourtsai import corpus, summaries
+from fedcourtsai import corpus, provision, summaries
 from fedcourtsai.cli import app
 from fedcourtsai.config import SummariesConfig, load_summaries_config
 from fedcourtsai.paths import CasePaths
@@ -212,7 +212,11 @@ def test_plan_limit_prefers_cases_without_a_summary(tmp_path: Path) -> None:
     assert plan.eligible == 3
 
 
-def test_summarize_plan_cli_reads_only_predicted_cases(fixture_corpus: FixtureCorpus) -> None:
+def test_summarize_plan_cli_reads_only_predicted_cases(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The withholding is exercised on a kind as if still held.
+    monkeypatch.setattr(provision, "WITHHELD_KINDS", frozenset({KIND_PARTY_LETTER}))
     # Eligibility is a committed prediction; scotus/305 has one, nothing else does.
     marker = (
         CasePaths(fixture_corpus.data_root, "scotus", 305).event("evt-petition-cert").base
@@ -264,11 +268,12 @@ def test_summarize_plan_cli_reads_only_predicted_cases(fixture_corpus: FixtureCo
 
 
 def test_summarize_plan_leaves_a_withheld_kind_out_of_the_record_digest(
-    fixture_corpus: FixtureCorpus,
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A summary is written from the record every predict cell shares, so a kind
     no cell is given (`provision.WITHHELD_KINDS`) neither enters the digest nor
     makes a case owed a new summary."""
+    monkeypatch.setattr(provision, "WITHHELD_KINDS", frozenset({"merits-amicus-united-states"}))
     marker = (
         CasePaths(fixture_corpus.data_root, "scotus", 305).event("evt-petition-cert").base
         / "predictions/claude-baseline/20260901T000000Z/prediction.json"

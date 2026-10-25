@@ -311,15 +311,15 @@ def test_the_amicus_cut_shares_the_relist_cuts_population() -> None:
     )
 
 
-def test_the_amicus_cut_is_not_rendered_into_the_statpack(
+def test_the_amicus_cut_is_rendered_into_the_statpack(
     fixture_corpus: FixtureCorpus,
 ) -> None:
-    """Cells read the statpack, and the column is mostly unfilled until a
-    re-derivation runs, so the cut is built but kept out of the pack."""
-    assert analytics._CERT_BY_AMICUS_PAID not in analytics._STATPACK_SECTIONS
+    """Cells read the statpack, so the cut is a statpack section; the court-facing
+    docket pack does not carry it."""
+    assert analytics._CERT_BY_AMICUS_PAID in analytics._STATPACK_SECTIONS
     assert analytics._CERT_BY_AMICUS_PAID not in analytics._DOCKET_SECTIONS
     pack = analytics.build_statpack(corpus_db_path=fixture_corpus.db_path)
-    assert all(section.group_by != GroupBy.cert_amicus for section in pack.sections)
+    assert any(section.group_by == GroupBy.cert_amicus for section in pack.sections)
 
 
 def test_an_absent_corpus_yields_the_empty_cut(tmp_path: Path) -> None:
@@ -328,7 +328,7 @@ def test_an_absent_corpus_yields_the_empty_cut(tmp_path: Path) -> None:
 
 
 def test_stats_does_not_offer_the_amicus_cut(fixture_corpus: FixtureCorpus) -> None:
-    # `stats` is a cell's tool, and the column is withheld from what a cell reads.
+    # `stats` does not offer it: cells read the cut as its statpack section.
     assert GroupBy.cert_amicus not in analytics.STATS_DIMENSIONS
     result = runner.invoke(app, ["stats", "--group-by", "cert_amicus"])
     assert result.exit_code == 2

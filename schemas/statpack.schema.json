@@ -488,6 +488,163 @@
       "title": "StatPackInterimTerm",
       "type": "object"
     },
+    "StatPackJusticeVotes": {
+      "additionalProperties": false,
+      "description": "The statpack's per-Justice merits votes, per Term, most recent Term first.\n\nRolled up by ``pipeline.justice_priors`` from the merits lineups (the\n``opinions`` and ``opinion_benches`` corpus tables) and each decided case\nrow's parsed judgment, over complete lineups only. A merits cell pools the\nTerms strictly before its case's grant Term. Present only once the record\nholds a complete lineup.",
+      "properties": {
+        "terms": {
+          "items": {
+            "$ref": "#/$defs/StatPackJusticeVotesTerm"
+          },
+          "title": "Terms",
+          "type": "array"
+        }
+      },
+      "title": "StatPackJusticeVotes",
+      "type": "object"
+    },
+    "StatPackJusticeVotesJustice": {
+      "additionalProperties": false,
+      "description": "One Justice's merits votes over one Term, or over a pooled span of Terms.",
+      "properties": {
+        "disturb": {
+          "description": "Of `disturb_eligible`, those voting to disturb the judgment below",
+          "minimum": 0,
+          "title": "Disturb",
+          "type": "integer"
+        },
+        "disturb_eligible": {
+          "description": "Of `sat`, whole-side votes on a plain affirmed, reversed or vacated judgment",
+          "minimum": 0,
+          "title": "Disturb Eligible",
+          "type": "integer"
+        },
+        "in_part": {
+          "description": "Of `sat`, those voting in part on each side",
+          "minimum": 0,
+          "title": "In Part",
+          "type": "integer"
+        },
+        "justice": {
+          "description": "The Justice's name as the vote source spells it",
+          "title": "Justice",
+          "type": "string"
+        },
+        "majority": {
+          "description": "Of `sat`, those voting with the judgment (majority or concurring in it)",
+          "minimum": 0,
+          "title": "Majority",
+          "type": "integer"
+        },
+        "sat": {
+          "description": "Complete-lineup decisions the Justice took part in",
+          "minimum": 0,
+          "title": "Sat",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "justice",
+        "sat",
+        "majority",
+        "in_part",
+        "disturb_eligible",
+        "disturb"
+      ],
+      "title": "StatPackJusticeVotesJustice",
+      "type": "object"
+    },
+    "StatPackJusticeVotesPair": {
+      "additionalProperties": false,
+      "description": "Two Justices' agreement over the decisions both voted a whole side on.",
+      "properties": {
+        "agree": {
+          "description": "Of `both`, those where they voted the same side",
+          "minimum": 0,
+          "title": "Agree",
+          "type": "integer"
+        },
+        "both": {
+          "description": "Decisions both Justices voted a whole side on",
+          "minimum": 0,
+          "title": "Both",
+          "type": "integer"
+        },
+        "justices": {
+          "description": "The pair, in name order",
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Justices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "justices",
+        "both",
+        "agree"
+      ],
+      "title": "StatPackJusticeVotesPair",
+      "type": "object"
+    },
+    "StatPackJusticeVotesTerm": {
+      "additionalProperties": false,
+      "description": "One October Term of per-Justice merits votes.",
+      "properties": {
+        "complete": {
+          "description": "Of `documents`, those with a complete lineup",
+          "minimum": 0,
+          "title": "Complete",
+          "type": "integer"
+        },
+        "documents": {
+          "description": "Listing rows the per-opinion record holds",
+          "minimum": 0,
+          "title": "Documents",
+          "type": "integer"
+        },
+        "judged": {
+          "description": "Of `complete`, those whose case row carries a plain affirmed, reversed or vacated judgment",
+          "minimum": 0,
+          "title": "Judged",
+          "type": "integer"
+        },
+        "justices": {
+          "items": {
+            "$ref": "#/$defs/StatPackJusticeVotesJustice"
+          },
+          "title": "Justices",
+          "type": "array"
+        },
+        "pairs": {
+          "items": {
+            "$ref": "#/$defs/StatPackJusticeVotesPair"
+          },
+          "title": "Pairs",
+          "type": "array"
+        },
+        "term": {
+          "description": "The October Term of the opinions listing",
+          "title": "Term",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term",
+        "documents",
+        "complete",
+        "judged"
+      ],
+      "title": "StatPackJusticeVotesTerm",
+      "type": "object"
+    },
     "StatPackMerits": {
       "additionalProperties": false,
       "description": "The statpack's merits stage section: what happened to granted cases' judgments.\n\nThe second stage axis beside the cert sections, joining exactly as\n:class:`StatPackInterim` did: a stage section exists only once its corpus\nfeed does, so the pack omits this one entirely while no row carries a\nparsed `merits_judgment`, and it carries no ``salience_version`` because it\nis not a salience-band product. Pack-level counts with a per-grant-Term\nbreakdown; the per-Term disturbed rates are the committed feed of the\npre-registered merits Brier baseline\n(``pipeline.base_rates.merits_base_rate`` pools them strictly-prior), so the\n``terms`` array is a scoring input as well as a description. The population\nis the grants that open a merits proceeding \u2014 the same rule that mints the\nevent a merits forecast is made on \u2014 minus, label-independently, any row\nwhose parsed judgment is dated on or before its own grant\n(``docs/decision-model.md``'s pool guard), so a GVR, whose vacatur rides\nin the cert order itself, never contributes a near-certain disturbance to\na rate that scores forecasts about argued cases, whatever its label says.\nThose removed rows are counted in ``cert_order_excluded`` *instead of* in\n``granted``, so the two partition the merits-opening population and only\n``parsed`` nests inside ``granted``; a parsed judgment carrying no date\ncannot be gap-tested at all and stays in ``granted`` as a coverage gap.",
@@ -1163,6 +1320,18 @@
       ],
       "default": null,
       "description": "The interim-docket stage section (SCOTUS applications by ask, with the substantive slice's descriptive grant rate); None \u2014 and omitted from the serialized pack \u2014 while the corpus holds no application rows"
+    },
+    "justice_votes": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StatPackJusticeVotes"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Each Justice's merits votes per Term, off the complete merits lineups \u2014 the per-Justice priors a merits cell pools strictly before its grant Term; None \u2014 and omitted from the serialized pack \u2014 while the record holds no complete lineup"
     },
     "machine_readable_resolved": {
       "default": 0,
