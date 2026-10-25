@@ -1,0 +1,14 @@
+case_id: scotus/9026000171
+decision_target: disposition
+description: Disposition of the petition, forecast after the Court called for a response
+  to it.
+docket_entry_id: null
+event_id: evt-order-call-for-response-disposition
+kind: order
+moment: response-requested
+opened_at: '2026-09-28'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Galesburg Community Unit School District No. 205 v. N. T., Individually and
+  as Parent and Next Friend of C. T., et al.
