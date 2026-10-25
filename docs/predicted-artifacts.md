@@ -53,7 +53,13 @@ fields that mean the same thing at every stage:
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
   a cell's provisioned inputs (the snapshot, `context.json`, and `documents/`)
   sit beside every event of the case rather than under the event being
-  predicted. The staged `documents/` carry a `documents.json` manifest stating
+  predicted. The staged `documents/` hold the kinds provisioning gives cells,
+  never one the corpus stores but withholds from every cell until a re-bless
+  (`provision.WITHHELD_KINDS`: the supplemental briefs and party letters,
+  [document-provisioning.md](document-provisioning.md)); the post-argument
+  merits cell's `authorship-tally.json` is held back the same way
+  (`provision.AUTHORSHIP_TALLY_WITHHELD`). The staged documents carry a
+  `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
   facts (a `petition`, `application` or `appendix` cut at the cap also marks
   each cut in its text), and what the contact-detail scrub did to its text:
@@ -136,6 +142,18 @@ fields that mean the same thing at every stage:
   `probability` scores nothing at all — a partial answer is malformed, not a
   choice. Where an event declares no set the cell writes no `claims` field, and
   the stamped record carries it as null; never an empty list.
+- **`claim_distributions`** — the authorship forecasts, one `{claim_id,
+  probabilities}` per distribution claim the event's set declares, each
+  probability keyed by a Justice's name as the roster spells it
+  ([outcome-decomposition.md](outcome-decomposition.md), *The authorship
+  claims*). A cert or interim cell states `order-writers`, the chance each
+  sitting Justice writes on the order; a merits cell states `majority-author`,
+  over the bench and `per-curiam` and summing to 1, and `separate-writers`, the
+  chance each sitting Justice writes anything but the opinion of the Court. It
+  rides `claims`: a block stated without one scores nothing, as does a block
+  that leaves out a declared claim or a sitting Justice, or names a claim the
+  set does not declare. A cell run under a process before the prompt asked for
+  it writes no block, and an absent block is masked, never guessed.
 - **`semantic_claims`** — the *semantic* claim set's propositions, written on a
   **merits** cell and null everywhere else: the merits moments declare
   `semantic-v1` and no other event declares a semantic set. Two propositions,
@@ -161,7 +179,9 @@ kinds resolve on the cert standard by construction.
 - `predicted_disposition` may take any label in the vocabulary. `gvr`,
   `summary-reversal`, and `granted-in-part` all count as grants on the binary
   axis, so they travel with `granted: 1`.
-- The declared set is **`cert-v2`**, five claims: `disposition` — which must
+- The declared set is **`cert-v3`**: `cert-v2`'s five binary claims and the
+  `order-writers` distribution claim, collected and never scored. The five
+  claims are `disposition` — which must
   equal the top-level `probability` exactly, being the same belief restated so
   the set is self-describing — plus `relist-increment` and `cvsg-increment`,
   plus `summary-disposition-route` and `dissent-from-denial`.
@@ -174,7 +194,8 @@ kinds resolve on the cert standard by construction.
   a named Justice. `cert-v1`'s three-claim form survives only as the fallback
   for a petition event that is not a declared moment — an entry-pinned filing,
   a legacy id — since the set is resolved from the event
-  ([outcome-decomposition.md](outcome-decomposition.md)).
+  ([outcome-decomposition.md](outcome-decomposition.md)). A cell stamped
+  before `proc-v12` was asked `cert-v2` and is scored under it.
 - `votes` is optional and `judgment` is null: no majority opinion accompanies a
   denial, so there is usually no vote to forecast.
 
@@ -229,7 +250,8 @@ absent optional field as null.
     "referred_to_court": null,
     "amicus_briefs": null,
     "term": 2025,
-    "vide_links": []
+    "vide_links": [],
+    "paper_only_filings": false
   },
   "process_version": {
     "label": "proc-v8",
@@ -256,7 +278,8 @@ grant or denial of the requested relief.
 - `predicted_disposition` draws from four labels only — `granted`, `denied`,
   `withdrawn`, `dismissed`. `gvr`, `summary-reversal`, and `granted-in-part`
   are cert-stage routes the interim vocabulary never records.
-- **A `claims` field over `interim-v1`** — `interim-disposition` (restating the
+- **A `claims` field over `interim-v2`** — `interim-v1`'s four binary claims,
+  with `order-writers` in `claim_distributions` beside them: `interim-disposition` (restating the
   headline `probability`), `response-requested-increment`, `referral-increment`,
   `amicus-increment`, in that order. Every interim moment declares the same four,
   whatever the event's kind. Only the first has a baseline today, and only above
@@ -326,9 +349,11 @@ and a summary reversal, which terminate at the cert order, mint nothing.
 - `predicted_disposition` is `other`. The cert/interim vocabulary has no merits
   member by design, so the label carries nothing here and `judgment` carries
   the forecast — mirroring how the outcome is written.
-- The declared set is **`merits-v1`**, one claim: `judgment-disturbed`, which
-  restates `probability` exactly, under the same rule as the cert `disposition`
-  claim.
+- The declared set is **`merits-v2`**: one binary claim, `judgment-disturbed`,
+  which restates `probability` exactly, under the same rule as the cert
+  `disposition` claim, and two distribution claims, `majority-author` and
+  `separate-writers`, both scored against strictly-prior baselines. A cell
+  stamped before `proc-v12` was asked `merits-v1`, the binary claim alone.
 - A merits cell is also the only one carrying **`semantic_claims`**: the
   `semantic-v1` set's two propositions, `majority-ground` and `ground-breadth`,
   each on its declared axis and each carrying no probability. They are graded
@@ -401,7 +426,11 @@ Written on every live cell. `predicted_reasoning_doc` is nullable only so
 records written before the field existed still validate — not so a cell can
 skip the document, and `validate` enforces exactly that split: a
 process-stamped cell provably post-dates the field, so a null pointer on one
-fails validation, while unstamped shakedown records stay valid.
+fails validation, while unstamped shakedown records stay valid. A
+`predicted_reasoning.md` written beside a null pointer fails whatever the
+stamp, because no legacy record has that shape, and because the stamp lands
+after the engine exits, so this is the form of the miss a cell's own
+`validate` run can catch before it finishes.
 
 ## `reasoning.md`
 
@@ -763,7 +792,7 @@ directory without knowing which part is which invites trusting the wrong half.
   cutoff** (`cut_kind`, with `cut_anchor_index` beside it), and the
   conditioning state frozen at provisioning: the
   salience band, the distribution count and CVSG date as at that cutoff (as at
-  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), and — on an
+  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), whether the docket puts its filings on paper only under Rule 34.6, so nothing is posted to stage (`paper_only_filings`), and — on an
   application cell only — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would
@@ -900,6 +929,13 @@ in prose.
   could never be the harness's word, unlike `claim_scores`, since resolving a
   semantic claim needs a reader; that is why inter-grader agreement is what a
   published grade would have to travel with.
+  `predicted_reasoning_quality` grades `predicted_reasoning.md` alone, 0–1,
+  with `predicted_reasoning_review` listing the central claims it rests on (or,
+  beside a null grade, the record's ground for it). It is designed, awaiting
+  its pilot, and not registered, so it is null on every committed evaluation:
+  `validate`'s `predicted_reasoning_grade_awaits_registration` refuses a
+  committed one (*Grading the forecast document, design* in
+  `docs/outcome-decomposition.md`).
 - **`evaluation.md`** — free-form: what the prediction got right or wrong and
   why, and what drove the `reasoning_quality` score.
 

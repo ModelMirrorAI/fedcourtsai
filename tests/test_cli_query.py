@@ -351,6 +351,35 @@ def test_corpus_info_reports_freshness(fixture_corpus: FixtureCorpus) -> None:
     assert "freshness: latest pull 2026-08-16" in pulled.stdout
 
 
+def test_corpus_info_counts_the_legacy_sample_per_term(fixture_corpus: FixtureCorpus) -> None:
+    plain = runner.invoke(app, ["corpus-info"])
+    assert plain.exit_code == 0, plain.output
+    assert "legacy sample" not in plain.stdout  # opt-in: it scans every case row
+    # The fixture carries one weighted denial of its own.
+    before = runner.invoke(app, ["corpus-info", "--legacy-sample"])
+    assert before.exit_code == 0, before.output
+    assert "legacy sample: 1 weighted row(s) (OT22 1)" in before.stdout
+
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=f"scotus/9{index}",
+                    court="scotus",
+                    docket_number=number,
+                    sample_weight=weight,
+                )
+                for index, (number, weight) in enumerate(
+                    [("17-5010", 10), ("17-5020", 10), ("18-5030", 10), ("18-5031", 1)]
+                )
+            ],
+        )
+    counted = runner.invoke(app, ["corpus-info", "--legacy-sample"])
+    assert counted.exit_code == 0, counted.output
+    assert "legacy sample: 4 weighted row(s) (OT17 2, OT18 1, OT22 1)" in counted.stdout
+
+
 def test_corpus_info_freshness_falls_back_on_an_empty_corpus(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

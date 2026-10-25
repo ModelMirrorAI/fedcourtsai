@@ -386,13 +386,19 @@ class LiveConfig(BaseModel):
     # (`live.refresh_stale_documents`): a polled, predict-relevant case not
     # provisioned on a trigger whose stored set lacks a link the docket now
     # selects. A spend cap on filing downloads, not a refusal — a case past it
-    # is owed again at its next poll. 0 disables the pass.
+    # is owed again the next cycle. 0 disables the pass.
     document_freshness_per_run: int = Field(default=20, ge=0)
+    # Predict-relevant cases the cycle did not poll that the freshness pass also
+    # checks, from their stored live payloads (`corpus.freshness_carryover_rows`),
+    # so a stale case the cap declined is reached again before its next poll. A
+    # bound on content-store reads (a manifest and a payload per case), not on
+    # downloads, which stay under `document_freshness_per_run`. 0 disables.
+    document_freshness_carryover_rows: int = Field(default=300, ge=0)
     # Transcripts per cycle the argument-transcript pass may download
     # (`live.fetch_argument_transcripts`): the oral argument transcripts the
     # Court lists for the current and previous October Term that the corpus does
     # not hold. A spend cap, not a refusal — a transcript past it is owed again
-    # next cycle. 0 disables the pass.
+    # next cycle. 0 disables the pass, its sittings back-fill with it.
     argument_transcripts_per_run: int = Field(default=5, ge=0)
     # Days after the July docket-number roll during which discovery also probes
     # the *outgoing* Term (`supremecourt.current_docket_term`). At the roll new

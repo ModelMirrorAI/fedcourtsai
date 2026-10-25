@@ -191,6 +191,10 @@ def test_the_transcript_cut_is_made_after_the_clean() -> None:
 _TODAY = date(2026, 10, 22)
 _LIST_2026 = TRANSCRIPT_LISTING_URL.format(term=2026)
 _LIST_2025 = TRANSCRIPT_LISTING_URL.format(term=2025)
+# The older Terms the sittings back-fill asks for, newest first, while none is
+# served: every one down to the floor, each counted unserved.
+_OLDER_LISTS = [TRANSCRIPT_LISTING_URL.format(term=term) for term in range(2024, 2019, -1)]
+_LIST_2024 = _OLDER_LISTS[0]
 
 
 def _seed(db: Path, *numbers: str) -> dict[str, str]:
@@ -245,8 +249,16 @@ def test_the_pass_stores_each_listed_transcript_once_and_latches_its_day(
         "unavailable": 0,
         "failed": 0,
         "deferred": 1,
+        "sittings_backfilled": 0,
+        "sittings_unserved": 5,
     }
-    assert asked == [_LIST_2026, _LIST_2025, f"{_HOST}/2026/25-170.pdf", f"{_HOST}/2025/25-466.pdf"]
+    assert asked == [
+        _LIST_2026,
+        _LIST_2025,
+        f"{_HOST}/2026/25-170.pdf",
+        f"{_HOST}/2025/25-466.pdf",
+        *_OLDER_LISTS,
+    ]
     with corpus.connect(db) as conn:
         stored = {d.kind: d for d in corpus.documents_for_case(conn, cases["25-170"])}
         row = corpus.get_row(conn, cases["25-170"])
@@ -270,6 +282,100 @@ def test_the_pass_stores_each_listed_transcript_once_and_latches_its_day(
     with corpus.connect(db) as conn:
         blank = corpus.get_row(conn, cases["24-624"])
     assert blank is not None and blank.argument_transcript_at is None
+
+
+def test_the_pass_backfills_one_older_terms_sittings_a_cycle(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _seed(db, "25-170")
+    served = _served()
+    for term in (2024, 2023):
+        served[TRANSCRIPT_LISTING_URL.format(term=term)] = _listing(
+            _listing_row("23-100", f"../argument_transcripts/{term}/23-100.pdf", "10/07/24"),
+            session=f"October 07, {term} - October 16, {term}",
+        )
+    with corpus.connect(db) as conn:
+        # A Term already held is passed over for the next older one owed.
+        corpus.upsert_argument_sittings(
+            conn, [ArgumentSitting(2024, date(2024, 10, 7), date(2024, 10, 16))], read_at=_TODAY
+        )
+    client, asked = _client(served)
+    with client:
+        ledger = live_module.fetch_argument_transcripts(
+            client, db, cap=5, char_cap=10_000, today=_TODAY
+        )
+    # One older list a cycle, its headings kept and its transcripts left alone.
+    assert ledger["sittings_backfilled"] == 1
+    assert _LIST_2024 not in asked
+    assert asked[-1] == TRANSCRIPT_LISTING_URL.format(term=2023)
+    assert f"{_HOST}/2023/23-100.pdf" not in asked
+    with corpus.connect(db) as conn:
+        assert ArgumentSitting(2023, date(2023, 10, 7), date(2023, 10, 16)) in (
+            corpus.argument_sittings(conn, term=2023)
+        )
+        # Every Term down to the floor held: the step asks for nothing.
+        corpus.upsert_argument_sittings(
+            conn,
+            [
+                ArgumentSitting(term, date(term, 10, 7), date(term, 10, 16))
+                for term in range(live_module.SITTINGS_BACKFILL_FLOOR, 2023)
+            ],
+            read_at=_TODAY,
+        )
+    client, asked = _client(served)
+    with client:
+        again = live_module.fetch_argument_transcripts(
+            client, db, cap=5, char_cap=10_000, today=_TODAY
+        )
+    assert again["sittings_backfilled"] == 0
+    older = {TRANSCRIPT_LISTING_URL.format(term=term) for term in range(2020, 2025)}
+    assert not older & set(asked)
+
+
+def test_an_unserved_term_is_passed_over_and_a_failed_list_ends_the_backfill(
+    tmp_path: Path,
+) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _seed(db, "25-170")
+    served = _served()
+    served[TRANSCRIPT_LISTING_URL.format(term=2023)] = _listing(
+        session="October 02, 2023 - October 11, 2023"
+    )
+    client, asked = _client(served)
+    with client:
+        ledger = live_module.fetch_argument_transcripts(
+            client, db, cap=5, char_cap=10_000, today=_TODAY
+        )
+    # OT2024 is not served: counted, and OT2023 is read in the same cycle.
+    assert (ledger["sittings_unserved"], ledger["sittings_backfilled"]) == (1, 1)
+    assert asked[-2:] == [_LIST_2024, TRANSCRIPT_LISTING_URL.format(term=2023)]
+
+    served[TRANSCRIPT_LISTING_URL.format(term=2024)] = httpx.ConnectError("down")
+    client, asked = _client(served)
+    with client:
+        again = live_module.fetch_argument_transcripts(
+            client, db, cap=5, char_cap=10_000, today=_TODAY
+        )
+    assert (again["failed"], again["sittings_backfilled"], again["sittings_unserved"]) == (1, 0, 0)
+    assert asked[-1] == _LIST_2024
+
+
+def test_the_backfill_waits_when_the_deadline_is_near(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    _seed(db, "25-170")
+    client, asked = _client(_served())
+    clock = iter([0.0, 0.0] + [95.0] * 50)
+    with client:
+        ledger = live_module.fetch_argument_transcripts(
+            client,
+            db,
+            cap=1,
+            char_cap=10_000,
+            today=_TODAY,
+            deadline=100.0,
+            time_fn=lambda: next(clock),
+        )
+    assert ledger["sittings_backfilled"] == 0
+    assert _LIST_2024 not in asked
 
 
 def test_the_pass_counts_a_failed_list_and_a_missing_transcript(tmp_path: Path) -> None:
@@ -442,7 +548,7 @@ def test_a_latched_case_keeps_its_first_transcript(tmp_path: Path) -> None:
             client, db, cap=5, char_cap=10_000, today=_TODAY
         )
     assert (ledger["held"], ledger["owed"], ledger["stored"]) == (1, 0, 0)
-    assert asked == [_LIST_2026, _LIST_2025]
+    assert asked == [_LIST_2026, _LIST_2025, *_OLDER_LISTS]
 
 
 def test_the_pass_spends_nothing_past_the_deadline_and_isolates_one_failure(

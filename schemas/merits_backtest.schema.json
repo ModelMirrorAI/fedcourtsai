@@ -1,0 +1,582 @@
+{
+  "$defs": {
+    "MeritsBacktestBaseline": {
+      "additionalProperties": false,
+      "description": "The as-of base rate each replay cell's skill is measured against.",
+      "properties": {
+        "lookback_terms": {
+          "description": "Argued Terms pooled before the cell's own",
+          "minimum": 0,
+          "title": "Lookback Terms",
+          "type": "integer"
+        },
+        "min_decided": {
+          "description": "Below this many pooled judgments a cell carries no baseline",
+          "minimum": 1,
+          "title": "Min Decided",
+          "type": "integer"
+        },
+        "rule": {
+          "const": "as-of-cutoff-v1",
+          "default": "as-of-cutoff-v1",
+          "description": "The disturbed share of the population's lead dockets argued in the cell's own Term or the `lookback_terms` before it and decided strictly before the cell's cutoff. Keyed on the cutoff rather than on the grant Term, so no judgment the cell could not have known reaches its baseline. It is not the forward channel's `merits_base_rate`, so a skill figure here is never comparable with a forward one",
+          "title": "Rule",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lookback_terms",
+        "min_decided"
+      ],
+      "title": "MeritsBacktestBaseline",
+      "type": "object"
+    },
+    "MeritsBacktestCellLoss": {
+      "additionalProperties": false,
+      "description": "A provisioned replay cell that produced no score, and why.",
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "moment": {
+          "$ref": "#/$defs/Moment"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "missing",
+            "wrote-outside-work-root",
+            "invalid",
+            "engine-failed",
+            "quota-exhausted",
+            "harness-error"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "case_id",
+        "moment",
+        "reason"
+      ],
+      "title": "MeritsBacktestCellLoss",
+      "type": "object"
+    },
+    "MeritsBacktestDispatch": {
+      "additionalProperties": false,
+      "description": "The parameters a merits back-test was run under, as dispatched.",
+      "properties": {
+        "draw_key": {
+          "description": "The corpus vintage the draw order is keyed by (its newest pull stamp), so the same blob draws the same cases",
+          "title": "Draw Key",
+          "type": "string"
+        },
+        "engine": {
+          "description": "'auto' (each predictor's own engine), a single backend, or empty when no engine ran",
+          "title": "Engine",
+          "type": "string"
+        },
+        "limit": {
+          "description": "Cases drawn from the population, 0 for all of them. A draw walks the cases in `draw_key`'s hash order, so a reader can recompute it",
+          "minimum": 0,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "skip_engines": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Skip Engines",
+          "type": "array"
+        },
+        "terms": {
+          "description": "The argued Terms the population was drawn from",
+          "items": {
+            "type": "integer"
+          },
+          "title": "Terms",
+          "type": "array"
+        }
+      },
+      "required": [
+        "engine",
+        "terms",
+        "limit",
+        "draw_key"
+      ],
+      "title": "MeritsBacktestDispatch",
+      "type": "object"
+    },
+    "MeritsBacktestEntry": {
+      "additionalProperties": false,
+      "description": "One predictor's merits back-test record.",
+      "properties": {
+        "engine": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The backend that ran the cells, `stub` offline",
+          "title": "Engine"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The model the backend invoked; null for offline backends",
+          "title": "Model"
+        },
+        "moments": {
+          "items": {
+            "$ref": "#/$defs/MeritsBacktestMomentScore"
+          },
+          "title": "Moments",
+          "type": "array"
+        },
+        "paired": {
+          "$ref": "#/$defs/MeritsBacktestPaired"
+        },
+        "predictor_id": {
+          "title": "Predictor Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "predictor_id",
+        "paired"
+      ],
+      "title": "MeritsBacktestEntry",
+      "type": "object"
+    },
+    "MeritsBacktestMomentScore": {
+      "additionalProperties": false,
+      "description": "One predictor's scores over one merits moment's replay cells.",
+      "properties": {
+        "accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Share of scored cells whose call, disturbed where P(disturbed) is at least 0.5, matched the judgment. Null when nothing was scored",
+          "title": "Accuracy"
+        },
+        "baseline_brier_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean Brier of the as-of base rate over the baselined cells",
+          "title": "Baseline Brier Score"
+        },
+        "baselined": {
+          "description": "Scored cells that carry an as-of baseline (`baseline`)",
+          "minimum": 0,
+          "title": "Baselined",
+          "type": "integer"
+        },
+        "baselined_brier_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The predictor's mean Brier over the baselined cells only: the figure `brier_skill` compares, which differs from `mean_brier_score` wherever some scored cells carry no baseline",
+          "title": "Baselined Brier Score"
+        },
+        "brier_skill": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "1 - (the predictor's summed Brier / the baseline's), both over the baselined cells: a ratio of sums, so a cell whose baseline happened to be exact does not drop out. Null with no baselined cell",
+          "title": "Brier Skill"
+        },
+        "cells_flagged": {
+          "default": 0,
+          "description": "Scored cells that left a `flags.json`. Nothing is excluded on a note: a disclosed exposure left in the scores inflates them",
+          "minimum": 0,
+          "title": "Cells Flagged",
+          "type": "integer"
+        },
+        "disturbed_share": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The disturbed share of the same scored cells",
+          "title": "Disturbed Share"
+        },
+        "events_scored": {
+          "description": "Cells that returned a valid prediction",
+          "minimum": 0,
+          "title": "Events Scored",
+          "type": "integer"
+        },
+        "exposure_candidates": {
+          "default": 0,
+          "description": "Of the flagged cells, those carrying a note the cert back-test's text rule marks as a possible outcome exposure",
+          "minimum": 0,
+          "title": "Exposure Candidates",
+          "type": "integer"
+        },
+        "lost": {
+          "description": "Cells provisioned at this moment that returned no scorable prediction",
+          "minimum": 0,
+          "title": "Lost",
+          "type": "integer"
+        },
+        "majority_accuracy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The floor `accuracy` is read against: the larger of `disturbed_share` and its complement, what always calling the majority outcome scores on these cells",
+          "title": "Majority Accuracy"
+        },
+        "mean_brier_score": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Mean Brier of P(disturbed)",
+          "title": "Mean Brier Score"
+        },
+        "moment": {
+          "$ref": "#/$defs/Moment"
+        },
+        "terms": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Cells scored per argued Term, a zero stated",
+          "title": "Terms",
+          "type": "object"
+        }
+      },
+      "required": [
+        "moment",
+        "events_scored",
+        "lost",
+        "baselined"
+      ],
+      "title": "MeritsBacktestMomentScore",
+      "type": "object"
+    },
+    "MeritsBacktestPaired": {
+      "additionalProperties": false,
+      "description": "What the briefed moment adds over the grant moment, on the same cases.",
+      "properties": {
+        "briefed_mean_brier": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Briefed Mean Brier"
+        },
+        "brier_change": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Briefed minus grant mean Brier over `cases`; negative means the briefs helped",
+          "title": "Brier Change"
+        },
+        "cases": {
+          "description": "Cases this predictor scored at both moments; the only set the moments are compared on, since the fences drop cells per moment. It fixes the case mix between the moments, not the selection: a fence can track the outcome, so this set is selected too",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "disturbed": {
+          "default": 0,
+          "description": "Of `cases`, those whose judgment disturbed the decision below",
+          "minimum": 0,
+          "title": "Disturbed",
+          "type": "integer"
+        },
+        "grant_mean_brier": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Grant Mean Brier"
+        }
+      },
+      "required": [
+        "cases"
+      ],
+      "title": "MeritsBacktestPaired",
+      "type": "object"
+    },
+    "MeritsBacktestTermCount": {
+      "additionalProperties": false,
+      "description": "One October Term's share of the merits back-test population.",
+      "properties": {
+        "argued_unjudged": {
+          "description": "Argued plenary dockets with no parsed merits judgment: a parse gap the population cannot keep, counted so it is not silent",
+          "minimum": 0,
+          "title": "Argued Unjudged",
+          "type": "integer"
+        },
+        "cases": {
+          "description": "Lead dockets kept for replay",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "excluded": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "Decided argued dockets set aside, by reason (`fedcourts merits-backtest-plan` names each)",
+          "title": "Excluded",
+          "type": "object"
+        },
+        "excluded_disturbed": {
+          "default": 0,
+          "description": "Of the set-aside dockets, those whose judgment disturbed the decision below: how far the kept cases, and the baseline pool drawn from them, are a selected population",
+          "minimum": 0,
+          "title": "Excluded Disturbed",
+          "type": "integer"
+        },
+        "term": {
+          "description": "The October Term the cases were argued in",
+          "title": "Term",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term",
+        "cases",
+        "argued_unjudged"
+      ],
+      "title": "MeritsBacktestTermCount",
+      "type": "object"
+    },
+    "Moment": {
+      "description": "*When* in a case's life a forecast of its stage was taken.\n\nA stage asks one question \u2014 will cert be granted, will the application be\ngranted, will the judgment below be disturbed \u2014 and the case passes several\npoints at which that question can honestly be forecast, each with a\ndifferent information set. A petition forecast the day it is first\ndistributed and the same petition forecast after a CVSG are answering the\nsame question from different evidence, so they are **two forecasts, not one\nforecast revised**: each freezes its own context and each is scored on its\nown.\n\nThe consequence that makes this a vocabulary rather than a counter: two\nmoments are two populations, and pooling them would publish a mean over a\nmixture of information sets. Aggregation therefore keys on\n``(stage, moment)`` and never on stage alone \u2014 the same rule the salience\nversion and the claim-set version already carry.\n\nWhich moments exist, what each is minted from, and which claims each\ndeclares live in one table, :mod:`fedcourtsai.pipeline.moments`. Nothing\nreads a moment out of an event id.",
+      "enum": [
+        "distribution",
+        "relist",
+        "cvsg",
+        "sg-brief",
+        "arrival",
+        "response-requested",
+        "response-filed",
+        "grant",
+        "briefed",
+        "argued"
+      ],
+      "title": "Moment",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``metrics/merits-backtest.json`` \u2014 predictors replayed over decided argued cases.\n\nEach kept case is replayed at the merits stage's grant and briefed moments\nfrom the record as it stood at each cutoff, outcome redacted, and scored on\nP(disturbed) against the realized judgment. Produced by\n``fedcourts merits-backtest``.",
+  "properties": {
+    "baseline": {
+      "$ref": "#/$defs/MeritsBacktestBaseline"
+    },
+    "cells": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "description": "Replay cells written per moment",
+      "title": "Cells",
+      "type": "object"
+    },
+    "dispatch": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/MeritsBacktestDispatch"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The parameters the run was dispatched with"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/MeritsBacktestEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "fenced": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": "integer"
+        },
+        "type": "object"
+      },
+      "description": "Cells the provisioner refused per moment, by reason: no snapshot, a kept entry still showing the judgment, the respondent's merits brief not staged, or a document kind the record cannot name",
+      "title": "Fenced",
+      "type": "object"
+    },
+    "lost_cells": {
+      "items": {
+        "$ref": "#/$defs/MeritsBacktestCellLoss"
+      },
+      "title": "Lost Cells",
+      "type": "array"
+    },
+    "paired_cases": {
+      "default": 0,
+      "description": "Cases written at both moments",
+      "minimum": 0,
+      "title": "Paired Cases",
+      "type": "integer"
+    },
+    "pulled_through": {
+      "anyOf": [
+        {
+          "format": "date",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The corpus vintage the population and cells were read from: its newest pull stamp",
+      "title": "Pulled Through"
+    },
+    "run_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The replay's run id; null when no engine ran",
+      "title": "Run Id"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "stratum": {
+      "const": "retrospective",
+      "default": "retrospective",
+      "description": "Every replayed judgment was public before the run, and most predate the models' training cutoffs, so a cell can recall the outcome it is asked to forecast. This measures recall, calibration and reading of a known docket, never ex-ante forecasting skill, and no figure here is claimable as one (the leaderboard's pre-registration rule)",
+      "title": "Stratum",
+      "type": "string"
+    },
+    "terms": {
+      "items": {
+        "$ref": "#/$defs/MeritsBacktestTermCount"
+      },
+      "title": "Terms",
+      "type": "array"
+    },
+    "unavailable": {
+      "description": "Predictors dropped whole because their engine was not installed",
+      "items": {
+        "type": "string"
+      },
+      "title": "Unavailable",
+      "type": "array"
+    },
+    "unit": {
+      "const": "lead-docket",
+      "default": "lead-docket",
+      "description": "One case per docket the filings are on: a consolidated member is set aside and its lead stands for both, in the scores and in the baseline pool alike",
+      "title": "Unit",
+      "type": "string"
+    }
+  },
+  "required": [
+    "baseline"
+  ],
+  "title": "MeritsBacktest",
+  "type": "object"
+}

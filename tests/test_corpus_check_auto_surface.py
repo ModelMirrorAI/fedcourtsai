@@ -22,6 +22,7 @@ PINNED_SURFACE: dict[str, list[tuple[str, list[str], str]]] = {
     "corpus-info": [
         ("corpus_backend", ["--corpus-backend"], "str"),
         ("text_coverage", ["--text-coverage"], "boolean"),
+        ("legacy_sample", ["--legacy-sample"], "boolean"),
     ],
     "decision-census": [
         ("first_term", ["--first-term"], "int"),

@@ -63,11 +63,14 @@ from . import (
     ids,
     integration_check,
     mcp,
+    merits_backtest,
+    merits_calibration,
     metrics_refresh,
     process_registration,
     process_version,
     promotion_record,
     provision,
+    reasoning_pilot,
     registry_gate,
     repo_gate,
     retrieval,
@@ -264,9 +267,12 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     application_backfill,
+    argument_features,
     authorship,
+    decision_below,
     granted_noted,
     historical,
+    justice_priors,
     liveprobe,
     merits_lineups,
     moments,
@@ -276,6 +282,7 @@ from .pipeline import (
     order_lineups,
     pre_mint,
     qp_topics,
+    same_question,
     semantic,
     vide_links,
     vote_sources,
@@ -295,6 +302,7 @@ from .pipeline.base_rates import (
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
 from .pipeline.cascade import CascadeError, run_cascade
+from .pipeline.cert_amicus_rederive import rederive_cert_amicus_briefs
 from .pipeline.cert_signals import (
     DEFAULT_DISTRIBUTION_PARSE,
     DISTRIBUTION_PARSES,
@@ -306,6 +314,13 @@ from .pipeline.decision_record import backfill_decision_record, decision_census
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
 from .pipeline.document_backfill import backfill_documents
+from .pipeline.document_recut import (
+    SCOPE_ALL_LIVE as RECUT_SCOPE_ALL_LIVE,
+)
+from .pipeline.document_recut import (
+    SCOPE_PREDICT_RELEVANT as RECUT_SCOPE_PREDICT_RELEVANT,
+)
+from .pipeline.document_recut import recut_documents
 from .pipeline.documents import (
     FETCH_LOSS_BIO_EMPTY,
     FETCH_LOSS_BIO_PARTIAL,
@@ -437,6 +452,7 @@ from .schemas import (
     AgentFlag,
     AgentFlags,
     AgentToolingFeedback,
+    AuthorshipTally,
     Backtest,
     CellFailure,
     CellMode,
@@ -466,7 +482,9 @@ from .schemas import (
     LeaderboardStageEntry,
     LeakageExclusionRecord,
     LiveFrontier,
+    MeritsBacktestDispatch,
     ModelUsage,
+    Moment,
     OpsReport,
     Outcome,
     PredictableEvent,
@@ -1322,6 +1340,129 @@ def rederive_amicus_briefs_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command("rederive-cert-amicus-briefs")
+def rederive_cert_amicus_briefs_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the back-filled column; omit for a dry-run plan."),
+    ] = False,
+    max_changes: Annotated[
+        int | None,
+        typer.Option(
+            "--max-changes",
+            help="Blast-radius bound: refuse to apply more row writes (fills plus raises) "
+            "than this. Required with --apply.",
+        ),
+        # No default: the dry run is where the number comes from, and a default
+        # would stand in for the maintainer's reading of it.
+    ] = None,
+) -> None:
+    """Back-fill the cert-stage `cert_amicus_briefs` column over the cert live slice.
+
+    The live poll writes the column only for rows it still polls, so resolved
+    history stays NULL and the stat pack's amicus cut would read `(unknown)`. This
+    pass recounts every cert-form live-slice SCOTUS row (paid and IFP — the rows
+    the live cert branch writes, selected by the same docket-number parse the poll
+    addresses them with) from its latest live-shaped snapshot, exactly as ingest
+    counts it: `pipeline.cert_amicus.cert_amicus_briefs`, the count at
+    disposition, less the Court's orders on amicus motions. Open petitions are
+    included, since the write is one the next poll could only raise.
+
+    The write keeps the column's **max latch** (`corpus.raise_cert_amicus_briefs`):
+    a NULL is filled and a lower stored count is raised, while a recount *below*
+    the stored value is reported as `latch_held` and never written — the column
+    has had one reading since its first write, so a lower recount means a snapshot
+    that lost entries. A row with no readable snapshot is `unobservable` and left
+    as it is. Corpus only: no committed artifact carries this count.
+
+    Prints the ledger — rows read, `unobservable`, `unchanged`, `filled`
+    (NULL → value), `raised` (value → value), `latch_held` — then each raise and
+    each held row, then the `CertAmicusRederiveResult` as JSON. **Read
+    `unobservable` first**: the snapshot read is split-aware, so against an
+    index-only pull with no content store addressed every row lands there and the
+    empty ledger reads like a filled corpus. One pass per invocation (the plan is
+    the write set), the batch in one transaction. `--apply` requires an explicit
+    `--max-changes` and refuses above it, printing the ledger first. Idempotent:
+    re-running after an apply reports `total_changes = 0`. Run where the corpus
+    is pulled (`run-repair`'s `cert-amicus-rederive` pass in production; a dev
+    checkout serves the dry run). Exits 1 when the corpus is absent or the apply
+    is refused.
+    """
+    settings = get_settings()
+    if apply and max_changes is None:
+        typer.echo(
+            "rederive-cert-amicus-briefs: --apply requires an explicit --max-changes. "
+            "Read the dry run first and pass the total_changes you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before back-filling the cert amicus counts.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # The blob this pass read, resolved as the other re-derivations resolve it.
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    elif settings.corpus_pointer is None:
+        pointer_file = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = (
+            corpus_ranged.read_index_pointer(pointer_file).sha256 if pointer_file.is_file() else ""
+        )
+    else:
+        corpus_sha = corpus.resolve_read_pointer(db_path).sha256
+        typer.echo(
+            "corpus provenance: out-of-band pointer override in effect — the "
+            "recorded corpus_sha256 names the override's blob",
+            err=True,
+        )
+    with corpus.connect(db_path) as conn:
+        result = rederive_cert_amicus_briefs(
+            conn, apply=apply, corpus_sha256=corpus_sha, max_changes=max_changes
+        )
+    verb = "wrote" if apply else "would write"
+    if result.refused:
+        verb = "refused to write"
+    typer.echo(
+        f"rederive-cert-amicus-briefs ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} cert-form live-slice row(s); {result.read} read, "
+        f"{result.unobservable} unobservable (untouched). Read `unobservable` first: "
+        "against an index-only pull every row lands there and the empty ledger below "
+        "is a wrong-blob reading rather than a filled corpus"
+    )
+    typer.echo(
+        f"  {verb} {result.total_changes}: {result.filled} NULL -> value, "
+        f"{result.raised} value -> higher value; {result.unchanged} unchanged; "
+        f"{result.latch_held} held by the latch (recount below the stored value, "
+        f"never written); {result.open_petitions} of the read rows still open. "
+        f"filled values: {result.filled_distribution}"
+    )
+    for move in result.raised_moves:
+        typer.echo(f"  raise {move.case_id}: {move.was} -> {move.now}")
+    for move in result.latch_held_moves:
+        typer.echo(f"  held {move.case_id}: stored {move.was}, recount {move.now}")
+    if not apply and max_changes is not None and result.total_changes > max_changes:
+        typer.echo(
+            f"note: {result.total_changes} total changes is above --max-changes {max_changes}; "
+            "an apply would refuse.",
+            err=True,
+        )
+    typer.echo(result.model_dump_json())
+    if result.refused:
+        typer.echo(
+            f"rederive-cert-amicus-briefs: refusing to apply {result.total_changes} "
+            f"change(s) (--max-changes {max_changes}). Nothing was written. A row the "
+            "poll read since the dry run is already written, so the total ordinarily "
+            "falls between the two dispatches; one above the dry run's means the "
+            "population widened — triage the ledger before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
 @app.command("interim-reading-census")
 def interim_reading_census_cmd() -> None:
     """Census the stored application rows the finer interim reading names partial or moot.
@@ -2153,10 +2294,11 @@ def backfill_questions_presented_cmd(
     floor by counting the dots), which empties under its own reason class,
     `toc-junk-emptied`, so a dry run shows the emptied subset apart. Each
     rewrite is
-    classified by the extraction hole it comes from (`stale-toc-fragment`,
-    `prose-terminator-fragment`, `below-floor`, `other-change`,
-    `toc-junk-emptied`, plus
-    `derived-anew` where a case had no row), so the dry run is the triage list;
+    classified by the extraction hole it comes from (`trim-only`,
+    `stale-toc-fragment`, `prose-terminator-fragment`, `below-floor`,
+    `other-change`, `toc-junk-emptied`, plus `derived-anew` where a case had no
+    row, and `cap-mark` where the text stands and only its `truncated` mark is
+    corrected), so the dry run is the triage list;
     the printed `QPBackfillResult` carries the untruncated case-id ledger of
     which rows an applied pass replaced, beside the pre-apply `corpus.db.ref`
     the command echoes. Idempotent. A
@@ -2786,6 +2928,162 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
             f"  probe {entry.case_id} {entry.kind}: {entry.outcome} "
             f"(status {entry.status if entry.status is not None else 'none'}, "
             f"{entry.bytes_fetched} bytes) {entry.url}"
+        )
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
+
+
+@app.command("recut-documents")
+def recut_documents_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply",
+            help="Write the re-cut rows; omit for a dry run that re-fetches and re-cuts "
+            "the slice and reports what an apply would write.",
+        ),
+    ] = False,
+    max_cases: Annotated[
+        int | None,
+        typer.Option(
+            "--max-cases",
+            help="Per-dispatch slice size, required with --apply: the number of stored "
+            "rows this run re-fetches and re-cuts. Honored on a dry run too, which "
+            "fetches the same PDFs. 0 takes an empty slice, which walks the class and "
+            "fetches nothing.",
+        ),
+    ] = None,
+    deadline_seconds: Annotated[
+        float | None,
+        typer.Option(
+            "--deadline-seconds",
+            help="Wall-clock budget for this run, measured from the moment the command "
+            "starts. Before each candidate the pass checks its estimated cost against "
+            "what is left and stops taking new ones once the budget will not hold it; "
+            "those are reported unreached and head the next slice. Omit for no deadline.",
+        ),
+    ] = None,
+    all_live: Annotated[
+        bool,
+        typer.Option(
+            "--all-live",
+            help="Walk the whole live slice rather than the predict-relevant rows "
+            "(queued for prediction or selected by the salience gate).",
+        ),
+    ] = False,
+) -> None:
+    """Re-cut the petitions, applications and appendices stored under the plain head cut.
+
+    Those three kinds are cut at the document cap the appendix-aware way, with a
+    `[pipeline note: …]` line at every cut. Fetching is idempotent per kind and
+    URL, so a row stored before that cut keeps a plain head cut for as long as its
+    link is unchanged. The class is every stored row of the three kinds that is
+    `truncated`, not `ocr_derived` (an OCR-recovered row is head-cut by design),
+    carries no `[pipeline note:` line, and has one Court URL; the scope is the
+    predict-relevant live-slice rows, or with `--all-live` the whole live slice.
+    Each candidate is re-fetched by its stored URL on supremecourt.gov and re-cut
+    by the fetching lanes' own extractor at the configured cap. A served PDF with
+    a different page count is another filing at that link and is skipped
+    (`pages-changed`), as is one whose text no longer opens like the stored
+    row's (`head-changed`); bytes that do not parse are `unreadable`; a re-cut
+    equal to the stored text is `unchanged`; an empty re-cut is never written.
+    A re-cut row keeps its entry date and URL and takes the new text, pages,
+    truncation flag and today's `fetched_at`; a re-cut
+    petition re-derives its `questions-presented` row from both texts and
+    writes it only where the re-cut moves the derivation; a stored row the
+    current deriver reads differently off the stored petition is left to
+    `backfill-questions-presented`. Contract: *Contract for the re-cut pass*
+    (`docs/live-sources.md`).
+
+    Both modes fetch: the dry run re-cuts and writes nothing, the apply writes
+    each re-cut as it is made. `--max-cases` is required on an apply and
+    honored on a dry run; `--deadline-seconds` declines the rest of the slice
+    once a candidate's estimate will not fit, reported unreached. The lane
+    invocation is run-repair's `recut` pass. Fails loud if the corpus is absent
+    or the walk reads no stored document of the three kinds.
+    """
+    started = time.monotonic()
+    settings = get_settings()
+    if apply and max_cases is None:
+        typer.echo(
+            "recut-documents: --apply requires an explicit --max-cases. "
+            "Read the dry run first and pass the slice you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    max_cases = _slice_bound(max_cases, command="recut-documents")
+    deadline = _slice_deadline(started, deadline_seconds, command="recut-documents")
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the re-cut.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cfg = load_historical_config(settings.config_root)
+    if apply:
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    scope = RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+    with (
+        corpus.connect(db_path) as conn,
+        SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
+    ):
+        result = recut_documents(
+            conn,
+            client=client,
+            apply=apply,
+            char_cap=cfg.document_text_cap,
+            today=date.today(),
+            max_cases=max_cases,
+            scope=scope,
+            deadline=deadline,
+        )
+    if not result.documents_seen:
+        typer.echo(
+            f"recut-documents: no stored documents of an appendix-bearing kind in {db_path} "
+            f"({scope}, {result.cases_seen} row(s)) — wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "re-cut" if apply else "would re-cut"
+    typer.echo(
+        f"recut-documents ({'applied' if apply else 'dry-run'}, {scope}): "
+        f"{result.candidates} head-cut filing(s) in the class of "
+        f"{result.documents_seen} stored document(s) over {result.cases_seen} row(s) — "
+        f"{verb} {result.recut}, {result.remaining} left in the class"
+    )
+    _echo_by_kind("class", result.candidates_by_kind)
+    if result.excluded:
+        _echo_by_kind("truncated but left out", result.excluded)
+    typer.echo(
+        f"  attempted {result.attempted} "
+        f"(bound {'none' if result.bound is None else result.bound}); "
+        f"{result.unchanged} unchanged, {result.pages_changed} pages-changed, "
+        f"{result.head_changed} head-changed, {result.unreadable} unreadable, "
+        f"{result.empty_after_recut} empty after the re-cut; "
+        f"{result.questions_rederived} questions-presented row(s) re-derived"
+    )
+    losses = ", ".join(f"{reason}: {count}" for reason, count in result.fetch_failed.items())
+    typer.echo(f"  fetch-failed: {losses or 'none'}")
+    for kind, counts in result.outcomes_by_kind.items():
+        typer.echo(
+            f"  {kind}: " + ", ".join(f"{outcome} {count}" for outcome, count in counts.items())
+        )
+    for key, detail in result.recuts.items():
+        typer.echo(f"  {key}: {verb.upper()} {detail}")
+    for key, reason in result.skipped.items():
+        typer.echo(f"  {key}: SKIPPED ({reason})")
+    _echo_unreached(result.unreached)
+    if result.bound and result.attempted == result.bound and result.recut == 0:
+        # A full slice that re-cut nothing is a head of residue (links that
+        # 404, other filings) the class order keeps returning to.
+        typer.echo(
+            "::warning::recut-documents: the whole slice was skipped; the class head is "
+            "residue every bounded run returns to — read the SKIPPED lines"
         )
     if apply:
         _ensure_corpus_layout(db_path)
@@ -4316,6 +4614,229 @@ def decision_census_cmd(
     typer.echo(census.model_dump_json())
 
 
+@app.command("merits-backtest-plan")
+def merits_backtest_plan_cmd(
+    terms: Annotated[
+        str,
+        typer.Option(
+            help="October Terms to draw from, comma-separated, in the order the "
+            "population lists them (e.g. 2025,2024)."
+        ),
+    ] = "2025",
+    out: Annotated[
+        Path | None, typer.Option(help="Write the population JSON here rather than stdout.")
+    ] = None,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """List the decided argued cases a merits replay would forecast, and each one's cutoffs.
+
+    Read-only. Over the decision record's population for each Term
+    (`merits_backtest.merits_backtest_population`): the argued plenary dockets
+    with a parsed merits judgment, one case per docket the filings are on (a
+    consolidated member is set aside for its lead), each with the grant and
+    briefed moments it is replayed at and the day each one's record is cut, the
+    Terms in the order named. A docket set aside is listed with its reason and
+    its judgment, for the audit of what the draw left out. Prints one line per
+    Term and each set-aside docket to stderr, and the population JSON to stdout
+    or ``--out``. Reads each candidate's newest stored snapshot: over the ranged
+    backend no pulled blob is needed, though with the corpus split the snapshots
+    come from the per-case content store, which must be reachable.
+    """
+    wanted = _merits_terms(terms)
+    backend, db_path = _merits_corpus(corpus_backend)
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        population = merits_backtest.merits_backtest_population(conn, terms=wanted)
+    _echo_merits_population(population)
+    body = population.model_dump_json(indent=2)
+    if out is None:
+        typer.echo(body)
+    else:
+        write_text(out, body + "\n")
+
+
+def _merits_terms(terms: str) -> list[int]:
+    """``--terms`` as October Term years, in the order named."""
+    try:
+        wanted = [int(t) for t in terms.split(",") if t.strip()]
+    except ValueError as exc:
+        raise typer.BadParameter("name Terms as four-digit years", param_hint="--terms") from exc
+    if not wanted or not all(1925 <= t <= 2100 for t in wanted):
+        raise typer.BadParameter("name Terms as four-digit years", param_hint="--terms")
+    return wanted
+
+
+def _merits_corpus(corpus_backend: str) -> tuple[corpus.CorpusBackend, Path]:
+    """The backend and database a merits back-test command reads, refused if absent."""
+    settings = get_settings()
+    backend = _corpus_backend(corpus_backend) or settings.corpus_backend
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; corpus-pull it, or pass "
+            "--corpus-backend ranged.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    return backend, db_path
+
+
+def _echo_merits_population(population: merits_backtest.MeritsBacktestPopulation) -> None:
+    """One line per Term and one per set-aside docket, to stderr."""
+    typer.echo(f"corpus pulled through {population.pulled_through or 'undated'}", err=True)
+    for term in population.terms:
+        set_aside = ", ".join(f"{k} {v}" for k, v in term.excluded.items()) or "none"
+        typer.echo(
+            f"OT{term.term}: {term.cases} case(s) to replay, from {term.plenary_decided} argued "
+            f"plenary docket(s) decided ({term.assigned} assigned, {term.order_riding} "
+            f"order-riding, {term.argued_unjudged} argued with no judgment read); "
+            f"set aside: {set_aside}",
+            err=True,
+        )
+    for item in population.excluded:
+        typer.echo(
+            f"  OT{item.term} {item.docket_number}: {item.reason} ({item.detail}; "
+            f"{item.judgment.value})",
+            err=True,
+        )
+
+
+@app.command("merits-backtest")
+def merits_backtest_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+    terms: Annotated[
+        str,
+        typer.Option(help="Argued October Terms to replay, comma-separated (e.g. 2025,2024)."),
+    ] = "2025",
+    limit: Annotated[
+        int,
+        typer.Option(
+            min=0,
+            help="Cases to draw, in the vintage-keyed hash order; 0 replays every case. "
+            "Every case costs two cells per predictor.",
+        ),
+    ] = 0,
+    engine: Annotated[
+        str,
+        typer.Option(
+            help="'auto' routes each predictor through its own configured engine; a "
+            "backend (" + ", ".join(available_backends()) + ") routes every predictor "
+            "through that one, for offline runs."
+        ),
+    ] = "auto",
+    skip_engines: Annotated[
+        str,
+        typer.Option(help="Comma-separated engines to opt out of, by the predictor's own engine."),
+    ] = "",
+    out: Annotated[
+        Path | None,
+        typer.Option(help="Output path (default: <metrics_root>/merits-backtest.json)."),
+    ] = None,
+    work_dir: Annotated[
+        Path | None,
+        typer.Option(
+            help="Scratch root for the replay cells (default: a temporary directory). "
+            "Never data/; it must be empty."
+        ),
+    ] = None,
+    workers: Annotated[
+        int,
+        typer.Option(min=0, help="Engine lanes at once; 0 runs every lane at once."),
+    ] = 0,
+    keep_cells: Annotated[
+        Path | None,
+        typer.Option(
+            help="Keep each cell's forecast files and event definition here, per engine "
+            "and moment, written once every moment has run; the record is never kept. "
+            "Outside --work-dir."
+        ),
+    ] = None,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Replay predictors over decided argued cases into ``metrics/merits-backtest.json``.
+
+    Draws the population ``merits-backtest-plan`` lists, provisions every drawn
+    case at the grant and briefed moments, runs each enabled predictor's cell at
+    both, and scores P(disturbed) per predictor and moment against the judgment
+    and an as-of base rate (``merits_backtest.score_merits_backtest``). Spends
+    tokens on every cell of a real engine. Out of band: it never writes the
+    ``data/`` ledger, and the report is labeled retrospective.
+    """
+    if engine != "auto" and engine not in available_backends():
+        raise typer.BadParameter(
+            f"unknown backend {engine!r}; choose 'auto' or one of "
+            f"{', '.join(available_backends())}",
+            param_hint="--engine",
+        )
+    wanted = _merits_terms(terms)
+    backend, db_path = _merits_corpus(corpus_backend)
+    settings = get_settings()
+    destination = out if out is not None else settings.metrics_root / "merits-backtest.json"
+    skipped = frozenset(e.strip() for e in skip_engines.split(",") if e.strip())
+    known = {str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")}
+    if skipped - known:
+        raise typer.BadParameter(
+            f"unknown engine(s): {', '.join(sorted(skipped - known))}; enabled engines "
+            f"are {', '.join(sorted(known))}",
+            param_hint="--skip-engines",
+        )
+    work_root = work_dir if work_dir is not None else Path(tempfile.mkdtemp())
+    if work_root.resolve().is_relative_to(settings.data_root.resolve()):
+        raise typer.BadParameter("the work root may not be under data/", param_hint="--work-dir")
+    if work_root.exists() and any(work_root.iterdir()):
+        raise typer.BadParameter(f"{work_root} is not empty", param_hint="--work-dir")
+    if keep_cells is not None and keep_cells.exists() and any(keep_cells.iterdir()):
+        raise typer.BadParameter(f"{keep_cells} is not empty", param_hint="--keep-cells")
+    run_id = ids.run_id()
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        pool = merits_backtest.merits_backtest_population(
+            conn, terms=merits_backtest.baseline_pool_terms(wanted)
+        )
+        population = merits_backtest.population_for(pool, wanted)
+        _echo_merits_population(population)
+        key = population.pulled_through.isoformat() if population.pulled_through else "undated"
+        drawn = merits_backtest.draw_cases(population.cases, limit, key)
+        typer.echo(f"replaying {len(drawn)} of {len(population.cases)} case(s)", err=True)
+        with _standing_report_withheld(destination):
+            outcome = merits_backtest.replay_merits_predictors(
+                conn,
+                drawn,
+                config_root=settings.config_root,
+                work_root=work_root,
+                run_id=run_id,
+                engine_override=None if engine == "auto" else engine,
+                skip_engines=skipped,
+                workers=workers,
+                keep_root=keep_cells,
+            )
+    for predictor_id in outcome.unavailable:
+        typer.echo(f"dropped {predictor_id}: its engine is not installed", err=True)
+    for path in outcome.unkept:
+        typer.echo(f"not kept: {path}", err=True)
+    for predictor_id, by_moment in sorted(outcome.predictions.items()):
+        if not any(by_moment.values()):
+            typer.echo(f"{predictor_id} scored no cell; its losses are in lost_cells", err=True)
+    drawn_ids = {case.case_id for case in drawn}
+    report = merits_backtest.score_merits_backtest(
+        population.model_copy(
+            update={"cases": [c for c in population.cases if c.case_id in drawn_ids]}
+        ),
+        pool.cases,
+        outcome,
+        run_id=run_id,
+        dispatch=MeritsBacktestDispatch(
+            engine=engine,
+            skip_engines=sorted(skipped),
+            terms=wanted,
+            limit=limit,
+            draw_key=key,
+        ),
+    )
+    write_json(destination, report)
+    typer.echo(
+        f"merits-backtest: {len(report.entries)} predictor(s) over {report.cells} cell(s), "
+        f"{report.paired_cases} case(s) at both moments; engine {engine} -> {destination}"
+    )
+
+
 @app.command("merits-coverage")
 def merits_coverage_cmd(
     first_term: Annotated[
@@ -4399,7 +4920,7 @@ def authorship_tally_cmd(
         raise typer.BadParameter(f"not a YYYY-MM-DD date: {as_of!r}", param_hint="--as-of") from exc
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
-    if not db_path.exists():
+    if settings.corpus_backend == "local" and not db_path.exists():
         typer.echo(
             f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
             "before tallying authorship.",
@@ -4425,33 +4946,266 @@ def authorship_tally_cmd(
         )
     typer.echo(
         json.dumps(
-            {
-                "term": term,
-                "as_of": day.isoformat(),
-                "sittings": [
-                    {
-                        "start": sitting.sitting.start.isoformat(),
-                        "end": sitting.sitting.end.isoformat(),
-                        "bench": list(sitting.bench),
-                        "yet_to_write": list(sitting.yet_to_write),
-                        "cases": [
-                            {
-                                "key": case.key,
-                                "docket": case.docket,
-                                "argued": case.argued.isoformat(),
-                                "decided": case.decided.isoformat() if case.decided else None,
-                                "author": case.author,
-                                "recorded": case.recorded,
-                            }
-                            for case in sitting.cases
-                        ],
-                    }
-                    for sitting in tally
-                ],
-            },
+            authorship.tally_record(tally, term=term, as_of=day).model_dump(mode="json"),
             indent=2,
         )
     )
+
+
+@app.command("reasoning-pilot-sample")
+def reasoning_pilot_sample_cmd(
+    out: Annotated[Path, typer.Argument(help="A new or empty directory to write the sample into.")],
+    packet: Annotated[
+        bool, typer.Option(help="Also write the blind labeling packet and its key.")
+    ] = False,
+    data_root: Annotated[Path, typer.Option(help="The git-ledger root.")] = Path("data"),
+    target: Annotated[
+        int, typer.Option(help="About how many documents to sample.")
+    ] = reasoning_pilot.DEFAULT_TARGET,
+    seed: Annotated[
+        str, typer.Option(help="The seed that fixes the sample's order.")
+    ] = reasoning_pilot.DEFAULT_SEED,
+) -> None:
+    """Sample resolved cert and interim forecast documents for the reasoning-grade pilot.
+
+    Reads the committed ledger only. Each (event, predictor) offers the run an
+    evaluate cell would stage for it, where that run is forward and names a
+    ``predicted_reasoning.md``; the sample takes whole events, split evenly
+    across cert and interim and ordered by the seed
+    (`docs/outcome-decomposition.md`, *The pilot, and what it reports*). Writes
+    ``body.md`` (the evaluate round's ``--body-file``) and ``sample.json`` (each
+    cell with the run to grade, which the report reads), and with ``--packet``
+    the maintainer's blind labeling packet under ``packet/`` with its
+    ``key.json`` beside it. Refuses a directory that already holds files.
+    Prints the population's and the sample's counts per stage.
+    """
+    population = reasoning_pilot.pilot_population(data_root)
+    sample = reasoning_pilot.pilot_sample(population, target=target, seed=seed)
+    if not sample:
+        typer.echo("no resolved forward cert or interim forecast document to sample.", err=True)
+        raise typer.Exit(code=1)
+    try:
+        reasoning_pilot.write_sample(sample, out, packet=packet, seed=seed)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    for stage in reasoning_pilot.PILOT_STAGES:
+        chosen = [d for d in sample if d.stage == stage]
+        pool = [d for d in population if d.stage == stage]
+        typer.echo(
+            f"{stage.value}: {len(chosen)} document(s) on "
+            f"{len({(d.case_id, d.event_id) for d in chosen})} event(s), from {len(pool)} "
+            f"eligible on {len({(d.case_id, d.event_id) for d in pool})} event(s)",
+            err=True,
+        )
+
+
+@app.command("reasoning-pilot-merits-sample")
+def reasoning_pilot_merits_sample_cmd(
+    kept: Annotated[
+        Path, typer.Argument(help="A merits back-test's kept tree (its `merits-forecasts`).")
+    ],
+    out: Annotated[Path, typer.Argument(help="A new or empty directory to write the sample into.")],
+    data_root: Annotated[
+        Path,
+        typer.Option(
+            help="A ledger-shaped root to lay the calibration events into; never the "
+            "committed ledger."
+        ),
+    ],
+    terms: Annotated[
+        str, typer.Option(help="Argued October Terms to grade, comma-separated.")
+    ] = "2025",
+    limit: Annotated[
+        int, typer.Option(min=1, help="Cases to grade, every predictor of each.")
+    ] = merits_calibration.DEFAULT_CALIBRATION_CASES,
+    moment: Annotated[
+        Moment, typer.Option(help="The replay moment whose forecasts are graded.")
+    ] = merits_calibration.DEFAULT_CALIBRATION_MOMENT,
+    allow_stub: Annotated[
+        bool,
+        typer.Option(help="Accept a stub lane's forecasts, for an offline or free rehearsal."),
+    ] = False,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Lay a merits back-test's kept forecasts into a ledger tree as pilot calibration cells.
+
+    The replay merits half of the reasoning-grade pilot
+    (`docs/outcome-decomposition.md`, *The pilot, and what it reports*): reads
+    the kept tree, refusing it whole if any entry falls outside its layout
+    (`merits_calibration.read_kept_run`); draws up to ``--limit`` decided cases
+    of ``--terms`` at ``--moment`` in a salted-hash order; and writes each one
+    into ``--data-root`` as a resolved merits event, its definition and outcome
+    rebuilt from the corpus and its predictions as kept. An event the root
+    or the committed ledger already holds is refused, as is a root in the
+    committed ledger. Writes
+    ``body.md`` and ``sample.json`` into ``out``, as ``reasoning-pilot-sample``
+    does, every cell at the merits stage. The root is a pilot round's working
+    tree: never commit what this writes, and validate it before it is graded.
+    """
+    wanted = _merits_terms(terms)
+    settings = get_settings()
+    ledger = settings.data_root.resolve()
+    if data_root.resolve().is_relative_to(ledger):
+        raise typer.BadParameter(
+            f"{data_root} is in the committed ledger {settings.data_root}", param_hint="--data-root"
+        )
+    backend, db_path = _merits_corpus(corpus_backend)
+    configured = {
+        p.id: str(p.engine) for p in enabled_predictors(settings.config_root / "predictors.yaml")
+    }
+    try:
+        run = merits_calibration.read_kept_run(kept, allow_stub=allow_stub, predictors=configured)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"refusing the kept tree: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        population = merits_backtest.merits_backtest_population(conn, terms=wanted)
+        documents = merits_calibration.calibration_documents(
+            run, population.cases, moment=moment, limit=limit
+        )
+        if not documents:
+            typer.echo(
+                f"no kept {moment.value} forecast of a decided {terms} case to grade.", err=True
+            )
+            raise typer.Exit(code=1)
+        try:
+            sample = merits_calibration.write_calibration_overlay(
+                conn, documents, population.cases, data_root, ledger=settings.data_root
+            )
+            reasoning_pilot.write_sample(sample, out)
+        except ValueError as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(code=1) from exc
+    typer.echo(
+        f"merits calibration: {len(sample)} document(s) on "
+        f"{len({(d.case_id, d.event_id) for d in sample})} event(s) of run {run.run_id}, "
+        f"from {len({f.case_id for f in run.forecasts})} kept case(s)",
+        err=True,
+    )
+
+
+@app.command("reasoning-pilot-report")
+def reasoning_pilot_report_cmd(
+    pilot_root: Annotated[
+        Path,
+        typer.Argument(help="One pilot round's evaluations, laid out like data/ (cases/...)."),
+    ],
+    sample: Annotated[Path, typer.Option(help="The directory reasoning-pilot-sample wrote.")],
+    labels: Annotated[
+        Path | None, typer.Option(help="The filled-in label sheet from the packet.")
+    ] = None,
+    expect_labels_sha256: Annotated[
+        str | None,
+        typer.Option(help="The label sheet's sha256 as recorded before the round; refuse others."),
+    ] = None,
+    prompt: Annotated[
+        Path | None, typer.Option(help="The draft prompt section the round ran, to hash.")
+    ] = None,
+    round_id: Annotated[
+        str | None,
+        typer.Option(help="Read only this evaluate run's evaluations (the round's run id)."),
+    ] = None,
+    data_root: Annotated[
+        Path, typer.Option(help="The git ledger, which the pilot root must not be or hold.")
+    ] = Path("data"),
+    out: Annotated[
+        Path | None, typer.Option(help="Write the report JSON here rather than stdout.")
+    ] = None,
+) -> None:
+    """Report one pilot round of the reasoning grade, per stage. Read-only.
+
+    The figures `docs/outcome-decomposition.md` fixes for the pilot, over the
+    sampled cells only and only where the evaluation graded the sampled run:
+    each judge's grades and nulls, its grades beside the labels, leave-one-out
+    agreement with the cell as the unit, the predictor-tracking check,
+    own-family against other-family grades, and the splits on the mask.
+    Records the sample's, label sheet's, key's and prompt section's sha256, and
+    with ``--expect-labels-sha256`` refuses a sheet that changed after its hash
+    was recorded. With ``--round-id`` only that evaluate run's evaluations are
+    read. Refuses a pilot root that is, holds or sits inside the ledger,
+    whose evaluations no pilot reads. The round's evaluations must carry the
+    harness's ``prediction_run_id`` stamp; an unstamped one counts as off-run.
+    """
+    root, ledger = pilot_root.resolve(), data_root.resolve()
+    if root.is_relative_to(ledger) or ledger.is_relative_to(root):
+        typer.echo(
+            f"{pilot_root} is, holds or sits in the ledger; a pilot round lives outside it.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    try:
+        report = reasoning_pilot.pilot_report(
+            pilot_root,
+            sample,
+            labels=labels,
+            prompt_sha256=hashlib.sha256(prompt.read_bytes()).hexdigest() if prompt else None,
+            expect_labels_sha256=expect_labels_sha256,
+            round_id=round_id,
+        )
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=1) from exc
+    text = json.dumps(report.model_dump(mode="json"), indent=2) + "\n"
+    typer.echo(
+        f"{report.off_sample} off-sample, {report.off_run} off-run, {report.superseded} "
+        f"superseded and {report.other_round} other-round evaluation(s) set aside",
+        err=True,
+    )
+    for stage in report.stages:
+        typer.echo(
+            f"{stage.stage.value}: {stage.cells} of {stage.sampled} sampled cell(s) read on "
+            f"{stage.cases} case(s); {stage.graded_by_all} graded by all, {stage.null_by_all} "
+            f"null by all, {stage.split_on_mask} split on the mask, {stage.missing_judge} "
+            f"missing a judge; {len(stage.labels)} labeled",
+            err=True,
+        )
+    if out is None:
+        typer.echo(text, nl=False)
+    else:
+        out.write_text(text)
+
+
+@app.command("argument-features")
+def argument_features_cmd(
+    transcript: Annotated[
+        Path,
+        typer.Argument(
+            help="A cleaned argument transcript: a provisioned cell's "
+            "record/documents/argument-transcript.txt, or any text "
+            "documents.extract_transcript_text produced."
+        ),
+    ],
+) -> None:
+    """Count each Justice's turns and words by advocate side in one transcript. Read-only.
+
+    The deterministic parse of `pipeline/argument_features.py`: the side of
+    each segment read from its header, each Justice turn counted toward the
+    segment it falls in, and the turns it could not attribute counted apart.
+    Prints a coverage line to stderr and the `ArgumentFeatures` JSON to stdout.
+    No cell is given this output.
+    """
+    if not transcript.is_file():
+        typer.echo(f"no transcript text at {transcript}", err=True)
+        raise typer.Exit(code=1)
+    try:
+        text = transcript.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        typer.echo(f"{transcript} is not UTF-8 text; pass the cleaned transcript text", err=True)
+        raise typer.Exit(code=1) from None
+    features = argument_features.parse_argument_features(text)
+    coverage = features.coverage
+    typer.echo(
+        f"{coverage.segments} segment(s), {coverage.segments_unattributed} with no side; "
+        f"{coverage.justice_turns} Justice turn(s): {coverage.justice_turns_attributed} "
+        f"attributed, {coverage.justice_turns_outside_segments} outside a segment, "
+        f"{coverage.justice_turns_unresolved} unresolved, "
+        f"{coverage.justice_turns_unattributed_segment} in a segment with no side",
+        err=True,
+    )
+    for note in coverage.notes:
+        typer.echo(f"note: {note}", err=True)
+    typer.echo(features.model_dump_json(indent=2))
 
 
 @app.command("merits-lineups")
@@ -4519,6 +5273,75 @@ def merits_lineups_cmd(
     )
 
 
+@app.command("justice-priors")
+def justice_priors_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First October Term to roll up.")
+    ] = 2020,
+    last_term: Annotated[
+        int, typer.Option("--last-term", help="Last October Term to roll up.")
+    ] = 2025,
+    before_term: Annotated[
+        int | None,
+        typer.Option(
+            "--before-term",
+            help="Pool the Terms strictly before this one into rates. Default: --last-term + 1.",
+        ),
+    ] = None,
+) -> None:
+    """Roll the merits lineups into per-Justice merits priors, read-only.
+
+    For each Term and Justice (`pipeline/justice_priors.py`): decisions sat, the
+    rate voting with the judgment, the rate voting to disturb the judgment below
+    (over plain affirmed, reversed or vacated judgments), and pairwise
+    agreement, over complete lineups only. The pooled rates sum the Terms
+    strictly before `--before-term`, so a forecast in a Term never reads its
+    own Term's decisions. Nothing a cell sees reads it. Writes nothing. Prints
+    one coverage line per Term to stderr and `{"terms": ..., "pooled": ...}`
+    JSON to stdout. Fails loud if the corpus is absent.
+    """
+    if first_term > last_term:
+        typer.echo("justice-priors: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before rolling up justice priors.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        lineups = merits_lineups.merits_lineups(conn, first_term=first_term, last_term=last_term)
+        judgments = justice_priors.case_judgments(
+            conn, (lu.case_id for lu in lineups if lu.status == "complete" and lu.case_id)
+        )
+    priors = justice_priors.justice_priors(lineups, judgments)
+    pooled = justice_priors.pool_before(
+        priors, last_term + 1 if before_term is None else before_term
+    )
+    for term in priors.terms:
+        typer.echo(
+            f"OT{term.term}: {term.complete} of {term.documents} documents with a complete "
+            f"lineup, {term.judged} with a plain judgment; {len(term.justices)} Justice(s)",
+            err=True,
+        )
+    typer.echo(
+        f"pooled before OT{pooled.before_term}: {pooled.decisions} decision(s) over "
+        f"{len(pooled.terms)} Term(s)",
+        err=True,
+    )
+    typer.echo(
+        json.dumps(
+            {
+                "terms": priors.model_dump(mode="json")["terms"],
+                "pooled": pooled.model_dump(mode="json"),
+            }
+        )
+    )
+
+
 @app.command("backfill-opinion-record")
 def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a CLI entrypoint; options map 1:1 to inputs
     first_term: Annotated[
@@ -4542,7 +5365,7 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
         typer.Option(
             "--max-rows",
             help="Blast-radius bound, required with --apply: refuse to insert more rows "
-            "(opinion rows plus bench rows, the dry run's 'would insert N').",
+            "(opinion, bench and text rows, the dry run's 'would insert N').",
         ),
     ] = None,
     throttle: Annotated[
@@ -4593,9 +5416,11 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
     read signed decision also gets a bench row (`opinion_benches`): who sat,
     where its syllabus lineup accounts for the whole bench, else null. A signed
     decision recorded without one is read again to add it, beside rows it
-    leaves untouched.
-    ``--apply`` refuses above ``--max-rows``, which counts the opinion rows and
-    bench rows it would insert; the apply half belongs in run-repair's `opinion-record` pass,
+    leaves untouched. Each read document's writings are also stored as text in
+    the content store, pointed at from `opinion_texts`, and a document recorded
+    without its text row is read again on the same terms.
+    ``--apply`` refuses above ``--max-rows``, which counts the opinion, bench
+    and text rows it would insert; the apply half belongs in run-repair's `opinion-record` pass,
     which on an apply holds the corpus-write credentials. ``--sweep`` is the
     standing half on run-seed's daily window, so each decision of the current
     Term is recorded within a day or so of its issue: every mode reads the
@@ -4730,8 +5555,8 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                         terms=terms,
                         apply=True,
                         max_rows=max_rows,
-                        write=lambda pairs, benches: opinion_record.insert_opinions(
-                            conn, pairs, benches
+                        write=lambda pairs, benches, texts: opinion_record.insert_opinions(
+                            conn, pairs, benches, texts, store=casestore.write_transport(conn)
                         ),
                     )
             else:
@@ -4751,6 +5576,7 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                     terms=terms,
                     recorded=recorded,
                     rebench=opinion_record.projected_rebench(handed),
+                    retext=opinion_record.projected_retext(handed),
                     dockets=dockets,
                     max_documents=None if caps is None else caps.opinion_record,
                     rotation=date.today().toordinal(),
@@ -4767,8 +5593,8 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
                             dockets=dockets,
                             apply=True,
                             max_rows=max_rows,
-                            write=lambda pairs, benches: opinion_record.insert_opinions(
-                                conn, pairs, benches
+                            write=lambda pairs, benches, texts: opinion_record.insert_opinions(
+                                conn, pairs, benches, texts, store=casestore.write_transport(conn)
                             ),
                         )
                 else:
@@ -4781,7 +5607,11 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
         raise typer.Exit(code=1) from exc
     if plan_out is not None:
         write_handoff(plan_out, opinion_record.opinion_record_plan(result))
-    typer.echo(json.dumps([r.model_dump(mode="json") for r in result.readings], indent=2))
+    # The texts ride the plan, not the step log the readings are printed to.
+    untexted = {"opinions": {"__all__": {"text", "footnotes"}}}
+    typer.echo(
+        json.dumps([r.model_dump(mode="json", exclude=untexted) for r in result.readings], indent=2)
+    )
     for failure in result.failures:
         typer.echo(failure, err=True)
     for term in terms:
@@ -4793,17 +5623,24 @@ def backfill_opinion_record_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a
             f"({opinions} opinions), {counts['refused']} refused, {counts['skipped']} skipped",
             err=True,
         )
-    for conflict in result.bench_conflicts:
+    for conflict in result.reread_conflicts:
         typer.echo(conflict, err=True)
-    total = result.rows + result.benches
+    if result.applied and result.texts_inserted < result.texts:
+        typer.echo(
+            f"backfill-opinion-record: stored {result.texts_inserted} of {result.texts} text(s); "
+            "no content store was addressed for the rest, so their documents stay owed",
+            err=True,
+        )
+    total = result.rows + result.benches + result.texts
     done = (
-        f"inserted {result.inserted + result.benches_inserted} of {total}"
+        f"inserted {result.inserted + result.benches_inserted + result.texts_inserted} of {total}"
         if result.applied
         else f"would insert {total}"
     )
     typer.echo(
         f"backfill-opinion-record ({'applied' if result.applied else 'dry-run'}): "
-        f"{done} row(s) — {result.rows} opinion row(s), {result.benches} bench row(s); "
+        f"{done} row(s) — {result.rows} opinion row(s), {result.benches} bench row(s), "
+        f"{result.texts} text row(s); "
         f"{result.already_recorded} listing row(s) already recorded"
         + (f"; {result.deferred} deferred to a later window" if result.deferred else ""),
         err=True,
@@ -5594,6 +6431,101 @@ def _labeling_batch(
     typer.echo(qp_topics.render_batch(batch), err=True)
     selected = set(batch.case_ids)
     return [row for row in frame if row.case_id in selected]
+
+
+@app.command("same-question")
+def same_question_cmd(
+    docket: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--docket", help="A petition's docket number to list matches for (repeatable)."
+        ),
+    ] = None,
+    as_of: Annotated[
+        str | None,
+        typer.Option("--as-of", help="Cutoff date (YYYY-MM-DD) for the lists. Default: today."),
+    ] = None,
+    threshold: Annotated[
+        float,
+        typer.Option("--threshold", min=0.0, max=1.0, help="Least score a match must reach."),
+    ] = same_question.DEFAULT_THRESHOLD,
+    vide_check: Annotated[
+        bool,
+        typer.Option(
+            "--vide-check",
+            help="Also measure the match against every petition's Vide links "
+            "(one snapshot read per petition).",
+        ),
+    ] = False,
+) -> None:
+    """List petitions raising the same question as a docket's, by QP text similarity. Read-only.
+
+    Builds a TF-IDF index over the stored questions-presented texts of the QP
+    labeling frame (`pipeline/same_question.py`) and, for each `--docket`,
+    lists the other petitions docketed by `--as-of` whose cosine reaches
+    `--threshold`, with each one's status as of that date. `--vide-check`
+    reads each petition's Vide links and reports how the match ranks them.
+    Counts and identifiers only, never filing text. Nothing a cell sees reads
+    it. JSON `{"lists", "vide_check"}` to stdout; a malformed date exits 2, a
+    missing corpus 1.
+    """
+    try:
+        cutoff = date.fromisoformat(as_of) if as_of else datetime.now(UTC).date()
+    except ValueError:
+        typer.echo(f"same-question: --as-of {as_of!r} is not a YYYY-MM-DD date.", err=True)
+        raise typer.Exit(code=2) from None
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before matching questions.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        petitions = same_question.read_petitions(conn)
+        index = same_question.QuestionIndex(petitions)
+        links = (
+            same_question.read_vide_links(conn, [p.case_id for p in petitions])
+            if vide_check
+            else {}
+        )
+    by_number = {
+        corpus.normalize_docket_number(p.docket_number) or p.docket_number: p.case_id
+        for p in petitions
+    }
+    lists: dict[str, list[dict[str, object]] | None] = {}
+    for number in docket or []:
+        normalized = corpus.normalize_docket_number(number) or number
+        case_id = by_number.get(normalized)
+        if case_id is None:
+            lists[normalized] = None
+            typer.echo(f"{normalized}: no stored questions presented in the frame", err=True)
+            continue
+        entries = same_question.same_question_petitions(index, case_id, cutoff, threshold=threshold)
+        lists[normalized] = [entry.model_dump(mode="json") for entry in entries]
+        typer.echo(
+            f"{normalized}: {len(entries)} match(es) at {threshold} or above "
+            f"(at most {same_question.DEFAULT_LIMIT})",
+            err=True,
+        )
+    agreement = same_question.vide_agreement(index, links) if vide_check else None
+    typer.echo(f"same-question: {len(index.vectors)} petition(s) indexed", err=True)
+    if agreement is not None:
+        typer.echo(
+            f"vide-check: {agreement.top1_linked} of {agreement.linked} linked petition(s) "
+            f"rank a Vide link first, {agreement.top5_linked} in the top five",
+            err=True,
+        )
+    typer.echo(
+        json.dumps(
+            {
+                "lists": lists,
+                "vide_check": agreement.model_dump(mode="json") if agreement else None,
+            }
+        )
+    )
 
 
 @app.command("qp-corpus")
@@ -12215,6 +13147,154 @@ def opinion_lineups_command(
     )
 
 
+def _decision_below_corpus_inputs(
+    case_ids: Sequence[str], sample: int | None
+) -> list[decision_below.CaseInput]:
+    """The ``decision-below`` cases the pulled corpus supplies: a sample, then named ids."""
+    if not case_ids and sample is None:
+        return []
+    db_path = corpus.corpus_db_path(get_settings().corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts "
+            "corpus-pull), or name SCOTUS numbers with --docket instead.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path) as conn:
+        rows = decision_below.sample_rows(conn, sample) if sample is not None else []
+        for case_id in case_ids:
+            row = corpus.get_row(conn, case_id)
+            if row is None:
+                typer.echo(f"decision-below: the corpus holds no row {case_id}", err=True)
+                raise typer.Exit(code=1)
+            rows.append(row)
+        return [
+            decision_below.CaseInput(
+                label=row.case_id,
+                case_id=row.case_id,
+                facts=decision_below.facts_for_row(conn, row),
+            )
+            for row in rows
+        ]
+
+
+def _decision_below_docket_inputs(
+    serials: Sequence[tuple[str, tuple[int, int]]],
+) -> list[decision_below.CaseInput]:
+    """The ``decision-below`` cases named by SCOTUS number, read from supremecourt.gov."""
+    if not serials:
+        return []
+    inputs: list[decision_below.CaseInput] = []
+    with SupremeCourtClient() as court:
+        for number, (term, serial) in serials:
+            payload = court.get_docket(term, serial)
+            if payload is None:
+                typer.echo(f"decision-below: supremecourt.gov serves no {number}", err=True)
+                raise typer.Exit(code=1)
+            inputs.append(
+                decision_below.CaseInput(
+                    label=number, facts=decision_below.lower_court_facts(payload)
+                )
+            )
+    return inputs
+
+
+@app.command("decision-below")
+def decision_below_command(
+    case: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--case",
+            help="A corpus case id (scotus/<docket_id>) to match; repeatable. Reads the "
+            "pulled corpus.",
+        ),
+    ] = None,
+    docket: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--docket",
+            help="A SCOTUS cert docket number (e.g. 25-100) to match, its facts fetched "
+            "from supremecourt.gov rather than the corpus; repeatable.",
+        ),
+    ] = None,
+    sample: Annotated[
+        int | None,
+        typer.Option(
+            help="Match the newest N cert petitions in the pulled corpus whose lower "
+            f"court is a federal court of appeals (e.g. {decision_below.DEFAULT_SAMPLE}; "
+            f"at most {decision_below.MAX_SAMPLE}).",
+        ),
+    ] = None,
+) -> None:
+    """Measure how many cert petitions' decisions below CourtListener holds.
+
+    For each case, reads the lower court, its case number(s) and the judgment
+    date the SCOTUS docket JSON carries, maps the court to a CourtListener id
+    (the federal courts of appeals only), finds the lower court's docket rows by
+    number, the opinion cluster dated on the judgment date and its sub-opinions'
+    file and text availability, and — where upstream holds the docket's entries —
+    reads whether a petition for rehearing en banc was filed, how it was
+    disposed of, and whether a dissent was noted. Prints the report as JSON on
+    stdout and the match rate on stderr.
+
+    Strictly **read-only**: writes no corpus, content store or ledger, and
+    stages nothing to a cell. It spends CourtListener REST requests through the
+    shared client, throttled by this process's own governor at the configured
+    ceilings — four for a typical case, `MAX_REQUESTS_PER_CASE` (16) at worst —
+    which count against the same account limits as the pull lanes but not
+    against their per-process tally; `--sample` is capped at `MAX_SAMPLE` (50)
+    to bound that. It never calls RECAP Fetch, so nothing is bought. `--case`
+    and `--sample` read the pulled corpus; `--docket` needs no corpus.
+    """
+    if sample is not None and not 1 <= sample <= decision_below.MAX_SAMPLE:
+        typer.echo(
+            f"decision-below: --sample must be between 1 and {decision_below.MAX_SAMPLE}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    named = [value.strip() for value in case or [] if value.strip()]
+    numbers = [value.strip() for value in docket or [] if value.strip()]
+    if not named and not numbers and sample is None:
+        typer.echo("decision-below: name a --case, a --docket or a --sample", err=True)
+        raise typer.Exit(code=2)
+    serials: list[tuple[str, tuple[int, int]]] = []
+    for number in numbers:
+        parsed = parse_scotus_docket_number(number)
+        if parsed is None:
+            typer.echo(f"decision-below: {number!r} is not a cert docket number", err=True)
+            raise typer.Exit(code=2)
+        serials.append((number, parsed))
+    try:
+        case_ids = corpus_seed.parse_case_ids(named) if named else []
+    except corpus_seed.SeedSliceError as exc:
+        typer.echo(f"decision-below: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+
+    if not get_settings().courtlistener_api_token:
+        # Every v4 request answers 401 without one, so the run could only fail
+        # case by case; it is refused before anything is read.
+        typer.echo("decision-below: no CourtListener API token is configured", err=True)
+        raise typer.Exit(code=2)
+    inputs = _decision_below_corpus_inputs(case_ids, sample)
+    inputs.extend(_decision_below_docket_inputs(serials))
+    with _client() as client:
+        report = decision_below.match_cases(client, inputs)
+    typer.echo(report.model_dump_json(indent=2))
+    counts = ", ".join(f"{n} {status}" for status, n in sorted(report.counts.items()))
+    matched = report.counts.get("matched", 0)
+    walked = len(report.matches)
+    typer.echo(
+        f"decision-below (dry run): {matched} of {walked} matched "
+        f"({counts or 'none walked'}); {report.requests} REST request(s)",
+        err=True,
+    )
+    if report.stopped:
+        typer.echo(
+            f"  stopped: {report.stopped} ({len(report.deferred)} case(s) deferred)", err=True
+        )
+
+
 @app.command("order-notations")
 def order_notations_command(
     on: Annotated[
@@ -12559,7 +13639,10 @@ def _report_vote_write(
         )
     verb = "stamped" if result.applied else "would stamp"
     new = sum(1 for s in result.stamps if not s.replaces)
-    complete = sum(1 for s in result.stamps if s.record.provenance.complete)
+    complete = sum(
+        1 for s in result.stamps if s.record.provenance is not None and s.record.provenance.complete
+    )
+    with_author = sum(1 for s in result.stamps if s.record.merits_author is not None)
     with_votes = sum(1 for s in result.stamps if s.record.votes)
     with_roles = sum(1 for s in result.stamps if s.record.writing_roles is not None)
     by_stage: dict[str, int] = {}
@@ -12571,12 +13654,18 @@ def _report_vote_write(
         f"{result.population} outcome(s) in the population; {verb} {len(result.stamps)} "
         f"({new} new, {len(result.stamps) - new} replacing a different record; "
         f"{stages or 'none'}) — {complete} complete, {with_votes} with votes, "
-        f"{with_roles} with writing roles; {len(result.unchanged)} already carry the same "
-        f"record; {len(result.held_back)} held back; {len(result.skipped)} with nothing to stamp"
+        f"{with_roles} with writing roles, {with_author} with a merits author; "
+        f"{len(result.unchanged)} already carry the same "
+        f"record; {len(result.held_back)} held back; {len(result.votes_unread)} author only; "
+        f"{len(result.skipped)} with nothing to stamp"
     )
     for failure in result.failures:
         typer.echo(f"  failed: {failure}")
-    for label, entries in (("held back", result.held_back), ("nothing to stamp", result.skipped)):
+    for label, entries in (
+        ("held back", result.held_back),
+        ("nothing to stamp", result.skipped),
+        ("author only", result.votes_unread),
+    ):
         for reason, count in reason_counts(entries).items():
             typer.echo(f"  {label} ({count}): {reason}")
     for stamp in result.stamps:
@@ -13590,6 +14679,18 @@ def corpus_info(
             "default vintage report stays a few KB.",
         ),
     ] = False,
+    legacy_sample: Annotated[
+        bool,
+        typer.Option(
+            "--legacy-sample",
+            help="Also count the SCOTUS rows still carrying a legacy sample weight "
+            "(above 1; the early walk's one-in-ten IFP denials), per October Term: "
+            "the effect check for completing a Term's sample by re-walking its IFP "
+            "stream. Opt-in: no index covers "
+            "the weight, so it scans every case row (a few hundred MB under "
+            "the ranged backend).",
+        ),
+    ] = False,
 ) -> None:
     """Show the corpus location, row count, and freshness (after `corpus-pull`, or ranged).
 
@@ -13639,6 +14740,12 @@ def corpus_info(
     trip each, under the corpus split), and it names the source that served
     those reads: a blob-only run against a split corpus finds no documents at
     all, and must not be read as a corpus with none.
+
+    `--legacy-sample` counts the rows still standing for the early walk's
+    one-in-ten IFP denial sample, per Term. Re-walking a Term's IFP stream
+    from its numbering base serves each of them again and writes weight 1, so
+    the Term's count reaching zero, with its IFP cursor back where it stood
+    before the re-walk, is how that re-walk is checked.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
@@ -13677,9 +14784,23 @@ def corpus_info(
             else:
                 typer.echo(f"pointer: out-of-band override set (not read by the {backend} backend)")
         _echo_pointer_provenance(db_path, backend, override_set=settings.corpus_pointer is not None)
+        if legacy_sample:
+            _echo_legacy_sample(corpus.legacy_sample_rows(conn))
         if text_coverage:
             _echo_text_coverage(document_text_coverage(conn, settings.data_root))
         _echo_read_stats(conn)
+
+
+def _echo_legacy_sample(counts: dict[int, int]) -> None:
+    """The `legacy sample:` line: weighted rows left, in all and per Term."""
+    if not counts:
+        typer.echo("legacy sample: no weighted rows")
+        return
+    per_term = ", ".join(
+        f"OT{term % 100:02d} {count}" if term else f"unparsed {count}"
+        for term, count in counts.items()
+    )
+    typer.echo(f"legacy sample: {sum(counts.values())} weighted row(s) ({per_term})")
 
 
 def _echo_pointer_provenance(db_path: Path, backend: str, *, override_set: bool) -> None:
@@ -14678,6 +15799,44 @@ def _read_related(
     return reads
 
 
+def _read_authorship_tally(
+    backend: corpus.CorpusBackend,
+    db_path: Path,
+    event: str,
+    *,
+    cutoff: date | None,
+    snapshot_date: date,
+    mode: str,
+) -> AuthorshipTally | None:
+    """The Term's authorship tally a merits cell is given, read after its gates.
+
+    Nothing is read while the tally is held back
+    (:data:`provision.AUTHORSHIP_TALLY_WITHHELD`) or for a moment that carries
+    none. Under the casestore backend, which carries no index, the read runs over
+    the ordinary read backend the row gate also reaches; with no index
+    answering, the cell goes without a tally and the log says so.
+    """
+    if provision.AUTHORSHIP_TALLY_WITHHELD or not provision.carries_authorship_tally(event):
+        return None
+    choice = corpus.resolve_backend(None) if backend == "casestore" else backend
+    if choice == "local" and not db_path.exists():
+        typer.echo("::warning::no authorship tally: no corpus index to read", err=True)
+        return None
+    try:
+        with corpus.connect_readonly(db_path, backend=choice) as conn:
+            tally = provision.authorship_tally_for(
+                conn, event, cutoff=cutoff, snapshot_date=snapshot_date, mode=mode
+            )
+            _echo_read_stats(conn)
+    except (OSError, corpus_ranged.RangedBackendError):
+        typer.echo("::warning::no authorship tally: the corpus index did not answer", err=True)
+        return None
+    except ValueError as exc:
+        typer.echo(f"::warning::no authorship tally: {exc}", err=True)
+        return None
+    return tally
+
+
 def _place_at_moment(
     case: str,
     event: str,
@@ -15045,6 +16204,18 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         if event and out is None
         else []
     )
+    tally = (
+        _read_authorship_tally(
+            backend,
+            db_path,
+            event,
+            cutoff=cutoff,
+            snapshot_date=placement.snapshot_date,
+            mode=mode,
+        )
+        if event and out is None
+        else None
+    )
     # The whole record — snapshot, context.json, documents and manifest, each
     # staged copy through the contact-detail scrubs — goes through the one
     # writer the local cascade shares (`provision.write_cell_record`), so the
@@ -15059,6 +16230,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             cutoff=cutoff,
             snapshot_dest=out,
             related=related,
+            authorship_tally=tally,
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)
@@ -15089,6 +16261,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             for item in written.related
         )
         typer.echo(f"{case} related ({linked}) -> {paths.related_dir}")
+    if written.authorship_tally is not None:
+        # Counts only: the cases are public, and the file holds them.
+        tallied = written.authorship_tally
+        typer.echo(
+            f"{case} authorship tally OT{tallied.term} as of {tallied.as_of.isoformat()} "
+            f"({len(tallied.sittings)} sitting(s), "
+            f"{sum(len(s.cases) for s in tallied.sittings)} case(s)) -> {paths.authorship_tally}"
+        )
     if written.staged:
         kinds = ", ".join(doc.kind for doc, _ in written.staged)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
@@ -15150,16 +16330,16 @@ def summarize_plan_cmd(
         if found.latest is None:
             return None
         day, payload = found.latest
-        # The argument transcript is a post-argument cell's input alone
-        # (`provision.documents_for_moment`); a summary is written from the
-        # record every predict cell shares.
+        # The argument transcript is a post-argument cell's input alone, and a
+        # withheld kind no cell's (`provision.documents_for_moment`); a summary
+        # is written from the record every predict cell shares.
         return summaries.CaseRecord(
             snapshot=day,
             payload=payload,
             documents=[
                 (doc.kind, doc.text)
                 for doc in found.documents
-                if doc.kind != KIND_ARGUMENT_TRANSCRIPT
+                if doc.kind != KIND_ARGUMENT_TRANSCRIPT and doc.kind not in provision.WITHHELD_KINDS
             ],
         )
 
@@ -15374,12 +16554,57 @@ def summary_withdraw_cmd(
         typer.echo(path)
 
 
+def _read_writings(
+    conn: corpus.ReadConnection, case: str, row: corpus.CorpusRow
+) -> list[opinion_record.StoredText] | None:
+    """A case's stored writings, or ``None`` where the store could not be read.
+
+    Best-effort beside the majority slot: a throttled or refused store read
+    warns and stages no writings rather than costing the cell its majority.
+    """
+    try:
+        return opinion_record.case_texts(
+            conn, casestore.active_transport(), case_id=case, docket_number=row.docket_number
+        )
+    except Exception as exc:  # broad by design: the writings must never cost the majority
+        typer.echo(
+            f"::warning::{case}: the stored writings could not be read "
+            f"({type(exc).__name__}); none staged",
+            err=True,
+        )
+        return None
+
+
+def _stage_writings(paths: CasePaths, case: str, stored: list[opinion_record.StoredText]) -> None:
+    try:
+        staged = provision.stage_writings(paths, case, stored)
+    except ValueError as exc:
+        typer.echo(f"::warning::{case}: {exc}; no writings staged", err=True)
+        return
+    if staged is None:
+        typer.echo(f"{case} has no stored writings; none staged")
+        return
+    count = sum(len(d.writings) for d in staged.decisions)
+    typer.echo(
+        f"{case} writings ({count} across {len(staged.decisions)} decision(s)) "
+        f"-> {paths.opinion_writings_dir}"
+    )
+
+
 @app.command("provision-opinion")
 def provision_opinion(
     *,
     court: Annotated[str, typer.Option()],
     docket: Annotated[int, typer.Option()],
     corpus_backend: CorpusBackendOption = "",
+    writings: Annotated[
+        bool,
+        typer.Option(
+            "--writings",
+            help="Also stage every writing of each decision the per-opinion record stores "
+            "text for, under record/opinion/writings/ (a pilot round's cells only).",
+        ),
+    ] = False,
 ) -> None:
     """Stage a decided case's majority opinion for an **evaluate** cell to grade against.
 
@@ -15413,6 +16638,15 @@ def provision_opinion(
     (:func:`fedcourtsai.corpus.opinion_body`): the blob's own column with the
     corpus split off, the per-case content store under it.
 
+    ``--writings`` also stages **every writing** of each decision the per-opinion
+    record stores text for — the majority, each concurrence and each dissent, from
+    the Court's own documents — under ``record/opinion/writings/`` with a
+    ``writings.json`` manifest (:func:`fedcourtsai.provision.stage_writings`), each
+    object taken only where its bytes match the digest its pointer row records. It
+    is a pilot round's slot: run-evaluate passes it on a pilot row alone, so a
+    registered evaluate cell's information set is unchanged until the grade that
+    reads it is registered. A case with no stored writings gets none, and says so.
+
     Exits **1** where the corpus holds no row for the case at all, which is a
     different fact from a case with no opinion — the first says the coordinates
     are wrong, the second that this case has not been enriched yet.
@@ -15442,13 +16676,16 @@ def provision_opinion(
         raise typer.Exit(code=2)
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         row = corpus.get_row(conn, case)
+        stored = _read_writings(conn, case, row) if writings and row is not None else []
         _echo_read_stats(conn)
     if row is None:
         typer.echo(f"No corpus row for {case} (corpus-pull the corpus first?)", err=True)
         raise typer.Exit(code=1)
     paths = CasePaths(settings.data_root, court, docket)
+    provision.clear_opinion_slot(paths)
+    if writings and stored is not None:
+        _stage_writings(paths, case, stored)
     if not row.has_opinion:
-        provision.clear_opinion_slot(paths)
         typer.echo(f"{case} has no linked opinion; nothing staged")
         return
     body = corpus.opinion_body(row)
@@ -15462,7 +16699,6 @@ def provision_opinion(
         # case yet. Spoken as a warning rather than an exit: the grader's mask on
         # "not ingested" is the correct grade either way, and failing the step
         # would cost the cell its whole evaluation over a slot it can do without.
-        provision.clear_opinion_slot(paths)
         typer.echo(
             f"::warning::{case} is marked as carrying an opinion but no usable "
             f"body was readable from the {backend} backend; nothing staged",
@@ -16169,6 +17405,12 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
         typer.echo(
             f"  provisioned: {placed.role} {placed.event_id or report.case_id} — "
             f"{placed.mode}, {placed.provenance}, {cut}, {placed.documents} document(s)"
+            + (f", unheld: {', '.join(placed.unheld)}" if placed.unheld else "")
+            + (
+                ", not a cell run-predict mints"
+                if placed.role == "predict" and placed.event_id in report.unforecastable
+                else ""
+            )
         )
     typer.echo(f"  predictions: {len(report.predictions)} file(s)")
     typer.echo(f"  outcomes:    {len(report.outcomes)} file(s)")
@@ -16827,7 +18069,10 @@ def live_poll(
     if queues.document_freshness:
         typer.echo(
             "Document freshness: "
-            + ", ".join(f"{key}={value}" for key, value in queues.document_freshness.items())
+            + ", ".join(
+                f"{key}={';'.join(value) if isinstance(value, list) else value}"
+                for key, value in queues.document_freshness.items()
+            )
             + "."
         )
     if queues.argument_transcripts:
@@ -19044,6 +20289,24 @@ def evaluate_matrix_cmd(
             "cannot re-grade the backlog.",
         ),
     ] = False,
+    pilot_section: Annotated[
+        Path | None,
+        typer.Option(
+            help="A draft prompt section every cell reads beside its registered prompt, "
+            "carried on each row as `pilot_section`. Only for a pilot round, whose "
+            "output never reaches the ledger; refused where no file is, or where it is "
+            "a prompt an evaluator registers."
+        ),
+    ] = None,
+    calibration: Annotated[
+        bool,
+        typer.Option(
+            help="Also mark every row `calibration`: the pilot's replay merits cells, whose "
+            "events a calibration overlay laid into the tree "
+            "(`reasoning-pilot-merits-sample`) and the corpus holds no event row for, so a cell "
+            "does not project them from it. Needs --pilot-section."
+        ),
+    ] = False,
 ) -> None:
     """Emit the evaluator x case x event GitHub Actions matrix as compact JSON.
 
@@ -19072,7 +20335,27 @@ def evaluate_matrix_cmd(
     ``not-ingested`` availability mask (:func:`fedcourtsai.matrix.opinion_hold`).
     It is graded at once when the body lands, ``--force`` does not lift it, and
     the window counts on the run id's day.
+
+    ``--pilot-section`` marks every row of a pilot round
+    (`docs/outcome-decomposition.md`, *The pilot, and what it reports*): the
+    cell's kickoff names the section beside the registered prompt, so the
+    registered prompt and every process digest stay as they are. A registered
+    prompt is refused as a section, so a pilot can never be mistaken for a
+    registered round. ``--calibration`` further marks them as the pilot's replay
+    merits calibration cells.
     """
+    if calibration and pilot_section is None:
+        typer.echo("--calibration marks pilot rows; it needs --pilot-section.", err=True)
+        raise typer.Exit(code=1)
+    if pilot_section is not None:
+        if body_file is None and docket is None:
+            typer.echo(
+                "--pilot-section marks a pilot round over a named case list; the backlog "
+                "is never a pilot.",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        _refuse_pilot_section(pilot_section)
     fanout = _evaluate_fanout(
         _requested_cases(
             body_file,
@@ -19095,7 +20378,37 @@ def evaluate_matrix_cmd(
     if _spend_gate_or_empty("evaluate-matrix").breached:
         typer.echo(json.dumps({"include": []}, separators=(",", ":")))
         return
-    typer.echo(json.dumps(fanout.matrix, separators=(",", ":")))
+    matrix = fanout.matrix
+    if pilot_section is not None:
+        matrix = {
+            **matrix,
+            "include": [
+                {
+                    **row,
+                    "pilot_section": pilot_section.as_posix(),
+                    **({"calibration": True} if calibration else {}),
+                }
+                for row in matrix["include"]
+            ],
+        }
+    typer.echo(json.dumps(matrix, separators=(",", ":")))
+
+
+def _refuse_pilot_section(section: Path) -> None:
+    """Exit 1 unless ``section`` is a file and no evaluator registers it as its prompt."""
+    if not section.is_file():
+        typer.echo(f"--pilot-section {section}: no such file.", err=True)
+        raise typer.Exit(code=1)
+    registered = {
+        Path(evaluator.prompt).resolve()
+        for evaluator in load_evaluators(get_settings().config_root / "evaluators.yaml")
+    }
+    if section.resolve() in registered:
+        typer.echo(
+            f"--pilot-section {section} is a registered evaluate prompt, not a draft section.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 #: What the rates above can and cannot support, carried on every plan beside the

@@ -177,7 +177,10 @@ nothing in the artifact to say so: the documents live in the cell's gitignored
 that read its petition from one that did not. It is therefore the same shape as
 the scoring baseline and takes the same remedy, which is the only one available:
 a freeze-record entry, since the record is the only place the boundary can
-exist. What the predict cell takes *off* disk is the same member from the other
+exist. A widening to a kind in `provision.WITHHELD_KINDS` moves no information
+set at all: the corpus stores the kind and provisioning gives it to no cell, so
+the move happens only when a re-bless takes the kind out of that set, with the
+prompt edit that names it. What the predict cell takes *off* disk is the same member from the other
 side: it hides the committed `predictions/` and `evaluations/` trees and deletes
 the labeling oracle for the agent's run, exactly as the evaluate cell does, so
 which directories those steps name moves a predictor's information set under an

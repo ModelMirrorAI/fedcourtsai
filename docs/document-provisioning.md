@@ -19,12 +19,14 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 | Step | What happens | Code | Specified in |
 | --- | --- | --- | --- |
 | Select | Each docket's proceedings entries are read for the filings of each kind below, by the filing's own wording. A consolidated member reads its merits filings off the lead docket. | `pipeline/documents.py`: `select_documents`, `consolidation_lead` | live-sources.md, *What is selected, and under which kind* |
-| Fetch | `live.provision_documents` fetches when a lane queues a case for prediction: on the distribution transition, on a pending application's change, and in the frontier catch-up. The salience selection sweep fetches for selected cases, which is how the merits kinds arrive. Every live cycle ends with a freshness pass over the cases it polled. A `(kind, url)` already stored is never fetched again. Multi-respondent oppositions are combined into one row. Losses are recorded by reason. | `pipeline/documents.py`: `fetch_case_documents`; `pipeline/live.py`: `provision_documents`, `refresh_stale_documents` | live-sources.md, *Document freshness* |
+| Fetch | `live.provision_documents` fetches when a lane queues a case for prediction: on the distribution transition, on a pending application's change, and in the frontier catch-up. The salience selection sweep fetches for selected cases, which is how the merits kinds arrive. Every live cycle ends with a freshness pass over the cases it polled. A `(kind, url)` already stored is never fetched again. Multi-respondent oppositions are combined into one row, and so are a docket's supplemental briefs and its party letters, one row per kind. Losses are recorded by reason. | `pipeline/documents.py`: `fetch_case_documents`; `pipeline/live.py`: `provision_documents`, `refresh_stale_documents` | live-sources.md, *Document freshness* |
 | Transcripts | The argument transcript is linked by no docket entry, so each live cycle reads the Court's per-Term transcript lists and stores the transcripts a corpus case lacks, dated by the argument day. | `supremecourt.py`: `parse_transcript_listing`; `pipeline/live.py`: `fetch_argument_transcripts` | live-sources.md, *Argument transcripts* |
+| Argument features | Not staged. A deterministic parse of a stored transcript counts each Justice's turns and words by the side of the advocate whose time it was, read from the segment headers, and reports what it could not attribute. Computed on demand only; no cell is given it. | `pipeline/argument_features.py`: `parse_argument_features`; `fedcourts argument-features` | live-sources.md, *Argument transcripts* |
 | Back-fill | A dispatched pass fetches the selection for predict-relevant cases whose stored set is missing kinds. | `pipeline/document_backfill.py`; `fedcourts backfill-documents` | live-sources.md, *Contract for the document back-fill pass* |
-| Extract | pypdf text, cut at the cap. Petitions, applications and appendices are cut around the appendix so the argument survives; each cut leaves a `[pipeline note: …]` line. The questions presented are cut from the petition text. An argument transcript is cleaned of its line numbers, headers and word index before the plain cut. | `extract_pdf_text`, `extract_filing_text`, `extract_questions_presented`, `extract_transcript_text` | live-sources.md, *The appendix-aware cut* |
+| Extract | pypdf text, cut at the cap. Petitions, applications and appendices are cut around the appendix so the argument survives; each cut leaves a `[pipeline note: …]` line. The questions presented are cut from the petition text, from the QUESTION(S) PRESENTED heading (or a "Questions to/for Review" heading) to the next front-matter heading, at most 4,000 characters; a section cut at that cap is stored `truncated`, and `backfill-questions-presented` re-derives stored rows when the cutter changes. An argument transcript is cleaned of its line numbers, headers and word index before the plain cut. | `extract_pdf_text`, `extract_filing_text`, `extract_questions_presented`, `extract_transcript_text` | live-sources.md, *The appendix-aware cut* |
+| Re-cut | A stored petition, application or appendix still under the plain head cut (truncated, not OCR-derived, no `[pipeline note:` line) is re-fetched by its stored URL and re-cut by the appendix-aware rule. run-repair's `recut` pass applies it a slice at a time. | `pipeline/document_recut.py`; `fedcourts recut-documents` | live-sources.md, *Contract for the re-cut pass* |
 | Recover | A stored document whose text is empty though its PDF has pages is OCR'd locally (pdftoppm + tesseract) and marked `ocr_derived`. A standing sweep on run-seed's walker windows catches new scans, and run-repair's `ocr-recovery` pass clears a backlog. | `pipeline/ocr_recovery.py`, `pipeline/ocr_sweep.py`; `fedcourts ocr-recover-petitions` | live-sources.md, *Contract for the recovery pass*; data-pipeline.md, *Historical — the Term walker* |
-| Cut at the moment | A document is kept only if its proceedings entry is dated before the cell's moment cutoff, so a grant-moment cell never reads the merits briefs. The argument transcript is kept only for a post-argument cell. | `provision.py`: `moment_cutoff`, `documents_for_moment`, `documents_before` | data-pipeline.md, *Provisioning: how a cell gets its record* |
+| Cut at the moment | A document is kept only if its proceedings entry is dated before the cell's moment cutoff, so a grant-moment cell never reads the merits briefs. The argument transcript is kept only for a post-argument cell, and a stored-not-staged kind for no cell. | `provision.py`: `moment_cutoff`, `documents_for_moment`, `documents_before` | data-pipeline.md, *Provisioning: how a cell gets its record* |
 | Scrub | On a docket with a self-represented side, contact details are withheld from the staged text and the staged snapshot. Where the shape pass ran, a residual detector re-reads the scrubbed text's opening and closing, and any match records the document as **not** scrubbed. The document is still staged. | `pipeline/documents.py`: `scrub_contact_details`, `contact_residual_matches`, `scrub_snapshot_contacts`; `provision.py`: `staged_scrub` | live-sources.md, from the paragraph introducing the contact-detail scrub through *What the scrub does not reach*; data-sources.md, *PII stance* |
 | Stage | Each kept document is written to `record/documents/<kind>.txt`, with a manifest at `record/documents/documents.json`. | `provision.py`: `write_cell_record`, `document_manifest` | predicted-artifacts.md, *Where the files land*; cli.md, `provision-snapshot` |
 | Companions | Not a document: a predict cell also gets the snapshot of each docket its placed snapshot links as `Vide`, cut by the date rule to its cutoff (or its own snapshot date where it has none) and redacted of undated outcome markers, under `record/related/` with a `related.json` listing every link. No filing text of a companion is staged. | `pipeline/vide_links.py`: `vide_docket_numbers`; `provision.py`: `place_related`, `related_manifest` | cli.md, `provision-snapshot` |
@@ -34,7 +36,8 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 These are the kinds, from `pipeline/documents.py`. Selection is per docket and
 the moment decides by date, so a cell gets every kind below that its docket
 carries and that was filed before its cutoff. The one exception is the argument
-transcript, which only a post-argument cell is given.
+transcript, which only a post-argument cell is given. The kinds in the second
+table below are stored and given to no cell.
 
 | Kind | Filing | Docket |
 | --- | --- | --- |
@@ -51,8 +54,26 @@ transcript, which only a post-argument cell is given.
 | `application-response` | The first response to the application | Application |
 | `application-reply` | The applicant's reply to it | Application |
 
-Amicus briefs, other than the Solicitor General's invited brief, are never
-selected. A cell with retrieval rights can still reach them upstream.
+Three more kinds are **stored but not yet given to any cell**. Which kinds a cell
+reads is part of its information set, and the process digest does not see it
+([process-version.md](process-version.md)), so a new kind is fetched and stored
+first and staged only in the re-bless whose prompt tells cells about it. Until
+then `provision.WITHHELD_KINDS` keeps it from every cell at every moment, and
+the case-summary plan leaves it out of the record it reads. One record input
+that is not a document is held back on the same rule: the post-argument merits
+cell's `record/authorship-tally.json`, the Term's tally of who has written from
+each argument sitting (`provision.AUTHORSHIP_TALLY_WITHHELD`).
+
+| Kind | Filing | Docket |
+| --- | --- | --- |
+| `supplemental-brief` | Every party's Rule 15.8 supplemental brief while the petition is pending, combined into one row | Cert |
+| `party-letter` | Every party's letter to the Clerk bearing on the case while the petition is pending (mootness, settlement, withdrawal, an intervening decision), combined into one row | Cert |
+| `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
+
+Amicus briefs other than the United States' are never selected: the Solicitor
+General's invited brief at the cert stage, and the United States' brief on the
+merits after the grant. A cell with retrieval rights can still reach the others
+upstream.
 
 ## The settings that bound it
 
@@ -80,6 +101,11 @@ which overrides the code's defaults.
 
 Each of these is stated, with its reason, where the code makes the choice:
 
+- **A petition raising the same question without a `Vide` link is not staged.**
+  Only linked companions reach `record/related/`. `fedcourts same-question`
+  lists the unlinked ones by questions-presented text similarity, cut to a date,
+  but no cell reads it yet (`pipeline/same_question.py`).
+
 - **A combined opposition is kept or dropped whole.** It is dated by its
   earliest brief, so a cutoff between two respondents' briefs admits the later
   one (`documents_before`).
@@ -98,9 +124,29 @@ Each of these is stated, with its reason, where the code makes the choice:
   document's opening and closing, not its middle, and does not run where only
   the value pass ran. A document it flags is still staged to the cell
   (live-sources.md, the contact-detail scrub).
+- **A Rule 34.6 docket stages no party filings, and the record says why.**
+  The Court's entry putting a docket's filings on paper only (Rule 34.6 and
+  Paragraph 9 of its electronic filing guidelines; mostly immigration and
+  detention cases) means nothing is posted behind them, so the selector finds
+  no link. The cell's `record/context.json` freezes `paper_only_filings` from
+  the placed payload, so a reader or grader can tell the empty
+  `record/documents/` from a provisioning failure. The predict prompt does not
+  name the field yet. The flag clears once the Court quotes the rule to call
+  for electronic versions, after briefing and argument are scheduled
+  (`pipeline/paper_only.py`).
 - **A consolidated member is checked for freshness on its own docket.** A merits
   filing entered only on the lead is left to the selection sweep
   (live-sources.md, *Document freshness*).
+- **The decision below is provisioned to a cell only through the petition's
+  appendix.**
+  No kind stores the lower court's opinion or its docket: the panel, a petition
+  for rehearing en banc, its disposition and any dissent from it. A Rule 34.6
+  docket, which links no PDFs, gives its cell no decision below at all. The join
+  to CourtListener is measured, not stored: `fedcourts decision-below` reports
+  per case whether the lower court's docket and the opinion cluster on the
+  judgment date are there, and what the docket's entries say about rehearing
+  en banc ([cli.md](cli.md)). It covers the federal courts of appeals only and
+  buys nothing; a missing opinion is not fetched through RECAP Fetch.
 
 ## Measuring coverage
 
@@ -113,9 +159,9 @@ Each of these is stated, with its reason, where the code makes the choice:
   run it where the corpus is pulled. The `run-analytics` dispatch's
   `text-coverage` mode produces the same report as an artifact
   ([pipeline.md](pipeline.md), *`run-analytics` — corpus analysis & derived metrics*).
-- `fedcourts backfill-documents` and `fedcourts ocr-recover-petitions` each
-  dry-run by default, listing the cases and documents they would fetch or
-  recover.
+- `fedcourts backfill-documents`, `fedcourts ocr-recover-petitions` and
+  `fedcourts recut-documents` each dry-run by default, listing the cases and
+  documents they would fetch, recover or re-cut.
 - A single cell's manifest says what that cell got: `empty_text`, `truncated`,
   `ocr_derived` and the contact fields per staged kind.
 

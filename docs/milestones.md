@@ -105,12 +105,14 @@ with the one the public cares about most:
   `fedcourts authorship-tally` reads each sitting's authors and undecided cases
   as of a day from the per-opinion record. That record holds OT2020–OT2025,
   and the opinion-record standing sweep on run-seed's daily window keeps the
-  current and previous Term in it; sittings are stored for the current and
-  previous Term, so the tally reads those two.
-  The tally is context, not a claim: declaring the moment still owes the
-  eight tests in [outcome-decomposition.md](outcome-decomposition.md), which
-  the authorship claims have failed so far for want of a committed resolution
-  channel and a strictly-prior baseline ([decision-model.md](decision-model.md)).
+  current and previous Term in it; the live poll back-fills the sittings of
+  every Term from OT2020 on, so the tally reads the Terms that record holds.
+  The tally is context, not a claim. The claims it informs are declared as
+  distribution claims (`majority-author`, `separate-writers`, *The authorship
+  claims* in [outcome-decomposition.md](outcome-decomposition.md)) in a set
+  version every merits moment names and the predict prompt elicits, scored
+  against strictly-prior baselines; the late-Term moment still owes the eight
+  tests.
 - **First-relist re-forecast** and **call for response** — the strongest public
   cert-stage signals. Both are declared, parsed and minted. The first relist
   (`evt-order-relist-disposition`, moment `relist`), which fires once per

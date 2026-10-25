@@ -96,7 +96,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `promotion-record` (write job only) | data | contents | on a staging→main promotion merge only (a no-secret, read-only `classify` job decides that first): push the annotated `promotion/` and `prereg/` tags and the one-parent record commit that fills the placeholders the merge added and stamps its pending registrations. The job runs up to three attempts. In each, the plan, the tags, the apply, the commit, the jail and a validation of the jailed SHA run holding no write credential; only then is a token minted, and only that attempt's push and revoke steps read it, the push refusing one that is not the data App's. The push never re-plans: where `main` advanced it records the rejection, the attempt's token is revoked, and the next attempt prepares again from a fresh fetch holding no credential, running `write.sh` from the newly fetched main tip — the same trust the data App already places in main. Every token still live after the last attempt is revoked before the job ends, and the check that main holds no pending registration runs in the report job, so no repo code runs in the write job while a write token is live. The step split is a least-exposure ordering within one job, not a credential boundary: the planner's code is main's own reviewed code, and a hostile planner would need a job boundary to be contained. A tag push never replaces one, the commit is pushed with a lease on the base it was jailed against, and every push blanks any ambient header and runs no hook. The failure issue and the PR comment ride the ambient token in a separate job |
 | `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The corpus job's dry run holds the read-only session and no App token, and pushes nothing; its apply holds the read-write role and the App token. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for every role its environment is trusted by — both corpus roles under `corpus-write` (the corpus, application back-fill, decision-record and opinion-record jobs), and under `prod` (`handoff-projection`) the read-only role alone, since the read-write role's trust names `corpus-write` only (*`corpus-write` holds the production read-write role* below) — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
 | `run-predict`, `run-evaluate` (`collect` job only) | dev | contents, pull-requests | the cell jobs name no App credential: a Claude cell's action gets the job's own token, capped at `contents: read` by the cell job's permissions, and the codex and gemini cells get none. The workflow commits, and `collect` merges its run PR once the required checks pass with a second workflow token minted for that step alone. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
-| `run-backtest` (publish job only) | dev | contents, pull-requests | open the reviewed back-test PR. The replay job holds no App credential: it hands the arm's one report to the publish job as a one-day artifact, and the publish job, which runs no engine and assumes no role, checks that the hand-off holds that file alone, that the tree differs from the commit there alone, and scans the change and the PR prose for secrets, all before it mints. The `cadence` guard holds no App token either, only an ambient `actions: read` over this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
+| `run-backtest` (publish job only) | dev | contents, pull-requests | open the reviewed back-test PR. The replay job holds no App credential: it hands the arm's one report to the publish job as a one-day artifact, and the publish job, which runs no engine and assumes no role, checks that the hand-off holds that file alone, that the tree differs from the commit there alone, and scans the change and the PR prose for secrets, all before it mints. A merits replay also uploads its cells' scanned forecasts as the 30-day `merits-forecasts` artifact from the replay job itself, on the runtime token, with no App credential (SECURITY.md states that artifact's gate and residuals). The `cadence` guard holds no App token either, only an ambient `actions: read` over this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
 | `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — one of the two PR openers in this repo not reviewed by a human (with the public-updates row below), which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
 | `run-analytics` (public-updates job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** update-history PR, whose diff the required `paths` check bounds independently (`assert-update-paths`: added `metrics/updates/<YYYY-Www>.md` files, nothing else). The job assumes no role, holds no `id-token` and does not bind `website`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the rows above |
@@ -729,7 +729,11 @@ it can fetch its run's cell artifacts per artifact (four at a time) instead of
 as a single fail-fast batch (a transient failure of which once discarded a
 whole run's output). The grant is repo-wide read, as Actions scopes cannot be run-scoped; it
 is acceptable here because `collect` runs no agent code and nothing
-agent-controlled steers which API it calls.
+agent-controlled steers which API it calls. A `reasoning-pilot` round skips
+`collect`; its `pilot-report` job binds no environment, holds no secret and a
+`contents: read` token, reads the round's artifacts through the runtime token
+(the sample by artifact id), parses the agent-written evaluations as data, and
+uploads one seven-day artifact of the round's own evaluations and the report.
 
 The cells make no issue write of their own. The engine watchdog (*Graceful
 degradation on limits* in [pipeline.md](pipeline.md)) brackets every engine's
@@ -747,8 +751,20 @@ corpus role needs. Predict's `plan` also holds **`actions: read`** and
 **`pull-requests: read`**, both on the same ambient token and the same reasoning
 as `collect`'s: its stranded-run guard lists recent runs and their artifact
 *names* (it downloads nothing) and reads whether this lane's collect PR has
-merged, to avoid re-minting cells that already ran. Both grants are repo-wide
-because neither scope can be narrowed to one run or one branch, both are reads
+merged, to avoid re-minting cells that already ran. Evaluate's `plan` holds
+**`actions: read`** too, on every round of the workflow since a grant is
+job-scoped, for the `reasoning-pilot-merits` round alone to use: it lists
+run-backtest's runs and downloads one artifact of them, the `merits-forecasts`
+tree a successful run of that workflow file on `main`, by dispatch or schedule,
+at a commit `main` still contains, uploaded, by artifact id, into the runner's
+temp directory. The run is chosen by that fixed derivation, not by any input,
+and the tree is agent-written, so `reasoning-pilot-merits-sample` refuses it
+whole if any entry falls outside the keep layout before anything reads it, and
+rebuilds each event's definition and outcome from the corpus rather than
+taking them from it. The kept forecasts then reach the judges the way any
+forecast does, as documents to grade under the prompt's data-not-instructions
+rule. These grants are repo-wide
+because neither scope can be narrowed to one run or one branch, all are reads
 with no write beside them, and `plan` runs no agent code — it opens, comments on
 and reviews nothing. The PR read is what `contents: read` cannot answer: the
 merge state of a branch this job never fetches.
@@ -974,8 +990,8 @@ jobs take the lock under `prod`, holding no role, and the corpus and
 decision-record jobs' dry runs bind the environment without taking the lock.) It removes
 *agents* from the write role's reach, not hostile *parsers*: the writer jobs
 parse fetched third-party content while holding or able to mint the role — the pull and seed
-windows' fetched dockets, and the corpus repair job's `ocr-recovery` and
-`document-backfill` passes, which are not split the way the fetching
+windows' fetched dockets, and the corpus repair job's `ocr-recovery`,
+`document-backfill` and `recut` passes, which are not split the way the fetching
 passes are (*S3 / the private stores* below). Configure it with:
 
 - **deployment branches**: `main` alone, as a named custom policy. The
@@ -1566,8 +1582,8 @@ Access mirrors each workflow's role in the pipeline:
 | `run-repair` — `handoff-parse` job | none | every fetch from supremecourt.gov and every parse of what it served: no environment, no `id-token: write`, no secret, and a step asserts the AWS and OIDC variables are absent first; its only output is the dry-run ledger and, on an apply, the plan artifact |
 | `run-repair` — votes writer | none | on an apply only: re-validates the plan against the ledger and stamps `outcome.json`; no corpus, no role, no `id-token` — the data App token pushes the commit |
 | `run-seed` — `order-votes-projection`, `order-votes-parse`, `order-votes` jobs | read-only, none, none | the order-list vote sweep: the same three-job split as run-repair's `order-votes` pass on the daily window — a projection job with the read-only role (a full index `corpus-pull`, then each population case's docket number), a parse job holding no credential (no environment, no `id-token`, no secret, and the same AWS/OIDC guard), and a writer holding only the data App token, minted after the planned stamps are applied |
-| `run-seed` — `opinion-record-projection`, `opinion-record-parse`, `opinion-record` jobs | read-only, none, read-write | the opinion-record sweep: the same three-job split as run-repair's `opinion-record` pass on the daily window, over the current and previous Term — a projection job with the read-only role (the record's listing keys), a parse job holding no credential (the same AWS/OIDC guard) that reads at most the window's slice of documents, and a writer under `corpus-write` that pulls fresh, re-validates and inserts, pushes the blob, and mints the data App token only after the push |
-| `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied, `corpus-push`, then the pointer commit — no fetch, no PDF parse |
+| `run-seed` — `opinion-record-projection`, `opinion-record-parse`, `opinion-record` jobs | read-only, none, read-write | the opinion-record sweep: the same three-job split as run-repair's `opinion-record` pass on the daily window, over the current and previous Term — a projection job with the read-only role (the record's listing keys), a parse job holding no credential (the same AWS/OIDC guard) that reads at most the window's slice of documents, and a writer under `corpus-write` that pulls fresh, re-validates, stores each writing's text in the content store and inserts, pushes the blob, and mints the data App token only after the push |
+| `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied (the opinion-record writer storing each writing's text in the content store first), `corpus-push`, then the pointer commit — no fetch, no PDF parse |
 | `run-repair` — corpus job | read-only on a dry run, read-write on an apply | a dry run pulls the index, applies the dedupe (and, for the overhang clear, the scope reconcile) to the runner's copy alone and tees the pass's ledger: no App token, no `corpus-write` lock, the remote-writes switch off, no push. An apply holds the lock, the read-write role and the App token for the whole job, re-assumed for the OCR pass. The dry run narrows what is held, not what is reachable: the job still binds `corpus-write` with `id-token: write`, so any step, the OCR and document back-fill dry runs' PDF parsing among them, can still mint the read-write role |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull). A forward predict cell's provisioning step also fetches its docket's current JSON from the Court (the pre-mint poll), and a post-run step holding no credential fetches it once more, both through the live poller's client, which refuses any hop off the Court's host; each payload is only scanned for the event's outcome, never stored or handed to the cell |
@@ -1777,7 +1793,10 @@ result matches the live cells — no agent process env carries a cloud
 credential or another provider's key, enforced in one tested seam that also
 covers the local cascade — with one residual stated plainly: unlike a live
 cell, the credentialed process here is the agent's own concurrently-running
-parent, so the same-user non-boundary above is more direct in this job.
+parent, so the same-user non-boundary above is more direct in this job. A
+merits replay publishes from that same job: the cells' forecasts, scanned by
+a scanner run from the tree the cells held, which that non-boundary is why
+SECURITY.md accepts rather than closes.
 (Codex's API-key auth adds one file to that same non-boundary: the pinned CLI
 only accepts a key via `codex login`, so the runner seam logs in to a
 run-scoped temp `CODEX_HOME` whose `auth.json` holds codex's own key for the
@@ -1972,16 +1991,18 @@ release dataset publish; for the application back-fill, the Term's highest
 stored application serial and its live-owned serials, which say how far the
 corpus's rows reach and which of them the live channel polls; for the
 opinion record, the (Term, listing number) of each document it already holds
-whole and of each signed decision it holds without a bench row, the row key of
-the Court's own opinions listing. Each says something about the
+whole, of each signed decision it holds without a bench row and of each
+document it holds without a text row, the row key of the Court's own opinions
+listing. Each says something about the
 compilation extent — which public dockets the pipeline holds — on the footing
 argued above, and nothing about their contents. `repair-plan-<run_id>`, on an
 apply only, carries what the parse read: for the vote passes, each planned
 record (votes, provenance, writing roles — the fields the writer commits to
 public git anyway); for the opinion record, each document's opinion rows read
 off the Court's listing and PDF (kind, author, joiners, word counts, the
-printed header sentence) and the bench and non-participation its syllabus
-prints, with the case id left for the writer to resolve. The
+printed header sentence, each writing's text as the Court published it) and
+the bench and non-participation its syllabus prints, with the case id left
+for the writer to resolve. The
 application back-fill's plan carries each served docket JSON verbatim —
 party contact blocks included, a self-represented applicant's address,
 telephone and prisoner number among them — with the ledger's structured
@@ -2044,10 +2065,24 @@ own URL). The ceiling (`opinion_record_ceiling`, 200) is no control against
 such a parse, which writes the class count it is weighed on; it stops an
 honest parse whose class has widened. Those rows go to the corpus index, not git, so no diff
 review sees them, and the record is fill-only, so a forged row stays until a
-pass built to replace rows exists. Nothing a predict or evaluate cell sees
-reads the table; its readers are the analytic `merits-lineups` and
-`authorship-tally`. That residual is likewise **pending the maintainer's
-acceptance**, which merging the sweep's jobs gives. The plan is the
+pass built to replace rows exists. Nothing a predict cell or a registered
+evaluate cell sees reads the table; its readers are the analytic
+`merits-lineups` and `authorship-tally`, and `provision-opinion --writings`,
+which uses it only to pick a pilot cell's decisions and stages kind and
+author from the digest-checked text object, not from the row. The same plan carries each writing's text, which the
+writer stores in the content store under `scotus/opinions/`, each writing's
+body and footnotes up to 1,000,000 characters apiece within the plan's 64 MB
+handoff cap. The one check on it, that it recounts to the word counts, is
+no control against a forged plan, which writes those counts too, so a
+compromised parse could store arbitrary text there, kept, like the rows,
+until a replacing pass exists. A pilot round's evaluate cell is its one
+cell reader (`provision-opinion --writings`, on a pilot row alone): the
+grader there reads it under the cells' data-not-instructions guard, the step
+takes an object only where its bytes match the row's digest, and the worst a
+forged text can do is mislead a pilot grade, which is uploaded for review
+rather than committed. That residual is likewise **pending the maintainer's
+acceptance**, which merging the sweep's jobs gives; the text half of it is
+added by the change that stores the text, and waits on the same acceptance. The plan is the
 Court's word only as far as the parse job can be trusted; what the split
 removes is that job's reach to any credential. The parse job's steps run as
 one user on one runner, so a parse that
@@ -2087,9 +2122,9 @@ and `run-analytics`'s `tool-usage`, a read-only report over committed
 retrieval logs that opens no PR and feeds no check. A poisoned entry there runs
 beside nothing worth taking: the job's own read-scoped runtime token, which the
 attacker already held to save the entry, and an output nothing trusts. The same reach, with
-every credential besides, belongs to the two passes that parse fetched
-PDFs inside the corpus job: `ocr-recovery` and `document-backfill` are not
-split. And in every job that holds `id-token: write` — the projection,
+every credential besides, belongs to the three passes that parse fetched
+PDFs inside the corpus job: `ocr-recovery`, `document-backfill` and `recut`
+are not split. And in every job that holds `id-token: write` — the projection,
 the two corpus writers, the decision-record and corpus jobs — every step can
 mint a token for every role its environment is trusted by — under `prod`
 (the projection) the read-only role alone, since the read-write role's trust

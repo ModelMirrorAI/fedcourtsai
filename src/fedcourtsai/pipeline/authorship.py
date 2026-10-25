@@ -40,9 +40,11 @@ is read with its latest last day.
 A Justice who took no part in a case still counts as one who could write, so a
 recusal shows as a Justice owed an opinion no case of the sitting can supply.
 
-Read-only and analytic: no ``query`` retrieval row, provisioning step, outcome,
-mint or scoring gate reads it, and nothing a predict or evaluate cell sees
-includes it.
+Read-only. No ``query`` retrieval row, outcome, mint or scoring gate reads it.
+Provisioning reads it for one file, a post-argument merits cell's
+``record/authorship-tally.json`` (:func:`fedcourtsai.provision.authorship_tally_for`),
+which :data:`fedcourtsai.provision.AUTHORSHIP_TALLY_WITHHELD` holds back from
+every cell until the re-bless whose prompt tells cells about it.
 """
 
 from __future__ import annotations
@@ -54,6 +56,7 @@ from datetime import date
 from typing import Any
 
 from .. import corpus
+from ..schemas import AuthorshipTally, AuthorshipTallyCase, AuthorshipTallySitting
 from ..supremecourt import ArgumentSitting
 from .justices import bench_on
 
@@ -209,6 +212,34 @@ def authorship_tally(conn: corpus.ReadConnection, *, term: int, as_of: date) -> 
         )
         for sitting, cases in by_sitting.items()
     ]
+
+
+def tally_record(tally: Sequence[SittingTally], *, term: int, as_of: date) -> AuthorshipTally:
+    """The tally as its file carries it, for the CLI and a cell's record alike."""
+    return AuthorshipTally(
+        term=term,
+        as_of=as_of,
+        sittings=[
+            AuthorshipTallySitting(
+                start=sitting.sitting.start,
+                end=sitting.sitting.end,
+                bench=list(sitting.bench),
+                yet_to_write=list(sitting.yet_to_write),
+                cases=[
+                    AuthorshipTallyCase(
+                        key=case.key,
+                        docket=case.docket,
+                        argued=case.argued,
+                        decided=case.decided,
+                        author=case.author,
+                        recorded=case.recorded,
+                    )
+                    for case in sitting.cases
+                ],
+            )
+            for sitting in tally
+        ],
+    )
 
 
 def _member_dockets(raw: object) -> list[str]:

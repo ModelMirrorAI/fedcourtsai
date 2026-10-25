@@ -95,7 +95,7 @@ from .schemas import (
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v11"
+CURRENT_PROCESS_LABEL = "proc-v12"
 
 #: The committed frozen-process registry the freeze constants below are built
 #: from: the labels and their counting instants, the digests the current label
@@ -214,6 +214,14 @@ _REGISTRY: Final[ProcessRegistry] = load_process_registry()
 # scoring rule never changes inside one label's life.
 HARNESS_CERT_ANCHOR_FROM = "proc-v9"
 
+# The first label whose predict prompt elicits the authorship forecast, the
+# label under which every declared moment names its authorship set
+# (`cert-v3`, `interim-v2`, `merits-v2`). A cell stamped under an earlier label
+# was asked the predecessor set and is scored under it
+# (`pipeline.claims.declared_claim_set_for`), so the moment table's advance
+# never relabels a committed grading.
+AUTHORSHIP_CLAIMS_FROM = "proc-v12"
+
 _LABEL_PATTERN = re.compile(r"proc-v(\d+)")
 
 
@@ -223,6 +231,23 @@ def label_ordinal(label: str | None) -> int | None:
         return None
     match = _LABEL_PATTERN.fullmatch(label)
     return int(match.group(1)) if match else None
+
+
+def asked_authorship_claims(label: str | None, *, states_distributions: bool) -> bool:
+    """Whether a cell stamped under ``label`` was asked the authorship forecast.
+
+    True from :data:`AUTHORSHIP_CLAIMS_FROM` on. An unstamped record (``None``)
+    is read off what it carries: the committed records with no stamp predate
+    the authorship forecast and state no distribution claims, while the local
+    cascade, which never stamps, writes a block under the moment table as it
+    stands. False for an earlier label and for a label that is not a ``proc-vN``
+    at all.
+    """
+    if label is None:
+        return states_distributions
+    ordinal = label_ordinal(label)
+    threshold = label_ordinal(AUTHORSHIP_CLAIMS_FROM)
+    return ordinal is not None and threshold is not None and ordinal >= threshold
 
 
 def harness_stamps_cert_anchor(label: str | None) -> bool:

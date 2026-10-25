@@ -5,8 +5,15 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-from fedcourtsai import corpus
-from fedcourtsai.pipeline.authorship import authorship_tally
+import pytest
+from typer.testing import CliRunner
+
+from fedcourtsai import cli, corpus, provision
+from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline import cascade
+from fedcourtsai.pipeline.authorship import authorship_tally, tally_record
+from fedcourtsai.schemas import AuthorshipTally
+from fedcourtsai.serialize import read_model
 from fedcourtsai.supremecourt import ArgumentSitting
 
 _OCTOBER = ArgumentSitting(2025, date(2025, 10, 6), date(2025, 10, 15))
@@ -232,3 +239,172 @@ def test_a_blob_without_the_sittings_table_reads_as_none(tmp_path: Path) -> None
     with corpus.connect_readonly(db, migrate=False) as conn:
         assert corpus.argument_sittings(conn) == []
         assert authorship_tally(conn, term=2025, as_of=date(2026, 6, 1)) == []
+
+
+# --- a merits cell's record ----------------------------------------------------
+
+_ARGUED = "evt-argument-judgment"
+
+
+def test_only_the_post_argument_moment_carries_a_tally() -> None:
+    assert provision.carries_authorship_tally(_ARGUED)
+    assert not provision.carries_authorship_tally("evt-petition-disposition")
+    assert not provision.carries_authorship_tally("evt-order-judgment")
+
+
+def test_the_tally_reads_through_the_day_before_the_exclusive_cutoff() -> None:
+    snapshot = date(2026, 1, 25)
+    assert provision.authorship_tally_as_of(date(2026, 1, 21), snapshot, "forward") == date(
+        2026, 1, 20
+    )
+    assert provision.authorship_tally_as_of(None, snapshot, "forward") == snapshot
+    # Argument days and sittings are as stored now, which a replay cell's moment predates.
+    assert provision.authorship_tally_as_of(date(2026, 1, 21), snapshot, "replay") is None
+    assert provision.authorship_tally_as_of(None, snapshot, "replay") is None
+
+
+def test_a_cell_is_given_the_tally_of_the_term_in_progress(tmp_path: Path) -> None:
+    db = _seed(tmp_path)
+    with corpus.connect_readonly(db) as conn:
+        after = provision.authorship_tally_for(
+            conn, _ARGUED, cutoff=date(2026, 1, 21), snapshot_date=date(2026, 1, 25), mode="forward"
+        )
+        on = provision.authorship_tally_for(
+            conn, _ARGUED, cutoff=date(2026, 1, 20), snapshot_date=date(2026, 1, 25), mode="forward"
+        )
+        cert = provision.authorship_tally_for(
+            conn,
+            "evt-petition-disposition",
+            cutoff=None,
+            snapshot_date=date(2026, 1, 25),
+            mode="forward",
+        )
+    assert after is not None and after.term == 2025 and after.as_of == date(2026, 1, 20)
+    assert ("scotus/1", "Kagan") in {(case.key, case.author) for case in after.sittings[0].cases}
+    # A decision on the cutoff day itself is not read.
+    assert on is not None and all(case.author is None for case in on.sittings[0].cases)
+    assert cert is None
+
+
+def _placement() -> provision.Placement:
+    return provision.Placement(
+        snapshot_date=date(2026, 1, 25),
+        payload={},
+        documents=[],
+        provenance="as-stored",
+        boundary=None,
+        dropped_entries=0,
+        dropped_documents=0,
+    )
+
+
+def test_the_record_carries_the_tally_only_once_it_is_released(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    paths = CasePaths(tmp_path / "data", "scotus", 1)
+    tally = AuthorshipTally(term=2025, as_of=date(2026, 1, 20))
+    held = provision.write_cell_record(
+        paths, "scotus/1", _placement(), mode="forward", cutoff=None, authorship_tally=tally
+    )
+    assert held.authorship_tally is None and not paths.authorship_tally.exists()
+    monkeypatch.setattr(provision, "AUTHORSHIP_TALLY_WITHHELD", False)
+    written = provision.write_cell_record(
+        paths, "scotus/1", _placement(), mode="forward", cutoff=None, authorship_tally=tally
+    )
+    assert written.authorship_tally == tally
+    assert read_model(paths.authorship_tally, AuthorshipTally) == tally
+    # The next cell provisioned in the same tree, with no tally, does not inherit it.
+    provision.write_cell_record(paths, "scotus/1", _placement(), mode="forward", cutoff=None)
+    assert not paths.authorship_tally.exists()
+
+
+def test_the_cli_and_the_record_write_the_same_file(tmp_path: Path) -> None:
+    db = _seed(tmp_path)
+    with corpus.connect_readonly(db) as conn:
+        tally = authorship_tally(conn, term=2025, as_of=date(2026, 3, 10))
+        given = provision.authorship_tally_for(
+            conn, _ARGUED, cutoff=date(2026, 3, 11), snapshot_date=date(2026, 3, 12), mode="forward"
+        )
+    assert given == tally_record(tally, term=2025, as_of=date(2026, 3, 10))
+
+
+def _boom(*_args: object, **_kwargs: object) -> None:
+    raise AssertionError("the tally was read while held back")
+
+
+def test_a_held_tally_is_never_read_at_either_call_site(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(provision, "authorship_tally_for", _boom)
+    db = tmp_path / "absent.db"
+    assert (
+        cli._read_authorship_tally(
+            "local", db, _ARGUED, cutoff=None, snapshot_date=date(2026, 1, 25), mode="forward"
+        )
+        is None
+    )
+    placement = _placement()
+    read = provision.CellRead(
+        latest=None, documents=[], events=[], row=None, cutoff=None, dated=None
+    )
+    assert (
+        cascade._read_authorship_tallies(
+            db, "local", {_ARGUED: placement}, {_ARGUED: read}, {_ARGUED: "forward"}
+        )
+        == {}
+    )
+
+
+def test_a_released_tally_is_read_and_a_bad_one_is_reported(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(provision, "AUTHORSHIP_TALLY_WITHHELD", False)
+    db = _seed(tmp_path)
+    tally = cli._read_authorship_tally(
+        "local",
+        db,
+        _ARGUED,
+        cutoff=date(2026, 1, 21),
+        snapshot_date=date(2026, 1, 25),
+        mode="forward",
+    )
+    assert tally is not None and tally.as_of == date(2026, 1, 20)
+    read = provision.CellRead(
+        latest=None, documents=[], events=[], row=None, cutoff=date(2026, 1, 21), dated=None
+    )
+    found = cascade._read_authorship_tallies(
+        db, "local", {_ARGUED: _placement()}, {_ARGUED: read}, {_ARGUED: "forward"}
+    )
+    assert found == {_ARGUED: tally}
+
+    def unreadable(*_args: object, **_kwargs: object) -> None:
+        raise ValueError("a sitting before the roster's floor")
+
+    monkeypatch.setattr(provision, "authorship_tally_for", unreadable)
+    assert (
+        cli._read_authorship_tally(
+            "local", db, _ARGUED, cutoff=None, snapshot_date=date(2026, 1, 25), mode="forward"
+        )
+        is None
+    )
+    assert "::warning::no authorship tally: a sitting before" in capsys.readouterr().err
+    assert (
+        cascade._read_authorship_tallies(
+            db, "local", {_ARGUED: _placement()}, {_ARGUED: read}, {_ARGUED: "forward"}
+        )
+        == {}
+    )
+
+
+def test_the_tally_command_prints_the_file_shape(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _seed(tmp_path)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_BACKEND", "local")
+    result = CliRunner().invoke(
+        cli.app, ["authorship-tally", "--term", "2025", "--as-of", "2026-03-10"]
+    )
+    assert result.exit_code == 0, result.output
+    printed = AuthorshipTally.model_validate_json(result.stdout)
+    assert printed.term == 2025 and [len(s.cases) for s in printed.sittings] == [4, 1]

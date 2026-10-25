@@ -32,7 +32,7 @@ import shutil
 import sqlite3
 import tempfile
 import threading
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import date, timedelta
 from enum import StrEnum
@@ -526,6 +526,24 @@ class CorpusRow(BaseModel):
         "and applies the cut, and the latch strands that row at its unbounded "
         "value until a re-derivation). Live application branch only.",
     )
+    cert_amicus_briefs: int | None = Field(
+        default=None,
+        description="How many amicus briefs a cert petition's docket recorded "
+        "before the Court disposed of the petition "
+        "(`pipeline.cert_amicus.cert_amicus_briefs`): the interim count's per-entry "
+        "reading (`interim_signals.amicus_briefs`) over the entries before the "
+        "first disposition entry in docket order, less the Court's orders on "
+        "amicus motions, so a granted case's merits amici never reach it and a "
+        "brief filed by motion counts once. A stakes proxy with that reading's "
+        "other approximations. Max-latched: the cut fixes a resolved petition's "
+        "value and an open petition's only grows, so a degraded parse's "
+        "confident 0 never regresses it. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = not cert-parsed since the column "
+        "existed: a row the live poll has not read since then, which a resolved "
+        "row the poll rotation skips stays until the cert amicus back-fill "
+        "(`rederive-cert-amicus-briefs`, a run-repair pass) fills it. Written by "
+        "the live cert branch and that back-fill only.",
+    )
     sample_weight: int | None = Field(
         default=None,
         description="Inverse inclusion probability of this row under the corpus's "
@@ -1011,7 +1029,14 @@ CREATE TABLE IF NOT EXISTS cases (
     -- stage's post-argument moment. Written by the live poll's transcript pass;
     -- fill-in latched. Withheld from the retrieval surface. NULL = no transcript
     -- stored yet.
-    argument_transcript_at TEXT
+    argument_transcript_at TEXT,
+    -- The cert-stage amicus count (see CorpusRow and pipeline/cert_amicus.py):
+    -- the amicus briefs a petition's docket recorded before its first
+    -- disposition entry. Written by the live poll's cert branch at ingest and
+    -- by the cert amicus back-fill (pipeline/cert_amicus_rederive.py);
+    -- max-latched. Withheld from the retrieval surface. NULL = never
+    -- cert-parsed since the column existed.
+    cert_amicus_briefs INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1191,6 +1216,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "merits_brief_on_lead": "TEXT",
     "relisted_at": "TEXT",
     "argument_transcript_at": "TEXT",
+    "cert_amicus_briefs": "INTEGER",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -1345,9 +1371,10 @@ def _migrate_documents(conn: sqlite3.Connection) -> None:
 # opinions listing links, keyed by the listing row (Term, listing number) and
 # the opinion's order in the document. A historical decision record, like the
 # case row's decision columns, written only by the `backfill-opinion-record`
-# pass and read by no retrieval, provisioning, outcome or scoring path. The
-# table is created from this map and migrated by it, the same one-object
-# construction the other tables use.
+# pass and read by no retrieval, provisioning or outcome path; scoring reaches
+# it only through the statpack's authorship section. The table is created
+# from this map and migrated by it, the same one-object construction the other
+# tables use.
 OPINIONS_COLUMN_DDL: dict[str, str] = {
     "term": "INTEGER NOT NULL",
     "listing_number": "TEXT NOT NULL",
@@ -1431,13 +1458,50 @@ def _migrate_opinion_benches(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE opinion_benches ADD COLUMN {column} {ddl}")
 
 
+# Per-column DDL for `opinion_texts`: at most one row per document the
+# per-opinion record holds (`pipeline.opinion_record`), keyed as `opinions` is,
+# pointing at the content-store object that holds each of its writings' text
+# (`casestore.opinion_text_key`). The text is payload, so it lives in the store
+# and this row is its pointer: the object's key, digest and size, and the text
+# rule it was cut under. Written only by the `backfill-opinion-record` pass,
+# fill-only, after the object is stored, in the transaction that inserts the
+# document's other rows or on a later pass for a document recorded without
+# one. A row whose `object_key` is null says the re-read writings were not the
+# stored ones, so no text was stored for them, which also ends the re-reading.
+OPINION_TEXTS_COLUMN_DDL: dict[str, str] = {
+    "term": "INTEGER NOT NULL",
+    "listing_number": "TEXT NOT NULL",
+    "object_key": "TEXT",
+    "digest": "TEXT",
+    "bytes": "INTEGER",
+    "text_rule": "TEXT NOT NULL",
+    "read_at": "TEXT NOT NULL",
+}
+
+
+def _migrate_opinion_texts(conn: sqlite3.Connection) -> None:
+    """Create `opinion_texts` from its DDL map, and add any column added since.
+
+    Idempotent, and like `opinions` reached only by a writer's connection: a
+    read-only open of a blob written before the table existed reads it as empty.
+    """
+    columns = ", ".join(f"{name} {ddl}" for name, ddl in OPINION_TEXTS_COLUMN_DDL.items())
+    conn.execute(
+        f"CREATE TABLE IF NOT EXISTS opinion_texts ({columns}, PRIMARY KEY (term, listing_number))"
+    )
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(opinion_texts)")}
+    for column, ddl in OPINION_TEXTS_COLUMN_DDL.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE opinion_texts ADD COLUMN {column} {ddl}")
+
+
 # Per-column DDL for `argument_sittings`: one row per argument session of an
 # October Term, as the Court's transcript list heads it, keyed by the Term and
 # the session's first day. Written by the live poll's transcript pass, which
 # re-reads the current and previous Term's headings every cycle and upserts each
 # by its key, so a widened heading takes its new last day and ``read_at`` is the
-# last read. Metadata, not payload: it stays in the index blob under the
-# corpus-split mode.
+# last read; an older Term from OT2020 on is back-filled once. Metadata, not
+# payload: it stays in the index blob under the corpus-split mode.
 ARGUMENT_SITTINGS_COLUMN_DDL: dict[str, str] = {
     "term": "INTEGER NOT NULL",
     "start": "TEXT NOT NULL",
@@ -1637,6 +1701,7 @@ def _apply_schema(conn: sqlite3.Connection) -> None:
     _migrate_documents(conn)
     _migrate_opinions(conn)
     _migrate_opinion_benches(conn)
+    _migrate_opinion_texts(conn)
     _migrate_argument_sittings(conn)
 
 
@@ -1972,6 +2037,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "argument_transcript_at": (
             row.argument_transcript_at.isoformat() if row.argument_transcript_at else None
         ),
+        "cert_amicus_briefs": row.cert_amicus_briefs,
         "capital_case": int(row.capital_case),
     }
 
@@ -2091,6 +2157,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         merits_brief_on_lead=_optional_date(record, "merits_brief_on_lead"),
         relisted_at=_optional_date(record, "relisted_at"),
         argument_transcript_at=_optional_date(record, "argument_transcript_at"),
+        cert_amicus_briefs=_optional_int(record, "cert_amicus_briefs"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -2109,6 +2176,7 @@ def _update_clause(column: str) -> str:
     only ever fill in, so a writer that does not carry the fact keeps what
     another channel stamped; ``distribution_count``, the interim escalation
     signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
+    the cert-stage ``cert_amicus_briefs`` count,
     the ``has_opinion`` presence bit, and the ``capital_case`` marking
     are max-latches (proceedings are append-only and the signals monotone —
     an opinion once linked is never unlinked, and only one channel can even see
@@ -2185,6 +2253,7 @@ def _update_clause(column: str) -> str:
         "response_requested",
         "referred_to_court",
         "amicus_briefs",
+        "cert_amicus_briefs",
         "has_opinion",
         "capital_case",
     ):
@@ -2202,7 +2271,12 @@ def _update_clause(column: str) -> str:
         # first reads a disposition date can produce a value below an earlier
         # unbounded one. The latch keeps the higher number, which is the accepted
         # cost of protecting every other row from a degraded parse — bringing such
-        # a row down is a re-derivation, not a poll.
+        # a row down is a re-derivation, not a poll. The cert-stage amicus count
+        # has no such fall from a poll: its cut is the first disposition entry,
+        # which every later poll of the same docket reads in the same place. It
+        # shares the other exposure, though: a narrower reading of an entry,
+        # shipped later, cannot lower a value already latched either, and needs
+        # a re-derivation to reach the stored rows.
         # `has_opinion` is the same shape again: an opinion once linked is never
         # unlinked, and every writer asserts the bit (NOT NULL, default False),
         # so a channel that does not carry the body would otherwise flip a
@@ -3823,6 +3897,44 @@ def set_amicus_briefs(conn: sqlite3.Connection, counts: Iterable[tuple[str, int]
     return written
 
 
+def raise_cert_amicus_briefs(conn: sqlite3.Connection, counts: Iterable[tuple[str, int]]) -> int:
+    """Write re-derived cert-stage ``cert_amicus_briefs`` counts **under the max latch**.
+
+    The back-fill writer of :mod:`fedcourtsai.pipeline.cert_amicus_rederive`,
+    and deliberately *not* a twin of :func:`set_amicus_briefs`: each statement
+    lands only where the stored value is NULL or below the incoming one, which is
+    the rule :func:`_update_clause` applies to this column on every upsert. A
+    lower recount touches nothing. Lowering this column is never a legitimate
+    write — its reading is the one ingest has used since the column's first write,
+    and its cut is the docket's first disposition entry, which every read of the
+    same docket finds in the same place — so a recount below the stored value
+    reads a snapshot that has lost entries, the degradation the latch exists to
+    reject.
+
+    A guarded ``UPDATE`` rather than :func:`upsert_rows`, because an upsert
+    re-asserts the whole row and mirrors its ``case.json`` to the content store:
+    for a one-column back-fill over the cert live slice that is one store write
+    per row for a single integer, and a mirror of rows read from a split-mode
+    blob, which carries no opinion body. Like its ``set_*`` siblings it writes the
+    index only. A store-side rebuild from ``case.json`` would therefore bring
+    back NULL on a resolved row the live rotation no longer polls; re-running the
+    back-fill fills it again.
+
+    One transaction over the whole batch; returns the rows the statements
+    actually touched, which a caller compares against what it planned to write.
+    """
+    written = 0
+    with conn:
+        for case_id, count in counts:
+            cursor = conn.execute(
+                "UPDATE cases SET cert_amicus_briefs = ? WHERE case_id = ? "
+                "AND (cert_amicus_briefs IS NULL OR cert_amicus_briefs < ?)",
+                (count, case_id, count),
+            )
+            written += cursor.rowcount
+    return written
+
+
 def stamp_evaluate_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
     """Record that a caller routed each case at the evaluate seam on ``day``.
 
@@ -4067,9 +4179,10 @@ def opinion_body(row: CorpusRow) -> str | None:
 #: invited-brief, call-for-response, first-relist and argument-transcript dates are mint
 #: triggers, a consolidated
 #: member's lead-filed respondent brief dates a moment no mint reads yet, and the
-#: merits decision record is an analytics surface — what a stat-pack or a
+#: merits decision record and the cert-stage amicus count are analytics
+#: surfaces — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
-#: it to what a predict or
+#: either to what a predict or
 #: evaluate cell retrieves. A column added to the rows a cell retrieves changes a
 #: frozen process's inputs without moving its digest, which is the one kind of
 #: process change the digest cannot see. Withholding them here means a ``query``
@@ -4086,6 +4199,7 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "merits_brief_on_lead",
         "relisted_at",
         "argument_transcript_at",
+        "cert_amicus_briefs",
     }
 )
 
@@ -5163,6 +5277,58 @@ def live_rotation(
     ]
     picked = overdue + rest
     return picked[:limit]
+
+
+def freshness_carryover_rows(
+    conn: sqlite3.Connection, *, exclude: Collection[str], limit: int
+) -> list[CorpusRow]:
+    """Undecided predict-relevant SCOTUS rows a cycle did not poll, most recently polled first.
+
+    The document-freshness pass's second source of candidates
+    (:func:`fedcourtsai.pipeline.live.refresh_stale_documents`). That pass
+    checks the cases a cycle polled; a stale case its per-cycle cap declined is
+    owed again only at its next poll, which can be a week away, while its
+    stored payload already names what it owes. These rows are offered to the
+    check from that stored payload, so a declined case is reached again the
+    next cycle without an upstream read.
+
+    Predict-relevant is :func:`fedcourtsai.pipeline.document_backfill.is_predict_relevant`:
+    queued for prediction, or selected by the salience gate. Undecided is the
+    live poller's own test (:func:`live_rotation`): no decision date, no
+    disposition or a granted one with its merits proceeding open, and an open
+    event. A row never live-polled carries no live payload to select from, so it
+    is left out. ``exclude`` names the rows the cycle already polled.
+
+    Most recently polled first, because the case a capped pass just declined is
+    a recently polled one, and the stalest-polled rows are the ones the
+    poller's own rotation reaches next.
+    """
+    if limit <= 0:
+        return []
+    sql = (
+        "SELECT * FROM cases WHERE court = 'scotus' "
+        "AND date_decided IS NULL "
+        "AND last_live_polled IS NOT NULL "
+        "AND (predict_queued_at IS NOT NULL OR salience_selected = 1) "
+        "AND (disposition IS NULL "
+        f"     OR (disposition IN ({_GRANTED_SQL}) "
+        "         AND EXISTS (SELECT 1 FROM events "
+        "                     WHERE events.case_id = cases.case_id "
+        "                     AND events.resolved = 0 AND events.stage = 'merits'))) "
+        "AND EXISTS (SELECT 1 FROM events "
+        "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
+        "ORDER BY last_live_polled DESC, case_id ASC"
+    )
+    excluded = set(exclude)
+    rows: list[CorpusRow] = []
+    for record in conn.execute(sql):
+        row = _from_record(record)
+        if row.case_id in excluded:
+            continue
+        rows.append(row)
+        if len(rows) >= limit:
+            break
+    return rows
 
 
 def application_rotation(
@@ -6269,6 +6435,27 @@ def latest_snapshot_date(conn: ReadConnection) -> date | None:
     record = cur.fetchone()
     stamp = record["d"] if record is not None else None
     return date.fromisoformat(stamp) if stamp else None
+
+
+def legacy_sample_rows(conn: ReadConnection) -> dict[int, int]:
+    """SCOTUS rows still carrying a legacy sample weight, by October-Term year.
+
+    An early historical walk kept one IFP denial in ten and stored each at
+    ``sample_weight`` 10; a row returns to 1 only when a walk serves it again
+    with its neighbours stored. Re-walking a Term from its numbering base is
+    what completes it, so a Term's count reaching zero is the effect check that
+    its sample is complete. A row whose docket number parses to no Term is
+    counted under ``0``. It reads every ``cases`` row, since no index covers
+    the weight: over a ranged connection that is a full scan of the table.
+    """
+    counts: dict[int, int] = {}
+    cur = conn.execute(
+        "SELECT docket_number FROM cases WHERE court = 'scotus' AND sample_weight > 1"
+    )
+    for record in cur.fetchall():
+        term = scotus_term_year(record["docket_number"] or "") or 0
+        counts[term] = counts.get(term, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def latest_pull_date(conn: ReadConnection) -> date | None:

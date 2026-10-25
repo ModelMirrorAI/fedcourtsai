@@ -24,11 +24,11 @@ The `test` stage includes an offline **stub-cascade smoke** (`tests/test_cascade
 it drives provision → predict → evaluate (blinded, then un-aliased) → `validate` over the fixture corpus with no
 network, so a broken predict/evaluate cell fails in the gate in seconds. It covers every
 predicted stage — a cert petition, and the opt-in CVSG docket whose later-moment cert
-cell answers the same `cert-v2` claim set; the fixture's substantive stay application,
-whose interim cell answers the four `interim-v1` claims and carries a Brier score but no
+cell answers the same `cert-v3` claim set; the fixture's substantive stay application,
+whose interim cell answers the four `interim-v2` binary claims and carries a Brier score but no
 segment baseline; and its granted docket,
 whose merits cell carries a judgment with its mandatory vote block, the one declared
-`merits-v1` claim, and the two declared `semantic-v1` propositions its grader answers
+`merits-v2` binary claim with its two authorship distributions, and the two declared `semantic-v1` propositions its grader answers
 entirely with the availability mask (the fixture corpus holds no opinion body). Each non-cert cell lands in the leaderboard's own unranked stage block
 rather than the ranked cert board, and the later-moment cert cell likewise aggregates
 into its own `cert@cvsg` block. One further round drives the evaluate lane's own
@@ -354,7 +354,13 @@ silently — an estate holding no snapshot for the case the plan job settled —
 an unprovisioned run fails rather than certifying a posture it never ran in. The
 leg's evidence for all of this is the `CascadeReport` block it appends to the
 run summary, which carries a `provisioned:` line per provisioning — role,
-event, mode, provenance, cutoff, document count. Per provisioning rather than
+event, mode, provenance, cutoff, document count, and the document kinds the cell
+was owed but the content store does not hold (`unheld:`), so a slice seeded
+before a filing was fetched shows as a gap in the summary rather than only in
+the agent's flags. It also marks a cell `run-predict` would never mint: an open
+event the predict fan-out would not forecast, such as a distribution cell whose
+conference has sat. That cell's record is placed after its moment closed, so it
+is not the production posture the leg certifies. Per provisioning rather than
 per run, because the record on disk at the end is the last provisioning's: on a
 case carrying a resolved event as well as an open one the evaluate half
 re-provisions last, and its uncut record says nothing about how the
@@ -823,7 +829,7 @@ a drained backlog) — so deleting a load-bearing line fails a
 named test instead of passing every linter. Two of the family go further and
 *run* what the YAML embeds, because a workflow string is matched against the CLI
 for the first time when the job runs: `test_workflow_repair_cli_parity` reads
-each of `run-repair`'s seventeen dispatch-only maintenance passes back out of the
+each of `run-repair`'s nineteen dispatch-only maintenance passes back out of the
 workflow — argv, conditional flag arrays and all, via the shared reader
 `tests/workflow_argv.py` — and executes it against the fixture corpus, so a
 renamed flag fails here rather than as a usage error mid-dispatch — a

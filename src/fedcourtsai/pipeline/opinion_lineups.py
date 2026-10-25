@@ -108,7 +108,7 @@ LISTING_AUTHOR_CODES: Final = {
     "AB": "Barrett",
     "KJ": "Jackson",
 }
-_PER_CURIAM_CODE: Final = "PC"
+PER_CURIAM_CODE: Final = "PC"
 
 _ROW_RE = re.compile(r"<tr>(.*?)</tr>", re.S | re.I)
 _CELL_RE = re.compile(r"<td[^>]*>(.*?)</td>", re.S | re.I)
@@ -412,7 +412,7 @@ def skip_reason(entry: OpinionListing) -> str | None:
     """Why a listing row is outside the channel's scope, or ``None`` to read it."""
     if entry.docket_number is None:
         return "not a Term-form merits docket (an application or an original action)"
-    if entry.author_code == _PER_CURIAM_CODE:
+    if entry.author_code == PER_CURIAM_CODE:
         return "per curiam: its syllabus prints no lineup paragraph to read"
     if entry.volume_linked:
         return "volume-linked: the listing links into a whole volume, not one opinion"

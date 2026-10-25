@@ -157,7 +157,7 @@ standing sweep on the walker instead.
 
 | Axis      | historical (Term walker, run-seed)      | pull (enrichment, run-pull)       | live (forward poll, run-pull)   | enrich (opinions, run-pull) | repair (maintenance bench, run-repair) |
 |-----------|-----------------------------------------|-----------------------------------|---------------------------------|-----------------------------|----------------------------------------|
-| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) | the stored corpus itself, and for the two fetching passes the filings and dockets they name (supremecourt.gov) |
+| Source    | supremecourt.gov JSON                   | REST API                          | supremecourt.gov JSON           | REST API (opinion clusters) | the stored corpus itself, and for the three fetching passes the filings and dockets they name (supremecourt.gov) |
 | Charter   | decided history, newest Term first      | keep CourtListener records current | pending petitions & applications, granted dockets to judgment: discovery, watchlist, outcomes | granted dockets → published opinion: reporter citations and opinion body | repair what no channel corrects: re-derive, relabel, normalize, remove |
 | Budget    | ~0 API (politeness caps)                | owns the CourtListener budget     | ~0 API (politeness caps)        | shares the CourtListener budget, bounded per dispatch | ~0 API; each apply bounded by a blast-radius count, or by a slice where the cost is runner minutes |
 | Cadence   | **daily** (4 windows)                   | **daily** (4 windows)             | **daily** (12 windows, every 2h) | **dispatch only** (never scheduled) | **dispatch only** (never scheduled) |
@@ -596,7 +596,9 @@ on the remote, serving page reads from block-aligned S3 ranged `GET`s (fixed
 256 KB blocks through a per-connection LRU; the file size comes from the
 committed pointer, so the object is never `HEAD`ed). Immutability is what makes this
 sound with **no consistency machinery**: the committed pointer names one exact
-byte sequence, so a reader can never observe a torn write. The blob's physical
+byte sequence, so a reader can never observe a torn write. The VFS serves the
+main database only; SQLite's own scratch files, such as a sort that outgrows
+the page cache, go to local temp disk through the default VFS. The blob's physical
 layout is a contract with that access pattern, and the writers guarantee it:
 **64 KB pages** (a B-tree descent costs a handful of round trips) and a
 **non-WAL journal mode at rest** (a WAL reader needs the `-wal` sidecar, which
@@ -715,7 +717,8 @@ A third command writes into that same `record/` and reads the store a different
 way: `provision-opinion` stages a decided case's majority opinion at
 `record/opinion/` for an **evaluate** cell to grade a semantic claim against,
 on a `run-evaluate` step that runs on every cell and stages nothing where the
-row holds nothing. It
+row holds nothing (on a pilot round's row it also stages every writing of the
+decision, read from the `opinion_texts` pointers and the content store). It
 does *not* take `casestore` — the presence bit and the citation it stages are
 index facts and the content store exposes no rows — so it reads the row over
 `local`/`ranged` while the body half routes itself through the payload read
@@ -751,8 +754,8 @@ provenances, the two cut kinds, and the moments the cut does not apply to.
 The `casestore` backend has no query surface, so `query` / `stats` / `open-events` / scope reconcile read
 the index — locally pulled or ranged in place — and `cert-backtest` replay
 reads its redacted snapshots from the store through the payload read source.
-The opinion body is the payload the index does not hold, and two readers need
-it: `query --full`, which hydrates each prior's body inside the shared payload
+The CourtListener opinion body (`cases.opinion_text`) is the payload the index
+does not hold, and two readers need it: `query --full`, which hydrates each prior's body inside the shared payload
 shaper so the CLI and the query service behave identically — the sidecar is the
 credentialed process, which is what lets a credential-free cell ask for a body
 at all — and `provision-opinion`, which stages one case's body into its
@@ -1415,11 +1418,16 @@ or network.
      built by `backfill-opinion-record` from the Court's opinions, applied on
      run-repair's `opinion-record` pass and, for the current and previous
      Term, as a standing sweep on run-seed's daily window, and held corpus-side
-     on the same terms.
+     on the same terms. The same pass stores each writing's text in the
+     content store, the corpus holding only its pointer (`opinion_texts`).
      So is the per-Justice vote half for a case the pipeline never forecast:
      `fedcourts merits-lineups` derives each decision's lineup from those rows
      and the pass's `opinion_benches` (who sat), read-only and never stored, by
      the rule the merits vote source stamps forecast outcomes with.
+     `fedcourts justice-priors` rolls those lineups, with each case row's
+     parsed judgment, into per-Justice majority, disturb and pairwise-agreement
+     tallies per Term, pooled strictly before a given Term; also read-only, and
+     not yet staged to any cell.
 
      An event pinned to one docket entry is never a claimant of its stage's
      disposition: it resolves on its own filing's terms, so an application
@@ -1598,8 +1606,9 @@ pass's ledger to the run summary and writes nothing off the runner, the maintain
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Eight passes skip it: the distribution re-derivation, whose
-plan *is* its write set, and the two fetching passes,
+before the write. Ten passes skip it: the distribution re-derivation and the
+cert amicus back-fill, whose plans *are* their write sets, and the three fetching passes
+(the OCR recovery, the document back-fill and the re-cut),
 whose apply ledgers already state the class they found before writing; the
 two vote-writer passes, the application back-fill and the opinion record, whose
 every run fetches from supremecourt.gov again, so a leading dry run would double the pass's
@@ -1610,8 +1619,8 @@ response-signal back-fill, the same shape of pass, keeps its receipt because it
 sits in the corpus job, where every pass leads with one.)
 In each, the receipt would be bought with a whole extra full-population read of
 the content store — the third, on a fetching apply, which already re-reads the
-class as its own write witness — and on the document back-fill it would also
-buy a second paced docket fetch for every candidate. `repair` defaults to
+class as its own write witness — and on the document back-fill and the re-cut
+it would also buy a second paced fetch for every candidate. `repair` defaults to
 `none`, which
 is refused outright: the form's initial state cannot start a corpus write.
 
@@ -1648,17 +1657,19 @@ population and apply against another.
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
 | `ocr-recovery` | `ocr-recover-petitions` (the name is this lane's invocation string; the population is every fetched document kind, not petitions alone) | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds` — and it counts candidates, so a case holding two scanned filings spends two of it); the class is cut per kind in the ledger | — | — |
 | `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too; the class has two arms, a form-keyed opening document and, on a granted row whose respondent has filed on the merits, each side's merits brief, and the ledger's `merits_candidates` says how the **class** splits between them, which is not the mix a bounded slice takes — the class is in `case_id` order and the arms are not separated in it; an apply **stamps** each candidate it reads at a floor, and the class holds a stamped candidate out until its docket is polled again, so a floor costs one paced docket GET per docket version rather than one per dispatch and a bounded slice reaches the tail of the class — `standing_floors` on the ledger is that held-out balance, and `candidates + standing_floors` is the whole gap class this route can address. A floor the modern-docket alarm fired on is never stamped, so a selector regression cannot bank its own exclusions. Because the stamps are index columns, an applied slice that read any floor moves the pointer) | — | — |
+| `recut` | `recut-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too, since both modes re-fetch and re-cut each candidate; the class is the stored `petition`, `application` and `appendix` rows still under the plain head cut, and the ledger cuts it and each outcome by kind) | — | `all-live` (walk the whole live slice rather than the predict-relevant rows) |
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
 | `lost-outcomes` | `record-lost-outcomes` | `--max-cases` (cases written, recorded and marked together: the dry run's `cases_written`) | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
+| `cert-amicus-rederive` | `rederive-cert-amicus-briefs` | `--max-changes` (rows written: the dry run's `total_changes`, fills plus raises) | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `application-backfill` | `backfill-applications` (split, as above) | `--max-rows` (rows landed, onboarded and enriched together; the dry run's count is an upper bound) | two-digit October Term, **required in both modes** | — |
 | `decision-record` | `backfill-decision-record` | `--max-fills` (rows filled, not the `candidates` denominator) | — | — |
-| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion rows and bench rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
+| `opinion-record` | `backfill-opinion-record` (split, as above; Terms pinned in the workflow to `--first-term 2020 --last-term 2025`) | `--max-rows` (opinion, bench and text rows inserted — the dry run's "would insert N", not the listing rows or documents read) | — | — |
 
 A bound is required on `apply` wherever the pass takes one, and refused before
 the scan runs unless it is a positive integer — blank, zero, negative, decimal
@@ -1826,7 +1837,7 @@ the runner image rolls, and would fail the pass for a reason that has nothing to
 do with the corpus, so what a recovered text was read by is recorded by the run
 instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
-**Least privilege per pass.** Eleven of the corpus passes run in the corpus job, holding the
+**Least privilege per pass.** Fourteen of the corpus passes run in the corpus job, holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
@@ -1834,9 +1845,9 @@ corpus row, so it holds only the App token that pushes its `data/` commit.
 Four of the passes that fetch and parse third-party content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
 **credential split**, because a parser fed the Court's PDFs and docket JSON is
-the step most likely to run code nobody wrote. (`ocr-recovery` and
-`document-backfill` also parse fetched PDFs, inside the corpus job and under
-its full credential set; they are not split here. The OCR recovery's standing
+the step most likely to run code nobody wrote. (`ocr-recovery`,
+`document-backfill` and `recut` also parse fetched PDFs, inside the corpus job
+and under its full credential set; they are not split here. The OCR recovery's standing
 sweep on run-seed is split, so the scheduled route to it parses with no
 credential.) The application back-fill's
 plan carries served docket JSON with party contact details, and crosses under
@@ -1850,14 +1861,14 @@ fields parsed from them ([security.md](security.md), *S3 / the private stores*).
   vote passes, each population case's docket number; for the application
   back-fill, the Term's highest stored serial and its live-owned serials; for
   the opinion record, the (Term, listing number) of each document it already
-  holds whole and of each signed decision it holds without a bench row. It
-  fetches nothing.
+  holds whole, of each signed decision it holds without a bench row and of
+  each document it holds without a text row. It fetches nothing.
 - `handoff-parse` holds **no credential**: no environment, no `id-token`, no
   secret, and a step asserts the AWS and OIDC variables are absent before
   anything is fetched. It fetches and parses, prints the dry-run ledger to the
   run summary, and on an apply writes the plan — the planned vote records, the
-  served docket JSON verbatim, or the opinion rows and bench rows — as a run
-  artifact. It
+  served docket JSON verbatim, or the opinion, bench and text rows with each
+  writing's text — as a run artifact. It
   restores the uv cache but never saves one.
 - On an apply only, a writer job downloads the plan and treats it as untrusted
   input: every row is re-validated against the reader's own invariants and the
@@ -1868,7 +1879,8 @@ fields parsed from them ([security.md](security.md), *S3 / the private stores*).
   opinion-record writers take the read-write role, pull the corpus fresh inside
   the lock, apply — the application writer re-reads ownership, resolves
   identity and applies the prediction guard against that corpus, and the
-  opinion-record writer resolves each case id from it and inserts fill-only —
+  opinion-record writer resolves each case id from it, stores each writing's
+  text in the content store and inserts fill-only —
   push the blob, and mint the App token only after the push. None fetches.
 
 Both files cross as one-day run artifacts (`repair-projection-<run_id>`,
@@ -1918,8 +1930,9 @@ OT2017–OT2019 are skipped by design, every listing row there linking into a
 whole volume, and a pinned range means the dry run and the apply it bounds read
 the same Terms. The parse fetches about four seconds a document over some 380
 documents, outside the lock. It takes no dedupe
-prerequisite: it writes only its own table, keyed by Term, listing number and
-position rather than by case row, and nothing that gates a cell reads it. All
+prerequisite: it writes only its own three tables, keyed by Term and listing
+number (and position, for an opinion row) rather than by case row, and the
+content-store objects they point at, and nothing that gates a cell reads them. All
 the writing jobs commit straight to `main` on the writers' rebase-and-backoff
 push path.
 
@@ -2049,7 +2062,7 @@ gh workflow run run-repair.yml --ref main \
 gh workflow run run-repair.yml --ref main \
   -f repair=ocr-recovery -f repair_mode=apply -f repair_bound=15
 
-# The document back-fill's bound is a slice too, and it is the one pass whose
+# The document back-fill's bound is a slice too, and it is one of the passes whose
 # `dry-run` takes it as well — the diagnostic is a paced docket fetch per
 # candidate, so an unbounded dry run over a large class is an hour of them.
 # Size the apply off the whole dry-run class rather than off its recoverable
@@ -2070,6 +2083,18 @@ gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=dry-run -f repair_bound=40
 gh workflow run run-repair.yml --ref main \
   -f repair=document-backfill -f repair_mode=apply -f repair_bound=15
+
+# The re-cut's bound is a slice that its `dry-run` takes too: both modes
+# re-fetch each candidate's PDF and re-cut it, which is what tells a re-cut from
+# a link now serving another filing (`pages-changed`). Read the dry run's
+# per-kind outcome lines before applying, and add `-f repair_options=all-live`
+# to both dispatches to walk the whole live slice rather than the
+# predict-relevant rows. The apply's ledger of `<case_id> <kind>` re-cuts is the
+# record of which stored rows it replaced.
+gh workflow run run-repair.yml --ref main \
+  -f repair=recut -f repair_mode=dry-run -f repair_bound=20
+gh workflow run run-repair.yml --ref main \
+  -f repair=recut -f repair_mode=apply -f repair_bound=50
 
 # The arrival back-fill's bound is an ordinary refusal threshold, so the number
 # is the fill count its dry run printed — a five-figure class is expected, and
@@ -2116,6 +2141,20 @@ gh workflow run run-repair.yml --ref main \
 gh workflow run run-repair.yml --ref main \
   -f repair=amicus-rederive -f repair_mode=apply -f repair_bound=<the ledger's total_changes>
 
+# The cert amicus back-fill fills `cert_amicus_briefs` on the cert live slice the
+# poll no longer reaches, under the column's max latch: it fills a NULL and
+# raises a lower count, and reports a lower recount as `latch_held` without
+# writing it. Corpus only. Read `unobservable` first — a ledger where every row
+# is unobservable read a blob with no content store behind it. The bound is the
+# ledger's `total_changes` (fills plus raises). A row the poll reads between the
+# two dispatches is written by the poll with the same count, so the apply's total
+# ordinarily comes in at or below the dry run's. Re-dispatching in `dry-run`
+# after the apply is the control: it must report `total_changes = 0`.
+gh workflow run run-repair.yml --ref main \
+  -f repair=cert-amicus-rederive -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=cert-amicus-rederive -f repair_mode=apply -f repair_bound=<the ledger's total_changes>
+
 # The vote writer stamps committed outcomes from the Court's documents; each
 # pass's bound is the dry run's "would stamp N", in the handoff-parse job's
 # summary. It fetches from supremecourt.gov in both modes (in the parse job),
@@ -2159,15 +2198,16 @@ gh workflow run run-repair.yml --ref main \
   -f repair=decision-record -f repair_mode=apply -f repair_bound=<would fill N>
 
 # The opinion record reads OT2020–OT2025 (pinned in the workflow). Its apply
-# fetches every document the record does not hold whole again — unrecorded, or a
-# signed decision recorded without its bench row — and runs no dry run first,
-# which would double the pass's traffic to the Court's site. Its bound is the dry
-# run's "would insert N" — opinion rows and bench rows, not documents; a signed
-# decision re-read for its bench counts one bench row, its stored opinion rows
-# none. The readings, each refusal's reason included, are in the parse job's step
-# log; the summary carries the per-Term counts, and on the apply the writer's
-# summary names each re-read whose writings differ from the stored rows (it gets a
-# null bench row). Re-dispatching in `dry-run` after the apply is the control:
+# fetches every document the record does not hold whole again — unrecorded, a
+# signed decision recorded without its bench row, or a document recorded without
+# its text row — and runs no dry run first, which would double the pass's traffic
+# to the Court's site. Its bound is the dry run's "would insert N" — opinion,
+# bench and text rows, not documents; a document re-read for its bench or its
+# text counts one row for each it lacks, its stored opinion rows none. The
+# readings, each refusal's reason included, are in the parse job's step log; the
+# summary carries the per-Term counts, and on the apply the writer's summary
+# names each re-read whose writings differ from the stored rows (it gets null
+# bench and text rows). Re-dispatching in `dry-run` after the apply is the control:
 # it must report "would insert 0" (it re-fetches only the refused documents).
 gh workflow run run-repair.yml --ref main \
   -f repair=opinion-record -f repair_mode=dry-run

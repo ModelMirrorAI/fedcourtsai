@@ -65,6 +65,7 @@ import httpx
 from .. import corpus, ids
 from ..config import LiveConfig, PredictScope, SalienceConfig
 from ..matrix import event_has_predictions, last_predicted_dates, predicted_case_ids
+from ..provision import WITHHELD_KINDS
 from ..registry import enabled_predictors
 from ..store import event_has_claimable_prediction, forecastable_events, petition_distributed
 from ..supremecourt import (
@@ -425,23 +426,113 @@ def latch_member_brief_on_lead(
 
 @dataclass(frozen=True)
 class FreshnessCandidate:
-    """One polled case the freshness pass checks, with the docket it was just read at.
+    """One case the freshness pass checks, with the docket to select its documents from.
 
-    ``changed`` is whether that poll observed the docket move. It orders the
-    pass and nothing else: a case whose docket moved is where a new filing is,
-    while an unchanged one owes only what an earlier provisioning missed.
+    ``changed`` is whether this cycle's poll observed the docket move. It orders
+    the pass and nothing else: a case whose docket moved is where a new filing
+    is, while an unchanged one owes only what an earlier provisioning missed.
+
+    ``payload`` is ``None`` for a case the cycle did not poll
+    (:func:`fedcourtsai.corpus.freshness_carryover_rows`): the check reads its
+    stored live payload instead, the docket its last poll read, and such a case
+    is ordered behind every polled one.
     """
 
     case_id: str
-    payload: dict[str, object]
+    payload: dict[str, object] | None
     changed: bool
 
 
-def _freshness_order(candidate: FreshnessCandidate, today: date) -> tuple[bool, str]:
-    """A candidate's place in the freshness pass: moved dockets first, the rest by a per-day key."""
+def _freshness_order(candidate: FreshnessCandidate, today: date) -> tuple[int, str]:
+    """A candidate's place in the freshness pass.
+
+    Moved dockets first, then the other polled cases, then the unpolled ones;
+    within each of the last two, a per-day key.
+    """
     if candidate.changed:
-        return False, ""
-    return True, hashlib.sha256(f"{today.isoformat()}:{candidate.case_id}".encode()).hexdigest()
+        return 0, ""
+    tier = 1 if candidate.payload is not None else 2
+    return tier, hashlib.sha256(f"{today.isoformat()}:{candidate.case_id}".encode()).hexdigest()
+
+
+def _stored_live_payload(conn: corpus.ReadConnection, case_id: str) -> dict[str, object] | None:
+    """A case's newest stored live payload, or ``None`` where it holds none."""
+    found = corpus.latest_live_snapshot(conn, case_id)
+    return found[1] if found is not None else None
+
+
+_Stale = tuple[FreshnessCandidate, dict[str, object], int, bool]
+
+
+def _check_freshness(
+    corpus_db_path: Path,
+    by_case: Mapping[str, FreshnessCandidate],
+    *,
+    deadline: float | None,
+    time_fn: Callable[[], float],
+) -> tuple[list[_Stale], dict[str, int], int]:
+    """The freshness pass's check phase: the stale cases, the kinds owed, the count read.
+
+    Each stale entry carries the payload its selection was read from, the
+    downloads its fetch will make, and whether it owes only withheld kinds.
+    """
+    stale: list[_Stale] = []
+    owed: dict[str, int] = {}
+    checked = 0
+
+    def _read(
+        conn: corpus.ReadConnection, case_id: str
+    ) -> tuple[Mapping[str, str], dict[str, object] | None]:
+        payload = by_case[case_id].payload
+        if payload is None:
+            # An unpolled case's payload is a nicety the pass can do without:
+            # a read that fails passes the case over rather than the pass.
+            try:
+                payload = _stored_live_payload(conn, case_id)
+            except Exception as exc:
+                logger.warning(
+                    "document-freshness: %s payload read failed: %s",
+                    case_id,
+                    type(exc).__name__,
+                )
+        return corpus.document_urls_for_case(conn, case_id), payload
+
+    # The check reads links alone (`document_urls_for_case`: the content
+    # store's manifest, no document body), plus the stored live payload of a
+    # case the cycle did not poll, and keeps only the owed kinds.
+    with (
+        corpus.connect(corpus_db_path) as conn,
+        prefetch_by_case(
+            list(by_case),
+            lambda case_id: _read(conn, case_id),
+            thread_name_prefix="document-freshness",
+        ) as fetched,
+    ):
+        for case_id, (stored, payload) in fetched:
+            if deadline is not None and time_fn() >= deadline:
+                break
+            checked += 1
+            if payload is None:
+                continue
+            candidate = by_case[case_id]
+            refs = select_documents(payload)
+            unheld = unheld_document_kinds(refs, stored)
+            if candidate.payload is None and any(kind in stored for kind in unheld):
+                # A stored payload can be older than the stored documents (a
+                # provisioning that read the docket fresh stores no snapshot),
+                # so a held kind at a different link may be the newer one.
+                # Fetching would replace it with the older version; the case's
+                # next poll reads the docket and settles which is current.
+                continue
+            if unheld:
+                # Charged per download the fetch will make: an owed opposition
+                # re-fetches every brief in its set, not one.
+                downloads = sum(1 for ref in refs if ref.kind in unheld)
+                withheld_only = all(kind in WITHHELD_KINDS for kind in unheld)
+                stale.append((candidate, payload, downloads, withheld_only))
+                for kind in unheld:
+                    owed[kind] = owed.get(kind, 0) + 1
+    return stale, owed, checked
 
 
 def refresh_stale_documents(
@@ -455,7 +546,7 @@ def refresh_stale_documents(
     deadline: float | None = None,
     time_fn: Callable[[], float] = time.monotonic,
 ) -> dict[str, object]:
-    """Bring each candidate's stored documents up to the docket its poll just read.
+    """Bring each candidate's stored documents up to the docket it was last read at.
 
     The provisioning triggers fire on a *transition* — a distribution or relist,
     an application change on its daily debounce, a selection-sweep pick — so on
@@ -463,9 +554,11 @@ def refresh_stale_documents(
     cert reply, the Solicitor General's brief, a response to an application),
     and one lost at its first fetch, out of the stored set until a later trigger
     happens to fire, while the snapshot staged beside it moves on every poll.
-    This pass closes that gap for every predict-relevant case the cycle polled:
-    the poll has just read the docket, so the selection over it is current, and
-    a case whose stored set
+    This pass closes that gap for every predict-relevant case the cycle polled,
+    whose poll has just read the docket, so the selection over it is current,
+    and behind them for the undecided ones it did not poll, from the docket
+    their last poll stored (a candidate whose ``payload`` is ``None``). A case
+    whose stored set
     does not hold every selected link
     (:func:`~fedcourtsai.pipeline.documents.unheld_document_kinds`) is
     provisioned through the poller's own :func:`provision_documents` — the
@@ -474,20 +567,27 @@ def refresh_stale_documents(
     stored under an older cut keeps it.
 
     Two phases. The **check** reads each candidate's stored rows (a content-store
-    read under the corpus split, prefetched) and keeps only the kinds owed; it
-    costs no upstream request, because the payload is in hand. The **fetch**
+    read under the corpus split, prefetched), and an unpolled case's stored live
+    payload, and keeps only the kinds owed; it costs no upstream request. An
+    unpolled case with no stored live payload is checked and passed over. The **fetch**
     then provisions the stale candidates in order — the ones whose docket moved
-    on this poll first, then the ones owing what an earlier fetch missed — and
-    stops at ``cap`` cases or at the deadline, whichever comes first. The
+    on this poll first, then the ones owing what an earlier fetch missed (the
+    polled cases, then the unpolled ones), and
+    behind all of them the cases owing only kinds no cell is given yet
+    (:data:`fedcourtsai.provision.WITHHELD_KINDS`), so storing ahead of a
+    re-bless never delays a filing a cell reads — and stops at ``cap`` cases or
+    at the deadline, whichever comes first. The
     unchanged half is taken in a per-day order rather than poll order, so a run
     of cases owing a link upstream never serves cannot hold the cap ahead of the
     same healthy cases cycle after cycle. A stale
-    case the cap or the deadline declines is ``deferred``: untouched, and owed
-    again at its next poll, since the check is a reading of state rather than of
-    change. That is also what makes the pass converge without a ledger of its
-    own: a case leaves the class by holding what the docket selects. A link
-    upstream does not serve keeps its case stale, and the case is re-attempted
-    at each poll; the ordering puts those behind every docket that moved.
+    case the cap or the deadline declines is ``deferred`` (``deferred_cases``
+    names them): untouched, and owed again the next cycle, as an unpolled case
+    where that cycle does not poll it, since the check is a reading of state
+    rather than of change. That is also what makes the pass converge without a
+    ledger of its own: a case leaves the class by holding what the docket
+    selects. A link upstream does not serve keeps its case stale, and the case
+    is re-attempted each cycle; the ordering puts those behind every docket that
+    moved.
 
     ``cap`` of ``0`` disables the pass: nothing is read or fetched. The returned
     counts are the run log's ledger line. A case whose fetch raises is counted
@@ -504,6 +604,7 @@ def refresh_stale_documents(
         "unwritten": 0,
         "failed": 0,
         "deferred": 0,
+        "deferred_cases": [],
         "unchecked": 0,
         "owed": {},
     }
@@ -523,42 +624,25 @@ def refresh_stale_documents(
             ordered.append(candidate)
     ledger["candidates"] = len(ordered)
     by_case = {candidate.case_id: candidate for candidate in ordered}
-    stale: list[tuple[FreshnessCandidate, int]] = []
-    owed: dict[str, int] = {}
-    checked = 0
-    # The check reads links alone (`document_urls_for_case`: the content
-    # store's manifest, no document body), and keeps only the owed kinds.
-    with (
-        corpus.connect(corpus_db_path) as conn,
-        prefetch_by_case(
-            list(by_case),
-            lambda case_id: corpus.document_urls_for_case(conn, case_id),
-            thread_name_prefix="document-freshness",
-        ) as fetched,
-    ):
-        for case_id, stored in fetched:
-            if deadline is not None and time_fn() >= deadline:
-                break
-            checked += 1
-            candidate = by_case[case_id]
-            refs = select_documents(candidate.payload)
-            unheld = unheld_document_kinds(refs, stored)
-            if unheld:
-                # Charged per download the fetch will make: an owed opposition
-                # re-fetches every brief in its set, not one.
-                downloads = sum(1 for ref in refs if ref.kind in unheld)
-                stale.append((candidate, downloads))
-                for kind in unheld:
-                    owed[kind] = owed.get(kind, 0) + 1
+    stale, owed, checked = _check_freshness(
+        corpus_db_path, by_case, deadline=deadline, time_fn=time_fn
+    )
     ledger["checked"] = checked
     ledger["unchecked"] = len(ordered) - checked
     ledger["stale"] = len(stale)
+    # A case owing only kinds no cell is given yet (`provision.WITHHELD_KINDS`)
+    # goes behind every case owing a staged kind, keeping the check's order
+    # within each half: storing ahead of a re-bless must never take a cap slot
+    # a cell-facing filing needed.
+    stale.sort(key=lambda item: item[3])
     refreshed = documents = deferred = unwritten = failed = 0
-    for candidate, downloads in stale:
+    deferred_cases: list[str] = []
+    for candidate, payload, downloads, _withheld_only in stale:
         # A consolidated member's lead GET rides on top, charged as one docket.
         estimate = downloads * ESTIMATED_DOCUMENT_SECONDS + ESTIMATED_DOCKET_SECONDS
         if refreshed >= cap or (deadline is not None and deadline - time_fn() < estimate):
             deferred += 1
+            deferred_cases.append(candidate.case_id)
             continue
         refreshed += 1
         try:
@@ -566,7 +650,7 @@ def refresh_stale_documents(
                 client,
                 corpus_db_path,
                 candidate.case_id,
-                candidate.payload,
+                payload,
                 char_cap=char_cap,
                 today=today,
             )
@@ -583,11 +667,12 @@ def refresh_stale_documents(
     ledger["documents"] = documents
     # Refreshed and stored nothing: every owed link failed upstream (the fetch
     # losses say which). Counted apart because such a case stays stale and takes
-    # a slot again at its next poll — a rising count is links upstream no longer
+    # a slot again the next cycle — a rising count is links upstream no longer
     # serves crowding the cap.
     ledger["unwritten"] = unwritten
     ledger["failed"] = failed
     ledger["deferred"] = deferred
+    ledger["deferred_cases"] = deferred_cases
     ledger["owed"] = dict(sorted(owed.items()))
     return ledger
 
@@ -608,9 +693,9 @@ def fetch_argument_transcripts(
     the Court posts it the day the case is argued, on one page per October Term
     (:meth:`~fedcourtsai.supremecourt.SupremeCourtClient.get_transcript_listing`).
     So the pass reads that list for the Term ``today`` falls in and the one
-    before it — two paced GETs a cycle, the earlier Term covering the spring
-    sittings across the October roll and the back-fill of the last Term — and
-    matches each row to a corpus case by docket number. The sittings heading
+    before it — two paced GETs a cycle for the listing, the earlier Term
+    covering the spring sittings across the October roll and the back-fill of
+    the last Term — and matches each row to a corpus case by docket number. The sittings heading
     each list are stored as they read (:func:`~fedcourtsai.corpus.upsert_argument_sittings`),
     the Court's own grouping of the Term's argument days. A matched case whose
     stored ``argument-transcript`` row is missing or holds another URL owes the
@@ -619,7 +704,10 @@ def fetch_argument_transcripts(
     :func:`~fedcourtsai.pipeline.documents.extract_transcript_text`, stored under
     the argument day, and the day latched into ``argument_transcript_at``
     (:func:`~fedcourtsai.corpus.latch_argument_transcript_at`), which opens the
-    moment at the case's next poll.
+    moment at the case's next poll. Last, within the deadline, an older Term
+    whose sittings are not stored has them back-filled
+    (:func:`_backfill_sittings`), a GET or more until every Term from OT2020
+    holds them.
 
     Every argued case is stored, decided or not: the transcript is a fact of the
     case and costs one download, while the moment's mint guards decide whether
@@ -641,6 +729,8 @@ def fetch_argument_transcripts(
             "unavailable",
             "failed",
             "deferred",
+            "sittings_backfilled",
+            "sittings_unserved",
         ),
         0,
     )
@@ -674,14 +764,63 @@ def fetch_argument_transcripts(
             logger.warning("argument-transcripts: %s failed: %s", case_id, type(exc).__name__)
             outcome = "failed"
         outcomes[outcome] += 1
+    backfilled = unserved = backfill_failed = 0
+    if deadline is None or deadline - time_fn() >= ESTIMATED_DOCUMENT_SECONDS:
+        backfilled, unserved, backfill_failed = _backfill_sittings(client, corpus_db_path, today)
     ledger.update(
         stored=outcomes["stored"] + outcomes["empty"],
         empty=outcomes["empty"],
         unavailable=outcomes["unavailable"],
-        failed=failed + outcomes["failed"],
+        failed=failed + outcomes["failed"] + backfill_failed,
         deferred=deferred,
+        sittings_backfilled=backfilled,
+        sittings_unserved=unserved,
     )
     return ledger
+
+
+#: The earliest October Term whose sittings the transcript pass back-fills: the
+#: per-opinion record's first Term, so the authorship tally can read every Term
+#: that record holds.
+SITTINGS_BACKFILL_FLOOR = 2020
+
+
+def _backfill_sittings(
+    client: SupremeCourtClient, corpus_db_path: Path, today: date
+) -> tuple[int, int, int]:
+    """Store the sittings of the newest older Term that holds none; ``(stored, unserved, failed)``.
+
+    The two Terms the pass lists every cycle keep their own sittings current;
+    an older Term's headings do not change, so each is read once. The Terms
+    from :data:`SITTINGS_BACKFILL_FLOOR` up to the one before those two that
+    hold no stored sitting are asked for newest first, one paced GET each,
+    until one yields sittings; only its headings are kept, since its
+    transcripts belong to decided cases no moment opens on. A Term whose list
+    is not served or heads no sitting is counted as unserved and passed over,
+    so it does not hold back the Terms before it, and is asked again next
+    cycle. A failed GET ends the step for the cycle. Once every such Term holds
+    its sittings the step costs one index read.
+    """
+    with corpus.connect(corpus_db_path) as conn:
+        held = {sitting.term for sitting in corpus.argument_sittings(conn)}
+    newest = october_term_year(today) - 2
+    unserved = 0
+    for term in range(newest, SITTINGS_BACKFILL_FLOOR - 1, -1):
+        if term in held:
+            continue
+        try:
+            listing = client.get_transcript_listing(term)
+        except Exception as exc:  # the client's deadline among them; the cycle's counts come first
+            logger.warning("argument-sittings: OT%d list failed: %s", term, type(exc).__name__)
+            return 0, unserved, 1
+        if listing is None or not listing.sittings:
+            logger.warning("argument-sittings: OT%d list heads no sitting", term)
+            unserved += 1
+            continue
+        with corpus.connect(corpus_db_path) as conn:
+            corpus.upsert_argument_sittings(conn, listing.sittings, read_at=today)
+        return len(listing.sittings), unserved, 0
+    return 0, unserved, 0
 
 
 def _listed_transcripts(
@@ -1964,9 +2103,10 @@ def live_poll_all(  # noqa: PLR0913,PLR0915 - soft-budget deadline + injected cl
             )
     # Document freshness, last: every predict-relevant case the two rotations
     # polled and did not provision on a trigger has its stored set brought up to
-    # the docket just read, under its own per-cycle cap. Last because it is the
+    # the docket just read, and the unpolled predict-relevant ones to the docket
+    # last stored for them, under its own per-cycle cap. Last because it is the
     # one step whose work can wait a cycle — a case it does not reach is owed
-    # again at its next poll — so it spends only what the polls, the convergence
+    # again the next one — so it spends only what the polls, the convergence
     # and the selection sweep left of the cycle's budget, and a filing download
     # never displaces a docket read or a queue decision.
     # Failure-isolated as a whole, as the convergence is: the polls, cursors and
@@ -1975,6 +2115,21 @@ def live_poll_all(  # noqa: PLR0913,PLR0915 - soft-budget deadline + injected cl
     # the corpus push that banks them.
     if freshness is not None:
         try:
+            # The predict-relevant cases this cycle did not poll, from their
+            # stored payloads, so a case an earlier cycle's cap declined is
+            # reached again without waiting for its next poll.
+            polled = {
+                *fresh,
+                *(row.case_id for row in due),
+                *(row.case_id for row in applications_due),
+            }
+            with corpus.connect(corpus_db_path) as conn:
+                freshness.extend(
+                    FreshnessCandidate(row.case_id, None, changed=False)
+                    for row in corpus.freshness_carryover_rows(
+                        conn, exclude=polled, limit=config.document_freshness_carryover_rows
+                    )
+                )
             queues.document_freshness = refresh_stale_documents(
                 client,
                 corpus_db_path,

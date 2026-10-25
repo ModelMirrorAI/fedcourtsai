@@ -462,7 +462,7 @@ class DecisionCensus(BaseModel):
     )
 
 
-def _rode_the_order(row: corpus.CorpusRow) -> bool:
+def rode_the_order(row: corpus.CorpusRow) -> bool:
     """Whether the row's disposition rode the order that granted the petition."""
     if row.disposition in _CERT_ORDER_VALUES:
         return True
@@ -480,10 +480,15 @@ def _judgment_counts(rows: list[corpus.CorpusRow]) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
-def _assigned(
+def assigned_by_term(
     conn: corpus.ReadConnection, *, first_term: int, last_term: int
 ) -> tuple[dict[int, list[corpus.CorpusRow]], int, Counter[str]]:
-    """The census population by assigned Term, with the pending and terminated rows apart."""
+    """The census population by assigned Term, with the pending and terminated rows apart.
+
+    The population every reader of the decision record shares — the census
+    here and the merits back-test's draw (:mod:`fedcourtsai.merits_backtest`) —
+    so a Term means the same cases in both.
+    """
     by_term: dict[int, list[corpus.CorpusRow]] = {t: [] for t in range(first_term, last_term + 1)}
     pending = 0
     terminations: Counter[str] = Counter()
@@ -516,12 +521,12 @@ def plenary_decided_dockets(
     docket a merits opinion is written for. A row with no readable docket
     number is left out.
     """
-    by_term, _, _ = _assigned(conn, first_term=first_term, last_term=last_term)
+    by_term, _, _ = assigned_by_term(conn, first_term=first_term, last_term=last_term)
     return {
         term: sorted(
             number
             for row in members
-            if decision_date(row) is not None and not _rode_the_order(row)
+            if decision_date(row) is not None and not rode_the_order(row)
             if (number := corpus.normalize_docket_number(row.docket_number)) is not None
         )
         for term, members in by_term.items()
@@ -539,11 +544,13 @@ def decision_census(
     granted label, assigned to its :func:`decision_term`; a row carrying
     `merits_terminated` is counted apart by reason, in no Term.
     """
-    by_term, pending, terminations = _assigned(conn, first_term=first_term, last_term=last_term)
+    by_term, pending, terminations = assigned_by_term(
+        conn, first_term=first_term, last_term=last_term
+    )
     terms = []
     for term, members in by_term.items():
         methods = Counter(row.merits_decision_method or "unclassified" for row in members)
-        plenary = [row for row in members if not _rode_the_order(row)]
+        plenary = [row for row in members if not rode_the_order(row)]
         terms.append(
             DecisionTermCensus(
                 term=term,

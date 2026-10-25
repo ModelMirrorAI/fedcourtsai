@@ -678,3 +678,18 @@ def test_successful_read_neither_sleeps_nor_warns(
     assert _stub_calls(transport) == [{"Bucket": "test-bucket", "Key": _KEY, "Range": "bytes=0-6"}]
     assert sleeps == []
     assert capsys.readouterr().err == ""
+
+
+def test_a_sort_that_spills_goes_to_local_scratch(tmp_path: Path) -> None:
+    # The VFS serves only the main database from the remote; a sort too large
+    # for the page cache opens a temp file, which must not fail the read.
+    pointer, transport = _fixture_remote(tmp_path)
+    spill = (
+        "WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 200000) "
+        + "SELECT count(*) FROM (SELECT DISTINCT randomblob(64) FROM n)"
+    )
+    with corpus_ranged.connect_ranged(pointer, REMOTE_URL, transport=transport) as ranged:
+        ranged.execute("PRAGMA temp_store = FILE")
+        ranged.execute("PRAGMA cache_size = 2")
+        row = ranged.execute(spill).fetchone()
+    assert row is not None and row[0] == 200000

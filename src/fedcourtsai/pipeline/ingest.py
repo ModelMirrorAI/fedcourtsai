@@ -42,6 +42,7 @@ from ..supremecourt import (
     parse_scotus_docket_number,
 )
 from . import moments
+from .cert_amicus import cert_amicus_briefs
 from .cert_signals import (
     CVSG_RE,
     DEFAULT_DISTRIBUTION_PARSE,
@@ -52,6 +53,7 @@ from .cert_signals import (
     first_relist_date,
     proceedings_entries,
     sg_brief_date,
+    snapshot_carries_proceedings,
 )
 from .decision_record import DecisionRecord, read_decision_record
 from .interim_signals import (
@@ -225,6 +227,14 @@ class CorpusRow(BaseModel):
         description="Amicus briefs recorded on an interim application's docket "
         "(per-entry count). Live application branch only; None elsewhere — the "
         "storage max-latch keeps the highest count ever parsed.",
+    )
+    cert_amicus_briefs: int | None = Field(
+        default=None,
+        description="Amicus briefs a cert petition's docket recorded before its "
+        "first disposition entry (`pipeline.cert_amicus.cert_amicus_briefs`). "
+        "Live cert branch only, and only where the payload discloses its "
+        "proceedings; None elsewhere — the storage max-latch keeps the highest "
+        "count ever parsed.",
     )
     merits_judgment: str | None = Field(
         default=None,
@@ -598,6 +608,7 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         response_requested=_as_flag(record.get("response_requested")),
         referred_to_court=_as_flag(record.get("referred_to_court")),
         amicus_briefs=_as_count(record.get("amicus_briefs")),
+        cert_amicus_briefs=_as_count(record.get("cert_amicus_briefs")),
         merits_judgment=_clean(record.get("merits_judgment")),
         merits_decided=_date(record.get("merits_decided")),
         merits_brief_filed=_date(record.get("merits_brief_filed")),
@@ -662,6 +673,20 @@ _LIVE_LOWER_COURT_IDS: Final[dict[str, str]] = {
     "united states court of appeals for the district of columbia circuit": "cadc",
     "united states court of appeals for the federal circuit": "cafc",
 }
+
+
+def live_lower_court_id(name: str | None) -> str | None:
+    """The CourtListener court id for a docket JSON ``LowerCourt`` name, or ``None``.
+
+    Only the federal courts of appeals map (:data:`_LIVE_LOWER_COURT_IDS`); a
+    state court, a district court, or any other tribunal answers ``None``, and
+    the raw name is what identifies it. The comparison ignores case and
+    surrounding whitespace, the way the record builder reads the name.
+    """
+    if name is None:
+        return None
+    return _LIVE_LOWER_COURT_IDS.get(name.strip().lower())
+
 
 # Trailing role labels on the JSON's party titles ("Acme Corp., Petitioner",
 # "..., et al., Petitioners"), stripped so the caption reads `X v. Y`.
@@ -991,6 +1016,7 @@ def map_live_docket(
     requested: bool | None = None
     referred: bool | None = None
     amici: int | None = None
+    cert_amici: int | None = None
     merits: tuple[Judgment, date | None] | None = None
     merits_brief: date | None = None
     decision = DecisionRecord()
@@ -1053,6 +1079,12 @@ def map_live_docket(
         # The cert stage's call-for-response moment, read the same way.
         call_for_response = call_for_response_date(payload)
         relisted = first_relist_date(payload)
+        # The cert-stage amicus count, cut at the first disposition entry so a
+        # granted case's merits amici never reach it. Unobservable rather than
+        # zero where the payload discloses no proceedings, so a degraded payload
+        # writes NULL and the max-latch keeps what a full one read.
+        if snapshot_carries_proceedings(payload):
+            cert_amici = cert_amicus_briefs(proceedings_entries(payload))
         if cert_granted is not None and disposition in _MERITS_PROCEEDING_VALUES:
             # A grant that opens a merits proceeding keeps polling toward its
             # judgment, and the terminal entry that states it is normalized
@@ -1113,6 +1145,7 @@ def map_live_docket(
         "response_requested": requested,
         "referred_to_court": referred,
         "amicus_briefs": amici,
+        "cert_amicus_briefs": cert_amici,
         "merits_judgment": merits[0].value if merits else None,
         "merits_decided": merits[1].isoformat() if merits and merits[1] else None,
         "merits_brief_filed": merits_brief.isoformat() if merits_brief else None,
@@ -1126,7 +1159,7 @@ def map_live_docket(
         "parties": parties,
         "attorneys": attorneys,
         "counsel": [c.model_dump(mode="json") for c in counsel],
-        "appeal_from_id": _LIVE_LOWER_COURT_IDS.get(lower_court.lower()) if lower_court else None,
+        "appeal_from_id": live_lower_court_id(lower_court),
         "originating_court_information": (
             # The JSON parenthesizes the lower-court numbers ("(21-5166)").
             {"docket_number": lower_numbers.strip("()")} if lower_numbers else None
@@ -1391,6 +1424,7 @@ def to_corpus_row(
         response_filed_at=row.response_filed_at,
         referred_to_court=row.referred_to_court,
         amicus_briefs=row.amicus_briefs,
+        cert_amicus_briefs=row.cert_amicus_briefs,
         merits_judgment=row.merits_judgment,
         merits_decided=row.merits_decided,
         merits_brief_filed=row.merits_brief_filed,

@@ -333,7 +333,8 @@ cell identically.
 The cert-stage guidance is this prompt's spine, written where it stands
 because most cells are cert petitions: the statpack anchoring above (the
 modern-cert base rate, the relist/CVSG/circuit/fee-class cuts, the salience
-band), the five-claim `claims` block, and the relist/CVSG forecast content
+band), the five-claim `claims` block with its `order-writers` forecast in
+`claim_distributions`, and the relist/CVSG forecast content
 under `predicted_reasoning.md` below all govern a cert-stage cell and only a
 cert-stage cell.
 
@@ -530,14 +531,14 @@ of the requested relief**:
   docket are procedural: whether a **response will be called for**, whether
   the application will be **referred** to the full Court, how many further
   **amicus briefs** arrive, and roughly **when** and how it will be disposed
-  of. Four of those five are the `interim-v1` claims below — the three
+  of. Four of those five are the `interim-v2` claims below — the three
   increments and the disposition itself — and this document is their
   human-readable form, so write the reasoning here and the numbers there and
   keep the two saying the same thing. The **timing** is the exception: nothing
   resolves a horizon claim at any stage, so forecast it because it disciplines
   the rest, not because it is scored. Merits-shaped content stays
   conditional, exactly as on the cert path.
-- **Four declared claims.** Every interim moment declares the `interim-v1`
+- **Four declared claims.** Every interim moment declares the `interim-v2`
   set, and you state a probability for each of its four claims — no additions,
   no declining, per the declared-set rule under `prediction.json` below:
   - `interim-disposition` — P(the disposing entry reads as an **unqualified
@@ -577,6 +578,11 @@ of the requested relief**:
   baseline at all, and only where the pool clears the floor above; the three
   increments bank your probabilities against conditioned cuts the pack does not
   yet carry.
+- **One declared distribution claim, `order-writers`, in
+  `claim_distributions`.** For each Justice sitting on your snapshot date, the
+  probability that the Justice writes on the order disposing of the
+  application. It is banked, never scored; state it as carefully as a scored
+  claim all the same (`claim_distributions` under `prediction.json` below).
 
 ### Stage: merits (the Court's judgment after argument)
 
@@ -775,18 +781,43 @@ or the argument, was worth.
   divided Court after a recusal) is live rather than merely conceivable. The
   ground and its breadth are the two **semantic** claims below, so write them
   here in full and state each as one proposition there; the rest of this list
-  is context, not a graded claim. What
-  does not resolve against anything today is authorship and the writing roles:
-  no artifact records them, so forecast them if you find it useful and do not
-  present them as the scoreable part.
-- **One declared claim.** The merits event declares the `merits-v1` set, whose
-  single claim is `judgment-disturbed` — P(the judgment below is disturbed). It
+  is context, not a graded claim. **Who writes** resolves too, through the
+  two distribution claims below: say here who you expect to deliver the
+  opinion of the Court and who you expect to write separately, and why, so
+  the numbers there have their reasons beside them.
+- **One declared claim.** The merits event declares the `merits-v2` set, whose
+  single binary claim is `judgment-disturbed` — P(the judgment below is disturbed). It
   **must equal your top-level `probability`** exactly; the two are one belief
   written twice so the set is self-describing, and a divergent pair voids the
   whole block. It resolves against the outcome's judgment through the same
   disturbed projection this section defines. The cert increments are not
   declared here and must not be added: `relist-increment` and `cvsg-increment`
   are cert-stage forecasts, spent the moment the petition was granted.
+- **Two declared distribution claims, in `claim_distributions`.** The
+  `merits-v2` set also declares who writes, both scored:
+  - `majority-author` — one distribution over every Justice sitting on your
+    snapshot date and the label `per-curiam`, **summing to 1**: who delivers
+    the opinion deciding the merits for the Court (the opinion of the Court,
+    or a plurality's where no majority joins one), or `per-curiam` for an
+    unsigned opinion. It resolves against the author the Court's opinions
+    listing prints for the decision, and only on an argued decision the Court
+    decides by opinion: a dismissal, a summary disposition or a decision the
+    record cannot classify masks it, whoever wrote.
+  - `separate-writers` — for each Justice sitting on your snapshot date, the
+    probability that the Justice writes, alone or as a co-signing author, any
+    opinion but the one deciding the case: a concurrence, a dissent, either in
+    part. Joining an opinion another Justice wrote is not writing one.
+    Each Justice's number stands on its own, and the claim weighs as one
+    claim however many Justices it covers. It resolves against the writing
+    roles read off the opinion's syllabus, for the Justices who took part.
+
+  Both score against a baseline the harness computes from prior Terms (each
+  Justice's share of argued majority opinions, and of separate writings,
+  shrunk toward the bench's average), so matching that history earns about
+  nothing and the forecast is in what this case does to it: the question's
+  fit with a Justice's docket, a Justice's record of writing in this area,
+  and, once the case is argued, the sitting's assignments so far. Move off
+  the history only as far as the case gives you reason to.
 - **Two declared semantic claims, in `semantic_claims`.** A merits event also
   declares the `semantic-v1` **semantic** set, and it is a different kind of
   object from the `claims` block: it carries **no probability**, is **graded**
@@ -939,9 +970,10 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     - `dissent-from-denial` — **conditional on a denial**: P(some Justice notes
       a dissent from, or a statement respecting, the denial | the Court denies
       review). **Aggregated existence only** — never which Justice and never a
-      count; the per-Justice form is a pre-registered prohibition
+      count; a scored per-Justice form is a pre-registered prohibition
       (`docs/decision-model.md`), and no vote you write is scored at the cert
-      stage. Masked as vacuous on anything that is not a denial, and *not
+      stage. Which Justices write on the order is the `order-writers`
+      distribution below, collected and never scored. Masked as vacuous on anything that is not a denial, and *not
       assessed* where no order text was retained. No baseline is published for
       it yet, so it banks your probability rather than scoring it — which is a
       reason to state it honestly, not a reason to state it carelessly.
@@ -962,17 +994,48 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     you. The declaration is
     keyed on the event's declared moment, never on a rule of thumb about its
     kind — every cert moment (the petition, the CVSG order, the arrival event,
-    the SG's invited brief and the first relist) declares `cert-v2`, all
+    the SG's invited brief and the first relist) declares `cert-v3`, all
     three interim moments (arrival, the requested response, the filed
-    response) declare `interim-v1`, and all three merits moments (the
+    response) declare `interim-v2`, and all three merits moments (the
     judgment order, the respondent-brief re-predict and the post-argument
-    re-predict) declare `merits-v1`. A **petition-kind event that is not one
+    re-predict) declare `merits-v2`. A **petition-kind event that is not one
     of those moments** — an entry-pinned filing, a legacy id — falls back to `cert-v1`'s
     first three claims instead, because that is the contract its cohort was
     elicited under: state the five, and the harness scores the three its own
     declaration names. An event outside that register — an entry-pinned motion,
     a legacy id — may declare no set at all, and then you write no `claims`
     field: never an empty list.
+  - `claim_distributions` — the declared set's **distribution claims**, one
+    `{claim_id, probabilities}` entry per declared claim, where
+    `probabilities` maps each label to its probability. The labels are the
+    Justices sitting on your snapshot date by surname, as the roster spells
+    them, every one of them and no other, plus `per-curiam` on
+    `majority-author` alone. From 1 July 2022 on, the bench is `Roberts`,
+    `Thomas`, `Alito`, `Sotomayor`, `Kagan`, `Gorsuch`, `Kavanaugh`,
+    `Barrett` and `Jackson`; a replay cell whose snapshot date is earlier
+    names the Justices seated on that date (`Breyer` rather than `Jackson`
+    before it). A **categorical** claim
+    (`majority-author`) sums to 1 over its labels, to three decimals; a
+    **per-Justice** claim (`separate-writers`, `order-writers`) gives each
+    Justice an independent probability. Every merits moment declares
+    `majority-author` and `separate-writers` (*Stage: merits* above). Every
+    cert moment and every interim moment declares `order-writers`: for each
+    Justice, the probability that the Justice writes on the order disposing
+    of the petition or application, a dissent, a concurrence or a statement
+    respecting it, alone or as a co-signing author (joining another
+    Justice's writing is not writing one). It resolves against the writings
+    the Court publishes with that order and is banked, never scored: a
+    Justice writes on so few orders that skill could not be told from luck.
+    On a cert cell keep it consistent with your `dissent-from-denial`
+    number: a Justice writing a dissent from the denial is one of the ways
+    that claim comes true. As with `claims`, no additions
+    and no declining: state every declared claim, and a malformed entry (a
+    Justice left out, a label off the roster, a categorical sum off 1) scores
+    none of them, while the `claims` block above still stands. It rides the
+    `claims` block, so a cell with no `claims` field writes no
+    `claim_distributions` either. A small number on a Justice who rarely
+    writes is an answer, and so is a per curiam you think likely; a
+    distribution that matches no Justice's real chance is the only wrong one.
   - `semantic_claims` — **merits cells only**: the harness-declared *semantic*
     set (`fedcourtsai.pipeline.semantic`), one `{claim_id, proposition}` entry
     per declared claim and **no probability** on any of them. The merits
@@ -1018,8 +1081,9 @@ willing to be scored on, not a hedge.
 - **`predicted_reasoning.md`** — your forecast of what the **Court** will do with
   this event and why: claims about the future, no hedging about your own process.
   On a cert-stage cell the resolvable claims are procedural
-  rather than doctrinal: no *majority* opinion accompanies a denial, so predicting
-  an author or a concurrence forecasts nothing. Where the event is something else —
+  rather than doctrinal: no *majority* opinion accompanies a denial, so there is
+  no author to forecast, and who writes on the order is the `order-writers`
+  distribution rather than prose. Where the event is something else —
   an interim application or a merits judgment (whose resolvable claims *Stage:
   interim* and *Stage: merits* above name), or a court-of-appeals matter — forecast
   what that event actually resolves to, not a relist that cannot happen to it.

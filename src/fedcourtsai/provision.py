@@ -30,6 +30,7 @@ neither can hand an agent a record shaped differently from the other's.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -39,12 +40,22 @@ from types import MappingProxyType
 from typing import Any, Literal
 
 from . import casestore
-from .corpus import CaseDocument, CorpusEvent, CorpusRow
+from .corpus import CaseDocument, CorpusEvent, CorpusRow, ReadConnection
 from .paths import CasePaths
-from .pipeline import arrival_cut, cell_context, cert_signals, interim_signals, moments
+from .pipeline import (
+    arrival_cut,
+    authorship,
+    cell_context,
+    cert_signals,
+    interim_signals,
+    moments,
+)
 from .pipeline.documents import (
     KIND_ARGUMENT_TRANSCRIPT,
     KIND_DESCRIPTIONS,
+    KIND_MERITS_AMICUS_UNITED_STATES,
+    KIND_PARTY_LETTER,
+    KIND_SUPPLEMENTAL_BRIEF,
     OTHER_LIST,
     ScrubbedSnapshot,
     ScrubbedText,
@@ -53,9 +64,18 @@ from .pipeline.documents import (
     scrub_snapshot_contacts,
     unrepresented_sides,
 )
+from .pipeline.opinion_record import StoredText
 from .pipeline.vide_links import VIDE_RELATION
-from .schemas import Moment, Stage
-from .serialize import write_raw_json, write_text
+from .schemas import (
+    AuthorshipTally,
+    Moment,
+    Stage,
+    StagedDecision,
+    StagedWriting,
+    StagedWritings,
+)
+from .serialize import write_json, write_raw_json, write_text
+from .supremecourt import october_term_year
 
 
 class ProvisionError(RuntimeError):
@@ -566,8 +586,26 @@ def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
     return str(raw) if raw else None
 
 
+WITHHELD_KINDS: frozenset[str] = frozenset(
+    {KIND_SUPPLEMENTAL_BRIEF, KIND_PARTY_LETTER, KIND_MERITS_AMICUS_UNITED_STATES}
+)
+"""The document kinds the corpus stores and no cell is given, at any moment.
+
+Which kinds a cell reads is part of its information set, and the process digest
+does not see it: a kind staged under an unchanged prompt changes what the
+predictors answer from with nothing in the record to mark the boundary
+(``docs/process-version.md``). So a new kind is fetched and stored first, and
+held here until the re-bless whose prompt tells cells about it; a kind leaves
+this set in that re-bless, never on its own. Read by
+:func:`documents_for_moment`, so every placement honours it, and by the
+case-summary plan, which reads the record every predict cell shares.
+"""
+
+
 def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> list[CaseDocument]:
     """The documents a cell for ``event_id`` may be handed at all, before any date cut.
+
+    No kind in :data:`WITHHELD_KINDS` is handed to any cell.
 
     The argument transcript belongs to the post-argument moment alone. The date
     rule already keeps it from a grant or briefed cell, which are cut before the
@@ -576,11 +614,80 @@ def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> li
     a document kind added for one moment changes no other moment's information
     set.
     """
+    return [document for document in documents if moment_admits_kind(document.kind, event_id)]
+
+
+def moment_admits_kind(kind: str, event_id: str) -> bool:
+    """Whether a cell for ``event_id`` may be handed a document of ``kind`` at all.
+
+    The per-kind test :func:`documents_for_moment` applies, asked of a kind
+    alone so a caller holding a selection rather than stored rows (the local
+    cascade's unheld-document report) draws the same line.
+    """
+    if kind in WITHHELD_KINDS:
+        return False
+    if kind != KIND_ARGUMENT_TRANSCRIPT:
+        return True
     spec = moments.spec_for(event_id)
-    argued = spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
-    return [
-        document for document in documents if argued or document.kind != KIND_ARGUMENT_TRANSCRIPT
-    ]
+    return spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
+
+
+AUTHORSHIP_TALLY_WITHHELD = True
+"""Whether a cell's record goes without its authorship tally.
+
+The tally (:func:`authorship_tally_for`) is part of a merits cell's information
+set, which the process digest does not see, so it is held back as a withheld
+document kind is (:data:`WITHHELD_KINDS`) until the re-bless whose prompt tells
+cells about it, which flips this and registers the harness boundary. While held,
+no tally is read, so a cell's provisioning spends nothing on it.
+"""
+
+
+def carries_authorship_tally(event_id: str) -> bool:
+    """Whether a cell for ``event_id`` is given the Term's authorship tally.
+
+    The post-argument merits moment alone: its case is argued, so it sits in one
+    of the Term's sittings, which no earlier moment's case does yet.
+    """
+    spec = moments.spec_for(event_id)
+    return spec is not None and spec.stage == Stage.merits and spec.moment == Moment.argued
+
+
+def authorship_tally_as_of(cutoff: date | None, snapshot_date: date, mode: str) -> date | None:
+    """The last day whose decisions a cell's tally reads, inclusive, or ``None``.
+
+    The day before the cutoff, which is exclusive, so the tally holds no decision
+    the cell's moment postdates; an uncut cell reads through its snapshot's date.
+    A forward cell only: the tally reads argument days and sitting headings as
+    stored now (:mod:`fedcourtsai.pipeline.authorship`), so a replay cell's tally
+    would show a case reargued after its day, its own included, already gone
+    from its sitting, and a heading's later add-on days, both facts its moment
+    postdates. A replay cell is given none.
+    """
+    if mode != "forward":
+        return None
+    return cutoff - timedelta(days=1) if cutoff is not None else snapshot_date
+
+
+def authorship_tally_for(
+    conn: ReadConnection, event_id: str, *, cutoff: date | None, snapshot_date: date, mode: str
+) -> AuthorshipTally | None:
+    """The Term's authorship tally a cell for ``event_id`` is given, or ``None``.
+
+    The Term is the one in progress on the tally's day, not the docket's filing
+    Term. ``None`` for a moment that carries none and for a replay cell. Raises
+    ``ValueError`` where the tally cannot be read (a sitting before the roster's
+    floor, a stored date that does not parse), which the caller reports,
+    provisioning the cell without it.
+    """
+    if not carries_authorship_tally(event_id):
+        return None
+    as_of = authorship_tally_as_of(cutoff, snapshot_date, mode)
+    if as_of is None:
+        return None
+    term = october_term_year(as_of)
+    tally = authorship.authorship_tally(conn, term=term, as_of=as_of)
+    return authorship.tally_record(tally, term=term, as_of=as_of)
 
 
 def documents_before(documents: Iterable[CaseDocument], cutoff: date) -> list[CaseDocument]:
@@ -612,6 +719,10 @@ def documents_before(documents: Iterable[CaseDocument], cutoff: date) -> list[Ca
     opposition, lead respondent included, dropped from every cell placed between
     the two. Nothing here can cut inside a stored row, so what bounds this
     residual is how narrow the selector's arm for the kind is, not this function.
+    The other combined rows, ``supplemental-brief`` and ``party-letter``, are
+    dated by their *latest* constituent instead, so they carry no such residual
+    — only the opposite cost, a cell placed between two constituents reading
+    neither.
 
     The second is **supersession**. Documents are keyed ``(case_id, kind)``
     and the latest fetch of a kind wins, so a *corrected* filing supersedes the
@@ -905,10 +1016,10 @@ def staged_scrub(text: str, values: tuple[str, ...], sides: tuple[str, ...]) -> 
 
     None where the docket is not scrubbed. A docket read so on a party side runs
     both passes. One read so on its `Other` list alone runs the value pass only:
-    no amicus's own brief is staged — the one amicus filing selected is the
-    Solicitor General's invited brief, which counsel for the United States
-    files — so what is staged there is counsel's filings (the staged filers
-    there are represented), and the shape pass would cost their text its
+    no amicus's own brief is staged — the only amicus filings selected are the
+    United States' briefs, which its own counsel files — so what is staged
+    there is counsel's filings (the staged filers there are represented), and
+    the shape pass would cost their text its
     misreads of legal prose. The premise is about amici: a self-represented
     non-amicus `Other` filer whose own opposition is staged gets the value pass
     alone as well. Where no amicus
@@ -937,9 +1048,10 @@ class RecordWrite:
     snapshot_scrub: ScrubbedSnapshot | None
     staged: tuple[tuple[CaseDocument, ScrubbedText | None], ...]
     related: tuple[RelatedPlacement, ...] = ()
+    authorship_tally: AuthorshipTally | None = None
 
 
-def write_cell_record(
+def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keyword
     paths: CasePaths,
     case_id: str,
     placement: Placement,
@@ -948,6 +1060,8 @@ def write_cell_record(
     cutoff: date | None,
     snapshot_dest: Path | None = None,
     related: Sequence[RelatedPlacement] = (),
+    authorship_tally: AuthorshipTally | None = None,
+    decided_before: str | None = None,
 ) -> RecordWrite:
     """Materialize one cell's whole ``record/`` from its placement.
 
@@ -956,7 +1070,9 @@ def write_cell_record(
     conditioning from, and ``documents/`` with the manifest naming what is there
     — both staged copies through the contact-detail scrubs — and, where
     ``related`` holds any, ``related/`` with each linked docket
-    :func:`place_related` placed and its ``related.json``. A caller that wrote
+    :func:`place_related` placed and its ``related.json``, and, where
+    ``authorship_tally`` is given and not held back
+    (:data:`AUTHORSHIP_TALLY_WITHHELD`), ``authorship-tally.json``. A caller that wrote
     only the first would hand an agent a snapshot with no frozen mode, band or
     cutoff beside it — the cell would then have to guess its own posture, which
     is the one thing provisioning exists to settle.
@@ -981,12 +1097,16 @@ def write_cell_record(
     caller asking for a copy rather than for a cell's record; the clearing is
     skipped there, since emptying the record to write outside it would destroy a
     provisioned cell on behalf of a command that provisioned none.
+
+    ``decided_before`` is a replay cell's Term clock, stated in ``context.json``
+    beside the cutoff; a forward cell has none.
     """
     kinds = screen_document_kinds(placement.documents)
     if snapshot_dest is None:
         _clear_dir(paths.snapshots_dir)
         _clear_dir(paths.documents_dir)
         _clear_dir(paths.related_dir)
+        paths.authorship_tally.unlink(missing_ok=True)
         clear_opinion_slot(paths)
     payload = placement.payload
     dest = snapshot_dest or paths.snapshot(placement.snapshot_date.isoformat())
@@ -1019,6 +1139,7 @@ def write_cell_record(
             provenance=placement.provenance,
             cutoff=cutoff,
             boundary=placement.boundary,
+            decided_before=decided_before,
         ).model_dump(mode="json"),
     )
     staged: list[tuple[CaseDocument, ScrubbedText | None]] = []
@@ -1060,12 +1181,18 @@ def write_cell_record(
             if item.payload is not None:
                 write_raw_json(paths.related_snapshot(item.docket_number), item.payload)
         write_raw_json(paths.related_manifest, related_manifest(related))
+    tally_written = (
+        authorship_tally is not None and snapshot_dest is None and not AUTHORSHIP_TALLY_WITHHELD
+    )
+    if tally_written and authorship_tally is not None:
+        write_raw_json(paths.authorship_tally, authorship_tally.model_dump(mode="json"))
     return RecordWrite(
         snapshot=dest,
         unrepresented=unrepresented,
         snapshot_scrub=snapshot_scrub,
         staged=tuple(staged),
         related=tuple(related) if snapshot_dest is None else (),
+        authorship_tally=authorship_tally if tally_written else None,
     )
 
 
@@ -1136,8 +1263,81 @@ def clear_opinion_slot(paths: CasePaths) -> None:
     """
     paths.opinion_text.unlink(missing_ok=True)
     paths.opinion_manifest.unlink(missing_ok=True)
+    paths.opinion_writings_manifest.unlink(missing_ok=True)
+    if paths.opinion_writings_dir.is_dir():
+        for decision in paths.opinion_writings_dir.iterdir():
+            if decision.is_file():
+                decision.unlink()
+                continue
+            _clear_dir(decision)
+            if not any(decision.iterdir()):
+                decision.rmdir()
+        if not any(paths.opinion_writings_dir.iterdir()):
+            paths.opinion_writings_dir.rmdir()
     if paths.opinion_dir.is_dir() and not any(paths.opinion_dir.iterdir()):
         paths.opinion_dir.rmdir()
+
+
+#: A listing number as it may appear in a staged decision's directory name.
+_LISTING = re.compile(r"[0-9A-Za-z][0-9A-Za-z.\-]{0,15}")
+
+
+def stage_writings(
+    paths: CasePaths, case_id: str, stored: Sequence[StoredText]
+) -> StagedWritings | None:
+    """Write every writing of each stored decision under ``record/opinion/writings/``.
+
+    One file per writing, ``OT<term>-<listing>/<NN>-<kind>.txt``: its text,
+    then its footnotes under a ``Footnotes`` line. The manifest beside them
+    records each file's digest of the bytes written, and the stored object's,
+    so a grade's basis resolves against the text it was formed from. Writes
+    nothing and returns ``None`` where no decision is stored; a listing number
+    that is not one the record could hold is refused before the first write.
+    """
+    if not stored:
+        return None
+    for item in stored:
+        if not _LISTING.fullmatch(item.text.listing_number):
+            raise ValueError(f"not a listing number: {item.text.listing_number[:20]!r}")
+    decisions: list[StagedDecision] = []
+    for item in stored:
+        text = item.text
+        folder = f"OT{text.term}-{text.listing_number}"
+        writings: list[StagedWriting] = []
+        for writing in text.writings:
+            body = writing.text
+            if writing.footnotes:
+                body += "\n\nFootnotes\n\n" + writing.footnotes
+            body += "\n"
+            name = f"{folder}/{writing.position:02d}-{writing.kind.value}.txt"
+            write_text(paths.opinion_writings_dir / name, body)
+            writings.append(
+                StagedWriting(
+                    position=writing.position,
+                    kind=writing.kind.value,
+                    author=writing.author,
+                    header=writing.header,
+                    words=writing.words,
+                    file=f"writings/{name}",
+                    sha256=hashlib.sha256(body.encode("utf-8")).hexdigest(),
+                    length=len(body),
+                )
+            )
+        decisions.append(
+            StagedDecision(
+                term=text.term,
+                listing_number=text.listing_number,
+                name=text.name,
+                decided=text.decided,
+                document_url=text.document_url,
+                object_digest=item.digest,
+                text_rule=text.text_rule,
+                writings=writings,
+            )
+        )
+    manifest = StagedWritings(case_id=case_id, decisions=decisions)
+    write_json(paths.opinion_writings_manifest, manifest)
+    return manifest
 
 
 #: A document kind, as it is allowed to appear in a `record/documents/` filename.

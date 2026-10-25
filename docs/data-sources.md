@@ -146,7 +146,9 @@ backfill-opinion-record` builds (`pipeline/opinion_record.py`): one row per
 opinion in a decided case — its order in the document, kind, author, joiners
 and length — for the opinion-authorship and opinion-length figures a Term's
 statistics count per opinion rather than per case. It is a historical record,
-held corpus-side and read by nothing a predict or evaluate cell sees. Its
+held corpus-side and read by nothing a predict cell or a registered evaluate
+cell sees; a pilot round's evaluate cell is given each decision's writings
+(`provision-opinion --writings`). Its
 apply runs as run-repair's `opinion-record` pass over OT2020–OT2025, and as a
 standing sweep on run-seed's daily window over the current and previous Term,
 each fetching in a job that holds no credential
@@ -229,6 +231,18 @@ each fetching in a job that holds no credential
     kerning ("pr esent"), with footnotes below the em-dash rule; the
     preliminary print in plain mode, since its layout mode letter-spaces,
     with footnotes told from body text by their smaller type.
+- **The text** (rule `scotus-opinion-text`, version 1). Each read document's
+  writings are also stored as text, for grading a merits forecast against
+  what the Court wrote: each writing's body from its header sentence on, and
+  its footnotes, exactly the lines the word count is taken over, with each
+  line's spacing collapsed and its line breaks and line-end hyphens kept; a
+  footnote loses its own number, and the text layer's own faults, such as a
+  dropped "fi" ligature in the preliminary print, stay in. The text is held to the counts: the word
+  rule must count the body (reference marks dropped) and the footnotes to the
+  stored words and footnote words, or the document is refused. It is stored
+  in the access-gated content store, one object per document, with a pointer
+  row in the corpus (`opinion_texts`), and like the rest of the record it is
+  read by nothing a predict cell sees.
 - **Checked against.** SCOTUSblog's *Final Stat Pack for the 2025-26 Term*
   (updated 2026-07-06; its figures are quoted here, with attribution, for
   comparison only) was compared with a dry run over OT2025, as a check
@@ -400,9 +414,9 @@ says `complete`, which this source's never does
 `outcome.json`. It reads the corpus for one column — each case's docket
 number, which is how a ledger case is found in the Court's documents — and
 writes nothing but committed `outcome.json` files: `votes`,
-`vote_provenance` and `writing_roles`. It runs as two `run-repair` passes,
-dry run first ([data-pipeline.md](data-pipeline.md), *Maintenance passes*),
-and the orders pass also as a standing sweep on run-seed's daily window, which
+`vote_provenance`, `writing_roles` and, on a merits outcome, `merits_author`.
+It runs as two `run-repair` passes, dry run first
+([data-pipeline.md](data-pipeline.md), *Maintenance passes*), and the orders pass also as a standing sweep on run-seed's daily window, which
 stamps each settled order list under a per-window cap and never replaces a
 record:
 
@@ -412,7 +426,9 @@ record:
   Noted list to every docket decided with it, reads the one opinion the
   listing prints for them, and stamps only a complete record that the Granted
   & Noted list agrees with, onto an outcome resolved on the date the opinion
-  is dated.
+  is dated. Apart from that record it stamps `merits_author`, the author code
+  the listing prints on the decision's row (a Justice or `per-curiam`), onto
+  every outcome whose row is dated its resolution, signed or per curiam.
 - `order-votes` (`fedcourts stamp-order-votes`) stamps cert- and
   interim-stage outcomes resolved from OT2024 through the current October
   Term. OT2024 and OT2025 sat the same bench, both grammars were checked
@@ -542,8 +558,11 @@ outcome's decision date by the seat roster; `participating` equal to that
 bench less the Justices recorded not taking part; for a record claiming
 `complete`, exactly that bench, since that bit is what vote scoring is gated
 on; and `writing_roles`, where present, naming exactly the Justices who took
-part. A source that has not registered, SCDB included, stays refused; an
-SCDB import additionally settles the terms above before it writes any value.
+part. A stamped `merits_author`, which needs no `vote_provenance`, is held to
+the same rule: `per-curiam`, or a Justice spelled as the roster spells them and
+seated on the outcome's `resolved_at`. A source that has not registered, SCDB
+included, stays refused; an SCDB import additionally settles the terms above
+before it writes any value.
 
 **The Solicitor General's office roster** is reference data for an analytics
 annotation, not case data and not a vote source. The counsel annotation
@@ -704,6 +723,15 @@ The automated consumer stays within CourtListener's published API limits by desi
   REST problem, the **database replication** channel named above remains the
   intended route to opinion bodies across the whole corpus, and nothing here is
   a step toward reading them out of the API instead.
+- **The decision-below dry run shares it too.** `decision-below` reads the
+  lower court's docket rows, clusters, opinions and post-judgment docket
+  entries for a named case or a sample of at most 50, through the same client
+  and configured ceilings: four requests for a typical circuit case, sixteen at
+  worst. Its requests count against the same account limits but not against
+  the pull governor's per-process tally, since each process counts only its
+  own. It is a maintainer's measurement, not a lane, and it reads only what
+  CourtListener already holds — no RECAP Fetch request, so no PACER charge
+  ([cli.md](cli.md)).
 
 The pilot holds a paid Free Law Project **membership tier** — **Tier 4**, at 25
 requests a minute, 300 an hour and 1,400 a day, for $1,000 a year. It is the top

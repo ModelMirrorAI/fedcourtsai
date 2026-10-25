@@ -97,7 +97,7 @@
       "type": "string"
     },
     "GroupBy": {
-      "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).\n``originating_court`` groups by the lower court a docket came from (the\ncircuit-scorecard cut for SCOTUS petitions); rows without the linkage share\none ``(none)`` bucket, so coverage is visible rather than silently dropped.\n``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` \u2014 Term year,\nelse filing/decision date), so historical cases base-rate against their own\nperiod; rows with no date signal share one ``(none)`` bucket. Three of the\ncert-signal dimensions read the live-parsed columns: ``relist_bucket``\ngroups by relists (`distribution_count` - 1, floored at 0) into 0 / 1 / 2 /\n3+ buckets, ``cvsg`` by whether the Court called for the views of the\nSolicitor General, and ``fee_class`` by the docket serial's numbering\nstream (paid / IFP); rows the live channel never parsed share one\n``(unknown)`` bucket on the first two, so parse coverage stays visible.\n``capital_case`` groups by whether the Court's docket marks the case a\ncapital one (``capital`` / ``unmarked``). The flag is latched from\nsupremecourt.gov's ``bCapitalCase`` payload field OR-ed with the\n``*** CAPITAL CASE ***`` annotation the same channel appends to the docket\nnumber, and no other channel serves either reading, so ``last_live_polled``\nis that column's coverage sentinel: a row the live channel never polled\nshares the same ``(unknown)`` bucket rather than reading as unmarked, which\nwould let a coverage gap pass for an absence of capital cases. The\npositive needs no such guard \u2014 the column max-latches, so only a writer that\nsaw the signal can have raised it.\n``salience_band`` groups by the active scorer's frozen grant-likelihood band\nover the paid modern-cert petitions \u2014 the\npredicted segment \u2014 so a case's base rate is its own salience tier's rate.\n``qp_topic`` groups by the ``qp-topic-v0`` primary label of a case's\nquestions-presented text (``docs/qp-topic.md``) \u2014 distinct from ``topic``,\nwhich is the corpus's upstream nature-of-suit column and empty on SCOTUS\nrows. It is read from a labeler's artifact rather than off a corpus row, so\na section supplies its own key function for it and ``stats`` does not offer\nit as a cut.",
+      "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).\n``originating_court`` groups by the lower court a docket came from (the\ncircuit-scorecard cut for SCOTUS petitions); rows without the linkage share\none ``(none)`` bucket, so coverage is visible rather than silently dropped.\n``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` \u2014 Term year,\nelse filing/decision date), so historical cases base-rate against their own\nperiod; rows with no date signal share one ``(none)`` bucket. Three of the\ncert-signal dimensions read the live-parsed columns: ``relist_bucket``\ngroups by relists (`distribution_count` - 1, floored at 0) into 0 / 1 / 2 /\n3+ buckets, ``cvsg`` by whether the Court called for the views of the\nSolicitor General, and ``fee_class`` by the docket serial's numbering\nstream (paid / IFP); rows the live channel never parsed share one\n``(unknown)`` bucket on the first two, so parse coverage stays visible.\n``capital_case`` groups by whether the Court's docket marks the case a\ncapital one (``capital`` / ``unmarked``). The flag is latched from\nsupremecourt.gov's ``bCapitalCase`` payload field OR-ed with the\n``*** CAPITAL CASE ***`` annotation the same channel appends to the docket\nnumber, and no other channel serves either reading, so ``last_live_polled``\nis that column's coverage sentinel: a row the live channel never polled\nshares the same ``(unknown)`` bucket rather than reading as unmarked, which\nwould let a coverage gap pass for an absence of capital cases. The\npositive needs no such guard \u2014 the column max-latches, so only a writer that\nsaw the signal can have raised it.\n``cert_amicus`` groups a cert petition by how many amicus briefs its docket\nrecorded before the Court disposed of it (``0`` / ``1`` / ``2+``, from the\ncorpus ``cert_amicus_briefs`` column); a row the live channel has not read\nsince that column existed shares the ``(unknown)`` bucket. A section supplies\nits key function, and ``stats`` does not offer it as a cut: the column is\nwithheld from what a cell retrieves, and ``stats`` is a cell's tool too.\n``salience_band`` groups by the active scorer's frozen grant-likelihood band\nover the paid modern-cert petitions \u2014 the\npredicted segment \u2014 so a case's base rate is its own salience tier's rate.\n``qp_topic`` groups by the ``qp-topic-v0`` primary label of a case's\nquestions-presented text (``docs/qp-topic.md``) \u2014 distinct from ``topic``,\nwhich is the corpus's upstream nature-of-suit column and empty on SCOTUS\nrows. It is read from a labeler's artifact rather than off a corpus row, so\na section supplies its own key function for it and ``stats`` does not offer\nit as a cut.",
       "enum": [
         "court",
         "topic",
@@ -110,11 +110,117 @@
         "cvsg",
         "fee_class",
         "capital_case",
+        "cert_amicus",
         "salience_band",
         "qp_topic"
       ],
       "title": "GroupBy",
       "type": "string"
+    },
+    "StatPackAuthorship": {
+      "additionalProperties": false,
+      "description": "The statpack's authorship section: who wrote the Court's decisions, per Term.\n\nRead off the per-opinion record (the `opinions` and `opinion_benches`\ncorpus tables), the committed feed of the authorship claims' baselines\n(``pipeline.base_rates.majority_author_base_rate`` and\n``separate_writing_base_rate``), which pool it strictly-prior. Present only\nonce the record holds an argued decision, as the other stage sections join on\ntheir feeds.",
+      "properties": {
+        "terms": {
+          "description": "Per-Term detail, most recent Term first",
+          "items": {
+            "$ref": "#/$defs/StatPackAuthorshipTerm"
+          },
+          "title": "Terms",
+          "type": "array"
+        }
+      },
+      "title": "StatPackAuthorship",
+      "type": "object"
+    },
+    "StatPackAuthorshipJustice": {
+      "additionalProperties": false,
+      "description": "One Justice's writings over one Term of the per-opinion record.\n\nTwo denominators, because the two authorship claims resolve over different\npopulations. ``decisions`` counts the Term's deciding documents decided\nwhile the Justice served, the population ``majority-author`` resolves over;\n``sat`` counts the signed decisions whose bench was observed with the\nJustice taking part, the population ``separate-writers`` resolves over.",
+      "properties": {
+        "decisions": {
+          "description": "Argued decisions (signed or per curiam) decided while the Justice served",
+          "minimum": 0,
+          "title": "Decisions",
+          "type": "integer"
+        },
+        "justice": {
+          "description": "The Justice's name as the roster spells it",
+          "title": "Justice",
+          "type": "string"
+        },
+        "majority": {
+          "description": "Of `decisions`, those whose lead opinion (of the Court, or a plurality) the Justice delivered",
+          "minimum": 0,
+          "title": "Majority",
+          "type": "integer"
+        },
+        "sat": {
+          "description": "Signed decisions whose observed bench has the Justice taking part",
+          "minimum": 0,
+          "title": "Sat",
+          "type": "integer"
+        },
+        "separate": {
+          "description": "Of `sat`, those the Justice wrote or co-wrote anything in but the lead opinion: a concurrence, a dissent, either in part",
+          "minimum": 0,
+          "title": "Separate",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "justice",
+        "decisions",
+        "majority",
+        "sat",
+        "separate"
+      ],
+      "title": "StatPackAuthorshipJustice",
+      "type": "object"
+    },
+    "StatPackAuthorshipTerm": {
+      "additionalProperties": false,
+      "description": "One October Term of the per-opinion record, keyed by the listing's Term.",
+      "properties": {
+        "decisions": {
+          "description": "Argued decisions: one per listing row, signed or per curiam",
+          "minimum": 0,
+          "title": "Decisions",
+          "type": "integer"
+        },
+        "justices": {
+          "description": "Every Justice seated on a counted decision's date, in roster order",
+          "items": {
+            "$ref": "#/$defs/StatPackAuthorshipJustice"
+          },
+          "title": "Justices",
+          "type": "array"
+        },
+        "observed": {
+          "description": "Signed decisions whose bench the record observed (a filled bench row)",
+          "minimum": 0,
+          "title": "Observed",
+          "type": "integer"
+        },
+        "per_curiam": {
+          "description": "Of `decisions`, those decided per curiam",
+          "minimum": 0,
+          "title": "Per Curiam",
+          "type": "integer"
+        },
+        "term": {
+          "description": "The October-Term year the opinions listing files the decisions under",
+          "title": "Term",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "term",
+        "decisions",
+        "per_curiam",
+        "observed"
+      ],
+      "title": "StatPackAuthorshipTerm",
+      "type": "object"
     },
     "StatPackCoverage": {
       "additionalProperties": false,
@@ -1016,6 +1122,18 @@
   "additionalProperties": false,
   "description": "``metrics/statpack.json`` \u2014 a corpus base-rate statpack (an independent artifact).\n\nA deterministic, offline roll-up of the corpus into headline counts plus a curated\nset of base-rate breakdowns (:class:`StatPackSection`) \u2014 the project's analogue of a\npublished court \"statpack\". A pure function of the corpus (no clock, no network), so\nreruns over an unchanged corpus reproduce it byte for byte; git-tracked as a\nmetric alongside ``leaderboard.json`` / ``backtest.json``. Starts empty (zero counts,\nno sections) until a corpus is present \u2014 mirroring the other metrics artifacts, an\nabsent corpus yields the empty pack rather than an error.",
   "properties": {
+    "authorship": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/StatPackAuthorship"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Who wrote the Court's decisions per Term, off the per-opinion record \u2014 the authorship claims' baseline feed; None \u2014 and omitted from the serialized pack \u2014 while the record holds no argued decision"
+    },
     "corpus_rows": {
       "default": 0,
       "description": "Case rows in the corpus",

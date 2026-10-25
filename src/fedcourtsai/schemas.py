@@ -10,7 +10,7 @@ agents and Codex ``--output-schema`` can target them directly.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date, datetime, timedelta
 from enum import StrEnum
 from typing import Annotated, Any, Final, Literal, get_args
@@ -417,6 +417,12 @@ class GroupBy(StrEnum):
     would let a coverage gap pass for an absence of capital cases. The
     positive needs no such guard — the column max-latches, so only a writer that
     saw the signal can have raised it.
+    ``cert_amicus`` groups a cert petition by how many amicus briefs its docket
+    recorded before the Court disposed of it (``0`` / ``1`` / ``2+``, from the
+    corpus ``cert_amicus_briefs`` column); a row the live channel has not read
+    since that column existed shares the ``(unknown)`` bucket. A section supplies
+    its key function, and ``stats`` does not offer it as a cut: the column is
+    withheld from what a cell retrieves, and ``stats`` is a cell's tool too.
     ``salience_band`` groups by the active scorer's frozen grant-likelihood band
     over the paid modern-cert petitions — the
     predicted segment — so a case's base rate is its own salience tier's rate.
@@ -439,6 +445,7 @@ class GroupBy(StrEnum):
     cvsg = "cvsg"
     fee_class = "fee_class"
     capital_case = "capital_case"
+    cert_amicus = "cert_amicus"
     salience_band = "salience_band"
     qp_topic = "qp_topic"
 
@@ -532,6 +539,12 @@ MaskGround = Literal["no-judgment", "not-ingested", "silent-on-axis"]
 # grader may not write it, and a census that folded it into one of the three
 # would report a ground nobody asserted.
 MASK_GROUND_UNSTATED = "unstated"
+
+# What became of one claim a judge treated as central to a predicted-reasoning
+# document (`Evaluation.predicted_reasoning_review`). Three values and closed:
+# a claim the outcome bore out, one it did not, and one the staged record
+# cannot settle either way — the last never read as a miss.
+CentralClaimStatus = Literal["borne-out", "not-borne-out", "unresolved"]
 
 
 # The pre-registration stratum a scored cell belongs to. Defined here, beside
@@ -1008,6 +1021,20 @@ class PredictionContext(_Strict):
         "carries none, the REST shape, which serves no such list. What a board's "
         "`by_link` cut files the cell under",
     )
+    paper_only_filings: bool | None = Field(
+        default=None,
+        description="Whether the provisioned payload puts the docket's party filings "
+        "on paper only: it carries the Court's Rule 34.6 / Paragraph 9 entry "
+        "(filings 'submitted in paper form only'), with no later entry quoting the "
+        "rule to call for electronic versions once briefing and argument are "
+        "scheduled. The Court posts nothing behind such filings, so the cell's "
+        "`record/documents/` lacks them for a reason no fetch reaches, and their "
+        "absence is not a provisioning failure. Read in docket order off the payload "
+        "the cell was placed on, so a `truncated` payload answers as at its cut. "
+        "False where the proceedings carry neither entry or the lift follows; null "
+        "where the payload carries no live `ProceedingsandOrder` list (the REST "
+        "shape, or a cut that dropped it)",
+    )
 
     @model_validator(mode="after")
     def _cut_fields_cohere(self) -> PredictionContext:
@@ -1077,6 +1104,284 @@ class StagedOpinion(_Strict):
     )
 
 
+class StagedWriting(_Strict):
+    """One writing of a decision, as staged under ``record/opinion/writings/``."""
+
+    position: int = Field(ge=1, description="Its order in the decision, from 1")
+    kind: str = Field(description="The `WritingKind` vocabulary: opinion-of-the-court, dissent, …")
+    author: str | None = Field(description="The signing Justice; null for a per curiam")
+    header: str = Field(description="The writing's header sentence as printed (normalized)")
+    words: int = Field(ge=0, description="Words under the per-opinion record's counting rule")
+    file: str = Field(description="The staged file, relative to `record/opinion/`")
+    sha256: str = Field(description="Hex SHA-256 of the staged file's UTF-8 bytes")
+    length: int = Field(ge=0, description="Characters in the staged file")
+
+
+class StagedDecision(_Strict):
+    """One decision whose writings are staged: a document of the Court's opinions listing."""
+
+    term: int = Field(description="The October Term (four-digit year)")
+    listing_number: str = Field(description="The listing row's number: the document")
+    name: str = Field(description="The case name as the listing prints it")
+    decided: date = Field(description="The listing's decision date")
+    document_url: str = Field(description="The supremecourt.gov PDF the text was read from")
+    object_digest: str = Field(
+        description="Hex SHA-256 of the stored text object the files were written from"
+    )
+    text_rule: str = Field(description="`<rule>/<version>` the text was cut under")
+    writings: list[StagedWriting] = Field(description="Every writing, in the order printed")
+
+
+class StagedWritings(_Strict):
+    """The manifest beside the staged writings — ``record/opinion/writings.json``.
+
+    **Harness-owned and evaluate-only**, on the majority opinion's terms
+    (:class:`StagedOpinion`): written by ``provision-opinion --writings``, never by
+    an agent or by the provisioner the predict lane calls, and written only
+    beside the files it describes, so its presence is the answer to "are the
+    writings staged?". Each decision is one document of the Court's opinions
+    listing that names the case's docket, read from the per-opinion record's
+    stored text and taken only where that text's bytes match the digest its
+    pointer row records.
+    """
+
+    case_id: str = Field(
+        description="The case whose decisions are staged, `<court_id>/<docket_id>`"
+    )
+    decisions: list[StagedDecision] = Field(
+        min_length=1, description="Each decision staged, oldest first"
+    )
+
+
+#: Which side an argument segment's advocate stood for, as its header names it:
+#: a party (``petitioner``, an appellant read as one; ``respondent``, an appellee
+#: read as one), or an amicus — the United States or any other — keyed with the
+#: party it supported. ``*-supporting-neither`` is a header that supported
+#: vacatur or neither party; an amicus header naming no support has no side.
+ArgumentSide = Literal[
+    "petitioner",
+    "respondent",
+    "united-states-supporting-petitioner",
+    "united-states-supporting-respondent",
+    "united-states-supporting-neither",
+    "amicus-supporting-petitioner",
+    "amicus-supporting-respondent",
+    "amicus-supporting-neither",
+]
+
+#: Whom an argument segment's advocate appeared for: a party (an appellant read
+#: as petitioner, an appellee as respondent), the United States as amicus
+#: curiae, or another amicus, court-appointed ones included.
+ArgumentRole = Literal["petitioner", "respondent", "united-states-amicus", "amicus"]
+
+#: Which party's position a segment argued for, whatever its advocate's role:
+#: a respondent's counsel "in support of the petitioner" argues the petitioner's
+#: position, and a court-appointed amicus "in support of the judgment below"
+#: argues the respondent's.
+ArgumentAlignment = Literal["petitioner", "respondent", "neither"]
+
+
+class ArgumentTurnCount(_Strict):
+    """Turns and words, one count pair of :class:`ArgumentFeatures`."""
+
+    turns: int = Field(ge=0, description="Speaker turns: one per printed speaker label")
+    words: int = Field(
+        ge=0,
+        description="Words spoken in those turns: whitespace-separated tokens carrying a "
+        "letter or digit, the speaker label and the reporter's parentheticals excluded",
+    )
+
+
+class ArgumentSegment(_Strict):
+    """One advocate's argument or rebuttal, as its header in the transcript names it."""
+
+    index: int = Field(ge=0, description="Position in the argument, from 0")
+    kind: Literal["argument", "rebuttal"] = Field(
+        description="'rebuttal' for a 'REBUTTAL ARGUMENT OF' header, else 'argument'"
+    )
+    header: str = Field(
+        description="The header as printed, its lines joined by single spaces: the "
+        "text the side was read from"
+    )
+    role: ArgumentRole | None = Field(
+        description="Whom the advocate appeared for: a party (an appellant read as "
+        "petitioner, an appellee as respondent), the United States as amicus curiae, "
+        "or another amicus. Null where the header names none"
+    )
+    supports: ArgumentAlignment | None = Field(
+        description="The position the header says the advocate supported ('supporting "
+        "the petitioner', 'in support of the judgment below', 'supporting vacatur'); a "
+        "party header naming none supports its own party. Null for an amicus header "
+        "naming no support, and wherever role is null; a rebuttal whose header names no "
+        "side is read as the petitioner's, so its role is never null"
+    )
+    side: ArgumentSide | None = Field(
+        description="The key this segment's Justice turns are counted under: the role, "
+        "and for an amicus the position it supported. Null where either is unread, and "
+        "the segment's Justice turns are then counted unattributed"
+    )
+    case_number: str | None = Field(
+        description="The docket number an 'IN CASE <number>' header names, which is how "
+        "a consolidated argument marks whose counsel is speaking. Null otherwise"
+    )
+    justice: ArgumentTurnCount = Field(
+        description="Turns and words of every Justice in the segment, resolved or not"
+    )
+    advocate: ArgumentTurnCount = Field(
+        description="Turns and words of the advocate the header names: a label whose "
+        "surname appears in the header"
+    )
+    other_turns: int = Field(
+        ge=0,
+        description="Turns of any other speaker label: counsel the header does not name",
+    )
+
+
+def _turn_sum(counts: Iterable[ArgumentTurnCount]) -> ArgumentTurnCount:
+    turns = words = 0
+    for count in counts:
+        turns += count.turns
+        words += count.words
+    return ArgumentTurnCount(turns=turns, words=words)
+
+
+def _keyed_sum[K: str](rows: Iterable[dict[K, ArgumentTurnCount]]) -> dict[K, ArgumentTurnCount]:
+    parts: dict[K, list[ArgumentTurnCount]] = {}
+    for row in rows:
+        for key, count in row.items():
+            parts.setdefault(key, []).append(count)
+    return {key: _turn_sum(counts) for key, counts in parts.items()}
+
+
+class JusticeArgumentFeatures(_Strict):
+    """One Justice's questioning, split by the side of the segment each turn fell in."""
+
+    justice: str = Field(description="The roster surname the label resolved to, e.g. 'Kagan'")
+    total: ArgumentTurnCount = Field(
+        description="Every attributed turn: the sum over by_side, and over by_alignment"
+    )
+    by_side: dict[ArgumentSide, ArgumentTurnCount] = Field(
+        description="Attributed turns by segment side; a side the Justice never spoke in is absent"
+    )
+    by_alignment: dict[ArgumentAlignment, ArgumentTurnCount] = Field(
+        description="The same turns by the position the segment argued for"
+    )
+    unattributed: ArgumentTurnCount = Field(
+        description="Turns in segments whose side is unread. Never folded into a side"
+    )
+
+    @model_validator(mode="after")
+    def _sums(self) -> JusticeArgumentFeatures:
+        if _turn_sum(self.by_side.values()) != self.total:
+            raise ValueError(f"{self.justice}: total is not the sum over by_side")
+        if _turn_sum(self.by_alignment.values()) != self.total:
+            raise ValueError(f"{self.justice}: total is not the sum over by_alignment")
+        return self
+
+
+class ArgumentParseCoverage(_Strict):
+    """How much of a transcript :class:`ArgumentFeatures` attributed, and how much not.
+
+    Every Justice turn lands in exactly one of the four counts below
+    ``justice_turns``, checked on construction: the parse states what it could
+    not read rather than spreading it over the sides.
+    """
+
+    segments: int = Field(ge=0, description="Argument and rebuttal headers read")
+    segments_attributed: int = Field(ge=0, description="Segments with a side")
+    segments_unattributed: int = Field(ge=0, description="Segments whose side is null")
+    justice_turns: int = Field(ge=0, description="Every Justice-labelled turn in the text")
+    justice_turns_attributed: int = Field(
+        ge=0, description="Turns of a resolved Justice in a segment with a side"
+    )
+    justice_turns_outside_segments: int = Field(
+        ge=0,
+        description="Turns before the first segment header: the Chief Justice calling "
+        "the case, or every turn of a text where no header was read",
+    )
+    justice_turns_unresolved: int = Field(
+        ge=0,
+        description="Turns inside a segment under a Justice label whose surname the "
+        "roster does not carry (a misprint, or a Justice outside the roster)",
+    )
+    justice_turns_unattributed_segment: int = Field(
+        ge=0, description="Turns of a resolved Justice in a segment whose side is null"
+    )
+    unresolved_labels: list[str] = Field(
+        description="The distinct Justice labels the roster did not resolve, as printed"
+    )
+    unrecognized_label_lines: int = Field(
+        ge=0,
+        description="Lines that open like a speaker label (capitals, then a colon) under "
+        "a title the parse does not read as one; their words are counted with the turn "
+        "they fall in, so this is how many such lines a reader may want to look at",
+    )
+    unrecognized_labels: list[str] = Field(
+        description="The distinct label-like prefixes those lines open with, as printed"
+    )
+    closing_line: bool = Field(
+        description="Whether the reporter's closing '(Whereupon … submitted.)' line was "
+        "found. Without it the parse ran to the end of the text, which may then end "
+        "inside the argument (a head-cut row) or run on into the word index"
+    )
+    notes: list[str] = Field(description="One line for each segment or read worth a reader's eye")
+
+    @model_validator(mode="after")
+    def _partitions(self) -> ArgumentParseCoverage:
+        if self.segments_attributed + self.segments_unattributed != self.segments:
+            raise ValueError("segments_attributed + segments_unattributed != segments")
+        parts = (
+            self.justice_turns_attributed
+            + self.justice_turns_outside_segments
+            + self.justice_turns_unresolved
+            + self.justice_turns_unattributed_segment
+        )
+        if parts != self.justice_turns:
+            raise ValueError("the four justice-turn counts do not sum to justice_turns")
+        return self
+
+
+class ArgumentFeatures(_Strict):
+    """Per-Justice questioning by side, read from one cleaned argument transcript.
+
+    Computed by :func:`fedcourtsai.pipeline.argument_features.parse_argument_features`
+    from the text :func:`fedcourtsai.pipeline.documents.extract_transcript_text`
+    stores, deterministically and with no model in the loop, so one transcript
+    always yields one count. ``assignment`` states the reading that turns a
+    speaker label into a side. The totals are checked on construction against
+    the rows and the coverage against the segments.
+    """
+
+    parser_version: Literal["1"] = Field(
+        description="The parse rules' version; a change to what a given text yields moves it"
+    )
+    assignment: str = Field(description="How a speaker turn was assigned to a side, in one line")
+    segments: list[ArgumentSegment] = Field(description="Every segment, in argument order")
+    justices: list[JusticeArgumentFeatures] = Field(
+        description="One row per resolved Justice who spoke, by surname"
+    )
+    side_totals: dict[ArgumentSide, ArgumentTurnCount] = Field(
+        description="Every resolved Justice's attributed turns, summed by segment side"
+    )
+    alignment_totals: dict[ArgumentAlignment, ArgumentTurnCount] = Field(
+        description="The same turns summed by the position the segment argued for"
+    )
+    coverage: ArgumentParseCoverage = Field(description="What was and was not attributed")
+
+    @model_validator(mode="after")
+    def _consistent(self) -> ArgumentFeatures:
+        if self.side_totals != _keyed_sum(row.by_side for row in self.justices):
+            raise ValueError("side_totals are not the sum of the rows' by_side")
+        if self.alignment_totals != _keyed_sum(row.by_alignment for row in self.justices):
+            raise ValueError("alignment_totals are not the sum of the rows' by_alignment")
+        if self.coverage.segments != len(self.segments):
+            raise ValueError("coverage.segments is not the number of segments")
+        attributed = sum(1 for segment in self.segments if segment.side is not None)
+        if self.coverage.segments_attributed != attributed:
+            raise ValueError("coverage.segments_attributed is not the segments with a side")
+        return self
+
+
 class ClaimProbability(_Strict):
     """One declared claim's stated probability, inside ``Prediction.claims``.
 
@@ -1097,6 +1402,32 @@ class ClaimProbability(_Strict):
         ge=0.0,
         le=1.0,
         description="The predictor's probability that the claim resolves true",
+    )
+
+
+class ClaimDistribution(_Strict):
+    """One declared distribution claim's probabilities, in ``Prediction.claim_distributions``.
+
+    The form a claim over the bench takes, where one probability cannot carry
+    the forecast: a label per Justice (the roster's spelling), and for the
+    majority-author claim the ``per-curiam`` label beside them. Whether the
+    probabilities are one distribution summing to 1 or an independent
+    probability per Justice is the declared claim's kind, fixed by the harness
+    in ``fedcourtsai.pipeline.claims`` and checked there; this record carries
+    only the predictor's numbers, as :class:`ClaimProbability` does.
+    """
+
+    claim_id: str = Field(
+        description="The declared distribution claim these probabilities answer, "
+        "e.g. 'majority-author', 'separate-writers', 'order-writers'"
+    )
+    probabilities: dict[str, Annotated[float, Field(ge=0.0, le=1.0)]] = Field(
+        min_length=1,
+        description="Label -> the predictor's probability. A label is a Justice's "
+        "name as the roster spells it, or 'per-curiam' on the majority-author "
+        "claim. On a categorical claim (majority-author) the values sum to 1 over "
+        "the labels; on a per-Justice claim (separate-writers, order-writers) "
+        "each is that Justice's own probability and there is no sum",
     )
 
 
@@ -1263,6 +1594,15 @@ class Prediction(_Strict):
         "skip them. Optional (defaults None) only so predictions written before "
         "the field existed still validate.",
     )
+    claim_distributions: list[ClaimDistribution] | None = Field(
+        default=None,
+        description="Per-claim probability distributions over the harness-declared "
+        "distribution claims for this event (`fedcourtsai.pipeline.claims`): the "
+        "authorship forecasts, one label per Justice. Mandatory where the "
+        "event's set declares any, exactly as `claims` is. Null on events whose "
+        "set declares none, and on predictions written before the field existed; "
+        "omitted from the file while null",
+    )
     semantic_claims: list[SemanticClaim] | None = Field(
         default=None,
         description="Per-claim propositions over the harness-declared **semantic** "
@@ -1293,6 +1633,14 @@ class Prediction(_Strict):
                 "a prediction carrying `judgment` must carry a non-empty `votes` block"
             )
         return self
+
+    @model_serializer(mode="wrap")
+    def _omit_unstated_distributions(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``claim_distributions`` while null, so an older record reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict) and self.claim_distributions is None:
+            payload.pop("claim_distributions", None)
+        return payload
 
 
 class ResolutionSignals(_Strict):
@@ -1456,9 +1804,11 @@ class Outcome(_Strict):
         "observed to have written nothing. Absent means not observed, never "
         "observed-as-none. Kept off `votes` because at the cert and interim "
         "stages the roles are observable for every Justice while the votes are "
-        "not, and a vote entry needs a vote. Nothing scores it: vote scoring and "
-        "its completeness gate read `votes` and `vote_provenance` only. Read "
-        "beside `vote_provenance`, which it requires",
+        "not, and a vote entry needs a vote. Vote scoring and its completeness "
+        "gate read `votes` and `vote_provenance` only; the `separate-writers` and "
+        "`order-writers` claims resolve from these roles, and `majority-author` "
+        "reads its labels off them beside `merits_author`. Read beside "
+        "`vote_provenance`, which it requires",
     )
     judgment: Judgment | None = Field(
         default=None,
@@ -1468,6 +1818,28 @@ class Outcome(_Strict):
         "which has no judgment to record: the field's presence is what routes "
         "the accuracy comparison onto the merits axis, and that routing does "
         "not read the stage",
+    )
+    merits_decision_method: MeritsDecisionMethod | None = Field(
+        default=None,
+        description="How the Court decided the case, beside what it did to the "
+        "judgment (`MeritsDecisionMethod`): a signed opinion after argument, a "
+        "per curiam after argument, a summary opinion or order, or a DIG. Read "
+        "from the corpus row's decision record when the merits outcome is "
+        "written; the majority-author claim resolves only where it is "
+        "classified and agrees with `merits_author`. Null off the merits stage "
+        "and where the record left the method unclassified, never an observed "
+        "absence; omitted from the file while null",
+    )
+    merits_author: str | None = Field(
+        default=None,
+        description="Who delivered the opinion deciding the merits, as the Court's "
+        "opinions listing prints it: a Justice's name as the roster spells it, or "
+        "`per-curiam` for an unsigned opinion. Stamped by the opinions-source "
+        "writer off the listing row for every decision it finds, signed or per "
+        "curiam, whether or not the lineup was read, so which outcomes carry it "
+        "never depends on who wrote: what resolves the majority-author claim. "
+        "Null off the merits stage and where no listing row was matched, never "
+        "an observed absence; omitted from the file while null",
     )
     source: str | None = Field(default=None, description="Docket entry id or citation")
     disposition_basis: Literal["standard", "mootness"] = Field(
@@ -1502,6 +1874,15 @@ class Outcome(_Strict):
         "ledger carries no payload, and reading absence as 'nobody dissented' "
         "would invent an observation, exactly as an absent `signals` block does",
     )
+
+    @model_validator(mode="after")
+    def _decision_method_is_merits_only(self) -> Outcome:
+        """How the Court decided is a merits fact: no judgment, no method."""
+        if self.merits_decision_method is not None and self.judgment is None:
+            raise ValueError("`merits_decision_method` is set off the merits stage")
+        if self.merits_author is not None and self.judgment is None:
+            raise ValueError("`merits_author` is set off the merits stage")
+        return self
 
     @model_validator(mode="after")
     def _vote_record_coheres(self) -> Outcome:
@@ -1560,6 +1941,17 @@ class Outcome(_Strict):
                         f"`writing_roles` records {role_of[vote.justice]!r}"
                     )
         return self
+
+    @model_serializer(mode="wrap")
+    def _omit_unclassified_method(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop the decision fields while null, so an older outcome reads as before."""
+        payload = handler(self)
+        if isinstance(payload, dict):
+            if self.merits_decision_method is None:
+                payload.pop("merits_decision_method", None)
+            if self.merits_author is None:
+                payload.pop("merits_author", None)
+        return payload
 
 
 class LeakageAssessment(_Strict):
@@ -1698,6 +2090,49 @@ class ClaimScore(_Strict):
         return payload
 
 
+class DistributionScore(_Strict):
+    """One declared distribution claim's row inside ``ClaimScoreBlock.distributions``.
+
+    The bench-shaped counterpart of :class:`ClaimScore`, under the same
+    discipline: everything except ``probabilities`` is the harness's. The
+    registered rule is applied once per label, ``(b - y)^2 - (p - y)^2``, and
+    the claim's declared weighting combines the label terms: a categorical
+    claim adds them (bounded by 2), a per-Justice claim averages them over the
+    Justices it resolves (bounded by 1), so a bench of nine weighs as one
+    claim (`docs/outcome-decomposition.md`, *The authorship claims*). A claim
+    the declaration marks collected-only is resolved and never scored.
+    """
+
+    claim_id: str = Field(description="The declared distribution claim this row scores")
+    probabilities: dict[str, float] = Field(
+        description="The predictor's stated probabilities by label, copied from "
+        "the prediction's `claim_distributions` block"
+    )
+    baseline: dict[str, float] | None = Field(
+        default=None,
+        description="The harness-computed baseline by label, from Terms strictly "
+        "before the October Term of the cell's snapshot. None where the committed "
+        "statpack publishes no cut supporting one; the claim then goes unscored",
+    )
+    outcome: dict[str, int] | None = Field(
+        default=None,
+        description="How each label resolved, 1 or 0, over the labels the record "
+        "settles. None when the record does not disclose the claim — the "
+        "availability mask: no observed writing roles, an unclassified decision "
+        "method, or (for majority-author) no deciding opinion",
+    )
+    scored: bool = Field(
+        description="Whether the declaration scores this claim. False for a "
+        "collected-only claim (order-writers), whose row carries its resolution "
+        "and never a score"
+    )
+    score: float | None = Field(
+        default=None,
+        description="The per-label rule combined by the claim's declared "
+        "weighting. None when unscored, or when outcome or baseline is None",
+    )
+
+
 class ClaimScoreBlock(_Strict):
     """The harness-computed mechanical claim scores for one prediction.
 
@@ -1753,6 +2188,19 @@ class ClaimScoreBlock(_Strict):
         "description for what remains unpriced and which comparison carries a "
         "skill claim. None when no claim scored",
     )
+    distributions: list[DistributionScore] = Field(
+        default_factory=list,
+        description="One row per declared distribution claim (the authorship "
+        "claims), in the declaration's order. Reported beside the claims and "
+        "never added into `total`, `floor` or `lift`: the authorship block "
+        "stands on its own until the criterion registered for joining it is "
+        "met. Omitted from the file while empty",
+    )
+
+    @model_serializer(mode="wrap")
+    def _omit_undeclared_distributions(self, handler: SerializerFunctionWrapHandler) -> Any:
+        """Drop ``distributions`` while empty, so a block it does not reach reads as before."""
+        return _omit_empty(handler(self), distributions=self.distributions)
 
 
 class SemanticGrade(_Strict):
@@ -1841,6 +2289,62 @@ class SemanticGradeBlock(_Strict):
         "order. The set is mandatory exactly as the mechanical set is: a grader "
         "grades every declared claim and adds none, using `not-addressed` where "
         "the record settles nothing rather than skipping the row",
+    )
+
+
+class CentralClaim(_Strict):
+    """One claim a judge treated as central to a predicted-reasoning document.
+
+    The audit trail beside ``Evaluation.predicted_reasoning_quality``: it shows
+    which claims the grade rests on, so a reviewer can see whether the judge
+    graded the claims the document led with or hunted for a detail to dock.
+    Never scored and never aggregated (``docs/outcome-decomposition.md``,
+    *Grading the forecast document, design*).
+    """
+
+    claim: str = Field(
+        max_length=500,
+        description="The claim as the document committed to it, in a sentence",
+    )
+    status: CentralClaimStatus = Field(
+        description="Whether the outcome bore the claim out. `unresolved` is the "
+        "staged record failing to settle it — conditional content an outcome "
+        "never tested, or a writing the record does not carry — and is never "
+        "read as a miss"
+    )
+    basis: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="What in the staged record the status rests on, briefly. "
+        "Null when the judge recorded none",
+    )
+
+
+class PredictedReasoningReview(_Strict):
+    """A judge's review of one prediction's ``predicted_reasoning.md``.
+
+    Carries what stands behind ``Evaluation.predicted_reasoning_quality``: the
+    claims the judge treated as central, or, where the judge returned no
+    grade, the record's ground for that. Designed and piloted before it is
+    registered (``docs/outcome-decomposition.md``, *Grading the forecast
+    document, design*); no evaluate prompt asks for it until registration.
+    """
+
+    central_claims: list[CentralClaim] = Field(
+        default_factory=list,
+        max_length=5,
+        description="The claims, at most five, the judge treated as central to "
+        "the document, in the order the document gives them weight. Required "
+        "beside a grade; may be empty beside a null one",
+    )
+    not_gradeable: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="Where the grade is null, the record's ground for that: the "
+        "staged record is silent on everything the document's central claims "
+        "turn on. Never a ground about the predictor — a vague, hedged or "
+        "all-conditional document is gradeable, and graded low. Null beside a "
+        "grade",
     )
 
 
@@ -1947,6 +2451,25 @@ class Evaluation(_Strict):
         "participating-bench accuracy (`pipeline.evaluate.bench_vote_accuracy`)",
     )
     reasoning_quality: float | None = Field(default=None, ge=0.0, le=1.0)
+    predicted_reasoning_quality: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The judge's 0-1 grade of the prediction's "
+        "`predicted_reasoning.md` alone — how well its forecast of what the Court "
+        "would do and say held up — on the anchored rubric in "
+        "`docs/outcome-decomposition.md` (*Grading the forecast document, "
+        "design*). Not a grade of the prediction as a whole, and never folded "
+        "into `reasoning_quality`, which grades `reasoning.md`. Null where the "
+        "record cannot grade it (`predicted_reasoning_review.not_gradeable` says "
+        "why) and on every evaluation whose prompt did not ask for it",
+    )
+    predicted_reasoning_review: PredictedReasoningReview | None = Field(
+        default=None,
+        description="What stands behind `predicted_reasoning_quality`: the "
+        "central claims the grade rests on, or the record's ground for a null "
+        "grade. Null wherever the grade was not asked for",
+    )
     leakage_suspected: bool | None = Field(
         default=None,
         description="Coarse leakage bit, kept in step with `leakage`: true when "
@@ -2117,6 +2640,28 @@ class Evaluation(_Strict):
         "shakedown cells). Provenance for the judge process; the leaderboard's "
         "frozen partition keys on the *prediction's* stamp, not this one.",
     )
+
+    @model_validator(mode="after")
+    def _predicted_reasoning_review_coheres(self) -> Evaluation:
+        """A grade stands on central claims; a null beside a review states the record's ground."""
+        review = self.predicted_reasoning_review
+        if self.predicted_reasoning_quality is not None:
+            if review is None or not review.central_claims:
+                raise ValueError(
+                    "`predicted_reasoning_quality` needs a `predicted_reasoning_review` "
+                    "listing the central claims it rests on"
+                )
+            if review.not_gradeable is not None:
+                raise ValueError(
+                    "`predicted_reasoning_review.not_gradeable` is the ground for a null "
+                    "grade and cannot stand beside a grade"
+                )
+        elif review is not None and review.not_gradeable is None:
+            raise ValueError(
+                "a `predicted_reasoning_review` beside a null grade must say in "
+                "`not_gradeable` why the record cannot grade the document"
+            )
+        return self
 
 
 class PolledSignal(_Strict):
@@ -7574,6 +8119,239 @@ class CertBacktest(_Strict):
     entries: list[CertBacktestEntry] = Field(default_factory=list)
 
 
+class MeritsBacktestTermCount(_Strict):
+    """One October Term's share of the merits back-test population."""
+
+    term: int = Field(description="The October Term the cases were argued in")
+    cases: int = Field(ge=0, description="Lead dockets kept for replay")
+    argued_unjudged: int = Field(
+        ge=0,
+        description="Argued plenary dockets with no parsed merits judgment: a parse "
+        "gap the population cannot keep, counted so it is not silent",
+    )
+    excluded: dict[str, int] = Field(
+        default_factory=dict,
+        description="Decided argued dockets set aside, by reason (`fedcourts "
+        "merits-backtest-plan` names each)",
+    )
+    excluded_disturbed: int = Field(
+        default=0,
+        ge=0,
+        description="Of the set-aside dockets, those whose judgment disturbed the "
+        "decision below: how far the kept cases, and the baseline pool drawn from "
+        "them, are a selected population",
+    )
+
+
+class MeritsBacktestBaseline(_Strict):
+    """The as-of base rate each replay cell's skill is measured against."""
+
+    rule: Literal["as-of-cutoff-v1"] = Field(
+        default="as-of-cutoff-v1",
+        description="The disturbed share of the population's lead dockets argued "
+        "in the cell's own Term or the `lookback_terms` before it and decided "
+        "strictly before the cell's cutoff. Keyed on the cutoff rather than on "
+        "the grant Term, so no judgment the cell could not have known reaches "
+        "its baseline. It is not the forward channel's `merits_base_rate`, so a "
+        "skill figure here is never comparable with a forward one",
+    )
+    lookback_terms: int = Field(ge=0, description="Argued Terms pooled before the cell's own")
+    min_decided: int = Field(
+        ge=1, description="Below this many pooled judgments a cell carries no baseline"
+    )
+
+
+class MeritsBacktestMomentScore(_Strict):
+    """One predictor's scores over one merits moment's replay cells."""
+
+    moment: Moment
+    events_scored: int = Field(ge=0, description="Cells that returned a valid prediction")
+    lost: int = Field(
+        ge=0, description="Cells provisioned at this moment that returned no scorable prediction"
+    )
+    terms: dict[str, int] = Field(
+        default_factory=dict, description="Cells scored per argued Term, a zero stated"
+    )
+    accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Share of scored cells whose call, disturbed where P(disturbed) "
+        "is at least 0.5, matched the judgment. Null when nothing was scored",
+    )
+    disturbed_share: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The disturbed share of the same scored cells",
+    )
+    majority_accuracy: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The floor `accuracy` is read against: the larger of "
+        "`disturbed_share` and its complement, what always calling the majority "
+        "outcome scores on these cells",
+    )
+    mean_brier_score: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Mean Brier of P(disturbed)"
+    )
+    baselined: int = Field(
+        ge=0, description="Scored cells that carry an as-of baseline (`baseline`)"
+    )
+    cells_flagged: int = Field(
+        default=0,
+        ge=0,
+        description="Scored cells that left a `flags.json`. Nothing is excluded on a "
+        "note: a disclosed exposure left in the scores inflates them",
+    )
+    exposure_candidates: int = Field(
+        default=0,
+        ge=0,
+        description="Of the flagged cells, those carrying a note the cert back-test's "
+        "text rule marks as a possible outcome exposure",
+    )
+    baselined_brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="The predictor's mean Brier over the baselined cells only: the "
+        "figure `brier_skill` compares, which differs from `mean_brier_score` "
+        "wherever some scored cells carry no baseline",
+    )
+    baseline_brier_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Mean Brier of the as-of base rate over the baselined cells",
+    )
+    brier_skill: float | None = Field(
+        default=None,
+        description="1 - (the predictor's summed Brier / the baseline's), both over "
+        "the baselined cells: a ratio of sums, so a cell whose baseline happened to "
+        "be exact does not drop out. Null with no baselined cell",
+    )
+
+
+class MeritsBacktestCellLoss(_Strict):
+    """A provisioned replay cell that produced no score, and why."""
+
+    predictor_id: str
+    case_id: str
+    moment: Moment
+    reason: CertBacktestLossReason
+
+
+class MeritsBacktestPaired(_Strict):
+    """What the briefed moment adds over the grant moment, on the same cases."""
+
+    cases: int = Field(
+        ge=0,
+        description="Cases this predictor scored at both moments; the only set the "
+        "moments are compared on, since the fences drop cells per moment. It fixes "
+        "the case mix between the moments, not the selection: a fence can track the "
+        "outcome, so this set is selected too",
+    )
+    disturbed: int = Field(
+        default=0, ge=0, description="Of `cases`, those whose judgment disturbed the decision below"
+    )
+    grant_mean_brier: float | None = Field(default=None, ge=0.0, le=1.0)
+    briefed_mean_brier: float | None = Field(default=None, ge=0.0, le=1.0)
+    brier_change: float | None = Field(
+        default=None,
+        description="Briefed minus grant mean Brier over `cases`; negative means the briefs helped",
+    )
+
+
+class MeritsBacktestEntry(_Strict):
+    """One predictor's merits back-test record."""
+
+    predictor_id: str
+    engine: str | None = Field(
+        default=None, description="The backend that ran the cells, `stub` offline"
+    )
+    model: str | None = Field(
+        default=None, description="The model the backend invoked; null for offline backends"
+    )
+    moments: list[MeritsBacktestMomentScore] = Field(default_factory=list)
+    paired: MeritsBacktestPaired
+
+
+class MeritsBacktestDispatch(_Strict):
+    """The parameters a merits back-test was run under, as dispatched."""
+
+    engine: str = Field(
+        description="'auto' (each predictor's own engine), a single backend, or empty "
+        "when no engine ran"
+    )
+    skip_engines: list[str] = Field(default_factory=list)
+    terms: list[int] = Field(description="The argued Terms the population was drawn from")
+    limit: int = Field(
+        ge=0,
+        description="Cases drawn from the population, 0 for all of them. A draw "
+        "walks the cases in `draw_key`'s hash order, so a reader can recompute it",
+    )
+    draw_key: str = Field(
+        description="The corpus vintage the draw order is keyed by (its newest pull "
+        "stamp), so the same blob draws the same cases"
+    )
+
+
+class MeritsBacktest(_Strict):
+    """``metrics/merits-backtest.json`` — predictors replayed over decided argued cases.
+
+    Each kept case is replayed at the merits stage's grant and briefed moments
+    from the record as it stood at each cutoff, outcome redacted, and scored on
+    P(disturbed) against the realized judgment. Produced by
+    ``fedcourts merits-backtest``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    stratum: Literal["retrospective"] = Field(
+        default="retrospective",
+        description="Every replayed judgment was public before the run, and most "
+        "predate the models' training cutoffs, so a cell can recall the outcome it "
+        "is asked to forecast. This measures recall, calibration and reading of a "
+        "known docket, never ex-ante forecasting skill, and no figure here is "
+        "claimable as one (the leaderboard's pre-registration rule)",
+    )
+    unit: Literal["lead-docket"] = Field(
+        default="lead-docket",
+        description="One case per docket the filings are on: a consolidated member "
+        "is set aside and its lead stands for both, in the scores and in the baseline "
+        "pool alike",
+    )
+    pulled_through: date | None = Field(
+        default=None,
+        description="The corpus vintage the population and cells were read from: "
+        "its newest pull stamp",
+    )
+    run_id: str | None = Field(
+        default=None, description="The replay's run id; null when no engine ran"
+    )
+    dispatch: MeritsBacktestDispatch | None = Field(
+        default=None, description="The parameters the run was dispatched with"
+    )
+    terms: list[MeritsBacktestTermCount] = Field(default_factory=list)
+    cells: dict[str, int] = Field(
+        default_factory=dict, description="Replay cells written per moment"
+    )
+    fenced: dict[str, dict[str, int]] = Field(
+        default_factory=dict,
+        description="Cells the provisioner refused per moment, by reason: no "
+        "snapshot, a kept entry still showing the judgment, the respondent's merits "
+        "brief not staged, or a document kind the record cannot name",
+    )
+    paired_cases: int = Field(ge=0, default=0, description="Cases written at both moments")
+    baseline: MeritsBacktestBaseline
+    unavailable: list[str] = Field(
+        default_factory=list,
+        description="Predictors dropped whole because their engine was not installed",
+    )
+    lost_cells: list[MeritsBacktestCellLoss] = Field(default_factory=list)
+    entries: list[MeritsBacktestEntry] = Field(default_factory=list)
+
+
 class WorkflowHealth(_Strict):
     """Recent-run health for one workflow, rolled up from the Actions run history."""
 
@@ -9129,6 +9907,133 @@ class StatPackMerits(_StatPackMeritsCounts):
     )
 
 
+class StatPackAuthorshipJustice(_Strict):
+    """One Justice's writings over one Term of the per-opinion record.
+
+    Two denominators, because the two authorship claims resolve over different
+    populations. ``decisions`` counts the Term's deciding documents decided
+    while the Justice served, the population ``majority-author`` resolves over;
+    ``sat`` counts the signed decisions whose bench was observed with the
+    Justice taking part, the population ``separate-writers`` resolves over.
+    """
+
+    justice: str = Field(description="The Justice's name as the roster spells it")
+    decisions: int = Field(
+        ge=0,
+        description="Argued decisions (signed or per curiam) decided while the Justice served",
+    )
+    majority: int = Field(
+        ge=0,
+        description="Of `decisions`, those whose lead opinion (of the Court, or a "
+        "plurality) the Justice delivered",
+    )
+    sat: int = Field(
+        ge=0,
+        description="Signed decisions whose observed bench has the Justice taking part",
+    )
+    separate: int = Field(
+        ge=0,
+        description="Of `sat`, those the Justice wrote or co-wrote anything in but "
+        "the lead opinion: a concurrence, a dissent, either in part",
+    )
+
+
+class StatPackAuthorshipTerm(_Strict):
+    """One October Term of the per-opinion record, keyed by the listing's Term."""
+
+    term: int = Field(
+        description="The October-Term year the opinions listing files the decisions under"
+    )
+    decisions: int = Field(
+        ge=0, description="Argued decisions: one per listing row, signed or per curiam"
+    )
+    per_curiam: int = Field(ge=0, description="Of `decisions`, those decided per curiam")
+    observed: int = Field(
+        ge=0, description="Signed decisions whose bench the record observed (a filled bench row)"
+    )
+    justices: list[StatPackAuthorshipJustice] = Field(
+        default_factory=list,
+        description="Every Justice seated on a counted decision's date, in roster order",
+    )
+
+
+class StatPackAuthorship(_Strict):
+    """The statpack's authorship section: who wrote the Court's decisions, per Term.
+
+    Read off the per-opinion record (the `opinions` and `opinion_benches`
+    corpus tables), the committed feed of the authorship claims' baselines
+    (``pipeline.base_rates.majority_author_base_rate`` and
+    ``separate_writing_base_rate``), which pool it strictly-prior. Present only
+    once the record holds an argued decision, as the other stage sections join on
+    their feeds.
+    """
+
+    terms: list[StatPackAuthorshipTerm] = Field(
+        default_factory=list, description="Per-Term detail, most recent Term first"
+    )
+
+
+class AuthorshipTallyCase(_Strict):
+    """One case of an argument sitting in a cell's authorship tally."""
+
+    key: str = Field(
+        description="The corpus case id, or `docket:<number>` where the per-opinion "
+        "record links the opinion to no corpus row"
+    )
+    docket: str = Field(description="The docket number as the record prints it")
+    argued: date = Field(description="The day the case was argued")
+    decided: date | None = Field(
+        description="The day the case was decided, on or before the tally's `as_of`; "
+        "null while undecided as of that day"
+    )
+    author: str | None = Field(
+        description="The lead opinion's author (the opinion of the Court or a "
+        "plurality), as the roster spells the Justice; null while undecided, for a "
+        "decision no opinion names an author for (a per curiam, a dismissal), and "
+        "for one the per-opinion record does not hold (`recorded` false)"
+    )
+    recorded: bool = Field(
+        description="Whether the per-opinion record holds the case's lead opinion; "
+        "a decided case it does not hold has an unknown author, not a missing one"
+    )
+
+
+class AuthorshipTallySitting(_Strict):
+    """One argument sitting of a cell's authorship tally."""
+
+    start: date = Field(description="The sitting's first day, as the Court heads it")
+    end: date = Field(description="The sitting's last day, as the Court heads it")
+    bench: list[str] = Field(
+        description="The Justices serving on the sitting's first day, oldest oath first"
+    )
+    yet_to_write: list[str] = Field(
+        description="The bench's Justices with no lead opinion recorded for the "
+        "sitting as of the tally's day, oldest oath first"
+    )
+    cases: list[AuthorshipTallyCase] = Field(
+        description="The sitting's cases, by argument day then key"
+    )
+
+
+class AuthorshipTally(_Strict):
+    """Who has written from each argument sitting of a Term, as of one day.
+
+    Written by ``fedcourts authorship-tally`` and, for a post-argument merits
+    predict cell in forward mode once released (``provision.AUTHORSHIP_TALLY_WITHHELD``),
+    into its ``record/authorship-tally.json`` (``pipeline.authorship``): the tally
+    as of the day before the cell's cutoff, so the cell reads no decision its
+    moment postdates.
+    """
+
+    term: int = Field(description="The October Term tallied")
+    as_of: date = Field(description="The last day whose decisions are read, inclusive")
+    sittings: list[AuthorshipTallySitting] = Field(
+        default_factory=list,
+        description="The Term's sittings that opened by `as_of`, earliest first; "
+        "empty where the corpus stores none",
+    )
+
+
 class StatPackCoverage(_Strict):
     """The statpack's own denominators: how much trustworthy data backs it.
 
@@ -9212,6 +10117,12 @@ class StatPack(_Strict):
         "distribution and descriptive disturbed rate); None — and omitted from "
         "the serialized pack — while no row carries a parsed merits judgment",
     )
+    authorship: StatPackAuthorship | None = Field(
+        default=None,
+        description="Who wrote the Court's decisions per Term, off the per-opinion "
+        "record — the authorship claims' baseline feed; None — and omitted from "
+        "the serialized pack — while the record holds no argued decision",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_absent_stage_sections(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -9228,6 +10139,8 @@ class StatPack(_Strict):
                 payload.pop("interim", None)
             if self.merits is None:
                 payload.pop("merits", None)
+            if self.authorship is None:
+                payload.pop("authorship", None)
         return payload
 
 
@@ -12292,6 +13205,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "backtest": Backtest,
     "tool_usage": ToolUsage,
     "cert_backtest": CertBacktest,
+    "merits_backtest": MeritsBacktest,
     "salience_replay": SalienceReplay,
     "usage": ModelUsage,
     "ops_report": OpsReport,
@@ -12302,6 +13216,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "live_frontier": LiveFrontier,
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
+    "authorship_tally": AuthorshipTally,
     "docket": DocketPack,
     "big_case_board": BigCaseBoard,
     "agent_flags": AgentFlags,

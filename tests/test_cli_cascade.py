@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
+from fedcourtsai import cli
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.cascade import CascadeReport, CellPlacement
 from fedcourtsai.registry import enabled_evaluators, enabled_predictors
 
 from .conftest import FixtureCorpus
@@ -51,3 +55,45 @@ def test_local_cascade_rejects_unknown_case(fixture_corpus: FixtureCorpus) -> No
     result = CliRunner().invoke(app, ["local-cascade", "--court", "ca9", "--docket", "99999999"])
     assert result.exit_code == 2
     assert "not in the corpus" in result.output
+
+
+def test_local_cascade_marks_unminted_cells_and_unheld_documents(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A smoke's run summary is this block, so a cell production would refuse and
+    # a filing the store lacks both show there rather than only in the agent's flags.
+    report = CascadeReport(
+        case_id="scotus/73274796",
+        engine="stub",
+        run_id="20261024T121228Z",
+        snapshot=None,
+        context=None,
+        documents=(),
+        placements=(
+            CellPlacement(
+                role="predict",
+                event_id="evt-order-cvsg-disposition",
+                mode="forward",
+                provenance="truncated",
+                cutoff=date(2025, 10, 15),
+                documents=3,
+                unheld=("cert-reply",),
+            ),
+        ),
+        events=("evt-order-cvsg-disposition",),
+        unforecastable=("evt-order-cvsg-disposition",),
+        predictions=(),
+        outcomes=(),
+        evaluations=(),
+        valid=True,
+        problems=(),
+    )
+    monkeypatch.setattr(cli, "run_cascade", lambda **_kwargs: report)
+
+    result = CliRunner().invoke(app, ["local-cascade", "--court", "scotus", "--docket", "73274796"])
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "cut 2025-10-15, 3 document(s), unheld: cert-reply, not a cell run-predict mints"
+        in result.output
+    )

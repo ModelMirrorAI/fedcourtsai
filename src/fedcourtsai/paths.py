@@ -317,6 +317,13 @@ class CasePaths:
         return self.related_dir / "related.json"
 
     @property
+    def authorship_tally(self) -> Path:
+        # A merits cell's tally of who has written from each argument sitting of
+        # the Term, as of the day before its cutoff (`provision.authorship_tally_for`).
+        # Gitignored with the rest of record/.
+        return self.record / "authorship-tally.json"
+
+    @property
     def opinion_dir(self) -> Path:
         # Provisioning location for the case's **majority opinion body** — the
         # evaluate cell's slot, and only ever that. Deliberately not under
@@ -332,6 +339,19 @@ class CasePaths:
     def opinion_text(self) -> Path:
         # The majority opinion's plain text, as the corpus stores it.
         return self.opinion_dir / "majority-opinion.txt"
+
+    @property
+    def opinion_writings_dir(self) -> Path:
+        # Every writing of each decision the per-opinion record stores text for:
+        # one file per writing under `OT<term>-<listing>/`. Staged only on a
+        # pilot round's evaluate cell (`provision-opinion --writings`).
+        return self.opinion_dir / "writings"
+
+    @property
+    def opinion_writings_manifest(self) -> Path:
+        # What each file under `writings/` is: its decision, its kind and author,
+        # and the digest of the bytes staged. Written only beside them.
+        return self.opinion_dir / "writings.json"
 
     @property
     def opinion_manifest(self) -> Path:

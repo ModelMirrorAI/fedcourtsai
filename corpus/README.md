@@ -29,7 +29,8 @@ The corpus has two halves:
   so the blob stays a small metadata index and its per-run push does not
   grow with the bulk. With no store configured (dev environments, the
   fixture loop, offline tests) the same schema holds the payloads inline in a
-  single self-contained blob.
+  single self-contained blob, the opinion record's writings' text aside, which
+  is kept only in a store (`opinion_texts`, below).
 - **The per-case content store** ([`fedcourtsai.casestore`](../src/fedcourtsai/casestore.py))
   — a browsable, write-once, access-gated S3 store holding the bulk payloads,
   keyed to mirror the ledger's `data/cases/<court>/<docket>/` shape:
@@ -41,7 +42,12 @@ The corpus has two halves:
     snapshots/<YYYY-MM-DD>.json                  # dated point-in-time docket payload
     documents/documents.json                     # manifest: kind -> current text leaf
     documents/<kind>/<YYYY-MM-DD>-<digest>.txt   # extracted text (content-addressed)
+  scotus/opinions/OT<term>/<listing>-<digest>.json  # one opinion document's writings
   ```
+
+  The last line is keyed by the Court's opinions listing rather than by case,
+  since one document can decide several dockets; the per-opinion record's
+  `opinion_texts` row points at it.
 
   A corpus write mirrors to production's store only inside a GitHub Actions
   job and only from the configured corpus file — and only production's writer
@@ -118,6 +124,7 @@ source.
 | `response_requested`  | integer (0/1)   | the Court requested a response to an interim application (the interim CVSG-analogue); null = never application-parsed |
 | `referred_to_court`   | integer (0/1)   | the application was referred to the full Court rather than a Circuit Justice alone; null = never application-parsed |
 | `amicus_briefs`       | integer         | amicus briefs on an interim application's docket — one per accepted-form entry, plus each distinct lead filer whose brief is still docketed as submitted; on a resolved application the *derivation* stops at the end of the disposition day, but the column max-latches, so a row polled before that date was readable keeps its unbounded value until a re-derivation; null = never application-parsed |
+| `cert_amicus_briefs`  | integer         | amicus briefs on a cert petition's docket before its first disposition entry, in docket order (`pipeline.cert_amicus.cert_amicus_briefs`) — the interim count's per-entry reading over the cert stage, less the Court's orders on amicus motions, so a granted case's merits amici never reach it and a brief filed by motion counts once; written by the live poll's cert branch at ingest and filled on the rows it no longer polls by `run-repair`'s `cert-amicus-rederive` pass (`fedcourts rederive-cert-amicus-briefs`, the same count over each row's latest live snapshot), both under the max latch (the cut fixes a resolved petition's value, and an open petition's only grows); withheld from the `query` retrieval rows; null = not cert-parsed since the column existed, which is where a resolved row the poll rotation skips stays until that pass runs |
 | `merits_judgment`     | text            | what the Court did to the judgment below on a granted case (the `Judgment` vocabulary), parsed from the docket's terminal entry by the shared parser — the live poll latches it at ingest, the backfill reconciles offline; null = no parsed judgment |
 | `merits_decided`      | date            | docket date of the disposition entry `merits_judgment` was parsed from; null when that entry is undated |
 | `merits_brief_filed`  | date            | when the respondent filed its brief on the merits (`pipeline.merits_signals.respondent_brief_date`; live channel only, fill-in latched) — opens the merits stage's second forecast moment; null = not yet filed, or a briefing shape the pattern misses (a coverage gap, never an observed absence) |
@@ -202,7 +209,8 @@ supplied only there, null everywhere else (the never-application-parsed
 sentinel, with `application_kind` playing `distribution_count`'s coverage
 role). The three escalation signals max-latch — each is monotone over an
 application's life, so a degraded parse's confident 0 never regresses a stored
-value — and `application_kind` gets the TEXT twin of that latch: a real reading
+value — as does the cert branch's `cert_amicus_briefs`, monotone under its own
+cut at the petition's first disposition entry — and `application_kind` gets the TEXT twin of that latch: a real reading
 (`extension` / `substantive`) is never wiped by a degraded parse's confident
 `unknown`, which only ever fills a genuine gap. The dated signals beside these
 families (`response_requested_at`, `response_filed_at`, `merits_brief_filed`,
@@ -337,10 +345,13 @@ to replace them, which does not exist yet; `word_rule` and `lineup` say which
 version each row was read under. Its readers outside its writer are `fedcourts merits-lineups`,
 which derives each decision's per-Justice votes from it, and `fedcourts authorship-tally`,
 which reads each lead opinion's author against its argument sitting; it is read by no `query`
-retrieval row, provisioning step, outcome, mint or scoring gate, so nothing a
-predict or evaluate cell sees includes it; a test pins which modules may name
-it. It is metadata, not payload, so it stays in the index blob under the
-corpus-split mode and has no content-store mirror. The source, the cross-check
+retrieval row, outcome, mint or scoring gate, and provisioning reads it only for
+the tally a post-argument merits cell would be given, which is held back from
+every cell (`provision.AUTHORSHIP_TALLY_WITHHELD`), and to pick the decisions whose
+writings `provision-opinion --writings` stages into a pilot round's evaluate cell;
+a test pins which modules may name it. It is metadata, not payload, so it stays in the index blob under the
+corpus-split mode and has no content-store mirror; the writings' text, which
+is payload, goes to the content store instead (`opinion_texts`, below). The source, the cross-check
 and the word-counting rule are in [docs/data-sources.md](../docs/data-sources.md).
 
 | Column           | Type          | Notes |
@@ -395,6 +406,42 @@ provisioning step, outcome, mint or score, and kept in the index blob.
 | `lineup`         | text         | `<reader>/<version>` of the syllabus grammar the bench was read with |
 | `read_at`        | timestamp    | when the row was written |
 
+## The writings' text (`opinion_texts`)
+
+At most one row per document the per-opinion record holds, keyed as
+`opinions` is: the pointer to the content-store object
+(`scotus/opinions/OT<term>/<listing>-<digest>.json`) that holds each of its
+writings' text, cut under the text rule in
+[docs/data-sources.md](../docs/data-sources.md) and held to the stored word
+counts. The text is payload, so the object is the store's and the row is
+only its key, digest and size. Written only by
+`fedcourts backfill-opinion-record`, fill-only, after the object is stored, in
+the transaction that inserts the document's other rows, or on a later pass
+for a document recorded without one; that pass stores the text only where
+the re-read writings, with their word counts and headers, are the stored
+ones, and otherwise writes a row whose
+pointer is null, which also ends the re-reading. A write with no content
+store addressed stores no text and writes no text row for a document whose
+text it would store, so the document stays owed.
+Held on the same terms as `opinions`: corpus-side, read by no `query` row,
+outcome, mint or score. One provisioning step reads it: `fedcourts
+provision-opinion --writings`, which stages a decided case's writings into a
+pilot round's evaluate cell and no other. The text is the Court's, but it
+reached the store through the parse job's plan, whose check is only that the
+text recounts to its own word counts, so a reader takes the object only when
+its bytes match the row's digest (`casestore.read_pinned`) and treats it as
+data, never as instructions.
+
+| Column           | Type         | Notes |
+|------------------|--------------|-------|
+| `term`           | integer (PK) | October Term, four-digit |
+| `listing_number` | text (PK)    | the listing row's number: the document |
+| `object_key`     | text         | the stored object's key; null where the re-read writings were not the stored ones |
+| `digest`         | text         | the object's sha256; null with `object_key` |
+| `bytes`          | integer      | the object's size; null with `object_key` |
+| `text_rule`      | text         | `<rule>/<version>` the text was cut under (`scotus-opinion-text/1`) |
+| `read_at`        | timestamp    | when the row was written |
+
 ## Argument sittings (`argument_sittings`)
 
 One row per argument sitting, as the Court heads it on its transcript list for
@@ -406,8 +453,11 @@ widens takes its new last day. A heading the Court drops or re-dates is not
 deleted, and can overlap its replacement. A Term the pass has never listed has
 no rows.
 Its one reader is `fedcourts authorship-tally` (`pipeline/authorship.py`), which
-groups a Term's argued cases by sitting; it is read by no `query` retrieval row,
-provisioning step, outcome, mint or scoring gate. Kept in the index blob.
+groups a Term's argued cases by sitting, and the same tally a post-argument
+merits cell would be given in `record/authorship-tally.json`, which is held back
+from every cell until a re-bless (`provision.AUTHORSHIP_TALLY_WITHHELD`); it is
+read by no `query` retrieval row, outcome, mint or scoring gate. Kept in the
+index blob.
 
 | Column    | Type          | Notes |
 |-----------|---------------|-------|

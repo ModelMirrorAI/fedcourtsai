@@ -61,6 +61,7 @@ from fedcourtsai.validate import (
     CHECK_MERITS_PREDICTIONS,
     CHECK_NO_DUPLICATES,
     CHECK_OUTCOME_VOTES_HELD,
+    CHECK_PREDICTED_REASONING_HELD,
     CHECK_PREDICTION_CLAIMS,
     CHECK_PREDICTION_DOCS,
     CHECK_PREDICTION_SEMANTIC,
@@ -1151,6 +1152,7 @@ def test_run_ledger_referential_checks_is_corpus_free(tmp_path: Path) -> None:
         CHECK_PREDICTION_CLAIMS,
         CHECK_PREDICTION_SEMANTIC,
         CHECK_EVALUATION_SEMANTIC,
+        CHECK_PREDICTED_REASONING_HELD,
         CHECK_MERITS_PREDICTIONS,
         CHECK_SCORED_VOTES,
         CHECK_OUTCOME_VOTES_HELD,
@@ -1655,6 +1657,23 @@ def test_stamped_prediction_without_a_forecast_document_fails(tmp_path: Path) ->
     path.write_text(json.dumps(stamped_ok))
     (path.parent / "predicted_reasoning.md").write_text("what the court will do\n")
     assert _docs_check(data_root).passed
+
+
+def test_unnamed_forecast_document_fails_before_the_stamp(tmp_path: Path) -> None:
+    """A forecast document written but left unnamed is broken on an unstamped cell.
+
+    The stamp lands after the engine exits, so the stamped-cell rule above cannot
+    fire on the agent's own `validate` run. A document written beside a null
+    pointer is never a legacy shape, so it fails with or without the stamp.
+    """
+    data_root = tmp_path / "data"
+    _write_event(data_root, "ca9", 1, "evt-motion-stay")
+    _write_prediction(data_root, "ca9", 1, "evt-motion-stay", "p1", forecast=False)
+    ep = CasePaths(data_root, "ca9", 1).event("evt-motion-stay")
+    ep.predicted_reasoning("p1", "2026-01-01T00-00-00Z").write_text("what the court will do\n")
+    check = _docs_check(data_root)
+    assert not check.passed
+    assert any("is written beside it" in p for p in check.problems)
 
 
 def test_prediction_document_pointing_outside_its_directory_fails(tmp_path: Path) -> None:
@@ -2276,6 +2295,31 @@ def test_a_voteless_outcome_passes_the_source_hold(tmp_path: Path) -> None:
     _write_outcome(data_root, "scotus", 22451, "evt-order-judgment")
     check = _votes_hold_check(data_root)
     assert check.passed and check.checked == 1
+
+
+@pytest.mark.parametrize(
+    ("author", "problem"),
+    [
+        ("per-curiam", None),
+        ("Kagan", None),
+        ("kagan", "is not spelled as the roster spells a Justice"),
+        ("Breyer", "did not sit on 2026-01-02"),
+    ],
+)
+def test_a_stamped_merits_author_is_held_to_the_seated_bench(
+    tmp_path: Path, author: str, problem: str | None
+) -> None:
+    """An author-only stamp carries no provenance, and is still checked."""
+    data_root = tmp_path / "data"
+    path = _write_outcome(data_root, "scotus", 22451, "evt-order-judgment")
+    payload = json.loads(path.read_text())
+    payload |= {"judgment": "reversed", "merits_author": author}
+    path.write_text(json.dumps(payload))
+    check = _votes_hold_check(data_root)
+    if problem is None:
+        assert check.passed, check.problems
+    else:
+        assert not check.passed and any(problem in p for p in check.problems)
 
 
 # --- the orders vote source ----------------------------------------------------

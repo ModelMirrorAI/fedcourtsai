@@ -18,6 +18,7 @@ from fedcourtsai import corpus, summaries
 from fedcourtsai.cli import app
 from fedcourtsai.config import SummariesConfig, load_summaries_config
 from fedcourtsai.paths import CasePaths
+from fedcourtsai.pipeline.documents import KIND_PARTY_LETTER
 from fedcourtsai.pricing import MODEL_RATES, ModelRate
 from fedcourtsai.schemas import CaseSummaryFrontMatter, SummaryPlan, SummaryPlanCase
 from fedcourtsai.validate import validate_ledger
@@ -236,6 +237,75 @@ def test_summarize_plan_cli_reads_only_predicted_cases(fixture_corpus: FixtureCo
     plan = SummaryPlan.model_validate_json(result.stdout)
     assert [c.case_id for c in plan.cases] == ["scotus/305"]
     assert plan.cases[0].snapshot == date(2026, 9, 22)
+
+    # A stored kind no cell is given (`provision.WITHHELD_KINDS`) is not part of
+    # the record a summary is written from, so storing one moves nothing.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind=KIND_PARTY_LETTER,
+                    url="https://www.supremecourt.gov/letter.pdf",
+                    entry_date="Sep 20 2026",
+                    fetched_at=date(2026, 9, 21),
+                    pages=1,
+                    truncated=False,
+                    text="Letter suggesting mootness.",
+                )
+            ],
+        )
+    result = runner.invoke(app, ["summarize-plan", "--corpus-backend", "local"])
+    assert result.exit_code == 0, result.output
+    withheld = SummaryPlan.model_validate_json(result.stdout)
+    assert withheld.cases[0].record_digest == plan.cases[0].record_digest
+    assert withheld.cases[0].documents == plan.cases[0].documents
+
+
+def test_summarize_plan_leaves_a_withheld_kind_out_of_the_record_digest(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """A summary is written from the record every predict cell shares, so a kind
+    no cell is given (`provision.WITHHELD_KINDS`) neither enters the digest nor
+    makes a case owed a new summary."""
+    marker = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305).event("evt-petition-cert").base
+        / "predictions/claude-baseline/20260901T000000Z/prediction.json"
+    )
+    marker.parent.mkdir(parents=True)
+    marker.write_text("{}")
+
+    def document(kind: str) -> corpus.CaseDocument:
+        return corpus.CaseDocument(
+            case_id="scotus/305",
+            kind=kind,
+            url=f"https://www.supremecourt.gov/{kind}.pdf",
+            entry_date="Sep 20 2026",
+            fetched_at=date(2026, 9, 21),
+            pages=1,
+            truncated=False,
+            text=f"The {kind} text.",
+        )
+
+    def plan_case() -> SummaryPlanCase:
+        result = runner.invoke(app, ["summarize-plan", "--corpus-backend", "local"])
+        assert result.exit_code == 0, result.output
+        (case,) = SummaryPlan.model_validate_json(result.stdout).cases
+        return case
+
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_snapshot(conn, "scotus/305", date(2026, 9, 22), PAYLOAD)
+        corpus.upsert_documents(conn, [document("petition")])
+    before = plan_case()
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(conn, [document("merits-amicus-united-states")])
+    withheld = plan_case()
+    assert (withheld.record_digest, withheld.documents) == (before.record_digest, before.documents)
+    # The control: a kind cells are given moves the digest.
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(conn, [document("cert-reply")])
+    assert plan_case().record_digest != before.record_digest
 
 
 def test_plan_does_not_summarize_a_rest_shaped_record(tmp_path: Path) -> None:

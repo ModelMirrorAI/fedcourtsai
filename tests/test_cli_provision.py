@@ -10,9 +10,11 @@ from typer.testing import CliRunner, Result
 from fedcourtsai import casestore, corpus
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest
+from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest, opinion_record
 from fedcourtsai.pipeline.cascade import CascadeError, run_cascade
+from fedcourtsai.pipeline.lineup import WritingKind
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
+from fedcourtsai.provision import WITHHELD_KINDS, stage_writings
 from fedcourtsai.schemas import EventKind, Moment, Stage
 from tests.conftest import FixtureCorpus
 
@@ -1267,6 +1269,43 @@ def test_the_cut_takes_the_documents_with_it(fixture_corpus: FixtureCorpus) -> N
     assert [entry["kind"] for entry in manifest] == ["petition"]
 
 
+@pytest.mark.parametrize("event", [(), ("--event", "evt-order-judgment")])
+def test_a_withheld_kind_never_lands_in_a_cells_record(
+    fixture_corpus: FixtureCorpus, event: tuple[str, ...]
+) -> None:
+    # Stored, dated well before the cutoff, and still not staged: no cell, cut or
+    # uncut, is given a kind in `provision.WITHHELD_KINDS`.
+    _seed_merits_event(fixture_corpus)
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), _MERITS_TIMELINE)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/305",
+                    kind=kind,
+                    url=f"https://example/{kind}.pdf",
+                    entry_date="2025-02-01",
+                    fetched_at=date(2025, 2, 2),
+                    text=f"The {kind}.",
+                )
+                for kind in ("petition", *sorted(WITHHELD_KINDS))
+            ],
+        )
+
+    result = _provision_cell(*event)
+
+    assert result.exit_code == 0, result.output
+    paths = CasePaths(fixture_corpus.data_root, "scotus", 305)
+    assert paths.document("petition").exists()
+    for kind in WITHHELD_KINDS:
+        assert not paths.document(kind).exists()
+    manifest = json.loads(paths.documents_manifest.read_text())
+    assert [entry["kind"] for entry in manifest] == ["petition"]
+    # The `--event` case is a placed cell, so both branches are exercised.
+    assert (_context(fixture_corpus)["cutoff"] is not None) == bool(event)
+
+
 def test_a_reconstructed_docket_drops_the_top_level_dates_that_postdate_it(
     fixture_corpus: FixtureCorpus,
 ) -> None:
@@ -2168,6 +2207,246 @@ def test_a_run_that_stages_nothing_clears_a_stale_slot(fixture_corpus: FixtureCo
     again = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
 
     assert again.exit_code == 0, again.output
+    assert not paths.opinion_dir.exists()
+
+
+# --- the pilot round's writings ----------------------------------------------------
+#
+# Every writing of a decided case, staged from the per-opinion record's stored texts
+# only when a pilot round asks for it, and only where the object is the one its
+# pointer row pins.
+
+
+def _decision(
+    case_id: str | None, dockets: list[str], *, listing: str = "12"
+) -> opinion_record.OpinionDocumentReading:
+    lead = opinion_record.OpinionEntry(
+        position=1,
+        kind=WritingKind.opinion_of_the_court,
+        author="Kagan",
+        header="JUSTICE KAGAN delivered the opinion of the Court.",
+        words=6,
+        footnote_words=2,
+        text="The judgment is reversed and remanded.",
+        footnotes="See below.",
+    )
+    dissent = opinion_record.OpinionEntry(
+        position=2,
+        kind=WritingKind.dissent,
+        author="Alito",
+        header="JUSTICE ALITO, dissenting.",
+        words=3,
+        footnote_words=0,
+        text="I respectfully dissent.",
+        footnotes="",
+    )
+    return opinion_record.OpinionDocumentReading(
+        term=2025,
+        listing_number=listing,
+        docket=dockets[0],
+        dockets=dockets,
+        case_id=case_id,
+        name="Alvarez v. Northwest Logistics",
+        url="https://www.supremecourt.gov/opinions/25pdf/x.pdf",
+        decided=date(2026, 6, 30),
+        status="read",
+        source_format="slip",
+        lineup="scotus-syllabus/2",
+        opinions=[lead, dissent],
+    )
+
+
+def _store_decision(
+    fixture_corpus: FixtureCorpus, reading: opinion_record.OpinionDocumentReading
+) -> casestore.InMemoryObjectTransport:
+    store = casestore.InMemoryObjectTransport()
+    casestore.set_active_transport(store)
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        written = opinion_record.insert_opinions(
+            conn,
+            [(reading, entry) for entry in reading.opinions],
+            [reading],
+            [(reading, True)],
+            store=store,
+        )
+    assert written == (2, 1, 1)
+    return store
+
+
+def _provision_writings() -> Result:
+    return runner.invoke(
+        app, ["provision-opinion", "--court", "ca9", "--docket", "101", "--writings"]
+    )
+
+
+def test_writings_are_staged_one_file_each_with_their_digests(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    _store_decision(fixture_corpus, _decision("ca9/101", ["25-12"]))
+
+    result = _provision_writings()
+
+    assert result.exit_code == 0, result.output
+    assert "writings (2 across 1 decision(s))" in result.output
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    manifest = json.loads(paths.opinion_writings_manifest.read_text())
+    assert manifest["case_id"] == "ca9/101"
+    [decision] = manifest["decisions"]
+    assert (decision["term"], decision["listing_number"]) == (2025, "12")
+    assert decision["text_rule"] == "scotus-opinion-text/1"
+    lead, dissent = decision["writings"]
+    assert lead["file"] == "writings/OT2025-12/01-opinion-of-the-court.txt"
+    assert dissent["file"] == "writings/OT2025-12/02-dissent.txt"
+    lead_body = (paths.opinion_dir / lead["file"]).read_text()
+    assert lead_body == "The judgment is reversed and remanded.\n\nFootnotes\n\nSee below.\n"
+    assert (paths.opinion_dir / dissent["file"]).read_text() == "I respectfully dissent.\n"
+    for writing in decision["writings"]:
+        body = (paths.opinion_dir / writing["file"]).read_bytes()
+        assert writing["sha256"] == hashlib.sha256(body).hexdigest()
+        assert writing["length"] == len(body.decode("utf-8"))
+    # The majority slot is staged beside it, as it is without the flag.
+    assert paths.opinion_text.exists()
+
+
+def test_a_consolidated_decision_reaches_a_case_by_its_docket_number(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """A consolidated decision's rows link the lead docket's case alone."""
+    _store_decision(fixture_corpus, _decision("scotus/1", ["25-1", "25-7"]))
+
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        found = opinion_record.case_texts(
+            conn, casestore.active_transport(), case_id="scotus/2", docket_number="25-7"
+        )
+
+    assert [(t.text.term, t.text.listing_number) for t in found] == [(2025, "12")]
+
+
+def test_a_lower_court_docket_number_never_reaches_a_decision(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    """A circuit's docket numbers share the Court's shape, so only the link counts there."""
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        row = corpus.get_row(conn, "ca9/101")
+    assert row is not None and row.docket_number
+    _store_decision(fixture_corpus, _decision("scotus/1", [row.docket_number]))
+
+    result = _provision_writings()
+
+    assert result.exit_code == 0, result.output
+    assert "has no stored writings" in result.output
+
+
+class _RefusingStore(casestore.InMemoryObjectTransport):
+    def get(self, key: str) -> bytes | None:
+        raise RuntimeError("throttled")
+
+
+def test_an_unreadable_store_costs_the_writings_and_not_the_majority(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    _store_decision(fixture_corpus, _decision("ca9/101", ["25-12"]))
+    casestore.set_active_transport(_RefusingStore())
+
+    result = _provision_writings()
+
+    assert result.exit_code == 0, result.output
+    assert "the stored writings could not be read (RuntimeError)" in result.output
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    assert not paths.opinion_writings_dir.exists()
+    assert paths.opinion_text.exists()
+
+
+def test_a_listing_no_record_could_hold_costs_the_writings_and_not_the_majority(
+    fixture_corpus: FixtureCorpus, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    text = opinion_record.opinion_text(_decision("ca9/101", ["25-12"], listing="../x"))
+    stored = [opinion_record.StoredText(text=text, digest="0" * 64)]
+    monkeypatch.setattr(opinion_record, "case_texts", lambda *a, **k: stored)
+
+    result = _provision_writings()
+
+    assert result.exit_code == 0, result.output
+    assert "not a listing number" in result.output
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    assert not paths.opinion_writings_dir.exists()
+    assert paths.opinion_text.exists()
+
+
+def test_another_cases_decision_is_not_staged(fixture_corpus: FixtureCorpus) -> None:
+    _store_decision(fixture_corpus, _decision("scotus/1", ["25-1"]))
+
+    result = _provision_writings()
+
+    assert result.exit_code == 0, result.output
+    assert "has no stored writings; none staged" in result.output
+    assert not _opinion(fixture_corpus, "ca9", 101).opinion_writings_dir.exists()
+
+
+def test_writings_are_staged_only_on_request(fixture_corpus: FixtureCorpus) -> None:
+    """A registered evaluate cell's information set: the flag is a pilot round's alone."""
+    _store_decision(fixture_corpus, _decision("ca9/101", ["25-12"]))
+
+    result = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
+
+    assert result.exit_code == 0, result.output
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    assert paths.opinion_text.exists()
+    assert not paths.opinion_writings_dir.exists()
+    assert not paths.opinion_writings_manifest.exists()
+
+
+def test_an_object_that_does_not_match_its_pin_is_left_out(
+    fixture_corpus: FixtureCorpus,
+) -> None:
+    store = _store_decision(fixture_corpus, _decision("ca9/101", ["25-12"]))
+    with corpus.connect(fixture_corpus.db_path) as conn:
+        [(key,)] = conn.execute("SELECT object_key FROM opinion_texts").fetchall()
+    store.put(key, b'{"forged": true}')
+
+    result = _provision_writings()
+
+    assert result.exit_code == 0, result.output
+    assert "has no stored writings" in result.output
+    assert not _opinion(fixture_corpus, "ca9", 101).opinion_writings_dir.exists()
+
+
+def test_a_stale_writings_tree_is_cleared_on_reprovision(fixture_corpus: FixtureCorpus) -> None:
+    _store_decision(fixture_corpus, _decision("ca9/101", ["25-12"]))
+    assert _provision_writings().exit_code == 0
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    assert paths.opinion_writings_dir.is_dir()
+
+    again = runner.invoke(app, ["provision-opinion", "--court", "ca9", "--docket", "101"])
+
+    assert again.exit_code == 0, again.output
+    assert not paths.opinion_writings_dir.exists()
+    assert not paths.opinion_writings_manifest.exists()
+
+
+def test_the_predict_provisioner_clears_staged_writings(fixture_corpus: FixtureCorpus) -> None:
+    _store_decision(fixture_corpus, _decision("ca9/101", ["25-12"]))
+    assert _provision_writings().exit_code == 0
+
+    result = runner.invoke(
+        app,
+        ["provision-snapshot", "--court", "ca9", "--docket", "101", "--mode", "forward"],
+    )
+
+    assert result.exit_code == 0, result.output
+    paths = _opinion(fixture_corpus, "ca9", 101)
+    assert not paths.opinion_writings_dir.exists()
+    assert not paths.opinion_dir.exists()
+
+
+def test_a_listing_number_no_record_could_hold_is_refused(tmp_path: Path) -> None:
+    paths = CasePaths(tmp_path, "ca9", 101)
+    reading = _decision("ca9/101", ["25-12"], listing="../x")
+    text = opinion_record.opinion_text(reading)
+    stored = [opinion_record.StoredText(text=text, digest="0" * 64)]
+
+    with pytest.raises(ValueError, match="not a listing number"):
+        stage_writings(paths, "ca9/101", stored)
     assert not paths.opinion_dir.exists()
 
 

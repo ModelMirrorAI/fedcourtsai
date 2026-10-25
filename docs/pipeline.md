@@ -42,8 +42,8 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-seed`       | daily schedules (4 windows), manual | script (no agent)    |
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
-| `run-evaluate`   | daily schedule (15:39 UTC), input-less manual dispatch | Claude Code + Codex + Gemini |
-| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
+| `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the unregistered `predicted_reasoning_quality` grade, or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
+| `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
@@ -879,7 +879,8 @@ pass on a schedule over the current and previous October Term, so each opinion
 the Court issues reaches the per-opinion record within a day, rather than only
 when a maintainer dispatches the pass, which is pinned to the Terms the record
 began with. `opinion-record-projection` holds the read-only role and writes the
-listing keys the record holds whole. `opinion-record-parse` holds no credential,
+listing keys the record holds whole, and those it holds without a bench or a
+text row. `opinion-record-parse` holds no credential,
 reads both Terms' listings and at most `historical.sweep_caps.opinion_record`
 fetched documents (two thirds newest decision first, the last third rotated
 through the older rows a window at a time), deferring the rest to the next
@@ -887,8 +888,8 @@ window; a volume-linked row is skipped unfetched and costs no slot.
 `opinion-record` starts only when the parse read a document, waits for the
 walk, then re-validates the plan against a fresh pull, refuses a plan above the
 slice, above twenty rows a document of it, or with a class above
-`opinion_record_ceiling`, inserts fill-only, pushes the blob and only then
-mints the App token for the pointer commit. `ocr-sweep` waits for it, since
+`opinion_record_ceiling`, stores each writing's text in the content store,
+inserts fill-only, pushes the blob and only then mints the App token for the pointer commit. `ocr-sweep` waits for it, since
 both push the one corpus pointer and the run's lock orders no jobs within the
 run; its chain ends before the OCR sweep's parse can, so the lock's worst-case
 hold is unchanged. A row the reader refuses stays unrecorded and is offered
@@ -1003,7 +1004,7 @@ per-brief headings are themselves text, so such a row is not empty by the
 coverage report's per-kind test either: it reads as covered there while
 carrying no argument, so the report sizes it on a line of its own. It is the
 only pass here that installs a binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
-from the runner image's own archive), and one of the two whose bound is a
+from the runner image's own archive), and one of the three whose bound is a
 **slice size** rather than a refusal threshold: each case costs a re-fetch and a
 page-by-page recognition, and runner minutes are the whole cost. That makes the
 bound a *spend* cap, so the step hands the pass a wall-clock deadline as well —
@@ -1046,7 +1047,7 @@ its lead docket alone, has that lead's JSON fetched beside its own (one more
 paced GET, in either mode) and its merits kinds selected off the lead's entries
 that are the member's own, so a member briefed on its lead is recovered or
 floored rather than named by the selector-regression alarm; a lead the fetch did
-not return is counted as a docket loss. It is the other slice-bounded pass, and the one whose `dry-run`
+not return is counted as a docket loss. It is the second slice-bounded pass, and one of the two whose `dry-run`
 is bounded too: that dry run fetches each candidate's docket JSON, which is the
 whole diagnostic — it is what separates a case with a link waiting for it from
 one at a floor — and it is a paced round trip per candidate. Two floors are
@@ -1068,6 +1069,27 @@ class afterwards — an empty slice, which costs no round trip — and requires
 exactly what the apply's ledger said it would leave behind. The stamps are its
 one index write, so an applied slice that read any floor also moves the
 pointer.
+
+`recut` re-cuts the petitions, applications and appendices stored under the
+plain head cut. Those three kinds are cut the appendix-aware way at ingest —
+the filing's body kept whole, each appendix item's opening kept, a `[pipeline
+note: …]` line at every cut — but fetching is idempotent per kind and URL, so a
+row stored before that cut keeps a head cut for as long as its link is
+unchanged: the cap lands inside the appendix, and nothing in the text says so.
+Its class is every such row that is truncated, not OCR-derived (an
+OCR-recovered row is head-cut by design), carries no cut note and has one Court
+URL, over the predict-relevant live-slice rows, or the whole live slice with the
+`all-live` option. Each candidate is re-fetched by its stored URL and re-cut by
+the fetching lanes' own extractor; a link now serving a PDF of another page
+count, or a re-cut that no longer opens like the stored text, is another filing
+and is skipped (`pages-changed`, `head-changed`), an unchanged or empty
+re-cut writes nothing, and a re-cut petition rewrites its questions-presented row
+only where the re-cut moves the section. It is the third slice-bounded pass and
+the second whose `dry-run` is bounded too, since both modes fetch and re-cut
+every candidate in the slice — the dry run's per-kind outcome counts are what an
+apply is read off. Like the other two it writes documents, so the step re-walks
+the class on an empty slice afterwards and requires exactly what the apply's
+ledger said it would leave behind.
 
 `arrival-backfill` re-derives the interim baseline's arrival stamp — the day an
 application was submitted to a Justice, which is the moment that event declares
@@ -1186,8 +1208,8 @@ evaluate, so the pass moves no grade. Its bound is the dry run's
 
 Four of the passes that fetch and parse the Court's content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
-**credential split** of three jobs (`ocr-recovery` and `document-backfill`
-also parse fetched PDFs, inside the corpus job, and are not split here;
+**credential split** of three jobs (`ocr-recovery`, `document-backfill` and
+`recut` also parse fetched PDFs, inside the corpus job, and are not split here;
 run-seed's OCR sweep is the split, scheduled route to the same recovery). `handoff-projection` holds the read-only
 role, pulls the corpus and writes the few public facts the parse needs;
 `handoff-parse` holds no credential at all (no environment, no `id-token`, no
@@ -1201,7 +1223,8 @@ every step the OIDC request pair after the step's own `env:`, so no step there
 can be put out of reach of minting a token.
 
 `opinion-votes` and `order-votes` are the vote writer: they stamp `votes`,
-`vote_provenance` and `writing_roles` onto committed outcomes from the Court's
+`vote_provenance`, `writing_roles` and, on a merits outcome, `merits_author`
+onto committed outcomes from the Court's
 own documents — merits outcomes from their opinion's syllabus lineup, cert and
 interim outcomes from the notations and writing headers of the order that
 disposed of them ([data-sources.md](data-sources.md), *The vote writer*). They
@@ -1257,21 +1280,23 @@ withheld from the `query` rows, and no gate, mint or outcome reads them.
 
 `opinion-record` builds the per-opinion record — each opinion's kind, author,
 joiners and word count — into the corpus `opinions` table, with who sat on each
-signed decision in `opinion_benches` (`fedcourts
+signed decision in `opinion_benches` and each writing's text in the content
+store, pointed at from `opinion_texts` (`fedcourts
 backfill-opinion-record`), for OT2020–OT2025, a range pinned in the workflow rather
 than taken as an input (OT2017–OT2019 list only whole volumes, which the pass
 skips). It fetches each document the Court's opinions listing links that the
-record does not yet hold whole — unrecorded, or a signed decision recorded
-without its bench row — from supremecourt.gov at about one request a second and
+record does not yet hold whole — unrecorded, a signed decision recorded
+without its bench row, or a document recorded without its text row — from supremecourt.gov at about one request a second and
 inserts fill-only, and
 it writes nothing under `data/`, so its commit is the corpus pointer alone. The
 PDFs are fetched and parsed in the credential-free parse job; the writer pulls
 the corpus fresh under the lock, re-validates the readings, resolves each case
-id, inserts and pushes, and mints the App token only after the push. The
-bound is the dry run's "would insert N": opinion rows and bench rows together. Each run fetches again, so an apply does not lead
+id, stores each text, inserts and pushes, and mints the App token only after
+the push. The bound is the dry run's "would insert N": opinion, bench and text
+rows together. Each run fetches again, so an apply does not lead
 with a dry run, and a re-dispatched dry run after the apply is the control.
-Nothing a cell sees moves: the table is no part of a `query` row, and no gate,
-mint, outcome or score reads it.
+Nothing a cell sees moves: the tables and the stored texts are no part of a
+`query` row, and no gate, mint, outcome or score reads them.
 
 `amicus-rederive` writes both stores, and what is distinctive is *which* two: a
 corpus column and the committed `outcome.json` field that column was frozen onto,
@@ -1305,6 +1330,22 @@ after the apply is the control, and must report no changes. Two preconditions ar
 the maintainer's: it presupposes the widened reading is **promoted**, since it
 corrects rows frozen under the old one, and because it moves a scored claim's
 resolution end its apply owes a `regrade-stale` follow-through.
+
+`cert-amicus-rederive` is corpus-only: it fills the cert-stage
+`cert_amicus_briefs` column on the cert live slice the poll no longer reaches
+(`fedcourts rederive-cert-amicus-briefs`), counting each row from its latest
+live-shaped snapshot exactly as ingest's cert branch counts it, open petitions
+included. Unlike `amicus-rederive` it keeps the column's max latch, filling a
+NULL and raising a lower count but never lowering one: this column has had one
+reading since its first write, so a recount below the stored value reads a
+snapshot that lost entries, and it is reported rather than written. Nothing
+committed carries the count, so its commit is the corpus pointer alone. It is
+a dispatched pass rather than a standing sweep because its class does not
+regrow: every poll writes the column on the row it reads, so once the history is
+filled there is nothing for a window to converge, and a sweep would re-read the
+whole slice from the content store each window to find that. The stat pack's
+amicus cut waits on it, and stays out of the statpack until a re-bless admits it
+to what cells read.
 
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
@@ -2692,6 +2733,28 @@ from the corpus, and every cell is provisioned under `--work-dir`. The
 misplaced-write probe is unaffected — an engine following the prompt template's
 `data/cases/...` path recreates the directory the probe looks for.
 
+The merits arm (`replay: merits`) runs in the same checkout under the same
+removals and restores, with its own report, `metrics/merits-backtest.json`, the
+one file that crosses to `publish`. It adds two things of its own. Its cells
+run one moment at a time (`fedcourts merits-backtest`), so a grant cell never
+has its case's briefed record on disk, and the forecasts kept for upload are
+held in memory until both moments have run, so a briefed cell never has a
+grant forecast there either. And each cell's forecast files and event
+definition, an allowlist the harness applies (`kept_forecasts`) and never its
+provisioned `record/`, leave the runner as the run's `merits-forecasts`
+artifact, after a secret scan and kept 30 days, which is what the
+forecast-document grading pilot reads (run-evaluate's `reasoning-pilot-merits`
+round; a stub round's artifact is `merits-forecasts-stub`, so a free rehearsal
+never shadows a real round's). A scan hit withholds the artifact and
+the report still lands. The dispatch draws 1 to 20 cases: the arm has no
+`review` hold, and a larger draw would outlast the job's timeout, which lands
+neither the report nor the forecasts. What the removals do not reach is accepted on the arm's
+own terms: committed prose that names a decided judgment (the freeze record
+does), the full-depth history, and the web, which a replay cell may search
+under the replay contract. The report is retrospective for exactly that
+reason, and every cell's `flags.json` disclosures are counted beside its
+scores.
+
 The fence reaches the priors a cell retrieves as well. Every `fedcourts query`
 on a dated or truncated cell runs under its replay clock, as does every query a
 blind cell makes with `--decided-before`; the clock drops the priors that do not
@@ -2989,7 +3052,11 @@ the agent on every cell. It stages nothing where the corpus row holds no body,
 which is most cases, so an **absent** slot is the ordinary state and the grader
 masks. When a round's semantic claims all mask, read that step's outcome first:
 a failed staging and genuine non-coverage leave the same empty slot, and the
-step annotates the run summary where it failed.
+step annotates the run summary where it failed. On a pilot round's row the
+same step also stages every writing of the decision under
+`record/opinion/writings/`, from the per-writing texts the per-opinion record
+stores, for the pilot grade of `predicted_reasoning.md`; no registered round's
+cell receives them.
 
 A second pair of steps keeps the aliases worth having. The committed `predictions/` and
 `evaluations/` trees name every predictor elsewhere in the same case tree, at
@@ -3885,10 +3952,11 @@ against; its pre-registration standing is a dated entry in
 
 Because the gate reads *committed* state, it cannot see a round whose collect PR
 has not merged. What bounds a second derivation there is `run-evaluate`'s
-concurrency group, which serializes every round of the workflow regardless of
-trigger — not the gate. Note what a group does and does not buy: it keeps two
-rounds from overlapping, but the next round plans the moment it releases, which
-can be well before the previous round's collect PR merges. Predict closes that
+concurrency group, which serializes every backlog round of the workflow
+regardless of trigger — not the gate. A pilot round, of either kind, takes a group
+of its own, since it commits nothing for a backlog round to overlap. Note what
+a group does and does not buy: it keeps two rounds from overlapping, but the
+next round plans the moment it releases, which can be well before the previous round's collect PR merges. Predict closes that
 remaining window with its stranded-run guard; evaluate has no equivalent.
 
 The cron's cadence and `backlog_cases_per_cycle` pace re-queuing but have no

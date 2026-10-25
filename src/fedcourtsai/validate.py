@@ -53,9 +53,11 @@ import json
 import sqlite3
 from collections import Counter
 from collections.abc import Callable, Iterator
+from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Final
 
 from pydantic import ValidationError
 
@@ -63,9 +65,10 @@ from . import corpus, ids
 from .integrity import cell_clock, latest_evaluation_runs
 from .paths import CasePaths
 from .pipeline import moments
+from .pipeline.base_rates import PER_CURIAM_LABEL
 from .pipeline.claims import claim_block_problems
 from .pipeline.interim_signals import ApplicationKind
-from .pipeline.justices import resolve_surname
+from .pipeline.justices import bench_on, resolve_surname
 from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
 from .pipeline.vote_sources import REGISTERED_VOTE_SOURCES, VoteSource
 from .process_version import resolvable_runs
@@ -143,6 +146,17 @@ CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
 CHECK_PREDICTION_SEMANTIC = "prediction_semantic_claims_conform"
 CHECK_EVALUATION_SEMANTIC = "evaluation_semantic_grades_gradeable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
+# A grade of `predicted_reasoning.md` reaches the ledger only once its protocol
+# is registered; until then the pilot grades it off the ledger.
+CHECK_PREDICTED_REASONING_HELD = "predicted_reasoning_grade_awaits_registration"
+
+#: Whether the `predicted_reasoning_quality` grade is registered. Until it is,
+#: no committed evaluation may carry the grade or its review: the pilot grades
+#: off the ledger, and a registered evaluate cell that filled the fields from
+#: the schema alone would commit a grade no pre-registration covers
+#: (``docs/outcome-decomposition.md``, *Grading the forecast document, design*).
+#: Flipped in the change that registers it.
+PREDICTED_REASONING_GRADE_REGISTERED: Final = False
 CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 # `correct` is a function of two committed artifacts, so one cell's current
 # gradings must record the same bit whichever evaluator wrote them.
@@ -1156,6 +1170,11 @@ def _scored_prediction_context(
     return max(resolvable, key=cell_clock).context
 
 
+#: The forecast document's filename, as ``CasePaths`` writes it and the prompt
+#: contract names it in ``predicted_reasoning_doc``.
+_FORECAST_DOC = "predicted_reasoning.md"
+
+
 def check_prediction_docs(data_root: Path) -> CorpusCheck:
     """Every prose document a prediction names must exist beside the prediction.
 
@@ -1178,6 +1197,12 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
     since stamping was wired, and every run after it also carries the field — so a
     stamped cell missing the document is a broken cell, never a legacy shape.
     Unstamped (alpha/shakedown) records stay valid.
+
+    One null pointer is broken whatever the stamp: a ``predicted_reasoning.md``
+    written beside the prediction but left unnamed. No legacy shape writes the
+    document without naming it, and the stamp lands only after the engine exits,
+    so this is the form of the miss a cell's own ``validate`` run can see before
+    it finishes.
     """
     problems: list[str] = []
     checked = 0
@@ -1196,6 +1221,12 @@ def check_prediction_docs(data_root: Path) -> CorpusCheck:
                 "process-stamped cell; no stamped record predates the field, so "
                 "the prompt contract's required forecast document is missing "
                 "rather than merely pre-dating it"
+            )
+        elif prediction.predicted_reasoning_doc is None and (path.parent / _FORECAST_DOC).is_file():
+            problems.append(
+                f"prediction {path}: predicted_reasoning_doc is null but "
+                f"{_FORECAST_DOC} is written beside it; name the document in "
+                "prediction.json"
             )
         for field_name, doc in (
             ("reasoning_doc", prediction.reasoning_doc),
@@ -1228,8 +1259,9 @@ def check_prediction_claims(data_root: Path) -> CorpusCheck:
     deliberately silent at read time (``None``, never a crash), so an
     incoherent block would commit green and the claim board would simply lack
     the cell weeks later. Surfaced here instead, while the cell can still be
-    fixed. Absence stays legitimate: a prediction without a block, or on an
-    event with no declared set, is skipped, not flagged.
+    fixed. Absence stays legitimate: a prediction without either block, or on
+    an event with no declared set, is skipped, not flagged; a distribution
+    block stated alone is checked, since it rides a ``claims`` block it lacks.
     """
     problems: list[str] = []
     checked = 0
@@ -1240,7 +1272,7 @@ def check_prediction_claims(data_root: Path) -> CorpusCheck:
             prediction = Prediction.model_validate(json.loads(path.read_text()))
         except (OSError, ValueError, ValidationError):
             continue
-        if prediction.claims is None:
+        if prediction.claims is None and prediction.claim_distributions is None:
             continue
         checked += 1
         problems.extend(
@@ -1306,6 +1338,38 @@ def check_evaluation_semantic_grades(data_root: Path) -> CorpusCheck:
             f"evaluation {path}: {reason}" for reason in semantic_grade_problems(evaluation)
         )
     return _check(CHECK_EVALUATION_SEMANTIC, problems, checked=checked)
+
+
+def check_predicted_reasoning_grade_held(
+    data_root: Path, *, registered: bool = PREDICTED_REASONING_GRADE_REGISTERED
+) -> CorpusCheck:
+    """No committed evaluation carries a predicted-reasoning grade before it is registered.
+
+    The schema carries ``predicted_reasoning_quality`` and its review ahead of
+    registration so the pilot can write them, and nothing in a cell's digest
+    stops a registered evaluate cell from filling them too: its prompt points
+    it at the schema. This check is what keeps the pilot's promise that no
+    unregistered grade is committed. A file that does not parse is
+    ``validate_ledger``'s concern and is skipped here.
+    """
+    problems: list[str] = []
+    checked = 0
+    if not registered:
+        for path in _ledger_files(data_root, "*/*/events/*/evaluations/*/*/*/evaluation.json"):
+            try:
+                evaluation = Evaluation.model_validate(json.loads(path.read_text()))
+            except (OSError, ValueError, ValidationError):
+                continue
+            checked += 1
+            if (
+                evaluation.predicted_reasoning_quality is not None
+                or evaluation.predicted_reasoning_review is not None
+            ):
+                problems.append(
+                    f"evaluation {path}: carries a `predicted_reasoning_quality` grade or "
+                    "review, which no registered protocol covers yet"
+                )
+    return _check(CHECK_PREDICTED_REASONING_HELD, problems, checked=checked)
 
 
 def check_merits_predictions(data_root: Path) -> CorpusCheck:
@@ -1461,6 +1525,12 @@ def check_outcome_votes_held(data_root: Path) -> CorpusCheck:
         if not isinstance(payload, dict):
             continue
         checked += 1
+        if payload.get("merits_author") is not None:
+            with suppress(ValidationError):
+                problems.extend(
+                    f"outcome {path}: {problem}"
+                    for problem in merits_author_problems(Outcome.model_validate(payload))
+                )
         provenance = payload.get("vote_provenance")
         if provenance is None:
             if payload.get("votes"):
@@ -1497,13 +1567,34 @@ def vote_record_problems(outcome: Outcome, event_dir: Path) -> list[str]:
     ledger directory the outcome sits in (``cases/<court>/<docket>/events/<id>``),
     whose ``event.yaml`` names the stage. Empty for an outcome with no record.
     """
+    found = merits_author_problems(outcome)
     provenance = outcome.vote_provenance
     if provenance is None:
-        return ["votes with no vote_provenance block"] if outcome.votes else []
+        return [*found, "votes with no vote_provenance block"] if outcome.votes else found
     source = REGISTERED_VOTE_SOURCES.get(provenance.source)
     if source is None:
-        return [f"vote source {provenance.source!r} is not registered"]
-    return _vote_source_problems(outcome, source, event_dir.parents[2].name, event_dir)
+        return [*found, f"vote source {provenance.source!r} is not registered"]
+    return [*found, *_vote_source_problems(outcome, source, event_dir.parents[2].name, event_dir)]
+
+
+def merits_author_problems(outcome: Outcome) -> list[str]:
+    """How a stamped ``merits_author`` departs from the bench that decided the case.
+
+    The stamp is a roster spelling of a Justice seated on the outcome's
+    ``resolved_at``, or ``per-curiam``; empty for an outcome with no stamp.
+    """
+    author = outcome.merits_author
+    if author is None or author == PER_CURIAM_LABEL:
+        return []
+    if resolve_surname(author) != author:
+        return [f"merits_author {author!r} is not spelled as the roster spells a Justice"]
+    try:
+        seated = bench_on(outcome.resolved_at)
+    except ValueError:
+        return [f"merits_author is stamped on {outcome.resolved_at}, before the roster's floor"]
+    if author not in seated:
+        return [f"merits_author {author!r} did not sit on {outcome.resolved_at}"]
+    return []
 
 
 def _vote_source_problems(
@@ -1881,6 +1972,7 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_prediction_claims(data_root),
         check_prediction_semantic_claims(data_root),
         check_evaluation_semantic_grades(data_root),
+        check_predicted_reasoning_grade_held(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
         check_outcome_votes_held(data_root),
@@ -1922,6 +2014,7 @@ def _run_checks(
         check_prediction_claims(data_root),
         check_prediction_semantic_claims(data_root),
         check_evaluation_semantic_grades(data_root),
+        check_predicted_reasoning_grade_held(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
         check_outcome_votes_held(data_root),

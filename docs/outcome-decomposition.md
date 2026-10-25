@@ -8,21 +8,26 @@ defines the decomposition that makes those parts scoreable, and the rule that
 scores them.
 
 **The mechanical family is implemented at all three stages; everything else here
-is pre-registration — with one carve-out, the
-semantic family, which is declared but neither pre-registered nor producing
-anything.** The scoring rule is `pipeline.base_rates.claim_score`; the
-declared sets — five cert-stage claims under `cert-v2`, carried by every
-declared cert moment, four interim claims under `interim-v1` carried by every
-interim moment, and the one merits claim (`judgment-disturbed`) under
-`merits-v1`, carried by every declared merits moment — live
+is pre-registration — with two carve-outs: the semantic family, which is
+declared but neither pre-registered nor producing anything; and a design for
+grading `predicted_reasoning.md` itself (*Grading the forecast document,
+design*), not yet registered.** The scoring rule is `pipeline.base_rates.claim_score`; the
+declared sets — `cert-v3` on every declared cert moment (`cert-v2`'s five
+binary claims and the `order-writers` distribution claim), `interim-v2` on every
+interim moment (`interim-v1`'s four binary claims and `order-writers`), and
+`merits-v2` on every declared merits moment (the one binary claim,
+`judgment-disturbed`, and the `majority-author` and `separate-writers`
+distribution claims) — live
 in `pipeline.claims`, with the resolvers, the strictly-prior baselines, and the
 availability mask beside it; `Prediction.claims` carries the predictor's
 probabilities and `Evaluation.claim_scores` the harness-computed block. The
 first set proposed against the rule was specified in a way that did not
 resolve, and *A claim set that failed* records why, in detail, because its
-tests are what the declared sets were chosen against. The merits vote,
-split, and writing claims remain pre-registered only —
-`docs/decision-model.md` records why the vote claims failed the tests. The
+tests are what the declared sets were chosen against. The merits vote and
+split claims remain pre-registered only —
+`docs/decision-model.md` records why they failed the tests — while the
+writing claims are declared as distribution claims under set versions every
+declared moment names (*The authorship claims*). The
 semantic family is declared but not pre-registered: `semantic-v1` (*The
 semantic family, alpha*) declares two claims on the merits moments and is an
 **alpha** — a methodology that has never met an opinion, explicitly not a
@@ -37,8 +42,11 @@ declared claim masks.
 Everything else — the whole document up to *The semantic family, alpha* — is
 pre-registration: the decomposition and the rule are settled before there is
 data to fit them to, which is the only order in which the choice of rule is
-credible. That last section is the exception, and says so at its own head; no published
-number depends on it, and it is superseded rather than edited.
+credible. That section is the exception, and says so at its own head; no
+published number depends on it, and it is superseded rather than edited. The
+section after it, *Grading the forecast document, design*, is a design for a
+grade of `predicted_reasoning.md` itself, settled before any grade exists and
+not yet registered.
 
 ## Naming
 
@@ -88,7 +96,7 @@ signal it resolves against.
 
 | Claim | Resolves against |
 | --- | --- |
-| Disposition (`disposition`) | `Outcome.actual_granted` — the declared form is the binary grant projection; the multi-class form waits on a per-label distribution no schema field carries |
+| Disposition (`disposition`) | `Outcome.actual_granted` — the declared form is the binary grant projection; the multi-class form waits on a per-label distribution claim of its own (`Prediction.claim_distributions` carries the authorship claims only) |
 | The petition is distributed at least once more (`relist-increment`) | `Outcome.signals.distribution_count` past `Prediction.context.distribution_count` — comparable only under one distribution parse, so masked where the parse the frozen `salience_version` pins differs from the one the outcome's signals block stamps |
 | The Court calls for the Solicitor General's views (`cvsg-increment`) | `Outcome.signals.cvsg_date` becoming non-null, from null (and observable) at prediction |
 | The grant disposes in the cert order (`summary-disposition-route`) | `Outcome.disposition_route` — a GVR or a judgment riding the grant order, against a grant set down for plenary review; masked on every non-grant |
@@ -108,11 +116,11 @@ docket's disposition entry):
 
 | Claim | Resolves against |
 | --- | --- |
-| Judgment (`judgment-disturbed`, declared under `merits-v1`) | `Outcome.judgment` through the disturbed projection (`pipeline.judgment.judgment_disturbed`) — the declared form is binary, exactly as the cert disposition claim's is; the multi-class form waits on a per-label distribution no schema field carries |
+| Judgment (`judgment-disturbed`, declared under `merits-v1` and carried by `merits-v2`) | `Outcome.judgment` through the disturbed projection (`pipeline.judgment.judgment_disturbed`) — the declared form is binary, exactly as the cert disposition claim's is; the multi-class form waits on a per-label distribution claim of its own |
 | Each justice's vote | `Outcome.votes`, per justice — **not declared**: the merits outcome writer records no votes (docket text discloses no provenance denominator), and the registered opinions source is written only by a dispatched `run-repair` pass (`opinion-votes`), so the resolution channel is empty until that pass stamps a merits outcome; see `docs/decision-model.md` |
-| Majority author | `Outcome.votes[].writing` and `Outcome.writing_roles` — fields exist, **not declared**, and unpopulated until a vote writer stamps a merits outcome |
-| A concurrence is filed | `Outcome.writing_roles` — field exists, **not declared**, unpopulated on merits outcomes |
-| A dissent is filed | `Outcome.writing_roles` — field exists, **not declared**, unpopulated on merits outcomes |
+| Majority author | `Outcome.merits_author`, checked against `merits_decision_method` — declared as the `majority-author` distribution claim of `merits-v2` (*The authorship claims*), which every merits moment names; unpopulated until the opinions writer stamps a merits outcome |
+| A concurrence is filed | `Outcome.writing_roles` — declared per Justice inside the `separate-writers` distribution claim of `merits-v2`, never as a binary of its own; unpopulated on merits outcomes until the opinions writer stamps them |
+| A dissent is filed | `Outcome.writing_roles` — declared the same way, inside `separate-writers`; unpopulated on merits outcomes until the opinions writer stamps them |
 
 `Outcome.judgment` is also the routing key for the accuracy bit beside the
 claim scores: `pipeline.evaluate.is_correct` takes the judgment comparison
@@ -145,9 +153,10 @@ It is also the set's one candidate for a multi-class score: the disposition
 vocabulary has eight values, so its full-resolution form is the sum of
 per-value Brier terms, which has the same properties as the binary rule. The
 **declared** form is nonetheless binary — the grant projection — because a
-multi-class claim needs a per-label distribution and no schema field carries
-one; when such a field exists, the fineness preference below points at the
-multi-class form. The binary form covers every declared claim.
+multi-class claim needs a per-label distribution, and the field that carries
+one (`Prediction.claim_distributions`) declares only the authorship claims;
+when the disposition gets a distribution claim of its own, the fineness
+preference below points at the multi-class form.
 
 ### Semantic claims
 
@@ -204,7 +213,8 @@ process version: a harness field, not an agent's word.
 
 A multi-class disposition claim would take the sum of per-value Brier terms,
 which has the same properties; the declared disposition claim is binary (see
-*Mechanical claims*), so today every claim takes the binary form.
+*Mechanical claims*), so every claim takes the binary form except
+`majority-author` (*The authorship claims*), the one multi-class claim.
 
 ### What the rule does and does not protect against
 
@@ -640,10 +650,12 @@ Drawn from the above, and cheaper to apply than to rediscover:
 
 ## What is scoreable today
 
-**The declared cert set: `cert-v2`.** Every declared cert **moment** — the
-petition baseline, the CVSG moment, the arrival moment, the sg-brief and
-relist moments, and the call-for-response moment once it is switched on — carries
-exactly five claims, declared in `pipeline.claims` and answered in full by
+**The declared cert set: `cert-v2`, carried by `cert-v3`.** Every declared cert
+**moment** — the petition baseline, the CVSG moment, the arrival moment, the
+sg-brief and relist moments, and the call-for-response moment once it is
+switched on — names `cert-v3`, which carries `cert-v2`'s binary claims
+unchanged beside the `order-writers` distribution claim (*The authorship
+claims*), so every cert cell answers exactly five binary claims, declared in `pipeline.claims` and answered in full by
 every predictor (`Prediction.claims`); the harness scores them into
 `Evaluation.claim_scores` at the evaluator's post-run stamp (`stamp-cell`,
 beside the process version — never the evaluator's word, and an
@@ -665,7 +677,7 @@ land.
 
 | Claim | Resolver | Baseline |
 | --- | --- | --- |
-| `disposition` | `Outcome.actual_granted` — the binary grant projection, restating the headline `probability` so the set is complete and self-describing (the block is advisory, so the headline Brier path is not paid twice on any ranked number); the multi-class form waits on a schema field carrying a per-label distribution | The frozen band's risk-set rate pooled over strictly-prior Terms (`prediction_base_rate`) — the same leakage-safe baseline the headline skill score uses, reused rather than duplicated, and never the terminal-band fallback, which conditions on the petition's own future |
+| `disposition` | `Outcome.actual_granted` — the binary grant projection, restating the headline `probability` so the set is complete and self-describing (the block is advisory, so the headline Brier path is not paid twice on any ranked number); the multi-class form waits on a per-label distribution claim of its own | The frozen band's risk-set rate pooled over strictly-prior Terms (`prediction_base_rate`) — the same leakage-safe baseline the headline skill score uses, reused rather than duplicated, and never the terminal-band fallback, which conditions on the petition's own future |
 | `relist-increment` | 1 iff `Outcome.signals.distribution_count` rose past `Prediction.context.distribution_count`; masked where either end is undisclosed, and where the two ends' recorded parses differ — the frozen `salience_version`'s pinned distribution parse against the `distribution_parse` the outcome's signals block stamps (an unstamped block discloses no parse and masks — an outcome's only date is the docket's decision date, which cannot say when or under which reading the block was written). A pair straddling a parse activation holds counts neither end can restate under the other's reading, so the strict comparison would read across the boundary — low against a narrowed column (suppressing a genuine increment), high against a wider-parse block (minting a spurious one) — and a mis-grade in either direction is what the mask refuses. Read any pooled rate for this claim with the mask's selection axis in mind: the masked set at an activation is *frozen-before ∧ resolved-after* — a **duration** cut, and duration is what relists are — so a scored set spanning an activation under-represents long-lived petitions and understates the realized increment rate relative to the population's | None yet. The honest baseline is the per-count risk-set hazard over strictly-prior Terms — and the hazard moves steeply in the count (≈26% at one distribution, 27% at two, 47% at three, 71% at four, denial-reweighted), so nothing coarser is properly conditioned. The pack's relist cut pools every Term, the case's own included, and its per-Term surface carries no relist cut — so the claim goes unscored until a per-Term relist-bucket cut over the scored segment lands |
 | `cvsg-increment` | 1 iff `Outcome.signals.cvsg_date` is non-null, given null — and observable — at prediction; masked as **vacuous** where a CVSG already sat on the docket, there being nothing left to forecast, and where the case's caption names a federal party on either side (`party-v2`'s federal class, read off the committed event's `title`), since the Court does not invite the Solicitor General's views where the United States is already a party | None yet, for the same strictly-prior gap — and the future per-Term cut must correct for the CVSG censoring recorded above, since a resolved-only rate in an open Term runs at a fraction of the true one — and must be taken over the non-federal-caption population the resolver scores, or the cases that structurally cannot draw a CVSG dilute it |
 | `summary-disposition-route` | 1 iff the grant disposed in the cert order — a GVR, or a judgment riding the grant order — 0 for a grant set down for briefing and argument, read **only** from `Outcome.disposition_route`. Masked as **vacuous** on every non-grant — a denial, a dismissal, a withdrawal — and as **not assessed** on any grant carrying no marker: a record with no order text, no cert-grant date, or an undated judgment entry. Never read off the `gvr` label where the marker is absent, which would make assessability depend on the answer — see below | The prior Terms' cert-order share of grants (`summary_route_base_rate`): pooled `gvr` + `summary-reversal` over pooled grant-family counts from each Term's **paid** fee-class cut — the scored population — strictly prior, above a stated minimum. Conditioned on the grant family, matching the resolver's own conditioning, and carrying one residual downward bias — see below |
@@ -877,7 +889,9 @@ sums over a different set, so the two are pooled no more freely than a total
 from a cell run under a different process digest — `metrics/README.md`'s
 `declared_set_versions` rule is where that is enforced.
 
-**The declared merits set: `merits-v1`.** Every declared merits moment — the
+**The declared merits set: `merits-v1`, carried by `merits-v2`.** `merits-v2`
+adds the authorship distribution claims (*The authorship claims*) and leaves
+the binary claim unchanged. Every declared merits moment — the
 grant moment `evt-order-judgment`, the briefed moment `evt-brief-judgment`, and
 the post-argument moment `evt-argument-judgment` —
 carries it, reached through the declared-moment table rather than by event id or
@@ -899,9 +913,11 @@ and carry the pool guard's count on every Term inside the window
 affirmance resolve 0 (undisturbed) and sit in the baseline's denominator the
 same way; `docs/decision-model.md` is the registered design.
 
-**The declared interim set: `interim-v1`.** All three interim moments — the
-application on arrival, after the Court called for a response, and once one was
-filed — declare the same four claims, reached through the moment table like the
+**The declared interim set: `interim-v1`, carried by `interim-v2`.** All three
+interim moments — the application on arrival, after the Court called for a
+response, and once one was filed — name `interim-v2`, which declares
+`interim-v1`'s four binary claims beside `order-writers`, so they answer the
+same four, reached through the moment table like the
 merits set. The claims do not change because the forecast was taken later; only
 the information set does, and that lives on the aggregation key.
 
@@ -1001,13 +1017,15 @@ because the question is whether the moment earns its cells at all, not whether
 the harness can mint it. Retiring it costs the set nothing, whereas a claim
 declared on it would settle that question by inertia.
 
-**What stays out, and why.** The merits vote and writing claims wait for a
-populated vote source:
+**What stays out, and why.** The merits vote claims, and any scored reading of
+the writing claims (*The authorship claims* below), wait for a populated vote
+source:
 `Outcome.votes` is `[]` on every committed merits outcome — the merits outcome
 writer deliberately records none, because docket text discloses no
 provenance denominator — and no committed merits outcome carries
-authorship or separate writings yet (`Outcome.writing_roles` exists and the
-opinions writer fills it, but no merits outcome has been stamped); the per-Justice forms also
+authorship or separate writings yet (`Outcome.merits_author` and
+`Outcome.writing_roles` exist and the opinions writer fills them, but no merits
+outcome has been stamped); the per-Justice forms also
 fail the redundancy and volume conditions (`docs/decision-model.md` records
 the full test-by-test analysis). All semantic claims wait on opinion
 coverage — the operator-run channel that fills it (`fedcourts
@@ -1033,10 +1051,12 @@ does not yet decide — is *The semantic family, alpha*.
 
 `predicted_reasoning.md` is a forecast document, and the whole point of keeping
 it apart from `reasoning.md` is that a forecast can be scored while a rationale
-cannot. Nothing scores the document itself, and nothing ever will: prose is not
-a resolvable object. What is scored are the **structured** claims that carry the
-same content — the mechanical `claims` block, and on a merits cell the graded
-`semantic_claims` block. This register is the join between the two. Every
+cannot. Nothing in the registered process grades the document itself: prose
+is not resolvable deterministically, and the graded protocol designed for it
+(*Grading the forecast document, design*) is not yet registered. What is
+scored are the **structured** claims that carry the same content — the
+mechanical `claims` block, and on a merits cell the graded `semantic_claims`
+block. This register is the join between the two. Every
 content class the predict prompt asks a cell to commit to appears here with its
 route, so that *unscored* is a stated position rather than an oversight. A class
 the prompt elicits and this table does not name is a defect in one of them.
@@ -1062,7 +1082,7 @@ pre-registered rule that keeps it there permanently.
 | interim | How many further amicus briefs arrive | `amicus-increment` (`interim-v1`) | Declared and resolved; same gap, sharpened — the published column collapses the count to a flag |
 | interim | How the application is disposed of | `interim-disposition` (`interim-v1`) | **Scored** above the pool's registered floor, against the strictly-prior substantive grant rate |
 | interim | *When* it is disposed of | Context-only | The timing row above, on the interim docket |
-| merits | Which of the six judgment labels the Court enters | `judgment-disturbed` (`merits-v1`) on the binary; the multi-class form is context-only | The binary is **scored**; the six-way form waits on a schema field carrying a per-label distribution, exactly as the cert disposition claim's does |
+| merits | Which of the six judgment labels the Court enters | `judgment-disturbed` (`merits-v1`) on the binary; the multi-class form is context-only | The binary is **scored**; the six-way form waits on a per-label distribution claim of its own, exactly as the cert disposition claim's does |
 | merits | Whether a procedural exit (a DIG, an equally divided Court) is live | Folded into `judgment-disturbed` | Both resolve *undisturbed*, so the binary prices them; the label-level call rides the multi-class row above |
 | merits | The ground the majority rests on | `majority-ground` (`semantic-v1`) | **Graded**, not scored. The machinery is live end to end; every unit masks until opinion bodies accrue, and the vantage caveat travels as prose |
 | merits | How broad that ground is | `ground-breadth` (`semantic-v1`) | The same, on a separate axis — never a conjunct of the row above |
@@ -1070,7 +1090,7 @@ pre-registered rule that keeps it there permanently.
 | merits | The vote lineup and the split | Context-only, banked in `votes` | Pre-registered pending a populated vote source: `Outcome.votes` is empty on every committed merits outcome because docket text discloses no provenance denominator, and the registered opinions source is written only by the dispatched `opinion-votes` pass. Merits votes are banked and scored against complete records the day one is written; cert votes never are |
 | merits | Whether a separate writing splits the rationale from the result | Context-only; **mechanical** family the day a field records it | Existence is a countable docket fact, not a reader's judgment, so it belongs with a real baseline and a proper score rather than as prose graded by impression. `semantic-v1` holds no place for it |
 | merits | Which question presented the Court reaches and which it leaves | Context-only | The merits-side twin of the cert QP row, with the same framing gap |
-| merits | Authorship and the writing roles | Context-only | `Outcome.writing_roles` and `votes[].writing` hold them once the opinions writer stamps a merits outcome, and none is stamped yet; the prompt tells the cell not to present them as the scoreable part |
+| merits | Authorship and the writing roles | `majority-author`, `separate-writers` (`merits-v2`) | Distribution claims the predict prompt elicits on every merits cell (*The authorship claims*); they resolve from the `merits_author` and `writing_roles` the opinions writer stamps on a merits outcome |
 | any | The rationale for the predictor's own number | Never scored, by construction | That is `reasoning.md`, a different document with a different epistemic status: it resolves against nothing. `reasoning_quality` grades its soundness and grades no forecast |
 
 Three properties of the table are worth reading off it. **Every scored route is
@@ -1132,12 +1152,14 @@ never-parsed.
 
 ### What that adds up to
 
-The merits *vote and writing* half of this document is blocked on data that is
-not scheduled:
-per-justice votes and opinion bodies. That is the honest state of it, and it is
-why that half of the taxonomy is pre-registered rather than implemented. The
+The merits *vote* half of this document is blocked on data that is not
+scheduled: per-justice votes and opinion bodies. That is the honest state of
+it, and it is why that half of the taxonomy is pre-registered rather than
+implemented. The *writing* half is implemented as distribution claims
+(*The authorship claims*), resolving from the writing roles the opinions
+writer stamps. The
 merits *judgment* half is not blocked: judgment detection resolves
-`Outcome.judgment` from the docket, and `merits-v1` declares its one claim.
+`Outcome.judgment` from the docket, and `merits-v2` carries its one binary claim.
 
 All three mechanical halves are declared: `Outcome.signals` and the two
 order-text markers beside it freeze what a cert-stage claim resolves *against*,
@@ -1180,6 +1202,138 @@ Two consequences worth stating plainly:
   resolve against fixed sources and the floor above is computed beside them.
   `metrics/README.md` governs what may be claimed from a number, and a claim
   total is not an exception to it.
+
+### The authorship claims
+
+A prediction under these sets forecasts the writings of the decision its
+moment predicts.
+One probability cannot carry a forecast over the bench, so these are
+**distribution claims** (`Prediction.claim_distributions`): a claim id with a
+probability per label, a label being a Justice's name as the roster spells it.
+They are declared beside a set's binary claims, under `merits-v2`, `cert-v3` and
+`interim-v2`, which carry their predecessors' binary claims unchanged and in the
+same order (`pipeline.claims`). Every declared moment names its stage's version,
+and the predict prompt elicits the forecast: the declaration and the prompt move
+together, as the paragraph above requires. A cell stamped under a process label
+before `proc-v12`, the first whose prompt asks for the forecast
+(`process_version.AUTHORSHIP_CLAIMS_FROM`), was asked the predecessor set and is
+scored under it (`pipeline.claims.declared_claim_set_for`), as is an unstamped
+cell stating no distribution block: the binary claims are the same, so the
+scores are, and the version a committed grading reports does not move with the
+moment table. An absent distribution block is masked, as an absent `claims`
+block is, and never guessed.
+
+| Claim | Sets | Kind | Resolves from | Masked when |
+| --- | --- | --- | --- | --- |
+| `majority-author` | `merits-v2` | Categorical over the bench and `per-curiam`, summing to 1 | `merits_author`, the author the opinions listing prints on the decision's row, which the opinions writer stamps for every decision it finds, signed or per curiam (*Why the author resolves from its own stamp*); the label set is the Justices in the outcome's `writing_roles` where observed, else the author alone, and the score is the same either way, since a label the outcome leaves out resolves 0 | No stamped author (no listing row dated the outcome's resolution, or a row whose author code is not on the roster), an unclassified decision method, a method that disagrees with the stamp or falls outside the argued population (a stamped Justice off `argued-signed`, a stamped `per-curiam` off `argued-per-curiam`), so a summary opinion and a decision with no deciding opinion (a DIG, a summary order), or observed roles that contradict the stamp (the stamped Justice missing from them, holding a role other than the lead or a mixed one, or another Justice holding a lead) |
+| `separate-writers` | `merits-v2` | Per Justice, each probability on its own | Whether each participating Justice wrote anything but the lead opinion: a concurrence, a dissent, either in part, or a writing of mixed role | Unobserved roles, which covers every per curiam the opinion record derives no lineup for, and a signed decision whose roles name no single lead writer (a null role there may be the lead opinion in part) |
+| `order-writers` | `cert-v3`, `interim-v2` | Per Justice | Whether each participating Justice wrote on the order, off the orders source's observed roles | Unobserved roles, and any merits outcome |
+
+**Scoring.** The rule above, `(b - y)^2 - (p - y)^2`, is applied once per
+label, and the claim's kind fixes how the terms combine before any outcome
+exists. A categorical claim **adds** its terms over every label either side
+names, a label the forecast leaves out stating 0, so mass on a Justice who did
+not sit is a miss rather than dropped (the baseline prices the whole seated
+bench, so a forecaster who knows of a public recusal earns that knowledge); it
+is bounded by 2, the multi-class form
+this document already registers. A per-Justice claim **averages** its terms
+over the Justices the outcome resolves, so a bench of nine weighs as one claim
+rather than nine, the weighting the *No claim may be derived from another*
+section requires the harness to declare; it is bounded by 1, and it scores
+nothing when the forecast or the baseline omits a Justice the outcome resolves.
+Each combination of proper terms with weights independent of the forecast
+is proper. The categorical bound assumes the baseline is a distribution too,
+which a baseline cut must satisfy.
+
+**`order-writers` is collected and never scored.** A writing on a cert order
+sits near 0.2% per Justice-order (about 0.5% for the most frequent writer):
+on the committed orders-source outcomes of 2026-10-23, 48 of 2,921 carry any
+writing, concentrated in three Justices, and 7 of those 48 carry two. The per-Justice form fails test 8, and a "who, given someone writes"
+categorical has no single answer on an order with two writers. The existing
+`dissent-from-denial` claim stays the scored part of the cert stage; the
+writers forecast is resolved and banked beside it.
+
+**Baselines.** Both scored claims' baselines pool the statpack's authorship
+section (`metrics/README.md`), the per-opinion record per Term, over the
+October Terms strictly before the one the cell's snapshot falls in, inside the
+lookback band `salience.base_rate_lookback_terms` sets (the record starts at
+OT2020, so the band reaches no further back), priced over the Justices sitting
+on the snapshot date (`pipeline.base_rates`). Only argued decisions count, the
+population a merits forecast is made on: a summary per curiam, which the
+author claim would resolve as `per-curiam`, is a population a merits case
+rarely sees. A signed decision the separate-writers claim masks (its author
+also wrote separately, or it carries a second lead writing) is left out of that
+pool only; the author pool keeps it, since the author claim resolves it from
+the stamp. The author pool takes a signed decision on its opinion's printed
+argument date, while the claim resolves one only where the docket classified
+it `argued-signed`; a per curiam enters both only where classified. Where
+signed decisions go unclassified, the baseline's per-curiam share sits below
+the resolved pool's.
+
+- `majority-author`: the per curiam takes its pooled share of argued
+  decisions, plus half a per curiam over one added decision, so a window that
+  saw none still prices one above zero. Each Justice's share of the signed rest
+  is their majority opinions over the decisions decided while seated, shrunk
+  toward an even split by 20 pseudo-decisions so a newly seated Justice is not
+  priced at 0, then scaled so the baseline sums to 1.
+- `separate-writers`: each Justice's separate writings over the observed
+  signed decisions they took part in, shrunk toward the bench-wide pooled rate
+  by the same 20 pseudo-decisions. Observed means a filled bench row, and the
+  record fills those only for Terms the opinion-record pass has read whole
+  lineups for, so this pool can cover far fewer Terms than the author's and sit
+  near the floor; a later bench back-fill re-bases every separate-writers row
+  on re-grade. The pool is signed decisions, while the claim also resolves a
+  dismissal or summary disposition whose roles were observed, so those are
+  priced at the signed rate (an observed DIG is likely one that drew a dissent,
+  so this direction under-prices).
+
+Either is `None`, and its claim unscored, below 30 pooled decisions (argued
+decisions for the author, observed ones for separate writing), and neither
+conditions on the case. A late-Term author baseline would down-weight, never
+zero, the Justices who have already written for the case's sitting, since a
+sitting sometimes gives one Justice two opinions and a zero baseline against a
+hit hands out an unearned point. It would read the tally frozen into the
+prediction's context at cell time, which no context field carries yet: a tally
+computed at resolution would carry the opinions issued after the cell ran,
+which test 3 names as leakage. A row scores only where the committed pack's
+section clears the floor and the outcome resolves the claim; a pack without the
+section scores neither.
+
+**Why the author resolves from its own stamp.** The claim's mask must not
+depend on the answer. A per curiam never receives `writing_roles`, so an author
+read off the roles would resolve every per curiam and only the signed decisions
+whose lineup was read whole: the pool would over-represent per curiams, and a
+forecast stating a per curiam everywhere would collect on them while losing
+nothing on the masked signed decisions. So the opinions writer stamps
+`Outcome.merits_author` from the author code the Court's opinions listing
+prints on the decision's row, which it prints for every decision, signed or per
+curiam, whether or not the lineup is read, so the stamp's coverage does not
+depend on who wrote. The decision method, read from the docket, still has to
+agree, and only an argued decision resolves, the population the baseline pools:
+a stamped `per-curiam` resolves only under `argued-per-curiam`, a stamped
+Justice only under `argued-signed`. A summary opinion is masked, as an argued
+case whose argument entry the docket read missed already masks a signed one.
+Whether the docket's method classification misses one kind of decision more
+often than the other is not yet measured: a census of stamped outcomes masked
+for an unclassified or disagreeing method, by stamped kind, is owed before any
+`majority-author` figure is quoted, and it can be taken only once the opinions
+writer has stamped the merits population. The author is the listing's own and is not
+cross-checked against the Granted & Noted list, which compares only lineups the
+syllabus was read for (signed decisions): holding the author back on that
+comparison would mask signed decisions a per curiam could never be masked for.
+`validate` holds a stamped Justice to the roster's spelling and to the bench
+seated on the outcome's `resolved_at`.
+
+**Reporting.** The rows sit in `ClaimScoreBlock.distributions`, beside the
+binary claims and never added into `total`, `floor` or `lift`. A malformed
+distribution block — a declared claim left out, one stated twice, a categorical
+forecast not summing to 1, a label off the roster, a per-Justice forecast
+leaving out a Justice sitting on the cell's snapshot date — yields no rows and
+leaves the binary block as it is; `validate` reports it through
+`claim_block_problems`. The rows ride the binary block, though: where that block
+is void or absent the rows go with it, and `validate` reports a distribution
+block stated without a `claims` block. The rows carry no floor or lift; the
+floor is identically 0, as the binary claims' is.
 
 ### The mechanical↔semantic agreement, pre-registered
 
@@ -1884,3 +2038,261 @@ residuals its module docstring names, the call-class profile among them. So what
 separates a declared set from a produced grade is a decided merits case — its
 resolution to mint the grading cell, and its opinion text for the grader to read
 — not a shape, and not an elicitation.
+
+## Grading the forecast document, design (`predicted_reasoning_quality`)
+
+The register above routes every content class the predict prompt elicits to a
+structured claim or to context-only, and leaves `predicted_reasoning.md` itself
+ungraded. That position says less than it seems to: prose is not resolvable
+**deterministically**, but the project already resolves non-deterministic objects
+by a reader under discipline (`reasoning_quality`, the `semantic-v1` grades, the
+QP-topic labeler). And the structured blocks score only what was declared in
+advance, so the most informative part of a forecast — the specific, checkable
+things a predictor volunteered beyond the declared sets — earns nothing and
+costs nothing. A grade of the document is what makes that content count.
+
+**This section is a design, not a registered process.** The schema carries the
+grade (`Evaluation.predicted_reasoning_quality`, with the central-claims list in
+`predicted_reasoning_review`) and a draft prompt section asks for it
+(`.github/prompts/pilot/predicted-reasoning-quality.md`), but no registered
+evaluate prompt reads that section, no artifact reads the grade, and `validate`
+refuses a committed one (`predicted_reasoning_grade_awaits_registration`); the
+register's opening position above stands until the grade is registered
+(*Registration* below). It is settled here,
+before a single grade exists, for the same reason the rest of this document is:
+a rubric chosen after reading the grades is a rubric fitted to them.
+
+### What is graded, and by whom
+
+- **The document, and only the document.** `predicted_reasoning_quality` grades
+  `predicted_reasoning.md` — the predictor's forecast of what the Court will do
+  and say. It is not a grade of the prediction as a whole: the probability, the
+  `claims` block, the votes and the `semantic_claims` keep their own scores, and
+  the grade is never folded into any of them. It is the sibling of
+  `reasoning_quality`, which grades `reasoning.md`, and the two are never mixed
+  in either direction, for the reason the evaluate prompt already gives:
+  a number that means two things is comparable across cells as neither.
+- **Every stage.** Cert, interim and merits cells are all graded. The merits
+  documents carry the richest content, but a document grade that exists only
+  where opinions do would leave the cert and interim record with no measure of
+  the prose at all, and those stages hold almost every resolved cell today.
+- **Every evaluator grades every predictor.** The grade rides the evaluate
+  cell's existing evaluator × predictor fan-out, under the same blinding
+  bracket, beside `reasoning_quality`. No single engine extracts claims for the
+  others: a pipeline in which one model decides what the propositions are and
+  the panel only resolves them would make that one model's reading the object
+  every grade measures.
+- **Holistic, on the thrust.** The grader reads the whole document and judges
+  how well its forecast held up. It chooses for itself which claims are central
+  — the disposition and route, the vote and who writes, the ground, the
+  procedural path, whatever the document leads with — and it grades the thrust,
+  not the margins. A minor detail wrong in an otherwise borne-out forecast
+  costs little; a confident central call that failed costs most of the grade.
+
+### The scale and the rubric
+
+The grade is a number in `[0, 1]`, the scale `reasoning_quality` uses, so the
+existing tau-b estimator (`kendall_tau_b`) applies without rescaling; the
+figures that use it are new (*Relation to the other numbers*, *The pilot*). It
+is anchored, because a bare scale drifts apart across graders:
+
+| Grade | Anchor |
+| --- | --- |
+| 1.0 | The central claims are specific and borne out; the document called what a competent reader of the pre-decision record could plausibly have called otherwise |
+| 0.75 | The central claims are specific and mostly borne out; one secondary claim failed, or one central claim held only in part |
+| 0.5 | The forecast is right in direction but generic — it commits to little beyond the outcome itself — or a specific forecast is split between borne out and not |
+| 0.25 | A central claim failed, with the rest generic or mixed |
+| 0.0 | The central claims are specific and failed, or the forecast is wrong in direction |
+
+Three rules hold the anchors in place:
+
+- **Specificity is in the anchors, not a separate axis.** A document that is
+  right but says nothing a reader could have been wrong about caps near the
+  middle. This is the anchor that keeps a graded document from rewarding hedged
+  prose: a hedge cannot reach the top of the scale, because it never commits to
+  the specific claims the top requires.
+- **Discriminating content only.** A claim entailed by the question presented,
+  the syllabus or the standard of review earns no credit however cleanly the
+  outcome matches it, because it was never at issue — the same paraphrase rule
+  the semantic grading protocol applies.
+- **Length earns nothing.** A longer document is not a more specific one. The
+  grade reads what the document committed to, not how much it wrote.
+
+Beside the grade, the grader lists the **three to five claims it treated as
+central**, each with a status — borne out, not borne out, or unresolved — and a
+one-line basis naming what in the record it rests on. The list is not scored and
+never aggregates into anything. It is the audit trail that makes "grade the
+thrust, not the margins" checkable: a reviewer can see whether the grader graded
+the claims the document led with, or hunted for a detail to dock.
+
+### What the grade is checked against
+
+The grader reads what the evaluate cell already stages — the committed outcome,
+the docket record, the order text — and, on a merits cell, the text of **every
+writing** in the case: the majority opinion, each concurrence and each dissent.
+What resolves differs by stage:
+
+| Stage | What the outcome can show |
+| --- | --- |
+| cert | The disposition and its route, further relists, a CVSG, a summary disposition, any dissent from or statement respecting denial and who wrote it |
+| interim | The disposition, a referral, a call for a response, any separate writing and who wrote it |
+| merits | The judgment, the lineup, who wrote each opinion, which Justices wrote separately and what each writing argues, the ground and its breadth |
+
+The grade rests on the staged record alone, as the semantic grades do: an
+absent writing is never a licence to fetch its text from somewhere else, because
+a basis has to resolve against text whose digest the cell recorded. A central
+claim that the staged record cannot settle — a writing the corpus does not yet
+hold, an order the record omits — is listed as unresolved; the grader does not
+guess.
+
+**Content the outcome never tests earns nothing either way.** A cert document
+forecasts the merits only conditionally ("if granted, the ground is likely …"),
+and a denial never tests that condition. Untriggered conditional content earns
+neither credit nor penalty — but it does not excuse the document from a grade.
+Every document at every stage faces something the outcome resolves (at the
+least, the disposition), so a document whose central claims are all
+conditional on an event that did not happen is graded as a **generic** one, at
+the anchors that cap it near the middle or below. Otherwise writing only in
+conditionals would trade a low grade for none.
+
+**Not gradeable is the record's ground only.** The grade is null, with a stated
+ground, only where the staged record is silent on everything the document's
+central claims turn on — never because the predictor declined, hedged, or wrote
+conditionally, the same rule the availability mask above states. A null is
+never a middling number standing in for "could not tell", and each predictor's
+null count publishes beside its figures, so a pattern of nulls is visible
+rather than absorbed into a denominator. Where some judges return null and
+others grade, the cell is a **split on the mask**, handled as the semantic
+agreement requirement handles one: it enters neither the panel mean nor any
+coefficient, and is counted on its own row, and a published figure says it
+holds only where the panel agreed the record spoke.
+
+### Blinding
+
+The grade is formed under the blinding bracket every evaluate cell runs inside,
+with its named residuals. Two of them bind harder here than for any other grade.
+**Prose style**, because the grader reads a whole document in the predictor's
+voice rather than a set of propositions. And **family**, because a judge reading
+its own model family's document may prefer that family's way of writing, which
+blinding the name does not hide. Both are accepted rather than solved, and both
+are measured: the pilot reports the predictor-tracking check below, and reports
+each judge's grades of its own family's documents separately from its grades
+of the others'.
+
+### Relation to the other numbers
+
+- **Never inside `reasoning_quality`, never inside a claim total.** The grade is
+  its own field and its own series.
+- **Per stage, per process version, per rubric, never a rank key** — the
+  publishing rules a claim total travels under apply unchanged, a cert-stage
+  grade never pools with a merits-stage one, and a mean grade reads per
+  (evaluator, digest) the way `metrics/README.md` reads every judge-authored
+  figure, never as one mean pooled across judges.
+- **Paired with the mechanical record, with its built-in part stated.** The
+  pre-registered mechanical↔semantic agreement above keeps its pairing with
+  `reasoning_quality`. This grade is paired with the mechanical claim total as
+  a separate, parallel figure under the same estimator and floors, so neither
+  series is redefined. That pairing is partly built in: the anchors grade
+  whether the disposition held, and the claim total scores the same
+  disposition. So the figure also publishes **within** the cells where the
+  disposition was called correctly and within those where it was not, and only
+  those within-group coefficients speak to whether the grade measures more than
+  the disposition.
+
+### The pilot, and what it reports
+
+The grade is exploratory as much as it is a measurement: part of its value is
+seeing what the judges say about a forecast, in the grade, the central-claims
+list and the write-up. So the pilot is not a pass/fail gate against the
+maintainer's labels. It reads what the judges do, reports how far they agree
+with each other and with the maintainer, and fixes in advance *what* it
+reports, so the report cannot be chosen after the grades are read.
+
+- **Population.** About 60 already-resolved cert and interim documents, graded
+  by every configured judge with the draft prompt section, plus replay merits
+  cells on 10–20 decided OT2024–25 cases. The replay merits grades are
+  **calibration evidence only**, reported separately: those opinions are
+  public, so a replay document can carry its outcome, and the grades never
+  test a predictor.
+- **Output.** A pilot report, outside `data/`. A pilot grade is never committed
+  to the ledger and never read by any metrics artifact. Each round the draft
+  prompt section goes through gets its own report, stamped with the section's
+  hash, which the operator supplies since the evaluations do not record it, so
+  the reports together list every round.
+- **Reference labels.** The maintainer grades **10** cert and interim pilot
+  documents on the same rubric to start, more as needed, chosen to span the
+  scale. The maintainer grades blind to predictor identity and before seeing
+  any judge's grade, and the labels' hash is recorded before the panel's
+  grades are read, out of band; the pilot report records the sheet's hash
+  and, given the one recorded beforehand, refuses a sheet that no longer
+  matches it, saying whether it checked. The labels join a round through a
+  packet sampled at the commit the round ran, whose sample's hash must match
+  the one the round's report records. For merits, published commentary on
+  decided cases — argument previews and analyses whose quality is roughly
+  known — is graded alongside as exemplars, a weaker test since commentary is
+  recognisable by its authors. A label is a reference point, not ground truth:
+  where the judges and the maintainer part ways, the report reads the
+  disagreement rather than scoring the judges against it.
+- **What the report carries**, each over the cert and interim documents and
+  never pooled across stages:
+  - each judge's grade beside the maintainer's on every reference document,
+    with the share within 0.2 and Kendall tau-b against the labels (on 10
+    points a description, not a measurement);
+  - leave-one-out inter-evaluator agreement — the same leave-one-out tau-b
+    construction as the board's `evaluator_agreement`, with the cell (case,
+    event, predictor) as the unit rather than the case, since a document grade
+    is a property of the cell — with the distinct-case count beside the unit
+    count, and an undefined coefficient reported as undefined rather than read
+    as agreement, for the reason the semantic agreement requirement gives;
+  - the **predictor-tracking check**: the same leave-one-out tau-b computed
+    within each predictor's documents and averaged. A pooled coefficient well
+    above the within-predictor one says judges agree on which predictor wrote
+    a document more than on how good it was;
+  - each judge's grades of its own family's documents beside its grades of the
+    others';
+  - a reading of the central-claims lists and write-ups: what the judges
+    treated as central, where they diverged, and whether they graded the
+    thrust or hunted details.
+- **What decides registration** is the maintainer's reading of that report, not
+  a threshold. The figures above travel with the grade once it is published —
+  every published mean carries its agreement figure beside it, and a low or
+  undefined one is a caveat a reader sees, not a figure withheld.
+
+### Registration
+
+The grade is registered at a process re-bless, as one coordinated change: the
+evaluate prompt's section asking for it (the schema already carries the field
+and its central-claims list), lifting the `validate` check that refuses a
+committed grade until then, the matching site change if the grade is published, a
+freeze-record entry, and the register revised to match: its opening paragraph
+and its "every scored route is mechanical or graded, never prose" property name
+the registered grade, and a row routes the document to it. The prompt change
+moves **every** evaluate digest, not only this grade's: the existing
+`reasoning_quality`, `big_case` and agreement readings start new signatures at
+that boundary, which is the cost of asking for the grade inside the evaluate
+cell. After registration the already-resolved forward documents are graded
+**once**, in new evaluation runs stamped with the grading's process version;
+committed evaluations are never edited.
+
+### What remains unbuilt
+
+1. **The merits calibration cells.** The schema fields, the draft prompt
+   section, the cert and interim sample (`fedcourts reasoning-pilot-sample`,
+   which also writes the blind labeling packet), the report (`fedcourts
+   reasoning-pilot-report`) and the round itself (run-evaluate's
+   `reasoning-pilot` dispatch mode, which grades the sample with the section
+   and uploads the evaluations and the report rather than committing them)
+   exist, and a pilot row stages every writing of the decision (`fedcourts
+   provision-opinion --writings`, from the per-writing texts the
+   `opinion-record` pass stores). The replay merits calibration cells come
+   from a merits back-test's kept forecasts (`run-backtest`'s `replay:
+   merits`, its `merits-forecasts` artifact): `fedcourts
+   reasoning-pilot-merits-sample` lays them into the round's working tree as
+   resolved merits events and samples them, and `evaluate-matrix
+   --calibration` marks their rows. run-evaluate's
+   `reasoning-pilot-merits` dispatch mode is the round that grades them: it
+   takes the newest successful merits back-test's artifact on `main`, lays
+   each cell's event into its checkout, and uploads the evaluations and the
+   report as the cert and interim round does.
+2. **The reference labels and the pilot run itself.**
+3. **Registration**, as above.

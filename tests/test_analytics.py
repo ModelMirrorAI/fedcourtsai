@@ -380,7 +380,7 @@ def test_stats_offers_only_the_dimensions_it_can_compute(fixture_corpus: Fixture
     # cannot serve is the failure this pins. It lives beside the other
     # `STATS_DIMENSIONS` tests, where someone adding a dimension will look.
     assert GroupBy.qp_topic not in analytics.STATS_DIMENSIONS
-    assert set(analytics.STATS_DIMENSIONS) == set(GroupBy) - {GroupBy.qp_topic}
+    assert set(analytics.STATS_DIMENSIONS) == set(GroupBy) - {GroupBy.qp_topic, GroupBy.cert_amicus}
     result = runner.invoke(app, ["stats", "--group-by", "qp_topic"])
     assert result.exit_code == 2
     assert "Unknown --group-by 'qp_topic'" in result.stderr

@@ -55,6 +55,43 @@ non-interactive** container. Two consequences shape everything you do:
   mutation a scheduled window can converge toward on its own is a standing sweep
   on the walker instead. See `docs/data-pipeline.md`.
 
+## Where you run: an interactive cloud session
+
+A session in the Claude app or Claude Code on the web runs in a cloud
+container cloned for it. It differs from a dev checkout in ways worth knowing
+before the first command rather than mid-task:
+
+- **Only attached repositories can be cloned or pushed to.** A cross-repository
+  change, such as the site PR *The public site reads this repository* asks for,
+  needs `fedcourts.ai` attached to the session first.
+- **The clone may be shallow.** A shallow history answers `git merge-base` and
+  "is this commit on `main`?" wrongly, so run `git fetch --unshallow` (or fetch
+  the branch you compare against in full) before any ancestry question. Fetch
+  `staging` before branching from it, since a single-branch clone has no
+  `origin/staging`. A fetch refspec left behind for a branch since deleted
+  fails every later `git fetch origin` ("couldn't find remote ref") until
+  `git config --unset --fixed-value remote.origin.fetch '<refspec>'` removes
+  it, with the refspec exactly as `git config --get-all remote.origin.fetch`
+  prints it.
+- **GitHub goes through the session's connection.** Which routes it accepts
+  depends on how the session was set up: where `gh pr …` or `gh issue …`
+  fails on a GraphQL refusal, try the same call over REST (`gh api
+  repos/{owner}/{repo}/…`) or the session's GitHub tools, which also read
+  Actions job logs. Dispatch, re-run and environment administration stay
+  refused whatever the route (*You cannot dispatch a workflow*, below), and
+  admin-read checks such as `scripts/promotion-gate.sh contexts` are the
+  maintainer's to run.
+- **The container runs as root, behind an HTTPS proxy.** A test that relies on
+  a file's mode bits, or on a client that ignores the proxy environment
+  variables, has to set that up itself, or it passes in CI and fails here.
+- **Corpus access and identity** are covered where they bind: *Corpus-dependent
+  claims state corpus freshness* says what a session started in the corpus
+  environment may read and how any other session asks the corpus-check lane
+  (the full contract is *Developer access* in `docs/data-pipeline.md`); *You
+  merge to `staging`* says which account a session acts as; and *Don't commit
+  personal or organizational email addresses* gives a hosted session's commit
+  identity.
+
 ## The golden rules
 
 - **Branch and PR.** Never commit to `main` or `staging` directly. Create a
@@ -541,7 +578,7 @@ task-specific instructions: the prompt file named in your run
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
 | What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, ten batches have landed covering the scoped frame; the committed `metrics/docket.md` still renders the two-batch cut until the next `fedcourts docket` run regenerates it) | `docs/qp-topic.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` (the rules), `docs/freeze-record.md` (the dated record) |
-| How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote/writing pre-registered; the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error) | `docs/outcome-decomposition.md` |
+| How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote pre-registered; writing elicited as distribution claims on every moment (authorship scored on the merits moments, order writers collected); the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error; a grade of `predicted_reasoning.md` itself, `predicted_reasoning_quality`, designed and awaiting its pilot) | `docs/outcome-decomposition.md` |
 | How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated and completeness-gated, and recomputed over the whole bench for the leaderboard's `mean_vote_accuracy` — the orders vote source (cert and interim, banked unscored) is stamped on committed outcomes, while the opinions source (merits) is registered with a dispatch-only writer and not yet populated; margins pre-registered only) | `docs/decision-model.md` |
 | Who can reach what, and why is a token scoped that way? | `SECURITY.md` (invariants), `docs/security.md` (setup) |
 | What does one prediction actually consist of, file by file? | `docs/predicted-artifacts.md` |
