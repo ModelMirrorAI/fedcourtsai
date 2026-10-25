@@ -13545,42 +13545,57 @@ freeze commit is recorded here.
   baseline, and no merits outcome carries recorded votes yet.
 
   **Digests** (`uv run fedcourts process-digest --all`, at `staging`
-  `15d4b5e21` before this change and at it):
+  `338ae739d` before this change and at it):
 
   | Actor | Before | `proc-v13` |
   | --- | --- | --- |
-  | `claude-baseline` | `sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f` (`proc-v12`) | `sha256:0e9f038aa50f27c07962cefa5d1cd59c55d66db242b727a96735976c5d5075d6` (new) |
-  | `codex-baseline` | `sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4` (`proc-v12`) | `sha256:30b53868273c7d74d66b14eac3aa36741eac10086bd1469378aaa3addea843bc` (new) |
-  | `gemini-baseline` | `sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9` (`proc-v12`) | `sha256:607d0e86e54356555a4a240ef8845ddf5dd33ae1f50269f52d83cd14548824a1` (new) |
+  | `claude-baseline` | `sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f` (`proc-v12`) | `sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d` (new) |
+  | `codex-baseline` | `sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4` (`proc-v12`) | `sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354` (new) |
+  | `gemini-baseline` | `sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9` (`proc-v12`) | `sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745` (new) |
   | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | same, carried forward |
   | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | same, carried forward |
   | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | same, carried forward |
 
-  **Step 0.** At `origin/main` `e5bdefe40` (`2026-10-24T12:04:45Z`), `git grep
+  **Step 0.** At `origin/main` `ed3929ef3` (`2026-10-25T13:41:40Z`), `git grep
   -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
   the three newly blessed digests, and `git grep -l '"process_version": {'
-  origin/main -- data/cases | wc -l` is **3012** stamped cells. At the
+  origin/main -- data/cases | wc -l` is **3030** stamped cells. At the
   carrying merge the newly blessed predictor digests stamp
-  <FILL: census predictions digest=0e9f038a,30b53868,607d0e86> committed
+  <FILL: census predictions digest=6a176c28,2827480e,b69b2b3a> committed
   predictions.
 
   **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
 
   | Predictor | Label | Opens | Closes |
   | --- | --- | --- | --- |
-  | `claude-baseline` (`457d3e0e…`) | `proc-v12` | `proc-v12`'s instant | this label's instant (was open) |
-  | `codex-baseline` (`87e57da6…`) | `proc-v12` | `proc-v12`'s instant | this label's instant (was open) |
-  | `gemini-baseline` (`8057aacc…`) | `proc-v12` | `proc-v12`'s instant | this label's instant (was open) |
-  | `claude-baseline` (`0e9f038a…`) | `proc-v13` | this label's instant | open (new) |
-  | `codex-baseline` (`30b53868…`) | `proc-v13` | this label's instant | open (new) |
-  | `gemini-baseline` (`607d0e86…`) | `proc-v13` | this label's instant | open (new) |
+  | `claude-baseline` (`457d3e0e…`) | `proc-v12` | `2026-10-25T13:40:46Z` | this label's instant (was open) |
+  | `codex-baseline` (`87e57da6…`) | `proc-v12` | `2026-10-25T13:40:46Z` | this label's instant (was open) |
+  | `gemini-baseline` (`8057aacc…`) | `proc-v12` | `2026-10-25T13:40:46Z` | this label's instant (was open) |
+  | `claude-baseline` (`6a176c28…`) | `proc-v13` | this label's instant | open (new) |
+  | `codex-baseline` (`2827480e…`) | `proc-v13` | this label's instant | open (new) |
+  | `gemini-baseline` (`b69b2b3a…`) | `proc-v13` | this label's instant | open (new) |
 
   Earlier windows keep the closes earlier labels gave them.
 
-  **What the close owes.** `uv run fedcourts successor-disclosures --closed
-  proc-v12 --successor proc-v13` is run once the carrying merge has stamped
-  the registry, and a dated follow-up entry quotes it before any `proc-v12`
-  window figure is quoted outside the committed board.
+  **What the close owes, provisional.** This was run with this commit's
+  pending rows stamped by hand at a provisional instant,
+  `2026-10-27T00:00:00Z`, in a scratch copy of the registry, over
+  `origin/main`'s ledger at `ed3929ef3`. `uv run fedcourts
+  successor-disclosures --closed proc-v12 --successor proc-v13`:
+
+  ```
+  successor proc-v13 closes proc-v12 at 2026-10-27T00:00:00+00:00
+    closed proc-v12 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    closed proc-v12 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    closed proc-v12 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  The `proc-v12` windows had counted no cell when it was taken, since they
+  opened the same day. Cells keep landing until the instant, so the run is
+  repeated once the carrying merge has stamped the registry, and a dated
+  follow-up entry quotes it before any `proc-v12` window figure is quoted
+  outside the committed board.
 
   **Evidence for the change other than the closed windows' boards.** None:
   the inputs were built and stored on the maintainer's review of what
