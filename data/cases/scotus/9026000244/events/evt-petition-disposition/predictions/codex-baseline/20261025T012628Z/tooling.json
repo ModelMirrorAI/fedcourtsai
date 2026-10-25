@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000244",
+  "gaps": [
+    "No opposition text yet; the response is not due until December 4, 2026.",
+    "Web search and open attempts returned no usable content.",
+    "No published calibrated cut for a response request after an initial waiver/distribution."
+  ],
+  "helpful": [
+    "The appendix supplies the lower court's reasoning independently of petition advocacy.",
+    "Frozen salience context and JSON risk-set counts permit a strictly-prior matched-band anchor.",
+    "Reporter-citation MCP search recovered a prior that exact-name search missed."
+  ],
+  "notes": "Forward cert prediction using provisioned case facts and a 2025 primary-source prior only. Default uv cache was read-only; a temporary cache path resolved CLI initialization. No own-case disposition or subsequent-history retrieval.",
+  "role": "predictor",
+  "run_id": "20261025T012628Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned record and filed-document text",
+    "committed statpack Markdown and JSON",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "web search/open attempts",
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

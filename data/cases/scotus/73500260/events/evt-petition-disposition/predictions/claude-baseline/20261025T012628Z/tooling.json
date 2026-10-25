@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500260",
+  "run_id": "20261025T012628Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "courtlistener-mcp search"],
+  "helpful": ["Salience-band table with reached rates", "Provisioned petition text"],
+  "gaps": ["No statpack cut conditioned on a Court-requested response (call for response) for cert petitions", "fedcourts query has no free-text flag; I guessed one and it failed"],
+  "notes": "Band 'baseline' appears not to reflect the Jul 29 call for response; adjusted by judgment."
+}
