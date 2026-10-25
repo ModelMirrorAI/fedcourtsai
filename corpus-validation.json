@@ -166,6 +166,14 @@
       "problems": []
     },
     {
+      "checked": 1779,
+      "detail": "",
+      "failures": 0,
+      "name": "predicted_reasoning_grade_awaits_registration",
+      "passed": true,
+      "problems": []
+    },
+    {
       "checked": 162,
       "detail": "",
       "failures": 0,
