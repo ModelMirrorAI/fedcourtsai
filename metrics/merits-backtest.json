@@ -1,0 +1,221 @@
+{
+  "baseline": {
+    "lookback_terms": 3,
+    "min_decided": 30,
+    "rule": "as-of-cutoff-v1"
+  },
+  "cells": {
+    "briefed": 15,
+    "grant": 15
+  },
+  "dispatch": {
+    "draw_key": "2026-10-25",
+    "engine": "auto",
+    "limit": 15,
+    "skip_engines": [],
+    "terms": [
+      2024,
+      2025
+    ]
+  },
+  "entries": [
+    {
+      "engine": "claude-code",
+      "model": "claude-opus-5-5",
+      "moments": [
+        {
+          "accuracy": 0.8666666666666667,
+          "baseline_brier_score": 0.19920728268386342,
+          "baselined": 15,
+          "baselined_brier_score": 0.0836,
+          "brier_skill": 0.5803366278899003,
+          "cells_flagged": 15,
+          "disturbed_share": 0.7333333333333333,
+          "events_scored": 15,
+          "exposure_candidates": 0,
+          "lost": 0,
+          "majority_accuracy": 0.7333333333333333,
+          "mean_brier_score": 0.0836,
+          "moment": "grant",
+          "terms": {
+            "2024": 10,
+            "2025": 5
+          }
+        },
+        {
+          "accuracy": 0.9333333333333333,
+          "baseline_brier_score": 0.19953423247545865,
+          "baselined": 15,
+          "baselined_brier_score": 0.058333333333333334,
+          "brier_skill": 0.707652503484544,
+          "cells_flagged": 14,
+          "disturbed_share": 0.7333333333333333,
+          "events_scored": 15,
+          "exposure_candidates": 0,
+          "lost": 0,
+          "majority_accuracy": 0.7333333333333333,
+          "mean_brier_score": 0.058333333333333334,
+          "moment": "briefed",
+          "terms": {
+            "2024": 10,
+            "2025": 5
+          }
+        }
+      ],
+      "paired": {
+        "briefed_mean_brier": 0.058333333333333334,
+        "brier_change": -0.02526666666666666,
+        "cases": 15,
+        "disturbed": 11,
+        "grant_mean_brier": 0.0836
+      },
+      "predictor_id": "claude-baseline"
+    },
+    {
+      "engine": "codex",
+      "model": "gpt-6.1-sol",
+      "moments": [
+        {
+          "accuracy": 0.9333333333333333,
+          "baseline_brier_score": 0.19920728268386342,
+          "baselined": 15,
+          "baselined_brier_score": 0.09374666666666667,
+          "brier_skill": 0.529401408404129,
+          "cells_flagged": 13,
+          "disturbed_share": 0.7333333333333333,
+          "events_scored": 15,
+          "exposure_candidates": 2,
+          "lost": 0,
+          "majority_accuracy": 0.7333333333333333,
+          "mean_brier_score": 0.09374666666666667,
+          "moment": "grant",
+          "terms": {
+            "2024": 10,
+            "2025": 5
+          }
+        },
+        {
+          "accuracy": 1.0,
+          "baseline_brier_score": 0.19953423247545865,
+          "baselined": 15,
+          "baselined_brier_score": 0.05726,
+          "brier_skill": 0.7130316974204284,
+          "cells_flagged": 12,
+          "disturbed_share": 0.7333333333333333,
+          "events_scored": 15,
+          "exposure_candidates": 1,
+          "lost": 0,
+          "majority_accuracy": 0.7333333333333333,
+          "mean_brier_score": 0.05726,
+          "moment": "briefed",
+          "terms": {
+            "2024": 10,
+            "2025": 5
+          }
+        }
+      ],
+      "paired": {
+        "briefed_mean_brier": 0.05726,
+        "brier_change": -0.036486666666666674,
+        "cases": 15,
+        "disturbed": 11,
+        "grant_mean_brier": 0.09374666666666667
+      },
+      "predictor_id": "codex-baseline"
+    },
+    {
+      "engine": "gemini",
+      "model": "gemini-4-argon",
+      "moments": [
+        {
+          "accuracy": 0.8666666666666667,
+          "baseline_brier_score": 0.19920728268386342,
+          "baselined": 15,
+          "baselined_brier_score": 0.10412,
+          "brier_skill": 0.47732834564469395,
+          "cells_flagged": 5,
+          "disturbed_share": 0.7333333333333333,
+          "events_scored": 15,
+          "exposure_candidates": 0,
+          "lost": 0,
+          "majority_accuracy": 0.7333333333333333,
+          "mean_brier_score": 0.10412,
+          "moment": "grant",
+          "terms": {
+            "2024": 10,
+            "2025": 5
+          }
+        },
+        {
+          "accuracy": 1.0,
+          "baseline_brier_score": 0.20845319623374972,
+          "baselined": 14,
+          "baselined_brier_score": 0.048364285714285714,
+          "brier_skill": 0.7679849165754588,
+          "cells_flagged": 10,
+          "disturbed_share": 0.7142857142857143,
+          "events_scored": 14,
+          "exposure_candidates": 0,
+          "lost": 1,
+          "majority_accuracy": 0.7142857142857143,
+          "mean_brier_score": 0.048364285714285714,
+          "moment": "briefed",
+          "terms": {
+            "2024": 9,
+            "2025": 5
+          }
+        }
+      ],
+      "paired": {
+        "briefed_mean_brier": 0.048364285714285714,
+        "brier_change": -0.06158571428571428,
+        "cases": 14,
+        "disturbed": 10,
+        "grant_mean_brier": 0.10994999999999999
+      },
+      "predictor_id": "gemini-baseline"
+    }
+  ],
+  "fenced": {
+    "briefed": {},
+    "grant": {}
+  },
+  "lost_cells": [
+    {
+      "case_id": "scotus/69452351",
+      "moment": "briefed",
+      "predictor_id": "gemini-baseline",
+      "reason": "engine-failed"
+    }
+  ],
+  "paired_cases": 15,
+  "pulled_through": "2026-10-25",
+  "run_id": "20261025T150751Z",
+  "schema_version": "1.0",
+  "stratum": "retrospective",
+  "terms": [
+    {
+      "argued_unjudged": 0,
+      "cases": 58,
+      "excluded": {
+        "consolidated-member": 8,
+        "dates-out-of-order": 1
+      },
+      "excluded_disturbed": 7,
+      "term": 2024
+    },
+    {
+      "argued_unjudged": 0,
+      "cases": 53,
+      "excluded": {
+        "consolidated-member": 1,
+        "lead-not-replayed": 3,
+        "no-briefed-date": 4
+      },
+      "excluded_disturbed": 2,
+      "term": 2025
+    }
+  ],
+  "unavailable": [],
+  "unit": "lead-docket"
+}
