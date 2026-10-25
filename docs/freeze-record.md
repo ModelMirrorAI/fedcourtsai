@@ -13518,10 +13518,11 @@ freeze commit is recorded here.
     and the per-Justice merits votes section (`justice_votes`), each Term's
     complete lineups rolled up by `pipeline.justice_priors`. The amicus cut
     reads the `cert_amicus_briefs` column, whose resolved history the
-    `cert-amicus-rederive` repair pass fills: <FILL: the vintage of that
-    pass's apply, or that it is still owed, at the carrying merge>. Until it
-    applies, the cut's known buckets are mostly petitions the live poll still
-    reads, a selected sample, and its `(unknown)` bucket is most of it.
+    `cert-amicus-rederive` repair pass fills. Its apply ran on 2026-10-25
+    (`run-repair` run 40219589819, corpus commit `bafb7a546` on `main`): of
+    21,456 cert-form live-slice rows it read 21,333 and filled 21,183 that
+    were NULL, raised none and held none at the latch, leaving 123
+    unobservable rows, which the cut buckets as `(unknown)`.
 
   **What moved, in the predict prompt.** The document list names the two
   cert-stage kinds and *Stage: merits* the United States' merits brief; the
