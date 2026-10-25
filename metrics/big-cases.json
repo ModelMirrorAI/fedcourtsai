@@ -1,10 +1,10 @@
 {
-  "cases": 324,
+  "cases": 327,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 287,
+      "cases": 290,
       "n": 3
     },
     {
@@ -16,7 +16,7 @@
       "n": 1
     }
   ],
-  "current_reads": 970,
+  "current_reads": 979,
   "declared_no_view": 23,
   "frozen_process": {
     "digests": [
@@ -13921,6 +13921,123 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Kroger",
+      "caption": "The Kroger Co., dba Fred Meyer, Inc. v. Elisha Solano, Individually and on Behalf of Other Customers, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000244",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "The question (uninjured members in Rule 23(b)(3) damages classes) is nationally significant and twice granted before, but this vehicle is a small Oregon bottle-deposit class decided in an unpublished memorandum.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261025T012628Z"
+        },
+        {
+          "big_case_rationale": "A ruling on uninjured members of damages classes could reshape certification and settlement leverage across consumer, antitrust, and other federal class actions; the underlying bottle-deposit dispute is much narrower.",
+          "big_case_score": 0.79,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261025T012628Z"
+        },
+        {
+          "big_case_rationale": "Presents the unresolved Labcorp question on certifying Rule 23(b)(3) classes with uninjured members, backed by major business amici, though arising from an unpublished Rule 23(f) denial in a local Oregon bottle-deposit dispute.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261025T012628Z"
+        }
+      ],
+      "docket_id": 9026000244,
+      "docket_number": "26-244",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-244.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The question (uninjured members in Rule 23(b)(3) damages classes) is nationally significant and twice granted before, but this vehicle is a small Oregon bottle-deposit class decided in an unpublished memorandum.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000244/events/evt-petition-disposition/predictions/claude-baseline/20261025T012628Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000244/events/evt-petition-disposition/predictions/claude-baseline/20261025T012628Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.17,
+              "run_id": "20261025T012628Z"
+            },
+            {
+              "big_case_rationale": "A ruling on uninjured members of damages classes could reshape certification and settlement leverage across consumer, antitrust, and other federal class actions; the underlying bottle-deposit dispute is much narrower.",
+              "big_case_score": 0.79,
+              "cell_path": "data/cases/scotus/9026000244/events/evt-petition-disposition/predictions/codex-baseline/20261025T012628Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000244/events/evt-petition-disposition/predictions/codex-baseline/20261025T012628Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.44,
+              "run_id": "20261025T012628Z"
+            },
+            {
+              "big_case_rationale": "Presents the unresolved Labcorp question on certifying Rule 23(b)(3) classes with uninjured members, backed by major business amici, though arising from an unpublished Rule 23(f) denial in a local Oregon bottle-deposit dispute.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000244/events/evt-petition-disposition/predictions/gemini-baseline/20261025T012628Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000244/events/evt-petition-disposition/predictions/gemini-baseline/20261025T012628Z",
+              "confidence": 0.78,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.09,
+              "run_id": "20261025T012628Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "The Kroger Co., dba Fred Meyer, Inc. v. Elisha Solano, Individually and on Behalf of Other Customers, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.63,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-25",
+      "n": 3,
+      "other_party": "Solano",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Kroger's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Kroger's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.79,
+      "score_min": 0.55,
+      "score_range": 0.24,
+      "short_caption": "Kroger v. Solano",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "General Dynamics",
       "caption": "General Dynamics Corporation, et al. v. Susan Scharpf",
       "caption_event_id": "evt-order-cvsg-disposition",
@@ -18297,7 +18414,10 @@
           "side": "not-granted"
         }
       ],
-      "scheduled": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.85,
       "score_min": 0.35,
       "score_range": 0.5,
@@ -21052,6 +21172,112 @@
       "score_range": 0.32,
       "short_caption": "Wagner v. United States",
       "status": "resolved"
+    },
+    {
+      "asking_declined": "short_form",
+      "asking_party": null,
+      "caption": "Shannon Cross v. Central Contra Costa Transit Authority",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000100",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "The abstract question (whether McDonnell Douglas belongs at summary judgment) is significant for all federal discrimination litigation, but this petition is a fact-bound challenge to an unpublished memorandum disposition, so the case as framed is modest.",
+          "big_case_score": 0.3,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261025T012628Z"
+        },
+        {
+          "big_case_rationale": "Reconsidering McDonnell Douglas at summary judgment could reshape proof in employment-discrimination litigation nationwide. The immediate dispute is an individual discharge, and a narrow correction would have substantially smaller consequences.",
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261025T012628Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, reconsidering or displacing the McDonnell Douglas burden-shifting framework at Rule 56 summary judgment would reshape routine federal employment-discrimination litigation nationwide, though the underlying dispute is a fact-bound single-employee termination appeal from an unpublished disposition.",
+          "big_case_score": 0.55,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261025T012628Z"
+        }
+      ],
+      "docket_id": 9026000100,
+      "docket_number": "26-100",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-100.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "The abstract question (whether McDonnell Douglas belongs at summary judgment) is significant for all federal discrimination litigation, but this petition is a fact-bound challenge to an unpublished memorandum disposition, so the case as framed is modest.",
+              "big_case_score": 0.3,
+              "cell_path": "data/cases/scotus/9026000100/events/evt-petition-disposition/predictions/claude-baseline/20261025T012628Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000100/events/evt-petition-disposition/predictions/claude-baseline/20261025T012628Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261025T012628Z"
+            },
+            {
+              "big_case_rationale": "Reconsidering McDonnell Douglas at summary judgment could reshape proof in employment-discrimination litigation nationwide. The immediate dispute is an individual discharge, and a narrow correction would have substantially smaller consequences.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000100/events/evt-petition-disposition/predictions/codex-baseline/20261025T012628Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000100/events/evt-petition-disposition/predictions/codex-baseline/20261025T012628Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.1,
+              "run_id": "20261025T012628Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, reconsidering or displacing the McDonnell Douglas burden-shifting framework at Rule 56 summary judgment would reshape routine federal employment-discrimination litigation nationwide, though the underlying dispute is a fact-bound single-employee termination appeal from an unpublished disposition.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/9026000100/events/evt-petition-disposition/predictions/gemini-baseline/20261025T012628Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000100/events/evt-petition-disposition/predictions/gemini-baseline/20261025T012628Z",
+              "confidence": 0.92,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.02,
+              "run_id": "20261025T012628Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Shannon Cross v. Central Contra Costa Transit Authority"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-22",
+      "n": 3,
+      "other_party": null,
+      "outcome_lines": null,
+      "scheduled": null,
+      "score_max": 0.65,
+      "score_min": 0.3,
+      "score_range": 0.35,
+      "short_caption": null,
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -26303,6 +26529,123 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "TitleMax of Virginia",
+      "caption": "TitleMax of Virginia, Inc., et al. v. Wendy S. Spicher, Secretary, Pennsylvania Department of Banking and Securities",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/73500260",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A recurring federal-courts question (how Younger's important-state-interest prong treats one State's extraterritorial enforcement against out-of-state lenders) with real federalism stakes, but a doctrinal-procedural issue rather than a headline merits question.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261025T012628Z"
+        },
+        {
+          "big_case_rationale": "The petition concerns federal-court access for constitutional challenges to interstate financial regulation, with consequences beyond these lenders, but presents a technical abstention issue rather than the underlying regulation's validity.",
+          "big_case_score": 0.48,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261025T012628Z"
+        },
+        {
+          "big_case_rationale": "A decision clarifying whether Younger abstention's important-state-interest prong weighs horizontal federalism and extraterritoriality limits would meaningfully shape federal-court access for businesses challenging out-of-state administrative enforcement actions, though the question is a procedural abstention issue rather than a direct merits ruling on the dormant Commerce Clause.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261025T012628Z"
+        }
+      ],
+      "docket_id": 73500260,
+      "docket_number": "25-1359",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-1359.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring federal-courts question (how Younger's important-state-interest prong treats one State's extraterritorial enforcement against out-of-state lenders) with real federalism stakes, but a doctrinal-procedural issue rather than a headline merits question.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73500260/events/evt-petition-disposition/predictions/claude-baseline/20261025T012628Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500260/events/evt-petition-disposition/predictions/claude-baseline/20261025T012628Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.09,
+              "run_id": "20261025T012628Z"
+            },
+            {
+              "big_case_rationale": "The petition concerns federal-court access for constitutional challenges to interstate financial regulation, with consequences beyond these lenders, but presents a technical abstention issue rather than the underlying regulation's validity.",
+              "big_case_score": 0.48,
+              "cell_path": "data/cases/scotus/73500260/events/evt-petition-disposition/predictions/codex-baseline/20261025T012628Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500260/events/evt-petition-disposition/predictions/codex-baseline/20261025T012628Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.13,
+              "run_id": "20261025T012628Z"
+            },
+            {
+              "big_case_rationale": "A decision clarifying whether Younger abstention's important-state-interest prong weighs horizontal federalism and extraterritoriality limits would meaningfully shape federal-court access for businesses challenging out-of-state administrative enforcement actions, though the question is a procedural abstention issue rather than a direct merits ruling on the dormant Commerce Clause.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/73500260/events/evt-petition-disposition/predictions/gemini-baseline/20261025T012628Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73500260/events/evt-petition-disposition/predictions/gemini-baseline/20261025T012628Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.06,
+              "run_id": "20261025T012628Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "TitleMax of Virginia, Inc., et al. v. Wendy S. Spicher, Secretary, Pennsylvania Department of Banking and Securities"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.3933,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-06-08",
+      "n": 3,
+      "other_party": "Spicher",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up the TitleMax of Virginia's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "The TitleMax of Virginia's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.48,
+      "score_min": 0.35,
+      "score_range": 0.13,
+      "short_caption": "TitleMax of Virginia v. Spicher",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Warden",
       "caption": "Warden, Moshannon Valley Correctional Center, et al. v. Adolph Michelin, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -29821,7 +30164,10 @@
           "side": "not-granted"
         }
       ],
-      "scheduled": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.55,
       "score_min": 0.1,
       "score_range": 0.45,
@@ -31592,7 +31938,10 @@
           "side": "not-granted"
         }
       ],
-      "scheduled": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.45,
       "score_min": 0.1,
       "score_range": 0.35,
@@ -42760,5 +43109,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.3",
-  "scored_reads": 933
+  "scored_reads": 942
 }
