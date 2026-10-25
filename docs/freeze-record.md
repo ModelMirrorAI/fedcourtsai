@@ -13094,8 +13094,8 @@ freeze commit is recorded here.
   a cut. The field is no cut, exclusion or rank key on any board. A later
   dated entry must register one before any figure reads it.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-25` (merge commit
+  `51cca3cb5eab4d7fa8ab3701f1dbae103d1a00c0`, merged `2026-10-25T13:40:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_paper_only_filings.py` is green;
@@ -13199,8 +13199,8 @@ freeze commit is recorded here.
   pooled entry's and each paired engine's `boundaries` list gains a
   `qp-cutter-split-and-review-headings` row, which is composition, not a cut.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-25` (merge commit
+  `51cca3cb5eab4d7fa8ab3701f1dbae103d1a00c0`, merged `2026-10-25T13:40:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_documents.py -k "questions_presented"` is green;
@@ -13212,8 +13212,8 @@ freeze commit is recorded here.
 
 - **`proc-v12`: the predict prompt elicits the authorship forecasts, and every
   declared moment names its stage's authorship set; recorded 2026-10-23.**
-  Carried to `main` by `<FILL: promotion tag>` (merge `<FILL: merge sha>`,
-  `<FILL: merged-at>`), to be tagged **`prereg/proc-v12`**. Registered under
+  Carried to `main` by `promotion/2026-10-25` (merge `51cca3cb5eab4d7fa8ab3701f1dbae103d1a00c0`,
+  `2026-10-25T13:40:46Z`), to be tagged **`prereg/proc-v12`**. Registered under
   the merge-stamped rule, so its counting instant, its three bless moments and
   every window edge it moves are the carrying merge's committer time. It is
   the third supersession shape for all three predictors at once
@@ -13347,7 +13347,7 @@ freeze commit is recorded here.
   the three newly blessed digests, and `git grep -l '"process_version": {'
   origin/main -- data/cases | wc -l` is **3003** stamped cells. At the
   carrying merge the newly blessed predictor digests stamp
-  <FILL: census predictions digest=457d3e0e,87e57da6,8057aacc> committed
+  0 committed
   predictions.
 
   **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
@@ -13471,8 +13471,8 @@ freeze commit is recorded here.
   all petitions: all 25 re-cut, none `pages-changed`, `head-changed`,
   `unreadable`, `unchanged` or failed, 1 to 10 cut notes each.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  Carried to `main` by `promotion/2026-10-25` (merge commit
+  `51cca3cb5eab4d7fa8ab3701f1dbae103d1a00c0`, merged `2026-10-25T13:40:46Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_document_recut.py` is green;
