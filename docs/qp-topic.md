@@ -14,6 +14,15 @@ corpus's `topic` column (`fedcourts query --topic`), which carries an upstream
 nature-of-suit string on circuit rows only — SCOTUS rows have none, which is
 why this vocabulary exists.
 
+"QP topic" is the vocabulary's name, not a limit on what it labels: an
+application carries no questions presented, and its label is still a QP topic.
+The `qp-topic-v0` and `qp-topic-v1` tokens, the `data/qp-topics/` path, the
+`qp-corpus` command and the `qp-topic-label` run mode keep the name, because
+every committed label and every published cut is stamped with it. Prose may
+call a label a case topic. A neutral name, if it comes, arrives with a new
+vocabulary version, with the path, command, run mode and the public site's
+fetch moving in the same reviewed change.
+
 Four facts keep this a free-moving vocabulary rather than a pre-registration
 surface:
 
