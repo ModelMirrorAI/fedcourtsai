@@ -28,6 +28,7 @@ from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 
 from .blinding import latest_prediction_dirs
+from .ids import parse_run_id
 from .leaderboard import kendall_tau_b
 from .paths import EventPaths
 from .pipeline.moments import event_stage
@@ -449,6 +450,11 @@ class PilotReport(_Report):
     other_round: int = Field(
         description="Evaluations of another evaluate run than `round_id`; read by nothing"
     )
+    misplaced: int = Field(
+        description="Files named evaluation.json outside the "
+        "`evaluations/<evaluator>/<predictor>/<run>/` layout, such as one a judge left under "
+        "its blinded alias; read by nothing, so its cell counts as missing that judge"
+    )
     unmatched_labels: list[str] = Field(
         description="Labeled aliases whose cell no judge read in this round"
     )
@@ -470,6 +476,15 @@ class _Reads:
     off_run: int
     superseded: int
     other_round: int
+    misplaced: int
+
+
+def _is_run_dir(name: str) -> bool:
+    try:
+        parse_run_id(name)
+    except ValueError:
+        return False
+    return True
 
 
 def _pilot_reads(
@@ -483,10 +498,13 @@ def _pilot_reads(
     committed, ungraded one.
     """
     newest: dict[tuple[Cell, str], tuple[str, _Read]] = {}
-    off_sample = off_run = superseded = other_round = 0
+    off_sample = off_run = superseded = other_round = misplaced = 0
     for path in sorted(
         (pilot_root / "cases").glob("*/*/events/*/evaluations/*/*/*/evaluation.json")
     ):
+        if not _is_run_dir(path.parent.name) or _is_run_dir(path.parent.parent.name):
+            misplaced += 1
+            continue
         try:
             evaluation = read_model(path, Evaluation)
         except ValueError:
@@ -519,7 +537,7 @@ def _pilot_reads(
     reads: dict[Cell, dict[str, _Read]] = defaultdict(dict)
     for (cell, evaluator_id), (_, read) in newest.items():
         reads[cell][evaluator_id] = read
-    return _Reads(dict(reads), off_sample, off_run, superseded, other_round)
+    return _Reads(dict(reads), off_sample, off_run, superseded, other_round, misplaced)
 
 
 def _mean(values: Sequence[float]) -> float | None:
@@ -786,6 +804,7 @@ def pilot_report(
         superseded=found.superseded,
         round_id=round_id,
         other_round=found.other_round,
+        misplaced=found.misplaced,
         unmatched_labels=sorted(unmatched),
         stages=[
             _stage_report(stage, sample, found.reads, labelled)

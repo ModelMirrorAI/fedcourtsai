@@ -345,3 +345,28 @@ def test_a_round_id_reads_only_that_rounds_evaluations(tmp_path: Path) -> None:
     assert report.other_round == 2 and report.round_id == "20261005T000000Z"
     (stage,) = report.stages
     assert [(j.evaluator_id, j.graded, j.null) for j in stage.judges] == [("claude-judge", 1, 0)]
+
+
+def test_an_evaluation_left_under_a_blinded_alias_is_set_aside_not_fatal(tmp_path: Path) -> None:
+    """A judge that wrote under `<run>/candidate-a/` left nothing un-blinding could map."""
+    data = tmp_path / "data"
+    pilot = tmp_path / "pilot"
+    _ledger(data, 1, CERT, predictors=("claude-baseline",))
+    _grade(pilot, 1, CERT, "claude-judge", "claude-baseline", 0.75)
+    _grade(pilot, 1, CERT, "codex-judge", "claude-baseline", 0.5)
+    ep = CasePaths(pilot, "scotus", 1).event(CERT)
+    aliased = ep.evaluation("codex-judge", "claude-baseline", "20261001T000000Z")
+    stray = aliased.parent.parent.parent / "20261001T000000Z" / "candidate-a" / aliased.name
+    stray.parent.mkdir(parents=True)
+    # Written under the alias, the record names no predictor the schema admits.
+    record = json.loads(aliased.read_text())
+    stray.write_text(json.dumps({**record, "predictor_id": "candidate-a", "run_id": None}))
+    aliased.unlink()
+    out = tmp_path / "sample"
+    write_sample(pilot_population(data), out)
+
+    report = pilot_report(pilot, out, round_id="20261001T000000Z")
+
+    assert report.misplaced == 1
+    (stage,) = report.stages
+    assert [j.evaluator_id for j in stage.judges] == ["claude-judge"]
