@@ -61,6 +61,14 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      split into two jobs: `qp-topic-extract` holds the S3 role
 #                      and produces the extract, `qp-topic-label` runs the agent
 #                      with no cloud credential in the job env at all.
+#   - qp-topic-label-applications: the same two jobs and publish job over the
+#                      application frame under `qp-topic-v1` (`qp-corpus
+#                      --frame applications`), measured against the application
+#                      reference block and landed as its own labels file,
+#                      `data/qp-topics/qp-topics-applications.json`. A mode value
+#                      rather than a dispatch input, since the inputs are near
+#                      the cap. The job-level `QP_FRAME` and `LABELS_NAME`
+#                      below are the only places the two frames differ.
 #
 # The read-only analysis modes (corpus-stats, census, text-coverage, tool-usage) write neither the
 # corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
@@ -140,6 +148,7 @@ on:
           - public-updates
           - tool-usage
           - qp-topic-label
+          - qp-topic-label-applications
         default: corpus-stats
       label_model:
         description: "qp-topic-label: the model the Claude Code labeler runs (ignored by the other modes)."
@@ -1208,7 +1217,7 @@ jobs:
     # its own job rather than sharing an environment with the labeler. What
     # crosses the boundary is one artifact: the texts, and nothing else.
     if: >-
-      ${{ inputs.mode == 'qp-topic-label'
+      ${{ (inputs.mode == 'qp-topic-label' || inputs.mode == 'qp-topic-label-applications')
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -1235,6 +1244,14 @@ jobs:
       # shrunken extract make a partial run look complete. A job output is
       # fixed before the agent starts.
       batch-rows: ${{ steps.extract.outputs.batch-rows }}
+    env:
+      # Which frame this dispatch labels, and the labels file it accrues. Both
+      # are read off the mode alone, so the extract, the measurement and the
+      # PR can never name different frames.
+      QP_FRAME: ${{ inputs.mode == 'qp-topic-label-applications' && 'applications' || 'petitions' }}
+      LABELS_NAME: >-
+        ${{ inputs.mode == 'qp-topic-label-applications'
+        && 'qp-topics-applications.json' || 'qp-topics.json' }}
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
@@ -1301,7 +1318,7 @@ jobs:
           # here, so the capture runs on both outcomes and the exit status is
           # replayed afterwards.
           status=0
-          uv run fedcourts qp-corpus --out "$RUNNER_TEMP/qp-texts.json" \
+          uv run fedcourts qp-corpus --frame "$QP_FRAME" --out "$RUNNER_TEMP/qp-texts.json" \
             2> "$RUNNER_TEMP/qp-batch.txt" || status=$?
           cat "$RUNNER_TEMP/qp-batch.txt" >&2
           {
@@ -1381,7 +1398,7 @@ jobs:
     # tripwire.
     needs: [authorize, qp-topic-extract]
     if: >-
-      ${{ inputs.mode == 'qp-topic-label'
+      ${{ (inputs.mode == 'qp-topic-label' || inputs.mode == 'qp-topic-label-applications')
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -1419,6 +1436,13 @@ jobs:
       # environment rather than interpolated into a shell line, as with the
       # corpus-stats filters above.
       LABELER: claude-code/${{ inputs.label_model }}
+      # Which frame this dispatch labels, and the labels file it accrues. Both
+      # are read off the mode alone, so the extract, the measurement and the
+      # PR can never name different frames.
+      QP_FRAME: ${{ inputs.mode == 'qp-topic-label-applications' && 'applications' || 'petitions' }}
+      LABELS_NAME: >-
+        ${{ inputs.mode == 'qp-topic-label-applications'
+        && 'qp-topics-applications.json' || 'qp-topics.json' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1585,11 +1609,12 @@ jobs:
           # granted directory, here and on the measure step.
           prompt: |
             Read .github/prompts/qp-topic-label.md and AGENTS.md, then label every
-            questions-presented text in the extract:
+            row in the extract:
 
             QP_TEXTS=${{ runner.temp }}/qp-io/qp-texts.json
             LABELS_OUT=${{ runner.temp }}/qp-io/qp-labels.jsonl
             LABELER=claude-code/${{ inputs.label_model }}
+            QP_FRAME=${{ env.QP_FRAME }}
 
             These values are authoritative and literal: this run grants you no
             shell, so there is nothing to expand — use the paths as written.
@@ -1597,11 +1622,12 @@ jobs:
             workflow handles git. You run headless with no interactive input; if
             you are blocked, say so plainly in your final message and stop — do
             not wait for a reply.
-          # No `--mcp-config`: `qp-topic-v0` is a text-only vocabulary, so the
-          # extract is the agent's entire evidentiary input. Withholding the
-          # config closes the MCP half of that; the built-in retrieval tools
-          # are closed on the denial flag below, since a grant list leaves
-          # them reachable.
+          # No `--mcp-config`: on either frame the extract is the agent's
+          # entire evidentiary input (`qp-topic-v0` is text-only, and a
+          # `qp-topic-v1` application row is read from its row alone).
+          # Withholding the config closes the MCP half of that; the built-in
+          # retrieval tools are closed on the denial flag below, since a grant
+          # list leaves them reachable.
           # The permission posture is the scrub's: with
           # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB set, the CLI hardens the
           # permission mode to `default` whatever the flag says and honors
@@ -2172,6 +2198,7 @@ jobs:
           # the agent has long finished by here — and lands on the batch's
           # ledger entry, where the docket pack reads it.
           frame-rows: ${{ needs.qp-topic-extract.outputs.frame-rows }}
+          frame: ${{ env.QP_FRAME }}
           transcript-hint: >-
             The qp-label-transcript run artifact carries the turn-by-turn
             transcript to diagnose from (absent only when the scan withheld it
@@ -2203,14 +2230,14 @@ jobs:
         run: |
           set -euo pipefail
           # A symlink planted at either path would ship whatever it points at.
-          for f in data/qp-topics/qp-topics.json "$MEASURED_FILE"; do
+          for f in "data/qp-topics/${LABELS_NAME}" "$MEASURED_FILE"; do
             if [ -L "$f" ] || [ ! -f "$f" ]; then
               echo "::error::${f} is not a regular file; refusing to hand it off"
               exit 1
             fi
           done
           mkdir -p "$RUNNER_TEMP/qp-publish"
-          cp data/qp-topics/qp-topics.json "$RUNNER_TEMP/qp-publish/qp-topics.json"
+          cp "data/qp-topics/${LABELS_NAME}" "$RUNNER_TEMP/qp-publish/${LABELS_NAME}"
           cp "$MEASURED_FILE" "$RUNNER_TEMP/qp-publish/measured.txt"
 
       # One day, as for the extract and the transcript: the publish job reads
@@ -2266,6 +2293,13 @@ jobs:
       # The labeler string the PR title names, from the same dispatch input
       # the label job recorded on the artifact.
       LABELER: claude-code/${{ inputs.label_model }}
+      # Which frame this dispatch labels, and the labels file it accrues. Both
+      # are read off the mode alone, so the extract, the measurement and the
+      # PR can never name different frames.
+      QP_FRAME: ${{ inputs.mode == 'qp-topic-label-applications' && 'applications' || 'petitions' }}
+      LABELS_NAME: >-
+        ${{ inputs.mode == 'qp-topic-label-applications'
+        && 'qp-topics-applications.json' || 'qp-topics.json' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -2299,22 +2333,22 @@ jobs:
         run: |
           set -euo pipefail
           dir="$RUNNER_TEMP/qp-publish"
-          extra=$(find "$dir" -mindepth 1 ! -path "$dir/qp-topics.json" ! -path "$dir/measured.txt")
-          for f in "$dir/qp-topics.json" "$dir/measured.txt"; do
+          extra=$(find "$dir" -mindepth 1 ! -path "$dir/${LABELS_NAME}" ! -path "$dir/measured.txt")
+          for f in "$dir/${LABELS_NAME}" "$dir/measured.txt"; do
             if [ -L "$f" ] || [ ! -f "$f" ]; then extra="${extra} ${f}"; fi
           done
           if [ -n "$extra" ]; then
-            echo "::error::the hand-off must hold qp-topics.json and measured.txt alone, as regular files"
+            echo "::error::the hand-off must hold ${LABELS_NAME} and measured.txt alone, as regular files"
             exit 1
           fi
           if [ "$(wc -c < "$dir/measured.txt")" -gt 65536 ]; then
             echo "::error::the measured block is over 64 KiB; refusing to put it in a PR body"
             exit 1
           fi
-          cp "$dir/qp-topics.json" data/qp-topics/qp-topics.json
+          cp "$dir/${LABELS_NAME}" "data/qp-topics/${LABELS_NAME}"
           uv run fedcourts validate data/qp-topics
           if ! uv run fedcourts scan-diff-for-secrets --name-status-file /dev/null \
-              --extra-file "$dir/qp-topics.json" \
+              --extra-file "$dir/${LABELS_NAME}" \
               --extra-file "$dir/measured.txt" \
               --run-url "https://github.com/${REPO}/actions/runs/${GITHUB_RUN_ID}"; then
             echo "::error::secret scan did not pass; withholding the labels PR"
@@ -2353,7 +2387,11 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ github.repository }}
-          BRANCH: qp-topics/refresh
+          # One fixed branch per frame, so an unmerged application run never
+          # replaces an unmerged petition run's PR.
+          BRANCH: >-
+            ${{ inputs.mode == 'qp-topic-label-applications'
+            && 'qp-topics/applications-refresh' || 'qp-topics/refresh' }}
           # The sanitized measured block, as the label job staged it from the
           # measure composite's declared output.
           MEASURED_FILE: ${{ runner.temp }}/qp-publish/measured.txt
@@ -2375,7 +2413,7 @@ jobs:
           # publishes. The guard below refuses that push mechanically (ledger
           # extension + row containment); the reviewed, never-auto-merged PR
           # stays the human backstop behind it.
-          cp "$RUNNER_TEMP/qp-publish/qp-topics.json" "$RUNNER_TEMP/qp-topics.json"
+          cp "$RUNNER_TEMP/qp-publish/${LABELS_NAME}" "$RUNNER_TEMP/qp-topics.json"
           git fetch --no-tags -q origin main
           git checkout -q -f -B "$BRANCH" origin/main
           # Accrual makes the cut a supersession, so check it is one — on the
@@ -2394,8 +2432,8 @@ jobs:
           # yet carry the artifact the run's own untracked file survives the
           # switch, and a tree read would compare the artifact against itself
           # and refuse the one batch that has no prior at all.
-          if git cat-file -e "origin/main:data/qp-topics/qp-topics.json" 2>/dev/null; then
-            git show "origin/main:data/qp-topics/qp-topics.json" > "$RUNNER_TEMP/landed.json"
+          if git cat-file -e "origin/main:data/qp-topics/${LABELS_NAME}" 2>/dev/null; then
+            git show "origin/main:data/qp-topics/${LABELS_NAME}" > "$RUNNER_TEMP/landed.json"
             jq -cS '[.batches[] | {batch, labeler, published}]' \
               "$RUNNER_TEMP/landed.json" > "$RUNNER_TEMP/landed-ledger.json"
             jq -cS '[.entries[] | select(.source == "labeler")]' \
@@ -2431,7 +2469,7 @@ jobs:
                  "$RUNNER_TEMP/landed-ledger.json" "$RUNNER_TEMP/incoming-ledger.json"; then
             echo "::error::this run's batch ledger does not strictly extend main's —" \
               "the run accrued onto a stale artifact, or published nothing new." \
-              "Dispatch qp-topic-label from the ref carrying the newest data/qp-topics/qp-topics.json."
+              "Dispatch this mode from the ref carrying the newest data/qp-topics/${LABELS_NAME}."
             exit 1
           fi
           if ! guard rows '. as [$a, $b] | ($a - $b) | length == 0' \
@@ -2442,8 +2480,8 @@ jobs:
             exit 1
           fi
           mkdir -p data/qp-topics
-          cp "$RUNNER_TEMP/qp-topics.json" data/qp-topics/qp-topics.json
-          git add data/qp-topics/qp-topics.json
+          cp "$RUNNER_TEMP/qp-topics.json" "data/qp-topics/${LABELS_NAME}"
+          git add "data/qp-topics/${LABELS_NAME}"
           if git diff --cached --quiet; then
             echo "Labels identical to main; nothing to open." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
@@ -2455,10 +2493,18 @@ jobs:
           # reference rows are newly published too, and those carry the hand
           # set's adjudicated labels, which no labeler assigned. `-e` so a shape
           # change fails the step instead of titling the PR `null`.
-          cases=$(jq -er '.cases' data/qp-topics/qp-topics.json)
-          batch=$(jq -er '.batches[-1].batch' data/qp-topics/qp-topics.json)
-          labeled=$(jq -er '.batches[-1].labeler_rows' data/qp-topics/qp-topics.json)
-          title="data(qp-topics): batch ${batch} — ${labeled} new qp-topic-v0 label(s) by ${LABELER} (${cases} total)"
+          cases=$(jq -er '.cases' "data/qp-topics/${LABELS_NAME}")
+          batch=$(jq -er '.batches[-1].batch' "data/qp-topics/${LABELS_NAME}")
+          labeled=$(jq -er '.batches[-1].labeler_rows' "data/qp-topics/${LABELS_NAME}")
+          if [ "$QP_FRAME" = applications ]; then
+            title="data(qp-topics): application batch ${batch} — ${labeled} new qp-topic-v1 label(s) by ${LABELER} (${cases} total)"
+            lead="Batch ${batch} of the \`qp-topic-v1\` application frame, by \`${LABELER}\` from the \`application-extract-v1\` rows (caption, court below, pre-disposition docket entries, and the stored application text where there is one): ${labeled} new label(s), bringing the application artifact to ${cases}."
+            meaning="What the numbers mean — agreement with the application reference block's adjudicated labels, **not** accuracy; raters and fitted rules disclosed; the \`input_kind\` split reported beside any cut — is in the *Applications* section of \`docs/qp-topic.md\`."
+          else
+            title="data(qp-topics): batch ${batch} — ${labeled} new qp-topic-v0 label(s) by ${LABELER} (${cases} total)"
+            lead="Batch ${batch} of the \`qp-topic-v0\` labeling frame, by \`${LABELER}\` from the stored questions-presented text alone: ${labeled} new label(s), bringing the artifact to ${cases}."
+            meaning="What the numbers mean — agreement with a single v0 reference rater, **not** accuracy; a grant-enriched frame that certifies the grant stream only; per-label rates suppressed under the support floor — is in \`docs/qp-topic.md\`."
+          fi
           # The committed artifact carries no agent prose and no petition text:
           # `QpTopicPublishedEntry` is a strict pydantic model whose every field
           # is a copied key, a vocabulary enum, a bool, or a stamp the builder
@@ -2471,8 +2517,8 @@ jobs:
           # file, for secrets, and the reviewed, never-auto-merged PR is the
           # backstop for the rest.
           {
-            printf '%s\n\n' "Batch ${batch} of the \`qp-topic-v0\` labeling frame, by \`${LABELER}\` from the stored questions-presented text alone: ${labeled} new label(s), bringing the artifact to ${cases}. The artifact accrues one batch a run, so the block below is this batch's measurement and not the file's — the rest of what this batch read is the hand reference set, re-graded every run for that measurement and published from its own adjudicated labels rather than the labeler's. Prior batches' rows are carried forward unchanged."
-            printf '%s\n\n' "The command enforces the publication gate, so this PR exists only because the run cleared it. What the numbers mean — agreement with a single v0 reference rater, **not** accuracy; a grant-enriched frame that certifies the grant stream only; per-label rates suppressed under the support floor — is in \`docs/qp-topic.md\`."
+            printf '%s\n\n' "${lead} The artifact accrues one batch a run, so the block below is this batch's measurement and not the file's — the rest of what this batch read is the hand reference set, re-graded every run for that measurement and published from its own adjudicated labels rather than the labeler's. Prior batches' rows are carried forward unchanged."
+            printf '%s\n\n' "The command enforces the publication gate, so this PR exists only because the run cleared it. ${meaning}"
             printf '%s\n' '```'
             cat "$MEASURED_FILE"
             printf '%s\n' '```'

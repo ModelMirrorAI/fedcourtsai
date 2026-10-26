@@ -416,13 +416,43 @@ vocabulary) and a path, `data/qp-topics/qp-topic-reference-applications.json`.
 It is a file of its own rather than a block of the petition reference set, so
 the petition set stays byte-identical and a later application gate's floors can
 bind apart from the petition gate's. It names application dockets the public
-case set does not, so it is the third committed surface the disclosure
+case set does not, so it is one of the committed surfaces the disclosure
 exception in *The reference set* covers, argued there together with the
-application rows the labels file will carry. It is committed, and changes
-only in its own reviewed diff, as the petition set does. The
-labeling run's handling of application rows, and a per-topic cut that reads
-them, do not yet exist. Until they do, the labels file carries no application
-row, and the petition frame's gates are unchanged.
+application labels file. It is committed, and changes only in its own reviewed
+diff, as the petition set does.
+
+The labeling run labels the application frame in its own mode,
+`qp-topic-label-applications`, by the petition frame's rules with the
+application inputs in place of the petition ones:
+
+- `qp-corpus --frame applications` cuts the batch from committed state: every
+  member of the application block the frame holds, force-included, plus a
+  seeded-hash draw of the applications not yet labeled, stratified on Term
+  alone (an application has no fee class). It refuses a converged frame and a
+  frame holding under the coverage floor of the block, as the petition extract
+  does. The frame fits under the row ceiling, so the first batch is the whole
+  frame.
+- `qp-topics --frame applications` measures the batch against the application
+  block under the same agreement gate and coverage floor. A block member
+  publishes its adjudicated label, never the labeler's, and every other row is
+  labeled once.
+- What it writes is `data/qp-topics/qp-topics-applications.json`
+  (`QpTopicApplicationLabels`), a file of its own beside the petition labels
+  file, so the petition artifact, the docket pack and the public site that read
+  it are untouched. Each row carries the `input_kind` of the extract row its
+  label was read from, and the PR lands on its own fixed branch,
+  `qp-topics/applications-refresh`.
+- The shadow rules run over the stored application text only, so a
+  `docket-only` row never fires one. Their level means less here than on the
+  petition frame, which is the text they were written from.
+
+The gate measures agreement with the block's adjudicated labels, and the block
+was adjudicated by the session that wrote the fitted rules above. So a passing
+application run measures agreement with those rules as applied by one session,
+not with independent raters, and a held-out blind pass is still owed before an
+application agreement figure is quoted. No labels have been published yet, and
+a per-topic cut that reads them does not yet exist. The petition frame's gates
+are unchanged.
 
 ## The reference set
 
@@ -535,16 +565,18 @@ Three consequences bind every use of the set:
   are maximally public (SCOTUS petitions, named on the Court's own site) and
   no QP text is republished; the extent-by-counts the coverage caveat also
   carries is the posture the docket pack already publishes. The exception is
-  accepted for **exactly three committed artifacts** — this set; the
+  accepted for **exactly four committed artifacts** — this set; the
   labeler's per-case labels file `data/qp-topics/qp-topics.json`, which every
   labeling run commits in full so a reviewer reads the labels themselves rather
   than a summary of them — every row, including the batches before this one, and
-  each stamped with the batch and the source that published it; and the
+  each stamped with the batch and the source that published it; the
   application reference block
-  `data/qp-topics/qp-topic-reference-applications.json`, argued below together
-  with the application rows the labels file carries under `qp-topic-v1`. None
-  is precedent for a fourth: any further committed surface that enumerates the
-  ingested corpus is argued here, before it exists.
+  `data/qp-topics/qp-topic-reference-applications.json`; and the application
+  labels file `data/qp-topics/qp-topics-applications.json`, the `qp-topic-v1`
+  counterpart of the petition labels file, committed in full the same way. The
+  last two are argued below together. None is precedent for a fifth: any
+  further committed surface that enumerates the ingested corpus is argued here,
+  before it exists.
 
   **What the second artifact adds, stated plainly.** Its own membership is
   **fetch-conditioned** — a case is in it because a questions-presented
@@ -570,7 +602,7 @@ Three consequences bind every use of the set:
   `data/qp-topics/` **path** rather than the reference set by name, and why that
   path prohibition is what has to hold as artifacts are added under it.
 
-  **The application block, and application rows in the labels file, stated
+  **The application block and the application labels file, stated
   plainly.** The block names 241 application dockets, and about four in five of
   them have no directory under `data/cases`. Its membership is
   **outcome-conditioned**. The sample is stratified on Term × input kind ×
@@ -584,14 +616,15 @@ Three consequences bind every use of the set:
     presence says the pipeline holds that document.
   - **Every pending application was a member at the draw** (6 of 6: five
     through the `application-text` census and one through the floor on a
-    one-member stratum). So once the labels file names the frame, an
-    application in it but absent from the block was decided at the draw date.
+    one-member stratum). So once the application labels file names the frame,
+    an application in it but absent from the block was decided at the draw
+    date.
 
   For granted applications membership is partial (31 of 100), unlike this set,
   which holds *every* QP-bearing grant, so the block carries no "absence
   predicts a grant" inference.
 
-  Once the labeling run carries application rows, the labels file would name the
+  Once an application labeling run lands, the application labels file names the
   whole application frame (the live slice's non-extension applications, about
   850 at the 2026-10-26 pull), each with its `input_kind`. The joint effect with
   the block is bounded: the frame minus the block is the hash-unsampled remainder
@@ -637,13 +670,14 @@ Three consequences bind every use of the set:
   the extract never leaves the runner, would close the channel outright; both
   cost more than the exposure is currently judged to be worth, and that judgment
   is the thing to revisit if the extract ever carries more than this. The
-  application extract (`qp-corpus --frame applications`) carries more. No lane
-  uploads it yet, so this acceptance is ahead of the run mode that will. It is
-  **unbatched**: one artifact carries the whole application frame (about 850
-  rows) and every kept application text on every dispatch, a gate-refusing one
-  included, so it names the full frame before any committed labels file does.
-  It is accepted on the same footing for the same two reasons. The frame it
-  names is the one the labels file will name. And what it carries is
+  application extract (`qp-corpus --frame applications`) carries more, and the
+  `qp-topic-label-applications` mode uploads it the same way. It is batched by
+  the petition extract's rule, but the frame fits under the row ceiling, so its
+  first batch carries the whole application frame (about 850 rows) and every
+  kept application text, a gate-refusing dispatch included, and it names the
+  full frame before any committed labels file does. It is accepted on the same
+  footing for the same two reasons. The frame it names is the one the
+  application labels file names. And what it carries is
   public-record content served by supremecourt.gov: the court below and the
   docket entries come from the Court's docket JSON, the caption from a live-slice
   row whose caption is that docket's own, and the application text from

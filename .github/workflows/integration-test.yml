@@ -2999,11 +2999,12 @@ jobs:
             }
           prompt: |
             Read .github/prompts/qp-topic-label.md and AGENTS.md, then label every
-            questions-presented text in the extract:
+            row in the extract:
 
             QP_TEXTS=${{ runner.temp }}/qp-io/qp-texts.json
             LABELS_OUT=${{ runner.temp }}/qp-io/qp-labels.jsonl
             LABELER=claude-code/claude-haiku-4-5-20251001
+            QP_FRAME=petitions
 
             These values are authoritative and literal: this run grants you no
             shell, so there is nothing to expand — use the paths as written.

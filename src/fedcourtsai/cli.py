@@ -288,7 +288,11 @@ from .pipeline import (
     vote_sources,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
-from .pipeline.application_topics import APPLICATION_EXTRACT_RULE, application_extract
+from .pipeline.application_topics import (
+    APPLICATION_EXTRACT_RULE,
+    ApplicationExtractRow,
+    application_extract,
+)
 from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.arrival_cut import arrival_cut_ledger
 from .pipeline.asof import CutoffPolicy
@@ -495,6 +499,8 @@ from .schemas import (
     PredictionContext,
     PredictorConfig,
     ProcessVersion,
+    QpTopicApplicationLabels,
+    QpTopicApplicationReference,
     QpTopicLabels,
     QpTopicReference,
     RetrievalCall,
@@ -6498,9 +6504,14 @@ def _work_tree_root() -> Path | None:
     return None
 
 
-def _labeling_batch(
-    frame: Sequence[QpExtractRow], *, data_root: Path, out: Path, scope: str
-) -> list[QpExtractRow]:
+def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
+    frame: Sequence[Row],
+    *,
+    data_root: Path,
+    out: Path,
+    scope: str,
+    applications: bool = False,
+) -> list[Row]:
     """The rows this dispatch labels, cut from the scoped frame by committed state.
 
     Reads the committed reference set and, where one exists, the committed labels
@@ -6514,8 +6525,16 @@ def _labeling_batch(
     to stderr, and exits non-zero on the two states where a dispatch would spend
     a labeling run for nothing: a converged frame, and a frame holding too few of
     the reference set for the run to clear the publication gate's coverage floor.
+
+    ``applications`` cuts the application frame's batch by the same rule, from
+    the application reference block and the application labels artifact,
+    stratified on Term alone.
     """
-    reference_file = qp_topics.reference_path(data_root)
+    reference_file = (
+        qp_topics.application_reference_path(data_root)
+        if applications
+        else qp_topics.reference_path(data_root)
+    )
     if not reference_file.is_file():
         typer.echo(
             f"qp-corpus: no reference set at {reference_file} — the batch is derived from "
@@ -6525,14 +6544,27 @@ def _labeling_batch(
             err=True,
         )
         raise typer.Exit(code=1)
-    reference = read_model(reference_file, QpTopicReference)
-    labels_file = qp_topics.labels_path(data_root)
-    prior = read_model(labels_file, QpTopicLabels) if labels_file.is_file() else None
+    reference: QpTopicReference | QpTopicApplicationReference
+    labeled: set[str] = set()
+    if applications:
+        reference = read_model(reference_file, QpTopicApplicationReference)
+        labels_file = qp_topics.application_labels_path(data_root)
+        if labels_file.is_file():
+            labeled = {e.case_id for e in read_model(labels_file, QpTopicApplicationLabels).entries}
+        stratum, seed = qp_topics.application_stratum_key, qp_topics.APPLICATION_BATCH_ORDER_SEED
+    else:
+        reference = read_model(reference_file, QpTopicReference)
+        labels_file = qp_topics.labels_path(data_root)
+        if labels_file.is_file():
+            labeled = {e.case_id for e in read_model(labels_file, QpTopicLabels).entries}
+        stratum, seed = qp_topics.petition_stratum_key, qp_topics.BATCH_ORDER_SEED
     try:
         batch = qp_topics.derive_label_batch(
             frame=[(row.case_id, row.docket_number) for row in frame],
             reference=reference,
-            labeled={entry.case_id for entry in prior.entries} if prior is not None else (),
+            labeled=labeled,
+            stratum=stratum,
+            seed=seed,
         )
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-corpus: {exc}", err=True)
@@ -6547,6 +6579,17 @@ def _labeling_batch(
     # document, and the fix is upstream in the corpus; a case that has left the
     # labeling scope needs a different one, so the message names the common cause
     # rather than asserting the only one.
+    if batch.reference_covered < qp_topics.COVERAGE_FLOOR and applications:
+        typer.echo(
+            f"qp-corpus: only {batch.reference_rows} of {batch.reference_total} application "
+            f"reference case(s) are in the frame ({batch.reference_covered:.1%}), under the "
+            f"{qp_topics.COVERAGE_FLOOR:.0%} coverage floor `fedcourts qp-topics` enforces — "
+            "a labeling run over this frame would be refused at the gate whatever it "
+            "labeled. Nothing was written. A reference application leaves the frame when "
+            "the live slice drops it or its ask is re-read as an extension.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     if batch.reference_covered < qp_topics.COVERAGE_FLOOR:
         typer.echo(
             f"qp-corpus: only {batch.reference_rows} of {batch.reference_total} reference "
@@ -6593,7 +6636,9 @@ def _labeling_batch(
     # its Term x fee-class counts stay out of the file the labeler reads. The run
     # mode uploads the extract by name, so this file does not travel to the
     # labeling job either.
-    write_raw_json(out.with_name(out.stem + ".batch.json"), qp_topics.batch_metadata(batch))
+    write_raw_json(
+        out.with_name(out.stem + ".batch.json"), qp_topics.batch_metadata(batch, seed=seed)
+    )
     typer.echo(f"qp-corpus: batch derived from committed state ({scope})", err=True)
     typer.echo(qp_topics.render_batch(batch), err=True)
     selected = set(batch.case_ids)
@@ -6712,9 +6757,9 @@ def qp_corpus(
     frame: Annotated[
         Literal["petitions", "applications"],
         typer.Option(
-            help="`petitions`: the questions-presented frame (qp-topic-v0), batched. "
+            help="`petitions`: the questions-presented frame (qp-topic-v0). "
             "`applications`: the live slice's non-extension application dockets "
-            "(qp-topic-v1), pre-disposition text only, unbatched.",
+            "(qp-topic-v1), pre-disposition text only. Both are batched.",
         ),
     ] = "petitions",
 ) -> None:
@@ -6781,9 +6826,10 @@ def qp_corpus(
     each row carries the caption, the court below, the docket entries dated
     before the disposition with the Court's own acts removed, and the stored
     application text where there is one, plus an ``input_kind`` saying which.
-    It is unbatched, keeps the labeling ceiling as a flat refusal, and prints
-    its coverage by Term, ask and input kind to stderr. ``--all`` does not
-    combine with it.
+    It is batched by the same rule against the application reference block and
+    the application labels artifact, stratified on Term alone, refuses the same
+    two states, and prints its coverage by Term, ask and input kind to stderr.
+    ``--all`` does not combine with it.
 
     The extract is a working file for one labeler run, **never a committed
     artifact**: it enumerates the ingested corpus and republishes stored
@@ -6879,7 +6925,7 @@ def qp_corpus(
 def _qp_corpus_applications(
     settings: Settings, corpus_db: Path | None, out: Path, *, all_texts: bool
 ) -> None:
-    """``qp-corpus --frame applications``: the unbatched application extract."""
+    """``qp-corpus --frame applications``: the application extract, batched like the petitions'."""
     if all_texts:
         typer.echo("qp-corpus: --all is the petition frame's measurement form", err=True)
         raise typer.Exit(code=2)
@@ -6898,18 +6944,9 @@ def _qp_corpus_applications(
         # transport failure surfaces as whatever the client raises.
         typer.echo(f"qp-corpus: cannot read stored payloads for {db_path}: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    rows = extract.rows
-    if not rows:
+    if not extract.rows:
         typer.echo(f"qp-corpus: no application dockets in {db_path}", err=True)
         raise typer.Exit(code=1)
-    if len(rows) > qp_topics.LABEL_ROW_CEILING:
-        typer.echo(
-            f"qp-corpus: refusing to write {len(rows)} application row(s) — over the "
-            f"{qp_topics.LABEL_ROW_CEILING}-row labeling ceiling",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    write_raw_json(out, [row.as_json() for row in rows])
     typer.echo(
         f"qp-corpus: {APPLICATION_EXTRACT_RULE}; {extract.duplicate_rows} duplicate row(s) and "
         f"{extract.extension_rows} extension(s) left out; {extract.decided_unread} decided "
@@ -6920,6 +6957,14 @@ def _qp_corpus_applications(
         extract.coverage.items(), key=lambda item: (item[0][0] or 0, item[0][1], item[0][2])
     ):
         typer.echo(f"  OT{term if term is not None else '?'} {ask} {input_kind}: {count}", err=True)
+    rows = _labeling_batch(
+        extract.rows,
+        data_root=settings.data_root,
+        out=out,
+        scope="live-slice non-extension application dockets",
+        applications=True,
+    )
+    write_raw_json(out, [row.as_json() for row in rows])
     typer.echo(f"qp-corpus: {len(rows)} application(s) -> {out}")
 
 
@@ -6949,6 +6994,14 @@ def qp_topics_cmd(
             "cut from; recorded on the batch's ledger entry.",
         ),
     ] = None,
+    frame: Annotated[
+        Literal["petitions", "applications"],
+        typer.Option(
+            help="Which frame the extract labels: `petitions` measures against the "
+            "reference set and accrues qp-topics.json; `applications` measures against "
+            "the application reference block and accrues qp-topics-applications.json.",
+        ),
+    ] = "petitions",
 ) -> None:
     """Measure a topic labeler against the reference set and accrue its labels artifact.
 
@@ -6992,8 +7045,17 @@ def qp_topics_cmd(
     and the cut falls back to its bound. A count under the rows this batch labeled
     is refused — the batch is drawn from the frame, so a smaller frame is a count
     of something else.
+
+    ``--frame applications`` measures an application batch (``qp-corpus --frame
+    applications``) against the application reference block, under the same
+    gate and floors, and accrues the application labels artifact
+    (``data/qp-topics/qp-topics-applications.json``), each row stamped with the
+    extract's ``input_kind``. ``--frame-rows`` there counts the application frame.
     """
     settings = get_settings()
+    if frame == "applications":
+        _qp_topics_applications(settings, labels, texts, labeler, out, frame_rows)
+        return
     reference_path = qp_topics.reference_path(settings.data_root)
     if not reference_path.is_file():
         typer.echo(f"qp-topics: no reference set at {reference_path}", err=True)
@@ -7015,11 +7077,55 @@ def qp_topics_cmd(
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+    _report_labels_run(artifact, reference_name="the reference set")
+    destination = out if out is not None else qp_topics.labels_path(settings.data_root)
+    write_json(destination, artifact)
+    typer.echo(f"qp-topics: gate passed -> {destination}")
+
+
+def _qp_topics_applications(
+    settings: Settings,
+    labels: Path,
+    texts: Path,
+    labeler: str,
+    out: Path | None,
+    frame_rows: int | None,
+) -> None:
+    """``qp-topics --frame applications``: measure an application batch and accrue its artifact."""
+    reference_path = qp_topics.application_reference_path(settings.data_root)
+    if not reference_path.is_file():
+        typer.echo(f"qp-topics: no application reference block at {reference_path}", err=True)
+        raise typer.Exit(code=1)
+    prior_path = qp_topics.application_labels_path(settings.data_root)
+    prior = read_model(prior_path, QpTopicApplicationLabels) if prior_path.is_file() else None
+    try:
+        artifact = qp_topics.build_application_labels(
+            entries=qp_topics.read_label_lines(labels),
+            texts=qp_topics.read_texts(texts),
+            input_kinds=qp_topics.read_input_kinds(texts),
+            reference=read_model(reference_path, QpTopicApplicationReference),
+            labeler=labeler,
+            prior=prior,
+            frame_rows=frame_rows,
+        )
+    except qp_topics.QpTopicError as exc:
+        typer.echo(f"qp-topics: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    _report_labels_run(artifact, reference_name="the application reference block")
+    destination = out if out is not None else prior_path
+    write_json(destination, artifact)
+    typer.echo(f"qp-topics: gate passed -> {destination}")
+
+
+def _report_labels_run(
+    artifact: QpTopicLabels | QpTopicApplicationLabels, *, reference_name: str
+) -> None:
+    """Print one labeling run's measured block, and exit non-zero below the gate."""
     batch = artifact.batches[-1]
     typer.echo(
         f"qp-topics: batch {batch.batch} — {batch.measured} row(s) read by {artifact.labeler}, "
         f"{batch.labeler_rows} newly published from its own calls and "
-        f"{batch.published - batch.labeler_rows} from the reference set's hand labels; "
+        f"{batch.published - batch.labeler_rows} from {reference_name}'s hand labels; "
         f"{artifact.cases} labeled case(s) in the artifact across {len(artifact.batches)} batch(es)"
     )
     if batch.superseded:
@@ -7027,7 +7133,14 @@ def qp_topics_cmd(
             f"qp-topics: {batch.superseded} standing row(s) re-published from a changed "
             "hand reference label"
         )
-    typer.echo(qp_topics.render_agreement(artifact.agreement))
+    typer.echo(
+        qp_topics.render_agreement(
+            artifact.agreement,
+            against="the v0 reference rater"
+            if isinstance(artifact, QpTopicLabels)
+            else "the application reference block",
+        )
+    )
     typer.echo(
         f"  shadow:    {artifact.shadow.disagreements} disagreement(s) on "
         f"{artifact.shadow.fired} rule firing(s) over {artifact.shadow.texts} text(s) — "
@@ -7043,14 +7156,11 @@ def qp_topics_cmd(
         typer.echo(
             f"qp-topics: refusing to write — agreement {measured} of n={agreement.overall_n} "
             f"against the {qp_topics.AGREEMENT_GATE:.0%} publication gate, over "
-            f"{covered:.1%} of the reference set against a {qp_topics.COVERAGE_FLOOR:.0%} "
+            f"{covered:.1%} of {reference_name} against a {qp_topics.COVERAGE_FLOOR:.0%} "
             "coverage floor",
             err=True,
         )
         raise typer.Exit(code=1)
-    destination = out if out is not None else qp_topics.labels_path(settings.data_root)
-    write_json(destination, artifact)
-    typer.echo(f"qp-topics: gate passed -> {destination}")
 
 
 @app.command("corpus-status")

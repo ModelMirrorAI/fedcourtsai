@@ -617,9 +617,9 @@ what governs is the content, not where it happens to sit.
 
 What does go to **public git** under `data/` is only our **own work product**: the
 model-generated predictions, outcomes, and evaluations, keyed by case id, plus the
-reasoning text that explains them — and the three qp-topic artifacts
+reasoning text that explains them — and the four qp-topic artifacts
 (`docs/qp-topic.md`), the hand-labeled reference set, its application block
-and the accrued per-case labels: subject-matter judgments keyed by case id and public-record
+and the two accrued per-case labels files: subject-matter judgments keyed by case id and public-record
 docket number, republishing no source text — and the plain-language case
 summaries (`docs/case-summaries.md`), model-written restatements of a case's
 record. Those are written only from records whose snapshot is the Court's own

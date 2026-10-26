@@ -8845,7 +8845,6 @@ class QpTopicApplicationReference(_Strict):
     The measurement baseline for a ``qp-topic-v1`` labeler on application rows,
     kept apart from the petition reference set so that set stays byte-identical
     and an application gate's floors can bind apart from the petition gate's.
-    Not committed until ``docs/qp-topic.md`` argues its disclosure exception.
     Its sample is stratified on disposition, among other things, so membership
     is outcome-conditioned in the same way the petition set's is, which is why
     the cell prompts forbid predict/evaluate cells from reading anything under
@@ -9215,19 +9214,98 @@ class QpTopicLabels(_Strict):
 
     @model_validator(mode="after")
     def _canonical(self) -> QpTopicLabels:
-        if self.cases != len(self.entries):
-            raise ValueError("cases must equal len(entries)")
-        ids = [entry.case_id for entry in self.entries]
-        if ids != sorted(ids) or len(set(ids)) != len(ids):
-            raise ValueError("entries must be sorted by case_id and unique")
-        numbers = [row.batch for row in self.batches]
-        if numbers != list(range(1, len(numbers) + 1)):
-            raise ValueError("batches must be numbered 1..n in order")
-        if sum(row.published for row in self.batches) != self.cases:
-            raise ValueError("the batch ledger's published counts must sum to cases")
-        unknown = sorted({entry.batch for entry in self.entries} - set(numbers))
-        if unknown:
-            raise ValueError(f"entries cite batches with no ledger row: {unknown}")
+        _check_labels_accrual(self.cases, self.entries, self.batches)
+        return self
+
+
+def _check_labels_accrual(
+    cases: int, entries: Sequence[QpTopicPublishedEntry], batches: Sequence[QpTopicBatchEntry]
+) -> None:
+    """The accrual invariants every labels artifact holds, whichever frame it labels."""
+    if cases != len(entries):
+        raise ValueError("cases must equal len(entries)")
+    ids = [entry.case_id for entry in entries]
+    if ids != sorted(ids) or len(set(ids)) != len(ids):
+        raise ValueError("entries must be sorted by case_id and unique")
+    numbers = [row.batch for row in batches]
+    if numbers != list(range(1, len(numbers) + 1)):
+        raise ValueError("batches must be numbered 1..n in order")
+    if sum(row.published for row in batches) != cases:
+        raise ValueError("the batch ledger's published counts must sum to cases")
+    unknown = sorted({entry.batch for entry in entries} - set(numbers))
+    if unknown:
+        raise ValueError(f"entries cite batches with no ledger row: {unknown}")
+
+
+class QpTopicApplicationPublishedEntry(QpTopicPublishedEntry):
+    """One row of the accumulating application labels artifact.
+
+    A published label plus the extract shape it was read from, stamped by the
+    builder from the extract row and never by the labeler: a label read from a
+    caption and a stay request is weaker than one read from the application's
+    own text, and every cut reports the two apart (``docs/qp-topic.md``,
+    *Applications*).
+    """
+
+    input_kind: Literal["application-text", "docket-only"] = Field(
+        description="Which extract shape the label was read from: with the stored "
+        "application text, or from the caption, court below and docket entries alone"
+    )
+
+
+class QpTopicApplicationLabels(_Strict):
+    """``data/qp-topics/qp-topics-applications.json`` — the ``qp-topic-v1`` application labels.
+
+    The application frame's counterpart to :class:`QpTopicLabels`, kept in a file
+    of its own so the petition artifact and every reader of it are untouched and
+    the application gate binds apart from the petition gate. It accrues the same
+    way, batch by batch, and a reference member publishes the application
+    reference block's adjudicated label rather than the labeler's. ``agreement``
+    and ``shadow`` describe the most recent run only, measured against the
+    application reference block; ``batches`` keeps every run's figures, and each
+    ledger row's ``frame_rows`` counts the application frame.
+
+    Written only when the application gate passes. Agreement here is with the
+    block's adjudicated labels, not accuracy, and the block's raters and fitted
+    rules are disclosed in ``docs/qp-topic.md``. Labels here are a corpus
+    description, not a prediction claim, and nothing frozen reads them.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    vocabulary: Literal["qp-topic-v1"] = Field(
+        default="qp-topic-v1",
+        description="The label vocabulary every entry draws from",
+    )
+    extract_rule: Literal["application-extract-v1"] = Field(
+        default="application-extract-v1",
+        description="The extract rule whose rows every label was read from",
+    )
+    labeler: str = Field(
+        min_length=1,
+        description="Who assigned the most recent batch's labels — engine and model. Earlier "
+        "batches carry their own labeler in `batches`",
+    )
+    cases: int = Field(
+        default=0, ge=0, description="Labeled applications across every batch (== len(entries))"
+    )
+    agreement: QpTopicAgreement = Field(
+        description="The most recent run's measured agreement with the application reference block"
+    )
+    shadow: QpTopicShadow = Field(
+        description="The most recent run's shadow-rule counts over the stored application text"
+    )
+    batches: list[QpTopicBatchEntry] = Field(
+        default_factory=list,
+        description="One row per labeling run that contributed, in batch order",
+    )
+    entries: list[QpTopicApplicationPublishedEntry] = Field(
+        default_factory=list,
+        description="One entry per labeled application, in case_id order, across every batch",
+    )
+
+    @model_validator(mode="after")
+    def _canonical(self) -> QpTopicApplicationLabels:
+        _check_labels_accrual(self.cases, self.entries, self.batches)
         return self
 
 
@@ -13625,6 +13703,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "qp-topic-reference.json": QpTopicReference,
     "qp-topic-reference-applications.json": QpTopicApplicationReference,
     "qp-topics.json": QpTopicLabels,
+    "qp-topics-applications.json": QpTopicApplicationLabels,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -13663,6 +13742,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "qp_topic_reference": QpTopicReference,
     "qp_topic_application_reference": QpTopicApplicationReference,
     "qp_topics": QpTopicLabels,
+    "qp_topics_applications": QpTopicApplicationLabels,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "summary_plan": SummaryPlan,
     "export_prediction_row": ExportPredictionRow,

@@ -1845,17 +1845,18 @@ understood: on a bucket of only public court-derived objects, `ListBucket` lets
 a holder *enumerate* the ingested-set extent — the compilation extent, the same
 boundary `data/scope/scope.json` withholds from the committed public surface
 (it can enumerate keys for ingested-but-unpublished dockets). The stated,
-bounded exception to that boundary covers exactly three committed artifacts,
+bounded exception to that boundary covers exactly four committed artifacts,
 all argued and accepted in `docs/qp-topic.md` and nowhere else: the
 hand-labeled qp-topic reference set; the accrued per-case qp-topic labels file
 over the QP-bearing rows *in the labeling scope* — the live-slice modern
-discretionary-cert frame — and, under `qp-topic-v1`, over the live slice's
-non-extension application dockets; and the hand-labeled application reference
-block, a stratified sample of those applications whose membership is
-outcome-conditioned by its disposition strata and complete only for the
-applications pending at the draw and those with a stored application document.
-The labels file's extent is bounded by those **frames**, not by
-the extract ceiling: the labels file accumulates one batch a dispatch and
+discretionary-cert frame; its `qp-topic-v1` counterpart, the accrued
+application labels file over the live slice's non-extension application
+dockets; and the hand-labeled application reference block, a stratified
+sample of those applications whose membership is outcome-conditioned by its
+disposition strata and complete only for the applications pending at the draw
+and those with a stored application document.
+Each labels file's extent is bounded by its **frame**, not by
+the extract ceiling: a labels file accumulates one batch a dispatch and
 converges on the whole frame, so it tracks corpus growth in that scope and the
 committed file at any commit is the union of every batch landed so far. The
 ceiling bounds one extract — the non-committed channel below — and nothing else.
@@ -1875,8 +1876,8 @@ population than fetch alone), and because the two are committed together the
 pair reconstructs that frame's QP-bearing non-grants by difference. The
 application block's membership is outcome-conditioned too, and complete for
 two classes: every application with a stored application document, and every
-application pending at the draw. So, against the application rows of the labels
-file, absence from the block says an application was decided at the draw (a
+application pending at the draw. So, against the application labels file,
+absence from the block says an application was decided at the draw (a
 fact the Court's docket page states), and nothing finer, since its granted
 applications are sampled. That composition is the thing argued in
 `docs/qp-topic.md`, alongside the non-git channel the labeling run adds — three

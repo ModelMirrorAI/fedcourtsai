@@ -656,20 +656,20 @@ def test_the_qp_labels_push_guard_checks_rows_not_ledger_counts() -> None:
     # leaves untracked files in place, so while main does not carry the
     # artifact a tree read would hand the guard the run's own file as the
     # prior and refuse the first batch.
-    assert 'git cat-file -e "origin/main:data/qp-topics/qp-topics.json"' in guard
-    assert 'git show "origin/main:data/qp-topics/qp-topics.json"' in guard
+    assert 'git cat-file -e "origin/main:data/qp-topics/${LABELS_NAME}"' in guard
+    assert 'git show "origin/main:data/qp-topics/${LABELS_NAME}"' in guard
     # Between the branch switch and the copy back into the tree, the only
     # mentions of the artifact path are the ref-qualified reads and the error
     # prose — never a bare tree read, under any quoting.
     switched = guard[
         guard.index('git checkout -q -f -B "$BRANCH" origin/main') : guard.index(
-            'cp "$RUNNER_TEMP/qp-topics.json" data/qp-topics/qp-topics.json'
+            'cp "$RUNNER_TEMP/qp-topics.json" "data/qp-topics/${LABELS_NAME}"'
         )
     ]
-    bare = switched.replace("origin/main:data/qp-topics/qp-topics.json", "").replace(
-        "newest data/qp-topics/qp-topics.json", ""
+    bare = switched.replace("origin/main:data/qp-topics/${LABELS_NAME}", "").replace(
+        "newest data/qp-topics/${LABELS_NAME}", ""
     )
-    assert "data/qp-topics/qp-topics.json" not in bare, (
+    assert "data/qp-topics/${LABELS_NAME}" not in bare, (
         "the prior must come from origin/main, never from the checked-out tree"
     )
 
@@ -1694,8 +1694,8 @@ def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() 
     # scanned with the labels file, and the hand-off holds those two alone.
     assert "-gt 65536" in revalidate["run"]
     assert '--extra-file "$dir/measured.txt"' in revalidate["run"]
-    assert '--extra-file "$dir/qp-topics.json"' in revalidate["run"]
-    assert '! -path "$dir/qp-topics.json" ! -path "$dir/measured.txt"' in revalidate["run"]
+    assert '--extra-file "$dir/${LABELS_NAME}"' in revalidate["run"]
+    assert '! -path "$dir/${LABELS_NAME}" ! -path "$dir/measured.txt"' in revalidate["run"]
     assert '[ -L "$f" ]' in stage["run"], "the source side refuses a symlinked file"
     assert "if" not in revalidate
     assert names.index("Re-validate the measured artifact") < names.index("Mint app token")
@@ -4146,11 +4146,14 @@ def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> No
     # an mcp config, an allowlist, a different token handoff — is a different
     # block however equal the compared keys stay. The prompt travels verbatim
     # but for the LABELER literal, which carries the pinned default where the
-    # lane interpolates its input.
+    # lane interpolates its input, and the QP_FRAME literal, where the smoke
+    # labels the petition frame the lane reads off its mode.
     lane_with = {k: v for k, v in lane["with"].items() if k != "claude_args"}
     smoke_with = {k: v for k, v in smoke["with"].items() if k != "claude_args"}
-    lane_with["prompt"] = str(lane_with["prompt"]).replace(
-        "${{ inputs.label_model }}", default_model
+    lane_with["prompt"] = (
+        str(lane_with["prompt"])
+        .replace("${{ inputs.label_model }}", default_model)
+        .replace("${{ env.QP_FRAME }}", "petitions")
     )
     assert lane_with == smoke_with, "the with: mappings diverge beyond the model"
 
@@ -4993,3 +4996,41 @@ def test_the_merits_forecasts_leave_without_their_record_and_only_after_a_scan()
     assert "outside the forecast allowlist" in run
     assert 'mktemp -d "$RUNNER_TEMP/merits-forecasts.XXXXXXXX"' in run
     assert "steps.forecasts.outputs.present == 'true'" in steps[upload]["if"]
+
+
+def test_the_application_labeling_mode_reads_its_frame_off_the_mode_alone() -> None:
+    """The two labeling modes differ only in the frame and the labels file they name.
+
+    Every job of the labeling lane reads ``QP_FRAME`` and ``LABELS_NAME`` off
+    the same mode expression, so the extract, the measurement and the PR can
+    never name different frames, and each frame's fixed PR branch is its own.
+    """
+    wf = _load("run-analytics.yml")
+    triggers = wf.get("on") or wf.get(True) or {}
+    modes = triggers["workflow_dispatch"]["inputs"]["mode"]["options"]
+    assert {"qp-topic-label", "qp-topic-label-applications"} <= set(modes)
+    frame = "${{ inputs.mode == 'qp-topic-label-applications' && 'applications' || 'petitions' }}"
+    name = (
+        "${{ inputs.mode == 'qp-topic-label-applications' "
+        "&& 'qp-topics-applications.json' || 'qp-topics.json' }}"
+    )
+    for job in ("qp-topic-extract", "qp-topic-label", "qp-topic-publish"):
+        env = wf["jobs"][job]["env"]
+        assert _norm(env["QP_FRAME"]) == frame, job
+        assert _norm(env["LABELS_NAME"]) == name, job
+    for job in ("qp-topic-extract", "qp-topic-label"):
+        assert (
+            "(inputs.mode == 'qp-topic-label' || inputs.mode == 'qp-topic-label-applications')"
+            in _norm(wf["jobs"][job]["if"])
+        ), job
+    extract = next(s for s in wf["jobs"]["qp-topic-extract"]["steps"] if s.get("id") == "extract")
+    assert 'qp-corpus --frame "$QP_FRAME"' in extract["run"]
+    measure = next(s for s in wf["jobs"]["qp-topic-label"]["steps"] if s.get("id") == "measure")
+    assert measure["with"]["frame"] == "${{ env.QP_FRAME }}"
+    publish = next(
+        s
+        for s in wf["jobs"]["qp-topic-publish"]["steps"]
+        if s.get("name") == "Open or update the review PR"
+    )
+    branch = _norm(publish["env"]["BRANCH"])
+    assert "'qp-topics/applications-refresh'" in branch and "'qp-topics/refresh'" in branch

@@ -338,7 +338,9 @@ machine-produced per-case labels, written by the agent-backed `qp-topic-label`
 run mode and landed the same way, as a reviewed PR to `main` that is never
 auto-merged. That file **accrues**: the labeling frame outruns one dispatch, so
 each run labels a derived batch and the artifact is the union of every batch,
-carrying a per-batch ledger of who labeled what. Full
+carrying a per-batch ledger of who labeled what. `qp-topics-applications.json`
+is the same kind of file for the emergency-application frame, written by the
+`qp-topic-label-applications` mode. Full
 design: [`docs/data-pipeline.md`](docs/data-pipeline.md).
 
 ## Develop

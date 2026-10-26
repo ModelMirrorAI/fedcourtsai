@@ -24,7 +24,12 @@ from fedcourtsai.pipeline.application_topics import (
     application_row,
     pre_disposition_entries,
 )
-from fedcourtsai.schemas import Disposition
+from fedcourtsai.pipeline.qp_topics import (
+    APPLICATION_BATCH_ORDER_SEED,
+    application_reference_path,
+)
+from fedcourtsai.schemas import Disposition, QpTopicApplicationReference
+from fedcourtsai.serialize import write_json
 
 runner = CliRunner()
 
@@ -235,9 +240,33 @@ def test_the_command_writes_the_application_frame(
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
     out = tmp_path / "applications.json"
     result = runner.invoke(app, ["qp-corpus", "--frame", "applications", "--out", str(out)])
+    # The batch is cut against the application reference block, so the extract
+    # refuses without one rather than handing a labeler an unmeasurable batch.
+    assert result.exit_code == 1
+    assert "no reference set" in result.stderr
+    assert not out.exists()
+    write_json(
+        application_reference_path(tmp_path / "data"),
+        QpTopicApplicationReference(
+            cases=1,
+            entries=[
+                {
+                    "case_id": "scotus/1",
+                    "docket_number": "24A949",
+                    "input_kind": "application-text",
+                    "label": "immigration",
+                }
+            ],
+        ),
+    )
+    result = runner.invoke(app, ["qp-corpus", "--frame", "applications", "--out", str(out)])
     assert result.exit_code == 0, result.output
     rows = json.loads(out.read_text())
     assert [row["docket_number"] for row in rows] == ["24A949", "25A10"]
+    sidecar = json.loads(out.with_name("applications.batch.json").read_text())
+    assert (sidecar["frame"], sidecar["rows"], sidecar["reference_rows"]) == (2, 2, 1)
+    assert sidecar["seed"] == APPLICATION_BATCH_ORDER_SEED
+    assert [row["stratum"] for row in sidecar["strata"]] == ["2025/application"]
     assert rows[0]["input_kind"] == "application-text"
     assert [entry["date"] for entry in rows[0]["entries"]] == [
         "2025-03-03",
