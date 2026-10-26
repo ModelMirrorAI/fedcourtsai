@@ -103,7 +103,7 @@ DEFAULT_TERMS: tuple[int, ...] = (24,)
 #: The Terms whose apply is pre-registered in ``docs/freeze-record.md``. Each
 #: Term's apply moves the pooled interim base rate by its own amount, so each is
 #: its own scoring-baseline move: a Term joins this set in the same change that
-#: appends its freeze-record entry, and an apply for any other Term is refused.
+#: appends a freeze-record entry projecting that move, and an apply for any other Term is refused.
 #: A dry run reads any reachable Term, since reading moves nothing.
 REGISTERED_APPLY_TERMS: frozenset[int] = frozenset({17, 18, 19, 20, 21, 22, 23, 24})
 

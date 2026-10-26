@@ -14420,9 +14420,9 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     if apply and unregistered:
         typer.echo(
             f"backfill-applications: no pre-registered apply for Term(s) {unregistered}. Each "
-            "Term's apply moves the pooled interim base rate, so it needs its own "
-            "docs/freeze-record.md entry and a place in REGISTERED_APPLY_TERMS first; a dry run "
-            "reads it.",
+            "Term's apply moves the pooled interim base rate, so it needs a "
+            "docs/freeze-record.md entry projecting that move and a place in "
+            "REGISTERED_APPLY_TERMS first; a dry run reads it.",
             err=True,
         )
         raise typer.Exit(code=2)

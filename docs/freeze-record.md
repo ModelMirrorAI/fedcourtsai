@@ -13664,7 +13664,7 @@ freeze commit is recorded here.
   Term). No Term has a live-owned serial, a held row or a fetch failure, and
   every walk ended on 10 consecutive misses past its highest stored serial.
 
-  | Term | Would land | Last serial | Extension | Substantive | Unknown | Capital (substantive) | Referred | Substantive granted / resolved |
+  | Term | Would land | Last serial | Extension | Substantive | Unknown | Capital (substantive) | Referred (all kinds) | Substantive granted / resolved |
   | --- | --- | --- | --- | --- | --- | --- | --- | --- |
   | OT2017 | 1,424 | `17A1425` | 1,245 | 129 | 50 | 210 (49) | 61 | 12/124 = 9.7% |
   | OT2018 | 1,369 | `18A1369` | 1,208 | 115 | 46 | 170 (39) | 73 | 12/113 = 10.6% |
@@ -13701,33 +13701,54 @@ freeze commit is recorded here.
     **118/839 = 14.06%**.
   - **OT2023 application cells** gain a pool for the first time (OT2017 to
     OT2022 alone): **100/712 = 14.04%**. No committed interim cell has an
-    OT2023 application Term.
+    OT2023 application Term: every interim event on `main` at `a0daa0ccf`
+    opened on or after 2025-11-25, well after OT2023's numbering closed.
   - **Direction:** up, by 2.7 points for OT2026 cells. OT2020 and OT2021
     grant at 18.8% and 25.0%, against 8.7% to 10.6% in the other four Terms,
     so the move is concentrated in those two Terms. This is the drift the
     lookback decision is about; it is disclosed here and not corrected.
   - **The unread asks.** 286 rows carry an `unknown` ask (279 resolved, 81
     of them granted) and land outside the substantive pool, as every
-    `unknown` row does. Folded in, the OT2026-cell pool would read
-    232/1538 = 15.1%. The registered pool reads `substantive` alone; the bound
-    says how much the unread asks could matter, not what is scored.
+    `unknown` row does. The share is 3.4% to 5.8% of each Term but OT2020's,
+    which is 40/178 = 22.5% because that Term has almost no extensions. These
+    rows grant at 81/279 = 29%, twice the substantive rate, while the 41
+    resolved referred `unknown` rows grant at 3/41. Folding in only the six
+    back-filled Terms' rows (OT2023 to OT2025's own `unknown` rows stay out),
+    the OT2026-cell pool would read between **154/1300 = 11.8%** (the
+    referred `unknown` rows folded in) and **232/1538 = 15.1%** (all folded
+    in). The registered pool reads `substantive` alone; the band says how much
+    the back-filled Terms' unread asks could matter, not what is scored.
 
-  **One break, not six.** Each intermediate statpack refresh between applies
-  would be its own anchor move. The metrics refresh runs on its weekly cron
-  (Monday 05:41 UTC), so the six applies are dispatched within one week,
-  before the refresh that follows the first of them. If a refresh does fall
-  between two applies, each pool it reads is a dated value of its own, named
-  below with the refresh that produced it, rather than read as this
-  projection.
+  **When the applies run.** Only after this entry and the registration reach
+  `main` in a promotion; only the dry runs ran before it. The pooled figures
+  above are a projection from the dry-run ledgers; the applies' own ledgers
+  and the next statpack are the record.
+
+  **One break, not six.** The statpack refresh, not the apply, is the break:
+  interim cells anchor on and are scored against the committed statpack.
+  Each refresh that falls between two applies would be its own anchor move.
+  The metrics refresh runs on its weekly cron (Monday 05:41 UTC) and on a
+  `run-analytics` `metrics-refresh` dispatch, so the six applies are
+  dispatched within one Monday-to-Monday window, with no refresh dispatched
+  by hand until the last has landed. If a refresh does fall between two
+  applies, each pool it reads is a dated value of its own, named below with
+  the refresh that produced it, rather than read as this projection.
 
   **The straddling cohort, and how interim skill is read.** Interim skill is
   read keyed on the stamped `segment_base_rate` value, never pooled across
   values, as the OT2023 entry registered. At `main` `a0daa0ccf`, 54 interim
   events carry a prediction: 44 have an evaluation and 10 are open. The 10
   open events will be scored against whichever pool stands when they are
-  stamped, so any of them stamped after the refresh reads ≈0.120 where its
-  cell anchored on ≈0.093. For scale: a forecast of 0.10 on a denial has
-  Brier skill **−0.15** against 0.093 and **+0.30** against 0.120. Under the
+  stamped. Nine are OT2026 applications, scored after the refresh against
+  ≈0.120 instead of ≈0.093; one is an OT2025 application, scored against
+  ≈0.130 instead of ≈0.106. Their cells were provisioned from 2026-08-16 to
+  2026-10-23, so they anchored on the pool current at each provisioning run
+  (31/296, 53/549 or 51/547 for OT2026 cells), and some events carry
+  predictions at two of those anchors. As the OT2023 entry registered, the
+  stamp records only the scoring side; the anchoring side is read from each
+  cell's provisioning run id against the refresh commits' times. For scale:
+  a forecast of 0.10 on a denial has Brier skill **−0.15** against 51/547 =
+  0.0932 and **+0.30** against 151/1259 = 0.1199. Under the
   pooled reading declared on 2026-10-11, the refresh is a dated,
   digest-silent boundary, so a pooled interim figure carries its `n` on each
   side of it.
@@ -13737,11 +13758,12 @@ freeze commit is recorded here.
   columns (`referred_to_court` 437 in all, and whatever `response_requested`
   and `with_amicus` the ingest parses). The pack-level interim totals and the
   live-slice coverage counts move by 6,049, and the pack's court, era and
-  resolved-disposition totals move with about 5,300 extension and `unknown`
-  rows newly resolved. Those are conditioning too, since the pack is
-  provisioned. The newly resolved rows also become reachable to similar-case
-  priors retrieval, which filters by court, topic and disposition; a replay
-  cell's retrieval stays masked by its event date.
+  resolved-disposition totals move with 5,314 extension and `unknown` rows
+  newly resolved (5,035 extension, 4 still pending, and 279 `unknown`).
+  Those are conditioning too, since the pack is provisioned. The newly
+  resolved rows also become reachable to similar-case priors retrieval, which
+  filters by court, topic and disposition; a replay cell's retrieval stays
+  masked by its event date.
 
   **What does not move.** No committed `evaluation.json` is rewritten: a
   stamped harness skill keeps the base rate it was stamped with, and a
@@ -13776,9 +13798,12 @@ freeze commit is recorded here.
     land count above>` lands at most that many rows, and the control dry run
     after it reports `would land 0 row(s)`;
   - after the applies and a statpack refresh, the statpack's interim section
-    reports each of OT2017 to OT2022 with `unparsed` **0** (OT2017 **1**, for
-    `17A109`) and `substantive_granted` / `substantive_resolved` as in the
-    table above. An `applications` count above the table's means the apply
-    onboarded a row beside an existing one, a duplicated number. Any residue
+    reports OT2017 to OT2022 with `applications` **1425, 1369, 1071, 178,
+    876, 1131** (unchanged by the applies), `unparsed` **1** (`17A109`) for
+    OT2017 and **0** for the rest, `substantive` **129, 115, 121, 135, 121,
+    103**, `unknown` **50, 46, 37, 40, 47, 66**, `duplicate_rows` **0, 2, 2,
+    5, 2, 2** (unchanged), and `substantive_granted` / `substantive_resolved`
+    as in the table above. An `applications` count above these means an
+    apply onboarded a row beside an existing one, a duplicated number. Any residue
     is named here rather than rounded away. `uv run fedcourts process-digest
     --all` still prints `proc-v13` and the same six digests.
