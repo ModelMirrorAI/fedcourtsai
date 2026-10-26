@@ -13484,8 +13484,8 @@ freeze commit is recorded here.
 
 - **`proc-v13`: the predict prompt tells cells about the inputs stored for
   them, and provisioning hands them over; recorded 2026-10-24.**
-  Carried to `main` by `<FILL: promotion tag>` (merge `<FILL: merge sha>`,
-  `<FILL: merged-at>`), to be tagged **`prereg/proc-v13`**. Registered under
+  Carried to `main` by `promotion/2026-10-26` (merge `728efab06a9ad44bf39523c7181827d4eade70de`,
+  `2026-10-26T19:00:50Z`), to be tagged **`prereg/proc-v13`**. Registered under
   the merge-stamped rule, so its counting instant, its three bless moments and
   every window edge it moves are the carrying merge's committer time. It is
   the third supersession shape for all three predictors at once
@@ -13562,7 +13562,7 @@ freeze commit is recorded here.
   the three newly blessed digests, and `git grep -l '"process_version": {'
   origin/main -- data/cases | wc -l` is **3030** stamped cells. At the
   carrying merge the newly blessed predictor digests stamp
-  <FILL: census predictions digest=6a176c28,2827480e,b69b2b3a> committed
+  0 committed
   predictions.
 
   **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
@@ -13780,8 +13780,8 @@ freeze commit is recorded here.
   apart from withheld numbers such as `16A1101`. So OT2016 needs a
   different source for January to April 2017, and its own entry.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`). Applied by runs
+  Carried to `main` by `promotion/2026-10-26` (merge commit
+  `728efab06a9ad44bf39523c7181827d4eade70de`, merged `2026-10-26T19:00:50Z`). Applied by runs
   `<FILL: apply run ids, one per Term>` on `<FILL: apply dates>`, landing
   `<FILL: rows landed per Term>` rows. The first statpack refreshed after
   the last of them, at commit `<FILL: statpack refresh commit>`, reads the
