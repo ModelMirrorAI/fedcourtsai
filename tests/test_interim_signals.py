@@ -359,11 +359,12 @@ def test_the_finer_reading_reaches_no_stored_scored_or_cell_facing_reader() -> N
     """Parsed, not grepped, so a docstring mention neither trips nor hides it.
 
     Only the defining module, ingest's wrapper, the census module, `cli.py`
-    as the census's sole caller, and the executive success cut may name the
-    finer reading. The cut is an analytics artifact that writes nothing and
-    that no cell, outcome or score reads, and it reaches the reading only
-    through ingest's read-only wrapper. Any other module that does is a reader
-    the registration has not activated, so it fails here.
+    as the census's sole caller, and the executive success cut with its
+    controversy grouping may name the finer reading. The cut is an analytics
+    artifact that writes nothing and that no cell, outcome or score reads, and
+    it reaches the reading only through ingest's read-only wrappers. Any other
+    module that does is a reader the registration has not activated, so it
+    fails here.
     """
     src = Path(__file__).resolve().parents[1] / "src" / "fedcourtsai"
     users = {
@@ -377,12 +378,16 @@ def test_the_finer_reading_reaches_no_stored_scored_or_cell_facing_reader() -> N
         "pipeline/interim_reading_census.py",
         "pipeline/interim_signals.py",
         "pipeline/executive_success.py",
+        "pipeline/controversy.py",
     }
     # The CLI reaches the census and nothing else of the finer reading.
     assert users["cli.py"] == {"interim_reading_census"}
     # The analytics cut reaches the wrapper and the label vocabulary, never the
     # reader itself or anything that writes.
     assert users["pipeline/executive_success.py"] <= {"interim_reading", "InterimReading"}
+    # Its controversy grouping reads only the disposing order's text, for the
+    # application numbers it names, never a reading of what it disposed.
+    assert users["pipeline/controversy.py"] == {"interim_disposing_text"}
 
 
 def test_inside_ingest_only_the_wrappers_touch_the_finer_reading() -> None:

@@ -49,6 +49,13 @@ application-parsed is counted beside its cell, since it cannot be told from an
 extension. A row the scope rule leaves ``unknown`` is counted per
 administration beside every cell, and listed.
 
+**The same population again, by controversy.** Beside the application cells,
+the in-scope applications are grouped into controversies under
+``controversy-v1`` (:mod:`.controversy`) and counted per administration and
+filer, so applications the record links weigh once. A
+controversy's result is its last decided application's; one with none decided
+is indeterminate and sits beside the rate.
+
 **One docket, one row; the date convention, moment and bound are the
 caller's**, exactly as on the party rates cut: rows de-duplicate by docket
 number, ``as_of_field`` is required, ``through`` places the cut at a past
@@ -58,17 +65,24 @@ moment, and ``since`` bounds the start where coverage begins mid-window.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Final, Literal
+from typing import Any, Final, Literal
 
 from .. import corpus
 from ..schemas import (
     Disposition,
+    ExecutiveControversyCell,
     ExecutiveSuccess,
     ExecutiveSuccessCell,
     ExecutiveSuccessRow,
+)
+from .controversy import (
+    CONTROVERSY_RULE_VERSION,
+    controversy_links,
+    docket_order,
+    group_controversies,
 )
 from .exec_action import (
     EXEC_ACTION_COUNSEL_RULE,
@@ -87,6 +101,11 @@ from .prefetch import prefetch_by_case
 Filer = Literal["government", "challenger", "all"]
 
 Reading = Literal["finer", "registered"]
+
+#: Who filed a controversy's applications.
+ControversyFiler = Literal["government", "challenger", "both"]
+
+_CONTROVERSY_FILERS: Final[tuple[ControversyFiler, ...]] = ("government", "challenger", "both")
 
 #: The ways a stored ``denied`` can be read.
 READINGS: Final[tuple[Reading, ...]] = ("finer", "registered")
@@ -115,11 +134,11 @@ _UNDECIDED_LABELS: Final[frozenset[str]] = frozenset(
     }
 )
 
-#: One re-read: the finer label and its entry's date, or ``None`` where unobservable.
-Reread = tuple[str, date | None] | None
+#: A row's latest live-shaped snapshot payload, or ``None`` where it has none.
+Payload = Mapping[str, Any] | None
 
-#: Re-reads rows stored ``denied``, one result per row in order.
-Rereader = Callable[[Sequence[corpus.CorpusRow]], list[Reread]]
+#: Fetches the payloads of the rows the cut counts or lists, one per row in order.
+Fetcher = Callable[[Sequence[corpus.CorpusRow]], list[Payload]]
 
 
 @dataclass
@@ -192,22 +211,18 @@ class _Acc:
         )
 
 
-def snapshot_rereader(conn: corpus.ReadConnection) -> Rereader:
-    """Re-read rows from their latest live-shaped snapshots under the finer interim reading."""
+def snapshot_fetcher(conn: corpus.ReadConnection) -> Fetcher:
+    """Fetch each row's latest live-shaped snapshot payload, prefetched as one batch."""
 
-    def reread(rows: Sequence[corpus.CorpusRow]) -> list[Reread]:
-        results: list[Reread] = []
+    def fetch(rows: Sequence[corpus.CorpusRow]) -> list[Payload]:
         with prefetch_by_case(
             [row.case_id for row in rows],
             lambda case_id: corpus.latest_live_snapshot(conn, case_id),
             thread_name_prefix="executive-success",
         ) as fetched:
-            for _, found in fetched:
-                reading, decided = interim_reading(found[1]) if found else (None, None)
-                results.append((reading.value, decided) if reading is not None else None)
-        return results
+            return [found[1] if found else None for _, found in fetched]
 
-    return reread
+    return fetch
 
 
 def executive_success(
@@ -240,7 +255,8 @@ def executive_success(
         since=since,
         corpus_sha256=corpus_sha256,
         scope_rule_version=scope_rule_version,
-        reread=snapshot_rereader(conn) if reading == "finer" else None,
+        fetch=snapshot_fetcher(conn),
+        reading=reading,
         latest_pull=corpus.latest_pull_date(conn),
         latest_snapshot=corpus.latest_snapshot_date(conn),
     )
@@ -253,16 +269,13 @@ class _Placed:
     row: corpus.CorpusRow
     annotation: ExecActionAnnotation
     as_of: date | None
+    resolution: date | None
     disposition: Disposition | None
 
     @property
-    def needs_reread(self) -> bool:
-        """A stored denial on a row the cut counts or lists."""
-        return (
-            self.disposition == Disposition.denied
-            and self.annotation.in_scope is not False
-            and self.annotation.government_side is not None
-        )
+    def counted(self) -> bool:
+        """A row the cut counts or lists: in scope or unknown, with a government side."""
+        return self.annotation.in_scope is not False and self.annotation.government_side is not None
 
 
 @dataclass
@@ -276,18 +289,20 @@ class _Fold:
     unknown: Counter[str] = field(default_factory=Counter)
     rereads: Counter[str] = field(default_factory=Counter)
     review: list[ExecutiveSuccessRow] = field(default_factory=list)
+    results: dict[str, bool | None] = field(default_factory=dict)
 
-    def label(self, stored: Disposition | None, finer: Reread, needed: bool) -> str | None:
+    def label(self, stored: Disposition | None, payload: Payload) -> str | None:
         """The label the cut reads a row under: a stored denial re-read, else as stored."""
         if stored is None:
             return None
-        if not needed:
+        if stored != Disposition.denied or not self.rereading:
             return stored.value
         self.rereads["rows"] += 1
-        if finer is None:
+        reading, decided = interim_reading(payload) if payload is not None else (None, None)
+        if reading is None:
             self.rereads["unobservable"] += 1
             return stored.value
-        label, decided = finer
+        label = reading.value
         if self.through is not None and decided is not None and decided > self.through:
             self.rereads["after_through"] += 1
             return stored.value
@@ -295,7 +310,7 @@ class _Fold:
             self.rereads["changed"] += 1
         return label
 
-    def add(self, placed: _Placed, finer: Reread) -> None:
+    def add(self, placed: _Placed, payload: Payload) -> None:
         """Count one in-window application where its scope puts it."""
         row, annotation, as_of = placed.row, placed.annotation, placed.as_of
         self.reasons[annotation.reason] += 1
@@ -303,7 +318,7 @@ class _Fold:
             return
         administration = administration_for(as_of)
         applicant = annotation.government_side == "applicant"
-        label = self.label(placed.disposition, finer, placed.needs_reread and self.rereading)
+        label = self.label(placed.disposition, payload)
         won: bool | None = None
         if annotation.in_scope is None:
             self.unknown[administration or "unattributed"] += 1
@@ -316,6 +331,7 @@ class _Fold:
             else:
                 acc.unknown_ask += row.application_kind != ApplicationKind.substantive.value
                 won = acc.add(label, applicant)
+                self.results[row.docket_number] = won
         self.review.append(
             ExecutiveSuccessRow(
                 docket_number=row.docket_number,
@@ -375,14 +391,17 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
     since: date | None,
     corpus_sha256: str,
     scope_rule_version: str,
-    reread: Rereader | None,
+    fetch: Fetcher | None,
+    reading: Reading,
     latest_pull: date | None,
     latest_snapshot: date | None,
 ) -> ExecutiveSuccess:
     """Fold the rows into the cut — the pure half of :func:`executive_success`.
 
     Two passes: the rows are placed and scope-read first, so the snapshot
-    re-reads run as one prefetched batch and never share the row cursor.
+    reads run as one prefetched batch and never share the row cursor. Without
+    a ``fetch`` no snapshot is read: no denial is re-read, and controversies
+    join on the caption alone.
     """
     annotator = exec_action_rule(scope_rule_version)
     seen: set[str] = set()
@@ -408,20 +427,23 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         as_of = row.date_filed if as_of_field == "filed" else resolution
         if as_of_field == "resolved" and disposition is None:
             as_of = None
-        placed.append(_Placed(row, annotator(row, as_of), as_of, disposition))
-    finer: dict[str, Reread] = {}
-    if reread is not None:
-        wanted = [item.row for item in placed if item.needs_reread]
-        finer = dict(zip((row.case_id for row in wanted), reread(wanted), strict=True))
-    fold = _Fold(through=through, rereading=reread is not None)
+        placed.append(_Placed(row, annotator(row, as_of), as_of, resolution, disposition))
+    payloads: dict[str, Payload] = {}
+    if fetch is not None:
+        wanted = [item.row for item in placed if item.counted]
+        payloads = dict(zip((row.case_id for row in wanted), fetch(wanted), strict=True))
+    fold = _Fold(through=through, rereading=fetch is not None and reading == "finer")
     for item in placed:
-        fold.add(item, finer.get(item.row.case_id))
+        fold.add(item, payloads.get(item.row.case_id))
+    groups = _controversies(placed, payloads, fold.results)
+    for review_row in fold.review:
+        review_row.controversy_id = groups.ids.get(review_row.docket_number)
     order: dict[str, int] = {reason: index for index, reason in enumerate(SCOPE_REASONS)}
     return ExecutiveSuccess(
         scope_rule_version=scope_rule_version,
         party_rule_version=EXEC_ACTION_PARTY_RULE,
         counsel_rule_version=EXEC_ACTION_COUNSEL_RULE,
-        reading="finer" if reread is not None else "registered",
+        reading="finer" if fold.rereading else "registered",
         as_of_field=as_of_field,
         through=through,
         since=since,
@@ -442,5 +464,93 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         },
         unknown_scope=dict(sorted(fold.unknown.items())),
         cells=fold.cells(),
+        controversy_rule_version=CONTROVERSY_RULE_VERSION,
+        controversy_cells=groups.cells,
+        controversy_unlinked=groups.unlinked,
         review_rows=sorted(fold.review, key=lambda r: r.docket_number),
+    )
+
+
+@dataclass(frozen=True)
+class _Groups:
+    ids: dict[str, str]
+    cells: list[ExecutiveControversyCell]
+    unlinked: int
+
+
+def _controversies(
+    placed: Sequence[_Placed], payloads: Mapping[str, Payload], results: Mapping[str, bool | None]
+) -> _Groups:
+    """Group the in-scope population into controversies and count them per cell."""
+    members = {
+        item.row.docket_number: item
+        for item in placed
+        if item.annotation.in_scope is True and item.row.docket_number in results
+    }
+    ids = group_controversies(
+        controversy_links(
+            item.row,
+            payloads.get(item.row.case_id),
+            government_applicant=item.annotation.government_side == "applicant",
+            decided=item.disposition is not None,
+        )
+        for item in members.values()
+    )
+    grouped: dict[str, list[_Placed]] = {}
+    for docket, group_id in ids.items():
+        grouped.setdefault(group_id, []).append(members[docket])
+    tallies: dict[tuple[str | None, ControversyFiler], Counter[str]] = {}
+    for group in grouped.values():
+        first = min(
+            group,
+            key=lambda item: (
+                item.as_of is None,
+                item.row.date_filed or date.max,
+                docket_order(item.row.docket_number),
+            ),
+        )
+        sides = {item.annotation.government_side for item in group}
+        filer: ControversyFiler = (
+            "both" if len(sides) > 1 else "government" if "applicant" in sides else "challenger"
+        )
+        decided = [item for item in group if results[item.row.docket_number] is not None]
+        tally = tallies.setdefault((administration_for(first.as_of), filer), Counter())
+        tally["controversies"] += 1
+        tally["applications"] += len(group)
+        if not decided:
+            tally["indeterminate"] += 1
+            continue
+        last = max(
+            decided,
+            key=lambda item: (item.resolution or date.min, docket_order(item.row.docket_number)),
+        )
+        tally["determinate"] += 1
+        tally["wins"] += bool(results[last.row.docket_number])
+    cells: list[ExecutiveControversyCell] = []
+    for window in [*(admin.label for admin in ADMINISTRATIONS), None]:
+        pooled: Counter[str] = Counter()
+        for side in _CONTROVERSY_FILERS:
+            found = tallies.get((window, side))
+            if found:
+                cells.append(_controversy_cell(window, side, found))
+                pooled.update(found)
+        if pooled:
+            cells.append(_controversy_cell(window, "all", pooled))
+    unlinked = sum(payloads.get(item.row.case_id) is None for item in members.values())
+    return _Groups(ids=ids, cells=cells, unlinked=unlinked)
+
+
+def _controversy_cell(
+    administration: str | None, filer: ControversyFiler | Literal["all"], tally: Counter[str]
+) -> ExecutiveControversyCell:
+    determinate = tally["determinate"]
+    return ExecutiveControversyCell(
+        administration=administration,
+        filer=filer,
+        controversies=tally["controversies"],
+        applications=tally["applications"],
+        indeterminate=tally["indeterminate"],
+        determinate=determinate,
+        wins=tally["wins"],
+        success_rate=tally["wins"] / determinate if determinate else None,
     )

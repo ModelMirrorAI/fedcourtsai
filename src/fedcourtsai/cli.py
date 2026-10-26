@@ -1985,10 +1985,12 @@ def executive_success_cmd(
     withdrawn, moot, pending and unreadable rows are counted beside them. By
     default a stored denial is re-read from the row's latest snapshot under the
     finer interim reading, which names partial grants and denials as moot.
-    An analytics artifact: nothing a predict or evaluate cell reads comes from
-    it. Prints an `ExecutiveSuccess` (its `review_rows` list every in-scope and
-    unknown-scope application); the human cut and the corpus vintage go to
-    stderr. Fails loud if the corpus is absent (exit 1), or on an unregistered
+    The same applications are counted again by controversy
+    (`pipeline.controversy`), each controversy once. An analytics artifact:
+    nothing a predict or evaluate cell reads comes from it. Prints an
+    `ExecutiveSuccess` (its `review_rows` list every in-scope and unknown-scope
+    application); the human cut and the corpus vintage go to stderr. Fails
+    loud if the corpus is absent (exit 1), or on an unregistered
     rule, an unknown `--as-of` or `--reading`, or an unreadable `--through` /
     `--since` (exit 2).
     """
@@ -2063,6 +2065,21 @@ def executive_success_cmd(
             f"withdrawn={cell.withdrawn} dismissed-or-moot={cell.dismissed} "
             f"unreadable={cell.unreadable} unknown-ask={cell.unknown_ask} [{labels}] "
             f"excluded unparsed={cell.excluded_unparsed}",
+            err=True,
+        )
+    typer.echo(
+        f"controversies ({result.controversy_rule_version}): "
+        f"{result.controversy_unlinked} grouped application(s) had no live snapshot "
+        "and joined on the caption alone",
+        err=True,
+    )
+    for group in result.controversy_cells:
+        rate = f"{group.success_rate:.1%}" if group.success_rate is not None else "-"
+        typer.echo(
+            f"{group.administration or 'unattributed'} {group.filer} by controversy "
+            f"({result.controversy_rule_version}): executive won {group.wins}/"
+            f"{group.determinate} = {rate}; controversies={group.controversies} "
+            f"applications={group.applications} indeterminate={group.indeterminate}",
             err=True,
         )
     typer.echo(result.model_dump_json())

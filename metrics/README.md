@@ -3493,7 +3493,7 @@ and by who filed, over the applications the scope rule `exec-action-v1`
 (`pipeline.exec_action`) reads as challenging or defending a general federal
 executive action. It is an analytics artifact like the party rates, and every
 rule of the party rates on dates, coverage, the rule version and the corpus
-vintage travels with it. Six more are specific to it.
+vintage travels with it. Seven more are specific to it.
 
 - **A rate reads in the executive's direction.** A government application on
   the granted side (in whole or in part) and a challenger's application denied
@@ -3534,6 +3534,24 @@ vintage travels with it. Six more are specific to it.
   hold 2023-07-10 to 2025-01-19 only, and `trump-45` holds none. No
   cross-administration comparison reads from this corpus until the earlier
   Terms are back-filled.
+- **A controversy rate is beside the application rate, not instead of it.**
+  `controversy_cells` group the in-scope applications under `controversy-v1`
+  (`pipeline.controversy`): two applications are one controversy where they
+  share a case below, one order decided both (read only for an application
+  decided by the cut's moment), or both are government applications whose
+  captions name the same leading party on each side, and the groups are the
+  connected sets. A controversy takes the executive's result in its last
+  substantively decided application, by stored decision date, and is
+  `indeterminate` where none was decided; its administration is that of its
+  first-filed application dated under the cut's convention, and its filer is
+  `government`, `challenger` or, where both sides filed in it, `both`.
+  `controversy_unlinked` counts the grouped applications with no live
+  snapshot, which can join on the caption alone; quote it beside the pairs. The rule
+  joins only what the record links, so two challenges to one policy brought by
+  different parties and decided apart stay two controversies, and it reads no
+  policy area. A published per-policy grouping can be coarser, so a reader
+  quotes `controversies`, `determinate` and `indeterminate` with the pair, and
+  each review row's `controversy_id` shows the grouping.
 
 **Replication against the published tally.** Adam Feldman's SCOTUSblog
 column of 2026-10-19 ("Where the Supreme Court favors Trump on the emergency
@@ -3543,6 +3561,15 @@ executive actions through 2026-10-12, and lists no rows. Cut `--as-of filed
 the index 2026-07-13; the re-read rows' own live snapshots run later):
 `finer` reading, 59 stored denials re-read, 7 relabeled, 0 unobservable, 0
 dated after the cut; unknown scope `biden-46` 16, `trump-47` 6, unattributed 2.
+Six in-scope applications carry no administration (every one an unreadable
+ask with no filing date): 5 `government`, all won, and 1 `challenger`, lost;
+by controversy 4/5. Some may be `trump-47` rows, so each `trump-47` pair below
+can move by up to that much.
+Every grouped application has a live snapshot (`controversy_unlinked` 0). The
+caption link alone makes 5 joins, all `trump-47` government pairs under one
+caption (`24A1059`/`25A326`, `24A1106`/`24A1174`, `24A1153`/`26A406`,
+`24A831`/`25A269`, `26A297`/`26A305`); without it the `trump-47` pair is 30/36
+over 45 controversies.
 
 | Published figure | This corpus | Reconciliation |
 |---|---|---|
@@ -3551,6 +3578,8 @@ dated after the cut; unknown scope `biden-46` 16, `trump-47` 6, unattributed 2.
 | `trump-47`: 3 applications by challengers | 5 in-scope `challenger` rows, 2 unknown-scope | Scope: 4 of the 5 are employers' stays of National Labor Relations Board proceedings, which the column may not count as general executive action |
 | `biden-46`: 81 applications, 18 filed by the government; 10 of 15 won | 2023-07-10 to 2025-01-19 only: 38 in-scope rows, 11 `government` (7 of 11 won) and 27 `challenger` | Coverage: the corpus holds no `biden-46` application before OT2023 |
 | `trump-45`: 25 of 33 won | No rows | Coverage |
+| `trump-47`: the executive won 23 of 30 determinate controversies (77%) | `controversy-v1`, every filer: 28/33 determinate (5 losses against the column's 7), 40 controversies over 47 applications, 7 indeterminate (`government` 23/28, 35 controversies over 42 applications; `challenger` 5/5) | Scope and grouping: the 5 `challenger` controversies include the 4 Labor Board stays the scope row flags (without them, 24/29). The column also joins related litigation over one policy, which `controversy-v1` does not read, and does not state how it scores a controversy with several applications. With no rows listed, neither difference can be broken down |
+| `biden-46`: 29 of 39 determinate controversies; 21 of 27 challenger-initiated | 2023-07-10 to 2025-01-19 only: 17/23 every filer, `challenger` 11/13 | Coverage |
 
 **What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
 publishes call counts, per-engine result observability, per-cell cost, and a

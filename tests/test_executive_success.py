@@ -18,6 +18,12 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.controversy import (
+    CONTROVERSY_RULE_VERSION,
+    ControversyLinks,
+    controversy_links,
+    group_controversies,
+)
 from fedcourtsai.pipeline.exec_action import (
     EXEC_ACTION_RULE_VERSION,
     REASON_SCOPE,
@@ -26,12 +32,17 @@ from fedcourtsai.pipeline.exec_action import (
     exec_action_rule,
 )
 from fedcourtsai.pipeline.executive_success import (
-    Reread,
-    Rereader,
+    Fetcher,
+    Payload,
     _success,
     executive_success,
 )
-from fedcourtsai.schemas import Disposition, ExecutiveSuccess, ExecutiveSuccessCell
+from fedcourtsai.schemas import (
+    Disposition,
+    ExecutiveControversyCell,
+    ExecutiveSuccess,
+    ExecutiveSuccessCell,
+)
 
 runner = CliRunner()
 
@@ -224,16 +235,17 @@ def test_the_finer_reading_relabels_a_stored_denial() -> None:
     db_rows.append(_app("scotus/1", noem, "24A902", date(2025, 3, 3), Disposition.denied))
     db_rows.append(_app("scotus/2", epa, "24A100", date(2024, 7, 1), Disposition.denied))
     db_rows.append(_app("scotus/3", epa, "24A101", date(2024, 7, 2), Disposition.granted))
-    finer = {"24A902": "granted-in-part", "24A100": "dismissed-moot"}
+    finer = {
+        "24A902": _live("24A902", "The application is granted in part.", "2025-03-03"),
+        "24A100": _live("24A100", "Application (24A100) denied as moot.", "2024-07-01"),
+    }
     calls: list[str] = []
 
-    def reread(rows: Sequence[corpus.CorpusRow]) -> list[Reread]:
+    def fetch(rows: Sequence[corpus.CorpusRow]) -> list[Payload]:
         calls.extend(row.docket_number for row in rows)
-        return [
-            (finer[row.docket_number], None) if row.docket_number in finer else None for row in rows
-        ]
+        return [finer.get(row.docket_number) for row in rows]
 
-    def cut(rereader: Rereader | None) -> ExecutiveSuccess:
+    def cut(fetcher: Fetcher | None) -> ExecutiveSuccess:
         return _success(
             db_rows,
             as_of_field="filed",
@@ -241,13 +253,15 @@ def test_the_finer_reading_relabels_a_stored_denial() -> None:
             since=None,
             corpus_sha256="",
             scope_rule_version=EXEC_ACTION_RULE_VERSION,
-            reread=rereader,
+            fetch=fetcher,
+            reading="finer",
             latest_pull=None,
             latest_snapshot=None,
         )
 
-    result = cut(reread)
-    assert sorted(calls) == ["24A100", "24A902"]  # only stored denials are re-read
+    result = cut(fetch)
+    # One batch fetch covers every counted row; only the stored denials are re-read.
+    assert sorted(calls) == ["24A100", "24A101", "24A902"]
     cells = _cells(result)
     assert (cells[("trump-47", "government")].wins, cells[("trump-47", "government")].decided) == (
         1,
@@ -411,6 +425,9 @@ def test_the_command_prints_the_cut_with_its_vintage(
     ) in result.stderr
     assert "trump-47 government: executive won 3/4 = 75.0%" in result.stderr
     assert "finer reading re-read 3 stored denial(s)" in result.stderr
+    assert (
+        "trump-47 government by controversy (controversy-v1): executive won 1/1"
+    ) in result.stderr
     assert "corpus latest pull never pulled" in result.stderr
     payload = json.loads(result.stdout)
     assert payload["through"] == "2025-10-01"
@@ -445,3 +462,231 @@ def test_the_command_fails_loud_without_a_corpus(
     result = runner.invoke(app, ["executive-success", "--as-of", "filed"])
     assert result.exit_code == 1
     assert "the corpus database is missing" in result.stderr
+
+
+def _links(
+    docket: str,
+    *,
+    lower: set[tuple[str, str]] | None = None,
+    named: set[str] | None = None,
+    caption: tuple[str, str] | None = None,
+) -> ControversyLinks:
+    return ControversyLinks(docket, frozenset(lower or ()), frozenset(named or ()), caption)
+
+
+def test_controversy_links_read_the_case_below_the_order_and_the_caption() -> None:
+    noem = "Kristi Noem, Secretary of Homeland Security, et al. v. Jane Doe, et al."
+    row = _app("scotus/1", noem, "24A884", date(2025, 3, 1), Disposition.granted)
+    payload = {
+        "LowerCourt": "United States Court of Appeals for the Ninth Circuit",
+        "LowerCourtCaseNumbers": "(25-1234, 25-1235)",
+        "ProceedingsandOrder": [
+            {"Date": "2025-03-01", "Text": "Application (24A884) for a stay, submitted."},
+            {"Date": "2025-04-01", "Text": "Applications (24A884, 24A885) granted."},
+        ],
+    }
+    links = controversy_links(row, payload, government_applicant=True, decided=True)
+    court = "united states court of appeals for the ninth circuit"
+    assert links.lower_cases == {(court, "25-1234"), (court, "25-1235")}
+    assert links.named == {"24A885"}  # its own number is not a link
+    assert links.caption == ("kristi noem", "jane doe")
+    # A challenger's caption names an agency many challenges share: no caption key.
+    assert controversy_links(row, None, government_applicant=False, decided=True) == _links(
+        "24A884"
+    )
+    # Undecided at the cut: the disposing order had not happened, so it links nothing.
+    assert not controversy_links(row, payload, government_applicant=True, decided=False).named
+
+
+def test_controversies_are_the_connected_sets_of_any_link() -> None:
+    ids = group_controversies(
+        [
+            _links("24A95", lower={("ca9", "25-1")}),
+            _links("24A105", lower={("ca9", "25-1")}, named={"24A300"}),
+            _links("24A300"),  # joined through 24A105's order
+            _links("24A400", caption=("noem", "doe")),
+            _links("25A1", caption=("noem", "doe")),
+            _links("24A500", lower={("ca1", "25-1")}),  # same number, another court
+            _links("24A600", named={"24A999"}),  # names an application outside the cut
+        ]
+    )
+    assert ids == {
+        "24A95": "24A95",
+        "24A105": "24A95",
+        "24A300": "24A95",
+        "24A400": "24A400",
+        "25A1": "24A400",
+        "24A500": "24A500",
+        "24A600": "24A600",
+    }
+
+
+def test_a_controversy_takes_its_last_decided_application() -> None:
+    """Won at the first application, lost on the renewed one: the controversy is a loss."""
+    noem = "Kristi Noem, Secretary of Homeland Security, et al. v. Jane Doe, et al."
+    board = "Kristi Noem, Secretary of Homeland Security v. Board of Education"
+    rows = [
+        _app("scotus/1", noem, "24A900", date(2025, 3, 1), Disposition.granted),
+        _app(
+            "scotus/2",
+            noem,
+            "24A950",
+            date(2025, 4, 1),
+            Disposition.denied,
+            decided=date(2025, 5, 1),
+        ),
+        _app("scotus/3", board, "24A960", date(2025, 4, 2), Disposition.withdrawn),
+    ]
+    result = _success(
+        rows,
+        as_of_field="filed",
+        through=None,
+        since=None,
+        corpus_sha256="",
+        scope_rule_version=EXEC_ACTION_RULE_VERSION,
+        fetch=None,
+        reading="registered",
+        latest_pull=None,
+        latest_snapshot=None,
+    )
+    assert result.controversy_rule_version == CONTROVERSY_RULE_VERSION
+    cells = {(c.administration, c.filer): c for c in result.controversy_cells}
+    government = cells[("trump-47", "government")]
+    assert (government.controversies, government.applications) == (2, 3)
+    assert (government.determinate, government.indeterminate, government.wins) == (1, 1, 0)
+    assert government.success_rate == 0
+    assert cells[("trump-47", "all")].controversies == 2
+    listed = {row.docket_number: row.controversy_id for row in result.review_rows}
+    assert listed == {"24A900": "24A900", "24A950": "24A900", "24A960": "24A960"}
+
+
+def test_controversy_cells_sit_beside_the_application_cells(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _success_corpus(db)
+    with corpus.connect(db) as conn:
+        result = executive_success(conn, as_of_field="filed")
+    cells = {(c.administration, c.filer): c for c in result.controversy_cells}
+    # One caption joins every government application; the last decided one, a grant, wins.
+    government = cells[("trump-47", "government")]
+    assert (government.controversies, government.applications, government.wins) == (1, 7, 1)
+    # Challengers' applications share no caption key and no snapshot: one controversy each.
+    challenger = cells[("biden-46", "challenger")]
+    assert (challenger.controversies, challenger.determinate, challenger.wins) == (3, 2, 1)
+    # The unknown-scope row is listed but never grouped.
+    listed = {row.docket_number: row for row in result.review_rows}
+    assert listed["24A104"].controversy_id is None
+
+
+_NOEM = "Kristi Noem, Secretary of Homeland Security, et al. v. Jane Doe, et al."
+_OHIO = "Ohio, et al. v. Environmental Protection Agency, et al."
+
+
+def _grouped(
+    rows: Sequence[corpus.CorpusRow],
+    payloads: dict[str, dict[str, object]] | None = None,
+    *,
+    as_of_field: str = "filed",
+) -> ExecutiveSuccess:
+    found = payloads or {}
+
+    def fetch(wanted: Sequence[corpus.CorpusRow]) -> list[Payload]:
+        return [found.get(row.docket_number) for row in wanted]
+
+    return _success(
+        rows,
+        as_of_field=as_of_field,
+        through=None,
+        since=None,
+        corpus_sha256="",
+        scope_rule_version=EXEC_ACTION_RULE_VERSION,
+        fetch=fetch,
+        reading="registered",
+        latest_pull=None,
+        latest_snapshot=None,
+    )
+
+
+def _ids(result: ExecutiveSuccess) -> dict[str, str | None]:
+    return {row.docket_number: row.controversy_id for row in result.review_rows}
+
+
+def _controversy_cells(
+    result: ExecutiveSuccess,
+) -> dict[tuple[str | None, str], ExecutiveControversyCell]:
+    return {(c.administration, c.filer): c for c in result.controversy_cells}
+
+
+def test_one_order_deciding_both_sides_is_a_both_controversy() -> None:
+    order = _live("24A900", "Applications (24A900, 24A100) granted.", "2025-03-10")
+    rows = [
+        _app("scotus/1", _NOEM, "24A900", date(2025, 3, 1), Disposition.granted),
+        _app("scotus/2", _OHIO, "24A100", date(2025, 3, 2), Disposition.granted),
+    ]
+    result = _grouped(rows, {"24A900": order})
+    assert _ids(result) == {"24A100": "24A100", "24A900": "24A100"}
+    both = _controversy_cells(result)[("trump-47", "both")]
+    assert (both.controversies, both.applications, both.determinate) == (1, 2, 1)
+    # The challenger's grant, decided last, decides it: the executive lost.
+    assert (both.wins, result.controversy_unlinked) == (0, 1)
+    assert _controversy_cells(result)[("trump-47", "all")].controversies == 1
+
+
+def test_the_case_below_links_challengers_and_absent_snapshots_are_counted() -> None:
+    below: dict[str, object] = {
+        "LowerCourt": "United States Court of Appeals for the Fifth Circuit",
+        "LowerCourtCaseNumbers": "(24-60231)",
+    }
+    rows = [
+        _app("scotus/1", _OHIO, "24A100", date(2024, 7, 1), Disposition.denied),
+        _app("scotus/2", _OHIO, "24A101", date(2024, 7, 2), Disposition.denied),
+        _app("scotus/3", _OHIO, "24A102", date(2024, 7, 3), Disposition.granted),
+    ]
+    result = _grouped(rows, {"24A100": below, "24A101": below})
+    assert _ids(result) == {"24A100": "24A100", "24A101": "24A100", "24A102": "24A102"}
+    challenger = _controversy_cells(result)[("biden-46", "challenger")]
+    assert (challenger.controversies, challenger.wins, challenger.determinate) == (2, 1, 2)
+    assert result.controversy_unlinked == 1
+
+
+def test_a_same_day_tie_goes_to_the_later_docketed_application() -> None:
+    """24A105 is docketed after 24A95 though it sorts first as a string."""
+    rows = [
+        _app("scotus/1", _NOEM, "24A95", date(2025, 3, 1), Disposition.granted),
+        _app("scotus/2", _NOEM, "24A105", date(2025, 3, 1), Disposition.denied),
+    ]
+    result = _grouped(rows)
+    assert _ids(result) == {"24A105": "24A95", "24A95": "24A95"}
+    assert _controversy_cells(result)[("trump-47", "government")].wins == 0
+
+
+def test_a_controversy_takes_its_first_dated_applications_administration() -> None:
+    rows = [
+        _app("scotus/1", _NOEM, "24A10", date(2025, 1, 10), None),
+        _app(
+            "scotus/2",
+            _NOEM,
+            "24A11",
+            date(2025, 1, 15),
+            Disposition.granted,
+            decided=date(2025, 3, 1),
+        ),
+    ]
+    # Filed: the first application, filed before the transition, places it.
+    filed = _controversy_cells(_grouped(rows))
+    assert set(filed) == {("biden-46", "government"), ("biden-46", "all")}
+    # Resolved: the first is pending and undated, so the decided one places it.
+    resolved = _controversy_cells(_grouped(rows, as_of_field="resolved"))
+    assert resolved[("trump-47", "government")].wins == 1
+
+
+def test_spelling_and_parsing_do_not_break_the_grouping() -> None:
+    rows = [
+        _app("scotus/1", _NOEM, "24a900 ", date(2025, 3, 1), Disposition.granted),
+        _app("scotus/2", _NOEM, "24A901", date(2025, 3, 2), Disposition.granted, kind=None),
+        _app("scotus/3", _NOEM, "24A902", date(2025, 3, 3), Disposition.denied),
+    ]
+    order = _live("24A902", "Applications (24A900, 24A902) denied.", "2025-03-03")
+    result = _grouped(rows, {"24A902": order})
+    # A lower-case, padded number is grouped under its own spelling; the
+    # never-parsed row is counted beside its cell and grouped with nothing.
+    assert _ids(result) == {"24A901": None, "24A902": "24a900 ", "24a900 ": "24a900 "}
