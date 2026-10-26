@@ -1,13 +1,13 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 1048.3,
+    "actions_minutes": 1080.5,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 1512.79,
     "fixed_monthly_usd": 115.0,
     "model_cost_usd": 4811.332973,
     "model_monthly_usd": 1397.79,
-    "window_days": 1.1
+    "window_days": 1.0
   },
   "data_health": {
     "corpus": {
@@ -29,7 +29,7 @@
           "problems": []
         },
         {
-          "checked": 4310762,
+          "checked": 4310795,
           "detail": "",
           "failures": 0,
           "name": "required_columns_non_empty",
@@ -46,7 +46,7 @@
         },
         {
           "checked": 3073,
-          "detail": "as of 2026-10-25",
+          "detail": "as of 2026-10-26",
           "failures": 0,
           "name": "snapshot_not_future_dated",
           "passed": true,
@@ -54,7 +54,7 @@
         },
         {
           "checked": 688,
-          "detail": "granted before 2024-10-25 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
+          "detail": "granted before 2024-10-26 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
           "failures": 0,
           "name": "no_stale_unparsed_grants",
           "passed": true,
@@ -62,7 +62,7 @@
         },
         {
           "checked": 2153708,
-          "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-25); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
+          "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-26); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
           "failures": 34,
           "name": "case_dates_ordered",
           "passed": true,
@@ -90,7 +90,7 @@
           ]
         },
         {
-          "checked": 4307689,
+          "checked": 4307722,
           "detail": "",
           "failures": 0,
           "name": "domain_values_valid",
@@ -98,7 +98,7 @@
           "problems": []
         },
         {
-          "checked": 4310762,
+          "checked": 4310795,
           "detail": "",
           "failures": 0,
           "name": "no_duplicate_cases_or_events",
@@ -106,7 +106,7 @@
           "problems": []
         },
         {
-          "checked": 17581,
+          "checked": 17582,
           "detail": "",
           "failures": 0,
           "name": "ledger_references_exist",
@@ -114,7 +114,7 @@
           "problems": []
         },
         {
-          "checked": 253,
+          "checked": 286,
           "detail": "",
           "failures": 0,
           "name": "minted_moments_defined_in_ledger",
@@ -122,7 +122,7 @@
           "problems": []
         },
         {
-          "checked": 29202,
+          "checked": 29236,
           "detail": "",
           "failures": 0,
           "name": "event_dirs_hold_only_ledger_entries",
@@ -178,6 +178,14 @@
           "problems": []
         },
         {
+          "checked": 1779,
+          "detail": "",
+          "failures": 0,
+          "name": "predicted_reasoning_grade_awaits_registration",
+          "passed": true,
+          "problems": []
+        },
+        {
           "checked": 162,
           "detail": "",
           "failures": 0,
@@ -194,7 +202,7 @@
           "problems": []
         },
         {
-          "checked": 14129,
+          "checked": 14130,
           "detail": "",
           "failures": 0,
           "name": "outcome_votes_await_a_registered_source",
@@ -210,7 +218,7 @@
           "problems": []
         },
         {
-          "checked": 14129,
+          "checked": 14130,
           "detail": "",
           "failures": 0,
           "name": "judgment_only_on_merits_outcomes",
@@ -218,14 +226,14 @@
           "problems": []
         }
       ],
-      "corpus_events": 2153981,
+      "corpus_events": 2154014,
       "corpus_rows": 2153708,
       "ok": true,
       "schema_version": "1.0",
       "skipped": false
     },
     "ledger": {
-      "checked": 40671,
+      "checked": 40724,
       "invalid": 0,
       "ok": true,
       "problems": []
@@ -233,11 +241,11 @@
     "ok": true
   },
   "flags": {
-    "archived": 784,
+    "archived": 787,
     "blockers": 1,
-    "cells": 85,
+    "cells": 83,
     "harness": 19,
-    "infos": 54,
+    "infos": 51,
     "normalised_cells": 0,
     "recent": [
       {
@@ -613,95 +621,106 @@
         "schema_version": "1.0"
       }
     ],
-    "total": 108,
+    "total": 105,
     "warnings": 53,
     "window_days": 14
   },
-  "generated_at": "2026-10-25T08:11:59.556459+00:00",
+  "generated_at": "2026-10-26T08:20:18.345108+00:00",
   "health": [
     {
-      "failures": 5,
+      "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-25T07:41:06Z",
-      "median_seconds": 116,
-      "p95_seconds": 402,
-      "runs_considered": 47,
-      "success_rate": 0.8936170212765957,
-      "successes": 42,
+      "last_run_at": "2026-10-25T13:41:07Z",
+      "median_seconds": 98,
+      "p95_seconds": 98,
+      "runs_considered": 1,
+      "success_rate": 1.0,
+      "successes": 1,
+      "workflow": "Dependabot Updates"
+    },
+    {
+      "failures": 10,
+      "last_conclusion": "success",
+      "last_run_at": "2026-10-26T07:56:51Z",
+      "median_seconds": 119,
+      "p95_seconds": 413,
+      "runs_considered": 46,
+      "success_rate": 0.782608695652174,
+      "successes": 36,
       "workflow": "ci"
     },
     {
-      "failures": 3,
+      "failures": 2,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-25T07:41:06Z",
-      "median_seconds": 249,
-      "p95_seconds": 283,
-      "runs_considered": 55,
-      "success_rate": 0.9454545454545454,
-      "successes": 52,
+      "last_run_at": "2026-10-26T07:56:51Z",
+      "median_seconds": 248,
+      "p95_seconds": 288,
+      "runs_considered": 45,
+      "success_rate": 0.9555555555555556,
+      "successes": 43,
       "workflow": "codeql"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-25T07:51:50Z",
+      "last_run_at": "2026-10-26T08:02:51Z",
       "median_seconds": 28,
-      "p95_seconds": 31,
+      "p95_seconds": 35,
       "runs_considered": 48,
       "success_rate": 1.0,
       "successes": 48,
       "workflow": "corpus-check"
     },
     {
-      "failures": 1,
-      "last_conclusion": "failure",
-      "last_run_at": "2026-10-24T13:09:12Z",
-      "median_seconds": 92,
-      "p95_seconds": 1762,
-      "runs_considered": 3,
-      "success_rate": 0.6666666666666666,
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-10-25T12:42:28Z",
+      "median_seconds": 99,
+      "p95_seconds": 770,
+      "runs_considered": 2,
+      "success_rate": 1.0,
       "successes": 2,
       "workflow": "integration-test"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-24T15:15:27Z",
-      "median_seconds": 21,
-      "p95_seconds": 23,
-      "runs_considered": 5,
+      "last_run_at": "2026-10-25T18:32:20Z",
+      "median_seconds": 18,
+      "p95_seconds": 20,
+      "runs_considered": 4,
       "success_rate": 1.0,
-      "successes": 5,
+      "successes": 4,
       "workflow": "lint-actions"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-25T07:33:51Z",
-      "median_seconds": 41,
-      "p95_seconds": 46,
-      "runs_considered": 28,
+      "last_run_at": "2026-10-26T07:52:42Z",
+      "median_seconds": 44,
+      "p95_seconds": 107,
+      "runs_considered": 25,
       "success_rate": 1.0,
-      "successes": 28,
+      "successes": 25,
       "workflow": "promotion-prep"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-25T07:41:06Z",
+      "last_run_at": "2026-10-26T07:56:51Z",
       "median_seconds": 19,
-      "p95_seconds": 21,
-      "runs_considered": 26,
+      "p95_seconds": 22,
+      "runs_considered": 28,
       "success_rate": 1.0,
-      "successes": 26,
+      "successes": 28,
       "workflow": "promotion-record"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-25T04:45:30Z",
-      "median_seconds": 456,
-      "p95_seconds": 462,
+      "last_run_at": "2026-10-26T05:51:36Z",
+      "median_seconds": 291,
+      "p95_seconds": 460,
       "runs_considered": 2,
       "success_rate": 1.0,
       "successes": 2,
@@ -710,20 +729,20 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-24T06:44:59Z",
-      "median_seconds": 17,
-      "p95_seconds": 17,
-      "runs_considered": 1,
+      "last_run_at": "2026-10-25T15:06:56Z",
+      "median_seconds": 918,
+      "p95_seconds": 10837,
+      "runs_considered": 3,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 3,
       "workflow": "run-backtest"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-24T15:43:52Z",
-      "median_seconds": 5339,
-      "p95_seconds": 5339,
+      "last_run_at": "2026-10-25T15:44:06Z",
+      "median_seconds": 861,
+      "p95_seconds": 861,
       "runs_considered": 1,
       "success_rate": 1.0,
       "successes": 1,
@@ -732,67 +751,89 @@
     {
       "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-10-25T08:11:06Z",
-      "median_seconds": 63,
-      "p95_seconds": 63,
+      "last_run_at": "2026-10-26T08:18:48Z",
+      "median_seconds": 66,
+      "p95_seconds": 66,
       "runs_considered": 2,
       "success_rate": 1.0,
       "successes": 1,
       "workflow": "run-ops"
     },
     {
-      "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-10-25T05:02:04Z",
-      "median_seconds": 129,
-      "p95_seconds": 2069,
+      "failures": 1,
+      "last_conclusion": null,
+      "last_run_at": "2026-10-26T05:07:35Z",
+      "median_seconds": 135,
+      "p95_seconds": 6540,
       "runs_considered": 5,
-      "success_rate": 1.0,
-      "successes": 5,
+      "success_rate": 0.6666666666666666,
+      "successes": 2,
       "workflow": "run-predict"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-25T07:27:45Z",
-      "median_seconds": 858,
-      "p95_seconds": 953,
-      "runs_considered": 19,
+      "last_run_at": "2026-10-26T07:43:22Z",
+      "median_seconds": 845,
+      "p95_seconds": 979,
+      "runs_considered": 16,
       "success_rate": 1.0,
-      "successes": 19,
+      "successes": 16,
       "workflow": "run-pull"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-25T02:44:57Z",
-      "median_seconds": 265,
-      "p95_seconds": 879,
+      "last_run_at": "2026-10-25T18:05:33Z",
+      "median_seconds": 434,
+      "p95_seconds": 1208,
+      "runs_considered": 10,
+      "success_rate": 1.0,
+      "successes": 10,
+      "workflow": "run-repair"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": "success",
+      "last_run_at": "2026-10-26T02:50:22Z",
+      "median_seconds": 370,
+      "p95_seconds": 710,
       "runs_considered": 4,
       "success_rate": 1.0,
       "successes": 4,
       "workflow": "run-seed"
     },
     {
-      "failures": 0,
+      "failures": 1,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-25T03:52:38Z",
-      "median_seconds": 9285,
-      "p95_seconds": 9285,
+      "last_run_at": "2026-10-25T14:15:58Z",
+      "median_seconds": 41,
+      "p95_seconds": 109,
+      "runs_considered": 3,
+      "success_rate": 0.6666666666666666,
+      "successes": 2,
+      "workflow": "staging-corpus-refresh"
+    },
+    {
+      "failures": 0,
+      "last_conclusion": null,
+      "last_run_at": "2026-10-26T03:56:22Z",
+      "median_seconds": null,
+      "p95_seconds": null,
       "runs_considered": 1,
-      "success_rate": 1.0,
-      "successes": 1,
+      "success_rate": null,
+      "successes": 0,
       "workflow": "summarize"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-25T03:29:19Z",
-      "median_seconds": 34,
-      "p95_seconds": 34,
-      "runs_considered": 1,
+      "last_run_at": "2026-10-26T03:33:42Z",
+      "median_seconds": 42,
+      "p95_seconds": 63,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 2,
       "workflow": "sync-staging"
     }
   ],
@@ -833,10 +874,10 @@
       "evaluations_retrospective": 0,
       "evaluations_retrospective_delta": 0,
       "events_predicted": 424,
-      "predicted_resolved": 193,
-      "predicted_resolved_delta": 25,
+      "predicted_resolved": 194,
+      "predicted_resolved_delta": 26,
       "predictions": 1673,
-      "predictions_delta": 129
+      "predictions_delta": 119
     },
     "forward_claim": {
       "by_predictor": {},
@@ -931,7 +972,7 @@
         },
         {
           "conference": "2026-05-28",
-          "petitions": 4
+          "petitions": 3
         },
         {
           "conference": "2026-06-11",
@@ -951,7 +992,7 @@
         },
         {
           "conference": "2026-09-28",
-          "petitions": 95
+          "petitions": 90
         },
         {
           "conference": "2026-10-09",
@@ -963,16 +1004,16 @@
         },
         {
           "conference": "2026-11-06",
-          "petitions": 264
+          "petitions": 269
         }
       ],
-      "documents_provisioned": 131,
-      "generated_on": "2026-10-25",
+      "documents_provisioned": 134,
+      "generated_on": "2026-10-26",
       "next_conference": "2026-11-06",
-      "next_conference_petitions": 264,
+      "next_conference_petitions": 269,
       "schema_version": "1.0",
       "skipped": false,
-      "watchlist": 479
+      "watchlist": 478
     },
     "predictor_scores": [
       {
@@ -1439,7 +1480,7 @@
     }
   },
   "tooling": {
-    "base_rate_uses": 286,
+    "base_rate_uses": 283,
     "corpus_query_uses": 44,
     "gaps": [
       {
@@ -1736,7 +1777,7 @@
         "used_corpus_query": false
       }
     ],
-    "reports": 410,
+    "reports": 407,
     "window_days": 14
   }
 }
