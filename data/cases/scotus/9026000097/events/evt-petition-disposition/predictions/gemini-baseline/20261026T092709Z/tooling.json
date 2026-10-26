@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000097",
+  "run_id": "20261026T092709Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query --docket-number",
+    "mcp_courtlistener_search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "record/documents/petition.txt",
+    "record/documents/appendix.txt",
+    "record/snapshots/2026-10-26.json",
+    "metrics/statpack.md",
+    "fedcourts query --docket-number"
+  ],
+  "gaps": [],
+  "notes": "The provisioned record/ directory (snapshot, petition.txt, appendix.txt, questions-presented.txt) and metrics/statpack.md contained all primary case materials and base-rate tables needed; fedcourts query --docket-number 26-97 confirmed the originating docket number (25-1417) and salience score (0.0145)."
+}

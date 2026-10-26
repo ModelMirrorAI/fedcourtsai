@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73280982",
+  "gaps": [
+    "Standalone questions-presented extraction selected a later argument passage; the petition itself supplied the actual questions.",
+    "The latest supplemental briefs are recorded on the snapshot but not provisioned as text.",
+    "General-precedent web calls returned no usable content."
+  ],
+  "helpful": [
+    "The invited SG brief supplies a specific limited-grant recommendation and addresses vehicle objections.",
+    "Frozen sal-v4 context and matching per-Term risk-set aggregates support a reproducible prior-Term anchor.",
+    "Document metadata distinguishes truncation from empty or OCR-derived text."
+  ],
+  "notes": "The forecast rests on the provisioned pre-disposition record and committed aggregate base rates. No live corpus or CourtListener lookup was used.",
+  "role": "predictor",
+  "run_id": "20261026T092709Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned snapshot and filing reads",
+    "fedcourts paths",
+    "committed statpack aggregates",
+    "Python: prior-Term weighted-pool calculation",
+    "web: two general-precedent searches and one PDF-open attempt"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

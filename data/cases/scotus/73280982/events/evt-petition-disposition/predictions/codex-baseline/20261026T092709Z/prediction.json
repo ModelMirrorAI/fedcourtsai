@@ -1,0 +1,89 @@
+{
+  "big_case_rationale": "The scope of Section 11 omission liability affects IPO disclosures and securities litigation nationwide; this is consequential commercial law rather than a broad constitutional controversy.",
+  "big_case_score": 0.64,
+  "case_id": "scotus/73280982",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.006,
+        "Barrett": 0.001,
+        "Gorsuch": 0.006,
+        "Jackson": 0.004,
+        "Kagan": 0.002,
+        "Kavanaugh": 0.002,
+        "Roberts": 0.001,
+        "Sotomayor": 0.003,
+        "Thomas": 0.012
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.82
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.6
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.0
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.04
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.08
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": "2026-06-01",
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-26",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-26T09:37:52Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-10-26.json",
+  "judgment": null,
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "granted-in-part",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.82,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4",
+    "label": "proc-v12",
+    "pipeline_sha": "0046cf5495453cd8f0fc5367d90faf232def891b",
+    "stamped_at": "2026-10-26T09:41:09.631556Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261026T092709Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

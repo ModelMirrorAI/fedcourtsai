@@ -1,0 +1,14 @@
+case_id: scotus/9026000097
+decision_target: disposition
+description: null
+docket_entry_id: null
+event_id: evt-petition-disposition
+kind: petition
+moment: distribution
+opened_at: '2026-07-21'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Ariella Hellman, on Their Own Behalf and as Next Friend of Their Child, E.
+  H., et al. v. Katherine Craven, Chair, Massachusetts Board of Elementary and Secondary
+  Education, et al.

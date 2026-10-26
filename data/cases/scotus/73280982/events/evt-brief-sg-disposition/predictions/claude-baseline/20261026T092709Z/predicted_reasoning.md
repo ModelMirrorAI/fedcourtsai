@@ -1,0 +1,10 @@
+# Predicted reasoning — Robinhood Markets, Inc. v. Sodha (No. 25-944), SG-brief moment
+
+**Disposition: certiorari granted, limited to Question 1 (likely as reformulated by the Solicitor General).** The Court invited the SG's views on June 1, 2026, after a single distribution (conference of May 28, 2026). The SG filed on October 7, 2026, recommending a grant on QP 1 only — reformulated to ask whether an issuer can be held liable under § 11(a)'s misleading-omissions prong on a materiality finding about undisclosed interim financial information "without an additional inquiry" into whether the omission made any affirmative statement misleading — and a denial on QP 2 (Item 303 / required-statements prong), which the SG calls a poor vehicle.
+
+- **Further distribution:** the docket shows one distribution. The petition will be distributed again now that the SG brief is in (expected for a November 2026 conference, after the parties' supplemental briefs). I expect a grant at the first or second post-CVSG conference; one relist before the grant is plausible but not the main path.
+- **CVSG:** already on the docket (June 1, 2026); no further call.
+- **Question taken:** QP 1, most likely in the SG's reformulated wording (the Court has adopted SG reformulations before, e.g. *Dawson v. Steager*), with QP 2 denied or not reached. A grant on both questions as written is the main alternative.
+- **Route:** plenary review — briefing and argument, likely in the spring 2027 sittings. No summary disposition: no intervening decision to GVR in light of, and the SG asks for merits review, not summary reversal.
+- **If denied (the minority outcome):** a separate writing is unlikely but possible — most plausibly from Justice Alito (author of *Oran v. Stafford* on Item 303 materiality) or Justice Thomas.
+- **If granted, the likely ground:** following *Omnicare* and *Macquarie*, the Court would hold that materiality and misleading effect are distinct elements of a § 11(a) misleading-omissions claim, vacating the Ninth Circuit's rule that a material omission of interim results necessarily satisfies the misleading element.
