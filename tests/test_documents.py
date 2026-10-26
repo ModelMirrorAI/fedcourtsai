@@ -1933,6 +1933,120 @@ def test_extract_questions_presented_ends_at_a_title_case_heading() -> None:
     )
 
 
+def test_extract_questions_presented_ends_at_an_enumerated_heading() -> None:
+    # Pro se petitions number their front matter. The numeral before the heading
+    # must not hide it, or the capture runs on into the dotted contents page
+    # below, reads as a TOC entry, and the questions are discarded with it.
+    question = "Whether a reviewing court may affirm on a ground the agency never reached?"
+    for heading in (
+        "II. Parties to the Proceeding",
+        "IL Table of Contents",
+        "3) Related Cases",
+        "II. Parties and Related Cases",
+        "II.  A List of all proceedings in state courts",
+    ):
+        petition = (
+            "I. Questions Presented\n"
+            + question
+            + "\n"
+            + heading
+            + "\n"
+            + "I. Question Presented ............................................ 1\n"
+        )
+        assert extract_questions_presented(petition) == question, heading
+
+
+def test_extract_questions_presented_ends_at_a_contents_page_under_another_name() -> None:
+    question = "Whether the trial court erred in refusing the requested instruction?"
+    for heading in (
+        "TOPICAL INDEX",
+        "TABLE OF CONTENT",
+        "Table of contents",
+        "TABLE OF APPENDICES",
+    ):
+        petition = (
+            "QUESTIONS PRESENTED\n"
+            + question
+            + "\ni\n"
+            + heading
+            + "\nPage\n"
+            + "QUESTIONS PRESENTED . . . . . . . . . . . . . . . . . . . . . i\n"
+            + "OPINION BELOW\nThe opinion is unreported.\n"
+        )
+        assert extract_questions_presented(petition) == question, heading
+
+
+def test_extract_questions_presented_ends_at_its_own_contents_entry() -> None:
+    # A contents page set straight after the questions, its heading lost in
+    # extraction, still shows itself by the entry for the questions.
+    question = "Whether a prior conviction counts as a crime of violence under the Act?"
+    petition = (
+        "QUESTIONS PRESENTED\n"
+        + question
+        + "\ni\n"
+        + "QUESTIONS PRESENTED ..........................          i\n"
+        + "TABLES OF AUTHORITIES ........................        iv\n"
+    )
+    assert extract_questions_presented(petition) == question
+
+
+def test_extract_questions_presented_reads_past_a_continued_heading() -> None:
+    # The questions page runs over: its continuation heading is not a contents
+    # entry, and neither is the line introducing the questions.
+    petition = (
+        "QUESTIONS PRESENTED\n"
+        + "The questions presented are:\n"
+        + "1. Whether the stop was supported by reasonable suspicion.\n"
+        + "ii\n"
+        + "QUESTIONS PRESENTED - Continued\n"
+        + "2. Whether the error was harmless.\n"
+        + "PARTIES TO THE PROCEEDING\nPetitioner is the defendant below.\n"
+    )
+    assert extract_questions_presented(petition) == (
+        "The questions presented are:\n"
+        + "1. Whether the stop was supported by reasonable suspicion.\n"
+        + "ii\n"
+        + "QUESTIONS PRESENTED - Continued\n"
+        + "2. Whether the error was harmless."
+    )
+
+
+def test_extract_questions_presented_keeps_a_contents_entry_from_ending_a_prose_start() -> None:
+    # A start on prose must run on into the contents page and be discarded, so
+    # the scan reaches the real heading; stopping at the entry would store the
+    # prose as the question.
+    question = "Whether the circuit split on the limitations period should be resolved?"
+    petition = (
+        "This petition raises the question presented by the circuit split described "
+        + "within the body of the brief.\n"
+        + "QUESTIONS PRESENTED ............................................ i\n"
+        + "OPINIONS BELOW ................................................. 1\n"
+        + "QUESTIONS PRESENTED\n"
+        + question
+        + "\nPARTIES TO THE PROCEEDING\nPetitioner is the plaintiff below.\n"
+    )
+    assert extract_questions_presented(petition) == question
+
+
+def test_extract_questions_presented_reads_past_heading_words_a_question_says() -> None:
+    # The enumerator admits a heading after a numeral, not every phrase that
+    # follows one: a question citing a court, a filing's title, a pronoun, and
+    # sentence-case words wrapped onto a line of their own all stay in.
+    for body in (
+        "The questions presented are as follows, in order:\n"
+        + "1. In the Supreme Court of Florida, petitioner raised the claim; was it preserved?",
+        "Whether the court erred in striking the Memorandum of\n"
+        + "Points and Authorities filed in support of the motion?",
+        "Whether the court must consolidate the later of two\n"
+        + "related cases\n"
+        + "when both are pending before it?",
+        "Whether a court may rule on a motion unopposed when\n"
+        + "I opinions below were never served on the petitioner?",
+    ):
+        petition = "QUESTIONS PRESENTED\n" + body + "\nPARTIES TO THE PROCEEDING\nNone.\n"
+        assert extract_questions_presented(petition) == body, body
+
+
 def test_extract_questions_presented_reads_a_tab_delimited_petition() -> None:
     # A petition that sets its front matter in a table extracts with tabs as the
     # only separator: no line break after the heading, the question running on
