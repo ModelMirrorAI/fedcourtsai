@@ -3573,6 +3573,55 @@ vintage travels with it. Eight more are specific to it.
   cell, and a quoted per-area figure names that count. Most cells hold a few
   rows: quote the pair.
 
+**Hand-coded check of the scope rule.** Every federal-side application of the
+`--through 2026-10-12` cut below (232 of its 828 applications: every reason
+but `no-federal-party`) and a seeded sample of 60 `no-federal-party` rows (the
+lowest 60 by the SHA-256 of `scope-sample-v1:` plus the docket number) were
+coded in scope, out of scope or unclear by two agent raters, each blind to the
+other and to the rule but not to the outcome (the docket entries carry the
+orders), from the caption, court below, counsel entries and docket entries and
+their own knowledge of a public case the docket names. They agreed on 263 of
+292 (kappa 0.81). The authoring session adjudicated the other 29, not blind:
+20 out (13 of them individuals' own cases, mostly pro se, that one rater left
+unclear), 8 in, 1 unclear. It drew one line worth stating: a federal suit to
+enforce an agency's reading of a statute against a state (the EMTALA suits,
+`23A469`, `23A470`) is in scope, while a preemption suit against a state law
+(`23A296`, `23A814`) contests no executive action and is out. The
+hand codes are not committed; they are the measurement set a narrower rule's
+change would commit beside it. Against them the rule agrees on 255 of 292:
+196 of the 232 federal-side rows and 59 of the 60 sampled others, none of
+which is in scope by hand. Of the 37 differences:
+
+- **9 go the wrong way.** In scope by the rule, out by hand (6): the
+  unnarrowed government applicant reaches a preemption suit (`23A814`), a
+  bankruptcy trustee's objection (`23A87`), one person's removal (`24A949`),
+  and two rows whose government side is misread (`24A407`, a state's
+  application the government opposed, and `24A795`, a private suit in which
+  the United States defends the statute); a state's application in a
+  preemption suit reads as a challenge (`23A296`). Out by the rule, in by hand
+  (3): an organization the word list does not name (`24A106`), and two federal
+  suits read as prosecutions, the EMTALA enforcement suit and a challenge to a
+  federal land exchange (`23A469`, `25A1008`).
+- **23 of the rule's 24 unknowns resolve** (`individual-group`,
+  `sg-respondent-only`): 9 in scope, among them class and group challenges to
+  the Alien Enemies Act removals (`24A1007`), FERC and EPA actions (`23A485`,
+  `24A199`) and self-regulatory proceedings under agency oversight (`24A287`,
+  `24A808`), and 14 out.
+- **5 are rows the rule places and the hand codes leave unclear.**
+
+So the rule's in-scope reading holds on 84 of its 91 in-scope rows, and it
+misses 3 of the 96 the hand codes put in scope outright, with another 9 among
+its unknowns. Two side misreadings also turn a challenger's filing into a
+government application (`23A712`, `24A754`, both unattributed unreadable
+asks), which flips its win direction. For the `trump-47` pairs below, the hand
+codes would drop `24A949` from the government's cell (a win: 26/32 on 41; the
+raters split on it, so that figure rests on the adjudication) and add
+`24A1007`, `24A808`, `25A1008` and `26A274` to the challenger side: 7/9 by the
+cut's convention, or 8/9 reading `26A274`, an intervenor's stay that helped an
+FCC action, in substance, the same direction flip as above. The
+`exec-action-v1` reading is unchanged by this check; a narrower rule is a new
+version.
+
 **Replication against the published tally.** Adam Feldman's SCOTUSblog
 column of 2026-10-19 ("Where the Supreme Court favors Trump on the emergency
 docket – and where it doesn't") counts applications involving general federal
