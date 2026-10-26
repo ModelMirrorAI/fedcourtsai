@@ -3486,6 +3486,72 @@ substantive asks only, withdrawals resolved and not granted — is 14 of 20
 (70.0%) at that moment, with the 2 unreadable-ask applications excluded beside
 it.
 
+**What may be claimed from the executive success cut.** `fedcourts
+executive-success` (`pipeline.executive_success`, [docs/cli.md](../docs/cli.md))
+publishes the federal executive's emergency-docket record by administration
+and by who filed, over the applications the scope rule `exec-action-v1`
+(`pipeline.exec_action`) reads as challenging or defending a general federal
+executive action. It is an analytics artifact like the party rates, and every
+rule of the party rates on dates, coverage, the rule version and the corpus
+vintage travels with it. Six more are specific to it.
+
+- **A rate reads in the executive's direction.** A government application on
+  the granted side (in whole or in part) and a challenger's application denied
+  are both the executive's win, so the `government`, `challenger` and pooled
+  `all` cells share one meaning. A challenger's application granted in part is
+  the executive's loss. Counting partial relief as relief is this cut's
+  convention; a published tally that does not state its own is compared on
+  that assumption, and the per-label counts let a reader re-cut it. A
+  `challenger` cell is not comparable with a `respondent` grant rate from
+  `party-rates` without inverting it, and its population is narrower.
+- **The denominator is substantively decided.** Withdrawn applications and
+  those dismissed or denied as moot sit beside the rate, as in the published
+  tallies. An application deferred to argument has no disposition until it is
+  decided, so it is `pending`, outside the rate. The default `finer` reading
+  re-reads each stored denial from its latest live snapshot, because the
+  stored label collapses a partial grant and a denial as moot to `denied`; an
+  entry dated after `--through` is not used. Quote `reading`,
+  `reread_changed`, `reread_unobservable` and `reread_after_through` beside
+  the rate. Under `registered` the government's rate is understated where it
+  filed, and overstated where it defended.
+- **Scope is a caption rule, and its unknowns are not zeros.** The rule reads
+  the caption and the Solicitor General's counsel entries, never the
+  application's text, and it narrows only the government-respondent side:
+  every government application is in scope. `unknown_scope` counts the rows it
+  cannot place — a named individual with `et al.` against an officer, and rows
+  only the counsel entries put on the government-respondent side — and a
+  quoted figure names that count beside it. `review_rows` lists them, and every
+  in-scope row, for hand review.
+- **An unreadable ask is in the population.** In-scope applications whose ask
+  the parser could not read are counted like any other and tallied as
+  `unknown_ask`. They include granted federal applications (`24A884`,
+  `24A1203`), which a substantive-only population would drop.
+- **Counts before rates.** The cells hold tens of rows at most, and no
+  interval is reported; a cell under about fifteen decided rows is quoted as
+  its pair, not as a percentage.
+- **Coverage bounds the comparison.** On the blob below the earliest in-scope
+  application was filed 2023-07-10, so `biden-46` cells under `--as-of filed`
+  hold 2023-07-10 to 2025-01-19 only, and `trump-45` holds none. No
+  cross-administration comparison reads from this corpus until the earlier
+  Terms are back-filled.
+
+**Replication against the published tally.** Adam Feldman's SCOTUSblog
+column of 2026-10-19 ("Where the Supreme Court favors Trump on the emergency
+docket – and where it doesn't") counts applications involving general federal
+executive actions through 2026-10-12, and lists no rows. Cut `--as-of filed
+--through 2026-10-12` on the blob pulled 2026-10-26 (newest stored snapshot in
+the index 2026-07-13; the re-read rows' own live snapshots run later):
+`finer` reading, 59 stored denials re-read, 7 relabeled, 0 unobservable, 0
+dated after the cut; unknown scope `biden-46` 16, `trump-47` 6, unattributed 2.
+
+| Published figure | This corpus | Reconciliation |
+|---|---|---|
+| `trump-47`: the government filed 42 core applications | 42 in-scope `government` rows (38 substantive, 4 unreadable-ask) | Totals agree; the column lists no rows, so a row-level match is not verifiable. The birthright-citizenship companions (`24A885`, `24A886`) and `24A904`, absent from the live slice in the party-rates validation above, are in it on this blob |
+| `trump-47`: the government won 27 of 33 substantively decided (82%) | 27/33 | Totals agree, under this cut's partial-relief convention. Outside the rate: 4 withdrawn, 3 denied as moot (`24A790`, `25A952`, `25A999`) and 2 pending at the cut (`26A416`, `26A476`, filed 2026-09-28 and 2026-10-08, not deferrals). The 2 partial grants (`24A949`, `25A103`) are wins. Under `--reading registered` the figure is 25/36 |
+| `trump-47`: 3 applications by challengers | 5 in-scope `challenger` rows, 2 unknown-scope | Scope: 4 of the 5 are employers' stays of National Labor Relations Board proceedings, which the column may not count as general executive action |
+| `biden-46`: 81 applications, 18 filed by the government; 10 of 15 won | 2023-07-10 to 2025-01-19 only: 38 in-scope rows, 11 `government` (7 of 11 won) and 27 `challenger` | Coverage: the corpus holds no `biden-46` application before OT2023 |
+| `trump-45`: 25 of 33 won | No rows | Coverage |
+
 **What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
 publishes call counts, per-engine result observability, per-cell cost, and a
 call-volume-against-Brier table. The counts are facts about the pipeline and

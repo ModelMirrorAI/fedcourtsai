@@ -344,6 +344,8 @@ from .pipeline.documents import (
     questions_presented_extract,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
+from .pipeline.exec_action import EXEC_ACTION_RULES
+from .pipeline.executive_success import DEFAULT_SCOPE_RULE, READINGS, executive_success
 from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
@@ -1931,6 +1933,139 @@ def party_rates_cmd(
             err=True,
         )
     typer.echo(rates.model_dump_json())
+
+
+@app.command("executive-success")
+def executive_success_cmd(
+    as_of: str = typer.Option(
+        ...,
+        "--as-of",
+        help=(
+            "Required — which date attributes the administration: 'filed' (who "
+            "held office when the application arrived) or 'resolved' (who held "
+            "office when the Court acted). No default, as on party-rates."
+        ),
+    ),
+    through: str | None = typer.Option(
+        None,
+        "--through",
+        help=(
+            "Cut the corpus as of this ISO date: rows filed later are left out and "
+            "dispositions dated later read as pending. Omit for the whole blob."
+        ),
+    ),
+    since: str | None = typer.Option(
+        None,
+        "--since",
+        help="Leave out rows filed before this ISO date. Omit for the whole live slice.",
+    ),
+    scope_rule_version: str = typer.Option(
+        DEFAULT_SCOPE_RULE,
+        "--scope-rule",
+        help="Which registered scope rule reads an application as executive action "
+        "(exec-action-v1).",
+    ),
+    reading: str = typer.Option(
+        "finer",
+        "--reading",
+        help=(
+            "How a stored denial is read: 'finer' re-reads it from the latest snapshot, "
+            "naming partial grants and denials as moot; 'registered' keeps the stored label."
+        ),
+    ),
+) -> None:
+    """The executive's emergency-docket record by administration and filer.
+
+    Computed by `pipeline.executive_success`.
+
+    Over the applications the scope rule (`pipeline.exec_action`) reads as
+    challenging or defending a general federal executive action: a government
+    application granted, or a challenger's application denied, is the
+    executive's win. Rates are over substantively decided applications;
+    withdrawn, moot, pending and unreadable rows are counted beside them. By
+    default a stored denial is re-read from the row's latest snapshot under the
+    finer interim reading, which names partial grants and denials as moot.
+    An analytics artifact: nothing a predict or evaluate cell reads comes from
+    it. Prints an `ExecutiveSuccess` (its `review_rows` list every in-scope and
+    unknown-scope application); the human cut and the corpus vintage go to
+    stderr. Fails loud if the corpus is absent (exit 1), or on an unregistered
+    rule, an unknown `--as-of` or `--reading`, or an unreadable `--through` /
+    `--since` (exit 2).
+    """
+    if reading not in READINGS:
+        typer.echo(f"unknown --reading {reading!r}; choose {' or '.join(READINGS)}", err=True)
+        raise typer.Exit(code=2)
+    if scope_rule_version not in EXEC_ACTION_RULES:
+        typer.echo(
+            f"unregistered scope rule {scope_rule_version!r}; "
+            f"registered: {', '.join(sorted(EXEC_ACTION_RULES))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if as_of not in PARTY_AS_OF_FIELDS:
+        typer.echo(
+            f"unknown --as-of {as_of!r}; choose {' or '.join(PARTY_AS_OF_FIELDS)}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    bounds: dict[str, date | None] = {}
+    for flag, value in (("--through", through), ("--since", since)):
+        try:
+            bounds[flag] = date.fromisoformat(value) if value is not None else None
+        except ValueError:
+            typer.echo(f"unreadable {flag} {value!r}; give an ISO date (YYYY-MM-DD)", err=True)
+            raise typer.Exit(code=2) from None
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the executive success cut.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    corpus_sha = _census_corpus_sha(settings, db_path)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        result = executive_success(
+            conn,
+            as_of_field=as_of,
+            through=bounds["--through"],
+            since=bounds["--since"],
+            corpus_sha256=corpus_sha,
+            scope_rule_version=scope_rule_version,
+            reading="finer" if reading == "finer" else "registered",
+        )
+    pulled = result.latest_pull.isoformat() if result.latest_pull else "never pulled"
+    snapshot = result.latest_snapshot.isoformat() if result.latest_snapshot else "none"
+    moment = result.through.isoformat() if result.through else "whole blob"
+    start = f"since {result.since.isoformat()}, " if result.since else ""
+    reasons = " ".join(f"{reason}={n}" for reason, n in result.scope_reasons.items())
+    unknown = " ".join(f"{window}={n}" for window, n in result.unknown_scope.items()) or "none"
+    typer.echo(
+        f"executive success ({result.scope_rule_version} over {result.party_rule_version} "
+        f"and {result.counsel_rule_version}, as-of {result.as_of_field}, {start}through "
+        f"{moment}): {result.applications} application(s) read for scope, "
+        f"{result.extension_rows} extension(s) and {result.duplicate_rows} duplicate docket "
+        f"row(s) left out, {result.filed_before_since} earlier and "
+        f"{result.filed_after_through} later than the cut; scope [{reasons}]; unknown scope "
+        f"[{unknown}]; {result.reading} reading re-read {result.reread_rows} stored denial(s), "
+        f"{result.reread_changed} relabeled, {result.reread_unobservable} unobservable and "
+        f"{result.reread_after_through} decided after the cut; "
+        f"corpus latest pull {pulled}, latest snapshot {snapshot}",
+        err=True,
+    )
+    for cell in result.cells:
+        rate = f"{cell.success_rate:.1%}" if cell.success_rate is not None else "-"
+        labels = " ".join(f"{label}={n}" for label, n in cell.dispositions.items())
+        typer.echo(
+            f"{cell.administration or 'unattributed'} {cell.filer}: executive won "
+            f"{cell.wins}/{cell.decided} = {rate}; rows={cell.rows} pending={cell.pending} "
+            f"withdrawn={cell.withdrawn} dismissed-or-moot={cell.dismissed} "
+            f"unreadable={cell.unreadable} unknown-ask={cell.unknown_ask} [{labels}] "
+            f"excluded unparsed={cell.excluded_unparsed}",
+            err=True,
+        )
+    typer.echo(result.model_dump_json())
 
 
 @app.command("distribution-census")
