@@ -5149,7 +5149,8 @@ def reasoning_pilot_report_cmd(
     text = json.dumps(report.model_dump(mode="json"), indent=2) + "\n"
     typer.echo(
         f"{report.off_sample} off-sample, {report.off_run} off-run, {report.superseded} "
-        f"superseded and {report.other_round} other-round evaluation(s) set aside",
+        f"superseded, {report.other_round} other-round and {report.misplaced} misplaced "
+        "evaluation(s) set aside",
         err=True,
     )
     for stage in report.stages:
