@@ -400,8 +400,19 @@ every row is `docket-only`. A label read from a caption and a stay request is
 weaker than one read from a petition's questions, and a published cut reports
 the `input_kind` split beside it.
 
-**What exists.** The extract and its rule exist, and the reference block's
-labels have been assigned as described above but are not yet committed. The
+**What exists.** The extract and its rule exist. The reference block's labels
+have been assigned as described above, and its file has a schema
+(`QpTopicApplicationReference`, which records the extract rule beside the
+vocabulary) and a path, `data/qp-topics/qp-topic-reference-applications.json`.
+It is a file of its own rather than a block of the petition reference set, so
+the petition set stays byte-identical and a later application gate's floors can
+bind apart from the petition gate's. **The file is not committed, and cannot be
+yet.** It names application dockets the public case set does not, and its
+membership is outcome-conditioned through its disposition strata, so it would
+be a third committed surface enumerating the ingested corpus. The disclosure
+exception below covers exactly two, and a third is argued here before it
+exists. Publishing application rows in the labels file widens the second
+artifact the same way, so that argument comes first too. The
 labeling run's handling of application rows, and a per-topic cut that reads
 them, do not yet exist. Until they do, no application label is
 published, and the petition frame's gates are unchanged.

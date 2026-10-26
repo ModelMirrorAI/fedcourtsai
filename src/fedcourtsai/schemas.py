@@ -8817,6 +8817,68 @@ class QpTopicReference(_Strict):
         return self
 
 
+class QpTopicApplicationReferenceEntry(_Strict):
+    """One hand-labeled emergency application: a case, its input shape and its primary topic.
+
+    Labeled under the ``qp-topic-v1`` application contract from the
+    ``application-extract-v1`` row a labeler reads (``docs/qp-topic.md``,
+    *Applications*), so a labeler can be scored against it on identical input.
+    """
+
+    case_id: str = Field(
+        description="Canonical ``<court>/<docket>`` id — joins the corpus row and the extract"
+    )
+    docket_number: str = Field(
+        description="The application's docket number (e.g. ``24A949``) — the second "
+        "half of the key pair the reference join is checked on"
+    )
+    input_kind: Literal["application-text", "docket-only"] = Field(
+        description="Which extract shape the label was read from: with the stored "
+        "application text, or from the caption, court below and docket entries alone"
+    )
+    label: QpTopicLabel = Field(description="The adjudicated primary label")
+
+
+class QpTopicApplicationReference(_Strict):
+    """``data/qp-topics/qp-topic-reference-applications.json`` — the application reference block.
+
+    The measurement baseline for a ``qp-topic-v1`` labeler on application rows,
+    kept apart from the petition reference set so that set stays byte-identical
+    and an application gate's floors can bind apart from the petition gate's.
+    Not committed until ``docs/qp-topic.md`` argues its disclosure exception.
+    Its sample is stratified on disposition, among other things, so membership
+    is outcome-conditioned in the same way the petition set's is, which is why
+    the cell prompts forbid predict/evaluate cells from reading anything under
+    ``data/qp-topics/``. Nothing frozen depends on it.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    vocabulary: Literal["qp-topic-v1"] = Field(
+        default="qp-topic-v1",
+        description="The label vocabulary every entry draws from",
+    )
+    extract_rule: Literal["application-extract-v1"] = Field(
+        default="application-extract-v1",
+        description="The extract rule whose rows the labels were read from",
+    )
+    cases: int = Field(
+        default=0, ge=0, description="Number of hand-labeled applications (== len(entries))"
+    )
+    entries: list[QpTopicApplicationReferenceEntry] = Field(
+        default_factory=list,
+        description="One entry per hand-labeled application, in case_id order",
+    )
+
+    @model_validator(mode="after")
+    def _canonical(self) -> QpTopicApplicationReference:
+        if self.cases != len(self.entries):
+            raise ValueError("cases must equal len(entries)")
+        ids = [entry.case_id for entry in self.entries]
+        if ids != sorted(ids) or len(set(ids)) != len(ids):
+            raise ValueError("entries must be sorted by case_id and unique")
+        return self
+
+
 class QpTopicLabelEntry(_Strict):
     """One labeled question-presented text: a case, its primary topic, and its optional facets.
 
@@ -13561,6 +13623,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "scope.json": ScopeManifest,
     "schedule.json": Schedule,
     "qp-topic-reference.json": QpTopicReference,
+    "qp-topic-reference-applications.json": QpTopicApplicationReference,
     "qp-topics.json": QpTopicLabels,
 }
 
@@ -13598,6 +13661,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "mcp_server_config": McpServerConfig,
     "retrieval_log": RetrievalLog,
     "qp_topic_reference": QpTopicReference,
+    "qp_topic_application_reference": QpTopicApplicationReference,
     "qp_topics": QpTopicLabels,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "summary_plan": SummaryPlan,
