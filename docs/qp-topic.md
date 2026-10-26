@@ -409,8 +409,8 @@ the petition set stays byte-identical and a later application gate's floors can
 bind apart from the petition gate's. It names application dockets the public
 case set does not, so it is the third committed surface the disclosure
 exception in *The reference set* covers, argued there together with the
-application rows the labels file will carry. The file itself lands as the
-petition set does, in its own reviewed diff. The
+application rows the labels file will carry. It is committed, and changes
+only in its own reviewed diff, as the petition set does. The
 labeling run's handling of application rows, and a per-topic cut that reads
 them, do not yet exist. Until they do, the labels file carries no application
 row, and the petition frame's gates are unchanged.

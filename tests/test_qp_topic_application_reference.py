@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -9,13 +10,14 @@ from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
+from fedcourtsai.corpus import strip_docket_annotation
 from fedcourtsai.pipeline.application_topics import (
     APPLICATION_EXTRACT_RULE,
     APPLICATION_TOPIC_VERSION,
 )
 from fedcourtsai.pipeline.qp_topics import application_reference_path
 from fedcourtsai.schemas import QpTopicApplicationReference
-from fedcourtsai.serialize import write_json
+from fedcourtsai.serialize import read_model, write_json
 
 
 def _entry(case_id: str, docket: str, label: str = "immigration") -> dict[str, str]:
@@ -55,3 +57,22 @@ def test_a_malformed_block_is_refused(
 ) -> None:
     with pytest.raises(ValidationError, match=message):
         QpTopicApplicationReference(cases=cases, entries=entries)
+
+
+_COMMITTED = (
+    Path(__file__).resolve().parents[1]
+    / "data"
+    / "qp-topics"
+    / "qp-topic-reference-applications.json"
+)
+
+
+@pytest.mark.reads_data
+def test_the_committed_block_is_valid_canonical_and_keyed_once() -> None:
+    block = read_model(_COMMITTED, QpTopicApplicationReference)
+    # Docket uniqueness is checked on the spelling the join compares, the
+    # Court's capital-case marking removed, which application dockets carry.
+    dockets = [strip_docket_annotation(entry.docket_number) for entry in block.entries]
+    assert len(set(dockets)) == len(dockets)
+    payload = json.loads(_COMMITTED.read_text())
+    assert _COMMITTED.read_text() == json.dumps(payload, indent=2, sort_keys=True) + "\n"
