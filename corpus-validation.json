@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2153709,
-      "detail": "2153709 rows vs baseline 2153709",
+      "checked": 2153722,
+      "detail": "2153722 rows vs baseline 2153709",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4310797,
+      "checked": 4310824,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2153709,
+      "checked": 2153722,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -49,7 +49,7 @@
       "problems": []
     },
     {
-      "checked": 2153709,
+      "checked": 2153722,
       "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-26); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 34,
       "name": "case_dates_ordered",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4307724,
+      "checked": 4307751,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4310797,
+      "checked": 4310824,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,7 +94,7 @@
       "problems": []
     },
     {
-      "checked": 17609,
+      "checked": 17612,
       "detail": "",
       "failures": 0,
       "name": "ledger_references_exist",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 286,
+      "checked": 287,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 29244,
+      "checked": 29246,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -134,7 +134,7 @@
       "problems": []
     },
     {
-      "checked": 2970,
+      "checked": 2976,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -142,7 +142,7 @@
       "problems": []
     },
     {
-      "checked": 1280,
+      "checked": 1283,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -214,8 +214,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2154015,
-  "corpus_rows": 2153709,
+  "corpus_events": 2154029,
+  "corpus_rows": 2153722,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
