@@ -17,7 +17,7 @@
       "problems": []
     },
     {
-      "checked": 4310762,
+      "checked": 4310785,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -34,7 +34,7 @@
     },
     {
       "checked": 3073,
-      "detail": "as of 2026-10-25",
+      "detail": "as of 2026-10-26",
       "failures": 0,
       "name": "snapshot_not_future_dated",
       "passed": true,
@@ -42,7 +42,7 @@
     },
     {
       "checked": 688,
-      "detail": "granted before 2024-10-25 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
+      "detail": "granted before 2024-10-26 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
       "passed": true,
@@ -50,7 +50,7 @@
     },
     {
       "checked": 2153708,
-      "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-25); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
+      "detail": "0 future-dated, 34 decided-before-filed vs accepted baseline 50 (as of 2026-10-26); faithful upstream data \u2014 investigate the climb upstream before raising the baseline",
       "failures": 34,
       "name": "case_dates_ordered",
       "passed": true,
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4307689,
+      "checked": 4307712,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4310762,
+      "checked": 4310785,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 253,
+      "checked": 276,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 29202,
+      "checked": 29225,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -214,7 +214,7 @@
       "problems": []
     }
   ],
-  "corpus_events": 2153981,
+  "corpus_events": 2154004,
   "corpus_rows": 2153708,
   "ok": true,
   "schema_version": "1.0",

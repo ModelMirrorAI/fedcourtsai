@@ -78,7 +78,7 @@
     },
     {
       "conference": "2026-05-28",
-      "petitions": 4
+      "petitions": 3
     },
     {
       "conference": "2026-06-11",
@@ -110,13 +110,13 @@
     },
     {
       "conference": "2026-11-06",
-      "petitions": 264
+      "petitions": 265
     }
   ],
   "documents_provisioned": 133,
-  "generated_on": "2026-10-25",
+  "generated_on": "2026-10-26",
   "next_conference": "2026-11-06",
-  "next_conference_petitions": 264,
+  "next_conference_petitions": 265,
   "schema_version": "1.0",
   "skipped": false,
   "watchlist": 479
