@@ -11822,6 +11822,47 @@ class ExecutiveSuccessCell(_Strict):
     )
 
 
+class ExecutiveControversyCell(_Strict):
+    """One administration x filer cell of the executive success cut, counted by controversy.
+
+    Each controversy (``controversy_rule_version``) counts once, with the
+    executive's result in its last substantively decided application; one with
+    no decided application is indeterminate, beside the rate.
+    """
+
+    administration: str | None = Field(
+        default=None,
+        description="The administration of the controversy's first-filed application that "
+        "carries a date under the cut's convention, or null where none does",
+    )
+    filer: Literal["government", "challenger", "both", "all"] = Field(
+        description="Who filed the controversy's applications: one side throughout, both "
+        "sides, or every controversy of the administration pooled"
+    )
+    controversies: int = Field(ge=0, description="Controversies in the cell")
+    applications: int = Field(
+        ge=0, description="In-scope applications in those controversies, never-parsed ones aside"
+    )
+    indeterminate: int = Field(
+        default=0,
+        ge=0,
+        description="Of the controversies, those with no substantively decided application "
+        "— outside the rate",
+    )
+    determinate: int = Field(
+        default=0, ge=0, description="Controversies with a substantively decided application"
+    )
+    wins: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, controversies whose last substantively decided application "
+        "the executive won",
+    )
+    success_rate: float | None = Field(
+        default=None, description="wins / determinate; null where none is determinate"
+    )
+
+
 class ExecutiveSuccessRow(_Strict):
     """One application the scope rule kept or could not place, for hand review."""
 
@@ -11849,6 +11890,12 @@ class ExecutiveSuccessRow(_Strict):
     executive_won: bool | None = Field(
         default=None,
         description="Whether the executive won, where the row was substantively decided",
+    )
+    controversy_id: str | None = Field(
+        default=None,
+        description="The controversy the row belongs to (its first-docketed application's "
+        "number, as spelled); null for an unknown-scope or never-parsed row, which is "
+        "grouped with nothing",
     )
 
 
@@ -11948,6 +11995,18 @@ class ExecutiveSuccess(_Strict):
     )
     cells: list[ExecutiveSuccessCell] = Field(
         default_factory=list, description="Non-empty cells only; an absent cell is not a zero"
+    )
+    controversy_rule_version: str = Field(
+        description="The grouping rule the controversy cells are counted under, e.g. controversy-v1"
+    )
+    controversy_cells: list[ExecutiveControversyCell] = Field(
+        default_factory=list,
+        description="The same population counted by controversy; non-empty cells only",
+    )
+    controversy_unlinked: int = Field(
+        default=0,
+        description="Grouped applications with no live snapshot, so no case-below or "
+        "decided-together link; they join on the caption alone",
     )
     review_rows: list[ExecutiveSuccessRow] = Field(
         default_factory=list,
