@@ -3486,6 +3486,58 @@ substantive asks only, withdrawals resolved and not granted — is 14 of 20
 (70.0%) at that moment, with the 2 unreadable-ask applications excluded beside
 it.
 
+**What may be claimed from the executive success cut.** `fedcourts
+executive-success` (`pipeline.executive_success`, [docs/cli.md](../docs/cli.md))
+publishes the federal executive's emergency-docket record by administration
+and by who filed, over the applications the scope rule `exec-action-v1`
+(`pipeline.exec_action`) reads as challenging or defending a general federal
+executive action. It is an analytics artifact like the party rates, and every
+rule of the party rates on dates, coverage, the rule version and the corpus
+vintage travels with it. Five more are specific to it.
+
+- **A rate reads in the executive's direction.** A government application
+  granted in whole or in part, and a challenger's application denied, are both
+  the executive's win, so the `government`, `challenger` and pooled `all` cells
+  share one meaning. A `challenger` cell is not comparable with a
+  `respondent` grant rate from `party-rates` without inverting it, and its
+  population is narrower.
+- **The denominator is substantively decided.** Withdrawn applications and
+  those dismissed or denied as moot sit beside the rate, as in the published
+  tallies. The default `finer` reading re-reads each stored denial from its
+  latest snapshot, because the stored label collapses a partial grant and a
+  denial as moot to `denied`. Quote `reading` and `reread_changed` beside the
+  rate; under `registered` the government's rate is understated where it
+  filed, and overstated where it defended.
+- **Scope is a caption rule, and its unknowns are not zeros.** The rule reads
+  the caption and the Solicitor General's counsel entries, never the
+  application's text. `unknown_scope` counts the rows it cannot place — a
+  named individual with `et al.` against an officer, and rows only the counsel
+  entries put on the government's side — and a quoted figure names that count
+  beside it. `review_rows` lists them for hand review.
+- **An unreadable ask is in the population.** In-scope applications whose ask
+  the parser could not read are counted like any other and tallied as
+  `unknown_ask`. They include granted federal applications, the
+  birthright-citizenship stays among them, which a substantive-only population
+  would drop.
+- **Coverage bounds the comparison.** The cut inherits the application
+  stratum's coverage: `biden-46` cells hold OT2023 and OT2024 only, and
+  `trump-45` holds none, so no cross-administration comparison reads from this
+  corpus until the earlier Terms are back-filled.
+
+**Replication against the published tally.** Adam Feldman's SCOTUSblog
+column of 2026-10-19 ("Where the Supreme Court favors Trump on the emergency
+docket – and where it doesn't") counts applications involving general federal
+executive actions through 2026-10-12. Cut `--as-of filed --through 2026-10-12`
+on the blob pulled 2026-10-26 (newest stored snapshot 2026-07-13):
+
+| Published figure | This corpus | Reconciliation |
+|---|---|---|
+| Trump II: the government filed 42 core applications | 42 in-scope `government` rows (38 substantive, 4 unreadable-ask) | Agrees |
+| Trump II: the government won 27 of 33 substantively decided (82%) | 27/33 (81.8%) | Agrees. Outside the rate: 4 withdrawn, 3 denied as moot (`24A790`, `25A952`, `25A999`) and 2 pending at the cut. The 2 partial grants (`24A949`, `25A103`) are wins. Under `--reading registered` the figure is 25/36 |
+| Trump II: 3 applications by challengers | 5 in-scope `challenger` rows, 2 unknown-scope | Scope: 4 of the 5 are employers' stays of National Labor Relations Board proceedings, which the column may not count as general executive action; the column does not list its rows |
+| Biden: 18 of 81 applications filed by the government; 10 of 15 won | OT2023–OT2024 only: 11 `government` rows, 7/11 won | Coverage: the corpus holds no Biden application before OT2023 |
+| Trump I: 25 of 33 won | No rows | Coverage |
+
 **What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
 publishes call counts, per-engine result observability, per-cell cost, and a
 call-volume-against-Brier table. The counts are facts about the pipeline and

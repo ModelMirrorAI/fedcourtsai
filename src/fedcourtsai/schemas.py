@@ -11747,6 +11747,209 @@ class PartyRates(_Strict):
     )
 
 
+class ExecutiveSuccessCell(_Strict):
+    """One administration x filer cell of the executive success cut.
+
+    ``wins`` / ``decided`` is the executive's record over the in-scope
+    applications the Court decided substantively: a government applicant wins
+    a grant, in whole or in part, and a government respondent wins a denial.
+    Withdrawn applications and those dismissed or denied as moot are counted
+    beside the rate, never in it, and so are pending and unreadable ones.
+    ``filer`` ``all`` pools the administration's government and challenger cells.
+    """
+
+    administration: str | None = Field(
+        default=None,
+        description="Administration label (e.g. trump-47), or null where the row "
+        "carries no date under the cut's convention",
+    )
+    filer: Literal["government", "challenger", "all"] = Field(
+        description="Who filed the application: the federal government, a challenger "
+        "to federal executive action, or both cells pooled"
+    )
+    rows: int = Field(
+        ge=0, description="In-scope applications in the cell, extensions of time left out"
+    )
+    unknown_ask: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows whose ask the application parser could not read "
+        "(granted federal applications among them), counted like any other",
+    )
+    pending: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows with no disposition as of the cut — outside the rate",
+    )
+    unreadable: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows whose disposition is `other` — outside the rate",
+    )
+    withdrawn: int = Field(
+        default=0, ge=0, description="Of those, withdrawn applications — outside the rate"
+    )
+    dismissed: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, applications dismissed, or dismissed or denied as moot — "
+        "outside the rate",
+    )
+    decided: int = Field(
+        default=0,
+        ge=0,
+        description="Rows substantively decided: granted in whole or in part, or denied",
+    )
+    wins: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows the executive won: granted in whole or in part for a "
+        "government applicant, denied for a challenger's application",
+    )
+    success_rate: float | None = Field(
+        default=None, description="wins / decided; null where nothing was decided"
+    )
+    dispositions: dict[str, int] = Field(
+        default_factory=dict,
+        description="Row count per reading label (`reading` on the result) among the "
+        "cell's resolved rows, so a reader can recompute the rate under another convention",
+    )
+    excluded_unparsed: int = Field(
+        default=0,
+        ge=0,
+        description="In-scope applications never application-parsed, which cannot be "
+        "told from an extension — outside the population",
+    )
+
+
+class ExecutiveSuccessRow(_Strict):
+    """One application the scope rule kept or could not place, for hand review."""
+
+    docket_number: str = Field(description="The application's docket number")
+    administration: str | None = Field(
+        default=None, description="Administration under the cut's date convention"
+    )
+    date_filed: date | None = Field(default=None, description="The row's filing date")
+    in_scope: bool | None = Field(description="The scope rule's reading; null = unknown")
+    reason: str = Field(description="The scope rule's reason code")
+    government_side: Literal["applicant", "respondent"] = Field(
+        description="Which side of the application the federal government is on"
+    )
+    application_kind: str | None = Field(
+        default=None, description="The parsed ask: substantive, unknown, or null if unparsed"
+    )
+    stored_disposition: str | None = Field(
+        default=None, description="The disposition the corpus stores, as of the cut"
+    )
+    reading: str | None = Field(
+        default=None,
+        description="The label the cut read the row under: the finer interim reading "
+        "where the stored label was re-read, else the stored label; null = pending",
+    )
+    executive_won: bool | None = Field(
+        default=None,
+        description="Whether the executive won, where the row was substantively decided",
+    )
+
+
+class ExecutiveSuccess(_Strict):
+    """``executive-success`` result: how often the executive prevails on the emergency docket.
+
+    An analytics artifact, not a prediction input. Cut over the applications the
+    scope rule reads as challenging or defending a general federal executive
+    action, under one date convention, optionally at a past moment
+    (``through``) so a published tally can be replicated as of its own date.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    scope_rule_version: str = Field(description="The committed scope rule, e.g. exec-action-v1")
+    party_rule_version: str = Field(description="The party rule the scope rule composes")
+    counsel_rule_version: str = Field(description="The counsel rule the scope rule composes")
+    reading: Literal["finer", "registered"] = Field(
+        description="How a stored `denied` was read: `finer` re-reads it from the row's "
+        "latest snapshot under the finer interim reading, which names a partial grant "
+        "and a denial as moot; `registered` keeps the stored label"
+    )
+    as_of_field: str = Field(
+        description="Which date drove the administration attribution: filed | resolved"
+    )
+    through: date | None = Field(
+        default=None,
+        description="The cut's moment: rows filed after it are left out and "
+        "dispositions dated after it read as pending. Null = the whole blob",
+    )
+    since: date | None = Field(
+        default=None,
+        description="The cut's lower bound: rows filed before it are left out. "
+        "Null = from the start of the live slice",
+    )
+    corpus_sha256: str = Field(
+        default="",
+        description="sha256 of the corpus database the cut ran over",
+    )
+    latest_pull: date | None = Field(
+        default=None, description="Corpus vintage: newest `last_pulled` across the blob"
+    )
+    latest_snapshot: date | None = Field(
+        default=None, description="Corpus vintage: newest stored snapshot date across the blob"
+    )
+    applications: int = Field(
+        default=0,
+        ge=0,
+        description="Applications in the window, extensions of time left out, one per "
+        "docket number",
+    )
+    duplicate_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Rows dropped as a second corpus row for a docket number already counted",
+    )
+    extension_rows: int = Field(
+        default=0, ge=0, description="Extension-of-time applications, left out before scope"
+    )
+    filed_after_through: int = Field(
+        default=0, ge=0, description="Rows left out as later than `through`"
+    )
+    filed_before_since: int = Field(
+        default=0, ge=0, description="Rows left out as earlier than `since`"
+    )
+    reread_rows: int = Field(
+        default=0,
+        ge=0,
+        description="In-scope and unknown-scope rows stored `denied` that the finer "
+        "reading re-read; 0 under `registered`",
+    )
+    reread_changed: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows the finer reading labels other than `denied` "
+        "(granted in part, or denied as moot)",
+    )
+    reread_unobservable: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows with no stored snapshot or no entry the finer reading "
+        "matches, which keep the stored label",
+    )
+    scope_reasons: dict[str, int] = Field(
+        default_factory=dict,
+        description="Applications per scope reason code, in scope, unknown and out alike",
+    )
+    unknown_scope: dict[str, int] = Field(
+        default_factory=dict,
+        description="Applications the scope rule could not place, per administration "
+        "(key `unattributed` for an undated row) — beside every cell, never in one",
+    )
+    cells: list[ExecutiveSuccessCell] = Field(
+        default_factory=list, description="Non-empty cells only; an absent cell is not a zero"
+    )
+    review_rows: list[ExecutiveSuccessRow] = Field(
+        default_factory=list,
+        description="Every in-scope and unknown-scope application, in docket order, "
+        "so the scope reading can be hand-checked row by row",
+    )
+
+
 class DistributionBandTransition(_Strict):
     """One cell of the band-transition matrix: how many cases moved from → to."""
 
