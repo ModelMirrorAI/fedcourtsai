@@ -13619,3 +13619,166 @@ freeze commit is recorded here.
     `record/argument-features.json` on every `moment: argued` cell whose
     transcript was staged, and `fedcourts validate data` stays green on its
     collect PR.
+
+- **OT2017 to OT2022's applications are back-filled into the interim docket,
+  moving the population the pooled interim base rate is computed over,
+  2026-10-26.** A **scoring-baseline** entry, and a **conditioning** one
+  through the same number. It registers six Terms' applies before they run:
+  the `application-backfill` run-repair pass (`fedcourts
+  backfill-applications`), with OT2017, OT2018, OT2019, OT2020, OT2021 and
+  OT2022 joining `REGISTERED_APPLY_TERMS` in the same change. Each Term is
+  still its own dispatch, its own bound and its own control. No prompt byte,
+  registry field or stamp moves, so no digest moves: `uv run fedcourts
+  process-digest --all` prints `proc-v13` and the same six blessed digests
+  before and after the change.
+
+  **What moves, and why.** The live channel never polled these Terms. The
+  corpus holds a CourtListener stub for each of their application numbers,
+  with no ask and no disposition, and the statpack counts every one as
+  `unparsed`. So they contribute nothing to the substantive pool today,
+  although they already sit inside the registered window: an interim cell's
+  pool is every Term strictly before its own application Term within
+  `salience.base_rate_lookback_terms` (10), so all six are in the window of
+  every OT2024, OT2025 and OT2026 cell. **This completes data under the
+  existing rule; it is not a rule change.** The window does not move (its
+  config comment forbids moving it part-way through a Term), and whether a
+  shorter interim window should apply from OT2027 stays the separate
+  decision the OT2023 entry deferred. The pass lands each stub through the
+  live channel's own ingest seam, so it arrives parsed and joins the pool.
+  The provisioned statpack's interim section is what interim cells anchor
+  on, and its pooled rate is the baseline their harness skill is stamped
+  against, so both move for every interim cell provisioned or stamped after
+  the first statpack refresh that follows an apply. The reason to land these
+  Terms now rather than after that decision is the executive-action
+  emergency-docket replication, which needs every substantive application
+  from 2017-01-20 on.
+
+  **The dry runs, read 2026-10-26** from a dev checkout at `main`
+  `bde68df4c`, one Term at a time, with every serial fetched from
+  supremecourt.gov. The projection each walk read (highest stored serial,
+  live-owned serials) came from blob
+  `5f84b2c30dcc8ee638f70c0bd215936857a9fd76c6187678aa33e8b028eb7d44`
+  (`freshness: latest pull 2026-10-26, latest snapshot 2026-07-13`, the
+  pointer matching `origin/main`'s). Every count is an upper bound, since the
+  parse reads no corpus (`unresolved=N` equals the would-land count for each
+  Term). No Term has a live-owned serial, a held row or a fetch failure, and
+  every walk ended on 10 consecutive misses past its highest stored serial.
+
+  | Term | Would land | Last serial | Extension | Substantive | Unknown | Capital (substantive) | Referred | Substantive granted / resolved |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | OT2017 | 1,424 | `17A1425` | 1,245 | 129 | 50 | 210 (49) | 61 | 12/124 = 9.7% |
+  | OT2018 | 1,369 | `18A1369` | 1,208 | 115 | 46 | 170 (39) | 73 | 12/113 = 10.6% |
+  | OT2019 | 1,071 | `19A1071` | 913 | 121 | 37 | 99 (31) | 72 | 12/119 = 10.1% |
+  | OT2020 | 178 | `20A178` | 3 | 135 | 40 | 33 (33) | 80 | 25/133 = 18.8% |
+  | OT2021 | 876 | `21A876` | 708 | 121 | 47 | 77 (16) | 74 | 30/120 = 25.0% |
+  | OT2022 | 1,131 | `22A1131` | 962 | 103 | 66 | 98 (29) | 77 | 9/103 = 8.7% |
+  | **All six** | **6,049** | | 5,039 | 724 | 286 | 687 (197) | 437 | **100/712 = 14.0%** |
+
+  - The statpack counts the same number of application numbers per Term as
+    each walk served (one row per number, after the duplicate rule), with
+    one exception: `17A109` is stored but withheld upstream, so OT2017 keeps
+    one `unparsed` row after its apply.
+  - OT2020's 178 is not a short walk: the Term served every serial up to its
+    end, and it holds three extension applications because the Court's
+    COVID-era order extended filing deadlines for that Term. Its substantive
+    count is in line with its neighbours'.
+  - Withdrawn and dismissed count as ungranted, as `docs/salience.md`
+    registers. Twelve substantive rows read no machine-readable disposition
+    on a closed Term (OT2017 5, OT2018 2, OT2019 2, OT2020 2, OT2021 1) and
+    stay outside the resolved denominator, as an unresolved row does today.
+  - The corpus holds 13 duplicated stub rows across OT2018 to OT2022. The
+    identity join lands each apply on the lowest docket id, which the
+    duplicate rule counts because it is now observed, so the twins stay
+    uncounted and the figures here are by application number.
+
+  **The pools at the registered lookback of 10**, before (the statpack at
+  `7fbb3736e`, the refresh of 2026-10-26) and after all six applies:
+  - **OT2026 application cells** (OT2016 to OT2025): **51/547 = 9.32%** to
+    **151/1259 = 11.99%**.
+  - **OT2025 application cells** (OT2015 to OT2024): **34/321 = 10.59%** to
+    **134/1033 = 12.97%**.
+  - **OT2024 application cells** (OT2014 to OT2023): **18/127 = 14.17%** to
+    **118/839 = 14.06%**.
+  - **OT2023 application cells** gain a pool for the first time (OT2017 to
+    OT2022 alone): **100/712 = 14.04%**. No committed interim cell has an
+    OT2023 application Term.
+  - **Direction:** up, by 2.7 points for OT2026 cells. OT2020 and OT2021
+    grant at 18.8% and 25.0%, against 8.7% to 10.6% in the other four Terms,
+    so the move is concentrated in those two Terms. This is the drift the
+    lookback decision is about; it is disclosed here and not corrected.
+  - **The unread asks.** 286 rows carry an `unknown` ask (279 resolved, 81
+    of them granted) and land outside the substantive pool, as every
+    `unknown` row does. Folded in, the OT2026-cell pool would read
+    232/1538 = 15.1%. The registered pool reads `substantive` alone; the bound
+    says how much the unread asks could matter, not what is scored.
+
+  **One break, not six.** Each intermediate statpack refresh between applies
+  would be its own anchor move. The metrics refresh runs on its weekly cron
+  (Monday 05:41 UTC), so the six applies are dispatched within one week,
+  before the refresh that follows the first of them. If a refresh does fall
+  between two applies, each pool it reads is a dated value of its own, named
+  below with the refresh that produced it, rather than read as this
+  projection.
+
+  **The straddling cohort, and how interim skill is read.** Interim skill is
+  read keyed on the stamped `segment_base_rate` value, never pooled across
+  values, as the OT2023 entry registered. At `main` `a0daa0ccf`, 54 interim
+  events carry a prediction: 44 have an evaluation and 10 are open. The 10
+  open events will be scored against whichever pool stands when they are
+  stamped, so any of them stamped after the refresh reads ≈0.120 where its
+  cell anchored on ≈0.093. For scale: a forecast of 0.10 on a denial has
+  Brier skill **−0.15** against 0.093 and **+0.30** against 0.120. Under the
+  pooled reading declared on 2026-10-11, the refresh is a dated,
+  digest-silent boundary, so a pooled interim figure carries its `n` on each
+  side of it.
+
+  **What else moves in the provisioned statpack.** The six Terms' interim
+  rows fill from all-`unparsed` to parsed counts, with their escalation
+  columns (`referred_to_court` 437 in all, and whatever `response_requested`
+  and `with_amicus` the ingest parses). The pack-level interim totals and the
+  live-slice coverage counts move by 6,049, and the pack's court, era and
+  resolved-disposition totals move with about 5,300 extension and `unknown`
+  rows newly resolved. Those are conditioning too, since the pack is
+  provisioned. The newly resolved rows also become reachable to similar-case
+  priors retrieval, which filters by court, topic and disposition; a replay
+  cell's retrieval stays masked by its event date.
+
+  **What does not move.** No committed `evaluation.json` is rewritten: a
+  stamped harness skill keeps the base rate it was stamped with, and a
+  re-grade is a separate dispatch. No cert rate moves: the pass writes
+  application rows only. Nothing is written by this change itself; the pass
+  runs only as dispatched `run-repair` applies.
+
+  **OT2016 is not registered.** The executive-action window opens on
+  2017-01-20, inside OT2016, but the pass cannot reach that Term. Its floor
+  is `live.term_floor_year` (2017), and supremecourt.gov serves OT2016
+  application JSON only from `16A1051` (docketed 2017-04-28): a read of
+  `16A1` to `16A4`, `16A300`, `16A600`, `16A700`, `16A900` and `16A1050`
+  found none, while `16A1051` and later serials up to `16A1200` are served,
+  apart from withheld numbers such as `16A1101`. So OT2016 needs a
+  different source for January to April 2017, and its own entry.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`). Applied by runs
+  `<FILL: apply run ids, one per Term>` on `<FILL: apply dates>`, landing
+  `<FILL: rows landed per Term>` rows. The first statpack refreshed after
+  the last of them, at commit `<FILL: statpack refresh commit>`, reads the
+  OT2026 pool as `<FILL: OT2026 pool granted/resolved>` (from
+  `<FILL: OT2026 pool before, granted/resolved>`), the OT2025 pool as
+  `<FILL: OT2025 pool granted/resolved>` and the OT2024 pool as
+  `<FILL: OT2024 pool granted/resolved>`, and any refresh between two
+  applies is named here with the pools it read.
+
+  The runnable effect check once it is live:
+  - for each Term `NN` from `17` to `22`, the apply `gh workflow run
+    run-repair.yml --ref main -f repair=application-backfill -f
+    repair_mode=apply -f repair_target=NN -f repair_bound=<the Term's would
+    land count above>` lands at most that many rows, and the control dry run
+    after it reports `would land 0 row(s)`;
+  - after the applies and a statpack refresh, the statpack's interim section
+    reports each of OT2017 to OT2022 with `unparsed` **0** (OT2017 **1**, for
+    `17A109`) and `substantive_granted` / `substantive_resolved` as in the
+    table above. An `applications` count above the table's means the apply
+    onboarded a row beside an existing one, a duplicated number. Any residue
+    is named here rather than rounded away. `uv run fedcourts process-digest
+    --all` still prints `proc-v13` and the same six digests.
