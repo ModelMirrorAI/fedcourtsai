@@ -21,7 +21,7 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 | Select | Each docket's proceedings entries are read for the filings of each kind below, by the filing's own wording. A consolidated member reads its merits filings off the lead docket. | `pipeline/documents.py`: `select_documents`, `consolidation_lead` | live-sources.md, *What is selected, and under which kind* |
 | Fetch | `live.provision_documents` fetches when a lane queues a case for prediction: on the distribution transition, on a pending application's change, and in the frontier catch-up. The salience selection sweep fetches for selected cases, which is how the merits kinds arrive. Every live cycle ends with a freshness pass over the cases it polled. A `(kind, url)` already stored is never fetched again. Multi-respondent oppositions are combined into one row, and so are a docket's supplemental briefs and its party letters, one row per kind. Losses are recorded by reason. | `pipeline/documents.py`: `fetch_case_documents`; `pipeline/live.py`: `provision_documents`, `refresh_stale_documents` | live-sources.md, *Document freshness* |
 | Transcripts | The argument transcript is linked by no docket entry, so each live cycle reads the Court's per-Term transcript lists and stores the transcripts a corpus case lacks, dated by the argument day. | `supremecourt.py`: `parse_transcript_listing`; `pipeline/live.py`: `fetch_argument_transcripts` | live-sources.md, *Argument transcripts* |
-| Argument features | Not staged. A deterministic parse of a stored transcript counts each Justice's turns and words by the side of the advocate whose time it was, read from the segment headers, and reports what it could not attribute. Computed on demand only; no cell is given it. | `pipeline/argument_features.py`: `parse_argument_features`; `fedcourts argument-features` | live-sources.md, *Argument transcripts* |
+| Argument features | Not a document: a deterministic parse of the transcript a post-argument cell is staged counts each Justice's turns and words by the side of the advocate whose time it was, read from the segment headers, and reports what it could not attribute. Written beside the documents as `record/argument-features.json`, from the staged copy, so the counts describe the text the cell reads; a parse whose totals do not reconcile writes no file. | `pipeline/argument_features.py`: `parse_argument_features`; `provision.py`: `staged_argument_features`; `fedcourts argument-features` | live-sources.md, *Argument transcripts* |
 | Back-fill | A dispatched pass fetches the selection for predict-relevant cases whose stored set is missing kinds. | `pipeline/document_backfill.py`; `fedcourts backfill-documents` | live-sources.md, *Contract for the document back-fill pass* |
 | Extract | pypdf text, cut at the cap. Petitions, applications and appendices are cut around the appendix so the argument survives; each cut leaves a `[pipeline note: …]` line. The questions presented are cut from the petition text, from the QUESTION(S) PRESENTED heading (or a "Questions to/for Review" heading) to the next front-matter heading, at most 4,000 characters; a section cut at that cap is stored `truncated`, and `backfill-questions-presented` re-derives stored rows when the cutter changes. An argument transcript is cleaned of its line numbers, headers and word index before the plain cut. | `extract_pdf_text`, `extract_filing_text`, `extract_questions_presented`, `extract_transcript_text` | live-sources.md, *The appendix-aware cut* |
 | Re-cut | A stored petition, application or appendix still under the plain head cut (truncated, not OCR-derived, no `[pipeline note:` line) is re-fetched by its stored URL and re-cut by the appendix-aware rule. run-repair's `recut` pass applies it a slice at a time. | `pipeline/document_recut.py`; `fedcourts recut-documents` | live-sources.md, *Contract for the re-cut pass* |
@@ -36,8 +36,7 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 These are the kinds, from `pipeline/documents.py`. Selection is per docket and
 the moment decides by date, so a cell gets every kind below that its docket
 carries and that was filed before its cutoff. The one exception is the argument
-transcript, which only a post-argument cell is given. The kinds in the second
-table below are stored and given to no cell.
+transcript, which only a post-argument cell is given.
 
 | Kind | Filing | Docket |
 | --- | --- | --- |
@@ -47,28 +46,26 @@ table below are stored and given to no cell.
 | `brief-in-opposition` | Every respondent's opposition, combined into one row | Cert |
 | `cert-reply` | The petitioner's reply to the opposition | Cert |
 | `sg-invited-brief` | The Solicitor General's brief when the Court called for it | Cert |
+| `supplemental-brief` | Every party's Rule 15.8 supplemental brief while the petition is pending, combined into one row | Cert |
+| `party-letter` | Every party's letter to the Clerk bearing on the case while the petition is pending (mootness, settlement, withdrawal, an intervening decision), combined into one row | Cert |
 | `merits-brief-petitioner`, `merits-brief-respondent` | Each side's brief on the merits | Granted |
 | `merits-reply-petitioner`, `merits-reply-respondent` | Each side's reply on the merits | Granted |
+| `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
 | `application-reply` | The applicant's reply to it | Application |
 
-Three more kinds are **stored but not yet given to any cell**. Which kinds a cell
-reads is part of its information set, and the process digest does not see it
-([process-version.md](process-version.md)), so a new kind is fetched and stored
-first and staged only in the re-bless whose prompt tells cells about it. Until
-then `provision.WITHHELD_KINDS` keeps it from every cell at every moment, and
-the case-summary plan leaves it out of the record it reads. One record input
-that is not a document is held back on the same rule: the post-argument merits
-cell's `record/authorship-tally.json`, the Term's tally of who has written from
-each argument sitting (`provision.AUTHORSHIP_TALLY_WITHHELD`).
-
-| Kind | Filing | Docket |
-| --- | --- | --- |
-| `supplemental-brief` | Every party's Rule 15.8 supplemental brief while the petition is pending, combined into one row | Cert |
-| `party-letter` | Every party's letter to the Clerk bearing on the case while the petition is pending (mootness, settlement, withdrawal, an intervening decision), combined into one row | Cert |
-| `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
+A new kind is fetched and stored before any cell is given it. Which kinds a
+cell reads is part of its information set, and the process digest does not see
+it ([process-version.md](process-version.md)), so a kind is staged only in the
+re-bless whose prompt tells cells about it. Until then
+`provision.WITHHELD_KINDS` keeps it from every cell at every moment, and the
+case-summary plan leaves it out of the record it reads. No kind is held there
+now. One record input that is not a document is held back on the same rule:
+the post-argument merits cell's `record/authorship-tally.json`, the Term's
+tally of who has written from each argument sitting
+(`provision.AUTHORSHIP_TALLY_WITHHELD`).
 
 Amicus briefs other than the United States' are never selected: the Solicitor
 General's invited brief at the cert stage, and the United States' brief on the

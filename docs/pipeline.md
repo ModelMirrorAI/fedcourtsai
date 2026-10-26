@@ -1256,9 +1256,9 @@ carve-out in [data-sources.md](data-sources.md) (*PII stance*): one artifact,
 one day, never committed or printed. **Each Term's apply is pre-registered**:
 it moves that Term's unparsed rows into the population the pooled interim base
 rate is computed over, so it has its own entry in
-[freeze-record.md](freeze-record.md). OT2023 and OT2024 are registered: an
-apply for any other Term is refused until that Term has its own freeze-record
-entry and a place in `REGISTERED_APPLY_TERMS`.
+[freeze-record.md](freeze-record.md). OT2017 to OT2024 are registered: an
+apply for any other Term is refused until a freeze-record entry projects its
+move and it has a place in `REGISTERED_APPLY_TERMS`.
 
 `decision-record` fills the merits decision record — `merits_argued` and
 `merits_decision_method` — on stored granted rows whose method is still null
@@ -1295,8 +1295,9 @@ id, stores each text, inserts and pushes, and mints the App token only after
 the push. The bound is the dry run's "would insert N": opinion, bench and text
 rows together. Each run fetches again, so an apply does not lead
 with a dry run, and a re-dispatched dry run after the apply is the control.
-Nothing a cell sees moves: the tables and the stored texts are no part of a
-`query` row, and no gate, mint, outcome or score reads them.
+The tables reach cells only through the statpack, whose authorship and
+per-Justice votes sections roll them up; the stored texts are no part of a
+`query` row, and no gate, mint, outcome or score reads either.
 
 `amicus-rederive` writes both stores, and what is distinctive is *which* two: a
 corpus column and the committed `outcome.json` field that column was frozen onto,
@@ -1344,8 +1345,8 @@ a dispatched pass rather than a standing sweep because its class does not
 regrow: every poll writes the column on the row it reads, so once the history is
 filled there is nothing for a window to converge, and a sweep would re-read the
 whole slice from the content store each window to find that. The stat pack's
-amicus cut waits on it, and stays out of the statpack until a re-bless admits it
-to what cells read.
+amicus cut reads the column, so before the pass has applied that cut is almost
+all `(unknown)`.
 
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
@@ -1824,8 +1825,8 @@ The mechanics:
   only on a PR to `main` whose head is not `staging`, a promotion train
   candidate (`promote/…`), or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
-  metrics-refresh, cert-backtest, and salience-replay PRs, the qp-topic
-  labeling run's `qp-topics/refresh` PR, the case-summary lane's
+  metrics-refresh, cert-backtest, merits-backtest and salience-replay PRs,
+  the qp-topic labeling run's `qp-topics/refresh` PR, the case-summary lane's
   `summaries/refresh` PR, the big-case board's
   `metrics/big-cases` PR and the update history's `metrics/public-updates`
   PR); on those

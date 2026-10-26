@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/73280982",
+  "run_id": "20261026T092709Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot", "provisioned documents", "metrics/statpack.md"],
+  "helpful": ["sg-invited-brief.txt provisioned in full; it was decisive"],
+  "gaps": ["No statpack cut splits the CVSG population by SG recommendation (grant vs deny), which is the key conditioning variable at the sg-brief moment", "questions-presented.txt was mis-cut (holds an argument passage rather than the QPs)"]
+}

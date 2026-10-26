@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261026T092709Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned-record", "committed-statpack", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search/open attempts", "read-only brief-assessment subagent", "local arithmetic"],
+  "helpful": ["The invited SG brief was provisioned with usable full text and explicit document metadata.", "The committed statpack separated paid-scored CVSG cases from the whole docket.", "CourtListener citation lookup verified an older precedent without querying the target petition."],
+  "gaps": ["The questions-presented extractor selected an importance section instead of the actual questions.", "The statpack has no recommendation-conditioned CVSG grant-rate table."],
+  "notes": "Recovered the actual questions from the petition's opening page. Default uv cache was read-only; using UV_CACHE_DIR under /tmp resolved it. Web calls yielded no usable result; MCP provided the precedent check. No live corpus refresh was attempted."
+}

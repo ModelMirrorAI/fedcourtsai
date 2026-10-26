@@ -1,0 +1,13 @@
+case_id: scotus/73281354
+decision_target: disposition
+description: Disposition of the petition, forecast after the Court called for a response
+  to it.
+docket_entry_id: null
+event_id: evt-order-call-for-response-disposition
+kind: order
+moment: response-requested
+opened_at: '2026-04-30'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: AstraZeneca Pharmaceuticals LP, et al. v. Mosaic Health, Inc., et al.

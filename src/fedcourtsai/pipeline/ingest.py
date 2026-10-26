@@ -952,7 +952,8 @@ def interim_disposing_text(payload: Mapping[str, Any]) -> str | None:
     """The text of the entry :func:`interim_resolution` takes its label from, or ``None``.
 
     The last entry the registered reading matches, exposed for the read-only
-    census's probe of that reading's known misreading.
+    census's probe of that reading's known misreading and for the controversy
+    grouping's read of which applications one order decided.
     """
     found: str | None = None
     for entry in _live_entries(payload):

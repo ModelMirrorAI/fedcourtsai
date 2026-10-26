@@ -1,0 +1,401 @@
+{
+  "$defs": {
+    "ArgumentParseCoverage": {
+      "additionalProperties": false,
+      "description": "How much of a transcript :class:`ArgumentFeatures` attributed, and how much not.\n\nEvery Justice turn lands in exactly one of the four counts below\n``justice_turns``, checked on construction: the parse states what it could\nnot read rather than spreading it over the sides.",
+      "properties": {
+        "closing_line": {
+          "description": "Whether the reporter's closing '(Whereupon \u2026 submitted.)' line was found. Without it the parse ran to the end of the text, which may then end inside the argument (a head-cut row) or run on into the word index",
+          "title": "Closing Line",
+          "type": "boolean"
+        },
+        "justice_turns": {
+          "description": "Every Justice-labelled turn in the text",
+          "minimum": 0,
+          "title": "Justice Turns",
+          "type": "integer"
+        },
+        "justice_turns_attributed": {
+          "description": "Turns of a resolved Justice in a segment with a side",
+          "minimum": 0,
+          "title": "Justice Turns Attributed",
+          "type": "integer"
+        },
+        "justice_turns_outside_segments": {
+          "description": "Turns before the first segment header: the Chief Justice calling the case, or every turn of a text where no header was read",
+          "minimum": 0,
+          "title": "Justice Turns Outside Segments",
+          "type": "integer"
+        },
+        "justice_turns_unattributed_segment": {
+          "description": "Turns of a resolved Justice in a segment whose side is null",
+          "minimum": 0,
+          "title": "Justice Turns Unattributed Segment",
+          "type": "integer"
+        },
+        "justice_turns_unresolved": {
+          "description": "Turns inside a segment under a Justice label whose surname the roster does not carry (a misprint, or a Justice outside the roster)",
+          "minimum": 0,
+          "title": "Justice Turns Unresolved",
+          "type": "integer"
+        },
+        "notes": {
+          "description": "One line for each segment or read worth a reader's eye",
+          "items": {
+            "type": "string"
+          },
+          "title": "Notes",
+          "type": "array"
+        },
+        "segments": {
+          "description": "Argument and rebuttal headers read",
+          "minimum": 0,
+          "title": "Segments",
+          "type": "integer"
+        },
+        "segments_attributed": {
+          "description": "Segments with a side",
+          "minimum": 0,
+          "title": "Segments Attributed",
+          "type": "integer"
+        },
+        "segments_unattributed": {
+          "description": "Segments whose side is null",
+          "minimum": 0,
+          "title": "Segments Unattributed",
+          "type": "integer"
+        },
+        "unrecognized_label_lines": {
+          "description": "Lines that open like a speaker label (capitals, then a colon) under a title the parse does not read as one; their words are counted with the turn they fall in, so this is how many such lines a reader may want to look at",
+          "minimum": 0,
+          "title": "Unrecognized Label Lines",
+          "type": "integer"
+        },
+        "unrecognized_labels": {
+          "description": "The distinct label-like prefixes those lines open with, as printed",
+          "items": {
+            "type": "string"
+          },
+          "title": "Unrecognized Labels",
+          "type": "array"
+        },
+        "unresolved_labels": {
+          "description": "The distinct Justice labels the roster did not resolve, as printed",
+          "items": {
+            "type": "string"
+          },
+          "title": "Unresolved Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "segments",
+        "segments_attributed",
+        "segments_unattributed",
+        "justice_turns",
+        "justice_turns_attributed",
+        "justice_turns_outside_segments",
+        "justice_turns_unresolved",
+        "justice_turns_unattributed_segment",
+        "unresolved_labels",
+        "unrecognized_label_lines",
+        "unrecognized_labels",
+        "closing_line",
+        "notes"
+      ],
+      "title": "ArgumentParseCoverage",
+      "type": "object"
+    },
+    "ArgumentSegment": {
+      "additionalProperties": false,
+      "description": "One advocate's argument or rebuttal, as its header in the transcript names it.",
+      "properties": {
+        "advocate": {
+          "$ref": "#/$defs/ArgumentTurnCount",
+          "description": "Turns and words of the advocate the header names: a label whose surname appears in the header"
+        },
+        "case_number": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The docket number an 'IN CASE <number>' header names, which is how a consolidated argument marks whose counsel is speaking. Null otherwise",
+          "title": "Case Number"
+        },
+        "header": {
+          "description": "The header as printed, its lines joined by single spaces: the text the side was read from",
+          "title": "Header",
+          "type": "string"
+        },
+        "index": {
+          "description": "Position in the argument, from 0",
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "justice": {
+          "$ref": "#/$defs/ArgumentTurnCount",
+          "description": "Turns and words of every Justice in the segment, resolved or not"
+        },
+        "kind": {
+          "description": "'rebuttal' for a 'REBUTTAL ARGUMENT OF' header, else 'argument'",
+          "enum": [
+            "argument",
+            "rebuttal"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "other_turns": {
+          "description": "Turns of any other speaker label: counsel the header does not name",
+          "minimum": 0,
+          "title": "Other Turns",
+          "type": "integer"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "enum": [
+                "petitioner",
+                "respondent",
+                "united-states-amicus",
+                "amicus"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Whom the advocate appeared for: a party (an appellant read as petitioner, an appellee as respondent), the United States as amicus curiae, or another amicus. Null where the header names none",
+          "title": "Role"
+        },
+        "side": {
+          "anyOf": [
+            {
+              "enum": [
+                "petitioner",
+                "respondent",
+                "united-states-supporting-petitioner",
+                "united-states-supporting-respondent",
+                "united-states-supporting-neither",
+                "amicus-supporting-petitioner",
+                "amicus-supporting-respondent",
+                "amicus-supporting-neither"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The key this segment's Justice turns are counted under: the role, and for an amicus the position it supported. Null where either is unread, and the segment's Justice turns are then counted unattributed",
+          "title": "Side"
+        },
+        "supports": {
+          "anyOf": [
+            {
+              "enum": [
+                "petitioner",
+                "respondent",
+                "neither"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The position the header says the advocate supported ('supporting the petitioner', 'in support of the judgment below', 'supporting vacatur'); a party header naming none supports its own party. Null for an amicus header naming no support, and wherever role is null; a rebuttal whose header names no side is read as the petitioner's, so its role is never null",
+          "title": "Supports"
+        }
+      },
+      "required": [
+        "index",
+        "kind",
+        "header",
+        "role",
+        "supports",
+        "side",
+        "case_number",
+        "justice",
+        "advocate",
+        "other_turns"
+      ],
+      "title": "ArgumentSegment",
+      "type": "object"
+    },
+    "ArgumentTurnCount": {
+      "additionalProperties": false,
+      "description": "Turns and words, one count pair of :class:`ArgumentFeatures`.",
+      "properties": {
+        "turns": {
+          "description": "Speaker turns: one per printed speaker label",
+          "minimum": 0,
+          "title": "Turns",
+          "type": "integer"
+        },
+        "words": {
+          "description": "Words spoken in those turns: whitespace-separated tokens carrying a letter or digit, the speaker label and the reporter's parentheticals excluded",
+          "minimum": 0,
+          "title": "Words",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "turns",
+        "words"
+      ],
+      "title": "ArgumentTurnCount",
+      "type": "object"
+    },
+    "JusticeArgumentFeatures": {
+      "additionalProperties": false,
+      "description": "One Justice's questioning, split by the side of the segment each turn fell in.",
+      "properties": {
+        "by_alignment": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ArgumentTurnCount"
+          },
+          "description": "The same turns by the position the segment argued for",
+          "propertyNames": {
+            "enum": [
+              "petitioner",
+              "respondent",
+              "neither"
+            ]
+          },
+          "title": "By Alignment",
+          "type": "object"
+        },
+        "by_side": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ArgumentTurnCount"
+          },
+          "description": "Attributed turns by segment side; a side the Justice never spoke in is absent",
+          "propertyNames": {
+            "enum": [
+              "petitioner",
+              "respondent",
+              "united-states-supporting-petitioner",
+              "united-states-supporting-respondent",
+              "united-states-supporting-neither",
+              "amicus-supporting-petitioner",
+              "amicus-supporting-respondent",
+              "amicus-supporting-neither"
+            ]
+          },
+          "title": "By Side",
+          "type": "object"
+        },
+        "justice": {
+          "description": "The roster surname the label resolved to, e.g. 'Kagan'",
+          "title": "Justice",
+          "type": "string"
+        },
+        "total": {
+          "$ref": "#/$defs/ArgumentTurnCount",
+          "description": "Every attributed turn: the sum over by_side, and over by_alignment"
+        },
+        "unattributed": {
+          "$ref": "#/$defs/ArgumentTurnCount",
+          "description": "Turns in segments whose side is unread. Never folded into a side"
+        }
+      },
+      "required": [
+        "justice",
+        "total",
+        "by_side",
+        "by_alignment",
+        "unattributed"
+      ],
+      "title": "JusticeArgumentFeatures",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Per-Justice questioning by side, read from one cleaned argument transcript.\n\nComputed by :func:`fedcourtsai.pipeline.argument_features.parse_argument_features`\nfrom the text :func:`fedcourtsai.pipeline.documents.extract_transcript_text`\nstores, deterministically and with no model in the loop, so one transcript\nalways yields one count. ``assignment`` states the reading that turns a\nspeaker label into a side. The totals are checked on construction against\nthe rows and the coverage against the segments.",
+  "properties": {
+    "alignment_totals": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ArgumentTurnCount"
+      },
+      "description": "The same turns summed by the position the segment argued for",
+      "propertyNames": {
+        "enum": [
+          "petitioner",
+          "respondent",
+          "neither"
+        ]
+      },
+      "title": "Alignment Totals",
+      "type": "object"
+    },
+    "assignment": {
+      "description": "How a speaker turn was assigned to a side, in one line",
+      "title": "Assignment",
+      "type": "string"
+    },
+    "coverage": {
+      "$ref": "#/$defs/ArgumentParseCoverage",
+      "description": "What was and was not attributed"
+    },
+    "justices": {
+      "description": "One row per resolved Justice who spoke, by surname",
+      "items": {
+        "$ref": "#/$defs/JusticeArgumentFeatures"
+      },
+      "title": "Justices",
+      "type": "array"
+    },
+    "parser_version": {
+      "const": "1",
+      "description": "The parse rules' version; a change to what a given text yields moves it",
+      "title": "Parser Version",
+      "type": "string"
+    },
+    "segments": {
+      "description": "Every segment, in argument order",
+      "items": {
+        "$ref": "#/$defs/ArgumentSegment"
+      },
+      "title": "Segments",
+      "type": "array"
+    },
+    "side_totals": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ArgumentTurnCount"
+      },
+      "description": "Every resolved Justice's attributed turns, summed by segment side",
+      "propertyNames": {
+        "enum": [
+          "petitioner",
+          "respondent",
+          "united-states-supporting-petitioner",
+          "united-states-supporting-respondent",
+          "united-states-supporting-neither",
+          "amicus-supporting-petitioner",
+          "amicus-supporting-respondent",
+          "amicus-supporting-neither"
+        ]
+      },
+      "title": "Side Totals",
+      "type": "object"
+    }
+  },
+  "required": [
+    "parser_version",
+    "assignment",
+    "segments",
+    "justices",
+    "side_totals",
+    "alignment_totals",
+    "coverage"
+  ],
+  "title": "ArgumentFeatures",
+  "type": "object"
+}

@@ -378,16 +378,24 @@ def _rederived_questions(
     return [_derived_questions_document(recut, questions, fetched_at=today)]
 
 
+def _letters_and_digits(text: str) -> str:
+    return "".join(c for c in text if c.isascii() and c.isalnum())
+
+
 def _same_head(recut: str, stored: str) -> bool:
     """Whether the re-cut opens with the stored text, up to its first cut note.
 
-    Compared with every whitespace character dropped: the PDF library's text
-    layout moves line breaks between versions (a break inside a name, one
-    joined onto the next line), which is not another filing.
+    Compared on ASCII letters and digits alone: the PDF library's text layout
+    moves line breaks between versions (a break inside a name, one joined onto
+    the next line), and it reads a caption's decorative glyphs as different
+    characters, some of them non-ASCII letters, neither of which is another
+    filing. A re-cut head with no letter or digit opens no stored text that has one.
     """
     note = recut.find(_CUT_NOTE_OPENER)
-    head = "".join(recut[: min(HEAD_CHECK_CHARS, note if note >= 0 else len(recut))].split())
-    opening = "".join(stored[: HEAD_CHECK_CHARS * 2].split())
+    head = _letters_and_digits(recut[: min(HEAD_CHECK_CHARS, note if note >= 0 else len(recut))])
+    opening = _letters_and_digits(stored[: HEAD_CHECK_CHARS * 2])
+    if not head:
+        return not opening
     length = min(len(head), len(opening))
     return head[:length] == opening[:length]
 

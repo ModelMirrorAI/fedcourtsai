@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261026T092709Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "In record/documents/questions-presented.txt, the extractor captured a body subsection from pages 31-33 of the petition ('[The Questions Presented] In This Case Are Exceptionally Important...') instead of page (I) ('QUESTION S PRESENTED'), likely due to the intraword space in 'QUESTION S'. The actual Questions Presented were read from page (I) of petition.txt and sg-invited-brief.txt."
+    }
+  ]
+}

@@ -209,7 +209,7 @@ class _Acc:
         )
 
 
-def _docket_key(row: corpus.CorpusRow) -> str | None:
+def docket_key(row: corpus.CorpusRow) -> str | None:
     """The docket number a duplicate is recognized by, or ``None`` where there is none."""
     key = row.docket_number.strip().upper()
     return key or None
@@ -272,7 +272,7 @@ def _rates(  # noqa: PLR0913 - one keyword per stamp the cut carries
     counted = duplicates = other_stratum = after_through = before_since = 0
     undated = resolution_undated = private_practice = 0
     for row in rows:
-        key = _docket_key(row)
+        key = docket_key(row)
         if key is not None:
             if key in seen:
                 duplicates += 1

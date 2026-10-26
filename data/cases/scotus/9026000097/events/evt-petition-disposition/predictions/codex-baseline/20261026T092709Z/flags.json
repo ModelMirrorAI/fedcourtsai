@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000097",
+  "run_id": "20261026T092709Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "Distribution-moment context has null cutoff and cut_kind and uses an as-stored 2026-10-26 snapshot. It includes the response request and filings after the first 2026-08-19 distribution. Forecast uses the entire provisioned forward baseline, not a strict first-distribution information set. The requested response remains due 2026-11-10; the past listed conference is not treated as evidence of substantive consideration. No target disposition was encountered."
+    }
+  ]
+}
