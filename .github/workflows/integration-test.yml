@@ -3003,7 +3003,7 @@ jobs:
 
             QP_TEXTS=${{ runner.temp }}/qp-io/qp-texts.json
             LABELS_OUT=${{ runner.temp }}/qp-io/qp-labels.jsonl
-            LABELER=claude-code/claude-haiku-4-5-20251001
+            LABELER=claude-code/claude-opus-5-5
             QP_FRAME=petitions
 
             These values are authoritative and literal: this run grants you no
@@ -3013,7 +3013,7 @@ jobs:
             you are blocked, say so plainly in your final message and stop — do
             not wait for a reply.
           claude_args: |
-            --model claude-haiku-4-5-20251001
+            --model claude-opus-5-5
             --max-turns 200
             --permission-mode default
             --allowedTools Write,Edit

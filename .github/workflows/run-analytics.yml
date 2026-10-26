@@ -163,7 +163,7 @@ on:
           - claude-sonnet-4-6
           - claude-fable-5
           - claude-opus-5-5
-        default: claude-haiku-4-5-20251001
+        default: claude-opus-5-5
       # corpus-stats inputs (ignored by every other mode). All are optional; an
       # empty value means "no filter" / "no grouping".
       court:
