@@ -4,8 +4,9 @@ Read-side only and deliberately not a prediction input, like the party
 annotations it sits beside (:mod:`.party`): every value is a pure function of
 a corpus row's stored ``counsel`` entries, its own dates, and a committed roster,
 so a cut re-derives from a corpus pointer with no stored column, no writer lane
-and no model spend. The one consumer is the party rates cut
-(:mod:`.party_rates`), and only when a caller asks for it.
+and no model spend. Two analytics cuts consume it: the party rates cut
+(:mod:`.party_rates`), only when a caller asks for it, and the executive-action
+scope rule (:mod:`.exec_action`), which always reads it.
 
 **What the annotation reads.** The SCOTUS live channel stores one
 :class:`~fedcourtsai.corpus.CounselEntry` per party/attorney pairing with the

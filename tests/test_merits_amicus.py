@@ -244,8 +244,9 @@ def _document(kind: str) -> corpus.CaseDocument:
     )
 
 
-def test_no_cell_of_any_moment_is_handed_the_kind() -> None:
-    assert KIND_MERITS_AMICUS_UNITED_STATES in WITHHELD_KINDS
+def test_every_moment_may_be_handed_the_kind() -> None:
+    # The date rule decides which moment sees it; no kind rule holds it back.
+    assert KIND_MERITS_AMICUS_UNITED_STATES not in WITHHELD_KINDS
     documents = [
         _document(KIND_MERITS_BRIEF_PETITIONER),
         _document(KIND_MERITS_AMICUS_UNITED_STATES),
@@ -253,11 +254,10 @@ def test_no_cell_of_any_moment_is_handed_the_kind() -> None:
     events = [spec.event_id for spec in moments.DECLARED_MOMENTS] + ["evt-unregistered-moment"]
     for event in events:
         kinds = {d.kind for d in documents_for_moment(documents, event)}
-        assert KIND_MERITS_AMICUS_UNITED_STATES not in kinds, event
-        assert KIND_MERITS_BRIEF_PETITIONER in kinds, event
+        assert kinds == {KIND_MERITS_BRIEF_PETITIONER, KIND_MERITS_AMICUS_UNITED_STATES}, event
 
 
-def test_an_uncut_cell_is_not_handed_the_kind_either() -> None:
+def test_an_uncut_cell_is_handed_the_kind() -> None:
     documents = [
         _document(KIND_MERITS_BRIEF_PETITIONER),
         _document(KIND_MERITS_AMICUS_UNITED_STATES),
@@ -280,5 +280,7 @@ def test_an_uncut_cell_is_not_handed_the_kind_either() -> None:
             snapshot_date=date(2026, 7, 1),
             documents=documents,
         )
-        assert [d.kind for d in placement.documents] == [KIND_MERITS_BRIEF_PETITIONER]
-        assert placement.dropped_documents == 1
+        assert sorted(d.kind for d in placement.documents) == sorted(
+            [KIND_MERITS_BRIEF_PETITIONER, KIND_MERITS_AMICUS_UNITED_STATES]
+        )
+        assert placement.dropped_documents == 0

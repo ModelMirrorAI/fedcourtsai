@@ -13481,3 +13481,329 @@ freeze commit is recorded here.
     all `recut` in its per-kind outcome lines. Its apply is the maintainer's
     dispatch, and the re-walk the step makes afterwards must report the
     class less what the apply re-cut.
+
+- **`proc-v13`: the predict prompt tells cells about the inputs stored for
+  them, and provisioning hands them over; recorded 2026-10-24.**
+  Carried to `main` by `<FILL: promotion tag>` (merge `<FILL: merge sha>`,
+  `<FILL: merged-at>`), to be tagged **`prereg/proc-v13`**. Registered under
+  the merge-stamped rule, so its counting instant, its three bless moments and
+  every window edge it moves are the carrying merge's committer time. It is
+  the third supersession shape for all three predictors at once
+  ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  `.github/prompts/predict.md` changes, so each predictor's open `proc-v12`
+  window **closes** at this label's instant and a `proc-v13` window opens
+  there for each new digest. No evaluator digest moves, so the three judges
+  carry their bless moments forward and add this label to their blessing
+  labels. Nothing is de-counted and nothing is re-owed: every cell counted in
+  a closed window keeps counting under its own label.
+
+  **Why a label for inputs the digest does not see.** A process digest covers
+  the prompt bytes and the canonical config, not provisioning code, so a newly
+  staged input would change what a cell reads under an unchanged digest. Each
+  input below was stored first and held back, and is released here, in the
+  label whose prompt tells cells what it is and how to read it.
+
+  **What cells are handed from this label on.**
+  - *Documents* (`provision.WITHHELD_KINDS` is now empty): on a cert docket,
+    `supplemental-brief.txt` (every party's Rule 15.8 supplemental brief while
+    the petition is pending) and `party-letter.txt` (the parties' letters to
+    the Clerk bearing on the case); on a granted docket,
+    `merits-amicus-united-states.txt` (the United States' amicus brief on the
+    merits). Each is cut to the cell's cutoff as every other kind is.
+  - *Argument features*: a post-argument cell's
+    `record/argument-features.json`, the deterministic parse of the transcript
+    it was staged (`provision.staged_argument_features`).
+  - *Two statpack sections*: the cert amicus-brief cut over the paid scored
+    segment (`Cert petitions by amicus-brief count`, buckets `0`, `1`, `2+`),
+    and the per-Justice merits votes section (`justice_votes`), each Term's
+    complete lineups rolled up by `pipeline.justice_priors`. The amicus cut
+    reads the `cert_amicus_briefs` column, whose resolved history the
+    `cert-amicus-rederive` repair pass fills. Its apply ran on 2026-10-25
+    (`run-repair` run 40219589819, corpus commit `bafb7a546` on `main`): of
+    21,456 cert-form live-slice rows it read 21,333 and filled 21,183 that
+    were NULL, raised none and held none at the latch, leaving 123
+    unobservable rows, which the cut buckets as `(unknown)`.
+
+  **What moved, in the predict prompt.** The document list names the two
+  cert-stage kinds and *Stage: merits* the United States' merits brief; the
+  `argued` moment describes the features file and says a count is never a
+  vote; the cert anchoring reads the amicus cut beside the relist and CVSG
+  cuts as a marginal stakes proxy; and the vote block is pointed at the
+  per-Justice section, pooled only over Terms strictly before the case's
+  grant Term.
+
+  **What this label does not release.** The same-question petition list
+  (`fedcourts same-question`) stays out of cells: its index is built over the
+  whole frame, and staging it per cell needs a plan-job step this label does
+  not add. The decision-below input waits on its match-rate measurement. The
+  authorship tally (`record/authorship-tally.json`) stays withheld
+  (`provision.AUTHORSHIP_TALLY_WITHHELD`).
+
+  **No scored figure moves.** No baseline reads either new statpack section:
+  the amicus cut publishes rates no claim is scored against, and the
+  per-Justice section is a reference point for the vote block, whose
+  `vote_accuracy` would be scored against the outcome's recorded votes, not a
+  baseline, and no merits outcome carries recorded votes yet.
+
+  **Digests** (`uv run fedcourts process-digest --all`, at `staging`
+  `338ae739d` before this change and at it):
+
+  | Actor | Before | `proc-v13` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f` (`proc-v12`) | `sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d` (new) |
+  | `codex-baseline` | `sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4` (`proc-v12`) | `sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354` (new) |
+  | `gemini-baseline` | `sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9` (`proc-v12`) | `sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745` (new) |
+  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | same, carried forward |
+  | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | same, carried forward |
+  | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | same, carried forward |
+
+  **Step 0.** At `origin/main` `ed3929ef3` (`2026-10-25T13:41:40Z`), `git grep
+  -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
+  the three newly blessed digests, and `git grep -l '"process_version": {'
+  origin/main -- data/cases | wc -l` is **3030** stamped cells. At the
+  carrying merge the newly blessed predictor digests stamp
+  <FILL: census predictions digest=6a176c28,2827480e,b69b2b3a> committed
+  predictions.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`457d3e0e…`) | `proc-v12` | `2026-10-25T13:40:46Z` | this label's instant (was open) |
+  | `codex-baseline` (`87e57da6…`) | `proc-v12` | `2026-10-25T13:40:46Z` | this label's instant (was open) |
+  | `gemini-baseline` (`8057aacc…`) | `proc-v12` | `2026-10-25T13:40:46Z` | this label's instant (was open) |
+  | `claude-baseline` (`6a176c28…`) | `proc-v13` | this label's instant | open (new) |
+  | `codex-baseline` (`2827480e…`) | `proc-v13` | this label's instant | open (new) |
+  | `gemini-baseline` (`b69b2b3a…`) | `proc-v13` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** This was run with this commit's
+  pending rows stamped by hand at a provisional instant,
+  `2026-10-27T00:00:00Z`, in a scratch copy of the registry, over
+  `origin/main`'s ledger at `ed3929ef3`. `uv run fedcourts
+  successor-disclosures --closed proc-v12 --successor proc-v13`:
+
+  ```
+  successor proc-v13 closes proc-v12 at 2026-10-27T00:00:00+00:00
+    closed proc-v12 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    closed proc-v12 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    closed proc-v12 (no cells): 0 counted event(s) — 0 resolved, 0 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  The `proc-v12` windows had counted no cell when it was taken, since they
+  opened the same day. Cells keep landing until the instant, so the run is
+  repeated once the carrying merge has stamped the registry, and a dated
+  follow-up entry quotes it before any `proc-v12` window figure is quoted
+  outside the committed board.
+
+  **Evidence for the change other than the closed windows' boards.** None:
+  the inputs were built and stored on the maintainer's review of what
+  predictor cells lacked, not on a score.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v13`, `uv run python
+    -c "from fedcourtsai.provision import WITHHELD_KINDS as W; print(W)"`
+    prints `frozenset()`, and `uv run fedcourts process-digest --all` prints
+    the six digests above;
+  - after the next `metrics-refresh`, `jq '[.sections[].title |
+    select(test("amicus"))], (.justice_votes.terms | length)'
+    metrics/statpack.json` prints the amicus cut's title and at least `1`,
+    and `jq '.sections[] | select(.title | test("amicus")) | .buckets[] |
+    select(.key == "(unknown)")' metrics/statpack.json` shows the
+    `(unknown)` share, which should be small once the repair pass has
+    applied;
+  - the first predict round after the carrying merge stages
+    `record/argument-features.json` on every `moment: argued` cell whose
+    transcript was staged, and `fedcourts validate data` stays green on its
+    collect PR.
+
+- **OT2017 to OT2022's applications are back-filled into the interim docket,
+  moving the population the pooled interim base rate is computed over,
+  2026-10-26.** A **scoring-baseline** entry, and a **conditioning** one
+  through the same number. It registers six Terms' applies before they run:
+  the `application-backfill` run-repair pass (`fedcourts
+  backfill-applications`), with OT2017, OT2018, OT2019, OT2020, OT2021 and
+  OT2022 joining `REGISTERED_APPLY_TERMS` in the same change. Each Term is
+  still its own dispatch, its own bound and its own control. No prompt byte,
+  registry field or stamp moves, so no digest moves: `uv run fedcourts
+  process-digest --all` prints `proc-v13` and the same six blessed digests
+  before and after the change.
+
+  **What moves, and why.** The live channel never polled these Terms. The
+  corpus holds a CourtListener stub for each of their application numbers,
+  with no ask and no disposition, and the statpack counts every one as
+  `unparsed`. So they contribute nothing to the substantive pool today,
+  although they already sit inside the registered window: an interim cell's
+  pool is every Term strictly before its own application Term within
+  `salience.base_rate_lookback_terms` (10), so all six are in the window of
+  every OT2024, OT2025 and OT2026 cell. **This completes data under the
+  existing rule; it is not a rule change.** The window does not move (its
+  config comment forbids moving it part-way through a Term), and whether a
+  shorter interim window should apply from OT2027 stays the separate
+  decision the OT2023 entry deferred. The pass lands each stub through the
+  live channel's own ingest seam, so it arrives parsed and joins the pool.
+  The provisioned statpack's interim section is what interim cells anchor
+  on, and its pooled rate is the baseline their harness skill is stamped
+  against, so both move for every interim cell provisioned or stamped after
+  the first statpack refresh that follows an apply. The reason to land these
+  Terms now rather than after that decision is the executive-action
+  emergency-docket replication, which needs every substantive application
+  from 2017-01-20 on.
+
+  **The dry runs, read 2026-10-26** from a dev checkout at `main`
+  `bde68df4c`, one Term at a time, with every serial fetched from
+  supremecourt.gov. The projection each walk read (highest stored serial,
+  live-owned serials) came from blob
+  `5f84b2c30dcc8ee638f70c0bd215936857a9fd76c6187678aa33e8b028eb7d44`
+  (`freshness: latest pull 2026-10-26, latest snapshot 2026-07-13`, the
+  pointer matching `origin/main`'s). Every count is an upper bound, since the
+  parse reads no corpus (`unresolved=N` equals the would-land count for each
+  Term). No Term has a live-owned serial, a held row or a fetch failure, and
+  every walk ended on 10 consecutive misses past its highest stored serial.
+
+  | Term | Would land | Last serial | Extension | Substantive | Unknown | Capital (substantive) | Referred (all kinds) | Substantive granted / resolved |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | OT2017 | 1,424 | `17A1425` | 1,245 | 129 | 50 | 210 (49) | 61 | 12/124 = 9.7% |
+  | OT2018 | 1,369 | `18A1369` | 1,208 | 115 | 46 | 170 (39) | 73 | 12/113 = 10.6% |
+  | OT2019 | 1,071 | `19A1071` | 913 | 121 | 37 | 99 (31) | 72 | 12/119 = 10.1% |
+  | OT2020 | 178 | `20A178` | 3 | 135 | 40 | 33 (33) | 80 | 25/133 = 18.8% |
+  | OT2021 | 876 | `21A876` | 708 | 121 | 47 | 77 (16) | 74 | 30/120 = 25.0% |
+  | OT2022 | 1,131 | `22A1131` | 962 | 103 | 66 | 98 (29) | 77 | 9/103 = 8.7% |
+  | **All six** | **6,049** | | 5,039 | 724 | 286 | 687 (197) | 437 | **100/712 = 14.0%** |
+
+  - The statpack counts the same number of application numbers per Term as
+    each walk served (one row per number, after the duplicate rule), with
+    one exception: `17A109` is stored but withheld upstream, so OT2017 keeps
+    one `unparsed` row after its apply.
+  - OT2020's 178 is not a short walk: the Term served every serial up to its
+    end, and it holds three extension applications because the Court's
+    COVID-era order extended filing deadlines for that Term. Its substantive
+    count is in line with its neighbours'.
+  - Withdrawn and dismissed count as ungranted, as `docs/salience.md`
+    registers. Twelve substantive rows read no machine-readable disposition
+    on a closed Term (OT2017 5, OT2018 2, OT2019 2, OT2020 2, OT2021 1) and
+    stay outside the resolved denominator, as an unresolved row does today.
+  - The corpus holds 13 duplicated stub rows across OT2018 to OT2022. The
+    identity join lands each apply on the lowest docket id, which the
+    duplicate rule counts because it is now observed, so the twins stay
+    uncounted and the figures here are by application number.
+
+  **The pools at the registered lookback of 10**, before (the statpack at
+  `7fbb3736e`, the refresh of 2026-10-26) and after all six applies:
+  - **OT2026 application cells** (OT2016 to OT2025): **51/547 = 9.32%** to
+    **151/1259 = 11.99%**.
+  - **OT2025 application cells** (OT2015 to OT2024): **34/321 = 10.59%** to
+    **134/1033 = 12.97%**.
+  - **OT2024 application cells** (OT2014 to OT2023): **18/127 = 14.17%** to
+    **118/839 = 14.06%**.
+  - **OT2023 application cells** gain a pool for the first time (OT2017 to
+    OT2022 alone): **100/712 = 14.04%**. No committed interim cell has an
+    OT2023 application Term: every interim event on `main` at `a0daa0ccf`
+    opened on or after 2025-11-25, well after OT2023's numbering closed.
+  - **Direction:** up, by 2.7 points for OT2026 cells. OT2020 and OT2021
+    grant at 18.8% and 25.0%, against 8.7% to 10.6% in the other four Terms,
+    so the move is concentrated in those two Terms. This is the drift the
+    lookback decision is about; it is disclosed here and not corrected.
+  - **The unread asks.** 286 rows carry an `unknown` ask (279 resolved, 81
+    of them granted) and land outside the substantive pool, as every
+    `unknown` row does. The share is 3.4% to 5.8% of each Term but OT2020's,
+    which is 40/178 = 22.5% because that Term has almost no extensions. These
+    rows grant at 81/279 = 29%, twice the substantive rate, while the 41
+    resolved referred `unknown` rows grant at 3/41. Folding in only the six
+    back-filled Terms' rows (OT2023 to OT2025's own `unknown` rows stay out),
+    the OT2026-cell pool would read between **154/1300 = 11.8%** (the
+    referred `unknown` rows folded in) and **232/1538 = 15.1%** (all folded
+    in). The registered pool reads `substantive` alone; the band says how much
+    the back-filled Terms' unread asks could matter, not what is scored.
+
+  **When the applies run.** Only after this entry and the registration reach
+  `main` in a promotion; only the dry runs ran before it. The pooled figures
+  above are a projection from the dry-run ledgers; the applies' own ledgers
+  and the next statpack are the record.
+
+  **One break, not six.** The statpack refresh, not the apply, is the break:
+  interim cells anchor on and are scored against the committed statpack.
+  Each refresh that falls between two applies would be its own anchor move.
+  The metrics refresh runs on its weekly cron (Monday 05:41 UTC) and on a
+  `run-analytics` `metrics-refresh` dispatch, so the six applies are
+  dispatched within one Monday-to-Monday window, with no refresh dispatched
+  by hand until the last has landed. If a refresh does fall between two
+  applies, each pool it reads is a dated value of its own, named below with
+  the refresh that produced it, rather than read as this projection.
+
+  **The straddling cohort, and how interim skill is read.** Interim skill is
+  read keyed on the stamped `segment_base_rate` value, never pooled across
+  values, as the OT2023 entry registered. At `main` `a0daa0ccf`, 54 interim
+  events carry a prediction: 44 have an evaluation and 10 are open. The 10
+  open events will be scored against whichever pool stands when they are
+  stamped. Nine are OT2026 applications, scored after the refresh against
+  ≈0.120 instead of ≈0.093; one is an OT2025 application, scored against
+  ≈0.130 instead of ≈0.106. Their cells were provisioned from 2026-08-16 to
+  2026-10-23, so they anchored on the pool current at each provisioning run
+  (31/296, 53/549 or 51/547 for OT2026 cells), and some events carry
+  predictions at two of those anchors. As the OT2023 entry registered, the
+  stamp records only the scoring side; the anchoring side is read from each
+  cell's provisioning run id against the refresh commits' times. For scale:
+  a forecast of 0.10 on a denial has Brier skill **−0.15** against 51/547 =
+  0.0932 and **+0.30** against 151/1259 = 0.1199. Under the
+  pooled reading declared on 2026-10-11, the refresh is a dated,
+  digest-silent boundary, so a pooled interim figure carries its `n` on each
+  side of it.
+
+  **What else moves in the provisioned statpack.** The six Terms' interim
+  rows fill from all-`unparsed` to parsed counts, with their escalation
+  columns (`referred_to_court` 437 in all, and whatever `response_requested`
+  and `with_amicus` the ingest parses). The pack-level interim totals and the
+  live-slice coverage counts move by 6,049, and the pack's court, era and
+  resolved-disposition totals move with 5,314 extension and `unknown` rows
+  newly resolved (5,035 extension, 4 still pending, and 279 `unknown`).
+  Those are conditioning too, since the pack is provisioned. The newly
+  resolved rows also become reachable to similar-case priors retrieval, which
+  filters by court, topic and disposition; a replay cell's retrieval stays
+  masked by its event date.
+
+  **What does not move.** No committed `evaluation.json` is rewritten: a
+  stamped harness skill keeps the base rate it was stamped with, and a
+  re-grade is a separate dispatch. No cert rate moves: the pass writes
+  application rows only. Nothing is written by this change itself; the pass
+  runs only as dispatched `run-repair` applies.
+
+  **OT2016 is not registered.** The executive-action window opens on
+  2017-01-20, inside OT2016, but the pass cannot reach that Term. Its floor
+  is `live.term_floor_year` (2017), and supremecourt.gov serves OT2016
+  application JSON only from `16A1051` (docketed 2017-04-28): a read of
+  `16A1` to `16A4`, `16A300`, `16A600`, `16A700`, `16A900` and `16A1050`
+  found none, while `16A1051` and later serials up to `16A1200` are served,
+  apart from withheld numbers such as `16A1101`. So OT2016 needs a
+  different source for January to April 2017, and its own entry.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`). Applied by runs
+  `<FILL: apply run ids, one per Term>` on `<FILL: apply dates>`, landing
+  `<FILL: rows landed per Term>` rows. The first statpack refreshed after
+  the last of them, at commit `<FILL: statpack refresh commit>`, reads the
+  OT2026 pool as `<FILL: OT2026 pool granted/resolved>` (from
+  `<FILL: OT2026 pool before, granted/resolved>`), the OT2025 pool as
+  `<FILL: OT2025 pool granted/resolved>` and the OT2024 pool as
+  `<FILL: OT2024 pool granted/resolved>`, and any refresh between two
+  applies is named here with the pools it read.
+
+  The runnable effect check once it is live:
+  - for each Term `NN` from `17` to `22`, the apply `gh workflow run
+    run-repair.yml --ref main -f repair=application-backfill -f
+    repair_mode=apply -f repair_target=NN -f repair_bound=<the Term's would
+    land count above>` lands at most that many rows, and the control dry run
+    after it reports `would land 0 row(s)`;
+  - after the applies and a statpack refresh, the statpack's interim section
+    reports OT2017 to OT2022 with `applications` **1425, 1369, 1071, 178,
+    876, 1131** (unchanged by the applies), `unparsed` **1** (`17A109`) for
+    OT2017 and **0** for the rest, `substantive` **129, 115, 121, 135, 121,
+    103**, `unknown` **50, 46, 37, 40, 47, 66**, `duplicate_rows` **0, 2, 2,
+    5, 2, 2** (unchanged), and `substantive_granted` / `substantive_resolved`
+    as in the table above. An `applications` count above these means an
+    apply onboarded a row beside an existing one, a duplicated number. Any residue
+    is named here rather than rounded away. `uv run fedcourts process-digest
+    --all` still prints `proc-v13` and the same six digests.

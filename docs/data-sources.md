@@ -567,7 +567,7 @@ before it writes any value.
 **The Solicitor General's office roster** is reference data for an analytics
 annotation, not case data and not a vote source. The counsel annotation
 `sg-office-v1` (`pipeline/counsel.py`, read by `fedcourts party-rates
---counsel-rule`) reads a committed, dated roster of the people who signed the
+--counsel-rule` and by `fedcourts executive-success`) reads a committed, dated roster of the people who signed the
 federal government's Supreme Court filings: every Solicitor General and acting
 Solicitor General from OT2015 on, the principal deputies seen signing as
 counsel of record, and one career deputy. It was retrieved on 2026-09-30 from
@@ -617,9 +617,9 @@ what governs is the content, not where it happens to sit.
 
 What does go to **public git** under `data/` is only our **own work product**: the
 model-generated predictions, outcomes, and evaluations, keyed by case id, plus the
-reasoning text that explains them — and the two qp-topic artifacts
-(`docs/qp-topic.md`), the hand-labeled reference set and the accrued per-case
-labels: subject-matter judgments keyed by case id and public-record
+reasoning text that explains them — and the three qp-topic artifacts
+(`docs/qp-topic.md`), the hand-labeled reference set, its application block
+and the accrued per-case labels: subject-matter judgments keyed by case id and public-record
 docket number, republishing no source text — and the plain-language case
 summaries (`docs/case-summaries.md`), model-written restatements of a case's
 record. Those are written only from records whose snapshot is the Court's own

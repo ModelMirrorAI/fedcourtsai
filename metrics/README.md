@@ -2541,7 +2541,8 @@ the rendered table) and
   counted `sample_weight` times so denials the earlier sampled walk kept at a
   higher weight do not bias them — the **modern discretionary-cert cut** (the calibration
   anchor, undiluted by merits-era labels), grant/deny by originating circuit,
-  by relist count, by CVSG status, by **capital-case marking** over the same
+  by relist count, by CVSG status, by **amicus-brief count** and by
+  **capital-case marking** over the same
   paid scored segment (whose `unmarked` bucket is an upper bound — read its rule
   below), and by **salience
   band** (the
@@ -2724,6 +2725,27 @@ the rendered table) and
   *The authorship claims* in `docs/outcome-decomposition.md`), pooled strictly
   before the October Term of the cell's snapshot.
 
+  The **per-Justice votes section** (`justice_votes`, rendered into
+  `statpack.md` with its pairwise counts in the JSON only) is the merits
+  lineups (`fedcourts merits-lineups`) rolled up per October Term of the
+  opinions listing, present once the record holds a complete lineup and
+  omitted otherwise. It counts **complete** lineups only: signed decisions
+  whose writings seat every Justice on a filled bench row. Per curiams and
+  lineups the record could not seat are in each Term's `documents` and nowhere
+  else, and they are not missing at random (summary reversals, which lean
+  toward disturbing, are among them). Per Term: `documents`, `complete`, and
+  `judged` (complete lineups whose case row carries a plain `affirmed`,
+  `reversed` or `vacated` judgment); per Justice, `sat`, `majority` (voting
+  with the judgment), `in_part` (a vote in part on each side, in `sat` and on
+  neither side), `disturb_eligible` and `disturb` (of the whole-side votes on a
+  judged decision, those voting to disturb the judgment below); per pair,
+  `both` and `agree`. Its disturb axis leaves out a DIG, an equally divided
+  Court and a mixed judgment, so it is **not comparable** with the merits
+  section's disturbed rate. It feeds no baseline and scores nothing: the
+  merits prompt points a cell's vote block at it, pooled over the Terms
+  strictly before the case's grant Term, as `fedcourts justice-priors
+  --before-term` pools it.
+
 - `docket.json` / `docket.md` — the **court-facing docket pack**: facts about the
   dockets themselves, for a reader with no interest in whether this project's
   models are any good. Composition by court and by decade era; then, over the
@@ -2752,7 +2774,14 @@ the rendered table) and
   prints the observed `ingested (rows)` beside the estimate.
   `(none)` and `(unknown)` buckets are rendered rather than dropped, so a coverage
   gap is never hidden inside a rate — `(unknown)` on the relist and CVSG cuts means
-  *not yet parsed*, not *did not happen*. The **capital-case cut** carries the
+  *not yet parsed*, not *did not happen*, and on the **amicus-brief cut** it
+  means the live poll has not read the docket since the count was stored. That
+  cut counts the amicus briefs docketed before the petition's first
+  disposition entry, in `0`, `1` and `2+` buckets; it is a stakes proxy rather
+  than a census (the Solicitor General's invited brief counts, a multi-filer
+  brief counts once), and, like the capital cut below, marginal: it describes
+  the populations, never what the count adds over the relist and CVSG cuts. The
+  **capital-case cut** carries the
   same shape of caveat one step further, and its inline scope note says so: the
   flag is latched from
   supremecourt.gov's own `bCapitalCase` field OR-ed with the
@@ -3456,6 +3485,178 @@ to `party-v2`. The published cell under the repository's own convention —
 substantive asks only, withdrawals resolved and not granted — is 14 of 20
 (70.0%) at that moment, with the 2 unreadable-ask applications excluded beside
 it.
+
+**What may be claimed from the executive success cut.** `fedcourts
+executive-success` (`pipeline.executive_success`, [docs/cli.md](../docs/cli.md))
+publishes the federal executive's emergency-docket record by administration
+and by who filed, over the applications the scope rule `exec-action-v1`
+(`pipeline.exec_action`) reads as challenging or defending a general federal
+executive action. It is an analytics artifact like the party rates, and every
+rule of the party rates on dates, coverage, the rule version and the corpus
+vintage travels with it. Eight more are specific to it.
+
+- **A rate reads in the executive's direction.** A government application on
+  the granted side (in whole or in part) and a challenger's application denied
+  are both the executive's win, so the `government`, `challenger` and pooled
+  `all` cells share one meaning. A challenger's application granted in part is
+  the executive's loss. Counting partial relief as relief is this cut's
+  convention; a published tally that does not state its own is compared on
+  that assumption, and the per-label counts let a reader re-cut it. A
+  `challenger` cell is not comparable with a `respondent` grant rate from
+  `party-rates` without inverting it, and its population is narrower.
+- **The denominator is substantively decided.** Withdrawn applications and
+  those dismissed or denied as moot sit beside the rate, as in the published
+  tallies. An application deferred to argument has no disposition until it is
+  decided, so it is `pending`, outside the rate. The default `finer` reading
+  re-reads each stored denial from its latest live snapshot, because the
+  stored label collapses a partial grant and a denial as moot to `denied`; an
+  entry dated after `--through` is not used. Quote `reading`,
+  `reread_changed`, `reread_unobservable` and `reread_after_through` beside
+  the rate. Under `registered` the government's rate is understated where it
+  filed, and overstated where it defended.
+- **Scope is a caption rule, and its unknowns are not zeros.** The rule reads
+  the caption and the Solicitor General's counsel entries, never the
+  application's text, and it narrows only the government-respondent side:
+  every government application is in scope. `unknown_scope` counts the rows it
+  cannot place — a named individual with `et al.` against an officer, and rows
+  only the counsel entries put on the government-respondent side — and a
+  quoted figure names that count beside it. `review_rows` lists them, and every
+  in-scope row, for hand review.
+- **An unreadable ask is in the population.** In-scope applications whose ask
+  the parser could not read are counted like any other and tallied as
+  `unknown_ask`. They include granted federal applications (`24A884`,
+  `24A1203`), which a substantive-only population would drop.
+- **Counts before rates.** The cells hold tens of rows at most, and no
+  interval is reported; a cell under about fifteen decided rows is quoted as
+  its pair, not as a percentage.
+- **Coverage bounds the comparison.** On the blob below the earliest in-scope
+  application was filed 2023-07-10, so `biden-46` cells under `--as-of filed`
+  hold 2023-07-10 to 2025-01-19 only, and `trump-45` holds none. No
+  cross-administration comparison reads from this corpus until the earlier
+  Terms are back-filled.
+- **A controversy rate is beside the application rate, not instead of it.**
+  `controversy_cells` group the in-scope applications under `controversy-v1`
+  (`pipeline.controversy`): two applications are one controversy where they
+  share a case below, one order decided both (read only for an application
+  decided by the cut's moment), or both are government applications whose
+  captions name the same leading party on each side, and the groups are the
+  connected sets. A controversy takes the executive's result in its last
+  substantively decided application, by stored decision date, and is
+  `indeterminate` where none was decided; its administration is that of its
+  first-filed application dated under the cut's convention, and its filer is
+  `government`, `challenger` or, where both sides filed in it, `both`.
+  `controversy_unlinked` counts the grouped applications with no live
+  snapshot, which can join on the caption alone; quote it beside the pairs. The rule
+  joins only what the record links, so two challenges to one policy brought by
+  different parties and decided apart stay two controversies, and it reads no
+  policy area. A published per-policy grouping can be coarser, so a reader
+  quotes `controversies`, `determinate` and `indeterminate` with the pair, and
+  each review row's `controversy_id` shows the grouping.
+- **A policy area is a hand label, and a per-area cell is small.**
+  `policy_cells` count the in-scope applications per administration, filer
+  and policy area under `policy-area-v1` (`pipeline.policy_area`), at the
+  application level. The labels are a committed reference, not a rule: two
+  agent raters, each blind to the other but not to the outcome (the docket
+  entries carry the orders), labeled every in-scope and unknown-scope
+  application from its caption, court below and docket entries and from
+  their own knowledge of a public case the docket names, so a label is not
+  reproducible from the record alone. They agreed on 110 of 115 (Cohen's
+  kappa 0.95, counting every miss), and the authoring session adjudicated the
+  rest, not blind, every one to the second rater's label. Three of the five
+  were the first rater's notes describing another row's case within four
+  consecutive rows, which the notes show, so on the subject itself the raters
+  disagreed on two (113 of 115). `other` is also the label of a subject the
+  raters could not determine. `policy_uncertain` marks the 26 of the 115 (13
+  in scope) where a rater was unsure of the subject; a quoted per-area pair
+  names its uncertain count. An
+  application added after the labels is `policy_unlabeled`, outside every
+  cell, and a quoted per-area figure names that count. Most cells hold a few
+  rows: quote the pair.
+
+**Hand-coded check of the scope rule.** Every federal-side application of the
+`--through 2026-10-12` cut below (232 of its 828 applications: every reason
+but `no-federal-party`) and a seeded sample of 60 `no-federal-party` rows (the
+lowest 60 by the SHA-256 of `scope-sample-v1:` plus the docket number) were
+coded in scope, out of scope or unclear by two agent raters, each blind to the
+other and to the rule but not to the outcome (the docket entries carry the
+orders), from the caption, court below, counsel entries and docket entries and
+their own knowledge of a public case the docket names. They agreed on 263 of
+292 (kappa 0.81). The authoring session adjudicated the other 29, not blind:
+20 out (13 of them individuals' own cases, mostly pro se, that one rater left
+unclear), 8 in, 1 unclear. It drew one line worth stating: a federal suit to
+enforce an agency's reading of a statute against a state (the EMTALA suits,
+`23A469`, `23A470`) is in scope, while a preemption suit against a state law
+(`23A296`, `23A814`) contests no executive action and is out. The
+hand codes are not committed; they are the measurement set a narrower rule's
+change would commit beside it. Against them the rule agrees on 255 of 292:
+196 of the 232 federal-side rows and 59 of the 60 sampled others, none of
+which is in scope by hand. Of the 37 differences:
+
+- **9 go the wrong way.** In scope by the rule, out by hand (6): the
+  unnarrowed government applicant reaches a preemption suit (`23A814`), a
+  bankruptcy trustee's objection (`23A87`), one person's removal (`24A949`),
+  and two rows whose government side is misread (`24A407`, a state's
+  application the government opposed, and `24A795`, a private suit in which
+  the United States defends the statute); a state's application in a
+  preemption suit reads as a challenge (`23A296`). Out by the rule, in by hand
+  (3): an organization the word list does not name (`24A106`), and two federal
+  suits read as prosecutions, the EMTALA enforcement suit and a challenge to a
+  federal land exchange (`23A469`, `25A1008`).
+- **23 of the rule's 24 unknowns resolve** (`individual-group`,
+  `sg-respondent-only`): 9 in scope, among them class and group challenges to
+  the Alien Enemies Act removals (`24A1007`), FERC and EPA actions (`23A485`,
+  `24A199`) and self-regulatory proceedings under agency oversight (`24A287`,
+  `24A808`), and 14 out.
+- **5 are rows the rule places and the hand codes leave unclear.**
+
+So the rule's in-scope reading holds on 84 of its 91 in-scope rows, and it
+misses 3 of the 96 the hand codes put in scope outright, with another 9 among
+its unknowns. Two side misreadings also turn a challenger's filing into a
+government application (`23A712`, `24A754`, both unattributed unreadable
+asks), which flips its win direction. For the `trump-47` pairs below, the hand
+codes would drop `24A949` from the government's cell (a win: 26/32 on 41; the
+raters split on it, so that figure rests on the adjudication) and add
+`24A1007`, `24A808`, `25A1008` and `26A274` to the challenger side: 7/9 by the
+cut's convention, or 8/9 reading `26A274`, an intervenor's stay that helped an
+FCC action, in substance, the same direction flip as above. The
+`exec-action-v1` reading is unchanged by this check; a narrower rule is a new
+version.
+
+**Replication against the published tally.** Adam Feldman's SCOTUSblog
+column of 2026-10-19 ("Where the Supreme Court favors Trump on the emergency
+docket – and where it doesn't") counts applications involving general federal
+executive actions through 2026-10-12, and lists no rows. Cut `--as-of filed
+--through 2026-10-12` on the blob pulled 2026-10-26 (newest stored snapshot in
+the index 2026-07-13; the re-read rows' own live snapshots run later):
+`finer` reading, 59 stored denials re-read, 7 relabeled, 0 unobservable, 0
+dated after the cut; unknown scope `biden-46` 16, `trump-47` 6, unattributed 2.
+Six in-scope applications carry no administration (every one an unreadable
+ask with no filing date): 5 `government`, all won, and 1 `challenger`, lost;
+by controversy 4/5. Some may be `trump-47` rows, so each `trump-47` pair below
+can move by up to that much.
+Every grouped application has a live snapshot (`controversy_unlinked` 0). The
+caption link alone makes 5 joins, all `trump-47` government pairs under one
+caption (`24A1059`/`25A326`, `24A1106`/`24A1174`, `24A1153`/`26A406`,
+`24A831`/`25A269`, `26A297`/`26A305`); without it the `trump-47` pair is 30/36
+over 45 controversies. Every in-scope application carries a policy-area label
+(`policy_unlabeled` 0). The unattributed government applications hold health
+2, foreign affairs 1 and other 2, so of the per-area `trump-47` pairs below
+only health can move, by up to 2.
+
+| Published figure | This corpus | Reconciliation |
+|---|---|---|
+| `trump-47`: the government filed 42 core applications | 42 in-scope `government` rows (38 substantive, 4 unreadable-ask) | Totals agree; the column lists no rows, so a row-level match is not verifiable. The birthright-citizenship companions (`24A885`, `24A886`) and `24A904`, absent from the live slice in the party-rates validation above, are in it on this blob |
+| `trump-47`: the government won 27 of 33 substantively decided (82%) | 27/33 | Totals agree, under this cut's partial-relief convention. Outside the rate: 4 withdrawn, 3 denied as moot (`24A790`, `25A952`, `25A999`) and 2 pending at the cut (`26A416`, `26A476`, filed 2026-09-28 and 2026-10-08, not deferrals). The 2 partial grants (`24A949`, `25A103`) are wins. Under `--reading registered` the figure is 25/36 |
+| `trump-47`: 3 applications by challengers | 5 in-scope `challenger` rows, 2 unknown-scope | Scope: 4 of the 5 are employers' stays of National Labor Relations Board proceedings, which the column may not count as general executive action |
+| `biden-46`: 81 applications, 18 filed by the government; 10 of 15 won | 2023-07-10 to 2025-01-19 only: 38 in-scope rows, 11 `government` (7 of 11 won) and 27 `challenger` | Coverage: the corpus holds no `biden-46` application before OT2023 |
+| `trump-45`: 25 of 33 won | No rows | Coverage |
+| `trump-47`: the executive won 23 of 30 determinate controversies (77%) | `controversy-v1`, every filer: 28/33 determinate (5 losses against the column's 7), 40 controversies over 47 applications, 7 indeterminate (`government` 23/28, 35 controversies over 42 applications; `challenger` 5/5) | Scope and grouping: the 5 `challenger` controversies include the 4 Labor Board stays the scope row flags (without them, 24/29). The column also joins related litigation over one policy, which `controversy-v1` does not read, and does not state how it scores a controversy with several applications. With no rows listed, neither difference can be broken down |
+| `biden-46`: 29 of 39 determinate controversies; 21 of 27 challenger-initiated | 2023-07-10 to 2025-01-19 only: 17/23 every filer, `challenger` 11/13 | Coverage |
+| `trump-47` government-filed immigration: 14 applications, won 11 of 12 decided | `policy-area-v1`: 13 rows (none uncertain), won 11 of 11 decided | One application short and one loss fewer; the column lists no rows, so which one is not verifiable |
+| `trump-47` government-filed personnel and removal: 10 applications | 11 rows (1 uncertain), won 6 of 9 decided | One row more; the column lists no rows, so which one is not verifiable |
+| `trump-47` government-filed education: won both; health: won its one decided | education 2 rows, 2 of 2; health 2 rows (1 uncertain, pending), 1 of 1 decided | Agree on the decided pairs |
+| `biden-46` government-filed education: lost all 3 decided; firearms (the ghost-gun rule): won both | education 3 rows, 0 of 3; firearms 2 rows, 2 of 2 | Agree on the decided pairs |
+| `biden-46` government-filed: 5 education, 5 health (all 4 decided won), 4 immigration (2 of 4 won); challenger-filed: 25 health and 23 environment and energy of 63 | 2023-07-10 to 2025-01-19 only: government 3 education, 0 health, 2 immigration (1 of 2 won); challenger 2 health and 20 environment and energy of 27 | Coverage: the vaccination-requirement, FDA and student-loan applications predate OT2023 |
 
 **What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
 publishes call counts, per-engine result observability, per-cell cost, and a

@@ -272,6 +272,16 @@ def test_line_breaks_the_pdf_library_moved_are_the_same_filing() -> None:
     assert not document_recut._same_head("CORRECTED " + recut, stored)
 
 
+def test_a_caption_glyph_the_pdf_library_reads_differently_is_the_same_filing() -> None:
+    rule = "\u2014" * 4
+    stored = f"No. 24-1\n{rule}\u00a8{rule}\nIN THE SUPREME COURT\u00cb RESPONDENT"
+    recut = f"No. 24-1\n{rule}\u00a4{rule}\nIN THE SUPREME COURT\u00b8 RESPONDENT more"
+    assert document_recut._same_head(recut, stored)
+    assert not document_recut._same_head(recut.replace("24-1", "24-2"), stored)
+    assert not document_recut._same_head(recut.replace("RESPONDENT", "PETITIONER"), stored)
+    assert not document_recut._same_head(f"{rule}\u00a4{rule}", stored)
+
+
 def test_bytes_that_do_not_parse_are_unreadable_not_another_filing(tmp_path: Path) -> None:
     stored = _head_cut("scotus/1", _pdf_pages(_pages(6)))
     db = _seed(tmp_path / "corpus", [stored])

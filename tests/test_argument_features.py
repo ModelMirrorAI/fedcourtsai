@@ -9,19 +9,24 @@ the speaker labels, and the segment headers as the reporter wraps them.
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 from typer.testing import CliRunner
 
+from fedcourtsai import provision
 from fedcourtsai.cli import app
+from fedcourtsai.corpus import CaseDocument
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.argument_features import (
     ASSIGNMENT,
     parse_argument_features,
     read_header,
 )
-from fedcourtsai.pipeline.documents import clean_transcript_text
+from fedcourtsai.pipeline.documents import KIND_ARGUMENT_TRANSCRIPT, clean_transcript_text
+from fedcourtsai.provision import staged_argument_features
 from fedcourtsai.schemas import ArgumentFeatures, ArgumentParseCoverage, ArgumentTurnCount
 
 runner = CliRunner()
@@ -519,3 +524,64 @@ def test_a_label_like_line_the_parse_cannot_read_is_counted() -> None:
     )
     # Its words stay with the turn it falls in; nothing is attributed to it.
     assert features.segments[0].advocate == _count(1, 4)
+
+
+def _transcript_document(text: str) -> CaseDocument:
+    return CaseDocument(
+        case_id="scotus/9525000466",
+        kind=KIND_ARGUMENT_TRANSCRIPT,
+        url="https://www.supremecourt.gov/oral_arguments/argument_transcripts/2025/25-100_x.pdf",
+        entry_date="2026-04-20",
+        fetched_at=date(2026, 4, 21),
+        text=text,
+    )
+
+
+def test_a_staged_transcript_yields_the_cells_features() -> None:
+    text = clean_transcript_text("\n".join(_RAW))
+    staged = [(_transcript_document(text), None)]
+    assert staged_argument_features(staged) == _features()
+
+
+def test_no_staged_transcript_yields_no_features() -> None:
+    petition = CaseDocument(
+        case_id="scotus/9525000466",
+        kind="petition",
+        url="https://www.supremecourt.gov/p.pdf",
+        entry_date="2025-06-01",
+        fetched_at=date(2025, 6, 2),
+        text="The petition.",
+    )
+    assert staged_argument_features([(petition, None)]) is None
+
+
+def _placement(documents: list[CaseDocument]) -> provision.Placement:
+    return provision.Placement(
+        snapshot_date=date(2026, 1, 25),
+        payload={},
+        documents=documents,
+        provenance="as-stored",
+        boundary=None,
+        dropped_entries=0,
+        dropped_documents=0,
+    )
+
+
+def test_the_record_carries_the_features_of_the_staged_transcript(tmp_path: Path) -> None:
+    paths = CasePaths(tmp_path / "data", "scotus", 1)
+    transcript = _transcript_document(clean_transcript_text("\n".join(_RAW)))
+    provision.write_cell_record(
+        paths, "scotus/1", _placement([transcript]), mode="forward", cutoff=None
+    )
+    assert ArgumentFeatures.model_validate_json(paths.argument_features.read_text()) == (
+        _features()
+    )
+    # A copy written elsewhere leaves the cell's record alone.
+    other = tmp_path / "snapshot.json"
+    provision.write_cell_record(
+        paths, "scotus/1", _placement([]), mode="forward", cutoff=None, snapshot_dest=other
+    )
+    assert paths.argument_features.exists()
+    # The next cell provisioned in the same tree, with no transcript, does not inherit it.
+    provision.write_cell_record(paths, "scotus/1", _placement([]), mode="forward", cutoff=None)
+    assert not paths.argument_features.exists()

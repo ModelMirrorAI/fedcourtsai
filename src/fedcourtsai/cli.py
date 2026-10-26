@@ -288,6 +288,7 @@ from .pipeline import (
     vote_sources,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
+from .pipeline.application_topics import APPLICATION_EXTRACT_RULE, application_extract
 from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.arrival_cut import arrival_cut_ledger
 from .pipeline.asof import CutoffPolicy
@@ -344,6 +345,8 @@ from .pipeline.documents import (
     questions_presented_extract,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
+from .pipeline.exec_action import EXEC_ACTION_RULES
+from .pipeline.executive_success import DEFAULT_SCOPE_RULE, READINGS, executive_success
 from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
@@ -1931,6 +1934,168 @@ def party_rates_cmd(
             err=True,
         )
     typer.echo(rates.model_dump_json())
+
+
+@app.command("executive-success")
+def executive_success_cmd(
+    as_of: str = typer.Option(
+        ...,
+        "--as-of",
+        help=(
+            "Required — which date attributes the administration: 'filed' (who "
+            "held office when the application arrived) or 'resolved' (who held "
+            "office when the Court acted). No default, as on party-rates."
+        ),
+    ),
+    through: str | None = typer.Option(
+        None,
+        "--through",
+        help=(
+            "Cut the corpus as of this ISO date: rows filed later are left out and "
+            "dispositions dated later read as pending. Omit for the whole blob."
+        ),
+    ),
+    since: str | None = typer.Option(
+        None,
+        "--since",
+        help="Leave out rows filed before this ISO date. Omit for the whole live slice.",
+    ),
+    scope_rule_version: str = typer.Option(
+        DEFAULT_SCOPE_RULE,
+        "--scope-rule",
+        help="Which registered scope rule reads an application as executive action "
+        "(exec-action-v1).",
+    ),
+    reading: str = typer.Option(
+        "finer",
+        "--reading",
+        help=(
+            "How a stored denial is read: 'finer' re-reads it from the latest snapshot, "
+            "naming partial grants and denials as moot; 'registered' keeps the stored label."
+        ),
+    ),
+) -> None:
+    """The executive's emergency-docket record by administration and filer.
+
+    Computed by `pipeline.executive_success`.
+
+    Over the applications the scope rule (`pipeline.exec_action`) reads as
+    challenging or defending a general federal executive action: a government
+    application granted, or a challenger's application denied, is the
+    executive's win. Rates are over substantively decided applications;
+    withdrawn, moot, pending and unreadable rows are counted beside them. By
+    default a stored denial is re-read from the row's latest snapshot under the
+    finer interim reading, which names partial grants and denials as moot.
+    The same applications are counted again by controversy
+    (`pipeline.controversy`), each controversy once. An analytics artifact:
+    nothing a predict or evaluate cell reads comes from it. Prints an
+    `ExecutiveSuccess` (its `review_rows` list every in-scope and unknown-scope
+    application); the human cut and the corpus vintage go to stderr. Fails
+    loud if the corpus is absent (exit 1), or on an unregistered
+    rule, an unknown `--as-of` or `--reading`, or an unreadable `--through` /
+    `--since` (exit 2).
+    """
+    if reading not in READINGS:
+        typer.echo(f"unknown --reading {reading!r}; choose {' or '.join(READINGS)}", err=True)
+        raise typer.Exit(code=2)
+    if scope_rule_version not in EXEC_ACTION_RULES:
+        typer.echo(
+            f"unregistered scope rule {scope_rule_version!r}; "
+            f"registered: {', '.join(sorted(EXEC_ACTION_RULES))}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if as_of not in PARTY_AS_OF_FIELDS:
+        typer.echo(
+            f"unknown --as-of {as_of!r}; choose {' or '.join(PARTY_AS_OF_FIELDS)}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    bounds: dict[str, date | None] = {}
+    for flag, value in (("--through", through), ("--since", since)):
+        try:
+            bounds[flag] = date.fromisoformat(value) if value is not None else None
+        except ValueError:
+            typer.echo(f"unreadable {flag} {value!r}; give an ISO date (YYYY-MM-DD)", err=True)
+            raise typer.Exit(code=2) from None
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the executive success cut.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    corpus_sha = _census_corpus_sha(settings, db_path)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        result = executive_success(
+            conn,
+            as_of_field=as_of,
+            through=bounds["--through"],
+            since=bounds["--since"],
+            corpus_sha256=corpus_sha,
+            scope_rule_version=scope_rule_version,
+            reading="finer" if reading == "finer" else "registered",
+        )
+    pulled = result.latest_pull.isoformat() if result.latest_pull else "never pulled"
+    snapshot = result.latest_snapshot.isoformat() if result.latest_snapshot else "none"
+    moment = result.through.isoformat() if result.through else "whole blob"
+    start = f"since {result.since.isoformat()}, " if result.since else ""
+    reasons = " ".join(f"{reason}={n}" for reason, n in result.scope_reasons.items())
+    unknown = " ".join(f"{window}={n}" for window, n in result.unknown_scope.items()) or "none"
+    typer.echo(
+        f"executive success ({result.scope_rule_version} over {result.party_rule_version} "
+        f"and {result.counsel_rule_version}, as-of {result.as_of_field}, {start}through "
+        f"{moment}): {result.applications} application(s) read for scope, "
+        f"{result.extension_rows} extension(s) and {result.duplicate_rows} duplicate docket "
+        f"row(s) left out, {result.filed_before_since} earlier and "
+        f"{result.filed_after_through} later than the cut; scope [{reasons}]; unknown scope "
+        f"[{unknown}]; {result.reading} reading re-read {result.reread_rows} stored denial(s), "
+        f"{result.reread_changed} relabeled, {result.reread_unobservable} unobservable and "
+        f"{result.reread_after_through} decided after the cut; "
+        f"corpus latest pull {pulled}, latest snapshot {snapshot}",
+        err=True,
+    )
+    for cell in result.cells:
+        rate = f"{cell.success_rate:.1%}" if cell.success_rate is not None else "-"
+        labels = " ".join(f"{label}={n}" for label, n in cell.dispositions.items())
+        typer.echo(
+            f"{cell.administration or 'unattributed'} {cell.filer}: executive won "
+            f"{cell.wins}/{cell.decided} = {rate}; rows={cell.rows} pending={cell.pending} "
+            f"withdrawn={cell.withdrawn} dismissed-or-moot={cell.dismissed} "
+            f"unreadable={cell.unreadable} unknown-ask={cell.unknown_ask} [{labels}] "
+            f"excluded unparsed={cell.excluded_unparsed}",
+            err=True,
+        )
+    typer.echo(
+        f"controversies ({result.controversy_rule_version}): "
+        f"{result.controversy_unlinked} grouped application(s) had no live snapshot "
+        "and joined on the caption alone",
+        err=True,
+    )
+    for group in result.controversy_cells:
+        rate = f"{group.success_rate:.1%}" if group.success_rate is not None else "-"
+        typer.echo(
+            f"{group.administration or 'unattributed'} {group.filer} by controversy "
+            f"({result.controversy_rule_version}): executive won {group.wins}/"
+            f"{group.determinate} = {rate}; controversies={group.controversies} "
+            f"applications={group.applications} indeterminate={group.indeterminate}",
+            err=True,
+        )
+    typer.echo(
+        f"policy areas ({result.policy_rule_version}): "
+        f"{result.policy_unlabeled} in-scope application(s) unlabeled",
+        err=True,
+    )
+    for area in result.policy_cells:
+        rate = f"{area.success_rate:.1%}" if area.success_rate is not None else "-"
+        typer.echo(
+            f"{area.administration or 'unattributed'} {area.filer} {area.area}: executive won "
+            f"{area.wins}/{area.decided} = {rate}; rows={area.rows}",
+            err=True,
+        )
+    typer.echo(result.model_dump_json())
 
 
 @app.command("distribution-census")
@@ -5149,7 +5314,8 @@ def reasoning_pilot_report_cmd(
     text = json.dumps(report.model_dump(mode="json"), indent=2) + "\n"
     typer.echo(
         f"{report.off_sample} off-sample, {report.off_run} off-run, {report.superseded} "
-        f"superseded and {report.other_round} other-round evaluation(s) set aside",
+        f"superseded, {report.other_round} other-round and {report.misplaced} misplaced "
+        "evaluation(s) set aside",
         err=True,
     )
     for stage in report.stages:
@@ -5296,7 +5462,8 @@ def justice_priors_cmd(
     (over plain affirmed, reversed or vacated judgments), and pairwise
     agreement, over complete lineups only. The pooled rates sum the Terms
     strictly before `--before-term`, so a forecast in a Term never reads its
-    own Term's decisions. Nothing a cell sees reads it. Writes nothing. Prints
+    own Term's decisions. The statpack's `justice_votes` section carries the
+    same per-Term tallies. Writes nothing. Prints
     one coverage line per Term to stderr and `{"terms": ..., "pooled": ...}`
     JSON to stdout. Fails loud if the corpus is absent.
     """
@@ -6542,6 +6709,14 @@ def qp_corpus(
             help="Measurement form: every stored questions-presented row in the blob, unscoped.",
         ),
     ] = False,
+    frame: Annotated[
+        Literal["petitions", "applications"],
+        typer.Option(
+            help="`petitions`: the questions-presented frame (qp-topic-v0), batched. "
+            "`applications`: the live slice's non-extension application dockets "
+            "(qp-topic-v1), pre-disposition text only, unbatched.",
+        ),
+    ] = "petitions",
 ) -> None:
     """Extract the stored ``questions-presented`` texts a topic labeler reads.
 
@@ -6601,6 +6776,15 @@ def qp_corpus(
     row, so that coverage is exact at extract time. Neither moves the gate; the
     second enforces it earlier and more cheaply.
 
+    **``--frame applications``** extracts the application frame a ``qp-topic-v1``
+    labeler reads instead (:mod:`~fedcourtsai.pipeline.application_topics`):
+    each row carries the caption, the court below, the docket entries dated
+    before the disposition with the Court's own acts removed, and the stored
+    application text where there is one, plus an ``input_kind`` saying which.
+    It is unbatched, keeps the labeling ceiling as a flat refusal, and prints
+    its coverage by Term, ask and input kind to stderr. ``--all`` does not
+    combine with it.
+
     The extract is a working file for one labeler run, **never a committed
     artifact**: it enumerates the ingested corpus and republishes stored
     petition text, neither of which any committed surface does, so writing it
@@ -6618,6 +6802,9 @@ def qp_corpus(
                 err=True,
             )
             raise typer.Exit(code=2)
+    if frame == "applications":
+        _qp_corpus_applications(settings, corpus_db, out, all_texts=all_texts)
+        return
     db_path = corpus_db if corpus_db is not None else corpus.corpus_db_path(settings.corpus_root)
     if not db_path.is_file():
         typer.echo(f"qp-corpus: no corpus at {db_path} (run `fedcourts corpus-pull`)", err=True)
@@ -6687,6 +6874,53 @@ def qp_corpus(
             err=True,
         )
     typer.echo(f"qp-corpus: {len(rows)} question(s) presented ({scope}) -> {out}")
+
+
+def _qp_corpus_applications(
+    settings: Settings, corpus_db: Path | None, out: Path, *, all_texts: bool
+) -> None:
+    """``qp-corpus --frame applications``: the unbatched application extract."""
+    if all_texts:
+        typer.echo("qp-corpus: --all is the petition frame's measurement form", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus_db if corpus_db is not None else corpus.corpus_db_path(settings.corpus_root)
+    # Read through the backend seam, so a ranged read needs no pulled file; an
+    # explicit --corpus is always the local file it names.
+    backend = "local" if corpus_db is not None else settings.corpus_backend
+    if backend != "ranged" and not db_path.is_file():
+        typer.echo(f"qp-corpus: no corpus at {db_path} (run `fedcourts corpus-pull`)", err=True)
+        raise typer.Exit(code=1)
+    try:
+        with corpus.connect_readonly(db_path, backend=backend) as conn:
+            extract = application_extract(conn)
+    except Exception as exc:
+        # Broad for the reason the petition frame's read is: a content-store
+        # transport failure surfaces as whatever the client raises.
+        typer.echo(f"qp-corpus: cannot read stored payloads for {db_path}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    rows = extract.rows
+    if not rows:
+        typer.echo(f"qp-corpus: no application dockets in {db_path}", err=True)
+        raise typer.Exit(code=1)
+    if len(rows) > qp_topics.LABEL_ROW_CEILING:
+        typer.echo(
+            f"qp-corpus: refusing to write {len(rows)} application row(s) — over the "
+            f"{qp_topics.LABEL_ROW_CEILING}-row labeling ceiling",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    write_raw_json(out, [row.as_json() for row in rows])
+    typer.echo(
+        f"qp-corpus: {APPLICATION_EXTRACT_RULE}; {extract.duplicate_rows} duplicate row(s) and "
+        f"{extract.extension_rows} extension(s) left out; {extract.decided_unread} decided "
+        "row(s) with no disposition read on the docket",
+        err=True,
+    )
+    for (term, ask, input_kind), count in sorted(
+        extract.coverage.items(), key=lambda item: (item[0][0] or 0, item[0][1], item[0][2])
+    ):
+        typer.echo(f"  OT{term if term is not None else '?'} {ask} {input_kind}: {count}", err=True)
+    typer.echo(f"qp-corpus: {len(rows)} application(s) -> {out}")
 
 
 @app.command("qp-topics")
@@ -14358,8 +14592,8 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     on run-repair's `application-backfill` pass; a dev checkout over a pulled
     corpus produces the dry run. Terms at or after the current docket Term are
     refused: that stream is frontier discovery's. An apply is refused for a
-    Term outside `REGISTERED_APPLY_TERMS` (OT2023 and OT2024): each Term's apply moves
-    the interim base rate by its own amount, so each needs its own
+    Term outside `REGISTERED_APPLY_TERMS` (OT2017 to OT2024): each Term's apply
+    moves the interim base rate by its own amount, so each needs a
     freeze-record entry first.
 
     Run-repair runs the pass split at its credential boundary, in three
@@ -14419,9 +14653,9 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     if apply and unregistered:
         typer.echo(
             f"backfill-applications: no pre-registered apply for Term(s) {unregistered}. Each "
-            "Term's apply moves the pooled interim base rate, so it needs its own "
-            "docs/freeze-record.md entry and a place in REGISTERED_APPLY_TERMS first; a dry run "
-            "reads it.",
+            "Term's apply moves the pooled interim base rate, so it needs a "
+            "docs/freeze-record.md entry projecting that move and a place in "
+            "REGISTERED_APPLY_TERMS first; a dry run reads it.",
             err=True,
         )
         raise typer.Exit(code=2)

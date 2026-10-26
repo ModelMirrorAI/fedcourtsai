@@ -474,11 +474,12 @@ disclosure properties differ. The **scope manifest** (`fedcourts
 scope-manifest`) is enumerated from the committed `data/cases` tree alone,
 never a corpus scan, so it discloses only the already-public set and cannot
 enumerate the wider ingested corpus. The `data/qp-topics/` artifacts are
-**not** roll-ups, and both carry the deliberate disclosure exception argued in
+**not** roll-ups, and all three carry the deliberate disclosure exception argued in
 `docs/qp-topic.md`. `qp-topic-reference.json` is hand-authored judgment (the
-`qp-topic-v0` measurement baseline), edited only in an interactive session and
-only via its own reviewed staging PR — neither the deterministic writers nor any
-workflow regenerates it. `qp-topics.json` is machine-produced and appears once a
+`qp-topic-v0` measurement baseline), and so is
+`qp-topic-reference-applications.json` (the `qp-topic-v1` application block);
+each is edited only in an interactive session and only via its own reviewed staging PR —
+neither the deterministic writers nor any workflow regenerates either. `qp-topics.json` is machine-produced and appears once a
 labeling run has produced one: the per-case labels, written by
 `run-analytics`'s agent-backed `qp-topic-label` mode (`fedcourts qp-topics`,
 which refuses to write below the publication gate) and landed as a reviewed PR
@@ -1426,8 +1427,8 @@ or network.
      the rule the merits vote source stamps forecast outcomes with.
      `fedcourts justice-priors` rolls those lineups, with each case row's
      parsed judgment, into per-Justice majority, disturb and pairwise-agreement
-     tallies per Term, pooled strictly before a given Term; also read-only, and
-     not yet staged to any cell.
+     tallies per Term, pooled strictly before a given Term; also read-only. The
+     statpack carries the per-Term tallies as its `justice_votes` section.
 
      An event pinned to one docket entry is never a claimant of its stage's
      disposition: it resolves on its own filing's terms, so an application
@@ -2017,14 +2018,14 @@ interim cells anchor to and are scored against. A stub row counts as `unparsed`,
 apply moves the Term's rows into the pool and moves the rate for every
 application Term whose lookback reaches it.
 
-**Each Term is its own registration.** Every Term inside the base-rate
+**Each Term's move is registered.** Every Term inside the base-rate
 lookback sits in the pool, and each earlier Term holds a thousand or more
 unparsed stubs, so each Term's apply moves the rate by its own amount. The
 command therefore refuses an apply for any Term outside
 `REGISTERED_APPLY_TERMS` (`pipeline/application_backfill.py`), which holds
-OT2023 and OT2024, each pre-registered in `docs/freeze-record.md`. A further
-Term joins that set in the same change that appends its own freeze-record
-entry, with a projection read off its dry run. Its dry run needs no
+OT2017 to OT2024, each pre-registered in `docs/freeze-record.md`. A further
+Term joins that set in the same change that appends a freeze-record entry
+projecting its move, read off its dry run. Its dry run needs no
 registration, since reading moves nothing.
 
 **Dispatching.** Dispatch on `main`, in a quiet slot between the scheduled

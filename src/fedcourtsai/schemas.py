@@ -8817,6 +8817,68 @@ class QpTopicReference(_Strict):
         return self
 
 
+class QpTopicApplicationReferenceEntry(_Strict):
+    """One hand-labeled emergency application: a case, its input shape and its primary topic.
+
+    Labeled under the ``qp-topic-v1`` application contract from the
+    ``application-extract-v1`` row a labeler reads (``docs/qp-topic.md``,
+    *Applications*), so a labeler can be scored against it on identical input.
+    """
+
+    case_id: str = Field(
+        description="Canonical ``<court>/<docket>`` id — joins the corpus row and the extract"
+    )
+    docket_number: str = Field(
+        description="The application's docket number (e.g. ``24A949``) — the second "
+        "half of the key pair the reference join is checked on"
+    )
+    input_kind: Literal["application-text", "docket-only"] = Field(
+        description="Which extract shape the label was read from: with the stored "
+        "application text, or from the caption, court below and docket entries alone"
+    )
+    label: QpTopicLabel = Field(description="The adjudicated primary label")
+
+
+class QpTopicApplicationReference(_Strict):
+    """``data/qp-topics/qp-topic-reference-applications.json`` — the application reference block.
+
+    The measurement baseline for a ``qp-topic-v1`` labeler on application rows,
+    kept apart from the petition reference set so that set stays byte-identical
+    and an application gate's floors can bind apart from the petition gate's.
+    Not committed until ``docs/qp-topic.md`` argues its disclosure exception.
+    Its sample is stratified on disposition, among other things, so membership
+    is outcome-conditioned in the same way the petition set's is, which is why
+    the cell prompts forbid predict/evaluate cells from reading anything under
+    ``data/qp-topics/``. Nothing frozen depends on it.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    vocabulary: Literal["qp-topic-v1"] = Field(
+        default="qp-topic-v1",
+        description="The label vocabulary every entry draws from",
+    )
+    extract_rule: Literal["application-extract-v1"] = Field(
+        default="application-extract-v1",
+        description="The extract rule whose rows the labels were read from",
+    )
+    cases: int = Field(
+        default=0, ge=0, description="Number of hand-labeled applications (== len(entries))"
+    )
+    entries: list[QpTopicApplicationReferenceEntry] = Field(
+        default_factory=list,
+        description="One entry per hand-labeled application, in case_id order",
+    )
+
+    @model_validator(mode="after")
+    def _canonical(self) -> QpTopicApplicationReference:
+        if self.cases != len(self.entries):
+            raise ValueError("cases must equal len(entries)")
+        ids = [entry.case_id for entry in self.entries]
+        if ids != sorted(ids) or len(set(ids)) != len(ids):
+            raise ValueError("entries must be sorted by case_id and unique")
+        return self
+
+
 class QpTopicLabelEntry(_Strict):
     """One labeled question-presented text: a case, its primary topic, and its optional facets.
 
@@ -9957,6 +10019,60 @@ class StatPackAuthorshipTerm(_Strict):
     )
 
 
+class StatPackJusticeVotesJustice(_Strict):
+    """One Justice's merits votes over one Term, or over a pooled span of Terms."""
+
+    justice: str = Field(description="The Justice's name as the vote source spells it")
+    sat: int = Field(ge=0, description="Complete-lineup decisions the Justice took part in")
+    majority: int = Field(
+        ge=0, description="Of `sat`, those voting with the judgment (majority or concurring in it)"
+    )
+    in_part: int = Field(ge=0, description="Of `sat`, those voting in part on each side")
+    disturb_eligible: int = Field(
+        ge=0,
+        description="Of `sat`, whole-side votes on a plain affirmed, reversed or vacated judgment",
+    )
+    disturb: int = Field(
+        ge=0, description="Of `disturb_eligible`, those voting to disturb the judgment below"
+    )
+
+
+class StatPackJusticeVotesPair(_Strict):
+    """Two Justices' agreement over the decisions both voted a whole side on."""
+
+    justices: tuple[str, str] = Field(description="The pair, in name order")
+    both: int = Field(ge=0, description="Decisions both Justices voted a whole side on")
+    agree: int = Field(ge=0, description="Of `both`, those where they voted the same side")
+
+
+class StatPackJusticeVotesTerm(_Strict):
+    """One October Term of per-Justice merits votes."""
+
+    term: int = Field(description="The October Term of the opinions listing")
+    documents: int = Field(ge=0, description="Listing rows the per-opinion record holds")
+    complete: int = Field(ge=0, description="Of `documents`, those with a complete lineup")
+    judged: int = Field(
+        ge=0,
+        description="Of `complete`, those whose case row carries a plain affirmed, "
+        "reversed or vacated judgment",
+    )
+    justices: list[StatPackJusticeVotesJustice] = Field(default_factory=list)
+    pairs: list[StatPackJusticeVotesPair] = Field(default_factory=list)
+
+
+class StatPackJusticeVotes(_Strict):
+    """The statpack's per-Justice merits votes, per Term, most recent Term first.
+
+    Rolled up by ``pipeline.justice_priors`` from the merits lineups (the
+    ``opinions`` and ``opinion_benches`` corpus tables) and each decided case
+    row's parsed judgment, over complete lineups only. A merits cell pools the
+    Terms strictly before its case's grant Term. Present only once the record
+    holds a complete lineup.
+    """
+
+    terms: list[StatPackJusticeVotesTerm] = Field(default_factory=list)
+
+
 class StatPackAuthorship(_Strict):
     """The statpack's authorship section: who wrote the Court's decisions, per Term.
 
@@ -10123,6 +10239,13 @@ class StatPack(_Strict):
         "record — the authorship claims' baseline feed; None — and omitted from "
         "the serialized pack — while the record holds no argued decision",
     )
+    justice_votes: StatPackJusticeVotes | None = Field(
+        default=None,
+        description="Each Justice's merits votes per Term, off the complete merits "
+        "lineups — the per-Justice priors a merits cell pools strictly before its "
+        "grant Term; None — and omitted from the serialized pack — while the record "
+        "holds no complete lineup",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_absent_stage_sections(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -10141,6 +10264,8 @@ class StatPack(_Strict):
                 payload.pop("merits", None)
             if self.authorship is None:
                 payload.pop("authorship", None)
+            if self.justice_votes is None:
+                payload.pop("justice_votes", None)
         return payload
 
 
@@ -11684,6 +11809,315 @@ class PartyRates(_Strict):
     )
 
 
+class ExecutiveSuccessCell(_Strict):
+    """One administration x filer cell of the executive success cut.
+
+    ``wins`` / ``decided`` is the executive's record over the in-scope
+    applications the Court decided substantively: a government applicant wins
+    a grant, in whole or in part, and a government respondent wins a denial.
+    Withdrawn applications and those dismissed or denied as moot are counted
+    beside the rate, never in it, and so are pending and unreadable ones.
+    ``filer`` ``all`` pools the administration's government and challenger cells.
+    """
+
+    administration: str | None = Field(
+        default=None,
+        description="Administration label (e.g. trump-47), or null where the row "
+        "carries no date under the cut's convention",
+    )
+    filer: Literal["government", "challenger", "all"] = Field(
+        description="Who filed the application: the federal government, a challenger "
+        "to federal executive action, or both cells pooled"
+    )
+    rows: int = Field(
+        ge=0, description="In-scope applications in the cell, extensions of time left out"
+    )
+    unknown_ask: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows whose ask the application parser could not read "
+        "(granted federal applications among them), counted like any other",
+    )
+    pending: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows with no disposition as of the cut — outside the rate",
+    )
+    unreadable: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows whose disposition is `other` — outside the rate",
+    )
+    withdrawn: int = Field(
+        default=0, ge=0, description="Of those, withdrawn applications — outside the rate"
+    )
+    dismissed: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, applications dismissed, including those dismissed or denied "
+        "as moot — outside the rate",
+    )
+    decided: int = Field(
+        default=0,
+        ge=0,
+        description="Rows substantively decided: granted in whole or in part, or denied",
+    )
+    wins: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows the executive won: the granted side (in whole or in "
+        "part) for a government applicant, denied for a challenger's application",
+    )
+    success_rate: float | None = Field(
+        default=None, description="wins / decided; null where nothing was decided"
+    )
+    dispositions: dict[str, int] = Field(
+        default_factory=dict,
+        description="Row count per reading label (`reading` on the result) among the "
+        "cell's resolved rows, so a reader can recompute the rate under another convention",
+    )
+    excluded_unparsed: int = Field(
+        default=0,
+        ge=0,
+        description="In-scope applications never application-parsed, which cannot be "
+        "told from an extension — outside the population",
+    )
+
+
+class ExecutiveControversyCell(_Strict):
+    """One administration x filer cell of the executive success cut, counted by controversy.
+
+    Each controversy (``controversy_rule_version``) counts once, with the
+    executive's result in its last substantively decided application; one with
+    no decided application is indeterminate, beside the rate.
+    """
+
+    administration: str | None = Field(
+        default=None,
+        description="The administration of the controversy's first-filed application that "
+        "carries a date under the cut's convention, or null where none does",
+    )
+    filer: Literal["government", "challenger", "both", "all"] = Field(
+        description="Who filed the controversy's applications: one side throughout, both "
+        "sides, or every controversy of the administration pooled"
+    )
+    controversies: int = Field(ge=0, description="Controversies in the cell")
+    applications: int = Field(
+        ge=0, description="In-scope applications in those controversies, never-parsed ones aside"
+    )
+    indeterminate: int = Field(
+        default=0,
+        ge=0,
+        description="Of the controversies, those with no substantively decided application "
+        "— outside the rate",
+    )
+    determinate: int = Field(
+        default=0, ge=0, description="Controversies with a substantively decided application"
+    )
+    wins: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, controversies whose last substantively decided application "
+        "the executive won",
+    )
+    success_rate: float | None = Field(
+        default=None, description="wins / determinate; null where none is determinate"
+    )
+
+
+class ExecutivePolicyCell(_Strict):
+    """One administration x filer x policy area cell of the executive success cut.
+
+    Applications, not controversies, under the policy-area vocabulary
+    (``policy_rule_version``); the rate reads as the cut's own cells do.
+    """
+
+    administration: str | None = Field(
+        default=None, description="Administration under the cut's date convention"
+    )
+    filer: Literal["government", "challenger"] = Field(
+        description="government: the federal government filed; challenger: it responded"
+    )
+    area: str = Field(description="The policy area")
+    rows: int = Field(ge=0, description="In-scope applications in the cell, never-parsed aside")
+    decided: int = Field(default=0, ge=0, description="Of those, substantively decided")
+    wins: int = Field(default=0, ge=0, description="Of those decided, the executive's wins")
+    success_rate: float | None = Field(
+        default=None, description="wins / decided; null where none is decided"
+    )
+
+
+class ExecutiveSuccessRow(_Strict):
+    """One application the scope rule kept or could not place, for hand review."""
+
+    docket_number: str = Field(description="The application's docket number")
+    administration: str | None = Field(
+        default=None, description="Administration under the cut's date convention"
+    )
+    date_filed: date | None = Field(default=None, description="The row's filing date")
+    in_scope: bool | None = Field(description="The scope rule's reading; null = unknown")
+    reason: str = Field(description="The scope rule's reason code")
+    government_side: Literal["applicant", "respondent"] = Field(
+        description="Which side of the application the federal government is on"
+    )
+    application_kind: str | None = Field(
+        default=None, description="The parsed ask: substantive, unknown, or null if unparsed"
+    )
+    stored_disposition: str | None = Field(
+        default=None, description="The disposition the corpus stores, as of the cut"
+    )
+    reading: str | None = Field(
+        default=None,
+        description="The label the cut read the row under: the finer interim reading "
+        "where the stored label was re-read, else the stored label; null = pending",
+    )
+    executive_won: bool | None = Field(
+        default=None,
+        description="Whether the executive won, where the row was substantively decided",
+    )
+    controversy_id: str | None = Field(
+        default=None,
+        description="The controversy the row belongs to (its first-docketed application's "
+        "number, as spelled); null for an unknown-scope or never-parsed row, which is "
+        "grouped with nothing",
+    )
+    policy_area: str | None = Field(
+        default=None, description="The row's policy area; null where it is unlabeled"
+    )
+    policy_uncertain: bool = Field(
+        default=False, description="Whether the label's raters were unsure of the subject"
+    )
+
+
+class ExecutiveSuccess(_Strict):
+    """``executive-success`` result: how often the executive prevails on the emergency docket.
+
+    An analytics artifact, not a prediction input. Cut over the applications the
+    scope rule reads as challenging or defending a general federal executive
+    action, under one date convention, optionally at a past moment
+    (``through``) so a published tally can be replicated as of its own date.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    scope_rule_version: str = Field(description="The committed scope rule, e.g. exec-action-v1")
+    party_rule_version: str = Field(description="The party rule the scope rule composes")
+    counsel_rule_version: str = Field(description="The counsel rule the scope rule composes")
+    reading: Literal["finer", "registered"] = Field(
+        description="How a stored `denied` was read: `finer` re-reads it from the row's "
+        "latest snapshot under the finer interim reading, which names a partial grant "
+        "and a denial as moot; `registered` keeps the stored label"
+    )
+    as_of_field: str = Field(
+        description="Which date drove the administration attribution: filed | resolved"
+    )
+    through: date | None = Field(
+        default=None,
+        description="The cut's moment: rows filed after it are left out and "
+        "dispositions dated after it read as pending. Null = the whole blob",
+    )
+    since: date | None = Field(
+        default=None,
+        description="The cut's lower bound: rows filed before it are left out. "
+        "Null = from the start of the live slice",
+    )
+    corpus_sha256: str = Field(
+        default="",
+        description="sha256 of the corpus database the cut ran over",
+    )
+    latest_pull: date | None = Field(
+        default=None, description="Corpus vintage: newest `last_pulled` across the blob"
+    )
+    latest_snapshot: date | None = Field(
+        default=None, description="Corpus vintage: newest stored snapshot date across the blob"
+    )
+    applications: int = Field(
+        default=0,
+        ge=0,
+        description="Applications in the window, extensions of time left out, one per "
+        "docket number",
+    )
+    duplicate_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Rows dropped as a second corpus row for a docket number already counted",
+    )
+    extension_rows: int = Field(
+        default=0, ge=0, description="Extension-of-time applications, left out before scope"
+    )
+    filed_after_through: int = Field(
+        default=0, ge=0, description="Rows left out as later than `through`"
+    )
+    filed_before_since: int = Field(
+        default=0, ge=0, description="Rows left out as earlier than `since`"
+    )
+    reread_rows: int = Field(
+        default=0,
+        ge=0,
+        description="In-scope and unknown-scope rows stored `denied`, never-parsed ones "
+        "included, that the finer reading re-read; 0 under `registered`",
+    )
+    reread_changed: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows the finer reading labels other than `denied` "
+        "(granted in part and denied as moot, chiefly)",
+    )
+    reread_unobservable: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows with no live-shaped snapshot or no entry the finer "
+        "reading matches, which keep the stored label",
+    )
+    reread_after_through: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows whose re-read entry is dated after `through`, which "
+        "keep the stored label: the cut's moment had not reached that entry",
+    )
+    scope_reasons: dict[str, int] = Field(
+        default_factory=dict,
+        description="Applications per scope reason code, in scope, unknown and out alike",
+    )
+    unknown_scope: dict[str, int] = Field(
+        default_factory=dict,
+        description="Applications the scope rule could not place, per administration "
+        "(key `unattributed` for an undated row) — beside every cell, never in one",
+    )
+    cells: list[ExecutiveSuccessCell] = Field(
+        default_factory=list, description="Non-empty cells only; an absent cell is not a zero"
+    )
+    controversy_rule_version: str = Field(
+        description="The grouping rule the controversy cells are counted under, e.g. controversy-v1"
+    )
+    controversy_cells: list[ExecutiveControversyCell] = Field(
+        default_factory=list,
+        description="The same population counted by controversy; non-empty cells only",
+    )
+    controversy_unlinked: int = Field(
+        default=0,
+        description="Grouped applications with no live snapshot, so no case-below or "
+        "decided-together link; they join on the caption alone",
+    )
+    policy_rule_version: str = Field(
+        description="The vocabulary the policy cells are labeled under, e.g. policy-area-v1"
+    )
+    policy_cells: list[ExecutivePolicyCell] = Field(
+        default_factory=list,
+        description="The in-scope applications by policy area; non-empty cells only",
+    )
+    policy_unlabeled: int = Field(
+        default=0,
+        ge=0,
+        description="In-scope applications with no policy-area label, never-parsed aside, "
+        "outside every policy cell",
+    )
+    review_rows: list[ExecutiveSuccessRow] = Field(
+        default_factory=list,
+        description="Every in-scope and unknown-scope application, in docket order, "
+        "so the scope reading can be hand-checked row by row",
+    )
+
+
 class DistributionBandTransition(_Strict):
     """One cell of the band-transition matrix: how many cases moved from → to."""
 
@@ -13189,6 +13623,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "scope.json": ScopeManifest,
     "schedule.json": Schedule,
     "qp-topic-reference.json": QpTopicReference,
+    "qp-topic-reference-applications.json": QpTopicApplicationReference,
     "qp-topics.json": QpTopicLabels,
 }
 
@@ -13217,6 +13652,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
     "authorship_tally": AuthorshipTally,
+    "argument_features": ArgumentFeatures,
     "docket": DocketPack,
     "big_case_board": BigCaseBoard,
     "agent_flags": AgentFlags,
@@ -13225,6 +13661,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "mcp_server_config": McpServerConfig,
     "retrieval_log": RetrievalLog,
     "qp_topic_reference": QpTopicReference,
+    "qp_topic_application_reference": QpTopicApplicationReference,
     "qp_topics": QpTopicLabels,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "summary_plan": SummaryPlan,

@@ -1297,6 +1297,13 @@ def test_main_base_jail_covers_every_legitimate_lane() -> None:
     assert "startsWith(github.head_ref, 'promote/')" in condition
     assert f"github.head_ref == '{metrics_refresh.REFRESH_BRANCH}'" in condition
     assert f"github.head_ref == '{metrics_refresh.BACKTEST_BRANCH}'" in condition
+    # run-backtest's publish job names its other arms' review branches in the
+    # workflow itself, so each one it can push is pinned from there.
+    backtest = (ROOT / ".github" / "workflows" / "run-backtest.yml").read_text()
+    arm_branches = re.findall(r"printf '%s' \"([^\"]+)\" > \"\$pr/branch\"", backtest)
+    assert sorted(arm_branches) == ["metrics/merits-backtest", "metrics/salience-replay"]
+    for branch in arm_branches:
+        assert f"github.head_ref == '{branch}'" in condition, branch
     assert job["permissions"] == {}
     # The job exists only to fail: when the `if` matches, the PR must not merge.
     assert "exit 1" in _steps_text(job)
