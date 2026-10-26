@@ -232,6 +232,85 @@ lands in the run summary as a standing regression trip-wire, so a drifting
 labeler shows up as a moving disagreement rate before it shows up anywhere
 else.
 
+## Applications (`qp-topic-v1`)
+
+An emergency application carries no questions presented, so the text-only v0
+contract has nothing to read on one and every interim forecast goes unlabeled
+under it. `qp-topic-v1` keeps v0's register unchanged and widens the frame to
+application dockets with a second input contract, so a cert, an interim and a
+merits forecast can all be cut by one vocabulary.
+
+**The frame** is the live slice's application dockets, one row per docket
+number, with extensions left out. An extension asks for time, and its subject
+is the case it extends, which the petition frame already labels. Substantive
+applications and applications whose ask the parser could not read both enter,
+and the extract counts them apart.
+
+**What a labeler reads for an application.** `fedcourts qp-corpus --frame
+applications` writes one row per application:
+
+- the caption;
+- the court below;
+- the docket entries dated before the disposition;
+- the stored `application` text where the content store holds one, cut to
+  its first 6,000 characters.
+
+The row's `input_kind` says which shape it is: `application-text` or
+`docket-only`. The rule is `application-extract-v1`
+(`fedcourtsai.pipeline.application_topics`).
+
+**Replay safety is kept by a cutoff.** The cutoff is the earlier of two dates:
+the first entry the registered disposition matcher reads, and the stored
+decision date. Only entries dated strictly before it are kept, so a filing
+docketed the same day as the order goes with the order. An entry recording the
+Court's own act is dropped whatever its date: a grant or denial, a dismissal,
+a vacatur, an entered stay, or an order. The application's own filing entry
+is the one exception, since it names the relief sought and can quote an order
+below. Responses and replies are not read. As with a questions-presented
+label, nothing a labeler reads postdates the decision, so a label cannot
+encode it.
+
+**Register rules an application adds.** These are not new labels; they are
+how the v0 boundaries route an application.
+
+- **Label the dispute, not the relief.** A stay, an injunction pending appeal
+  and a vacatur are postures, and the interim-relief factors (irreparable
+  harm, the balance of equities) are never a subject. An application takes
+  the label its underlying dispute would take as a question presented. It is
+  `civil-procedure` only where the application itself asks a jurisdictional
+  or procedural question, such as mandamus to a lower court over its
+  procedure.
+- **Stays of execution route by vehicle.** A stay pending a habeas petition
+  or a successive-petition authorization is `habeas-and-postconviction`. A
+  stay pending a §1983 challenge to the method or protocol of execution is
+  `constitutional-rights`.
+- **Presidential control of the executive** (removal of officers,
+  reductions in force, agency reorganization) is
+  `administrative-law-and-benefit-programs`, as agency power is in v0. A
+  single federal employee's own case is
+  `employment-and-antidiscrimination`.
+- **Grant terminations and spending conditions** follow the agency-power
+  rule. The challenge to the agency's authority or procedure is
+  `administrative-law-and-benefit-programs`, unless the dispute turns on the
+  regulated subject, such as an environmental statute's reach.
+- **A federal criminal case** (bail, release pending appeal, a stay of a
+  sentence other than death) is `criminal-law`.
+- **`unclassifiable`** keeps its v0 meaning. On a `docket-only` row it is the
+  label where the caption and entries name no subject, and the labeler may not
+  fill the gap from what it knows of the case.
+
+**The coverage caveat is sharper here.** At the 2026-10-26 pull (main's
+corpus pointer `d3fe4a1a…`, newest stored snapshot 2026-07-13), the frame held
+846 applications. Only 36 carried stored application text, 35 of them from
+Term 2026, so almost every row is `docket-only`. A label read from a caption
+and a stay request is weaker than one read from a petition's questions, and a
+published cut reports the `input_kind` split beside it.
+
+**What exists.** The extract and its rule exist. A reference block for
+applications, the labeling run's handling of application rows, and a per-topic
+cut that reads them do not yet exist. Until they do, no application label is
+published, and the petition frame's gates are unchanged.
+
 ## The reference set
 
 `data/qp-topics/qp-topic-reference.json` — labels for 353 cases, assigned by
@@ -601,7 +680,8 @@ the corpus is a **document-fetch artifact, not a sample**:
   direct appeal inside it is mandatory jurisdiction rather than discretionary —
   a small, docket-form-honest widening of what the section describes, not a
   second population. An *application* is a different form and never enters: no
-  questions-presented row is derived from one. The extract does **not** narrow to the predict-scope segment,
+  questions-presented row is derived from one, and applications are labeled
+  under their own contract (*Applications* above). The extract does **not** narrow to the predict-scope segment,
   which is the tempting narrowing and the wrong one; the reason is in *Batching:
   how the frame gets labeled* below, and it is a measurement-integrity reason rather
   than a statistical one.
