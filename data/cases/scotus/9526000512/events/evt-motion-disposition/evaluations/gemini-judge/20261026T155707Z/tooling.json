@@ -1,0 +1,23 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000512",
+  "gaps": [],
+  "helpful": [
+    "Provisioned application.txt, application-response.txt, and application-reply.txt in record/documents/ made it straightforward to verify the procedural history and evaluate each candidate's Purcell analysis.",
+    "Harness-captured retrieval_log.json for each blinded candidate provided clear auditability of forward-mode tool calls."
+  ],
+  "notes": "Evaluated three blinded forward predictions (gemini-baseline, codex-baseline, claude-baseline) on interim stay application scotus/9526000512 (evt-motion-disposition).",
+  "role": "evaluator",
+  "run_id": "20261026T155707Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "run_shell_command",
+    "mcp_courtlistener_search",
+    "grep_search",
+    "write_file"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
