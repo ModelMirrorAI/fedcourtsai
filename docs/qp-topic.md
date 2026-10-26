@@ -318,7 +318,10 @@ labeled by is the one its underlying dispute would present.
   or a successive-petition authorization is `habeas-and-postconviction`. A
   stay pending a §1983 challenge to the method or protocol of execution is
   `constitutional-rights`. A stay of a death sentence on direct review is
-  `criminal-law`.
+  `criminal-law`. Where the row does not show the vehicle, a stay of execution
+  from a state court is `habeas-and-postconviction`: an execution is
+  scheduled once direct review is over, so what the state court decided was
+  a collateral challenge.
 - **Presidential control of the executive** (removal of officers,
   reductions in force, agency reorganization) is
   `administrative-law-and-benefit-programs`, as agency power is in v0. That
@@ -331,8 +334,32 @@ labeled by is the one its underlying dispute would present.
   regulated subject, such as an environmental statute's reach.
 - **A criminal case**, federal or state (bail, release pending appeal, a stay
   of a non-capital sentence), is `criminal-law`.
+- **A court or judge as the respondent.** An application against a court or
+  a judge (a mandamus-form caption, or "In re" with a pending mandamus
+  petition) whose row shows no other subject is `civil-procedure`. A row that
+  does show the underlying dispute takes that dispute's label.
+- **A prison custodian as a party.** Where a warden, corrections secretary or
+  corrections commissioner is a party and the row shows no other subject, the
+  label is `habeas-and-postconviction`, since the custodian is the habeas
+  respondent.
 - **`unclassifiable`** keeps its v0 meaning, and on a `docket-only` row it is
-  the label wherever the row names no subject.
+  the label wherever the row names no subject. A row that names only its
+  parties (a bank, a police department, a housing agency) is
+  `unclassifiable`, even where a reader recognizes the case.
+
+**The rules were measured before they were written down.** Two agent raters,
+each blind to the other, labeled a 241-row sample of the frame, drawn by a
+seeded hash within Term × input kind × disposition strata, with every
+`application-text` row included. They read the extract rows only. They agreed
+on 203 of 241 (84.2%, Cohen's kappa 0.80): 32 of 35 `application-text` rows
+(kappa 0.90) and 171 of 206 `docket-only` rows (kappa 0.77). Nineteen of the 38
+disagreements were stays of execution with no vehicle shown, and seven were
+applications against a court. The three routing rules for those cases and for
+custodian captions above were written from these disagreements, so they are
+fitted to this sample. The adjudication was done by the session that drew the
+sample, which was not blind. After adjudication, 92 of the 206 `docket-only`
+rows are `unclassifiable`, against 1 of the 35 `application-text` rows. So a
+missing application document costs a label almost half the time.
 
 **The coverage caveat is sharper here.** The extract's stderr tally gives the
 split by Term, ask and input kind. Read under main's corpus pointer
@@ -343,9 +370,10 @@ every row is `docket-only`. A label read from a caption and a stay request is
 weaker than one read from a petition's questions, and a published cut reports
 the `input_kind` split beside it.
 
-**What exists.** The extract and its rule exist. A reference block for
-applications, the labeling run's handling of application rows, and a per-topic
-cut that reads them do not yet exist. Until they do, no application label is
+**What exists.** The extract and its rule exist, and the reference block's
+labels have been assigned as described above but are not yet committed. The
+labeling run's handling of application rows, and a per-topic cut that reads
+them, do not yet exist. Until they do, no application label is
 published, and the petition frame's gates are unchanged.
 
 ## The reference set
