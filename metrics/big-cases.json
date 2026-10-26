@@ -21,13 +21,13 @@
   "frozen_process": {
     "digests": [
       "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+      "sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f",
       "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
-      "sha256:a711152d3e0082a9f5311e40348116c753247aba102ddc60e5979c7d292abe64",
-      "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
-      "sha256:c4213d78e7a7a6fc5f13d070a3bda326254c0189b7979f5e7b91a23d5608ad66",
-      "sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54"
+      "sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9",
+      "sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4",
+      "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac"
     ],
-    "since": "2026-10-23T02:37:11Z",
+    "since": "2026-10-25T13:40:46Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -78,7 +78,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-25T13:40:46Z",
         "digest": "sha256:d1487fc0280716c03c4f119b557b1579b0bb65df0fa4efa158a88ae02a6e5e54",
         "label": "proc-v11",
         "opens": "2026-10-23T02:37:11Z",
@@ -86,7 +86,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-25T13:40:46Z",
         "digest": "sha256:a711152d3e0082a9f5311e40348116c753247aba102ddc60e5979c7d292abe64",
         "label": "proc-v11",
         "opens": "2026-10-23T02:37:11Z",
@@ -94,10 +94,34 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-25T13:40:46Z",
         "digest": "sha256:c4213d78e7a7a6fc5f13d070a3bda326254c0189b7979f5e7b91a23d5608ad66",
         "label": "proc-v11",
         "opens": "2026-10-23T02:37:11Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f",
+        "label": "proc-v12",
+        "opens": "2026-10-25T13:40:46Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4",
+        "label": "proc-v12",
+        "opens": "2026-10-25T13:40:46Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9",
+        "label": "proc-v12",
+        "opens": "2026-10-25T13:40:46Z",
         "predictor_id": "gemini-baseline",
         "revoked_at": null
       }
@@ -121,7 +145,7 @@
     "leakage_note": "A leakage-flagged read is worse here than on a board that drops it. A stakes read is partly a read of the disposition, so a predictor that saw its own outcome may have read the stakes off it too \u2014 and on this board that cell is not one point inside a coefficient, it is the published number. Every read and every row carries `leakage_suspected`, set where any committed grading of that run recorded the bit. Read a marked row as evidence about the cell, not about the case. The **row** mark is moment-scoped like every other row figure: it covers the reads the row publishes, so a flagged read on an earlier moment leaves the row unmarked while staying visible, and marked, under its own event.",
     "no_time_series": "The committed ledger spans a boundary at which `big_case_score` became required with an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two populations \u2014 the ask changed, so which cells carry a read changed with it \u2014 and **this build spans it**, so the board publishes no trend and no history. Nor is a movement between two consecutive builds a measurement: a row's mean, `n` and rank also move when its `moment` does, which is the **docket** advancing and the whole panel switching question at once, not a predictor changing its mind. A movement across any of these boundaries measures nothing.",
     "population": "Every case in the committed ledger carrying at least one **in-scope** scored read on its current moment, pending and decided alike. `cases_without_score` counts the predicted cases whose in-scope reads carry no number at all and which are therefore absent \u2014 including a case whose current moment drew only declining reads whilst an earlier moment carried scores, which are history here and never promoted back into a row. The list is the predictions', never the corpus's \u2014 and the predictions' list is the salience gate's deliberately non-representative selection (`docs/salience.md`), so the board inherits that gate and is **not** a sample of the docket or of any conference. `status` says only whether a committed `outcome.json` sits on the case's predicted events: `pending` means the ledger records no outcome, which is not a statement about what the Court has done.",
-    "process_label": "proc-v11",
+    "process_label": "proc-v12",
     "rank_resolution": "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer together than the predictors inside a single row sit to each other, so the difference between two adjacent ranks is smaller than the disagreement the ranks are built from. `median_adjacent_gap` and `median_score_range` are published beside each other so that comparison can be made rather than assumed. The moment-first collapse sharpens this rather than settling it: each row is one moment, so a row's mean **is** comparable across its own predictors, but two rows on different moments are not comparable to each other and the `#` column orders across moments anyway. The panel reads stakes systematically higher at later moments, so a row's position reflects which question its panel answered as well as how big its case is.",
     "reading_rule": "A stakes read is neither scored nor ranked: it resolves against nothing, so no **stakes** figure here is an accuracy, a calibration or an ordering of predictors, and none may be quoted as one. The per-cell `probability` carried beside it **is** a forecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and it is not a claimable one either; scored forecast performance lives on the leaderboard and nowhere else. Like the leaderboard's big-case views, this board reads the ledger directly, so neither the forward-claim exclusion nor the leakage exclusion applies; it is wider still than those, since it also reads cells no judge has graded and every process version. A wider population than the scored boards, deliberately, and a caveat that has to travel with a quoted number. The mean is a panel opinion about which cases matter, and it says nothing about how likely any of them is to be granted.",
     "schedule_rule": "`scheduled` is joined by case id from the committed `data/schedule/schedule.json`, which the live poll writes from the conference each pending public docket's newest 'DISTRIBUTED for Conference of ...' entry names. It is null where the case is not on the schedule (decided, never distributed, or not read by the live channel) and where the conference had already passed on the day the schedule was built. The row carries no build day, so the board moves only when a case's date does; a reader rendering on a later day drops a date that has since passed rather than show it as upcoming. A schedule moves on every relist, so the field is display-only and never a ledger record: nothing predicts, evaluates or scores on it, and no cell is provisioned with it.",
@@ -10198,7 +10222,10 @@
           "side": "not-granted"
         }
       ],
-      "scheduled": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.8,
       "score_min": 0.6,
       "score_range": 0.2,
@@ -25378,7 +25405,10 @@
           "side": "not-granted"
         }
       ],
-      "scheduled": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.64,
       "score_min": 0.3,
       "score_range": 0.34,
@@ -27331,7 +27361,10 @@
           "side": "not-granted"
         }
       ],
-      "scheduled": null,
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
       "score_max": 0.46,
       "score_min": 0.3,
       "score_range": 0.16,
