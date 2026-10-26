@@ -224,6 +224,16 @@ def reference_path(data_root: Path) -> Path:
     return data_root / "qp-topics" / "qp-topic-reference.json"
 
 
+def application_reference_path(data_root: Path) -> Path:
+    """Where the application reference block lives under a data root.
+
+    A file of its own rather than a block of the petition reference set, so the
+    petition set and its gate stay byte-identical and each block's publication
+    floors bind separately.
+    """
+    return data_root / "qp-topics" / "qp-topic-reference-applications.json"
+
+
 def labels_path(data_root: Path) -> Path:
     """Where a labeler run's artifact lives under a data root.
 
