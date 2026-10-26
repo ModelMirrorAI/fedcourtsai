@@ -13807,3 +13807,132 @@ freeze commit is recorded here.
     apply onboarded a row beside an existing one, a duplicated number. Any residue
     is named here rather than rounded away. `uv run fedcourts process-digest
     --all` still prints `proc-v13` and the same six digests.
+
+- **Readings the `proc-v11`, `proc-v12` and `proc-v13` entries owe, recorded
+  2026-10-26.** No rule moves here. The `proc-v11` entry (dated 2026-10-22),
+  the `proc-v12` entry (dated 2026-10-23) and the `proc-v13` entry (dated
+  2026-10-24), carried to `main` by `promotion/2026-10-23` (merge
+  `fd98eda93`, registry stamped by `03d87c203`), `promotion/2026-10-25`
+  (merge `51cca3cb5`, stamped by `ed3929ef3`) and `promotion/2026-10-26`
+  (merge `728efab06`, stamped by `d8ad34739`) and tagged `prereg/proc-v11`,
+  `prereg/proc-v12` and `prereg/proc-v13`, each quoted its
+  `successor-disclosures` lines at a provisional instant and owed them again
+  once the carrying merge had stamped the registry, before any figure of a
+  window it closed is quoted outside the committed board. This entry does
+  not establish whether that ordering held. The `proc-v11` entry also owed
+  the per-engine partition of its successor-counted events once each
+  `proc-v11` window held counted cells. Those entries are not otherwise
+  edited.
+
+  Every run below reads the ledger and registry at `origin/main`'s
+  `cef23afb5` (`2026-10-26T23:04:06Z`), after all three stamps, with digests
+  shortened here.
+
+  **`proc-v11` closes `proc-v9`.** `uv run fedcourts successor-disclosures
+  --closed proc-v9 --successor proc-v11` prints:
+
+  ```
+  successor proc-v11 closes proc-v9 at 2026-10-23T02:37:11+00:00
+    closed proc-v9 claude-baseline: 71 counted event(s) — 8 resolved, 63 pending at close
+    split events: 2 (0 resolved) — in no complete grid
+    claude-baseline: 11 successor-counted event(s); earlier window proc-v9: 0 failed, 0 uncounted cell, 0 missing, 11 not reached before the close
+    codex-baseline: 11 successor-counted event(s); earlier window proc-v9 (inferred span): 0 failed, 0 uncounted cell, 0 missing, 11 not reached before the close
+    gemini-baseline: 13 successor-counted event(s); earlier window proc-v9 (inferred span): 2 failed, 0 uncounted cell, 0 missing, 11 not reached before the close
+    graded by claude-judge @ sha256:167b7d71…: 8 grading(s), 4 at or after the instant
+    graded by codex-judge @ sha256:18a76b93…: 3 grading(s), 0 at or after the instant
+    graded by codex-judge @ sha256:a8610eec…: 5 grading(s), 4 at or after the instant
+    graded by gemini-judge @ sha256:22558044…: 3 grading(s), 0 at or after the instant
+    graded by gemini-judge @ sha256:6a88d3dc…: 5 grading(s), 4 at or after the instant
+  ```
+
+  **`proc-v11` closes `proc-v10`.** `uv run fedcourts successor-disclosures
+  --closed proc-v10 --successor proc-v11` prints:
+
+  ```
+  successor proc-v11 closes proc-v10 at 2026-10-23T02:37:11+00:00
+    closed proc-v10 codex-baseline: 22 counted event(s) — 4 resolved, 18 pending at close
+    closed proc-v10 gemini-baseline: 20 counted event(s) — 4 resolved, 16 pending at close
+    split events: 2 (0 resolved) — in no complete grid
+    claude-baseline: 11 successor-counted event(s); earlier window proc-v10 (inferred span): 0 failed, 0 uncounted cell, 0 missing, 11 not reached before the close
+    codex-baseline: 11 successor-counted event(s); earlier window proc-v10: 0 failed, 0 uncounted cell, 0 missing, 11 not reached before the close
+    gemini-baseline: 13 successor-counted event(s); earlier window proc-v10: 2 failed, 0 uncounted cell, 0 missing, 11 not reached before the close
+    graded by claude-judge @ sha256:167b7d71…: 8 grading(s), 8 at or after the instant
+    graded by codex-judge @ sha256:a8610eec…: 8 grading(s), 8 at or after the instant
+    graded by gemini-judge @ sha256:6a88d3dc…: 8 grading(s), 8 at or after the instant
+  ```
+
+  Against the entry's provisional lines (61 `claude-baseline` events, 4
+  resolved; 12 each for `codex-baseline` and `gemini-baseline`, none
+  resolved; no split event), the closed windows end at 71, 22 and 20 counted
+  events. The provisional run read the ledger at `4844b2d21` against an
+  instant of `2026-10-24T00:00:00Z`; the stamped instant fell earlier, at
+  `2026-10-23T02:37:11Z`, and cells committed before it kept landing in the
+  ledger afterwards. The resolved counts (8, 4 and 4) take every outcome
+  dated on or before the close's UTC day, so they are an upper bound on what
+  was visible when the close was decided. One of them, on `scotus/9526000532`
+  `evt-motion-disposition`, resolved on 2026-10-23 and its outcome landed
+  that evening, after the instant. Each engine's partition is read against
+  its own closed window: `claude-baseline` against `proc-v9`, the other two
+  against `proc-v10`. The lines against an inferred span are the same events
+  read against a window that engine never held. Of each engine's
+  successor-counted events, 11 are events no predictor had committed a cell
+  on before the close. The two more for `gemini-baseline`,
+  `evt-order-judgment` on `scotus/73277583` and `scotus/73281102`, each
+  follow a failed `gemini-baseline` attempt at 2026-10-23T01:28Z, inside its
+  `proc-v10` span. They are also the two split events: their counted cells
+  come from `proc-v9` (`claude-baseline`), `proc-v10` (`codex-baseline`) and
+  `proc-v11` (`gemini-baseline`), so no complete grid holds them. Neither has
+  resolved. `proc-v11` moves no evaluator digest, so every grading line counts
+  closed-window cells under a digest blessed before it, and the gradings at
+  or after the instant pool with the earlier ones as the `proc-v11` entry
+  states. The `18a76b93…` and `22558044…` digests are the `codex-judge` and
+  `gemini-judge` rubrics of an earlier freeze.
+
+  **`proc-v12` closes `proc-v11`.** `uv run fedcourts successor-disclosures
+  --closed proc-v11 --successor proc-v12` prints:
+
+  ```
+  successor proc-v12 closes proc-v11 at 2026-10-25T13:40:46+00:00
+    closed proc-v11 codex-baseline: 11 counted event(s) — 0 resolved, 11 pending at close
+    closed proc-v11 gemini-baseline: 13 counted event(s) — 0 resolved, 13 pending at close
+    closed proc-v11 claude-baseline: 11 counted event(s) — 0 resolved, 11 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    claude-baseline: 4 successor-counted event(s); earlier window proc-v11: 0 failed, 0 uncounted cell, 1 missing, 3 not reached before the close
+    codex-baseline: 4 successor-counted event(s); earlier window proc-v11: 0 failed, 0 uncounted cell, 1 missing, 3 not reached before the close
+    gemini-baseline: 4 successor-counted event(s); earlier window proc-v11: 0 failed, 0 uncounted cell, 1 missing, 3 not reached before the close
+  ```
+
+  Against the provisional lines (5, 7 and 5 counted events, none resolved),
+  the `proc-v11` windows end at 11, 13 and 11, still none resolved. Because
+  the resolved count is an upper bound, none of their outcomes was visible
+  when the close was decided. Each engine has three successor-counted events
+  that no predictor had committed a cell on before the close, and one
+  `missing` event, the same for all three: `scotus/73280982`
+  `evt-petition-disposition`. The pipeline first reached it in July 2026,
+  before the `proc-v11` windows opened, and no `proc-v11` window holds a cell
+  or failure fact on it. Like every bucket, it is an event the closed window
+  did not reach. The closed windows hold no grading.
+
+  **`proc-v13` closes `proc-v12`.** `uv run fedcourts successor-disclosures
+  --closed proc-v12 --successor proc-v13` prints:
+
+  ```
+  successor proc-v13 closes proc-v12 at 2026-10-26T19:00:50+00:00
+    closed proc-v12 claude-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v12 gemini-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    closed proc-v12 codex-baseline: 4 counted event(s) — 0 resolved, 4 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    claude-baseline: 1 successor-counted event(s); earlier window proc-v12: 0 failed, 0 uncounted cell, 0 missing, 1 not reached before the close
+    codex-baseline: 1 successor-counted event(s); earlier window proc-v12: 0 failed, 0 uncounted cell, 0 missing, 1 not reached before the close
+    gemini-baseline: 1 successor-counted event(s); earlier window proc-v12: 0 failed, 0 uncounted cell, 0 missing, 1 not reached before the close
+  ```
+
+  The provisional run found no counted cell in the `proc-v12` windows. They
+  end at 4 counted events each, none resolved, and the one event each
+  successor window has counted so far is one no predictor had committed a
+  cell on before the close. The closed windows hold no grading.
+
+  Every line reads the ledger at `cef23afb5`. The closed-window resolved
+  counts can still move: an outcome dated on or before a close's day may
+  land late, and an event void de-counts what it names. The split, partition
+  and grading lines also move as cells, outcomes and gradings land.
