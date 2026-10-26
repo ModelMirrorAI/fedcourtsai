@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73280982",
+  "run_id": "20261026T013123Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["metrics/statpack.md", "provisioned record/documents"],
+  "helpful": ["Provisioned SG invited brief made the decisive signal directly readable", "Salience-band reached rates and CVSG cut"],
+  "gaps": ["Supplemental briefs (10/20, 10/21 2026) filed after the SG brief were not provisioned", "No statpack cut splitting CVSG petitions by the SG's recommendation (grant vs deny)"],
+  "notes": "The event.yaml carries no moment field, though the docket is far past first distribution (post-CVSG, post-SG-brief)."
+}

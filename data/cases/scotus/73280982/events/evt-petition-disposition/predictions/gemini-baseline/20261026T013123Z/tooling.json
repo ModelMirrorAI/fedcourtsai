@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261026T013123Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts segment-anchors",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_get_endpoint_item"
+  ],
+  "helpful": [
+    "Provisioned sg-invited-brief.txt, petition.txt, brief-in-opposition.txt, and cert-reply.txt provided the complete cert-stage record including the Solicitor General's grant recommendation on Question 1.",
+    "fedcourts segment-anchors --term 2025 and metrics/statpack.md provided exact pooled high-band and CVSG base rates."
+  ],
+  "gaps": [],
+  "notes": "In record/documents/questions-presented.txt, the automated QP extractor matched the Part III.A subheading ('The Questions Presented In This Case Are Exceptionally Important') on page 31 of the petition because page (I) had OCR/PDF spacing ('QUESTION S PRESENTED'); the full Questions Presented text was readily available in petition.txt, brief-in-opposition.txt, and sg-invited-brief.txt."
+}

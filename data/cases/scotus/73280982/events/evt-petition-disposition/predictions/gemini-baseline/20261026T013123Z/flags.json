@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261026T013123Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-petition-disposition",
+      "message": "record/documents/questions-presented.txt extracted a slice from Part III.A of the petition ('The Questions Presented In This Case Are Exceptionally Important') rather than page (I) because page (I) of petition.txt contains a space inside the heading ('QUESTION S PRESENTED'). The verbatim Questions Presented were unaffected and read from page (I) of petition.txt, page i of brief-in-opposition.txt, and sg-invited-brief.txt."
+    }
+  ]
+}

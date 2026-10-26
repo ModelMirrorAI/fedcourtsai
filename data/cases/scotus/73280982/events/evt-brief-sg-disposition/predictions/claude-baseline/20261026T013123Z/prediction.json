@@ -1,0 +1,89 @@
+{
+  "big_case_rationale": "Section 11 misleading-omissions standard for interim financial data affects every registered offering; heavy business-amicus interest and SEC participation, but a technical securities question rather than a headline constitutional one.",
+  "big_case_score": 0.6,
+  "case_id": "scotus/73280982",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.012,
+        "Barrett": 0.003,
+        "Gorsuch": 0.006,
+        "Jackson": 0.004,
+        "Kagan": 0.002,
+        "Kavanaugh": 0.005,
+        "Roberts": 0.002,
+        "Sotomayor": 0.004,
+        "Thomas": 0.012
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.72
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.03
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.1
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-08",
+    "cvsg_date": "2026-06-01",
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-07",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-26T09:14:00Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-sg-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-10-07.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "granted-in-part",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.72,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f",
+    "label": "proc-v12",
+    "pipeline_sha": "c63dfa362ec89098d1b517c4684d368ac0e49717",
+    "stamped_at": "2026-10-26T09:15:12.440674Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261026T013123Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
