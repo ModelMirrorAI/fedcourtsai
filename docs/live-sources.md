@@ -1596,7 +1596,9 @@ the same link.
   page count differs from the stored row's is another filing at the same link,
   the fetching lanes' business rather than a re-cut, and is skipped as
   `pages-changed`; so is one whose re-cut does not open with the stored text
-  (`head-changed`), since both cuts keep the filing's own opening; bytes that
+  (`head-changed`), since both cuts keep the filing's own opening, compared on
+  ASCII letters and digits alone because the PDF library moves line breaks
+  and reads a caption's decorative glyphs differently between versions; bytes that
   do not parse as a PDF are `unreadable`; a re-cut equal to the stored text is
   `unchanged`; a re-cut that reads no text is never written over stored text. Otherwise an apply
   writes the row with its stored kind, URL and entry date, the re-cut's text,
