@@ -1,0 +1,1454 @@
+{
+  "cases": 241,
+  "entries": [
+    {
+      "case_id": "scotus/67902785",
+      "docket_number": "23A243",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/68354817",
+      "docket_number": "23A814",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/69053732",
+      "docket_number": "24A78",
+      "input_kind": "docket-only",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/69273884",
+      "docket_number": "24A349",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/69315289",
+      "docket_number": "24A287",
+      "input_kind": "docket-only",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/69856122",
+      "docket_number": "24A931",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/70274309",
+      "docket_number": "24A884",
+      "input_kind": "docket-only",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/70456629",
+      "docket_number": "24A982",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/71543224",
+      "docket_number": "25A326",
+      "input_kind": "docket-only",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/71996991",
+      "docket_number": "25A608",
+      "input_kind": "docket-only",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/72170175",
+      "docket_number": "25A312",
+      "input_kind": "docket-only",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/72353718",
+      "docket_number": "25A810",
+      "input_kind": "docket-only",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72414193",
+      "docket_number": "23A1026",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72414340",
+      "docket_number": "23A1146",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72414357",
+      "docket_number": "23A116",
+      "input_kind": "docket-only",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/72414368",
+      "docket_number": "23A1169",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72414431",
+      "docket_number": "23A152",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72414445",
+      "docket_number": "23A161",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72414475",
+      "docket_number": "23A183",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72414489",
+      "docket_number": "23A196",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72414516",
+      "docket_number": "23A217",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72414535",
+      "docket_number": "23A231",
+      "input_kind": "docket-only",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/72414591",
+      "docket_number": "23A276",
+      "input_kind": "docket-only",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72414619",
+      "docket_number": "23A300",
+      "input_kind": "docket-only",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/72414620",
+      "docket_number": "23A301",
+      "input_kind": "docket-only",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/72414628",
+      "docket_number": "23A308",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72414636",
+      "docket_number": "23A316",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72414691",
+      "docket_number": "23A361",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72414765",
+      "docket_number": "23A417",
+      "input_kind": "docket-only",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72414825",
+      "docket_number": "23A452",
+      "input_kind": "docket-only",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/72414884",
+      "docket_number": "23A495",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72415026",
+      "docket_number": "23A596",
+      "input_kind": "docket-only",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/72415031",
+      "docket_number": "23A60",
+      "input_kind": "docket-only",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/72415071",
+      "docket_number": "23A63",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72415086",
+      "docket_number": "23A641",
+      "input_kind": "docket-only",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/72415088",
+      "docket_number": "23A643",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415089",
+      "docket_number": "23A644",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415090",
+      "docket_number": "23A645",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415091",
+      "docket_number": "23A646",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415115",
+      "docket_number": "23A664",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72415158",
+      "docket_number": "23A696",
+      "input_kind": "docket-only",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72415214",
+      "docket_number": "23A739",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415241",
+      "docket_number": "23A761",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72415266",
+      "docket_number": "23A78",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415319",
+      "docket_number": "23A82",
+      "input_kind": "docket-only",
+      "label": "firearms"
+    },
+    {
+      "case_id": "scotus/72415320",
+      "docket_number": "23A820",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415325",
+      "docket_number": "23A824",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415351",
+      "docket_number": "23A845",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415362",
+      "docket_number": "23A854",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415383",
+      "docket_number": "23A871",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415404",
+      "docket_number": "23A885",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415441",
+      "docket_number": "23A904",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415526",
+      "docket_number": "23A948",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415543",
+      "docket_number": "23A96",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415544",
+      "docket_number": "23A960",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415645",
+      "docket_number": "24A1034",
+      "input_kind": "docket-only",
+      "label": "intellectual-property"
+    },
+    {
+      "case_id": "scotus/72415655",
+      "docket_number": "24A1042",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72415658",
+      "docket_number": "24A1044",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72415683",
+      "docket_number": "24A1066",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415733",
+      "docket_number": "24A1099",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72415777",
+      "docket_number": "24A1132",
+      "input_kind": "docket-only",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/72415791",
+      "docket_number": "24A1143",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72415821",
+      "docket_number": "24A1167",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415849",
+      "docket_number": "24A1192",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72415865",
+      "docket_number": "24A1202",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72415888",
+      "docket_number": "24A1221",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415923",
+      "docket_number": "24A1245",
+      "input_kind": "docket-only",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/72415968",
+      "docket_number": "24A1279",
+      "input_kind": "docket-only",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/72415976",
+      "docket_number": "24A1285",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72415990",
+      "docket_number": "24A130",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72415998",
+      "docket_number": "24A136",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416022",
+      "docket_number": "24A154",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416057",
+      "docket_number": "24A173",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416069",
+      "docket_number": "24A179",
+      "input_kind": "docket-only",
+      "label": "environment-energy-and-property"
+    },
+    {
+      "case_id": "scotus/72416100",
+      "docket_number": "24A199",
+      "input_kind": "docket-only",
+      "label": "environment-energy-and-property"
+    },
+    {
+      "case_id": "scotus/72416126",
+      "docket_number": "24A218",
+      "input_kind": "docket-only",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/72416132",
+      "docket_number": "24A223",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72416136",
+      "docket_number": "24A227",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416140",
+      "docket_number": "24A23",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416152",
+      "docket_number": "24A239",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72416158",
+      "docket_number": "24A244",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416209",
+      "docket_number": "24A285",
+      "input_kind": "docket-only",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/72416219",
+      "docket_number": "24A294",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72416289",
+      "docket_number": "24A348",
+      "input_kind": "docket-only",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/72416313",
+      "docket_number": "24A364",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416315",
+      "docket_number": "24A366",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416364",
+      "docket_number": "24A403",
+      "input_kind": "docket-only",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/72416368",
+      "docket_number": "24A407",
+      "input_kind": "docket-only",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/72416375",
+      "docket_number": "24A414",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416431",
+      "docket_number": "24A457",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72416438",
+      "docket_number": "24A463",
+      "input_kind": "docket-only",
+      "label": "environment-energy-and-property"
+    },
+    {
+      "case_id": "scotus/72416500",
+      "docket_number": "24A507",
+      "input_kind": "docket-only",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/72416563",
+      "docket_number": "24A553",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72416617",
+      "docket_number": "24A588",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416635",
+      "docket_number": "24A598",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72416646",
+      "docket_number": "24A607",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72416686",
+      "docket_number": "24A638",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416723",
+      "docket_number": "24A667",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72416728",
+      "docket_number": "24A670",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416784",
+      "docket_number": "24A712",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/72416801",
+      "docket_number": "24A725",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416849",
+      "docket_number": "24A759",
+      "input_kind": "docket-only",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/72416884",
+      "docket_number": "24A787",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72416885",
+      "docket_number": "24A788",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72416975",
+      "docket_number": "24A854",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72416982",
+      "docket_number": "24A859",
+      "input_kind": "docket-only",
+      "label": "environment-energy-and-property"
+    },
+    {
+      "case_id": "scotus/72416986",
+      "docket_number": "24A862",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72416988",
+      "docket_number": "24A864",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72417014",
+      "docket_number": "24A885",
+      "input_kind": "docket-only",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/72417026",
+      "docket_number": "24A891",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72417100",
+      "docket_number": "24A948",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/72417115",
+      "docket_number": "24A961",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/72417126",
+      "docket_number": "24A970",
+      "input_kind": "docket-only",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/72417135",
+      "docket_number": "24A977",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73248558",
+      "docket_number": "25A1179",
+      "input_kind": "docket-only",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/73272394",
+      "docket_number": "25A1197",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73273118",
+      "docket_number": "25A40",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73273123",
+      "docket_number": "25A44",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73273133",
+      "docket_number": "25A51",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73273156",
+      "docket_number": "25A71",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73273169",
+      "docket_number": "25A74",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73273256",
+      "docket_number": "25A90",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73274996",
+      "docket_number": "25A104",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73275007",
+      "docket_number": "25A118",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73275060",
+      "docket_number": "25A165",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73275085",
+      "docket_number": "25A187",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73275360",
+      "docket_number": "25A211",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73275364",
+      "docket_number": "25A212",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73275366",
+      "docket_number": "25A213",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73275367",
+      "docket_number": "25A216",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73275368",
+      "docket_number": "25A214",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73275390",
+      "docket_number": "25A234",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73275405",
+      "docket_number": "25A246",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73275467",
+      "docket_number": "25A280",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73277651",
+      "docket_number": "25A309",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73277676",
+      "docket_number": "25A335",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73277720",
+      "docket_number": "25A360",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73278708",
+      "docket_number": "25A411",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73278758",
+      "docket_number": "25A440",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73278768",
+      "docket_number": "25A451",
+      "input_kind": "docket-only",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/73279201",
+      "docket_number": "25A532",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73279249",
+      "docket_number": "25A577",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73279700",
+      "docket_number": "25A622",
+      "input_kind": "application-text",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/73280097",
+      "docket_number": "25A723",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73280102",
+      "docket_number": "25A725",
+      "input_kind": "docket-only",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/73280144",
+      "docket_number": "25A773",
+      "input_kind": "docket-only",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/73280174",
+      "docket_number": "25A800",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73280566",
+      "docket_number": "25A807",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73280609",
+      "docket_number": "25A847",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73280633",
+      "docket_number": "25A874",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73280634",
+      "docket_number": "25A872",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73281212",
+      "docket_number": "25A931",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73281232",
+      "docket_number": "25A952",
+      "input_kind": "docket-only",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/73281534",
+      "docket_number": "25A1027",
+      "input_kind": "docket-only",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/73281546",
+      "docket_number": "25A1036",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73281548",
+      "docket_number": "25A1043",
+      "input_kind": "docket-only",
+      "label": "business-and-financial-regulation"
+    },
+    {
+      "case_id": "scotus/73281554",
+      "docket_number": "25A1045",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73281817",
+      "docket_number": "25A1116",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73281819",
+      "docket_number": "25A1118",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73281871",
+      "docket_number": "25A1171",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73281876",
+      "docket_number": "25A1176",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73288357",
+      "docket_number": "25A1207",
+      "input_kind": "docket-only",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/73288461",
+      "docket_number": "25A1208",
+      "input_kind": "docket-only",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/73319431",
+      "docket_number": "25A1229",
+      "input_kind": "docket-only",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/73323353",
+      "docket_number": "25A1235",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73336202",
+      "docket_number": "25A1250",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73359601",
+      "docket_number": "25A1273",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73363397",
+      "docket_number": "25A1276",
+      "input_kind": "docket-only",
+      "label": "tax"
+    },
+    {
+      "case_id": "scotus/73385966",
+      "docket_number": "25A1305",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/73386382",
+      "docket_number": "25A1306",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73431862",
+      "docket_number": "25A1314",
+      "input_kind": "docket-only",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/73500402",
+      "docket_number": "25A1317",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73500445",
+      "docket_number": "25A1356",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73500469",
+      "docket_number": "25A1381",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73500484",
+      "docket_number": "25A1396",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73500649",
+      "docket_number": "25A1406",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73500663",
+      "docket_number": "25A1400",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73515689",
+      "docket_number": "25A1427",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/73541176",
+      "docket_number": "25A1447",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/73541961",
+      "docket_number": "25A1448",
+      "input_kind": "docket-only",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/9525001236",
+      "docket_number": "25A1236",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9525001456",
+      "docket_number": "25A1456",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9525001458",
+      "docket_number": "25A1458",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/9526000031",
+      "docket_number": "26A31",
+      "input_kind": "docket-only",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/9526000036",
+      "docket_number": "26A36",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000050",
+      "docket_number": "26A50",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000051",
+      "docket_number": "26A51",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/9526000118",
+      "docket_number": "26A118",
+      "input_kind": "docket-only",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/9526000124",
+      "docket_number": "26A124",
+      "input_kind": "application-text",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/9526000133",
+      "docket_number": "26A133",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000139",
+      "docket_number": "26A139",
+      "input_kind": "application-text",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/9526000163",
+      "docket_number": "26A163",
+      "input_kind": "application-text",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/9526000164",
+      "docket_number": "26A164",
+      "input_kind": "docket-only",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/9526000167",
+      "docket_number": "26A167",
+      "input_kind": "docket-only",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/9526000171",
+      "docket_number": "26A171",
+      "input_kind": "application-text",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/9526000195",
+      "docket_number": "26A195",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000197",
+      "docket_number": "26A197",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000203",
+      "docket_number": "26A203",
+      "input_kind": "application-text",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/9526000209",
+      "docket_number": "26A209",
+      "input_kind": "application-text",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/9526000245",
+      "docket_number": "26A245",
+      "input_kind": "application-text",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/9526000246",
+      "docket_number": "26A246",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000254",
+      "docket_number": "26A254",
+      "input_kind": "docket-only",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/9526000256",
+      "docket_number": "26A256",
+      "input_kind": "application-text",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000261",
+      "docket_number": "26A261",
+      "input_kind": "docket-only",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/9526000265",
+      "docket_number": "26A265",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000273",
+      "docket_number": "26A273",
+      "input_kind": "application-text",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/9526000274",
+      "docket_number": "26A274",
+      "input_kind": "application-text",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/9526000275",
+      "docket_number": "26A275",
+      "input_kind": "application-text",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/9526000296",
+      "docket_number": "26A296",
+      "input_kind": "application-text",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/9526000297",
+      "docket_number": "26A297",
+      "input_kind": "application-text",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/9526000304",
+      "docket_number": "26A304",
+      "input_kind": "application-text",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/9526000305",
+      "docket_number": "26A305",
+      "input_kind": "application-text",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/9526000308",
+      "docket_number": "26A308",
+      "input_kind": "application-text",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/9526000325",
+      "docket_number": "26A325",
+      "input_kind": "application-text",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/9526000358",
+      "docket_number": "26A358",
+      "input_kind": "docket-only",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/9526000370",
+      "docket_number": "26A370",
+      "input_kind": "application-text",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/9526000382",
+      "docket_number": "26A382",
+      "input_kind": "application-text",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/9526000388",
+      "docket_number": "26A388",
+      "input_kind": "application-text",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/9526000391",
+      "docket_number": "26A391",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000399",
+      "docket_number": "26A399",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000406",
+      "docket_number": "26A406",
+      "input_kind": "application-text",
+      "label": "immigration"
+    },
+    {
+      "case_id": "scotus/9526000416",
+      "docket_number": "26A416",
+      "input_kind": "application-text",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/9526000417",
+      "docket_number": "26A417",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000422",
+      "docket_number": "26A422",
+      "input_kind": "application-text",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/9526000428",
+      "docket_number": "26A428",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/9526000434",
+      "docket_number": "26A434",
+      "input_kind": "application-text",
+      "label": "first-amendment"
+    },
+    {
+      "case_id": "scotus/9526000437",
+      "docket_number": "26A437",
+      "input_kind": "application-text",
+      "label": "environment-energy-and-property"
+    },
+    {
+      "case_id": "scotus/9526000446",
+      "docket_number": "26A446",
+      "input_kind": "application-text",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/9526000447",
+      "docket_number": "26A447",
+      "input_kind": "application-text",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/9526000449",
+      "docket_number": "26A449",
+      "input_kind": "application-text",
+      "label": "constitutional-rights"
+    },
+    {
+      "case_id": "scotus/9526000455",
+      "docket_number": "26A455",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000458",
+      "docket_number": "26A458",
+      "input_kind": "application-text",
+      "label": "employment-and-antidiscrimination"
+    },
+    {
+      "case_id": "scotus/9526000476",
+      "docket_number": "26A476",
+      "input_kind": "docket-only",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/9526000477",
+      "docket_number": "26A477",
+      "input_kind": "application-text",
+      "label": "administrative-law-and-benefit-programs"
+    },
+    {
+      "case_id": "scotus/9526000499",
+      "docket_number": "26A499",
+      "input_kind": "application-text",
+      "label": "civil-procedure"
+    },
+    {
+      "case_id": "scotus/9526000512",
+      "docket_number": "26A512",
+      "input_kind": "application-text",
+      "label": "election-law"
+    },
+    {
+      "case_id": "scotus/9526000524",
+      "docket_number": "26A524",
+      "input_kind": "docket-only",
+      "label": "habeas-and-postconviction"
+    },
+    {
+      "case_id": "scotus/9526000532",
+      "docket_number": "26A532",
+      "input_kind": "application-text",
+      "label": "criminal-law"
+    },
+    {
+      "case_id": "scotus/9526000535",
+      "docket_number": "26A535",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000555",
+      "docket_number": "26A555",
+      "input_kind": "docket-only",
+      "label": "unclassifiable"
+    },
+    {
+      "case_id": "scotus/9526000560",
+      "docket_number": "26A560",
+      "input_kind": "application-text",
+      "label": "administrative-law-and-benefit-programs"
+    }
+  ],
+  "extract_rule": "application-extract-v1",
+  "schema_version": "1.0",
+  "vocabulary": "qp-topic-v1"
+}
