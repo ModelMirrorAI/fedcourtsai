@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000545",
+  "gaps": [
+    "The committed statpack does not contain the prompt-described paid-segment amicus-count cut.",
+    "General Supreme Court rules web retrieval returned no readable content.",
+    "Contact scrubbing missed personal contact information in provisioned filing cover pages despite reporting zero residuals."
+  ],
+  "helpful": [
+    "The appendix contains the actual appellate opinion, allowing the alleged circuit splits to be checked against its reasoning.",
+    "Exact per-Term reached denominators and rates in statpack.json support a reproducible arrival-population anchor.",
+    "CourtListener citation lookup and within-opinion search efficiently checked the comparator precedent."
+  ],
+  "notes": "No live corpus query or case-specific external lookup was needed. The initial CLI invocation hit a read-only default cache; using a writable temporary cache allowed the path resolver to run.",
+  "role": "predictor",
+  "run_id": "20261026T191633Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned-input and schema reads",
+    "fedcourts paths",
+    "committed statpack and local arithmetic",
+    "CourtListener search",
+    "CourtListener search_document",
+    "web search/open attempts"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
