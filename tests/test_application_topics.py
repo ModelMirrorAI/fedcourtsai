@@ -26,9 +26,12 @@ from fedcourtsai.pipeline.application_topics import (
 )
 from fedcourtsai.pipeline.qp_topics import (
     APPLICATION_BATCH_ORDER_SEED,
+    QpText,
+    application_labels_path,
     application_reference_path,
+    build_application_labels,
 )
-from fedcourtsai.schemas import Disposition, QpTopicApplicationReference
+from fedcourtsai.schemas import Disposition, QpTopicApplicationReference, QpTopicLabelEntry
 from fedcourtsai.serialize import write_json
 
 runner = CliRunner()
@@ -289,4 +292,65 @@ def test_the_command_refuses_all_with_the_application_frame(
         app, ["qp-corpus", "--frame", "applications", "--all", "--out", str(out)]
     )
     assert result.exit_code == 2
+    assert not out.exists()
+
+
+def _reference(*rows: tuple[str, str]) -> QpTopicApplicationReference:
+    return QpTopicApplicationReference(
+        cases=len(rows),
+        entries=[
+            {
+                "case_id": case_id,
+                "docket_number": docket,
+                "input_kind": "application-text",
+                "label": "immigration",
+            }
+            for case_id, docket in rows
+        ],
+    )
+
+
+def _seeded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    corpus_root = tmp_path / "corpus"
+    _seed(corpus.corpus_db_path(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    return tmp_path / "applications.json"
+
+
+def test_the_command_refuses_a_frame_under_the_application_coverage_floor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out = _seeded(tmp_path, monkeypatch)
+    # Half the block has left the frame, so no labeling run could clear the gate.
+    write_json(
+        application_reference_path(tmp_path / "data"),
+        _reference(("scotus/1", "24A949"), ("scotus/9", "25A99")),
+    )
+    result = runner.invoke(app, ["qp-corpus", "--frame", "applications", "--out", str(out)])
+    assert result.exit_code == 1
+    assert "1 of 2 application reference case(s) are in the frame" in result.stderr
+    assert not out.exists()
+
+
+def test_the_command_refuses_a_converged_application_frame(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    out = _seeded(tmp_path, monkeypatch)
+    reference = _reference(("scotus/1", "24A949"))
+    write_json(application_reference_path(tmp_path / "data"), reference)
+    labeled = build_application_labels(
+        entries=[
+            QpTopicLabelEntry(case_id="scotus/1", docket_number="24A949", label="immigration"),
+            QpTopicLabelEntry(case_id="scotus/2", docket_number="25A10", label="tax"),
+        ],
+        texts={"scotus/1": QpText("24A949", "x"), "scotus/2": QpText("25A10", "")},
+        input_kinds={"scotus/1": "application-text", "scotus/2": "docket-only"},
+        reference=reference,
+        labeler="claude-code/test",
+    )
+    write_json(application_labels_path(tmp_path / "data"), labeled)
+    result = runner.invoke(app, ["qp-corpus", "--frame", "applications", "--out", str(out)])
+    assert result.exit_code == 1
+    assert "converged" in result.stderr
     assert not out.exists()

@@ -151,7 +151,7 @@ on:
           - qp-topic-label-applications
         default: corpus-stats
       label_model:
-        description: "qp-topic-label: the model the Claude Code labeler runs (ignored by the other modes)."
+        description: "qp-topic-label and qp-topic-label-applications: the model the Claude Code labeler runs (ignored by the other modes)."
         # A choice, not a free string: the value is spliced into the agent's own
         # `claude_args` block, where a newline would append flags the mode's
         # contract withholds (an `--mcp-config` line would hand a text-only
@@ -1247,7 +1247,9 @@ jobs:
     env:
       # Which frame this dispatch labels, and the labels file it accrues. Both
       # are read off the mode alone, so the extract, the measurement and the
-      # PR can never name different frames.
+      # PR can never name different frames. This job reads only QP_FRAME;
+      # LABELS_NAME is set here too so all three jobs carry the same pair,
+      # which a workflow test pins equal.
       QP_FRAME: ${{ inputs.mode == 'qp-topic-label-applications' && 'applications' || 'petitions' }}
       LABELS_NAME: >-
         ${{ inputs.mode == 'qp-topic-label-applications'
@@ -2260,7 +2262,7 @@ jobs:
       - name: Note the rehearsal boundary (publish fenced off this ref)
         if: ${{ !cancelled() && github.ref != 'refs/heads/main' }}
         run: |
-          echo "qp-topic-label rehearsal: whatever ran above, the labels PR is fenced to main-branch runs — nothing published from this dispatch." \
+          echo "qp-topic labeling rehearsal (${QP_FRAME} frame): whatever ran above, the labels PR is fenced to main-branch runs — nothing published from this dispatch." \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
   # The labels PR, opened from a runner no agent has held. This is the token
@@ -2499,7 +2501,7 @@ jobs:
           if [ "$QP_FRAME" = applications ]; then
             title="data(qp-topics): application batch ${batch} — ${labeled} new qp-topic-v1 label(s) by ${LABELER} (${cases} total)"
             lead="Batch ${batch} of the \`qp-topic-v1\` application frame, by \`${LABELER}\` from the \`application-extract-v1\` rows (caption, court below, pre-disposition docket entries, and the stored application text where there is one): ${labeled} new label(s), bringing the application artifact to ${cases}."
-            meaning="What the numbers mean — agreement with the application reference block's adjudicated labels, **not** accuracy; raters and fitted rules disclosed; the \`input_kind\` split reported beside any cut — is in the *Applications* section of \`docs/qp-topic.md\`."
+            meaning="The figures are agreement with the application reference block's adjudicated labels, **not** accuracy, and they are in-sample: the labeler applies register rules that were fitted to this same block, which one session adjudicated without blinding. Do not quote them as an agreement rate until a held-out blind pass exists. The pooled rate over-weights \`application-text\` rows against the frame, so the block above splits it by \`input_kind\`. The *Applications* section of \`docs/qp-topic.md\` has the rest."
           else
             title="data(qp-topics): batch ${batch} — ${labeled} new qp-topic-v0 label(s) by ${LABELER} (${cases} total)"
             lead="Batch ${batch} of the \`qp-topic-v0\` labeling frame, by \`${LABELER}\` from the stored questions-presented text alone: ${labeled} new label(s), bringing the artifact to ${cases}."

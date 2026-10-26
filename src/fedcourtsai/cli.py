@@ -6983,7 +6983,10 @@ def qp_topics_cmd(
     ],
     out: Annotated[
         Path | None,
-        typer.Option(help="JSON output path (default: <data_root>/qp-topics/qp-topics.json)."),
+        typer.Option(
+            help="JSON output path (default: <data_root>/qp-topics/qp-topics.json, or "
+            "qp-topics-applications.json under --frame applications)."
+        ),
     ] = None,
     frame_rows: Annotated[
         int | None,
@@ -7111,6 +7114,9 @@ def _qp_topics_applications(
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+    reference = read_model(reference_path, QpTopicApplicationReference)
+    lines = {entry.case_id: entry.label for entry in qp_topics.read_label_lines(labels)}
+    typer.echo(qp_topics.render_input_kind_split(lines, reference))
     _report_labels_run(artifact, reference_name="the application reference block")
     destination = out if out is not None else prior_path
     write_json(destination, artifact)

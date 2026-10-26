@@ -17,7 +17,8 @@ why this vocabulary exists.
 "QP topic" is the vocabulary's name, not a limit on what it labels: an
 application carries no questions presented, and its label is still a QP topic.
 The `qp-topic-v0` and `qp-topic-v1` tokens, the `data/qp-topics/` path, the
-`qp-corpus` command and the `qp-topic-label` run mode keep the name, because
+`qp-corpus` command and the `qp-topic-label` and `qp-topic-label-applications`
+run modes keep the name, because
 every committed label and every published cut is stamped with it. Prose may
 call a label a case topic. A neutral name, if it comes, arrives with a new
 vocabulary version, with the path, command, run mode and the public site's
@@ -362,6 +363,11 @@ labeled by is the one its underlying dispute would present.
   the label wherever the row names no subject. A row that names only its
   parties (a bank, a police department, a housing agency) is
   `unclassifiable`, even where a reader recognizes the case.
+- **Secondary and vehicle.** `secondary` follows the petition rule: a second
+  subject the row itself raises, never a restatement of the primary. The
+  `vehicle` flag is never set on an application, because an application asks
+  for no GVR hold. The procedural vehicle the stay-of-execution rule reads is
+  a different thing: it chooses the primary and is not recorded as a flag.
 
 **Where these rules came from, and what is not yet measured.** A reference
 sample was labeled before the rules were written, and the rules were fitted

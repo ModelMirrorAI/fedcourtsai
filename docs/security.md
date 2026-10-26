@@ -1882,9 +1882,12 @@ fact the Court's docket page states), and nothing finer, since its granted
 applications are sampled. That composition is the thing argued in
 `docs/qp-topic.md`, alongside the non-git channel the labeling run adds — three
 artifacts under the same one-day window, publicly downloadable on this
-repository: its extract of stored petition text, riding between the mode's two
-jobs; the labeler's scanned turn-by-turn transcript, which embeds the same
-text plus the agent's own turns; and the scanned labels the run wrote, which
+repository: its extract, riding between the mode's two jobs (stored petition
+text on the petition frame; on the application frame each application's
+caption, court below, pre-disposition docket entries and stored application
+text, argued with the application extract in `docs/qp-topic.md`); the
+labeler's scanned turn-by-turn transcript, which embeds the same text plus the
+agent's own turns; and the scanned labels the run wrote, which
 republish no petition text and name the same population the committed
 artifacts do, but unvalidated — they are uploaded before `qp-topics` reads them, so
 they travel on the runs the publication gate refuses and the runs it passes

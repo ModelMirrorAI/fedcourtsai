@@ -17,6 +17,7 @@ from fedcourtsai.pipeline.qp_topics import (
     application_stratum_key,
     build_application_labels,
     derive_label_batch,
+    read_input_kinds,
 )
 from fedcourtsai.schemas import (
     QpTopicApplicationLabels,
@@ -179,6 +180,30 @@ def test_an_extract_row_without_an_input_kind_is_refused() -> None:
             reference=_block(),
             labeler="claude-code/test",
         )
+
+
+def test_a_reference_row_publishes_the_block_input_kind_whatever_the_extract_says() -> None:
+    # The block records the shape its label was adjudicated on; an extract that
+    # has since stored text for that application does not re-stamp the label.
+    kinds = _kinds()
+    kinds["scotus/10"] = "application-text"
+    artifact = build_application_labels(
+        entries=_lines(),
+        texts=_texts(),
+        input_kinds=kinds,
+        reference=_block(),
+        labeler="claude-code/test",
+    )
+    row = {entry.case_id: entry for entry in artifact.entries}["scotus/10"]
+    assert (row.source, row.input_kind) == ("reference", "docket-only")
+    assert artifact.cases == 12
+
+
+def test_a_petition_extract_is_refused_as_an_input_kind_source(tmp_path: Path) -> None:
+    path = tmp_path / "qp.json"
+    path.write_text(json.dumps([{"case_id": "scotus/1", "docket_number": "24-1", "text": "Q"}]))
+    with pytest.raises(QpTopicError, match="not an application extract row"):
+        read_input_kinds(path)
 
 
 def _seed_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, miss: int) -> tuple[Path, Path]:

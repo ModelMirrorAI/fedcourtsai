@@ -48,7 +48,7 @@
             }
           ],
           "default": null,
-          "description": "overall_agree / overall_n \u2014 agreement with the v0 reference rater, not accuracy. Null when nothing was compared",
+          "description": "overall_agree / overall_n \u2014 agreement with the frame's reference rater, not accuracy. Null when nothing was compared",
           "title": "Overall Rate"
         },
         "per_label": {
@@ -194,7 +194,7 @@
     },
     "QpTopicLabelAgreement": {
       "additionalProperties": false,
-      "description": "One label's agreement between a labeler and the v0 reference rater.\n\nCounted over the reference entries carrying this label, so ``n`` is the\n*reference* support, not the labeler's. ``rate`` is withheld below the\nper-label support floor: under it the count is reported and the ratio is\nnot, because a single entry moves it by tens of points.",
+      "description": "One label's agreement between a labeler and the frame's reference rater.\n\nCounted over the reference entries carrying this label, so ``n`` is the\n*reference* support, not the labeler's. ``rate`` is withheld below the\nper-label support floor: under it the count is reported and the ratio is\nnot, because a single entry moves it by tens of points.",
       "properties": {
         "agree": {
           "description": "Compared entries where the labeler assigned this label",
@@ -243,7 +243,7 @@
             }
           ],
           "default": null,
-          "description": "agree / n \u2014 agreement with the v0 reference rater, not accuracy. Null below the support floor, where the label is unmeasured in v0",
+          "description": "agree / n \u2014 agreement with the frame's reference rater, not accuracy. Null below the support floor, where the label is unmeasured in v0",
           "title": "Rate"
         }
       },

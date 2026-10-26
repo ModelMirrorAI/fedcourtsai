@@ -879,18 +879,25 @@ def build_application_labels(
     """Assemble the application labels artifact, by :func:`build_labels`'s rules.
 
     The same two publication rules, measured against the application reference
-    block, with each published row stamped with the ``input_kind`` of the
-    extract row its label was read from. ``texts`` carries each row's stored
-    application text, empty on a ``docket-only`` row, so the shadow rules fire
-    on the application's own words or not at all. A carried row keeps the
-    ``input_kind`` it was published with.
+    block. Each published row is stamped with the shape its label was read from:
+    a labeler row with the ``input_kind`` of this batch's extract row, and a
+    reference row with the block's own ``input_kind``, since the adjudicated
+    label is what that row publishes and the block records what it was read
+    from. So a reference row's stamp moves only with a reviewed edit of the
+    block, never with the corpus. ``texts`` carries each row's stored
+    application text, empty on a ``docket-only`` row, so the shadow rules fire on
+    the application's own words or not at all.
     """
     missing = sorted(set(texts) - set(input_kinds))
     if missing:
         raise QpTopicError(f"extract rows carry no input_kind: {missing[:3]}")
-    kinds = dict(input_kinds)
-    for row in prior.entries if prior is not None else ():
-        kinds.setdefault(row.case_id, row.input_kind)
+    block = {entry.case_id: entry.input_kind for entry in reference.entries}
+
+    def publish(row: dict[str, object]) -> QpTopicApplicationPublishedEntry:
+        case_id = str(row["case_id"])
+        kind = block[case_id] if row["source"] == "reference" else input_kinds[case_id]
+        return QpTopicApplicationPublishedEntry(**row, input_kind=kind)
+
     accrued = _accrue(
         entries=entries,
         texts=texts,
@@ -899,21 +906,20 @@ def build_application_labels(
         prior_entries=prior.entries if prior is not None else (),
         prior_batches=prior.batches if prior is not None else (),
         frame_rows=frame_rows,
-        publish=lambda row: QpTopicApplicationPublishedEntry(
-            **row, input_kind=kinds[str(row["case_id"])]
-        ),
+        publish=publish,
     )
+    rows: list[QpTopicApplicationPublishedEntry] = []
+    for entry in accrued.entries:
+        if not isinstance(entry, QpTopicApplicationPublishedEntry):
+            raise QpTopicError(f"{entry.case_id} is not an application row")
+        rows.append(entry)
     return QpTopicApplicationLabels(
         labeler=labeler,
-        cases=len(accrued.entries),
+        cases=len(rows),
         agreement=accrued.agreement,
         shadow=accrued.shadow,
         batches=accrued.batches,
-        entries=[
-            entry
-            for entry in accrued.entries
-            if isinstance(entry, QpTopicApplicationPublishedEntry)
-        ],
+        entries=rows,
     )
 
 
@@ -1043,6 +1049,32 @@ def _accrue(
         batches=ledger,
         entries=sorted(published.values(), key=lambda row: row.case_id),
     )
+
+
+def render_input_kind_split(
+    labels: Mapping[str, str], reference: QpTopicApplicationReference
+) -> str:
+    """The application measurement split by ``input_kind``, beside the pooled block.
+
+    The block over-weights ``application-text`` rows against the frame, so the
+    pooled rate is neither a per-kind figure nor a frame estimate, and a weak
+    reading on one kind can hide under a strong one on the other. Each kind is
+    printed with its own ``n`` and the rate a constant labeler scores on it. The
+    gate stays pooled: the ``application-text`` block is too small to carry a
+    floor of its own.
+    """
+    lines = ["  by input_kind (agreement with the application reference block):"]
+    for kind in get_args(InputKind):
+        subset = [entry for entry in reference.entries if entry.input_kind == kind]
+        part = measure_agreement(
+            labels, QpTopicApplicationReference(cases=len(subset), entries=subset)
+        )
+        rate = "n/a" if part.overall_rate is None else f"{part.overall_rate:.1%}"
+        floor = "n/a" if part.floor is None else f"{part.floor:.1%}"
+        lines.append(
+            f"    {kind:17s} {part.overall_agree}/{part.overall_n} ({rate}), floor {floor}"
+        )
+    return "\n".join(lines)
 
 
 def render_agreement(

@@ -48,7 +48,7 @@
             }
           ],
           "default": null,
-          "description": "overall_agree / overall_n \u2014 agreement with the v0 reference rater, not accuracy. Null when nothing was compared",
+          "description": "overall_agree / overall_n \u2014 agreement with the frame's reference rater, not accuracy. Null when nothing was compared",
           "title": "Overall Rate"
         },
         "per_label": {
@@ -85,7 +85,7 @@
     },
     "QpTopicApplicationPublishedEntry": {
       "additionalProperties": false,
-      "description": "One row of the accumulating application labels artifact.\n\nA published label plus the extract shape it was read from, stamped by the\nbuilder from the extract row and never by the labeler: a label read from a\ncaption and a stay request is weaker than one read from the application's\nown text, and every cut reports the two apart (``docs/qp-topic.md``,\n*Applications*).",
+      "description": "One row of the accumulating application labels artifact.\n\nA published label plus the extract shape it was read from, stamped by the\nbuilder from the extract row and never by the labeler: a label read from a\ncaption and a stay request is weaker than one read from the application's\nown text, and a cut reports the two apart (``docs/qp-topic.md``,\n*Applications*).",
       "properties": {
         "batch": {
           "description": "The labeling batch that first published this row (1-indexed)",
@@ -306,7 +306,7 @@
     },
     "QpTopicLabelAgreement": {
       "additionalProperties": false,
-      "description": "One label's agreement between a labeler and the v0 reference rater.\n\nCounted over the reference entries carrying this label, so ``n`` is the\n*reference* support, not the labeler's. ``rate`` is withheld below the\nper-label support floor: under it the count is reported and the ratio is\nnot, because a single entry moves it by tens of points.",
+      "description": "One label's agreement between a labeler and the frame's reference rater.\n\nCounted over the reference entries carrying this label, so ``n`` is the\n*reference* support, not the labeler's. ``rate`` is withheld below the\nper-label support floor: under it the count is reported and the ratio is\nnot, because a single entry moves it by tens of points.",
       "properties": {
         "agree": {
           "description": "Compared entries where the labeler assigned this label",
@@ -355,7 +355,7 @@
             }
           ],
           "default": null,
-          "description": "agree / n \u2014 agreement with the v0 reference rater, not accuracy. Null below the support floor, where the label is unmeasured in v0",
+          "description": "agree / n \u2014 agreement with the frame's reference rater, not accuracy. Null below the support floor, where the label is unmeasured in v0",
           "title": "Rate"
         }
       },

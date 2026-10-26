@@ -9036,7 +9036,7 @@ class QpTopicBatchEntry(_Strict):
 
 
 class QpTopicLabelAgreement(_Strict):
-    """One label's agreement between a labeler and the v0 reference rater.
+    """One label's agreement between a labeler and the frame's reference rater.
 
     Counted over the reference entries carrying this label, so ``n`` is the
     *reference* support, not the labeler's. ``rate`` is withheld below the
@@ -9051,7 +9051,7 @@ class QpTopicLabelAgreement(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="agree / n — agreement with the v0 reference rater, not accuracy. Null "
+        description="agree / n — agreement with the frame's reference rater, not accuracy. Null "
         "below the support floor, where the label is unmeasured in v0",
     )
 
@@ -9100,7 +9100,7 @@ class QpTopicAgreement(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="overall_agree / overall_n — agreement with the v0 reference rater, not "
+        description="overall_agree / overall_n — agreement with the frame's reference rater, not "
         "accuracy. Null when nothing was compared",
     )
     uncovered: int = Field(
@@ -9243,7 +9243,7 @@ class QpTopicApplicationPublishedEntry(QpTopicPublishedEntry):
     A published label plus the extract shape it was read from, stamped by the
     builder from the extract row and never by the labeler: a label read from a
     caption and a stay request is weaker than one read from the application's
-    own text, and every cut reports the two apart (``docs/qp-topic.md``,
+    own text, and a cut reports the two apart (``docs/qp-topic.md``,
     *Applications*).
     """
 

@@ -521,8 +521,8 @@ queues behind the production run of the same mode. The modes:
   (`fedcourts qp-corpus`, under `$RUNNER_TEMP` — the command refuses an `--out`
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
-  credential in its environment and no MCP config (the vocabulary is text-only,
-  so the extract is the agent's entire evidentiary input). Exactly three things
+  credential in its environment and no MCP config (on either frame the extract
+  is the agent's entire evidentiary input). Exactly three things
   cross the split: that artifact, and two job outputs, each one integer. The
   size of the QP-bearing frame the extract cut the batch from goes to the
   post-label measure step's `qp-topics --frame-rows`, so the labels artifact
@@ -1835,7 +1835,8 @@ The mechanics:
   candidate (`promote/…`), or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, merits-backtest and salience-replay PRs,
-  the qp-topic labeling run's `qp-topics/refresh` PR, the case-summary lane's
+  the qp-topic labeling runs' `qp-topics/refresh` and
+  `qp-topics/applications-refresh` PRs, the case-summary lane's
   `summaries/refresh` PR, the big-case board's
   `metrics/big-cases` PR and the update history's `metrics/public-updates`
   PR); on those
