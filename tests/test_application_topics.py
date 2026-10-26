@@ -74,8 +74,8 @@ DOCKET = _payload(
 
 
 def test_only_filings_before_the_disposition_reach_the_labeler() -> None:
-    cutoff, entries = pre_disposition_entries(DOCKET, None)
-    assert cutoff == date(2025, 4, 10)
+    read, cutoff, entries = pre_disposition_entries(DOCKET, None)
+    assert (read, cutoff) == (True, date(2025, 4, 10))
     assert [entry.text for entry in entries] == [
         "Application (24A949) for a stay, submitted to Justice Jackson.",
         "Response to application (24A949) requested by Justice Jackson.",
@@ -92,13 +92,13 @@ def test_the_first_disposition_cuts_a_refiled_application() -> None:
         ("Mar 10 2026", "Application (25A918) refiled and submitted to Justice Sotomayor."),
         ("Apr 06 2026", "Application (25A918) denied by the Court."),
     )
-    cutoff, entries = pre_disposition_entries(refiled, None)
+    _, cutoff, entries = pre_disposition_entries(refiled, None)
     assert cutoff == date(2026, 2, 19)
     assert len(entries) == 1
 
 
 def test_a_stored_decision_date_cuts_where_no_order_is_read() -> None:
-    cutoff, entries = pre_disposition_entries(DOCKET, date(2025, 3, 10))
+    _, cutoff, entries = pre_disposition_entries(DOCKET, date(2025, 3, 10))
     assert cutoff == date(2025, 3, 10)
     assert len(entries) == 2
 
@@ -108,10 +108,41 @@ def test_the_filing_entry_survives_naming_an_order_below() -> None:
         ("Mar 03 2025", "Application (24A1) to vacate the injunction ordered by the court."),
         ("Mar 04 2025", "It is ordered that the response be filed."),
     )
-    _, entries = pre_disposition_entries(payload, None)
+    read, _, entries = pre_disposition_entries(payload, None)
+    assert not read
     assert [entry.text for entry in entries] == [
         "Application (24A1) to vacate the injunction ordered by the court."
     ]
+
+
+def test_an_undated_disposition_still_cuts_by_position() -> None:
+    payload = _payload(
+        ("Mar 03 2025", "Application (24A1) for a stay, submitted to Justice Kagan."),
+        ("not a date", "Application (24A1) denied by Justice Kagan."),
+        ("Mar 20 2025", "Application (24A1) refiled and submitted to Justice Gorsuch."),
+        ("Mar 21 2025", "Letter from applicant regarding the denial filed."),
+    )
+    read, cutoff, entries = pre_disposition_entries(payload, None)
+    assert (read, cutoff) == (True, None)
+    assert [entry.date for entry in entries] == ["2025-03-03"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Application (24A1) referred to the Court is deferred pending oral argument.",
+        "SET FOR ARGUMENT on Monday, April 21, 2025.",
+        "Argued. For applicants: D. John Sauer.",
+        "Application (24A1) treated as a petition for a writ of certiorari.",
+    ],
+)
+def test_the_courts_other_acts_are_dropped(text: str) -> None:
+    payload = _payload(
+        ("Mar 03 2025", "Application (24A1) for a stay, submitted to Justice Kagan."),
+        ("Mar 04 2025", text),
+    )
+    _, _, entries = pre_disposition_entries(payload, None)
+    assert len(entries) == 1
 
 
 def test_a_row_reads_the_application_text_only_before_the_cutoff() -> None:
@@ -127,10 +158,16 @@ def test_a_row_reads_the_application_text_only_before_the_cutoff() -> None:
     assert extracted.lower_court == "United States Court of Appeals for the First Circuit"
     assert extracted.caption == CAPTION
 
-    late = [_document("scotus/1", "application", "2025-04-10", "Filed with the order.")]
+    verbatim = [_document("scotus/1", "application", "Mar 03 2025", "Parole terminations.")]
+    assert application_row(row, DOCKET, verbatim).input_kind == "application-text"
+    late = [_document("scotus/1", "application", "Apr 10 2025", "Filed with the order.")]
     assert application_row(row, DOCKET, late).input_kind == "docket-only"
     blank = [_document("scotus/1", "application", "2025-03-03", "   ")]
     assert application_row(row, DOCKET, blank).input_kind == "docket-only"
+    unreadable = [_document("scotus/1", "application", "sometime", "Parole terminations.")]
+    assert application_row(row, DOCKET, unreadable).input_kind == "docket-only"
+    undated = [_document("scotus/1", "application", None, "Parole terminations.")]
+    assert application_row(row, DOCKET, undated).input_kind == "application-text"
     bare = application_row(row, None, [])
     assert (bare.input_kind, bare.entries, bare.lower_court) == ("docket-only", (), None)
 
@@ -160,7 +197,12 @@ def _seed(db: Path) -> None:
                     disposition=Disposition.granted,
                     date_decided=date(2025, 4, 10),
                 ),
-                _row("scotus/2", "25A10", application_kind="unknown"),
+                _row(
+                    "scotus/2",
+                    "25A10",
+                    application_kind="unknown",
+                    disposition=Disposition.denied,
+                ),
                 _row("scotus/3", "25A11", application_kind="extension"),
             ],
         )
@@ -177,7 +219,7 @@ def test_the_extract_tallies_coverage_by_term_ask_and_input(tmp_path: Path) -> N
     with corpus.connect(db) as conn:
         extract = application_extract(conn)
     assert [row.case_id for row in extract.rows] == ["scotus/1", "scotus/2"]
-    assert extract.extension_rows == 1
+    assert (extract.extension_rows, extract.decided_unread) == (1, 1)
     assert dict(extract.coverage) == {
         (2024, "substantive", "application-text"): 1,
         (2025, "unknown", "docket-only"): 1,
@@ -203,7 +245,9 @@ def test_the_command_writes_the_application_frame(
         "2025-03-10",
     ]
     assert "granted by the Court" not in out.read_text()
-    assert "application-extract-v1; 0 duplicate row(s) and 1 extension(s)" in result.stderr
+    assert "application-extract-v1; 0 duplicate row(s) and 1 extension(s) left out; 1 decided" in (
+        result.stderr
+    )
     assert "OT2024 substantive application-text: 1" in result.stderr
 
 

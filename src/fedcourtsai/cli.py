@@ -6912,7 +6912,8 @@ def _qp_corpus_applications(
     write_raw_json(out, [row.as_json() for row in rows])
     typer.echo(
         f"qp-corpus: {APPLICATION_EXTRACT_RULE}; {extract.duplicate_rows} duplicate row(s) and "
-        f"{extract.extension_rows} extension(s) left out",
+        f"{extract.extension_rows} extension(s) left out; {extract.decided_unread} decided "
+        "row(s) with no disposition read on the docket",
         err=True,
     )
     for (term, ask, input_kind), count in sorted(

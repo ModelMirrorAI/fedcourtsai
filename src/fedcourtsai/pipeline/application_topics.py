@@ -17,22 +17,33 @@ read from the caption and entries alone.
 
 **What a row never holds** is anything that could encode the decision:
 
-- The **cutoff** is the earlier of the first entry the registered disposition
-  matcher (:func:`~fedcourtsai.pipeline.interim_signals.match_interim_disposition`)
-  reads and the row's stored ``date_decided``. Only entries dated strictly
-  before it are kept, so a filing docketed the same day as the order is
-  dropped with it; an undated entry cannot be placed and is dropped too.
-- An entry recording a **court action** is dropped whatever its date: a grant
-  or denial of anything, a dismissal, a vacatur, an entered stay or an order.
-  An administrative stay or a granted motion before the decision is not the
-  outcome, but it is the Court's act, and a topic is read from what the parties
-  filed. The application's own filing entry ("Application (24A1) for a stay of
-  the injunction ordered by …") is kept even where it names an order below,
-  unless the disposition matcher reads it.
+- The **cutoff** is the first entry the registered disposition matcher
+  (:func:`~fedcourtsai.pipeline.interim_signals.match_interim_disposition`)
+  reads, by position, and the earlier of its date and the row's stored
+  ``date_decided``. Nothing from that entry on is kept, even where its date
+  could not be read, since the proceedings list is append-only; and of the
+  entries before it only those dated strictly before the cutoff date are kept,
+  so a filing docketed the same day as the order goes with it. An undated entry
+  cannot be placed and is dropped too. The matcher also reads a granted
+  administrative stay, so on such a docket the cutoff falls there, often weeks
+  before the decision: conservative, at the cost of input.
+- An entry recording a **court action** is dropped whatever its date: anything
+  granted, denied, dismissed, vacated, stayed, ordered or deferred, an
+  administrative or entered stay, an issued judgment or mandate, an argument
+  set or held, or an application treated as a petition. A topic is read from
+  what the parties filed. The application's own filing entry ("Application
+  (24A1) for a stay of the injunction ordered by …") is kept even where it
+  names an order below, unless the disposition matcher reads it. A request for
+  a response is kept: it names no outcome, and it is where many dockets name
+  the respondent.
 - The application text is kept only when its document is dated before the
-  cutoff or undated (the applicant's own opening filing, which precedes any
-  ruling on it). Responses and replies are not read: the application states the
-  dispute, and a narrower input is a smaller surface to audit.
+  cutoff, or carries no date at all (the applicant's own opening filing, which
+  precedes any ruling on it); a date that cannot be read drops it. The response
+  and reply documents are not read: the application states the dispute, and a
+  narrower input is a smaller surface to audit.
+- A row the corpus holds as decided on whose docket no disposition is read is
+  cut by its stored decision date alone, or not at all. The extract counts
+  those rows (``decided_unread``) rather than leaving them silent.
 
 **The population** is the live slice's application dockets, one row per docket
 number, extensions left out: an extension asks for time, and its subject is the
@@ -41,9 +52,10 @@ applications whose ask the parser could not read, and rows it never parsed all
 enter, counted apart in the coverage tally, so a topic cut can reach every
 interim forecast and say what it could not.
 
-**Versioned.** ``application-extract-v1`` is this cutoff, this filter and this
-budget; a change to any of them is a new label, since it changes what every
-application label was read from.
+**Versioned.** ``application-extract-v1`` is this cutoff, this filter and its
+two budgets (:data:`APPLICATION_TEXT_BUDGET` characters of text,
+:data:`ENTRY_BUDGET` entries); a change to any of them is a new label, since it
+changes what every application label was read from.
 """
 
 from __future__ import annotations
@@ -57,7 +69,7 @@ from typing import Any, Final, Literal
 
 from .. import corpus
 from .documents import KIND_APPLICATION
-from .ingest import _live_entries
+from .ingest import _date, _live_entries
 from .interim_signals import ApplicationKind, match_interim_disposition
 from .party import docket_stratum
 from .party_rates import docket_key
@@ -88,8 +100,9 @@ _FILING_RE: Final = re.compile(r"^\s*applications?\s*\(\s*\d{2}A\d+\s*\)\s*(?:fo
 
 #: An entry recording the Court's own act, not a filing.
 _COURT_ACTION_RE: Final = re.compile(
-    r"\b(?:granted|denied|dismissed|vacated|stayed|ordered|administrative\s+stay"
-    r"|stay\s+(?:is\s+)?entered|judgment\s+issued|mandate\s+issued)\b",
+    r"\b(?:granted|denied|dismissed|vacated|stayed|ordered|deferred|administrative\s+stay"
+    r"|stay\s+(?:is\s+)?entered|judgment\s+issued|mandate\s+issued|argued"
+    r"|set\s+for\s+argument|argument\s+set|treated\s+as\s+a\s+petition)\b",
     re.IGNORECASE,
 )
 
@@ -136,40 +149,57 @@ class ApplicationExtract:
     rows: list[ApplicationExtractRow] = field(default_factory=list)
     duplicate_rows: int = 0
     extension_rows: int = 0
+    #: Rows the corpus holds as decided whose docket no disposition was read on,
+    #: so only the stored decision date (if any) cut them.
+    decided_unread: int = 0
     #: ``(Term, ask, input_kind)`` -> rows; Term ``None`` where the number has none.
     coverage: Counter[tuple[int | None, AskKind, InputKind]] = field(default_factory=Counter)
 
 
-def _dated(value: str | None) -> date:
-    """A document's entry date, an undated or unreadable one sorting before any cutoff."""
+def _dated(value: str | None) -> date | None:
+    """A document's entry date as the docket spells it (``Mar 03 2025``), or ``None``.
+
+    An unreadable date is no date: the document cannot be placed against the
+    cutoff, so the caller drops it rather than guessing.
+    """
     try:
-        return date.fromisoformat(str(value)[:10]) if value else date.min
-    except ValueError:
-        return date.min
+        return _date(value)
+    except (ValueError, OverflowError):
+        return None
 
 
-def _cutoff(entries: Sequence[Mapping[str, Any]], decided: date | None) -> date | None:
-    """The first date nothing may be read from: the first disposing entry, or the decision."""
+def _cutoff(entries: Sequence[Mapping[str, Any]], decided: date | None) -> tuple[int, date | None]:
+    """Where nothing more may be read: the first disposing entry's index, and the cutoff date.
+
+    The index is the end of the docket where no entry disposes. The date is the
+    earlier of the first disposing entry's and the stored decision date, or
+    ``None`` where neither is known.
+    """
     cutoff = decided
-    for entry in entries:
+    for index, entry in enumerate(entries):
         if match_interim_disposition(str(entry.get("description") or "")) is None:
             continue
         dated = entry.get("date_filed")
         if dated:
             found = date.fromisoformat(str(dated))
             cutoff = found if cutoff is None else min(cutoff, found)
-        break
-    return cutoff
+        return index, cutoff
+    return len(entries), cutoff
 
 
 def pre_disposition_entries(
     payload: Mapping[str, Any], decided: date | None
-) -> tuple[date | None, tuple[ApplicationEntry, ...]]:
-    """The cutoff and the entries a labeler may read, earliest first (module docstring)."""
+) -> tuple[bool, date | None, tuple[ApplicationEntry, ...]]:
+    """(disposition read, cutoff, the entries a labeler may read), earliest first.
+
+    The module docstring states every rule. The proceedings list is
+    append-only, so an entry after the first disposing one is cut by position
+    even where that entry's date could not be read.
+    """
     entries = _live_entries(payload)
-    cutoff = _cutoff(entries, decided)
+    stop, cutoff = _cutoff(entries, decided)
     kept: list[ApplicationEntry] = []
-    for entry in entries:
+    for entry in entries[:stop]:
         dated, text = entry.get("date_filed"), str(entry.get("description") or "").strip()
         if not dated or not text:
             continue
@@ -180,23 +210,26 @@ def pre_disposition_entries(
         if _COURT_ACTION_RE.search(text) and not _FILING_RE.match(text):
             continue
         kept.append(ApplicationEntry(str(dated), text))
-    return cutoff, tuple(kept[:ENTRY_BUDGET])
+    return stop < len(entries), cutoff, tuple(kept[:ENTRY_BUDGET])
 
 
 def application_row(
     row: corpus.CorpusRow, payload: Payload, documents: Iterable[corpus.CaseDocument]
 ) -> ApplicationExtractRow:
     """One application's extract row from its corpus row, snapshot and documents."""
-    cutoff, entries = (
+    _, cutoff, entries = (
         pre_disposition_entries(payload, row.date_decided)
         if payload is not None
-        else (row.date_decided, ())
+        else (False, row.date_decided, ())
     )
     text = ""
     for document in documents:
         if document.kind != KIND_APPLICATION or not document.text.strip():
             continue
-        if cutoff is not None and _dated(document.entry_date) >= cutoff:
+        filed = _dated(document.entry_date)
+        if document.entry_date and filed is None:
+            continue
+        if cutoff is not None and filed is not None and filed >= cutoff:
             continue
         text = document.text.strip()[:APPLICATION_TEXT_BUDGET]
         break
@@ -263,6 +296,10 @@ def application_extract(conn: corpus.ReadConnection) -> ApplicationExtract:
             row = by_case[case_id]
             extracted = application_row(row, payload, documents)
             extract.rows.append(extracted)
+            if row.disposition is not None and (
+                payload is None or not pre_disposition_entries(payload, row.date_decided)[0]
+            ):
+                extract.decided_unread += 1
             term = corpus.scotus_application_term_year(row.docket_number)
             extract.coverage[(term, _ask(row.application_kind), extracted.input_kind)] += 1
     return extract
