@@ -233,7 +233,7 @@ Which cases the predictors think matter, and where they disagree. One row per pr
 | 207 | `scotus/73266074` | Hastings College Conservation Committee, et al. v. California, et al. | `evt-petition-disposition` | 0.370 | 3 | 0.160 | 0.30 | 0.46 | 0.35 | resolved | — |
 | 208 | `scotus/73281674` | PG Publishing Company, Inc., dba Pittsburgh Post-Gazette v. National Labor Relations Board, et al. | `evt-petition-disposition` | 0.367 | 3 | 0.350 | 0.35 | 0.55 | 0.20 | resolved | — |
 | 209 | `scotus/73281703` | Brandi Greer v. Benton School District | `evt-petition-disposition` | 0.363 | 3 | 0.190 | 0.25 | 0.44 | 0.40 | resolved | — |
-| 210 | `scotus/73550516` | Independent Specialty Insurance Company v. Apex Hospitality Group, L.L.C. | `evt-petition-disposition` | 0.360 | 3 | 0.180 | 0.25 | 0.43 | 0.40 | pending | — |
+| 210 | `scotus/73550516` | Independent Specialty Insurance Company v. Apex Hospitality Group, L.L.C. | `evt-petition-disposition` | 0.360 | 3 | 0.180 | 0.25 | 0.43 | 0.40 | resolved | — |
 | 211 | `scotus/9026000171` | Galesburg Community Unit School District No. 205 v. N. T., Individually and as Parent and Next Friend of C. T., et al. | `evt-petition-disposition` | 0.360 | 3 | 0.240 | 0.22 | 0.46 | 0.40 | pending | — |
 | 212 | `scotus/73281412` | Ronnie Alexander v. Philip R. Taft Psy D and Associates, P.L.L.C., et al. | `evt-petition-disposition` | 0.357 | 3 | 0.270 | 0.30 | 0.52 | 0.25 | resolved | — |
 | 213 | `scotus/73500215` | Eric Gomez v. David Saccoccio | `evt-petition-disposition` | 0.357 | 3 | 0.170 | 0.25 | 0.42 | 0.40 | resolved | — |
