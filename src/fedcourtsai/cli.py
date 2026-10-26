@@ -2049,7 +2049,8 @@ def executive_success_cmd(
         f"row(s) left out, {result.filed_before_since} earlier and "
         f"{result.filed_after_through} later than the cut; scope [{reasons}]; unknown scope "
         f"[{unknown}]; {result.reading} reading re-read {result.reread_rows} stored denial(s), "
-        f"{result.reread_changed} relabeled and {result.reread_unobservable} unobservable; "
+        f"{result.reread_changed} relabeled, {result.reread_unobservable} unobservable and "
+        f"{result.reread_after_through} decided after the cut; "
         f"corpus latest pull {pulled}, latest snapshot {snapshot}",
         err=True,
     )

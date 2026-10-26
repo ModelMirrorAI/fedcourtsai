@@ -11792,8 +11792,8 @@ class ExecutiveSuccessCell(_Strict):
     dismissed: int = Field(
         default=0,
         ge=0,
-        description="Of those, applications dismissed, or dismissed or denied as moot — "
-        "outside the rate",
+        description="Of those, applications dismissed, including those dismissed or denied "
+        "as moot — outside the rate",
     )
     decided: int = Field(
         default=0,
@@ -11803,8 +11803,8 @@ class ExecutiveSuccessCell(_Strict):
     wins: int = Field(
         default=0,
         ge=0,
-        description="Of those, rows the executive won: granted in whole or in part for a "
-        "government applicant, denied for a challenger's application",
+        description="Of those, rows the executive won: the granted side (in whole or in "
+        "part) for a government applicant, denied for a challenger's application",
     )
     success_rate: float | None = Field(
         default=None, description="wins / decided; null where nothing was decided"
@@ -11916,20 +11916,26 @@ class ExecutiveSuccess(_Strict):
     reread_rows: int = Field(
         default=0,
         ge=0,
-        description="In-scope and unknown-scope rows stored `denied` that the finer "
-        "reading re-read; 0 under `registered`",
+        description="In-scope and unknown-scope rows stored `denied`, never-parsed ones "
+        "included, that the finer reading re-read; 0 under `registered`",
     )
     reread_changed: int = Field(
         default=0,
         ge=0,
         description="Of those, rows the finer reading labels other than `denied` "
-        "(granted in part, or denied as moot)",
+        "(granted in part and denied as moot, chiefly)",
     )
     reread_unobservable: int = Field(
         default=0,
         ge=0,
-        description="Of those, rows with no stored snapshot or no entry the finer reading "
-        "matches, which keep the stored label",
+        description="Of those, rows with no live-shaped snapshot or no entry the finer "
+        "reading matches, which keep the stored label",
+    )
+    reread_after_through: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows whose re-read entry is dated after `through`, which "
+        "keep the stored label: the cut's moment had not reached that entry",
     )
     scope_reasons: dict[str, int] = Field(
         default_factory=dict,

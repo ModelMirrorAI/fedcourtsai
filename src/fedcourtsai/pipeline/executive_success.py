@@ -29,11 +29,16 @@ reading, which collapses a partial grant to ``denied`` and reads an application
 denied as moot as ``denied`` too. Both errors move the executive's rate, and in
 opposite directions on the two sides of the docket. So under the default
 ``finer`` reading, every in-scope or unknown-scope row stored ``denied`` is
-re-read from its latest snapshot under the finer interim reading
-(:func:`.ingest.interim_reading`), which names both forms; a row with no
+re-read from its latest live-shaped snapshot under the finer interim reading
+(:func:`.ingest.interim_reading`), which names both forms. A row with no live
 snapshot, or no entry the reading matches, keeps its stored label and is
-counted. The re-read is descriptive and writes nothing. ``registered`` keeps
-the stored labels.
+counted; so does one whose re-read entry is dated after ``through``, which the
+cut's moment had not reached. The re-read is descriptive and writes nothing.
+``registered`` keeps the stored labels.
+
+**Deferred applications are pending.** An application the Court defers to
+argument carries no disposition until it is decided, so it sits in
+``pending``, outside the rate, as the published tallies exclude it.
 
 **The population is the in-scope applications, extensions left out.**
 Extensions of time are left out before scope is read. An in-scope application
@@ -53,7 +58,7 @@ moment, and ``since`` bounds the start where coverage begins mid-window.
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Final, Literal
@@ -77,6 +82,7 @@ from .ingest import interim_reading
 from .interim_signals import ApplicationKind, InterimReading
 from .party import ADMINISTRATIONS, PARTY_AS_OF_FIELDS, administration_for, docket_stratum
 from .party_rates import docket_key
+from .prefetch import prefetch_by_case
 
 Filer = Literal["government", "challenger", "all"]
 
@@ -88,7 +94,9 @@ READINGS: Final[tuple[Reading, ...]] = ("finer", "registered")
 #: The scope rule the cut defaults to.
 DEFAULT_SCOPE_RULE: Final[str] = EXEC_ACTION_RULE_VERSION
 
-#: Reading labels on the grant side: the executive's win where it applied.
+#: Reading labels on the grant side: the executive's win where it applied. A
+#: GVR and a summary reversal are the binary outcome's granted side; they reach
+#: an application row only where the Court treated the application as a petition.
 _GRANT_LABELS: Final[frozenset[str]] = frozenset(
     {
         InterimReading.granted.value,
@@ -107,8 +115,11 @@ _UNDECIDED_LABELS: Final[frozenset[str]] = frozenset(
     }
 )
 
-#: Re-reads a row stored ``denied``: the finer label, or ``None`` where unobservable.
-Rereader = Callable[[corpus.CorpusRow], str | None]
+#: One re-read: the finer label and its entry's date, or ``None`` where unobservable.
+Reread = tuple[str, date | None] | None
+
+#: Re-reads rows stored ``denied``, one result per row in order.
+Rereader = Callable[[Sequence[corpus.CorpusRow]], list[Reread]]
 
 
 @dataclass
@@ -182,14 +193,19 @@ class _Acc:
 
 
 def snapshot_rereader(conn: corpus.ReadConnection) -> Rereader:
-    """Re-read a row's latest snapshot under the finer interim reading."""
+    """Re-read rows from their latest live-shaped snapshots under the finer interim reading."""
 
-    def reread(row: corpus.CorpusRow) -> str | None:
-        snapshot = corpus.latest_snapshot(conn, row.case_id)
-        if snapshot is None:
-            return None
-        reading, _ = interim_reading(snapshot[1])
-        return reading.value if reading is not None else None
+    def reread(rows: Sequence[corpus.CorpusRow]) -> list[Reread]:
+        results: list[Reread] = []
+        with prefetch_by_case(
+            [row.case_id for row in rows],
+            lambda case_id: corpus.latest_live_snapshot(conn, case_id),
+            thread_name_prefix="executive-success",
+        ) as fetched:
+            for _, found in fetched:
+                reading, decided = interim_reading(found[1]) if found else (None, None)
+                results.append((reading.value, decided) if reading is not None else None)
+        return results
 
     return reread
 
@@ -230,48 +246,64 @@ def executive_success(
     )
 
 
+@dataclass(frozen=True)
+class _Placed:
+    """One in-window application, its scope read and its stored label as of the cut."""
+
+    row: corpus.CorpusRow
+    annotation: ExecActionAnnotation
+    as_of: date | None
+    disposition: Disposition | None
+
+    @property
+    def needs_reread(self) -> bool:
+        """A stored denial on a row the cut counts or lists."""
+        return (
+            self.disposition == Disposition.denied
+            and self.annotation.in_scope is not False
+            and self.annotation.government_side is not None
+        )
+
+
 @dataclass
 class _Fold:
     """The cut's running state: one cell accumulator per key, and the tallies beside them."""
 
-    annotator: Callable[[corpus.CorpusRow, date | None], ExecActionAnnotation]
-    as_of_field: str
-    reread: Rereader | None
+    through: date | None
+    rereading: bool
     accs: dict[tuple[str | None, Filer], _Acc] = field(default_factory=dict)
     reasons: Counter[str] = field(default_factory=Counter)
     unknown: Counter[str] = field(default_factory=Counter)
     rereads: Counter[str] = field(default_factory=Counter)
     review: list[ExecutiveSuccessRow] = field(default_factory=list)
 
-    def label(self, row: corpus.CorpusRow, stored: Disposition | None) -> str | None:
+    def label(self, stored: Disposition | None, finer: Reread, needed: bool) -> str | None:
         """The label the cut reads a row under: a stored denial re-read, else as stored."""
         if stored is None:
             return None
-        if stored != Disposition.denied or self.reread is None:
+        if not needed:
             return stored.value
         self.rereads["rows"] += 1
-        finer = self.reread(row)
         if finer is None:
             self.rereads["unobservable"] += 1
             return stored.value
-        if finer != InterimReading.denied.value:
+        label, decided = finer
+        if self.through is not None and decided is not None and decided > self.through:
+            self.rereads["after_through"] += 1
+            return stored.value
+        if label != InterimReading.denied.value:
             self.rereads["changed"] += 1
-        return finer
+        return label
 
-    def add(
-        self, row: corpus.CorpusRow, resolution: date | None, disposition: Disposition | None
-    ) -> None:
-        """Read one in-window application for scope and count it where it belongs."""
-        as_of = row.date_filed if self.as_of_field == "filed" else resolution
-        if self.as_of_field == "resolved" and disposition is None:
-            as_of = None
-        annotation = self.annotator(row, as_of)
+    def add(self, placed: _Placed, finer: Reread) -> None:
+        """Count one in-window application where its scope puts it."""
+        row, annotation, as_of = placed.row, placed.annotation, placed.as_of
         self.reasons[annotation.reason] += 1
         if annotation.in_scope is False or annotation.government_side is None:
             return
         administration = administration_for(as_of)
         applicant = annotation.government_side == "applicant"
-        label = self.label(row, disposition)
+        label = self.label(placed.disposition, finer, placed.needs_reread and self.rereading)
         won: bool | None = None
         if annotation.in_scope is None:
             self.unknown[administration or "unattributed"] += 1
@@ -293,7 +325,9 @@ class _Fold:
                 reason=annotation.reason,
                 government_side=annotation.government_side,
                 application_kind=row.application_kind,
-                stored_disposition=disposition.value if disposition is not None else None,
+                stored_disposition=(
+                    placed.disposition.value if placed.disposition is not None else None
+                ),
                 reading=label,
                 executive_won=won,
             )
@@ -345,13 +379,16 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
     latest_pull: date | None,
     latest_snapshot: date | None,
 ) -> ExecutiveSuccess:
-    """Fold the rows into the cut — the pure half of :func:`executive_success`."""
-    fold = _Fold(
-        annotator=exec_action_rule(scope_rule_version), as_of_field=as_of_field, reread=reread
-    )
+    """Fold the rows into the cut — the pure half of :func:`executive_success`.
+
+    Two passes: the rows are placed and scope-read first, so the snapshot
+    re-reads run as one prefetched batch and never share the row cursor.
+    """
+    annotator = exec_action_rule(scope_rule_version)
     seen: set[str] = set()
     outside: Counter[str] = Counter()
-    applications = duplicates = extensions = 0
+    placed: list[_Placed] = []
+    duplicates = extensions = 0
     for row in rows:
         if docket_stratum(row) != "application":
             continue
@@ -364,12 +401,21 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         if row.application_kind == ApplicationKind.extension.value:
             extensions += 1
             continue
-        placed, resolution, disposition = _windowed(row, since, through)
-        if placed is not None:
-            outside[placed] += 1
+        where, resolution, disposition = _windowed(row, since, through)
+        if where is not None:
+            outside[where] += 1
             continue
-        applications += 1
-        fold.add(row, resolution, disposition)
+        as_of = row.date_filed if as_of_field == "filed" else resolution
+        if as_of_field == "resolved" and disposition is None:
+            as_of = None
+        placed.append(_Placed(row, annotator(row, as_of), as_of, disposition))
+    finer: dict[str, Reread] = {}
+    if reread is not None:
+        wanted = [item.row for item in placed if item.needs_reread]
+        finer = dict(zip((row.case_id for row in wanted), reread(wanted), strict=True))
+    fold = _Fold(through=through, rereading=reread is not None)
+    for item in placed:
+        fold.add(item, finer.get(item.row.case_id))
     order: dict[str, int] = {reason: index for index, reason in enumerate(SCOPE_REASONS)}
     return ExecutiveSuccess(
         scope_rule_version=scope_rule_version,
@@ -382,7 +428,7 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         corpus_sha256=corpus_sha256,
         latest_pull=latest_pull,
         latest_snapshot=latest_snapshot,
-        applications=applications,
+        applications=len(placed),
         duplicate_rows=duplicates,
         extension_rows=extensions,
         filed_after_through=outside["after"],
@@ -390,6 +436,7 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         reread_rows=fold.rereads["rows"],
         reread_changed=fold.rereads["changed"],
         reread_unobservable=fold.rereads["unobservable"],
+        reread_after_through=fold.rereads["after_through"],
         scope_reasons={
             reason: fold.reasons[reason] for reason in sorted(fold.reasons, key=lambda r: order[r])
         },

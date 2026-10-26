@@ -9,6 +9,7 @@ win on each side of the docket and which rows sit beside the rate.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
 
@@ -24,7 +25,12 @@ from fedcourtsai.pipeline.exec_action import (
     exec_action_annotations,
     exec_action_rule,
 )
-from fedcourtsai.pipeline.executive_success import Rereader, _success, executive_success
+from fedcourtsai.pipeline.executive_success import (
+    Reread,
+    Rereader,
+    _success,
+    executive_success,
+)
 from fedcourtsai.schemas import Disposition, ExecutiveSuccess, ExecutiveSuccessCell
 
 runner = CliRunner()
@@ -221,9 +227,11 @@ def test_the_finer_reading_relabels_a_stored_denial() -> None:
     finer = {"24A902": "granted-in-part", "24A100": "dismissed-moot"}
     calls: list[str] = []
 
-    def reread(row: corpus.CorpusRow) -> str | None:
-        calls.append(row.docket_number)
-        return finer.get(row.docket_number)
+    def reread(rows: Sequence[corpus.CorpusRow]) -> list[Reread]:
+        calls.extend(row.docket_number for row in rows)
+        return [
+            (finer[row.docket_number], None) if row.docket_number in finer else None for row in rows
+        ]
 
     def cut(rereader: Rereader | None) -> ExecutiveSuccess:
         return _success(
@@ -258,6 +266,65 @@ def test_the_finer_reading_relabels_a_stored_denial() -> None:
     assert registered.reading == "registered"
     assert registered.reread_rows == 0
     assert _cells(registered)[("trump-47", "government")].wins == 0
+
+
+def _live(docket: str, order: str, decided: str) -> dict[str, object]:
+    """A supremecourt.gov-shaped docket payload whose last entry disposes of the application."""
+    return {
+        "ProceedingsandOrder": [
+            {"Date": "2025-03-01", "Text": f"Application ({docket}) for a stay, submitted."},
+            {"Date": decided, "Text": order},
+        ]
+    }
+
+
+def test_the_rereader_reads_the_live_snapshot_and_respects_the_cut(tmp_path: Path) -> None:
+    """A newer REST snapshot is skipped; an entry dated after `through` keeps the stored label."""
+    noem = "Kristi Noem, Secretary of Homeland Security, et al. v. Jane Doe, et al."
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _app(
+                    "scotus/1",
+                    noem,
+                    "24A949",
+                    date(2025, 3, 3),
+                    Disposition.denied,
+                    decided=date(2025, 4, 10),
+                ),
+                _app(
+                    "scotus/2",
+                    noem,
+                    "24A790",
+                    date(2025, 3, 4),
+                    Disposition.denied,
+                    decided=date(2025, 3, 6),
+                ),
+            ],
+        )
+        partial = "The application is granted in part and denied in part."
+        corpus.upsert_snapshot(
+            conn, "scotus/1", date(2025, 4, 11), _live("24A949", partial, "2025-04-10")
+        )
+        # A later CourtListener pull stores a REST payload beside the live one.
+        corpus.upsert_snapshot(conn, "scotus/1", date(2025, 5, 1), {"docket_entries": []})
+        moot = "Application (24A790) to vacate the order is denied as moot."
+        corpus.upsert_snapshot(
+            conn, "scotus/2", date(2025, 6, 2), _live("24A790", moot, "2025-06-01")
+        )
+        whole = executive_success(conn, as_of_field="filed")
+        cut = executive_success(conn, as_of_field="filed", through=date(2025, 5, 1))
+    listed = {row.docket_number: row.reading for row in whole.review_rows}
+    assert listed == {"24A949": "granted-in-part", "24A790": "dismissed-moot"}
+    assert (whole.reread_rows, whole.reread_changed, whole.reread_unobservable) == (2, 2, 0)
+    government = _cells(whole)[("trump-47", "government")]
+    assert (government.wins, government.decided, government.dismissed) == (1, 1, 1)
+    # At the May cut the moot entry, dated June, had not happened: it stays denied.
+    at_cut = {row.docket_number: row.reading for row in cut.review_rows}
+    assert at_cut == {"24A949": "granted-in-part", "24A790": "denied"}
+    assert (cut.reread_changed, cut.reread_after_through) == (1, 1)
 
 
 def test_scope_and_exclusions_are_counted_beside_the_rate(tmp_path: Path) -> None:

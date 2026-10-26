@@ -28,9 +28,12 @@ every row it leaves out was left out.
    caption convention for an officer sometimes reads private. It is the
    respondent where either reads federal on the respondent side instead. A
    row with neither is ``no-federal-party``.
-2. **A government applicant is in scope** (``gov-applicant``): the office
-   files only for the executive, and the caption's federal petitioner is an
-   agency or officer acting for it.
+2. **A government applicant is in scope** (``gov-applicant``), unnarrowed:
+   the office files for the executive, and the caption's federal petitioner is
+   an agency or officer acting for it. The rule does not set aside a
+   government application in a criminal or individual case, which the
+   respondent side's narrowing would; on the emergency docket such
+   applications are rare, and ``review_rows`` lists every one.
 3. **A government respondent is narrowed by who the opposing side is.** A
    respondent caption naming a United States court or judge is
    ``federal-court``, and one naming a federal custodian (a marshal, pretrial
@@ -42,9 +45,12 @@ every row it leaves out was left out.
    ``challenge-to-executive-action``. Against an agency or officer, an
    applicant that is a state or an organization is
    ``challenge-to-executive-action``; a single named individual is
-   ``individual-claim``, out of scope; a named individual with ``et al.`` is
-   ``individual-group``, which may be a class challenge to a policy or several
-   people's own cases and is left ``unknown`` for review. A row where only the
+   ``individual-claim``, out of scope (the organization words are a word
+   list, so a surname that is also one, such as Church, reads as an
+   organization; ``review_rows`` is where a reader catches it); a named
+   individual with ``et al.`` is ``individual-group``, which may be a class
+   challenge to a policy or several people's own cases and is left
+   ``unknown`` for review. A row where only the
    counsel entries, not the caption, put the government on the respondent side
    takes the court and custodian checks and is otherwise
    ``sg-respondent-only``, also ``unknown``: the office answers for federal
@@ -127,12 +133,13 @@ _UNITED_STATES_RE: Final = re.compile(
     re.IGNORECASE,
 )
 
-#: A respondent half naming a federal court or judge.
+#: A respondent half naming a federal court or a federal judge by title.
 _FEDERAL_COURT_RE: Final = re.compile(
     r"\bUnited\s+States\s+(?:District\s+|Bankruptcy\s+|Tax\s+)?Court\b"
     r"|\bCourt\s+of\s+(?:Appeals|Federal\s+Claims)\b"
     r"|\bU\.\s?S\.\s+District\s+Court\b"
-    r"|\bJudge\b",
+    r"|\bUnited\s+States\s+(?:District|Circuit|Magistrate|Bankruptcy)\s+Judge\b"
+    r"|\bJudge,\s+United\s+States\b",
     re.IGNORECASE,
 )
 

@@ -567,7 +567,7 @@ before it writes any value.
 **The Solicitor General's office roster** is reference data for an analytics
 annotation, not case data and not a vote source. The counsel annotation
 `sg-office-v1` (`pipeline/counsel.py`, read by `fedcourts party-rates
---counsel-rule`) reads a committed, dated roster of the people who signed the
+--counsel-rule` and by `fedcourts executive-success`) reads a committed, dated roster of the people who signed the
 federal government's Supreme Court filings: every Solicitor General and acting
 Solicitor General from OT2015 on, the principal deputies seen signing as
 counsel of record, and one career deputy. It was retrieved on 2026-09-30 from
