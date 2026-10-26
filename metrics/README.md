@@ -3493,7 +3493,7 @@ and by who filed, over the applications the scope rule `exec-action-v1`
 (`pipeline.exec_action`) reads as challenging or defending a general federal
 executive action. It is an analytics artifact like the party rates, and every
 rule of the party rates on dates, coverage, the rule version and the corpus
-vintage travels with it. Seven more are specific to it.
+vintage travels with it. Eight more are specific to it.
 
 - **A rate reads in the executive's direction.** A government application on
   the granted side (in whole or in part) and a challenger's application denied
@@ -3552,6 +3552,26 @@ vintage travels with it. Seven more are specific to it.
   policy area. A published per-policy grouping can be coarser, so a reader
   quotes `controversies`, `determinate` and `indeterminate` with the pair, and
   each review row's `controversy_id` shows the grouping.
+- **A policy area is a hand label, and a per-area cell is small.**
+  `policy_cells` count the in-scope applications per administration, filer
+  and policy area under `policy-area-v1` (`pipeline.policy_area`), at the
+  application level. The labels are a committed reference, not a rule: two
+  agent raters, each blind to the other but not to the outcome (the docket
+  entries carry the orders), labeled every in-scope and unknown-scope
+  application from its caption, court below and docket entries and from
+  their own knowledge of a public case the docket names, so a label is not
+  reproducible from the record alone. They agreed on 110 of 115 (Cohen's
+  kappa 0.95, counting every miss), and the authoring session adjudicated the
+  rest, not blind, every one to the second rater's label. Three of the five
+  were the first rater's notes describing another row's case within four
+  consecutive rows, which the notes show, so on the subject itself the raters
+  disagreed on two (113 of 115). `other` is also the label of a subject the
+  raters could not determine. `policy_uncertain` marks the 26 of the 115 (13
+  in scope) where a rater was unsure of the subject; a quoted per-area pair
+  names its uncertain count. An
+  application added after the labels is `policy_unlabeled`, outside every
+  cell, and a quoted per-area figure names that count. Most cells hold a few
+  rows: quote the pair.
 
 **Replication against the published tally.** Adam Feldman's SCOTUSblog
 column of 2026-10-19 ("Where the Supreme Court favors Trump on the emergency
@@ -3569,7 +3589,10 @@ Every grouped application has a live snapshot (`controversy_unlinked` 0). The
 caption link alone makes 5 joins, all `trump-47` government pairs under one
 caption (`24A1059`/`25A326`, `24A1106`/`24A1174`, `24A1153`/`26A406`,
 `24A831`/`25A269`, `26A297`/`26A305`); without it the `trump-47` pair is 30/36
-over 45 controversies.
+over 45 controversies. Every in-scope application carries a policy-area label
+(`policy_unlabeled` 0). The unattributed government applications hold health
+2, foreign affairs 1 and other 2, so of the per-area `trump-47` pairs below
+only health can move, by up to 2.
 
 | Published figure | This corpus | Reconciliation |
 |---|---|---|
@@ -3580,6 +3603,11 @@ over 45 controversies.
 | `trump-45`: 25 of 33 won | No rows | Coverage |
 | `trump-47`: the executive won 23 of 30 determinate controversies (77%) | `controversy-v1`, every filer: 28/33 determinate (5 losses against the column's 7), 40 controversies over 47 applications, 7 indeterminate (`government` 23/28, 35 controversies over 42 applications; `challenger` 5/5) | Scope and grouping: the 5 `challenger` controversies include the 4 Labor Board stays the scope row flags (without them, 24/29). The column also joins related litigation over one policy, which `controversy-v1` does not read, and does not state how it scores a controversy with several applications. With no rows listed, neither difference can be broken down |
 | `biden-46`: 29 of 39 determinate controversies; 21 of 27 challenger-initiated | 2023-07-10 to 2025-01-19 only: 17/23 every filer, `challenger` 11/13 | Coverage |
+| `trump-47` government-filed immigration: 14 applications, won 11 of 12 decided | `policy-area-v1`: 13 rows (none uncertain), won 11 of 11 decided | One application short and one loss fewer; the column lists no rows, so which one is not verifiable |
+| `trump-47` government-filed personnel and removal: 10 applications | 11 rows (1 uncertain), won 6 of 9 decided | One row more; the column lists no rows, so which one is not verifiable |
+| `trump-47` government-filed education: won both; health: won its one decided | education 2 rows, 2 of 2; health 2 rows (1 uncertain, pending), 1 of 1 decided | Agree on the decided pairs |
+| `biden-46` government-filed education: lost all 3 decided; firearms (the ghost-gun rule): won both | education 3 rows, 0 of 3; firearms 2 rows, 2 of 2 | Agree on the decided pairs |
+| `biden-46` government-filed: 5 education, 5 health (all 4 decided won), 4 immigration (2 of 4 won); challenger-filed: 25 health and 23 environment and energy of 63 | 2023-07-10 to 2025-01-19 only: government 3 education, 0 health, 2 immigration (1 of 2 won); challenger 2 health and 20 environment and energy of 27 | Coverage: the vaccination-requirement, FDA and student-loan applications predate OT2023 |
 
 **What may be claimed from the tool-usage rollup.** `fedcourts tool-usage`
 publishes call counts, per-engine result observability, per-cell cost, and a

@@ -2082,6 +2082,18 @@ def executive_success_cmd(
             f"applications={group.applications} indeterminate={group.indeterminate}",
             err=True,
         )
+    typer.echo(
+        f"policy areas ({result.policy_rule_version}): "
+        f"{result.policy_unlabeled} in-scope application(s) unlabeled",
+        err=True,
+    )
+    for area in result.policy_cells:
+        rate = f"{area.success_rate:.1%}" if area.success_rate is not None else "-"
+        typer.echo(
+            f"{area.administration or 'unattributed'} {area.filer} {area.area}: executive won "
+            f"{area.wins}/{area.decided} = {rate}; rows={area.rows}",
+            err=True,
+        )
     typer.echo(result.model_dump_json())
 
 

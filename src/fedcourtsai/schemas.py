@@ -11863,6 +11863,28 @@ class ExecutiveControversyCell(_Strict):
     )
 
 
+class ExecutivePolicyCell(_Strict):
+    """One administration x filer x policy area cell of the executive success cut.
+
+    Applications, not controversies, under the policy-area vocabulary
+    (``policy_rule_version``); the rate reads as the cut's own cells do.
+    """
+
+    administration: str | None = Field(
+        default=None, description="Administration under the cut's date convention"
+    )
+    filer: Literal["government", "challenger"] = Field(
+        description="government: the federal government filed; challenger: it responded"
+    )
+    area: str = Field(description="The policy area")
+    rows: int = Field(ge=0, description="In-scope applications in the cell, never-parsed aside")
+    decided: int = Field(default=0, ge=0, description="Of those, substantively decided")
+    wins: int = Field(default=0, ge=0, description="Of those decided, the executive's wins")
+    success_rate: float | None = Field(
+        default=None, description="wins / decided; null where none is decided"
+    )
+
+
 class ExecutiveSuccessRow(_Strict):
     """One application the scope rule kept or could not place, for hand review."""
 
@@ -11896,6 +11918,12 @@ class ExecutiveSuccessRow(_Strict):
         description="The controversy the row belongs to (its first-docketed application's "
         "number, as spelled); null for an unknown-scope or never-parsed row, which is "
         "grouped with nothing",
+    )
+    policy_area: str | None = Field(
+        default=None, description="The row's policy area; null where it is unlabeled"
+    )
+    policy_uncertain: bool = Field(
+        default=False, description="Whether the label's raters were unsure of the subject"
     )
 
 
@@ -12007,6 +12035,19 @@ class ExecutiveSuccess(_Strict):
         default=0,
         description="Grouped applications with no live snapshot, so no case-below or "
         "decided-together link; they join on the caption alone",
+    )
+    policy_rule_version: str = Field(
+        description="The vocabulary the policy cells are labeled under, e.g. policy-area-v1"
+    )
+    policy_cells: list[ExecutivePolicyCell] = Field(
+        default_factory=list,
+        description="The in-scope applications by policy area; non-empty cells only",
+    )
+    policy_unlabeled: int = Field(
+        default=0,
+        ge=0,
+        description="In-scope applications with no policy-area label, never-parsed aside, "
+        "outside every policy cell",
     )
     review_rows: list[ExecutiveSuccessRow] = Field(
         default_factory=list,

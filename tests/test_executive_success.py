@@ -429,6 +429,7 @@ def test_the_command_prints_the_cut_with_its_vintage(
         "trump-47 government by controversy (controversy-v1): executive won 1/1"
     ) in result.stderr
     assert "corpus latest pull never pulled" in result.stderr
+    assert "policy areas (policy-area-v1):" in result.stderr
     payload = json.loads(result.stdout)
     assert payload["through"] == "2025-10-01"
     assert payload["scope_rule_version"] == "exec-action-v1"

@@ -1,0 +1,580 @@
+{
+ "rule_version": "policy-area-v1",
+ "labels": {
+  "23A35": {
+   "area": "environment-energy",
+   "note": "Mountain Valley Pipeline approval",
+   "uncertain": false
+  },
+  "23A55": {
+   "area": "other",
+   "note": "SEC enforcement adjudication",
+   "uncertain": false
+  },
+  "23A60": {
+   "area": "other",
+   "note": "Delaware insurance department v. US",
+   "uncertain": true
+  },
+  "23A82": {
+   "area": "firearms",
+   "note": "ghost-gun rule",
+   "uncertain": false
+  },
+  "23A87": {
+   "area": "other",
+   "note": "Purdue Pharma bankruptcy releases (US Trustee)",
+   "uncertain": false
+  },
+  "23A138": {
+   "area": "other",
+   "note": "unknown subject v. Secretary of Labor",
+   "uncertain": true
+  },
+  "23A243": {
+   "area": "other",
+   "note": "government social-media content moderation pressure",
+   "uncertain": false
+  },
+  "23A296": {
+   "area": "firearms",
+   "note": "Missouri Second Amendment Preservation Act",
+   "uncertain": true
+  },
+  "23A300": {
+   "area": "health",
+   "note": "FDA mifepristone regulation",
+   "uncertain": false
+  },
+  "23A302": {
+   "area": "firearms",
+   "note": "ghost-gun rule",
+   "uncertain": false
+  },
+  "23A315": {
+   "area": "other",
+   "note": "Seminole tribal gaming compact (Interior)",
+   "uncertain": false
+  },
+  "23A349": {
+   "area": "environment-energy",
+   "note": "EPA good neighbor rule",
+   "uncertain": false
+  },
+  "23A350": {
+   "area": "environment-energy",
+   "note": "EPA good neighbor rule",
+   "uncertain": false
+  },
+  "23A351": {
+   "area": "environment-energy",
+   "note": "EPA good neighbor rule",
+   "uncertain": false
+  },
+  "23A384": {
+   "area": "environment-energy",
+   "note": "EPA good neighbor rule",
+   "uncertain": false
+  },
+  "23A410": {
+   "area": "other",
+   "note": "state execution (Texas), out of scope",
+   "uncertain": false
+  },
+  "23A470": {
+   "area": "health",
+   "note": "EMTALA abortion care",
+   "uncertain": false
+  },
+  "23A485": {
+   "area": "environment-energy",
+   "note": "FERC pipeline approval",
+   "uncertain": false
+  },
+  "23A489": {
+   "area": "personnel-removal",
+   "note": "National Guard Bureau employee dispute",
+   "uncertain": true
+  },
+  "23A607": {
+   "area": "immigration",
+   "note": "border wire removal",
+   "uncertain": false
+  },
+  "23A645": {
+   "area": "other",
+   "note": "unknown subject, In re Lewis",
+   "uncertain": true
+  },
+  "23A646": {
+   "area": "other",
+   "note": "unknown subject, In re Lewis",
+   "uncertain": true
+  },
+  "23A696": {
+   "area": "personnel-removal",
+   "note": "race-conscious West Point admissions",
+   "uncertain": true
+  },
+  "23A712": {
+   "area": "health",
+   "note": "FDA mifepristone regulation",
+   "uncertain": false
+  },
+  "23A814": {
+   "area": "immigration",
+   "note": "Texas SB4 state immigration law",
+   "uncertain": false
+  },
+  "23A858": {
+   "area": "health",
+   "note": "military COVID-19 vaccine requirement",
+   "uncertain": true
+  },
+  "24A11": {
+   "area": "education",
+   "note": "student loan SAVE plan",
+   "uncertain": false
+  },
+  "24A73": {
+   "area": "other",
+   "note": "private dispute v. Raytheon",
+   "uncertain": true
+  },
+  "24A78": {
+   "area": "education",
+   "note": "Title IX rule",
+   "uncertain": false
+  },
+  "24A79": {
+   "area": "education",
+   "note": "Title IX rule",
+   "uncertain": false
+  },
+  "24A95": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A96": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A97": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A98": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A105": {
+   "area": "environment-energy",
+   "note": "EPA good neighbor rule",
+   "uncertain": false
+  },
+  "24A116": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A117": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A146": {
+   "area": "health",
+   "note": "Title X family-planning funding conditions",
+   "uncertain": false
+  },
+  "24A154": {
+   "area": "other",
+   "note": "bankruptcy/trustee dispute",
+   "uncertain": true
+  },
+  "24A164": {
+   "area": "elections-census",
+   "note": "Arizona proof-of-citizenship voting law",
+   "uncertain": false
+  },
+  "24A173": {
+   "area": "education",
+   "note": "student loan SAVE plan",
+   "uncertain": false
+  },
+  "24A178": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A179": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A180": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A186": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A197": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A199": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A203": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A213": {
+   "area": "environment-energy",
+   "note": "EPA oil and gas methane rule",
+   "uncertain": false
+  },
+  "24A215": {
+   "area": "environment-energy",
+   "note": "EPA oil and gas methane rule",
+   "uncertain": false
+  },
+  "24A287": {
+   "area": "other",
+   "note": "horseracing safety authority regulation",
+   "uncertain": false
+  },
+  "24A348": {
+   "area": "other",
+   "note": "NLRB proceeding",
+   "uncertain": false
+  },
+  "24A407": {
+   "area": "elections-census",
+   "note": "Virginia voter-roll removals",
+   "uncertain": false
+  },
+  "24A430": {
+   "area": "personnel-removal",
+   "note": "National Guard Bureau employee dispute",
+   "uncertain": true
+  },
+  "24A463": {
+   "area": "environment-energy",
+   "note": "EPA power plant rule",
+   "uncertain": false
+  },
+  "24A587": {
+   "area": "foreign-affairs",
+   "note": "TikTok divestiture law (national security)",
+   "uncertain": true
+  },
+  "24A588": {
+   "area": "foreign-affairs",
+   "note": "TikTok divestiture law (national security)",
+   "uncertain": true
+  },
+  "24A653": {
+   "area": "other",
+   "note": "Corporate Transparency Act reporting",
+   "uncertain": false
+  },
+  "24A724": {
+   "area": "health",
+   "note": "FDA e-cigarette regulation",
+   "uncertain": true
+  },
+  "24A754": {
+   "area": "other",
+   "note": "FCC universal service fund",
+   "uncertain": false
+  },
+  "24A790": {
+   "area": "personnel-removal",
+   "note": "removal of Special Counsel Dellinger",
+   "uncertain": false
+  },
+  "24A795": {
+   "area": "foreign-affairs",
+   "note": "anti-terrorism jurisdiction over PLO",
+   "uncertain": true
+  },
+  "24A808": {
+   "area": "other",
+   "note": "FINRA securities regulation",
+   "uncertain": false
+  },
+  "24A831": {
+   "area": "foreign-affairs",
+   "note": "foreign aid payment freeze",
+   "uncertain": false
+  },
+  "24A884": {
+   "area": "immigration",
+   "note": "birthright citizenship EO",
+   "uncertain": false
+  },
+  "24A885": {
+   "area": "immigration",
+   "note": "birthright citizenship EO",
+   "uncertain": false
+  },
+  "24A886": {
+   "area": "immigration",
+   "note": "birthright citizenship EO",
+   "uncertain": false
+  },
+  "24A904": {
+   "area": "personnel-removal",
+   "note": "probationary-employee firings",
+   "uncertain": false
+  },
+  "24A910": {
+   "area": "education",
+   "note": "Education Department teacher-training grant terminations",
+   "uncertain": false
+  },
+  "24A931": {
+   "area": "immigration",
+   "note": "Alien Enemies Act removals",
+   "uncertain": false
+  },
+  "24A949": {
+   "area": "immigration",
+   "note": "removal of Abrego Garcia to El Salvador",
+   "uncertain": false
+  },
+  "24A966": {
+   "area": "personnel-removal",
+   "note": "removal of NLRB member",
+   "uncertain": false
+  },
+  "24A989": {
+   "area": "immigration",
+   "note": "stay of removal",
+   "uncertain": false
+  },
+  "24A1007": {
+   "area": "immigration",
+   "note": "Alien Enemies Act removals",
+   "uncertain": false
+  },
+  "24A1030": {
+   "area": "personnel-removal",
+   "note": "transgender military service ban",
+   "uncertain": false
+  },
+  "24A1059": {
+   "area": "immigration",
+   "note": "TPS vacatur for Venezuela",
+   "uncertain": false
+  },
+  "24A1063": {
+   "area": "other",
+   "note": "DOGE access to SSA data",
+   "uncertain": true
+  },
+  "24A1079": {
+   "area": "immigration",
+   "note": "CHNV parole termination",
+   "uncertain": false
+  },
+  "24A1106": {
+   "area": "personnel-removal",
+   "note": "federal reductions in force EO (withdrawn)",
+   "uncertain": false
+  },
+  "24A1122": {
+   "area": "other",
+   "note": "DOGE FOIA obligations",
+   "uncertain": false
+  },
+  "24A1153": {
+   "area": "immigration",
+   "note": "third-country removal (D.V.D.)",
+   "uncertain": false
+  },
+  "24A1174": {
+   "area": "personnel-removal",
+   "note": "federal reductions in force EO",
+   "uncertain": false
+  },
+  "24A1203": {
+   "area": "education",
+   "note": "Department of Education reduction in force",
+   "uncertain": false
+  },
+  "25A11": {
+   "area": "personnel-removal",
+   "note": "removal of CPSC commissioners",
+   "uncertain": false
+  },
+  "25A103": {
+   "area": "health",
+   "note": "NIH grant terminations",
+   "uncertain": false
+  },
+  "25A169": {
+   "area": "immigration",
+   "note": "immigration enforcement stops in Los Angeles",
+   "uncertain": false
+  },
+  "25A227": {
+   "area": "foreign-affairs",
+   "note": "foreign aid funding (withdrawn)",
+   "uncertain": false
+  },
+  "25A264": {
+   "area": "personnel-removal",
+   "note": "removal of FTC commissioner",
+   "uncertain": false
+  },
+  "25A269": {
+   "area": "foreign-affairs",
+   "note": "foreign aid funding (pocket rescission)",
+   "uncertain": false
+  },
+  "25A312": {
+   "area": "personnel-removal",
+   "note": "removal of Fed Governor Cook",
+   "uncertain": false
+  },
+  "25A319": {
+   "area": "other",
+   "note": "passport sex markers (transgender identification documents)",
+   "uncertain": false
+  },
+  "25A326": {
+   "area": "immigration",
+   "note": "TPS vacatur for Venezuela",
+   "uncertain": false
+  },
+  "25A327": {
+   "area": "foreign-affairs",
+   "note": "IEEPA tariffs",
+   "uncertain": false
+  },
+  "25A443": {
+   "area": "other",
+   "note": "National Guard deployment to Illinois",
+   "uncertain": false
+  },
+  "25A478": {
+   "area": "personnel-removal",
+   "note": "removal of Register of Copyrights",
+   "uncertain": false
+  },
+  "25A539": {
+   "area": "other",
+   "note": "SNAP benefits funding during shutdown",
+   "uncertain": false
+  },
+  "25A662": {
+   "area": "personnel-removal",
+   "note": "EOIR policy on immigration judges, federal workforce",
+   "uncertain": true
+  },
+  "25A725": {
+   "area": "other",
+   "note": "NLRB proceeding",
+   "uncertain": false
+  },
+  "25A839": {
+   "area": "elections-census",
+   "note": "California redistricting",
+   "uncertain": false
+  },
+  "25A952": {
+   "area": "immigration",
+   "note": "TPS termination (Haiti)",
+   "uncertain": false
+  },
+  "25A999": {
+   "area": "immigration",
+   "note": "TPS termination for Haiti",
+   "uncertain": false
+  },
+  "25A1179": {
+   "area": "immigration",
+   "note": "stay of removal",
+   "uncertain": false
+  },
+  "26A118": {
+   "area": "other",
+   "note": "NLRB proceeding",
+   "uncertain": false
+  },
+  "26A124": {
+   "area": "elections-census",
+   "note": "executive order on elections",
+   "uncertain": true
+  },
+  "26A203": {
+   "area": "other",
+   "note": "historic preservation, National Park Service project",
+   "uncertain": true
+  },
+  "26A274": {
+   "area": "elections-census",
+   "note": "FCC/candidate election dispute",
+   "uncertain": true
+  },
+  "26A289": {
+   "area": "other",
+   "note": "NLRB proceeding",
+   "uncertain": false
+  },
+  "26A297": {
+   "area": "elections-census",
+   "note": "USPS mail-ballot / elections policy (withdrawn)",
+   "uncertain": true
+  },
+  "26A305": {
+   "area": "elections-census",
+   "note": "USPS mail-ballot / elections policy",
+   "uncertain": true
+  },
+  "26A308": {
+   "area": "elections-census",
+   "note": "elections EO / voter citizenship verification",
+   "uncertain": true
+  },
+  "26A332": {
+   "area": "other",
+   "note": "NLRB proceeding",
+   "uncertain": false
+  },
+  "26A406": {
+   "area": "immigration",
+   "note": "third-country removal (D.V.D.)",
+   "uncertain": false
+  },
+  "26A416": {
+   "area": "health",
+   "note": "BOP gender-affirming care for transgender inmates",
+   "uncertain": true
+  },
+  "26A422": {
+   "area": "other",
+   "note": "private dispute v. Bath & Body Works",
+   "uncertain": true
+  },
+  "26A476": {
+   "area": "elections-census",
+   "note": "FCC broadcast rule in election dispute with candidates",
+   "uncertain": true
+  }
+ }
+}
