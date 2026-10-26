@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261026T013123Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "provisioned record documents"
+  ],
+  "helpful": [
+    "Provisioned full text of the Solicitor General's invited amicus brief (sg-invited-brief.txt), Petition, BIO, and Reply Brief allowed complete analysis without external queries.",
+    "Committed statpack tables (sal-v4 high band reached rates and CVSG cut) provided clear, well-documented base-rate anchors."
+  ],
+  "gaps": [],
+  "notes": "In record/documents/questions-presented.txt, the automated extractor cut from page 32 ('E. The Questions Presented In This Case Are Exceptionally Important') rather than page (I) ('QUESTION S PRESENTED') due to a kerning space in 'QUESTION S' in petition.txt; the actual QPs were readily available at the top of petition.txt and sg-invited-brief.txt."
+}

@@ -1,0 +1,11 @@
+# Forecast — Robinhood Markets, Inc. v. Sodha, No. 25-944
+
+**Disposition: certiorari granted, most likely limited to Question 1 (possibly reformulated as the Solicitor General suggests).**
+
+- **Current state:** the docket shows two distributions — the 5/28/2026 conference (after which the Court called for the views of the Solicitor General on 6/1/2026) and the 11/6/2026 conference, distributed on 10/21/2026 after the SG's invited brief (10/7) and both sides' supplemental briefs (10/20, 10/21).
+- **Relists:** I expect the Court to act at or very near the 11/6 conference. A grant on the first post-CVSG conference is the ordinary path. A single relist or reschedule, for example to settle the wording of a limited or reformulated question, is the main alternative: about 30% that the petition is distributed at least once more. Several more relists are unlikely.
+- **CVSG:** already on the docket (6/1/2026). None further is possible.
+- **Question taken:** Question 1, whether Section 11(a)'s misleading-omissions prong can be satisfied by an omission of material interim financial data without asking whether the omission made any affirmative statement misleading. It would likely be narrowed or reworded along the lines the United States proposes. Question 2 (the Item 303 / required-statements prong) is likely left out, as the SG recommends: the Ninth Circuit only remanded on that prong, and the SG calls the case a poor vehicle for it.
+- **Route:** plenary review — briefing and argument (a grant in November points to argument in the spring of OT2026). A summary disposition is very unlikely, because no intervening decision calls for a GVR and the issue needs full merits treatment.
+- **If denied:** a written dissent from denial is possible but unlikely (around 12%). If one comes, Alito, Thomas, Gorsuch or Kavanaugh are the likeliest authors, objecting to leaving the Ninth Circuit's disclosure rule in place.
+- **If granted, likely ground (conditional):** the Court would probably confine the misleading-omissions prong to half-truths, as in *Omnicare* and *Macquarie*: an omission is actionable only where it makes a stated fact or opinion misleading. That would vacate the Ninth Circuit's materiality-driven rule.
