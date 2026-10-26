@@ -45,8 +45,8 @@
     {
       "label": "proc-v13",
       "since": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-26T19:00:50Z",
+        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       }
     }
@@ -58,8 +58,8 @@
       "actor_id": "claude-baseline",
       "label": "proc-v13",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-26T19:00:50Z",
+        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       }
     },
@@ -69,8 +69,8 @@
       "actor_id": "codex-baseline",
       "label": "proc-v13",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-26T19:00:50Z",
+        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       }
     },
@@ -80,8 +80,8 @@
       "actor_id": "gemini-baseline",
       "label": "proc-v13",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-26T19:00:50Z",
+        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       }
     },
@@ -274,8 +274,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-26T19:00:50Z",
+        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       },
       "revoked_at": null
@@ -290,8 +290,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-26T19:00:50Z",
+        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       },
       "revoked_at": null
@@ -306,8 +306,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-26T19:00:50Z",
+        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       },
       "revoked_at": null
@@ -317,8 +317,8 @@
       "digest": "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
       "predictor_id": "claude-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-26T19:00:50Z",
+        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       },
       "closes": null,
@@ -329,8 +329,8 @@
       "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
       "predictor_id": "codex-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-26T19:00:50Z",
+        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       },
       "closes": null,
@@ -341,8 +341,8 @@
       "digest": "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745",
       "predictor_id": "gemini-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-26T19:00:50Z",
+        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       },
       "closes": null,

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73550516",
+  "run_id": "20261026T155707Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Blinded staging with retrieval logs made the forward-leakage check quick", "Decided snapshot showed the Rule 46 stipulation directly"],
+  "gaps": [],
+  "notes": "All three predictions froze a band, so base rate, skill and Brier are harness-stamped; no statpack read was needed."
+}

@@ -1,0 +1,21 @@
+{
+  "actor_id": "claude-judge",
+  "cache_creation_input_tokens": 77033,
+  "cache_read_input_tokens": 892824,
+  "case_id": "scotus/73550516",
+  "created_at": "2026-10-26T15:57:07Z",
+  "engine": "claude-code",
+  "engine_version": "2.1.289",
+  "engine_version_discrepancy": null,
+  "estimated_cost_usd": 0.7256898,
+  "event_id": "evt-petition-disposition",
+  "input_tokens": 30,
+  "model": "claude-opus-5-5",
+  "output_tokens": 8092,
+  "pipeline_sha": "fe73f6cca8bfe1b3a5b0912e407f87eaaf47da30",
+  "post_run_poll": null,
+  "pre_mint_poll": null,
+  "role": "evaluator",
+  "run_id": "20261026T155707Z",
+  "schema_version": "1.0"
+}

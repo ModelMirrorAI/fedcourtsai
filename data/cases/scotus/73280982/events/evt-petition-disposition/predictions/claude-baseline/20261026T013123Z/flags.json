@@ -1,0 +1,10 @@
+{
+  "case_id": "scotus/73280982",
+  "run_id": "20261026T013123Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "info", "event_id": "evt-petition-disposition",
+     "message": "Supplemental briefs of petitioners (2026-10-20) and respondents (2026-10-21) appear on the docket but were not provisioned under record/documents/; forecast relies on the SG invited brief, petition, BIO and reply only."}
+  ]
+}

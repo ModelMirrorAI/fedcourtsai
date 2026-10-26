@@ -1,0 +1,10 @@
+# Retrieval record
+
+- Read the provisioned event, context, snapshot `2026-10-26.json`, document manifest, questions presented, petition, and relevant appendix material. A read-only subagent reviewed only the provisioned appendix and returned vehicle and lower-court observations; no external retrieval was delegated to it.
+- Consulted the committed `metrics/statpack.md` and `metrics/statpack.json`, specifically the modern-cert, originating-circuit, paid relist/CVSG, and sal-v4 per-Term band sections. A read-only statistical reviewer checked the anchor arithmetic and interpretation against these committed files and the prompt. These are not live corpus lookups. No `fedcourts query` or `open-events` call was made, so no ranged-corpus transfer line was produced.
+- Ran `fedcourts paths --court scotus --docket 9026000231 --event evt-petition-disposition --role predictor` to resolve the cell paths. Its evaluator-only outcome placeholder was not followed. Read the output schemas and local path/serialization helpers for file-contract compliance.
+- Web search attempted: `site.supremecourt.gov opinions Borden 19-5410 2021 reckless use force against another`. No usable result was returned.
+- Web open attempted for the official Borden opinion PDF, `https://www.supremecourt.gov/opinions/20pdf/19-5410_8nj9.pdf`. No usable content was returned; no proposition rests on that attempt.
+- CourtListener MCP `search(type="o", citation="593 U.S. 420", num_results=1)`: returned Borden v. United States, decided June 10, 2021, docket 19-5410, opinion ID 4694237. This is a preexisting precedent, not the target case.
+- CourtListener MCP `search_document(opinion_id=4694237, query="recklessness", snippet_size=350)`: read excerpts confirming the reckless-offense holding, the plurality's directed-force rationale, and Thomas's separate reasoning. This provided background already described in the provisioned filings; it did not supply case-specific later developments.
+- No target-case search, later docket, outcome, other cell's output, or labeling artifact was consulted.

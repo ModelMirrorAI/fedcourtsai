@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73280982",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The staged questions-presented.txt is an extraction of the petition's importance discussion around printed pages 31-33, not its actual questions presented. The forecast uses the questions from petition.txt printed page I, checked against sg-invited-brief.txt, rather than the mislabeled extract.",
+      "severity": "warning"
+    },
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The snapshot lists petitioner and respondent supplemental briefs filed October 20 and October 21, 2026 after the invited SG brief. Their text is not listed in documents.json or staged in record/documents. The forecast uses the SG brief and earlier party filings without assuming the supplemental arguments.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261026T013123Z",
+  "schema_version": "1.0"
+}

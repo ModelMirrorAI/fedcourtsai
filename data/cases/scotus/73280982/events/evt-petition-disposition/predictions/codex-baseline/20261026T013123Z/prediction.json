@@ -1,0 +1,89 @@
+{
+  "big_case_rationale": "Nationally important for IPO disclosure, Section 11 liability, and securities litigation; substantial capital-market stakes, but a technical statutory dispute rather than a broad constitutional controversy.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/73280982",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.007,
+        "Barrett": 0.002,
+        "Gorsuch": 0.005,
+        "Jackson": 0.002,
+        "Kagan": 0.001,
+        "Kavanaugh": 0.003,
+        "Roberts": 0.001,
+        "Sotomayor": 0.002,
+        "Thomas": 0.008
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.8
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.42
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.0
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.04
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.12
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": "2026-06-01",
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-26",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-26T09:14:55Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-10-26.json",
+  "judgment": null,
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.8,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4",
+    "label": "proc-v12",
+    "pipeline_sha": "c63dfa362ec89098d1b517c4684d368ac0e49717",
+    "stamped_at": "2026-10-26T09:17:55.345665Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261026T013123Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

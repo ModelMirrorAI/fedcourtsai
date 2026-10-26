@@ -1,0 +1,89 @@
+{
+  "big_case_rationale": "Major Securities Act Section 11(a) case on IPO disclosure of intra-quarter financial data following Macquarie, affecting public offerings across capital markets without raising constitutional questions.",
+  "big_case_score": 0.62,
+  "case_id": "scotus/73280982",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.01,
+        "Barrett": 0.001,
+        "Gorsuch": 0.008,
+        "Jackson": 0.002,
+        "Kagan": 0.001,
+        "Kavanaugh": 0.004,
+        "Roberts": 0.001,
+        "Sotomayor": 0.002,
+        "Thomas": 0.012
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.78
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.45
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.0
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.04
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.12
+    }
+  ],
+  "confidence": 0.78,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": "2026-06-01",
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-26",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-26T09:33:00Z",
+  "engine": "gemini",
+  "event_id": "evt-petition-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-10-26.json",
+  "judgment": null,
+  "model": "gemini-4-argon",
+  "predicted_disposition": "granted",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.78,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9",
+    "label": "proc-v12",
+    "pipeline_sha": "0046cf5495453cd8f0fc5367d90faf232def891b",
+    "stamped_at": "2026-10-26T09:38:42.910078Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261026T092709Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

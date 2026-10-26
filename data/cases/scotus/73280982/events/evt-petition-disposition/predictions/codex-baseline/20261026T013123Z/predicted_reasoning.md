@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will grant certiorari for plenary briefing and argument, most likely limited to the first question presented and reformulated along the lines proposed by the Solicitor General. The question will ask whether materiality of omitted interim financial information is sufficient for Section 11(a) misleading-omissions liability without an additional inquiry into whether an affirmative statement was rendered misleading. The Court will probably decline the separate Item 303 question.
+
+The snapshot records two conference distributions: May 12 for the May 28 conference, and October 21 for the November 6 conference. Between them, the Court requested the Solicitor General's views on June 1; the United States filed its invited brief on October 7. This is a post-CVSG return to conference, not evidence of two failed post-brief conferences. The modal path is a decision after the scheduled November 6 conference without another distribution, but there is a 42% chance of at least one additional distribution. If another occurs, one further conference is more likely than a long series. Expect a petition decision in November or December 2026, rather than another extended wait for government views.
+
+No new CVSG is forecast: the invitation has already issued and the government has answered it. The principal procedural work remaining is to settle the question's formulation and decide whether the surviving Item 303 theory makes this an unattractive vehicle.
+
+Conditional on a grant, plenary review is strongly favored: the probability of disposition in the cert order itself is 4%. The dispute concerns the relationship between two elements of a misleading-omissions claim, not merely reconsideration in light of a newly intervening decision. If granted, the likely doctrinal direction is to require a distinct showing of misleading effect rather than treating materiality as automatically dispositive. That is a conditional merits forecast, not a prediction that the Court will decide liability when granting certiorari.
+
+Conditional on denial, the probability of a noted dissent or statement respecting denial is 12%; an unexplained denial is much more likely. Thomas or Alito would be the likelier authors of a rare separate writing, with Gorsuch another possibility. No separate writing is expected on the modal grant order.
