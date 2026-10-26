@@ -1,8 +1,10 @@
-# QP topics (`qp-topic-v0`)
+# QP topics (`qp-topic-v0`, `qp-topic-v1`)
 
 A subject-matter vocabulary for the **questions presented** in SCOTUS
 petitions: what a petition *asks about*, labeled from the stored
-`questions-presented` text alone. This is the "claim taxonomy" that
+`questions-presented` text alone. Emergency applications, which carry no
+questions presented, are labeled in the same vocabulary under their own input
+contract (*Applications* below). This is the "claim taxonomy" that
 `metrics/docket.md` and `metrics/README.md` reserve the phrase for — a
 classification of subjects — and it is deliberately not part of
 `docs/outcome-decomposition.md`, which decomposes a predicted *outcome* into
@@ -26,15 +28,16 @@ surface:
 - **It commits a predictor to nothing.** A published topic distribution is a
   corpus description, not a prediction claim.
 - **Supersession is the plan.** A boundary that proves wrong in use is fixed in
-  `qp-topic-v1`, not patched silently; the version token on the set is what
+  the next vocabulary version, not patched silently; the version token on the set is what
   makes every published cut and measured agreement citable after the fact.
 
 The trip-wire: the moment a *cell* prompt asks an agent for a topic label, that
 prompt's digest moves and this stops being a free-moving vocabulary — that is a
 version bump and its own review, not an edit to this document.
 
-Of the machinery this document contracts for, everything up to the labels
-artifact exists: the vocabulary, the reference set (both blocks), the labeling
+Of the machinery this document contracts for on the petition frame, everything
+up to the labels artifact exists (the application frame's state is in
+*Applications* below): the vocabulary, the reference set (both blocks), the labeling
 prompt (`.github/prompts/qp-topic-label.md`), the extract and measurement
 commands (`fedcourts qp-corpus` / `fedcourts qp-topics`), the shadow rules
 (`fedcourtsai.pipeline.qp_topics`), the run mode that dispatches the labeler
@@ -231,6 +234,119 @@ nothing and pre-empt nothing; their disagreement rate with the agent labeler
 lands in the run summary as a standing regression trip-wire, so a drifting
 labeler shows up as a moving disagreement rate before it shows up anywhere
 else.
+
+## Applications (`qp-topic-v1`)
+
+An emergency application carries no questions presented, so the text-only v0
+contract has nothing to read on one and every interim forecast goes unlabeled
+under it. `qp-topic-v1` widens the frame to application dockets with a second
+input contract and the routing rules below, so a cert, an interim and a merits
+forecast can all be cut by one vocabulary.
+
+**How v1 sits beside v0.** The register's sixteen labels and every petition
+boundary are unchanged, so a petition row's v0 label *is* its v1 label and no
+petition is relabeled. What v1 adds applies only to application rows. A cut
+that pools the two frames is a v1 cut, and it reports the frames apart beside
+the pooled figure, since they were read from different inputs. A later change
+to any boundary, petition or application, is v2.
+
+**The frame** is the live slice's application dockets, one row per docket
+number (a row with no docket number is not deduplicated), with extensions left
+out. An extension asks for time, and its subject is the case it extends, which
+the petition frame already labels. Three kinds of ask enter and are counted
+apart: substantive applications, applications whose ask the parser could not
+read, and rows it never parsed.
+
+**What a labeler reads for an application.** `fedcourts qp-corpus --frame
+applications` writes one row per application:
+
+- the caption;
+- the court below;
+- up to 40 docket entries dated before the cutoff, the earliest kept;
+- the stored `application` text where the content store holds one, cut to
+  its first 6,000 characters.
+
+The row's `input_kind` says which shape it is: `application-text` or
+`docket-only`. The rule, both budgets included, is `application-extract-v1`
+(`fedcourtsai.pipeline.application_topics`).
+
+**This departs from v0's text-only contract, on purpose.** An application row
+carries a case name and docket context, which v0 excludes, because without
+them most rows have nothing to read. The cost is that a labeler may recognize
+a well-known application from its caption. The labeler contract still forbids
+using that knowledge: a label is read from the row, and a `docket-only` row
+whose caption and entries name no subject is `unclassifiable`. Topic labels are
+never scored, so a recognized case can bias a topic share, not a score.
+
+**Replay safety is kept by a cutoff.**
+
+- The cutoff is the first entry the registered disposition matcher reads,
+  by position, dated at the earlier of that entry's date and the stored
+  decision date. Nothing from that entry on is kept, even when its date cannot
+  be read. Of the entries before it, only those dated strictly before the
+  cutoff date are kept, so a filing docketed the same day as the order goes
+  with the order. Undated entries are dropped.
+- The matcher also reads a granted administrative stay, so on such a docket
+  the cutoff falls there, often weeks before the decision. That costs input
+  and leaks nothing.
+- An entry recording the Court's own act is dropped whatever its date:
+  anything granted, denied, dismissed, vacated, stayed, ordered or deferred,
+  an administrative or entered stay, an issued judgment or mandate, an
+  argument set or held, or an application treated as a petition. The
+  application's own filing entry is kept even where it quotes an order below,
+  unless the disposition matcher reads it. A request for a response is kept,
+  since it names no outcome.
+- The application text is kept only when its document is dated before the
+  cutoff or carries no date (the opening filing precedes any ruling on it).
+  A date that cannot be read drops it. The response and reply documents are
+  not read.
+- A row the corpus holds as decided, on whose docket no disposition is read,
+  is cut by its stored decision date alone. The extract prints how many such
+  rows it holds.
+
+**Register rules an application adds.** These are not new labels. They carry
+v0's remedy-versus-right rule over to a form with no question: an interim
+posture is not what the dispute asks, so the "question" an application is
+labeled by is the one its underlying dispute would present.
+
+- **Label the dispute, not the relief.** A stay, an injunction pending appeal
+  and a vacatur are postures, and the interim-relief factors (irreparable
+  harm, the balance of equities) are never a subject. An application is
+  `civil-procedure` only where it asks a jurisdictional or procedural
+  question itself, such as mandamus to a lower court over its procedure.
+- **Stays of execution route by vehicle.** A stay pending a habeas petition
+  or a successive-petition authorization is `habeas-and-postconviction`. A
+  stay pending a §1983 challenge to the method or protocol of execution is
+  `constitutional-rights`. A stay of a death sentence on direct review is
+  `criminal-law`.
+- **Presidential control of the executive** (removal of officers,
+  reductions in force, agency reorganization) is
+  `administrative-law-and-benefit-programs`, as agency power is in v0. That
+  includes an officer's challenge to their own removal under a statutory
+  removal protection. A civil-service or discrimination claim by a federal
+  employee is `employment-and-antidiscrimination`.
+- **Grant terminations and spending conditions** follow the agency-power
+  rule. A challenge to the agency's authority or procedure is
+  `administrative-law-and-benefit-programs`, unless the dispute turns on the
+  regulated subject, such as an environmental statute's reach.
+- **A criminal case**, federal or state (bail, release pending appeal, a stay
+  of a non-capital sentence), is `criminal-law`.
+- **`unclassifiable`** keeps its v0 meaning, and on a `docket-only` row it is
+  the label wherever the row names no subject.
+
+**The coverage caveat is sharper here.** The extract's stderr tally gives the
+split by Term, ask and input kind. Read under main's corpus pointer
+`d3fe4a1a…`, whose `corpus-info` vintage is a latest pull of 2026-10-26 and a
+latest snapshot of 2026-07-13, the frame held 846 applications. Only 35
+carried application text the extract kept, 34 of them from Term 2026, so almost
+every row is `docket-only`. A label read from a caption and a stay request is
+weaker than one read from a petition's questions, and a published cut reports
+the `input_kind` split beside it.
+
+**What exists.** The extract and its rule exist. A reference block for
+applications, the labeling run's handling of application rows, and a per-topic
+cut that reads them do not yet exist. Until they do, no application label is
+published, and the petition frame's gates are unchanged.
 
 ## The reference set
 
@@ -601,7 +717,8 @@ the corpus is a **document-fetch artifact, not a sample**:
   direct appeal inside it is mandatory jurisdiction rather than discretionary —
   a small, docket-form-honest widening of what the section describes, not a
   second population. An *application* is a different form and never enters: no
-  questions-presented row is derived from one. The extract does **not** narrow to the predict-scope segment,
+  questions-presented row is derived from one, and applications are labeled
+  under their own contract (*Applications* above). The extract does **not** narrow to the predict-scope segment,
   which is the tempting narrowing and the wrong one; the reason is in *Batching:
   how the frame gets labeled* below, and it is a measurement-integrity reason rather
   than a statistical one.
@@ -917,7 +1034,7 @@ shape worth stating rather than leaving to inference:
   runs, so the last batch's rate is the figure the whole artifact carries.
 
 **Deliberate relabeling still exists**, and it is the only path that rewrites a
-published row: a vocabulary version bump (`qp-topic-v1`), an extraction repair
+published row: a vocabulary version bump that changes a petition boundary, an extraction repair
 that changes the text a label was assigned from, or a reference relabel — which
 supersedes the published row from the new hand label and is counted in that
 batch's `superseded`. All three travel in their own reviewed diff.

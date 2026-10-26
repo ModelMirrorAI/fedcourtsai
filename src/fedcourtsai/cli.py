@@ -288,6 +288,7 @@ from .pipeline import (
     vote_sources,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
+from .pipeline.application_topics import APPLICATION_EXTRACT_RULE, application_extract
 from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.arrival_cut import arrival_cut_ledger
 from .pipeline.asof import CutoffPolicy
@@ -6708,6 +6709,14 @@ def qp_corpus(
             help="Measurement form: every stored questions-presented row in the blob, unscoped.",
         ),
     ] = False,
+    frame: Annotated[
+        Literal["petitions", "applications"],
+        typer.Option(
+            help="`petitions`: the questions-presented frame (qp-topic-v0), batched. "
+            "`applications`: the live slice's non-extension application dockets "
+            "(qp-topic-v1), pre-disposition text only, unbatched.",
+        ),
+    ] = "petitions",
 ) -> None:
     """Extract the stored ``questions-presented`` texts a topic labeler reads.
 
@@ -6767,6 +6776,15 @@ def qp_corpus(
     row, so that coverage is exact at extract time. Neither moves the gate; the
     second enforces it earlier and more cheaply.
 
+    **``--frame applications``** extracts the application frame a ``qp-topic-v1``
+    labeler reads instead (:mod:`~fedcourtsai.pipeline.application_topics`):
+    each row carries the caption, the court below, the docket entries dated
+    before the disposition with the Court's own acts removed, and the stored
+    application text where there is one, plus an ``input_kind`` saying which.
+    It is unbatched, keeps the labeling ceiling as a flat refusal, and prints
+    its coverage by Term, ask and input kind to stderr. ``--all`` does not
+    combine with it.
+
     The extract is a working file for one labeler run, **never a committed
     artifact**: it enumerates the ingested corpus and republishes stored
     petition text, neither of which any committed surface does, so writing it
@@ -6784,6 +6802,9 @@ def qp_corpus(
                 err=True,
             )
             raise typer.Exit(code=2)
+    if frame == "applications":
+        _qp_corpus_applications(settings, corpus_db, out, all_texts=all_texts)
+        return
     db_path = corpus_db if corpus_db is not None else corpus.corpus_db_path(settings.corpus_root)
     if not db_path.is_file():
         typer.echo(f"qp-corpus: no corpus at {db_path} (run `fedcourts corpus-pull`)", err=True)
@@ -6853,6 +6874,53 @@ def qp_corpus(
             err=True,
         )
     typer.echo(f"qp-corpus: {len(rows)} question(s) presented ({scope}) -> {out}")
+
+
+def _qp_corpus_applications(
+    settings: Settings, corpus_db: Path | None, out: Path, *, all_texts: bool
+) -> None:
+    """``qp-corpus --frame applications``: the unbatched application extract."""
+    if all_texts:
+        typer.echo("qp-corpus: --all is the petition frame's measurement form", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus_db if corpus_db is not None else corpus.corpus_db_path(settings.corpus_root)
+    # Read through the backend seam, so a ranged read needs no pulled file; an
+    # explicit --corpus is always the local file it names.
+    backend = "local" if corpus_db is not None else settings.corpus_backend
+    if backend != "ranged" and not db_path.is_file():
+        typer.echo(f"qp-corpus: no corpus at {db_path} (run `fedcourts corpus-pull`)", err=True)
+        raise typer.Exit(code=1)
+    try:
+        with corpus.connect_readonly(db_path, backend=backend) as conn:
+            extract = application_extract(conn)
+    except Exception as exc:
+        # Broad for the reason the petition frame's read is: a content-store
+        # transport failure surfaces as whatever the client raises.
+        typer.echo(f"qp-corpus: cannot read stored payloads for {db_path}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    rows = extract.rows
+    if not rows:
+        typer.echo(f"qp-corpus: no application dockets in {db_path}", err=True)
+        raise typer.Exit(code=1)
+    if len(rows) > qp_topics.LABEL_ROW_CEILING:
+        typer.echo(
+            f"qp-corpus: refusing to write {len(rows)} application row(s) — over the "
+            f"{qp_topics.LABEL_ROW_CEILING}-row labeling ceiling",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    write_raw_json(out, [row.as_json() for row in rows])
+    typer.echo(
+        f"qp-corpus: {APPLICATION_EXTRACT_RULE}; {extract.duplicate_rows} duplicate row(s) and "
+        f"{extract.extension_rows} extension(s) left out; {extract.decided_unread} decided "
+        "row(s) with no disposition read on the docket",
+        err=True,
+    )
+    for (term, ask, input_kind), count in sorted(
+        extract.coverage.items(), key=lambda item: (item[0][0] or 0, item[0][1], item[0][2])
+    ):
+        typer.echo(f"  OT{term if term is not None else '?'} {ask} {input_kind}: {count}", err=True)
+    typer.echo(f"qp-corpus: {len(rows)} application(s) -> {out}")
 
 
 @app.command("qp-topics")
