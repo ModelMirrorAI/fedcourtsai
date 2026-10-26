@@ -14592,8 +14592,8 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     on run-repair's `application-backfill` pass; a dev checkout over a pulled
     corpus produces the dry run. Terms at or after the current docket Term are
     refused: that stream is frontier discovery's. An apply is refused for a
-    Term outside `REGISTERED_APPLY_TERMS` (OT2023 and OT2024): each Term's apply moves
-    the interim base rate by its own amount, so each needs its own
+    Term outside `REGISTERED_APPLY_TERMS` (OT2017 to OT2024): each Term's apply
+    moves the interim base rate by its own amount, so each needs a
     freeze-record entry first.
 
     Run-repair runs the pass split at its credential boundary, in three
@@ -14653,9 +14653,9 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     if apply and unregistered:
         typer.echo(
             f"backfill-applications: no pre-registered apply for Term(s) {unregistered}. Each "
-            "Term's apply moves the pooled interim base rate, so it needs its own "
-            "docs/freeze-record.md entry and a place in REGISTERED_APPLY_TERMS first; a dry run "
-            "reads it.",
+            "Term's apply moves the pooled interim base rate, so it needs a "
+            "docs/freeze-record.md entry projecting that move and a place in "
+            "REGISTERED_APPLY_TERMS first; a dry run reads it.",
             err=True,
         )
         raise typer.Exit(code=2)

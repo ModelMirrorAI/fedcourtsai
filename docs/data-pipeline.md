@@ -2017,14 +2017,14 @@ interim cells anchor to and are scored against. A stub row counts as `unparsed`,
 apply moves the Term's rows into the pool and moves the rate for every
 application Term whose lookback reaches it.
 
-**Each Term is its own registration.** Every Term inside the base-rate
+**Each Term's move is registered.** Every Term inside the base-rate
 lookback sits in the pool, and each earlier Term holds a thousand or more
 unparsed stubs, so each Term's apply moves the rate by its own amount. The
 command therefore refuses an apply for any Term outside
 `REGISTERED_APPLY_TERMS` (`pipeline/application_backfill.py`), which holds
-OT2023 and OT2024, each pre-registered in `docs/freeze-record.md`. A further
-Term joins that set in the same change that appends its own freeze-record
-entry, with a projection read off its dry run. Its dry run needs no
+OT2017 to OT2024, each pre-registered in `docs/freeze-record.md`. A further
+Term joins that set in the same change that appends a freeze-record entry
+projecting its move, read off its dry run. Its dry run needs no
 registration, since reading moves nothing.
 
 **Dispatching.** Dispatch on `main`, in a quiet slot between the scheduled
