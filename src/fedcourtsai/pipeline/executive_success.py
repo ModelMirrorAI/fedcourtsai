@@ -54,7 +54,9 @@ the in-scope applications are grouped into controversies under
 ``controversy-v1`` (:mod:`.controversy`) and counted per administration and
 filer, so applications the record links weigh once. A
 controversy's result is its last decided application's; one with none decided
-is indeterminate and sits beside the rate.
+is indeterminate and sits beside the rate. The same applications are counted
+once more per policy area (:mod:`.policy_area`), from a hand-labeled
+reference; an application it does not label is counted beside those cells.
 
 **One docket, one row; the date convention, moment and bound are the
 caller's**, exactly as on the party rates cut: rows de-duplicate by docket
@@ -74,6 +76,7 @@ from .. import corpus
 from ..schemas import (
     Disposition,
     ExecutiveControversyCell,
+    ExecutivePolicyCell,
     ExecutiveSuccess,
     ExecutiveSuccessCell,
     ExecutiveSuccessRow,
@@ -96,6 +99,7 @@ from .ingest import interim_reading
 from .interim_signals import ApplicationKind, InterimReading
 from .party import ADMINISTRATIONS, PARTY_AS_OF_FIELDS, administration_for, docket_stratum
 from .party_rates import docket_key
+from .policy_area import POLICY_AREA_RULE_VERSION, POLICY_AREAS, policy_label
 from .prefetch import prefetch_by_case
 
 Filer = Literal["government", "challenger", "all"]
@@ -438,6 +442,11 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
     groups = _controversies(placed, payloads, fold.results)
     for review_row in fold.review:
         review_row.controversy_id = groups.ids.get(review_row.docket_number)
+        label = policy_label(review_row.docket_number)
+        if label is not None:
+            review_row.policy_area = label.area
+            review_row.policy_uncertain = label.uncertain
+    policy_cells, unlabeled = _policy_cells(placed, fold.results)
     order: dict[str, int] = {reason: index for index, reason in enumerate(SCOPE_REASONS)}
     return ExecutiveSuccess(
         scope_rule_version=scope_rule_version,
@@ -467,8 +476,57 @@ def _success(  # noqa: PLR0913 - one keyword per stamp the cut carries
         controversy_rule_version=CONTROVERSY_RULE_VERSION,
         controversy_cells=groups.cells,
         controversy_unlinked=groups.unlinked,
+        policy_rule_version=POLICY_AREA_RULE_VERSION,
+        policy_cells=policy_cells,
+        policy_unlabeled=unlabeled,
         review_rows=sorted(fold.review, key=lambda r: r.docket_number),
     )
+
+
+def _policy_cells(
+    placed: Sequence[_Placed], results: Mapping[str, bool | None]
+) -> tuple[list[ExecutivePolicyCell], int]:
+    """Count the in-scope population per administration, filer and policy area."""
+    tallies: dict[tuple[str | None, Filer, str], Counter[str]] = {}
+    unlabeled = 0
+    for item in placed:
+        docket = item.row.docket_number
+        if item.annotation.in_scope is not True or docket not in results:
+            continue
+        label = policy_label(docket)
+        if label is None:
+            unlabeled += 1
+            continue
+        filer: Filer = (
+            "government" if item.annotation.government_side == "applicant" else "challenger"
+        )
+        tally = tallies.setdefault((administration_for(item.as_of), filer, label.area), Counter())
+        tally["rows"] += 1
+        won = results[docket]
+        if won is not None:
+            tally["decided"] += 1
+            tally["wins"] += won
+    order: dict[str, int] = {area: index for index, area in enumerate(POLICY_AREAS)}
+    windows: dict[str | None, int] = {
+        window: index
+        for index, window in enumerate([*(admin.label for admin in ADMINISTRATIONS), None])
+    }
+    cells = [
+        ExecutivePolicyCell(
+            administration=window,
+            filer=filer,
+            area=area,
+            rows=tally["rows"],
+            decided=tally["decided"],
+            wins=tally["wins"],
+            success_rate=tally["wins"] / tally["decided"] if tally["decided"] else None,
+        )
+        for (window, filer, area), tally in sorted(
+            tallies.items(),
+            key=lambda kv: (windows[kv[0][0]], kv[0][1] != "government", order[kv[0][2]]),
+        )
+    ]
+    return cells, unlabeled
 
 
 @dataclass(frozen=True)
