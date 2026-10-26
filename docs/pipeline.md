@@ -1825,8 +1825,8 @@ The mechanics:
   only on a PR to `main` whose head is not `staging`, a promotion train
   candidate (`promote/…`), or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
-  metrics-refresh, cert-backtest, and salience-replay PRs, the qp-topic
-  labeling run's `qp-topics/refresh` PR, the case-summary lane's
+  metrics-refresh, cert-backtest, merits-backtest and salience-replay PRs,
+  the qp-topic labeling run's `qp-topics/refresh` PR, the case-summary lane's
   `summaries/refresh` PR, the big-case board's
   `metrics/big-cases` PR and the update history's `metrics/public-updates`
   PR); on those
