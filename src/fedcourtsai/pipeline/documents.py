@@ -672,7 +672,7 @@ def _is_party_letter_entry(text: str) -> bool:
 # a later old-accepted one — but that path degrades to an over-capture, never a
 # fragment, which the section-end docstring already declares tolerated.
 # Authoring constraint for the phrase tuple: word sequences whose only regex
-# constructs are (?:...) groups and escaped literals — the blanket
+# constructs are (?:...) groups, escaped literals and a `?` on a letter — the blanket
 # space-to-\s+ rewrite below would corrupt a space inside a character class.
 # `QUESTION\s?S?`: pypdf can recover a small-caps "QUESTIONS" with the plural's
 # "S" set apart ("QUESTION S PRESENTED"), and the singular and plural headings
@@ -691,13 +691,22 @@ _QP_REVIEW_HEADING_RE = re.compile(r"QUESTIONS?\s+(?:TO|FOR)\s+REVIEW", re.IGNOR
 # short number ("U.S.S.G. §" broken before "1") loses that line, which a question
 # ending on its "?" never has.
 _QP_TRAILING_FOLIO_RE = re.compile(r"\n[ \t]*(?:[ivx]{1,6}|\d{1,3})[ \t]*\Z", re.IGNORECASE)
+# The front-matter headings that close the section. The table of contents runs
+# under several names ("Table of Content", "Topical Index"), and a pro se
+# petition often heads its authorities "Points and Authorities" and its
+# appendix list "Table of Appendices"; each of those otherwise lets the capture
+# run into the dotted list beneath, which the TOC test then reads as a
+# contents page and discards along with the questions above it.
 _QP_END_PHRASES = (
     "PARTIES TO THE PROCEEDING",
     "CORPORATE DISCLOSURE",
     r"RULE 29\.6",
     "RELATED (?:CASES|PROCEEDINGS)",
-    "TABLE OF CONTENTS",
-    "TABLE OF AUTHORITIES",
+    "TABLES? OF CONTENTS?",
+    "TOPICAL INDEX",
+    "TABLES? OF AUTHORITIES",
+    "POINTS AND AUTHORITIES",
+    "TABLE OF APPENDI(?:X|CES)",
     "LIST OF (?:ALL )?(?:PARTIES|PROCEEDINGS)",
     "OPINIONS? BELOW",
     "IN THE SUPREME COURT",
@@ -712,6 +721,34 @@ _QP_END_RE = re.compile(
 _QP_TITLE_CASE_RE = re.compile(
     r"[A-Z][A-Za-z0-9.]*(?:\s+(?:of|to|the|in|and|for|a|an)\b|\s+[A-Z0-9][A-Za-z0-9.]*)*"
 )
+# What may stand before a heading on its line and still leave it set as one: the
+# number or letter a petition enumerates its front matter with ("II. Parties to
+# the Proceeding", "3) Related Cases", "Ia."), as the extraction recovers it —
+# "IL" is "II." read off the page — then the article a heading sometimes opens
+# on ("A List of ...") or the words a related-cases heading is extended with
+# ("Statement of Related Proceedings", "Parties and Related Cases"). Those words
+# are a lead-in here rather than part of the phrase above, so that "PARTIES and
+# RELATED CASES" still ends the section on its all-caps tail. A short word
+# can pass for the letter form ("I", "No."), so this is a position test and not
+# a heading test on its own: :func:`_is_heading_match` still asks the words
+# after it to be set as a heading.
+_QP_HEADING_ENUMERATOR_RE = re.compile(
+    r"\s*(?:(?:[IVXL]{1,5}|\d{1,2}|[A-Z])(?:[a-z]?[.)])?\s*)?"
+    + r"(?:A\s+|(?i:statement\s+of|parties\s+and)\s+)?"
+)
+# The roman-numeral form of that enumerator, with its period (the pronoun "I"
+# opens lines too), or "IL", the "II." the extraction misreads: after it the
+# heading counts in any case, because a petition that numbers its front matter
+# sets the words after the numeral as it pleases ("II. List of all proceedings
+# in state courts").
+_QP_ROMAN_ENUMERATOR_RE = re.compile(r"\s*(?:[IVX]{1,5}\.|IL\.?)\s+(?:A\s+)?")
+# Two phrases a question says in title case as a name rather than a heading: the
+# caption, which a question cites as a court ("1. In the Supreme Court of
+# Florida, ..."), and the title of a filing ("Memorandum of / Points and
+# Authorities"). Out of caps, the caption counts only where it opens its line
+# outright, as it always has, and the filing title only alone on its line.
+_QP_CAPTION_RE = re.compile(r"IN\s+THE\s+SUPREME\s+COURT", re.IGNORECASE)
+_QP_FILING_TITLE_RE = re.compile(r"POINTS\s+AND\s+AUTHORITIES", re.IGNORECASE)
 # A QP section beyond this is a parsing miss, not a question (they run a page).
 _QP_MAX_CHARS = 4_000
 # Below this a capture is a front-matter crumb, not a question. The crumbs the
@@ -3573,26 +3610,76 @@ def _is_heading_match(text: str, match: re.Match[str]) -> bool:
 
     Two ways a petition sets one, and the test takes either. **All caps** counts
     wherever it lands, since nothing in a question body shouts a front-matter
-    heading's exact words. **Title case counts only at the start of a line** —
-    the position a heading occupies — because title case alone cannot separate
-    "Opinions Below" the heading from a sentence that opens on the same words,
-    and line position alone cannot either, since extracted line breaks fall
-    wherever the PDF put them.
+    heading's exact words. **Otherwise the match must open its line** — the
+    position a heading occupies, past any enumerator the front matter is
+    numbered with (:data:`_QP_HEADING_ENUMERATOR_RE`) — and then be set in title
+    case, follow a roman numeral, or stand alone on the line with a capital
+    first letter. Position alone cannot separate "Opinions Below" the heading
+    from a sentence that opens on the same words, since extracted line breaks
+    fall wherever the PDF put them, and case alone cannot either; a heading in
+    sentence case ("Table of contents") still shows itself by having the line to
+    itself. The caption and a filing's title take the stricter reading
+    :data:`_QP_CAPTION_RE` describes.
     """
     span = match.group()
     if span == span.upper():
         return True
-    if not _QP_TITLE_CASE_RE.fullmatch(span):
-        return False  # sentence-case prose: "the opinion below", "in the Supreme Court"
     line_start = text.rfind("\n", 0, match.start()) + 1
-    return not text[line_start : match.start()].strip()
+    prefix = text[line_start : match.start()]
+    line_end = text.find("\n", match.end())
+    alone = not text[match.end() : len(text) if line_end == -1 else line_end].strip()
+    if _QP_CAPTION_RE.fullmatch(span):
+        return not prefix.strip() and bool(_QP_TITLE_CASE_RE.fullmatch(span))
+    if not _QP_HEADING_ENUMERATOR_RE.fullmatch(prefix):
+        return False  # said mid-sentence: "the opinion below", "the related cases"
+    if _QP_FILING_TITLE_RE.fullmatch(span):
+        return alone
+    if _QP_TITLE_CASE_RE.fullmatch(span) or _QP_ROMAN_ENUMERATOR_RE.fullmatch(prefix):
+        return True
+    return alone and span[:1].isupper()
 
 
-def _qp_section_end(rest: str) -> int | None:
+def _opens_as_heading(text: str, match: re.Match[str]) -> bool:
+    """Whether a QUESTIONS PRESENTED start is set as a heading, not said in prose.
+
+    All caps, or opening its line past any enumerator — the two ways
+    :func:`_is_heading_match` reads a heading's position, without its case test,
+    since the start phrase is never ordinary title-case prose.
+    """
+    span = match.group()
+    if span == span.upper():
+        return True
+    line_start = text.rfind("\n", 0, match.start()) + 1
+    return bool(_QP_HEADING_ENUMERATOR_RE.fullmatch(text[line_start : match.start()]))
+
+
+def _is_toc_entry(text: str, match: re.Match[str]) -> bool:
+    """Whether a QUESTIONS PRESENTED match inside a section is a contents line.
+
+    The rest of its line read as a capture (:func:`_is_toc_capture`): leader
+    dots, or blanks to a folio. A petition that sets its contents page straight
+    after the questions, with no contents heading the extraction kept, shows the
+    page by this entry alone. Only the entry ends the section: the same words
+    also head a questions page's continuation ("Questions Presented —
+    Continued") and the line that introduces the questions themselves
+    ("The questions presented are:"), and neither is a contents line.
+    """
+    line_end = text.find("\n", match.end())
+    line_end = len(text) if line_end == -1 else line_end
+    return _is_toc_capture(text[match.end() : line_end + 1])
+
+
+def _qp_section_end(rest: str, *, contents_entry_ends: bool) -> int | None:
     """Where the questions-presented section ends in ``rest``, or ``None``.
 
     The first end-heading match that is set as a heading
-    (:func:`_is_heading_match`). The vocabulary is matched case-insensitively —
+    (:func:`_is_heading_match`), or, where ``contents_entry_ends``, the first
+    contents entry for the section itself (:func:`_is_toc_entry`), whichever
+    comes first. The caller allows the entry only under a start set as a
+    heading: a start on prose ("raises the question presented by ...") must run
+    on into the contents page and be discarded as a TOC capture, not stop short
+    of it and store the prose as the question. The vocabulary is
+    matched case-insensitively —
     it has to be, since pypdf recovers a small-caps heading in whatever case the
     font stored — and several of its alternatives are also ordinary English:
     "the opinion below", "corporate disclosure", "related proceedings", "in the
@@ -3601,12 +3688,23 @@ def _qp_section_end(rest: str) -> int | None:
     as a heading keeps prose out of the terminator. A heading the extraction
     flattens past recognition costs an over-capture — the section runs to the
     next heading, or to the length cap — never a fragment, which is the failure
-    that matters.
+    that matters. An enumerated heading ends the section at its line's start,
+    so the numeral ("II.") stays out of the questions.
     """
-    for match in _QP_END_RE.finditer(rest):
-        if _is_heading_match(rest, match):
-            return match.start()
-    return None
+    heading = next((m for m in _QP_END_RE.finditer(rest) if _is_heading_match(rest, m)), None)
+    entry = (
+        next((m for m in _QP_START_RE.finditer(rest) if _is_toc_entry(rest, m)), None)
+        if contents_entry_ends
+        else None
+    )
+    ends = [m for m in (heading, entry) if m is not None]
+    if not ends:
+        return None
+    first = min(ends, key=lambda m: m.start())
+    line_start = rest.rfind("\n", 0, first.start()) + 1
+    if _QP_HEADING_ENUMERATOR_RE.fullmatch(rest[line_start : first.start()]):
+        return line_start
+    return first.start()
 
 
 def extract_questions_presented(petition_text: str) -> str | None:
@@ -3651,7 +3749,7 @@ def _extract_questions_presented(petition_text: str) -> tuple[str | None, bool]:
     for start in _qp_starts(petition_text):
         heading_seen = True
         rest = petition_text[start.end() :]
-        end = _qp_section_end(rest)
+        end = _qp_section_end(rest, contents_entry_ends=_opens_as_heading(petition_text, start))
         capped = end is None and len(rest) > _QP_MAX_CHARS
         capture = rest[:end] if end is not None else rest[:_QP_MAX_CHARS]
         if _is_toc_capture(capture):
