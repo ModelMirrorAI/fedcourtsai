@@ -1845,11 +1845,15 @@ understood: on a bucket of only public court-derived objects, `ListBucket` lets
 a holder *enumerate* the ingested-set extent — the compilation extent, the same
 boundary `data/scope/scope.json` withholds from the committed public surface
 (it can enumerate keys for ingested-but-unpublished dockets). The stated,
-bounded exception to that boundary covers exactly two committed artifacts, both
-argued and accepted in `docs/qp-topic.md` and nowhere else: the
-hand-labeled qp-topic reference set, and the accrued per-case qp-topic
-labels file over the QP-bearing rows *in the labeling scope* — the live-slice
-modern discretionary-cert frame. Its extent is bounded by that **frame**, not by
+bounded exception to that boundary covers exactly three committed artifacts,
+all argued and accepted in `docs/qp-topic.md` and nowhere else: the
+hand-labeled qp-topic reference set; the accrued per-case qp-topic labels file
+over the QP-bearing rows *in the labeling scope* — the live-slice modern
+discretionary-cert frame — and, under `qp-topic-v1`, over the live slice's
+non-extension application dockets; and the hand-labeled application reference
+block, a stratified sample of those applications whose membership is
+outcome-conditioned by its disposition strata but, unlike the petition set's,
+not outcome-complete. Its extent is bounded by that **frame**, not by
 the extract ceiling: the labels file accumulates one batch a dispatch and
 converges on the whole frame, so it tracks corpus growth in that scope and the
 committed file at any commit is the union of every batch landed so far. The
