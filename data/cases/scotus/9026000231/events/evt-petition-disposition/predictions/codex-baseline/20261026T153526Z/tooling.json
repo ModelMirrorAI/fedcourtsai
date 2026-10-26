@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000231",
+  "gaps": [
+    "The requested government response is not yet provisioned, so its treatment of the alleged split remains unknown.",
+    "Web search and PDF-open attempts returned no usable material."
+  ],
+  "helpful": [
+    "Full petition and appendix text enabled checking the alleged split against the panel's actual distinction.",
+    "Frozen context identified the correct salience version and distribution count.",
+    "Statpack JSON allowed exact pooling of all rendered prior-Term reached rates.",
+    "MCP opinion excerpts supplied focused precedent context without querying the target docket."
+  ],
+  "notes": "Used only the provisioned record for this case's status. The extra-distribution forecast accounts for the response request after the initial distribution. The default uv cache path was read-only; commands used a temporary writable cache instead.",
+  "role": "predictor",
+  "run_id": "20261026T153526Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and document text",
+    "committed statpack markdown and JSON",
+    "fedcourts paths",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "web search and open attempts",
+    "read-only appendix and statistical subagent review"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
