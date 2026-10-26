@@ -412,8 +412,8 @@ exception in *The reference set* covers, argued there together with the
 application rows the labels file will carry. The file itself lands as the
 petition set does, in its own reviewed diff. The
 labeling run's handling of application rows, and a per-topic cut that reads
-them, do not yet exist. Until they do, no application label is
-published, and the petition frame's gates are unchanged.
+them, do not yet exist. Until they do, the labels file carries no application
+row, and the petition frame's gates are unchanged.
 
 ## The reference set
 
@@ -564,21 +564,32 @@ Three consequences bind every use of the set:
   **The application block, and application rows in the labels file, stated
   plainly.** The block names 241 application dockets, and about four in five of
   them have no directory under `data/cases`. Its membership is
-  **outcome-conditioned by design but not outcome-complete**: the sample is
-  stratified on disposition (granted, pending, other) and drawn by a seeded hash
-  within each stratum, so a granted application is in it at its stratum's rate.
-  That differs from this set, which holds *every* QP-bearing grant, and it is
-  why the block carries no "absence predicts the outcome" inference: an
-  application outside it is outside it whatever its disposition. Its membership
-  is **fetch-conditioned** as well, since every application with a stored
-  application document was included, so presence of an `application-text` row
-  says the pipeline holds that document.
+  **outcome-conditioned**. The sample is stratified on Term × input kind ×
+  disposition (granted, pending, other) and drawn by a seeded hash within each
+  stratum. Every `application-text` row is included, and each `docket-only`
+  stratum is drawn at a common rate of about a quarter with a floor of two
+  rows, so a small stratum is over-sampled (two of five Term-2026 `docket-only`
+  grants, against about a quarter elsewhere). Two strata are complete, and they
+  are named rather than left to be found:
+  - **Every application with a stored application document is a member**, so
+    presence says the pipeline holds that document.
+  - **Every pending application was a member at the draw** (6 of 6: five
+    through the `application-text` census and one through the floor on a
+    one-member stratum). So once the labels file names the frame, an
+    application in it but absent from the block was decided at the draw date.
+
+  For granted applications membership is partial (31 of 100), unlike this set,
+  which holds *every* QP-bearing grant, so the block carries no "absence
+  predicts a grant" inference.
 
   Once the labeling run carries application rows, the labels file would name the
   whole application frame (the live slice's non-extension applications, about
   850 at the 2026-10-26 pull), each with its `input_kind`. The joint effect with
-  the block is weak by construction: the frame minus the block is the
-  hash-unsampled remainder of every stratum, not an outcome class. What the
+  the block is bounded: the frame minus the block is the hash-unsampled remainder
+  of the `docket-only` decided strata. It is an outcome class in one respect,
+  decided at the draw, which the Court's own docket pages state for every
+  application, and in no other: it holds about three quarters of the granted
+  and of the other decided applications alike. What the
   frame adds over the block is the frame itself, the list of applications this
   pipeline holds, which is the compilation extent the exception exists to
   disclose. The `input_kind` on each row adds which of them have a stored
@@ -617,12 +628,18 @@ Three consequences bind every use of the set:
   the extract never leaves the runner, would close the channel outright; both
   cost more than the exposure is currently judged to be worth, and that judgment
   is the thing to revisit if the extract ever carries more than this. The
-  application extract (`qp-corpus --frame applications`) carries more, and is
-  accepted on the same footing for the same two reasons: its rows name the
-  application frame the committed labels file would name, and everything it
-  carries is the Court's own content. The caption, the court below and the
-  docket entries come from the supremecourt.gov docket JSON, and the application
-  text from documents the fetcher reads only from the Court's host.
+  application extract (`qp-corpus --frame applications`) carries more. No lane
+  uploads it yet, so this acceptance is ahead of the run mode that will. It is
+  **unbatched**: one artifact carries the whole application frame (about 850
+  rows) and every kept application text on every dispatch, a gate-refusing one
+  included, so it names the full frame before any committed labels file does.
+  It is accepted on the same footing for the same two reasons. The frame it
+  names is the one the labels file will name. And what it carries is
+  public-record content served by supremecourt.gov: the court below and the
+  docket entries come from the Court's docket JSON, the caption from a live-slice
+  row whose caption is that docket's own, and the application text from
+  applicants' filings as the Court publishes them, read by a fetcher that
+  refuses any other host.
 
   The labeler's **turn-by-turn transcript** (`qp-label-transcript`) rides the
   same channel under the same terms, because it is the same bytes one step
