@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` and `qp-topic-label-applications` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -521,8 +521,8 @@ queues behind the production run of the same mode. The modes:
   (`fedcourts qp-corpus`, under `$RUNNER_TEMP` — the command refuses an `--out`
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
-  credential in its environment and no MCP config (the vocabulary is text-only,
-  so the extract is the agent's entire evidentiary input). Exactly three things
+  credential in its environment and no MCP config (on either frame the extract
+  is the agent's entire evidentiary input). Exactly three things
   cross the split: that artifact, and two job outputs, each one integer. The
   size of the QP-bearing frame the extract cut the batch from goes to the
   post-label measure step's `qp-topics --frame-rows`, so the labels artifact
@@ -565,6 +565,15 @@ queues behind the production run of the same mode. The modes:
   overrides the default for `claude-fable-5`, the one tier measured to finish.
   `claude-opus-5-5` is offered too, with no measured pace or cost yet.
   See [qp-topic.md](qp-topic.md).
+- **`qp-topic-label-applications`** (dispatch) is the same three jobs over the
+  emergency-application frame under `qp-topic-v1`: the extract is `qp-corpus
+  --frame applications`, the measurement is against the application reference
+  block, and the PR lands `data/qp-topics/qp-topics-applications.json` on its
+  own fixed branch, `qp-topics/applications-refresh`. The jobs read the frame
+  and the labels file's name off the mode (`QP_FRAME`, `LABELS_NAME`), so every
+  fence above holds unchanged. A mode value rather than a dispatch input,
+  because the inputs are near GitHub's cap. Its first run belongs on a
+  `staging` ref, where the publish job is fenced as for the petition mode.
 
 ## `summarize` — plain-language case summaries
 
@@ -1826,7 +1835,8 @@ The mechanics:
   candidate (`promote/…`), or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, merits-backtest and salience-replay PRs,
-  the qp-topic labeling run's `qp-topics/refresh` PR, the case-summary lane's
+  the qp-topic labeling runs' `qp-topics/refresh` and
+  `qp-topics/applications-refresh` PRs, the case-summary lane's
   `summaries/refresh` PR, the big-case board's
   `metrics/big-cases` PR and the update history's `metrics/public-updates`
   PR); on those

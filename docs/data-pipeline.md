@@ -474,7 +474,7 @@ disclosure properties differ. The **scope manifest** (`fedcourts
 scope-manifest`) is enumerated from the committed `data/cases` tree alone,
 never a corpus scan, so it discloses only the already-public set and cannot
 enumerate the wider ingested corpus. The `data/qp-topics/` artifacts are
-**not** roll-ups, and all three carry the deliberate disclosure exception argued in
+**not** roll-ups, and all four carry the deliberate disclosure exception argued in
 `docs/qp-topic.md`. `qp-topic-reference.json` is hand-authored judgment (the
 `qp-topic-v0` measurement baseline), and so is
 `qp-topic-reference-applications.json` (the `qp-topic-v1` application block);
@@ -490,7 +490,10 @@ batch, carrying a per-batch ledger and, on each row, the batch that first
 published it (`docs/qp-topic.md`). The write is still a whole-file replacement:
 the accrual happens in `fedcourts qp-topics`, from the committed copy in the
 run's own checkout, which is why that mode must be dispatched from the ref
-carrying the newest artifact. The **docket
+carrying the newest artifact. `qp-topics-applications.json` is its
+`qp-topic-v1` counterpart over the application frame, written the same way by
+the `qp-topic-label-applications` mode and landed on its own fixed
+`qp-topics/applications-refresh` branch; nothing else reads it yet. The **docket
 pack** (`fedcourts
 docket`) aggregates the whole corpus — it publishes counts and rates over every
 ingested row, never a row itself — so it moves whenever the corpus does, and the

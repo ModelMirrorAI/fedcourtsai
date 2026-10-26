@@ -37,6 +37,15 @@ inputs:
       leaves the ledger entry without one and the cut on its bound.
     required: false
     default: ''
+  frame:
+    description: >
+      Which frame the labels cover: `petitions` (measured against the reference
+      set, accrued into `qp-topics.json`) or `applications` (measured against
+      the application reference block, accrued into
+      `qp-topics-applications.json`). Defaults to the petition frame, which is
+      what the integration-test scenario labels.
+    required: false
+    default: petitions
   data-root:
     description: >
       Data root holding `qp-topics/qp-topic-reference.json`; the labels
@@ -98,6 +107,7 @@ runs:
         TEXTS: ${{ inputs.texts }}
         LABELER: ${{ inputs.labeler }}
         FRAME_ROWS: ${{ inputs.frame-rows }}
+        QP_FRAME: ${{ inputs.frame }}
         DATA_ROOT: ${{ inputs.data-root }}
         # The measure command reads the reference set and writes the artifact
         # under the settings data root, while `validate` takes the path as an
@@ -119,7 +129,15 @@ runs:
         if [ -n "$FRAME_ROWS" ]; then
           frame=(--frame-rows "$FRAME_ROWS")
         fi
+        case "$QP_FRAME" in
+          petitions|applications) ;;
+          *)
+            echo "::error::unknown qp-topic frame: ${QP_FRAME}"
+            exit 1
+            ;;
+        esac
         uv run fedcourts qp-topics \
+          --frame "$QP_FRAME" \
           --labels "$LABELS_OUT" \
           --texts "$TEXTS" \
           --labeler "$LABELER" \
@@ -132,11 +150,21 @@ runs:
         # later, into the PR body rendered from the same file.
         tr -d '\140' < "$RUNNER_TEMP/measured.txt" > "$RUNNER_TEMP/measured-safe.txt"
         {
-          echo "### qp-topic-v0 labeling run"
-          echo
-          echo "Agreement with a single v0 reference rater, not accuracy; the"
-          echo "reference frame is grant-enriched, so it certifies the grant"
-          echo "stream only (see docs/qp-topic.md)."
+          if [ "$QP_FRAME" = applications ]; then
+            echo "### qp-topic-v1 application labeling run"
+            echo
+            echo "Agreement with the application reference block's adjudicated"
+            echo "labels, not accuracy, and in-sample: the register rules the"
+            echo "labeler applies were fitted to this block. Not quotable until a"
+            echo "held-out blind pass exists (see the Applications section of"
+            echo "docs/qp-topic.md)."
+          else
+            echo "### qp-topic-v0 labeling run"
+            echo
+            echo "Agreement with a single v0 reference rater, not accuracy; the"
+            echo "reference frame is grant-enriched, so it certifies the grant"
+            echo "stream only (see docs/qp-topic.md)."
+          fi
           echo
           echo '```'
           cat "$RUNNER_TEMP/measured-safe.txt"
