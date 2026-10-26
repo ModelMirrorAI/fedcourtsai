@@ -1,0 +1,88 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:dddb693aa1be431b57481beaa027b96b5fd93e72f7e54a70172f446470a83869",
+  "big_case": {
+    "evaluator_score": 0.38,
+    "notes": "Resolving whether federal common law or state contract law governs nonsignatory equitable estoppel under the New York Convention would answer the choice-of-law question expressly reserved in GE Energy Power Conversion France SAS, Corp. v. Outokumpu Stainless USA, LLC (2020) and settle a recurring circuit conflict affecting international arbitration and surplus-lines property insurance litigation. However, the dispute remains a technical commercial-arbitration question presented here in a derivative, unpublished companion vehicle rather than a matter of broad public or constitutional salience."
+  },
+  "brier_score": 0.0576,
+  "brier_skill_score": -20.032272411107098,
+  "case_id": "scotus/73550516",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05233209759462023,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.24,
+        "score": -0.054861351561347145
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.7,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": 0.3432657926102503,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.054861351561347145,
+    "total": -0.054861351561347145
+  },
+  "correct": 0,
+  "created_at": "2026-10-26T16:04:00Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction executed on 2026-10-06, two weeks before the 2026-10-20 Rule 46 dismissal. Audit of all 42 calls in retrieval_log.json confirms no post-resolution material or outcome leakage; external calls were limited to pre-existing precedent (GE Energy v. Outokumpu and Setty v. Shrinivas Sugandhalaya LLP) and accurately reported in retrieval.md.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": null,
+  "predicted_reasoning_review": null,
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+    "label": "proc-v12",
+    "pipeline_sha": "fe73f6cca8bfe1b3a5b0912e407f87eaaf47da30",
+    "stamped_at": "2026-10-26T16:11:11.576882Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261026T155707Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05233209759462023,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

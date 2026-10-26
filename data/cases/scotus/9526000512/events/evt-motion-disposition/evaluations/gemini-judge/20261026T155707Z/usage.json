@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-judge",
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 1782679,
+  "case_id": "scotus/9526000512",
+  "created_at": "2026-10-26T15:57:07Z",
+  "engine": "gemini",
+  "engine_version": "0.49.0",
+  "engine_version_discrepancy": null,
+  "estimated_cost_usd": 1.3324379,
+  "event_id": "evt-motion-disposition",
+  "input_tokens": 467045,
+  "model": "gemini-4-argon",
+  "output_tokens": 22008,
+  "pipeline_sha": "fe73f6cca8bfe1b3a5b0912e407f87eaaf47da30",
+  "post_run_poll": null,
+  "pre_mint_poll": null,
+  "role": "evaluator",
+  "run_id": "20261026T155707Z",
+  "schema_version": "1.0"
+}

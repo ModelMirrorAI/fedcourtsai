@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73550516",
+  "run_id": "20261026T155707Z",
+  "role": "evaluator",
+  "actor_id": "gemini-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "fedcourts paths"
+  ],
+  "helpful": [
+    "Provisioned petition text and appendices in record/documents/petition.txt allowed direct verification of citations, docket numbers, and lower-court holdings without external calls.",
+    "Harness-captured retrieval_log.json made auditing each candidate's reading depth and self-reported retrieval straightforward."
+  ],
+  "gaps": [],
+  "notes": "All three candidates carried a frozen context.band ('baseline' under 'sal-v4'), so segment_base_rate and brier_skill_score are left for stamp-cell per the evaluate prompt contract."
+}
