@@ -1845,19 +1845,25 @@ understood: on a bucket of only public court-derived objects, `ListBucket` lets
 a holder *enumerate* the ingested-set extent — the compilation extent, the same
 boundary `data/scope/scope.json` withholds from the committed public surface
 (it can enumerate keys for ingested-but-unpublished dockets). The stated,
-bounded exception to that boundary covers exactly two committed artifacts, both
-argued and accepted in `docs/qp-topic.md` and nowhere else: the
-hand-labeled qp-topic reference set, and the accrued per-case qp-topic
-labels file over the QP-bearing rows *in the labeling scope* — the live-slice
-modern discretionary-cert frame. Its extent is bounded by that **frame**, not by
+bounded exception to that boundary covers exactly three committed artifacts,
+all argued and accepted in `docs/qp-topic.md` and nowhere else: the
+hand-labeled qp-topic reference set; the accrued per-case qp-topic labels file
+over the QP-bearing rows *in the labeling scope* — the live-slice modern
+discretionary-cert frame — and, under `qp-topic-v1`, over the live slice's
+non-extension application dockets; and the hand-labeled application reference
+block, a stratified sample of those applications whose membership is
+outcome-conditioned by its disposition strata and complete only for the
+applications pending at the draw and those with a stored application document.
+The labels file's extent is bounded by those **frames**, not by
 the extract ceiling: the labels file accumulates one batch a dispatch and
 converges on the whole frame, so it tracks corpus growth in that scope and the
 committed file at any commit is the union of every batch landed so far. The
 ceiling bounds one extract — the non-committed channel below — and nothing else.
 That is a real widening over a single capped cut, and it is accepted on the
-ground already argued in `docs/qp-topic.md`: the frame's *contents* are public
-dockets, named on the Court's own site, and no QP text is republished — while
-its *membership* (which of those dockets this pipeline holds a QP text for) is
+ground already argued in `docs/qp-topic.md`: the frames' *contents* are public
+dockets, named on the Court's own site, and no QP or application text is
+republished — while their *membership* (which of those dockets this pipeline
+holds a QP text for, or holds at all, for the application frame) is
 the compilation extent, derivable from no public source, and disclosing exactly
 that is what the compilation-extent exception buys. Nothing further comes from history-differencing
 here, because the file's own accrual makes the union readable at HEAD. Each names
@@ -1866,14 +1872,20 @@ membership is outcome-conditioned (presence predicts a cert grant), the labels
 file's is fetch- **and scope-**conditioned (a questions-presented document is
 stored for that case, and the case sits in that frame — a more grant-correlated
 population than fetch alone), and because the two are committed together the
-pair reconstructs that frame's QP-bearing non-grants by difference. That composition is the thing argued in
+pair reconstructs that frame's QP-bearing non-grants by difference. The
+application block's membership is outcome-conditioned too, and complete for
+two classes: every application with a stored application document, and every
+application pending at the draw. So, against the application rows of the labels
+file, absence from the block says an application was decided at the draw (a
+fact the Court's docket page states), and nothing finer, since its granted
+applications are sampled. That composition is the thing argued in
 `docs/qp-topic.md`, alongside the non-git channel the labeling run adds — three
 artifacts under the same one-day window, publicly downloadable on this
 repository: its extract of stored petition text, riding between the mode's two
 jobs; the labeler's scanned turn-by-turn transcript, which embeds the same
 text plus the agent's own turns; and the scanned labels the run wrote, which
-republish no petition text and name the same population the committed pair
-does, but unvalidated — they are uploaded before `qp-topics` reads them, so
+republish no petition text and name the same population the committed
+artifacts do, but unvalidated — they are uploaded before `qp-topics` reads them, so
 they travel on the runs the publication gate refuses and the runs it passes
 alike. The labeler's reach is what bounds that third one: it can read the
 extract this same run already published under the same window, and the public

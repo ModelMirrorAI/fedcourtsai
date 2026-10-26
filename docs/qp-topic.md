@@ -406,16 +406,14 @@ have been assigned as described above, and its file has a schema
 vocabulary) and a path, `data/qp-topics/qp-topic-reference-applications.json`.
 It is a file of its own rather than a block of the petition reference set, so
 the petition set stays byte-identical and a later application gate's floors can
-bind apart from the petition gate's. **The file is not committed, and cannot be
-yet.** It names application dockets the public case set does not, and its
-membership is outcome-conditioned through its disposition strata, so it would
-be a third committed surface enumerating the ingested corpus. The disclosure
-exception below covers exactly two, and a third is argued here before it
-exists. Publishing application rows in the labels file widens the second
-artifact the same way, so that argument comes first too. The
+bind apart from the petition gate's. It names application dockets the public
+case set does not, so it is the third committed surface the disclosure
+exception in *The reference set* covers, argued there together with the
+application rows the labels file will carry. The file itself lands as the
+petition set does, in its own reviewed diff. The
 labeling run's handling of application rows, and a per-topic cut that reads
-them, do not yet exist. Until they do, no application label is
-published, and the petition frame's gates are unchanged.
+them, do not yet exist. Until they do, the labels file carries no application
+row, and the petition frame's gates are unchanged.
 
 ## The reference set
 
@@ -528,12 +526,16 @@ Three consequences bind every use of the set:
   are maximally public (SCOTUS petitions, named on the Court's own site) and
   no QP text is republished; the extent-by-counts the coverage caveat also
   carries is the posture the docket pack already publishes. The exception is
-  accepted for **exactly two committed artifacts** — this set, and the
+  accepted for **exactly three committed artifacts** — this set; the
   labeler's per-case labels file `data/qp-topics/qp-topics.json`, which every
   labeling run commits in full so a reviewer reads the labels themselves rather
   than a summary of them — every row, including the batches before this one, and
-  each stamped with the batch and the source that published it. Neither is precedent for a third: any further committed
-  surface that enumerates the ingested corpus is argued here, before it exists.
+  each stamped with the batch and the source that published it; and the
+  application reference block
+  `data/qp-topics/qp-topic-reference-applications.json`, argued below together
+  with the application rows the labels file carries under `qp-topic-v1`. None
+  is precedent for a fourth: any further committed surface that enumerates the
+  ingested corpus is argued here, before it exists.
 
   **What the second artifact adds, stated plainly.** Its own membership is
   **fetch-conditioned** — a case is in it because a questions-presented
@@ -559,6 +561,48 @@ Three consequences bind every use of the set:
   `data/qp-topics/` **path** rather than the reference set by name, and why that
   path prohibition is what has to hold as artifacts are added under it.
 
+  **The application block, and application rows in the labels file, stated
+  plainly.** The block names 241 application dockets, and about four in five of
+  them have no directory under `data/cases`. Its membership is
+  **outcome-conditioned**. The sample is stratified on Term × input kind ×
+  disposition (granted, pending, other) and drawn by a seeded hash within each
+  stratum. Every `application-text` row is included, and each `docket-only`
+  stratum is drawn at a common rate of about a quarter with a floor of two
+  rows, so a small stratum is over-sampled (two of five Term-2026 `docket-only`
+  grants, against about a quarter elsewhere). Two strata are complete, and they
+  are named rather than left to be found:
+  - **Every application with a stored application document is a member**, so
+    presence says the pipeline holds that document.
+  - **Every pending application was a member at the draw** (6 of 6: five
+    through the `application-text` census and one through the floor on a
+    one-member stratum). So once the labels file names the frame, an
+    application in it but absent from the block was decided at the draw date.
+
+  For granted applications membership is partial (31 of 100), unlike this set,
+  which holds *every* QP-bearing grant, so the block carries no "absence
+  predicts a grant" inference.
+
+  Once the labeling run carries application rows, the labels file would name the
+  whole application frame (the live slice's non-extension applications, about
+  850 at the 2026-10-26 pull), each with its `input_kind`. The joint effect with
+  the block is bounded: the frame minus the block is the hash-unsampled remainder
+  of the `docket-only` decided strata. It is an outcome class in one respect,
+  decided at the draw, which the Court's own docket pages state for every
+  application, and in no other: it holds about three quarters of the granted
+  and of the other decided applications alike. What the
+  frame adds over the block is the frame itself, the list of applications this
+  pipeline holds, which is the compilation extent the exception exists to
+  disclose. The `input_kind` on each row adds which of them have a stored
+  application document, a fetch-state fact the coverage caveat already
+  publishes as counts.
+
+  It is accepted on the same ground as the petition artifacts. Application
+  dockets are public by number, caption and entry on the Court's own site, and
+  their dispositions are the Court's published orders. Neither file republishes
+  application text or docket-entry text: they carry identifiers, an input kind
+  and a subject label. Nor does it relax the cell boundary, since the predict
+  and evaluate prompts already prohibit the whole `data/qp-topics/` path.
+
   **One non-committed channel — carrying three artifacts — is in scope too,
   because the boundary is about disclosure and not about git.** The labeling run's extract (`fedcourts
   qp-corpus`) is both things no committed surface carries — the stored petition
@@ -583,7 +627,19 @@ Three consequences bind every use of the set:
   run-scoped key, or collapsing the two jobs behind step-scoped credentials so
   the extract never leaves the runner, would close the channel outright; both
   cost more than the exposure is currently judged to be worth, and that judgment
-  is the thing to revisit if the extract ever carries more than this.
+  is the thing to revisit if the extract ever carries more than this. The
+  application extract (`qp-corpus --frame applications`) carries more. No lane
+  uploads it yet, so this acceptance is ahead of the run mode that will. It is
+  **unbatched**: one artifact carries the whole application frame (about 850
+  rows) and every kept application text on every dispatch, a gate-refusing one
+  included, so it names the full frame before any committed labels file does.
+  It is accepted on the same footing for the same two reasons. The frame it
+  names is the one the labels file will name. And what it carries is
+  public-record content served by supremecourt.gov: the court below and the
+  docket entries come from the Court's docket JSON, the caption from a live-slice
+  row whose caption is that docket's own, and the application text from
+  applicants' filings as the Court publishes them, read by a fetcher that
+  refuses any other host.
 
   The labeler's **turn-by-turn transcript** (`qp-label-transcript`) rides the
   same channel under the same terms, because it is the same bytes one step
