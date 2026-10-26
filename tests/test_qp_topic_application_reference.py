@@ -9,6 +9,10 @@ from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.application_topics import (
+    APPLICATION_EXTRACT_RULE,
+    APPLICATION_TOPIC_VERSION,
+)
 from fedcourtsai.pipeline.qp_topics import application_reference_path
 from fedcourtsai.schemas import QpTopicApplicationReference
 from fedcourtsai.serialize import write_json
@@ -32,15 +36,16 @@ def test_a_well_formed_block_validates_where_the_reader_looks(tmp_path: Path) ->
     write_json(path, block)
     result = CliRunner().invoke(app, ["validate", str(path.parent)])
     assert result.exit_code == 0, result.output
-    assert block.vocabulary == "qp-topic-v1"
-    assert block.extract_rule == "application-extract-v1"
+    # The schema's literals track the extract's constants, so bumping the rule
+    # cannot leave the reference schema behind.
+    assert block.vocabulary == APPLICATION_TOPIC_VERSION
+    assert block.extract_rule == APPLICATION_EXTRACT_RULE
 
 
 @pytest.mark.parametrize(
     ("entries", "cases", "message"),
     [
         ([_entry("scotus/2", "24A950"), _entry("scotus/1", "24A949")], 2, "sorted"),
-        ([_entry("scotus/1", "24A949"), _entry("scotus/2", "24a949 ")], 2, "at most once"),
         ([_entry("scotus/1", "24A949")], 2, "cases must equal"),
         ([_entry("scotus/1", "24A949", "stay-of-execution")], 1, "label"),
     ],

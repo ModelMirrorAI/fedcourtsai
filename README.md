@@ -330,9 +330,7 @@ plus `data/schedule/schedule.json`, the live poll's display file of each
 pending public docket's next conference (rewritten each live window, not a
 reviewed roll-up), and the `data/qp-topics/` artifacts, which are not roll-ups at all
 (`docs/qp-topic.md`): `qp-topic-reference.json`, the hand-labeled topic
-reference set, authored as a judgment and changed only in its own reviewed diff,
-and `qp-topic-reference-applications.json`, its application block, authored
-the same way;
+reference set, authored as a judgment and changed only in its own reviewed diff;
 and — once a labeling run has produced one — `qp-topics.json`, the
 machine-produced per-case labels, written by the agent-backed `qp-topic-label`
 run mode and landed the same way, as a reviewed PR to `main` that is never

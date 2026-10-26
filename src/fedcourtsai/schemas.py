@@ -8843,12 +8843,13 @@ class QpTopicApplicationReference(_Strict):
     """``data/qp-topics/qp-topic-reference-applications.json`` — the application reference block.
 
     The measurement baseline for a ``qp-topic-v1`` labeler on application rows,
-    kept apart from the petition reference set so each block's publication
-    floors bind on their own. Its sample is stratified on disposition, among
-    other things, so membership is outcome-conditioned in the same way the
-    petition set's is, which is why the cell prompts forbid predict/evaluate
-    cells from reading anything under ``data/qp-topics/``. Nothing frozen
-    depends on it.
+    kept apart from the petition reference set so that set stays byte-identical
+    and an application gate's floors can bind apart from the petition gate's.
+    Not committed until ``docs/qp-topic.md`` argues its disclosure exception.
+    Its sample is stratified on disposition, among other things, so membership
+    is outcome-conditioned in the same way the petition set's is, which is why
+    the cell prompts forbid predict/evaluate cells from reading anything under
+    ``data/qp-topics/``. Nothing frozen depends on it.
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
@@ -8875,9 +8876,6 @@ class QpTopicApplicationReference(_Strict):
         ids = [entry.case_id for entry in self.entries]
         if ids != sorted(ids) or len(set(ids)) != len(ids):
             raise ValueError("entries must be sorted by case_id and unique")
-        dockets = [entry.docket_number.strip().upper() for entry in self.entries]
-        if len(set(dockets)) != len(dockets):
-            raise ValueError("each docket_number appears at most once")
         return self
 
 

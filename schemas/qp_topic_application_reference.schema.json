@@ -58,7 +58,7 @@
     }
   },
   "additionalProperties": false,
-  "description": "``data/qp-topics/qp-topic-reference-applications.json`` \u2014 the application reference block.\n\nThe measurement baseline for a ``qp-topic-v1`` labeler on application rows,\nkept apart from the petition reference set so each block's publication\nfloors bind on their own. Its sample is stratified on disposition, among\nother things, so membership is outcome-conditioned in the same way the\npetition set's is, which is why the cell prompts forbid predict/evaluate\ncells from reading anything under ``data/qp-topics/``. Nothing frozen\ndepends on it.",
+  "description": "``data/qp-topics/qp-topic-reference-applications.json`` \u2014 the application reference block.\n\nThe measurement baseline for a ``qp-topic-v1`` labeler on application rows,\nkept apart from the petition reference set so that set stays byte-identical\nand an application gate's floors can bind apart from the petition gate's.\nNot committed until ``docs/qp-topic.md`` argues its disclosure exception.\nIts sample is stratified on disposition, among other things, so membership\nis outcome-conditioned in the same way the petition set's is, which is why\nthe cell prompts forbid predict/evaluate cells from reading anything under\n``data/qp-topics/``. Nothing frozen depends on it.",
   "properties": {
     "cases": {
       "default": 0,
