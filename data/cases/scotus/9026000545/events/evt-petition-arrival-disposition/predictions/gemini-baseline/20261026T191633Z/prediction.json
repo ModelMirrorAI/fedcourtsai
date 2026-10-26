@@ -1,0 +1,89 @@
+{
+  "big_case_rationale": "Routine pro se employment discrimination and retaliation dispute arising from an unpublished Eleventh Circuit per curiam affirmance of summary judgment with no institutional, political, or national policy salience.",
+  "big_case_score": 0.03,
+  "case_id": "scotus/9026000545",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.0003,
+        "Barrett": 0.0001,
+        "Gorsuch": 0.0005,
+        "Jackson": 0.0005,
+        "Kagan": 0.0001,
+        "Kavanaugh": 0.0002,
+        "Roberts": 0.0001,
+        "Sotomayor": 0.0005,
+        "Thomas": 0.0005
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.002
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.98
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.001
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.35
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.002
+    }
+  ],
+  "confidence": 0.98,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-27",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-27",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-26T19:22:00Z",
+  "engine": "gemini",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-27.json",
+  "judgment": null,
+  "model": "gemini-4-argon",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.002,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745",
+    "label": "proc-v13",
+    "pipeline_sha": "726e4432c4eb62d678c55bf84519ea5289286316",
+    "stamped_at": "2026-10-26T19:26:15.559424Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261026T191633Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
