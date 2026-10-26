@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73280982",
+  "run_id": "20261026T092709Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "provisioned documents (petition, questions-presented, brief-in-opposition, cert-reply, sg-invited-brief)"
+  ],
+  "helpful": [
+    "Full text of the Solicitor General's invited brief (sg-invited-brief.txt) alongside the petition, BIO, and cert reply made the legal posture and the SG's recommendation to grant a reformulated QP 1 immediately clear.",
+    "metrics/statpack.md provided clear base rates for the high salience band (sal-v4) and CVSG petitions."
+  ],
+  "gaps": [
+    "A statpack breakdown of cert grant rates conditioned on the SG's recommendation in CVSG briefs (grant vs. deny vs. GVR) would sharpen anchoring for sg-brief moment events."
+  ],
+  "notes": "All provisioned filings were intact and sufficient to form the prediction without external retrieval."
+}

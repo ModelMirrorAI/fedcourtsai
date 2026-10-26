@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000097",
+  "run_id": "20261026T092709Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "CourtListener MCP search", "CourtListener MCP search_document", "web search", "apply_patch"],
+  "helpful": ["Case-level snapshot and explicit forward context", "Petition and reproduced appellate opinion available together", "Unrounded sal-v4 reached-risk-set fields in committed statpack JSON", "Targeted precedent snippets without retrieving target-case history"],
+  "gaps": ["Web search returned no usable response text", "Default uv cache path was outside writable roots; UV_CACHE_DIR=/tmp/uv-cache was needed"],
+  "notes": "No corpus-service lookup was necessary. The response deadline and lower-court opinion were more informative than the raw distribution count. No opposition was provisioned, consistently with the future deadline; the appendix was marked truncated. All forecast evidence came from provisioned materials, committed base rates, and the historical Barrett precedent."
+}

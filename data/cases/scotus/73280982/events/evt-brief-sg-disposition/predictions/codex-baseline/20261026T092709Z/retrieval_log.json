@@ -1,0 +1,123 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b9801305599d3c46",
+      "query": "{\"cmd\": \"wc -l data/cases/scotus/73280982/record/documents/brief-in-opposition.txt data/cases/scotus/73280982/record/documents/cert-reply.txt && nl -ba data/cases/scotus/73280982/record/documents/brief-in-opposition.txt\", \"max_output_tokens\": 23000}",
+      "result_capture": "captured",
+      "result_digest": "c67f4e0f3e2b8f61",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T09:34:46.339Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c321db623da90c4a",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73280982/record/documents/cert-reply.txt; sed -n '250,620p' data/cases/scotus/73280982/record/documents/brief-in-opposition.txt | nl -ba -v250\", \"max_output_tokens\": 19000}",
+      "result_capture": "captured",
+      "result_digest": "3b05eaee3531457a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T09:34:51.602Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "682f0f9843606486",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73280982/record/documents/cert-reply.txt | sed -n '140,360p'; nl -ba data/cases/scotus/73280982/record/documents/cert-reply.txt | sed -n '360,577p'\", \"max_output_tokens\": 14000}",
+      "result_capture": "captured",
+      "result_digest": "e5f2fffa5900cee5",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T09:34:54.578Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "165468a0dcdb5635",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73280982/record/documents/brief-in-opposition.txt | sed -n '625,880p'\", \"max_output_tokens\": 6500}",
+      "result_capture": "captured",
+      "result_digest": "ff63b4c8a085f49d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T09:34:57.889Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "96482a06e23db861",
+      "query": "{\"cmd\": \"sed -n '696,790p' data/cases/scotus/73280982/record/documents/brief-in-opposition.txt; sed -n '950,1175p' data/cases/scotus/73280982/record/documents/brief-in-opposition.txt; sed -n '1240,1332p' data/cases/scotus/73280982/record/documents/brief-in-opposition.txt\", \"max_output_tokens\": 10000}",
+      "result_capture": "captured",
+      "result_digest": "9146b1f8a78eeff6",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T09:35:01.442Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b34a3f92d7e39527",
+      "query": "{\"cmd\": \"sed -n '990,1110p' data/cases/scotus/73280982/record/documents/brief-in-opposition.txt; sed -n '1111,1239p' data/cases/scotus/73280982/record/documents/brief-in-opposition.txt\", \"max_output_tokens\": 7000}",
+      "result_capture": "captured",
+      "result_digest": "333b6769c923a018",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T09:35:05.265Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8b5760e626880828",
+      "query": "{\"cmd\": \"sed -n '225,342p' data/cases/scotus/73280982/record/documents/cert-reply.txt; sed -n '343,455p' data/cases/scotus/73280982/record/documents/cert-reply.txt\", \"max_output_tokens\": 9000}",
+      "result_capture": "captured",
+      "result_digest": "ffed400e51f39937",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T09:35:09.044Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "4156911493ca5aab",
+      "query": "{\"cmd\": \"sed -n '270,405p' data/cases/scotus/73280982/record/documents/brief-in-opposition.txt; sed -n '880,950p' data/cases/scotus/73280982/record/documents/brief-in-opposition.txt; sed -n '327,358p' data/cases/scotus/73280982/record/documents/cert-reply.txt; sed -n '1090,1135p' data/cases/scotus/73280982/record/documents/brief-in-opposition.txt\", \"max_output_tokens\": 7000}",
+      "result_capture": "captured",
+      "result_digest": "436ef2b11c1fe0da",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T09:35:14.590Z",
+      "tool": "exec_command"
+    }
+  ],
+  "case_id": "scotus/73280982",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261026T092709Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

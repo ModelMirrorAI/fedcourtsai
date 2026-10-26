@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73280982",
+  "run_id": "20261026T092709Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned documents", "metrics/statpack.md"],
+  "helpful": ["sg-invited-brief.txt made the SG recommendation directly readable", "salience band table with reached rates"],
+  "gaps": ["questions-presented.txt mis-cut (argument text, not the QP section)", "supplemental briefs after the SG brief are not provisioned", "no statpack cut of CVSG cases by SG recommendation"],
+  "notes": "Distribution-moment cell evaluated with a CVSG and SG brief already on the record."
+}

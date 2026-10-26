@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73280982",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-petition-disposition",
+      "message": "The provisioned questions-presented.txt contains a later importance-argument passage rather than the petition's actual questions presented. Both questions were recovered from page I of petition.txt and cross-checked against page I of sg-invited-brief.txt. The forecast uses those opening questions, not the mis-extracted standalone snippet.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261026T092709Z",
+  "schema_version": "1.0"
+}
