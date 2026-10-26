@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73550516",
+  "gaps": [
+    "Result digests do not expose full retrieved response bodies; one candidate's results are entirely unobserved"
+  ],
+  "helpful": [
+    "Blinded predictions and separate rationale/forecast documents",
+    "Authoritative outcome and provisioned docket snapshot",
+    "Harness retrieval logs with per-call capture markers",
+    "Independent read-only leakage audit"
+  ],
+  "notes": "No new case facts, web searches, CourtListener lookups, corpus queries, or statpack reads were performed. Base-rate discussion was assessed only as part of each supplied rationale; all candidates froze a band, so baseline and skill are left to the harness. All evaluation outputs remain alias-keyed.",
+  "role": "evaluator",
+  "run_id": "20261026T155707Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local-file-read",
+    "read-only-subagent",
+    "apply_patch",
+    "local-schema-validation"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

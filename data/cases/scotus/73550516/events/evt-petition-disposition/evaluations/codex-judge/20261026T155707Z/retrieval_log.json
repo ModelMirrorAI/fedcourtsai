@@ -1,0 +1,123 @@
+{
+  "actor_id": "codex-judge",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c621230eeedf20eb",
+      "query": "{\"cmd\": \"for candidate in a b c; do base=\\\"data/cases/scotus/73550516/record/blinded/candidate-$candidate\\\"; printf '\\\\n=== candidate-%s file sizes ===\\\\n' \\\"$candidate\\\"; wc -c \\\"$base/retrieval_log.json\\\" \\\"$base/retrieval.md\\\" \\\"$base/reasoning.md\\\"; printf '\\\\n=== candidate-%s retrieval_log.json ===\\\\n' \\\"$candidate\\\"; cat \\\"$base/retrieval_log.json\\\"; printf '\\\\n=== candidate-%s retrieval.md ===\\\\n' \\\"$candidate\\\"; cat \\\"$base/retrieval.md\\\"; done\", \"max_output_tokens\": 16000}",
+      "result_capture": "captured",
+      "result_digest": "60c20d1effbaf050",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T16:01:08.669Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5d4c3a19ee4c8979",
+      "query": "{\"cmd\": \"for candidate in a b c; do base=\\\"data/cases/scotus/73550516/record/blinded/candidate-$candidate\\\"; printf '\\\\n=== candidate-%s log metadata and calls ===\\\\n' \\\"$candidate\\\"; jq 'del(.calls,.mcp_tools,.mcp_servers), {call_count:(.calls|length), captures:(.calls|group_by(.result_capture)|map({capture:.[0].result_capture,count:length})), calls:[.calls|to_entries[]|{call:(.key+1),timestamp:.value.timestamp,tool:.value.tool,capture:.value.result_capture,status:.value.result_status,doc_date:",
+      "result_capture": "captured",
+      "result_digest": "66145728b40bcb5d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T16:01:13.443Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "1e2d7a8f3714a53d",
+      "query": "{\"cmd\": \"base=data/cases/scotus/73550516/record/blinded/codex-baseline; printf '=== a calls 13 onward ===\\\\n'; jq -r '.calls|to_entries[]|select(.key>=12)|\\\"CALL \\\\(.key+1) \\\\(.value.timestamp) \\\\(.value.tool) capture=\\\\(.value.result_capture) status=\\\\(.value.result_status) doc_date=\\\\(.value.retrieved_doc_date)\\\\n\\\\(.value.query)\\\\n\\\"' \\\"$base/retrieval_log.json\\\"; printf '\\\\n=== a retrieval ===\\\\n'; cat \\\"$base/retrieval.md\\\"; printf '\\\\n=== a reasoning ===\\\\n'; cat \\\"$base/reasoning.md\\\"\", \"max",
+      "result_capture": "captured",
+      "result_digest": "8546c6f6054bd753",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T16:01:17.045Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "0218bc9f1a124127",
+      "query": "{\"cmd\": \"printf '=== a retrieval ===\\\\n'; cat data/cases/scotus/73550516/record/blinded/codex-baseline/retrieval.md; printf '\\\\n=== a reasoning beginning ===\\\\n'; sed -n '1,38p' data/cases/scotus/73550516/record/blinded/codex-baseline/reasoning.md; printf '\\\\n=== a remaining call details ===\\\\n'; jq -r '.calls|to_entries[]|select(.key>=32)|\\\"CALL \\\\(.key+1) \\\\(.value.timestamp) \\\\(.value.tool) \\\\(.value.result_capture)\\\\n\\\\(.value.query)\\\\n\\\"' data/cases/scotus/73550516/record/blinded/codex-baseline/retr",
+      "result_capture": "captured",
+      "result_digest": "e8eea270f3c75a52",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T16:01:41.313Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "66058890dc26d297",
+      "query": "{\"cmd\": \"base=data/cases/scotus/73550516/record/blinded/claude-baseline; printf '=== b metadata ===\\\\n'; jq 'del(.calls,.mcp_tools,.mcp_servers), {call_count:(.calls|length),captures:(.calls|group_by(.result_capture)|map({capture:.[0].result_capture,count:length}))}' \\\"$base/retrieval_log.json\\\"; printf '\\\\n=== b calls ===\\\\n'; jq -r '.calls|to_entries[]|\\\"CALL \\\\(.key+1) \\\\(.value.timestamp) \\\\(.value.tool) capture=\\\\(.value.result_capture) status=\\\\(.value.result_status) doc_date=\\\\(.value.retriev",
+      "result_capture": "captured",
+      "result_digest": "17b2377f8c25338d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T16:01:45.168Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f2b6ac9f4e4f0a25",
+      "query": "{\"cmd\": \"jq -r '.calls|to_entries[]|select(.key>=19 and .key<46)|\\\"CALL \\\\(.key+1) \\\\(.value.timestamp) \\\\(.value.tool) doc_date=\\\\(.value.retrieved_doc_date)\\\\n\\\\(.value.query)\\\\n\\\"' data/cases/scotus/73550516/record/blinded/claude-baseline/retrieval_log.json\", \"max_output_tokens\": 5000}",
+      "result_capture": "captured",
+      "result_digest": "27e74b250c7336e3",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T16:01:53.918Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f3b8919f2f24c876",
+      "query": "{\"cmd\": \"printf '=== b reasoning ===\\\\n'; cat data/cases/scotus/73550516/record/blinded/claude-baseline/reasoning.md; printf '\\\\n=== c metadata and calls 1-20 ===\\\\n'; jq 'del(.calls,.mcp_tools,.mcp_servers), {call_count:(.calls|length),captures:(.calls|group_by(.result_capture)|map({capture:.[0].result_capture,count:length}))}' data/cases/scotus/73550516/record/blinded/gemini-baseline/retrieval_log.json; jq -r '.calls|to_entries[]|select(.key<20)|\\\"CALL \\\\(.key+1) \\\\(.value.timestamp) \\\\(.value.tool) c",
+      "result_capture": "captured",
+      "result_digest": "856e8253a73caac4",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T16:01:58.144Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "c8621639703a538a",
+      "query": "{\"cmd\": \"printf '=== c reasoning ===\\\\n'; cat data/cases/scotus/73550516/record/blinded/gemini-baseline/reasoning.md; printf '\\\\n=== c calls 21 onward ===\\\\n'; jq -r '.calls|to_entries[]|select(.key>=20)|\\\"CALL \\\\(.key+1) \\\\(.value.timestamp) \\\\(.value.tool)\\\\n\\\\(.value.query)\\\\n\\\"' data/cases/scotus/73550516/record/blinded/gemini-baseline/retrieval_log.json; printf '\\\\n=== a reasoning lines 7-21 ===\\\\n'; sed -n '7,21p' data/cases/scotus/73550516/record/blinded/codex-baseline/reasoning.md; printf '\\\\n=== b",
+      "result_capture": "captured",
+      "result_digest": "bfe64e444403b1ec",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-26T16:02:02.469Z",
+      "tool": "exec_command"
+    }
+  ],
+  "case_id": "scotus/73550516",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": null,
+  "result_capture_coverage": 1.0,
+  "role": "evaluator",
+  "run_id": "20261026T155707Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

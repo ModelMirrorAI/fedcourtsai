@@ -1,0 +1,88 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:dddb693aa1be431b57481beaa027b96b5fd93e72f7e54a70172f446470a83869",
+  "big_case": {
+    "evaluator_score": 0.32,
+    "notes": "The governing-law question has meaningful cross-circuit commercial and treaty-enforcement implications, but this unpublished follower vehicle concerns private insurance arbitration. The Rule 46 dismissal produced no Supreme Court resolution of that question."
+  },
+  "brier_score": 0.04000000000000001,
+  "brier_skill_score": -13.605744729935488,
+  "case_id": "scotus/73550516",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05233209759462023,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.2,
+        "score": -0.037261351561347154
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.94,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.05,
+        "score": null
+      },
+      {
+        "baseline": 0.3432657926102503,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.85,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.06,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.037261351561347154,
+    "total": -0.037261351561347154
+  },
+  "correct": 0,
+  "created_at": "2026-10-26T16:03:34Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "All 48 call results are marked captured. The October 5-6 own-docket checks and companion research predate the October 20 resolution; staged prose reports own-docket pages empty and companion activity through September 9, not a disposition. The December 2025 and September 2026 lower-court opinions are not this petition's SCOTUS outcome. Captured digests are not full response bodies; no visible evidence shows an already-decided own-case outcome.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": null,
+  "predicted_reasoning_review": null,
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+    "label": "proc-v12",
+    "pipeline_sha": "fe73f6cca8bfe1b3a5b0912e407f87eaaf47da30",
+    "stamped_at": "2026-10-26T16:06:52.039682Z"
+  },
+  "reasoning_quality": 0.81,
+  "run_id": "20261026T155707Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05233209759462023,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
