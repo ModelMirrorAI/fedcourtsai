@@ -16,7 +16,11 @@ interval rather than a point.
 ``q`` counts only decided filings. A withdrawn, mooted or still-pending
 application is a filing whose outcome was not observed, so for these bounds it
 sits with the unfiled orders: an unobserved outcome is unobserved whatever
-stopped it.
+stopped it. That makes tier 2 and A2 assumptions about which orders *reach a
+decision*, not only about which a side chooses to file. Mootness is not
+always the side's choice (a rescinded policy moots its application), and how
+it relates to case strength can differ by administration, so a cut that
+counts many moot or withdrawn applications should say how many.
 
 **Tier 1, no assumption (Manski).** The pool-level win rate ``P``, had every
 adverse order been decided, lies in ``[r·q, r·q + (1 - q)]``: the unobserved
@@ -41,22 +45,31 @@ side's observed rate bounds ``Δ``.
 direction, order type, salience band), so :func:`stratified_lee_gap` computes
 the tier 3 bounds in each stratum and averages them with weights proportional
 to the stratum's always-filer count, ``q_low x (combined pool)``. Those weights
-make the average the always-filer gap over all strata rather than a pool-weighted
-mix of stratum gaps. A stratum where either side has no pool, or no decided
-filing, identifies nothing and is reported as skipped.
+make the average the always-filer gap over the combined pool's stratum mix
+rather than a pool-weighted mix of stratum gaps. A1 and A2 are only assumed
+within strata, so the two sides' stratum mixes may differ. A stratum where
+either side has no pool, or no decided filing, identifies nothing and is
+reported as skipped.
 
 **Sensitivity to A1 (rho).** :func:`lee_gap` takes ``rho``: up to that share of
 *each* side's decided filings may be cases outside the comparable set, beyond
 the ``π`` A1 implies. The less selective side is trimmed by ``π + rho``, the
 other by ``rho``, and the bounds widen monotonically in ``rho``.
 :func:`breakdown_rho` finds the smallest ``rho`` at which the bounds on ``Δ``
-include zero (the breakdown point, in Masten and Poirier's sense).
+include zero (the breakdown point, in Masten and Poirier's sense), and
+:func:`stratified_breakdown_rho` does the same for the stratified bounds,
+with ``rho`` applied within every stratum.
 
 **Inference.** :func:`imbens_manski_interval` covers the partially identified
 parameter at a nominal level from the interval's estimate and the standard
 errors of its two ends, which :func:`cluster_bootstrap` estimates by
 resampling whole controversies within each side, so repeated litigation over
-one policy is one draw.
+one policy is one draw. The interval leans on a regular estimate of the
+bounds, and Lee bounds are not regular where the two filing shares are close:
+the side trimmed can flip between bootstrap draws, and the clipping at 0 and 1
+is not smooth. The interval also under-covers when the bounds are nearly a
+point relative to their noise (Stoye's critique of Imbens and Manski). Read
+it as approximate there, and report the filing shares beside it.
 
 **Prediction trimming.** Where a score ranks cases by predicted strength,
 :func:`prediction_trimmed_rate` drops the ``π`` lowest-scored decided filings
@@ -73,7 +86,7 @@ import random
 from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, cast
 
 #: How close :func:`breakdown_rho` brackets the breakdown point.
 _BREAKDOWN_TOLERANCE: Final[float] = 1e-6
@@ -277,6 +290,33 @@ def breakdown_rho(a: SideCounts, b: SideCounts) -> float:
     return high
 
 
+def stratified_breakdown_rho(records: Sequence[OrderRecord], a: str, b: str) -> float | None:
+    """The smallest ``rho`` at which the stratified bounds on ``rate(a) - rate(b)`` include zero.
+
+    ``None`` when no stratum identifies anything. Zero when the bounds at
+    ``rho = 0`` already include it; otherwise bracketed by bisection, since
+    every stratum's bounds widen monotonically in ``rho`` and the average does too.
+    """
+
+    def gap(rho: float) -> Interval | None:
+        return stratified_lee_gap(records, a, b, rho=rho).gap
+
+    start = gap(0.0)
+    if start is None:
+        return None
+    if start.contains(0.0):
+        return 0.0
+    low, high = 0.0, 1.0
+    while high - low > _BREAKDOWN_TOLERANCE:
+        mid = (low + high) / 2.0
+        current = gap(mid)
+        if current is not None and current.contains(0.0):
+            high = mid
+        else:
+            low = mid
+    return high
+
+
 def side_counts(records: Iterable[OrderRecord]) -> SideCounts:
     """Pool, decided and win counts over one side's records."""
     pool = decided = wins = 0
@@ -326,7 +366,7 @@ def prediction_trimmed_rate(records: Sequence[OrderRecord], share: float) -> flo
     """The win rate after dropping the ``share`` lowest-scored decided filings.
 
     The number dropped is ``share x decided``, rounded to the nearest whole
-    filing; ties in score keep the input order. ``None`` when nothing decided
+    filing with a half rounded up; ties in score keep the input order. ``None`` when nothing decided
     is left. Every decided record must carry a score.
     """
     if not 0.0 <= share <= 1.0:
@@ -334,8 +374,8 @@ def prediction_trimmed_rate(records: Sequence[OrderRecord], share: float) -> flo
     decided = [record for record in records if record.decided]
     if any(record.score is None for record in decided):
         raise ValueError("prediction trimming needs a score on every decided filing")
-    ranked = sorted(decided, key=lambda record: record.score or 0.0)
-    kept = ranked[round(share * len(ranked)) :]
+    ranked = sorted(decided, key=lambda record: cast(float, record.score))
+    kept = ranked[math.floor(share * len(ranked) + 0.5) :]
     if not kept:
         return None
     return sum(bool(record.won) for record in kept) / len(kept)

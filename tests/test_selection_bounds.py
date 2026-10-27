@@ -1,10 +1,11 @@
 """Hand-worked tests for the selection bounds and the filing simulation.
 
 The estimators (`pipeline.selection_bounds`) publish intervals, so the tests
-pin each tier against values worked by hand, including the analysis plan's own
-illustration. The simulation (`pipeline.filing_simulation`) is checked where
-its truth is known exactly: identical sides have no gap, anticipation invents
-one in the naive comparison, and a large sample's bounds cover the truth.
+pin each tier against values worked by hand, including the worked
+illustration of filing shares 0.5 against 0.25 at an 80% win rate. The
+simulation (`pipeline.filing_simulation`) is checked where its truth is known
+exactly: identical sides have no gap, anticipation invents one in the naive
+comparison, and a large sample's bounds cover the truth.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from fedcourtsai.pipeline.selection_bounds import (
     monotone_bounds,
     prediction_trimmed_rate,
     side_counts,
+    stratified_breakdown_rho,
     stratified_lee_gap,
     trimmed_rate_bounds,
     trimming_share,
@@ -61,7 +63,7 @@ def test_tier_one_and_two_bound_the_pool_rate() -> None:
         manski_bounds(0.5, 1.5)
 
 
-def test_the_plans_illustration_bounds_the_always_filer_rate_in_60_to_100() -> None:
+def test_the_worked_illustration_bounds_the_always_filer_rate_in_60_to_100() -> None:
     pi = trimming_share(0.5, 0.25)
     assert pi == 0.5
     bounds = trimmed_rate_bounds(0.8, pi)
@@ -112,6 +114,18 @@ def test_rho_widens_the_bounds_and_breakdown_is_where_they_reach_zero() -> None:
     assert breakdown_rho(SideCounts(10, 5, 3), SideCounts(10, 2, 1)) == 0.0
 
 
+def test_stratified_breakdown_widens_every_stratum_until_zero_is_inside() -> None:
+    records = _records("a", "imm", wins=9, losses=1, unfiled=10) + _records(
+        "b", "imm", wins=3, losses=7, unfiled=10
+    )
+    rho = stratified_breakdown_rho(records, "a", "b")
+    assert rho is not None and 0.0 < rho < 1.0
+    assert rho == pytest.approx(
+        breakdown_rho(SideCounts(20, 10, 9), SideCounts(20, 10, 3)), abs=1e-5
+    )
+    assert stratified_breakdown_rho(_records("a", "imm", 1, 0, 0), "a", "b") is None
+
+
 def test_stratified_gap_weights_by_always_filers_and_skips_empty_strata() -> None:
     records = (
         _records("a", "imm", wins=4, losses=0, unfiled=0)
@@ -143,6 +157,12 @@ def test_prediction_trimming_drops_the_lowest_scored_decided_filings() -> None:
     assert prediction_trimmed_rate(records, 0.5) == 1.0
     assert prediction_trimmed_rate(records, 0.0) == 0.5
     assert prediction_trimmed_rate(records, 1.0) is None
+    # A half rounds up: 0.5 of 5 decided filings drops 3, and 0.5 of 7 drops 4.
+    five = [OrderRecord("a", 0, f"c{i}", True, i >= 3, score=float(i)) for i in range(5)]
+    assert prediction_trimmed_rate(five, 0.5) == 1.0
+    seven = [OrderRecord("a", 0, f"c{i}", True, i >= 4, score=float(i)) for i in range(7)]
+    assert prediction_trimmed_rate(seven, 0.5) == 1.0
+    assert prediction_trimmed_rate(seven, 0.4) == 0.75
     with pytest.raises(ValueError, match="score"):
         prediction_trimmed_rate([OrderRecord("a", 0, "c", True, True)], 0.5)
 

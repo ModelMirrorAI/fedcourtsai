@@ -25,8 +25,10 @@ coverage can be read off directly.
    extra cost on broad theories), ``S`` is signal value on salient
    controversies, ``ε`` is standard logistic noise, and ``κ`` sets how close the
    rule is to a hard threshold. Where ``signal_heterogeneous`` is set, ``S`` is
-   scaled by an exponential draw, independently for each side, which is what
-   lets monotone filing (A2) fail.
+   scaled by an exponential draw made independently for each side and each
+   order. With signal value on both sides, an order one side files for its
+   signal the other may not, so neither side's filings contain the other's and
+   monotone filing (A2) fails.
 4. A filed order is decided, and the government wins with probability ``p``.
 
 Every filed order is decided: the simulation has no withdrawals.
@@ -42,13 +44,20 @@ over that side's own simulated pool.
 side's pool-level rate; tier 3 bounds stratified by salience and breadth
 (:func:`.selection_bounds.stratified_lee_gap`); where bootstrap draws are asked
 for, an Imbens-Manski interval from a controversy-level bootstrap; the
-breakdown ``rho`` on the unstratified counts; and the prediction-trimmed
+breakdown ``rho`` of those stratified bounds; and the prediction-trimmed
 estimate from a noisy strength score ``θ + N(0, proxy_sd)``, which never sees
 the administration.
 
-**Scenarios.** :data:`SCENARIOS` holds the sweep the analysis plan lays out:
-a baseline, anticipation, signal-dominated filing, precedent-averse filing, a
-pool shift, and a small/large sample pair. :func:`attenuation_series` holds the
+**Scenarios.** :data:`SCENARIOS` holds the sweep: a baseline (50
+controversies a side, about the observed emergency docket's scale),
+anticipation (filing tracks a perceived favorability the Court does not
+have), signal-dominated filing (A2 fails), precedent-averse filing, a pool
+shift (A1 fails), and the baseline and the pool shift again at 5,000
+controversies a side, where sampling noise is small and what is left is
+identification. Coverage is what each run measures, not a property the
+scenario guarantees: a failed assumption shows where it moves the bounds off
+the truth. The truth is always defined on the unshifted pool, which is side
+B's. :func:`attenuation_series` holds the
 true effects fixed and sweeps one side's perceived favorability.
 
 Seeded and deterministic: the same seed, runs and draws give the same report.
@@ -67,13 +76,13 @@ from pydantic import BaseModel, ConfigDict
 from .selection_bounds import (
     Interval,
     OrderRecord,
-    breakdown_rho,
     cluster_bootstrap,
     imbens_manski_interval,
     manski_bounds,
     monotone_bounds,
     prediction_trimmed_rate,
     side_counts,
+    stratified_breakdown_rho,
     stratified_lee_gap,
     trimming_share,
 )
@@ -123,6 +132,7 @@ class Scenario:
 
 _BASE_A: Final = SideParams(true_effect=0.5, perceived_effect=0.5)
 _BASE_B: Final = SideParams(true_effect=0.0, perceived_effect=0.0)
+_SHIFTED_A: Final = SideParams(true_effect=0.5, perceived_effect=0.5, pool_shift=2.0)
 
 #: The scenario sweep. Side A is the favored administration in every scenario
 #: but anticipation, where the Court treats both alike.
@@ -145,11 +155,11 @@ SCENARIOS: Final[tuple[Scenario, ...]] = (
     Scenario(
         name="signal-dominated",
         description=(
-            "As baseline, but A gains signal value on salient controversies, "
-            "drawn independently per order"
+            "As baseline, but both sides gain signal value on salient controversies, "
+            "drawn independently for each side and order (A2 fails)"
         ),
         a=SideParams(true_effect=0.5, perceived_effect=0.5, signal=0.6),
-        b=_BASE_B,
+        b=SideParams(true_effect=0.0, perceived_effect=0.0, signal=0.6),
         signal_heterogeneous=True,
     ),
     Scenario(
@@ -163,9 +173,10 @@ SCENARIOS: Final[tuple[Scenario, ...]] = (
     Scenario(
         name="pool-shift",
         description=(
-            "As baseline, but A's adverse orders are stronger for the government by 0.5 (A1 fails)"
+            "As baseline, but A's adverse orders are stronger for the government by 2.0 "
+            "log-odds (A1 fails)"
         ),
-        a=SideParams(true_effect=0.5, perceived_effect=0.5, pool_shift=0.5),
+        a=_SHIFTED_A,
         b=_BASE_B,
     ),
     Scenario(
@@ -174,6 +185,14 @@ SCENARIOS: Final[tuple[Scenario, ...]] = (
             "Baseline at 5,000 controversies a side (10,000 in all), against baseline's 50 a side"
         ),
         a=_BASE_A,
+        b=_BASE_B,
+        controversies_per_side=5_000,
+        bootstrap=False,
+    ),
+    Scenario(
+        name="pool-shift-large",
+        description="The pool shift at 5,000 controversies a side",
+        a=_SHIFTED_A,
         b=_BASE_B,
         controversies_per_side=5_000,
         bootstrap=False,
@@ -430,7 +449,7 @@ def run_scenario(
     rng = random.Random(f"{seed}:{scenario.name}")
     truth = true_gap(scenario, rng, reference_orders)
     tally = _RunTally()
-    for _ in range(runs):
+    for index in range(runs):
         orders_a = simulate_side(scenario, SIDE_A, scenario.a, rng)
         orders_b = simulate_side(scenario, SIDE_B, scenario.b, rng)
         records = [order.record for order in orders_a + orders_b]
@@ -445,13 +464,12 @@ def run_scenario(
         if counts_a.win_rate is None or counts_b.win_rate is None:
             continue
         tally.naive.append(counts_a.win_rate - counts_b.win_rate)
-        tally.breakdown.append(breakdown_rho(counts_a, counts_b))
-        a_shift = _filed_minus_pool(orders_a, "salient")
-        if a_shift is not None:
-            tally.salient_shift.append(a_shift)
-        b_shift = _filed_minus_pool(orders_a, "broad")
-        if b_shift is not None:
-            tally.broad_shift.append(b_shift)
+        salient_shift = _filed_minus_pool(orders_a, "salient")
+        if salient_shift is not None:
+            tally.salient_shift.append(salient_shift)
+        broad_shift = _filed_minus_pool(orders_a, "broad")
+        if broad_shift is not None:
+            tally.broad_shift.append(broad_shift)
         trimmed = _prediction_trimmed_gap(records)
         if trimmed is not None and truth.gap is not None:
             tally.trimmed_error.append(trimmed - truth.gap)
@@ -460,11 +478,17 @@ def run_scenario(
             continue
         tally.lower.append(bounds.lower)
         tally.upper.append(bounds.upper)
+        breakdown = stratified_breakdown_rho(records, SIDE_A, SIDE_B)
+        if breakdown is not None:
+            tally.breakdown.append(breakdown)
         if truth.gap is not None:
             tally.covered.append(bounds.contains(truth.gap))
         if scenario.bootstrap and bootstrap_draws > 0 and truth.gap is not None:
             se_lower, se_upper, usable = cluster_bootstrap(
-                records, _stratified_statistic, draws=bootstrap_draws, rng=rng
+                records,
+                _stratified_statistic,
+                draws=bootstrap_draws,
+                rng=random.Random(f"{seed}:{scenario.name}:bootstrap:{index}"),
             )
             if usable >= 2:
                 interval = imbens_manski_interval(bounds, se_lower, se_upper, level)
