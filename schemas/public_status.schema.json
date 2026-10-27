@@ -1,0 +1,510 @@
+{
+  "$defs": {
+    "StatusBacktest": {
+      "additionalProperties": false,
+      "description": "One back-test's committed headline, with the artifact and vintage behind it.",
+      "properties": {
+        "artifact": {
+          "description": "Repository path of the committed artifact",
+          "title": "Artifact",
+          "type": "string"
+        },
+        "key": {
+          "enum": [
+            "historical-replay",
+            "cert",
+            "merits",
+            "salience-replay"
+          ],
+          "title": "Key",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "reading": {
+          "description": "How to read the figures, and what they are not",
+          "title": "Reading",
+          "type": "string"
+        },
+        "summary": {
+          "description": "What was replayed, in one or two sentences",
+          "title": "Summary",
+          "type": "string"
+        },
+        "table": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StatusTable"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "vintage": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The date of the commit that last wrote the artifact; null when unknown",
+          "title": "Vintage"
+        }
+      },
+      "required": [
+        "key",
+        "name",
+        "artifact",
+        "summary",
+        "reading"
+      ],
+      "title": "StatusBacktest",
+      "type": "object"
+    },
+    "StatusCoverage": {
+      "additionalProperties": false,
+      "description": "How much of the docket the pipeline is following, and with what documents.\n\nLedger figures are read from the committed tree at the snapshot's commit; the\nwatchlist figures from the newest published live-frontier snapshot, whose own\ndate is ``frontier_as_of`` (null fields when none was published).",
+      "properties": {
+        "corpus_dockets": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Dockets in the corpus, from its newest validation",
+          "title": "Corpus Dockets"
+        },
+        "documents_provisioned": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Watchlist petitions with at least one stored filing",
+          "title": "Documents Provisioned"
+        },
+        "evaluations_forward": {
+          "description": "Committed forward gradings",
+          "minimum": 0,
+          "title": "Evaluations Forward",
+          "type": "integer"
+        },
+        "events_predicted": {
+          "description": "Events holding at least one prediction",
+          "minimum": 0,
+          "title": "Events Predicted",
+          "type": "integer"
+        },
+        "frontier_as_of": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frontier As Of"
+        },
+        "next_conference": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Conference"
+        },
+        "next_conference_petitions": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Next Conference Petitions"
+        },
+        "predicted_resolved": {
+          "description": "Of those, events whose outcome is recorded",
+          "minimum": 0,
+          "title": "Predicted Resolved",
+          "type": "integer"
+        },
+        "predictions": {
+          "description": "Committed prediction cells",
+          "minimum": 0,
+          "title": "Predictions",
+          "type": "integer"
+        },
+        "public_cases": {
+          "description": "Dockets with a committed case directory",
+          "minimum": 0,
+          "title": "Public Cases",
+          "type": "integer"
+        },
+        "watchlist": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Pending petitions distributed for a conference",
+          "title": "Watchlist"
+        }
+      },
+      "required": [
+        "public_cases",
+        "events_predicted",
+        "predicted_resolved",
+        "predictions",
+        "evaluations_forward"
+      ],
+      "title": "StatusCoverage",
+      "type": "object"
+    },
+    "StatusLane": {
+      "additionalProperties": false,
+      "description": "One scheduled pipeline lane on the public status page.\n\n``state`` answers \"is this lane running\" from two separate signals. A lane is\n**late** when no run of it started on the default branch since the most recent\ntick its schedule declares (taken a grace period before the snapshot, because\nGitHub starts scheduled runs late), and **failing** when its most recent\nconclusive run ended in failure. Late wins over failing: a lane that has\nstopped starting is the stronger signal. **no-runs** means the run history\nthe snapshot read holds no run of the lane at all.",
+      "properties": {
+        "expected_since": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The schedule tick a run should have started after for the lane to count as on time; null when the lane declares no schedule",
+          "title": "Expected Since"
+        },
+        "label": {
+          "description": "The lane's public name",
+          "title": "Label",
+          "type": "string"
+        },
+        "lane": {
+          "description": "The workflow's file stem, e.g. `run-predict`",
+          "title": "Lane",
+          "type": "string"
+        },
+        "last_concluded_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When that conclusive run was created",
+          "title": "Last Concluded At"
+        },
+        "last_conclusion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the newest conclusive run ended (`success`, `failure`, `timed_out` or `startup_failure`); a skipped or superseded run is not one",
+          "title": "Last Conclusion"
+        },
+        "last_started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "When the newest run of the lane on the default branch was created, whatever it concluded",
+          "title": "Last Started At"
+        },
+        "runs_7d": {
+          "default": 0,
+          "description": "Conclusive runs created in the 7 days before the snapshot",
+          "minimum": 0,
+          "title": "Runs 7D",
+          "type": "integer"
+        },
+        "schedule": {
+          "description": "The lane's declared schedule, in words (UTC)",
+          "title": "Schedule",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "up",
+            "late",
+            "failing",
+            "no-runs"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "successes_7d": {
+          "default": 0,
+          "description": "Of `runs_7d`, those that succeeded",
+          "minimum": 0,
+          "title": "Successes 7D",
+          "type": "integer"
+        },
+        "what": {
+          "description": "One sentence on what the lane does",
+          "title": "What",
+          "type": "string"
+        }
+      },
+      "required": [
+        "lane",
+        "label",
+        "what",
+        "schedule",
+        "state"
+      ],
+      "title": "StatusLane",
+      "type": "object"
+    },
+    "StatusProduction": {
+      "additionalProperties": false,
+      "description": "What the ledger recorded over one trailing window: the cells that ran.\n\nCounted over the committed ``usage.json`` ledger, which lags: a cell's usage\nreaches ``data/`` only when its run's collect PR merges, so each count is a\nfloor on what ran, not a real-time figure.",
+      "properties": {
+        "by_stage": {
+          "items": {
+            "$ref": "#/$defs/StatusStageCells"
+          },
+          "title": "By Stage",
+          "type": "array"
+        },
+        "cells": {
+          "minimum": 0,
+          "title": "Cells",
+          "type": "integer"
+        },
+        "days": {
+          "minimum": 0,
+          "title": "Days",
+          "type": "integer"
+        },
+        "end": {
+          "format": "date",
+          "title": "End",
+          "type": "string"
+        },
+        "events": {
+          "description": "Distinct events those cells covered",
+          "minimum": 0,
+          "title": "Events",
+          "type": "integer"
+        },
+        "start": {
+          "format": "date",
+          "title": "Start",
+          "type": "string"
+        },
+        "term": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The October Term the window covers, on the term window",
+          "title": "Term"
+        },
+        "window": {
+          "enum": [
+            "7d",
+            "30d",
+            "term"
+          ],
+          "title": "Window",
+          "type": "string"
+        }
+      },
+      "required": [
+        "window",
+        "start",
+        "end",
+        "days",
+        "cells",
+        "events"
+      ],
+      "title": "StatusProduction",
+      "type": "object"
+    },
+    "StatusStageCells": {
+      "additionalProperties": false,
+      "description": "One (role, stage) row of a production window's cell census.",
+      "properties": {
+        "cells": {
+          "minimum": 0,
+          "title": "Cells",
+          "type": "integer"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        },
+        "stage": {
+          "title": "Stage",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "stage",
+        "cells"
+      ],
+      "title": "StatusStageCells",
+      "type": "object"
+    },
+    "StatusTable": {
+      "additionalProperties": false,
+      "description": "A table already formatted for display: the page renders it as it stands.",
+      "properties": {
+        "columns": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Columns",
+          "type": "array"
+        },
+        "rows": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Rows",
+          "type": "array"
+        }
+      },
+      "required": [
+        "columns",
+        "rows"
+      ],
+      "title": "StatusTable",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``status.json`` \u2014 the public status page's daily snapshot.\n\nRendered by ``fedcourts ops-report --status-out`` on the run-ops schedule and\npublished to the ``ops-metrics`` branch, where the public site reads it. A\npoint-in-time view, like :class:`OpsReport`: it carries ``generated_at`` and so\nis never committed to the default branch. It carries no spend figure and no\nagent prose; every figure is a count, a date, or a committed artifact's\nheadline.",
+  "properties": {
+    "backtests": {
+      "items": {
+        "$ref": "#/$defs/StatusBacktest"
+      },
+      "title": "Backtests",
+      "type": "array"
+    },
+    "coverage": {
+      "$ref": "#/$defs/StatusCoverage"
+    },
+    "data_ok": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The data-validation verdict (ledger schema and corpus checks); null when it could not be read",
+      "title": "Data Ok"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "lanes": {
+      "items": {
+        "$ref": "#/$defs/StatusLane"
+      },
+      "title": "Lanes",
+      "type": "array"
+    },
+    "production": {
+      "items": {
+        "$ref": "#/$defs/StatusProduction"
+      },
+      "title": "Production",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_sha": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The default-branch commit the snapshot read",
+      "title": "Source Sha"
+    }
+  },
+  "required": [
+    "generated_at",
+    "coverage"
+  ],
+  "title": "PublicStatus",
+  "type": "object"
+}

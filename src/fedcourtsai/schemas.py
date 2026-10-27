@@ -13115,6 +13115,154 @@ class OpsReport(_Strict):
     )
 
 
+LaneState = Literal["up", "late", "failing", "no-runs"]
+
+
+class StatusLane(_Strict):
+    """One scheduled pipeline lane on the public status page.
+
+    ``state`` answers "is this lane running" from two separate signals. A lane is
+    **late** when no run of it started on the default branch since the most recent
+    tick its schedule declares (taken a grace period before the snapshot, because
+    GitHub starts scheduled runs late), and **failing** when its most recent
+    conclusive run ended in failure. Late wins over failing: a lane that has
+    stopped starting is the stronger signal. **no-runs** means the run history
+    the snapshot read holds no run of the lane at all.
+    """
+
+    lane: str = Field(description="The workflow's file stem, e.g. `run-predict`")
+    label: str = Field(description="The lane's public name")
+    what: str = Field(description="One sentence on what the lane does")
+    schedule: str = Field(description="The lane's declared schedule, in words (UTC)")
+    state: LaneState
+    last_started_at: datetime | None = Field(
+        default=None,
+        description="When the newest run of the lane on the default branch was created, "
+        "whatever it concluded",
+    )
+    last_conclusion: str | None = Field(
+        default=None,
+        description="How the newest conclusive run ended (`success`, `failure`, "
+        "`timed_out` or `startup_failure`); a skipped or superseded run is not one",
+    )
+    last_concluded_at: datetime | None = Field(
+        default=None, description="When that conclusive run was created"
+    )
+    expected_since: datetime | None = Field(
+        default=None,
+        description="The schedule tick a run should have started after for the lane to "
+        "count as on time; null when the lane declares no schedule",
+    )
+    runs_7d: int = Field(
+        ge=0, default=0, description="Conclusive runs created in the 7 days before the snapshot"
+    )
+    successes_7d: int = Field(ge=0, default=0, description="Of `runs_7d`, those that succeeded")
+
+
+class StatusStageCells(_Strict):
+    """One (role, stage) row of a production window's cell census."""
+
+    role: str
+    stage: str
+    cells: int = Field(ge=0)
+
+
+class StatusProduction(_Strict):
+    """What the ledger recorded over one trailing window: the cells that ran.
+
+    Counted over the committed ``usage.json`` ledger, which lags: a cell's usage
+    reaches ``data/`` only when its run's collect PR merges, so each count is a
+    floor on what ran, not a real-time figure.
+    """
+
+    window: Literal["7d", "30d", "term"]
+    start: date
+    end: date
+    days: int = Field(ge=0)
+    term: int | None = Field(
+        default=None, description="The October Term the window covers, on the term window"
+    )
+    cells: int = Field(ge=0)
+    events: int = Field(ge=0, description="Distinct events those cells covered")
+    by_stage: list[StatusStageCells] = Field(default_factory=list)
+
+
+class StatusCoverage(_Strict):
+    """How much of the docket the pipeline is following, and with what documents.
+
+    Ledger figures are read from the committed tree at the snapshot's commit; the
+    watchlist figures from the newest published live-frontier snapshot, whose own
+    date is ``frontier_as_of`` (null fields when none was published).
+    """
+
+    public_cases: int = Field(ge=0, description="Dockets with a committed case directory")
+    events_predicted: int = Field(ge=0, description="Events holding at least one prediction")
+    predicted_resolved: int = Field(ge=0, description="Of those, events whose outcome is recorded")
+    predictions: int = Field(ge=0, description="Committed prediction cells")
+    evaluations_forward: int = Field(ge=0, description="Committed forward gradings")
+    frontier_as_of: date | None = None
+    watchlist: int | None = Field(
+        default=None, ge=0, description="Pending petitions distributed for a conference"
+    )
+    documents_provisioned: int | None = Field(
+        default=None, ge=0, description="Watchlist petitions with at least one stored filing"
+    )
+    next_conference: date | None = None
+    next_conference_petitions: int | None = Field(default=None, ge=0)
+    corpus_dockets: int | None = Field(
+        default=None, ge=0, description="Dockets in the corpus, from its newest validation"
+    )
+
+
+class StatusTable(_Strict):
+    """A table already formatted for display: the page renders it as it stands."""
+
+    columns: list[str]
+    rows: list[list[str]]
+
+
+class StatusBacktest(_Strict):
+    """One back-test's committed headline, with the artifact and vintage behind it."""
+
+    key: Literal["historical-replay", "cert", "merits", "salience-replay"]
+    name: str
+    artifact: str = Field(description="Repository path of the committed artifact")
+    vintage: date | None = Field(
+        default=None,
+        description="The date of the commit that last wrote the artifact; null when unknown",
+    )
+    summary: str = Field(description="What was replayed, in one or two sentences")
+    table: StatusTable | None = None
+    reading: str = Field(description="How to read the figures, and what they are not")
+
+
+class PublicStatus(_Strict):
+    """``status.json`` — the public status page's daily snapshot.
+
+    Rendered by ``fedcourts ops-report --status-out`` on the run-ops schedule and
+    published to the ``ops-metrics`` branch, where the public site reads it. A
+    point-in-time view, like :class:`OpsReport`: it carries ``generated_at`` and so
+    is never committed to the default branch. It carries no spend figure and no
+    agent prose; every figure is a count, a date, or a committed artifact's
+    headline.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    generated_at: datetime
+    source_sha: str | None = Field(
+        default=None, description="The default-branch commit the snapshot read"
+    )
+    data_ok: bool | None = Field(
+        default=None,
+        description="The data-validation verdict (ledger schema and corpus checks); "
+        "null when it could not be read",
+    )
+    lanes: list[StatusLane] = Field(default_factory=list)
+    production: list[StatusProduction] = Field(default_factory=list)
+    coverage: StatusCoverage
+    backtests: list[StatusBacktest] = Field(default_factory=list)
+
+
 # A registry model override must be a bare model id: it is interpolated into the
 # whitespace-split `claude_args` of the engine step, so rejecting whitespace (and
 # anything else outside a model id's alphabet) here makes argument smuggling via a
@@ -13723,6 +13871,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "salience_replay": SalienceReplay,
     "usage": ModelUsage,
     "ops_report": OpsReport,
+    "public_status": PublicStatus,
     "corpus_validation": CorpusValidation,
     "corpus_scope_audit": CorpusScopeAudit,
     "scope_manifest": ScopeManifest,

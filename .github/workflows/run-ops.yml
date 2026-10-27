@@ -22,7 +22,10 @@ name: run-ops
 # renders the current view onto its own Actions run summary and appends the JSON
 # snapshot to a dedicated `ops-metrics` branch (an orphan time-series, never
 # merged to main — a week-old snapshot backs the substance section's deltas). So
-# `main` stays clean and the corpus-write path is untouched.
+# `main` stays clean and the corpus-write path is untouched. The same push carries
+# `status.json`, the public status page's daily snapshot (lane health against each
+# workflow's declared schedule, production, coverage, back-test headlines): the
+# public site reads it from that branch at its daily build, after this job's tick.
 #
 # The reading surfaces are digests a maintainer closes, not a standing body this
 # job edits in place: an unread digest is an open issue, so the backlog is
@@ -110,8 +113,10 @@ jobs:
           # pipelines — plus a day of each polling one (`ops.window_runs`).
           # The listing is wider than that window because corpus-check polls
           # every 30 minutes and would otherwise fill it in days.
+          # `headBranch` lets the status snapshot judge the production lanes on
+          # `main` runs alone, so a staging rehearsal never reads as one.
           gh_retry gh run list --repo "$REPO" --limit 1200 \
-            --json workflowName,status,conclusion,createdAt,startedAt,updatedAt \
+            --json workflowName,status,conclusion,createdAt,startedAt,updatedAt,headBranch \
             > runs.json
 
       - name: Collect issues wearing a stale fan-out label
@@ -165,9 +170,11 @@ jobs:
           # tick only.
           # ops-report runs the git-only `validate` over data/ itself for the data-health
           # section, catching anything that reached the default branch without the gate.
+          # `--status-out` is the public status page's snapshot (`PublicStatus`),
+          # published beside the ops snapshot below for the site to read.
           uv run fedcourts ops-report --runs runs.json --trigger-issues trigger-issues.json \
             "${prev_args[@]}" --json new-ops.json --data-health-out data-health.md \
-            --digest-out digest.md > ops.md
+            --digest-out digest.md --status-out status.json > ops.md
           cat ops.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Append the snapshot to the ops-metrics branch
@@ -189,6 +196,7 @@ jobs:
           fi
           cp new-ops.json "$tree/ops-${day}.json" # dated history (last write of the day wins)
           cp new-ops.json "$tree/latest.json"     # the fallback prior snapshot for the deltas
+          cp status.json "$tree/status.json"      # the public status page reads this one
           git -C "$tree" add -A
           if git -C "$tree" diff --cached --quiet; then
             echo "No ops change to persist."

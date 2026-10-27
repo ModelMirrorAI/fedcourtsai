@@ -138,6 +138,32 @@ watchlist view, escalating a failing verdict to one
 long-lived issue — so the report surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
 
+### The public status snapshot
+
+The same job writes `status.json` (`ops-report --status-out`, a `PublicStatus`)
+and pushes it to the `ops-metrics` branch beside the ops snapshot. The public
+site reads it at its daily build and renders the status page from it as it
+stands. Four sections:
+
+- **Lanes**: one row per scheduled workflow (`site_status.LANES`), judged
+  against the crons that workflow file declares, so a schedule change moves the
+  judgement with it. A lane is **late** when no run of it on `main` started
+  since its most recent schedule tick, taken two hours before the snapshot
+  because GitHub starts scheduled runs late. It is **failing** when its newest
+  conclusive run failed, timed out or failed to start. A cancelled run is not
+  conclusive, because the corpus writers share one concurrency group and a
+  superseded queued run ends cancelled with nothing wrong. Late wins over
+  failing.
+- **Production**: the cell census over the trailing 7 days, 30 days and Term to
+  date, the same windows as the weekly digest, without its spend.
+- **Coverage**: the public ledger's size and the live watchlist's document
+  readiness, from the published live-frontier snapshot.
+- **Back-tests**: each landed back-test's headline table with its artifact, its
+  vintage and the reading rule that travels with it.
+
+It carries counts, dates and committed headlines only: no spend figure and no
+agent-written text, because the page is public.
+
 ### The weekly performance digest
 
 On the Monday tick the same job opens the **weekly performance digest** as its
