@@ -101,7 +101,7 @@ jobs:
   # names — never the agent account. A re-run of `run` also waits on a fresh
   # `corpus-check` approval, so it is gated twice.
   authorize:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -136,7 +136,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -248,7 +248,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Guard < step < job: the install's own timeout (8 min) and the check's
     # (30) sit inside their step's (45), and the pull, the copies, the install
     # and the check together inside the role's one-hour session, whose
@@ -469,7 +469,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # As `run`: guard < step < job, all inside the role's one-hour session.
     timeout-minutes: 75
     environment: corpus-check-auto
@@ -669,7 +669,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -727,7 +727,7 @@ jobs:
   run-gate:
     needs: [authorize, plan, run, run-auto, post]
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions: {}
     steps:

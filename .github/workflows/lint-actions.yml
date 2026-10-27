@@ -18,7 +18,7 @@ permissions: {}
 
 jobs:
   zizmor:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:
@@ -38,7 +38,7 @@ jobs:
         run: uvx zizmor@1.26.1 --persona=regular .github/workflows .github/actions
 
   actionlint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     steps:

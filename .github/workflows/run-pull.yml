@@ -131,7 +131,7 @@ jobs:
   # the attempt it judged, because re-running some jobs does not re-run this
   # one; `run-gate` below fails the run when that check refused.
   authorize:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -169,7 +169,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # A single window's refresh (≤ max_cases_per_run dockets ≈ a few dozen
     # CourtListener fetches + S3 corpus transfer) finishes well inside this; the cap
     # releases the shared corpus-write lock far sooner than GitHub's 6h default if
@@ -529,7 +529,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The cycle re-polls the pending watchlist and onboards the frontier at ~1
     # req/s, plus document fetches on distribution transitions (which cluster at
     # the September long conference) and the S3 transfer. `live-poll` self-bounds
@@ -880,7 +880,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # <= max_cases dockets at ~3 CourtListener fetches each plus the corpus S3
     # round-trip finishes well inside this; the cap frees the shared
     # corpus-write lock if a network step hangs.
@@ -1027,7 +1027,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     environment: prod
     # The checkout below needs read; everything else rides the dispatch token.
@@ -1099,7 +1099,7 @@ jobs:
   run-gate:
     needs: [authorize, pull, live, enrich, chain-predict]
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions: {}
     steps:

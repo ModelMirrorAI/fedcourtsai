@@ -1559,7 +1559,7 @@ forward on any corpus job (the invariants are pinned in
 `tests/test_workflow_cell_invariants.py`), so the mode's first run can be a
 staging rehearsal rather than its production run.
 
-**Every job runs on the pinned runner image, `ubuntu-24.04`, never a moving alias
+**Every job runs on the pinned runner image, `ubuntu-26.04`, never a moving alias
 such as `ubuntu-latest`.** The image sits under every cell, writer and gate but is
 no input to the process digest, so a label GitHub re-points changes the harness
 under unchanged digests, and during a phased migration two runs of one workflow
@@ -1567,6 +1567,9 @@ can land on different images. Moving to a new image is a deliberate change: ever
 job and `PINNED_RUNNER` in `tests/test_workflow_cell_invariants.py` together, an
 `integration-test` run on `staging` on the new image, and a freeze-record note.
 `test_every_workflow_job_runs_on_the_pinned_runner_image` pins it repo-wide.
+Where the pinned actionlint does not yet know the image's label,
+`.github/actionlint.yaml` declares that one label, so the linter's runner-label
+rule still refuses any other.
 
 **A new job on a workflow that binds an environment waits on the run gate.**
 It lists `authorize` in its own `needs` and ends its `if:` with the gate's
