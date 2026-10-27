@@ -89,11 +89,13 @@ from .. import corpus, ids
 from ..handoff import HandoffRefused
 from ..matrix import event_has_predictions
 from ..supremecourt import (
+    LEGACY_DOCKET_URL,
     SupremeCourtClient,
     parse_scotus_application_number,
     scotus_docket_slug,
 )
 from .ingest import from_live_record, map_live_docket
+from .legacy_docket import parse_legacy_docket
 from .live import _resolve_identity, ingest_live_payload
 
 #: The Term this pass exists for: OT2024's applications below ``24A1000`` were
@@ -105,7 +107,18 @@ DEFAULT_TERMS: tuple[int, ...] = (24,)
 #: its own scoring-baseline move: a Term joins this set in the same change that
 #: appends a freeze-record entry projecting that move, and an apply for any other Term is refused.
 #: A dry run reads any reachable Term, since reading moves nothing.
-REGISTERED_APPLY_TERMS: frozenset[int] = frozenset({17, 18, 19, 20, 21, 22, 23, 24})
+REGISTERED_APPLY_TERMS: frozenset[int] = frozenset({16, 17, 18, 19, 20, 21, 22, 23, 24})
+
+#: The Terms below the live floor that the pass reaches through the Court's
+#: legacy HTML docket page: a serial the docket JSON does not serve is read from
+#: that page instead (:mod:`~fedcourtsai.pipeline.legacy_docket`), so the Term is
+#: walked whole across both. OT2016's pages serve most of its serials below
+#: ``16A1051`` and its JSON most from there on, with a few of each on the
+#: other side.
+LEGACY_HTML_TERMS: frozenset[int] = frozenset({16})
+
+#: The largest legacy page a plan may carry: a served page runs to about 12 KB.
+_MAX_LEGACY_PAGE: Final = 200_000
 
 #: Consecutive misses past the highest stored serial that mark a Term's last
 #: application. Far above the live frontier's tolerance, because a closed Term's
@@ -220,6 +233,27 @@ class DocketCache:
         else:
             served.write_text(json.dumps(payload, sort_keys=True))
 
+    def _legacy_paths(self, term: int, serial: int) -> tuple[Path, Path]:
+        slug = scotus_docket_slug(term, serial, form="application")
+        return self.root / f"{slug}.htm", self.root / f"{slug}.htm.missing"
+
+    def read_legacy(self, term: int, serial: int) -> tuple[bool, str | None]:
+        """A cached legacy page, as :meth:`read` reads a cached JSON."""
+        served, missing = self._legacy_paths(term, serial)
+        if served.exists():
+            return True, served.read_bytes().decode("utf-8")
+        if missing.exists():
+            return True, None
+        return False, None
+
+    def write_legacy(self, term: int, serial: int, page: str | None) -> None:
+        self.root.mkdir(parents=True, exist_ok=True)
+        served, missing = self._legacy_paths(term, serial)
+        if page is None:
+            missing.touch()
+        else:
+            served.write_bytes(page.encode("utf-8"))
+
 
 def _stored_serials(conn: sqlite3.Connection, term: int) -> tuple[set[int], set[int]]:
     """Every serial the corpus stores for the Term, and the live-owned subset.
@@ -303,9 +337,39 @@ class _Walk:
     time_fn: Callable[[], float] = time.monotonic
     fetched: int = 0
     payloads: dict[str, tuple[dict[str, Any], int]] = dataclasses_field(default_factory=dict)
+    #: The served legacy page behind each payload read from one, by docket number.
+    legacy_pages: dict[str, str] = dataclasses_field(default_factory=dict)
+    #: Whether the last served serial of a legacy Term was a page; a Term's
+    #: walk opens on the pages, which serve its first serials.
+    legacy_first: bool = True
 
     def fetch(self, term: int, serial: int) -> dict[str, Any] | None:
-        """One docket read, through the dev cache when one is set; raises on upstream error."""
+        """One docket read, through the dev cache when one is set; raises on upstream error.
+
+        For a Term in :data:`LEGACY_HTML_TERMS`, a serial one form does not
+        serve is read again in the other: the docket JSON or the legacy page.
+        The Court serves each such serial in one form, and long runs of
+        serials in the same one, so the form that served the serial before is
+        read first, which keeps the walk near one fetch a serial. A page that
+        is not a docket page is a miss, as a body that is not JSON is; a page
+        that parses under another docket number is a served record, held back
+        by the served-number check without the other form being read.
+        """
+        if term not in LEGACY_HTML_TERMS:
+            return self._fetch_json(term, serial)
+        first, second = (
+            (self._read_legacy, self._fetch_json)
+            if self.legacy_first
+            else (self._fetch_json, self._read_legacy)
+        )
+        payload = first(term, serial)
+        if payload is None:
+            payload = second(term, serial)
+        if payload is not None:
+            self.legacy_first = _payload_key(term, serial) in self.legacy_pages
+        return payload
+
+    def _fetch_json(self, term: int, serial: int) -> dict[str, Any] | None:
         cached, payload = (False, None) if self.cache is None else self.cache.read(term, serial)
         if not cached:
             payload = self.client.get_docket(term, serial, form="application")
@@ -313,6 +377,31 @@ class _Walk:
                 self.cache.write(term, serial, payload)
         self.fetched += 1
         return payload
+
+    def _read_legacy(self, term: int, serial: int) -> dict[str, Any] | None:
+        page = self._fetch_legacy(term, serial)
+        if page is None:
+            return None
+        if len(page) > _MAX_LEGACY_PAGE:
+            # No plan may carry it, so the walk stops on it as on an upstream
+            # error rather than land the Term without it.
+            raise httpx.RemoteProtocolError(
+                f"legacy page {_payload_key(term, serial)} runs past {_MAX_LEGACY_PAGE} characters"
+            )
+        payload = _legacy_payload(page, term, serial)
+        if payload is not None:
+            self.legacy_pages[_payload_key(term, serial)] = page
+        return payload
+
+    def _fetch_legacy(self, term: int, serial: int) -> str | None:
+        cached, page = (False, None) if self.cache is None else self.cache.read_legacy(term, serial)
+        if not cached:
+            served = self.client.get_legacy_docket(term, serial, form="application")
+            page = None if served is None else served[0]
+            if self.cache is not None:
+                self.cache.write_legacy(term, serial, page)
+        self.fetched += 1
+        return page
 
     def walk_term(
         self,
@@ -328,6 +417,7 @@ class _Walk:
         ``classify`` files one served record as a planned row and its docket id,
         or records why not on the ledger.
         """
+        self.legacy_first = True
         ledger = TermLedger(
             term=term,
             end_misses=self.end_misses,
@@ -385,6 +475,12 @@ class _Walk:
 
 def _payload_key(term: int, serial: int) -> str:
     return scotus_docket_slug(term, serial, form="application")
+
+
+def _legacy_payload(page: str, term: int, serial: int) -> dict[str, Any] | None:
+    """A legacy page read into the docket JSON's keys, against the URL it is served at."""
+    slug = scotus_docket_slug(term, serial, form="application").lower()
+    return parse_legacy_docket(page, url=LEGACY_DOCKET_URL.format(docket=slug))
 
 
 def _corpus_classifier(
@@ -565,21 +661,28 @@ class ApplicationProjection(BaseModel):
 
 
 class ServedDocket(BaseModel):
-    """One served record the walk would land, verbatim as upstream served it."""
+    """One served record the walk would land, verbatim as upstream served it.
+
+    Exactly one of ``payload`` (the docket JSON) and ``legacy_page`` (the
+    legacy HTML page, for a Term in :data:`LEGACY_HTML_TERMS`) is set; the
+    writer reads a page through the same parser the walk did.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     term: int = Field(ge=0, le=99)
     serial: int = Field(ge=1, le=_MAX_SERIAL)
-    payload: dict[str, Any]
+    payload: dict[str, Any] | None = None
+    legacy_page: str | None = Field(default=None, max_length=_MAX_LEGACY_PAGE)
 
 
 class ApplicationPlan(BaseModel):
     """What the credential-free walk read: the file the writer job lands.
 
-    Each served record is the supremecourt.gov docket JSON verbatim, party
-    contact blocks included; the rest is the structured fields the walk parsed
-    from those records. That is the whole of what the PII carve-out in
+    Each served record is the supremecourt.gov docket JSON verbatim, or, for a
+    Term in :data:`LEGACY_HTML_TERMS`, the Court's legacy HTML docket page
+    verbatim, party contact blocks included; the rest is the structured fields
+    the walk parsed from those records. That is the whole of what the PII carve-out in
     ``docs/data-sources.md`` (*PII stance*) lets cross as run-repair's one-day
     ``repair-plan-<run_id>`` artifact, so both sides refuse a plan not shaped
     that way (:func:`check_plan`): a record that is not shaped as a served
@@ -591,7 +694,7 @@ class ApplicationPlan(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     format: Literal["fedcourts/application-plan"] = "fedcourts/application-plan"
-    version: Literal[1] = 1
+    version: Literal[2] = 2
     terms: list[TermLedger] = Field(max_length=100)
     served: list[ServedDocket] = Field(max_length=_MAX_SERIAL)
 
@@ -638,6 +741,10 @@ def plan_applications(
         )
     served = [
         ServedDocket(
+            term=ledger.term, serial=row.serial, legacy_page=walk.legacy_pages[row.docket_number]
+        )
+        if row.docket_number in walk.legacy_pages
+        else ServedDocket(
             term=ledger.term, serial=row.serial, payload=walk.payloads[row.docket_number][0]
         )
         for ledger in result.terms
@@ -697,6 +804,27 @@ def _served_docket_problem(payload: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _served_payload(docket: ServedDocket) -> tuple[dict[str, Any] | None, str]:
+    """The record a served docket maps through, or ``None`` and why it is not one.
+
+    A docket JSON must be shaped as one (:func:`_served_docket_problem`); a
+    legacy page must be for a Term the pass reads pages for and must parse as a
+    docket page, and the parse is the record, exactly as the walk read it.
+    """
+    if (docket.payload is None) == (docket.legacy_page is None):
+        return None, "carries neither or both of a docket JSON and a legacy page"
+    if docket.payload is not None:
+        why = _served_docket_problem(docket.payload)
+        return (None, why) if why is not None else (docket.payload, "")
+    assert docket.legacy_page is not None  # one of the two is set, checked above
+    if docket.term not in LEGACY_HTML_TERMS:
+        return None, "a legacy page for a Term the pass reads only as docket JSON"
+    payload = _legacy_payload(docket.legacy_page, docket.term, docket.serial)
+    if payload is None:
+        return None, "a legacy page that does not parse as a docket page"
+    return payload, ""
+
+
 def _plan_shape_problem(plan: ApplicationPlan, terms: Sequence[int]) -> str | None:  # noqa: PLR0911, PLR0912 - one return per check
     """Why a plan cannot have come from an honest walk of ``terms``.
 
@@ -728,6 +856,7 @@ def _plan_shape_problem(plan: ApplicationPlan, terms: Sequence[int]) -> str | No
         if any(not note["reason"].startswith(_HELD_REASON_PREFIX) for note in ledger.held):
             return "holds a record back for a reason a corpus-free walk never gives"
     seen: set[tuple[int, int]] = set()
+    payloads: dict[tuple[int, int], dict[str, Any]] = {}
     for docket in plan.served:
         key = (docket.term, docket.serial)
         if key in seen:
@@ -735,13 +864,14 @@ def _plan_shape_problem(plan: ApplicationPlan, terms: Sequence[int]) -> str | No
         seen.add(key)
         if key not in previews:
             return f"serves {_payload_key(*key)}, which its ledger does not list"
-        if (why := _served_docket_problem(docket.payload)) is not None:
-            return f"serves {_payload_key(*key)} as something other than a docket JSON: {why}"
-        if (why := _served_as_problem(docket.payload, docket.term, docket.serial)) is not None:
+        payload, unread = _served_payload(docket)
+        if payload is None:
+            return f"serves {_payload_key(*key)} as something other than a served docket: {unread}"
+        if (why := _served_as_problem(payload, docket.term, docket.serial)) is not None:
             return f"serves a record under the wrong number: {why}"
+        payloads[key] = payload
     if seen != previews:
         return "lists a record its served set does not carry"
-    payloads = {(docket.term, docket.serial): docket.payload for docket in plan.served}
     for ledger in plan.terms:
         scratch = TermLedger(term=ledger.term, end_misses=ledger.end_misses, stored_max_serial=None)
         for row in ledger.candidates:
@@ -795,9 +925,11 @@ def apply_application_plan(
     if apply and max_rows is None:
         raise ValueError("an apply needs max_rows, the count read off a dry run")
     check_plan(plan, terms)
-    served: dict[int, list[ServedDocket]] = {}
+    served: dict[int, list[tuple[int, dict[str, Any]]]] = {}
     for docket in plan.served:
-        served.setdefault(docket.term, []).append(docket)
+        payload, _ = _served_payload(docket)
+        assert payload is not None  # check_plan refused any docket without one
+        served.setdefault(docket.term, []).append((docket.serial, payload))
     result = ApplicationBackfillResult()
     payloads: dict[str, tuple[dict[str, Any], int]] = {}
     with corpus.connect(corpus_db_path) as conn:
@@ -805,15 +937,15 @@ def apply_application_plan(
             _, owned = _stored_serials(conn, read.term)
             ledger = read.model_copy(update={"candidates": [], "held": list(read.held)}, deep=True)
             classify = _corpus_classifier(conn, data_root, read.term)
-            for docket in served.get(read.term, []):
-                if docket.serial in owned:
+            for serial, payload in served.get(read.term, []):
+                if serial in owned:
                     ledger.live_owned += 1
                     continue
-                planned = classify(docket.payload, docket.serial, ledger)
+                planned = classify(payload, serial, ledger)
                 if planned is not None:
                     row, docket_id = planned
                     ledger.candidates.append(row)
-                    payloads[row.docket_number] = (docket.payload, docket_id)
+                    payloads[row.docket_number] = (payload, docket_id)
             result.terms.append(ledger)
     if not apply:
         return result

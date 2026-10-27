@@ -34,6 +34,13 @@ import httpx
 
 DOCKET_JSON_URL = "https://www.supremecourt.gov/rss/cases/JSON/{docket}.json"
 
+# The Court's legacy HTML docket page, keyed by the lower-cased docket number
+# (``16a100``). It serves dockets of the pre-e-filing era the JSON endpoint
+# does not: most of OT2016's applications below ``16A1051``, among them. Read
+# only by the application back-fill, for the Terms below the JSON floor it
+# reaches (pipeline.legacy_docket parses it).
+LEGACY_DOCKET_URL = "https://www.supremecourt.gov/docketfiles/{docket}.htm"
+
 # The Court's human-readable docket page for one docket number — a display link,
 # never fetched by this module: the live channel reads the JSON above.
 DOCKET_PAGE_URL = "https://www.supremecourt.gov/docket/docketfiles/html/public/{docket}.html"
@@ -522,6 +529,23 @@ class SupremeCourtClient:
         """
         url = DOCKET_JSON_URL.format(docket=scotus_docket_slug(term, serial, form=form))
         return self._fetch(url)
+
+    def get_legacy_docket(
+        self, term: int, serial: int, *, form: Literal["cert", "application"] = "cert"
+    ) -> tuple[str, str] | None:
+        """One docket's legacy HTML page and the URL it was read at, or ``None`` on a 404.
+
+        A body that is not HTML is ``None`` too, as :meth:`get_docket` folds a
+        body that is not JSON into one. The page is returned as served text; the
+        caller parses it.
+        """
+        url = LEGACY_DOCKET_URL.format(docket=scotus_docket_slug(term, serial, form=form).lower())
+        response = self._fetch(url)
+        if response is None:
+            return None
+        if "html" not in response.headers.get("content-type", "").lower():
+            return None
+        return response.text, url
 
     def get_transcript_listing(self, term: int) -> TranscriptListing | None:
         """The October Term ``term``'s transcript list, or ``None`` when no list is served.

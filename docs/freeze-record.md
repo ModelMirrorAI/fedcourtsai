@@ -13937,3 +13937,147 @@ freeze commit is recorded here.
   counts can still move: an outcome dated on or before a close's day may
   land late, and an event void de-counts what it names. The split, partition
   and grading lines also move as cells, outcomes and gradings land.
+
+- **OT2016's applications are back-filled into the interim docket, through
+  the Court's legacy docket pages below the JSON floor, 2026-10-27.** The
+  interim base rate's pool is every Term strictly before its own application
+  Term within `salience.base_rate_lookback_terms` (10), so OT2016 is in the
+  window of every OT2017 to OT2026 cell. **This completes data under the
+  existing rule; it is not a rule change.** The window does not move, and
+  the shorter-window question the OT2023 entry deferred stays deferred. The
+  pass's floor was the reason the OT2017 to OT2022 entry left OT2016 out:
+  supremecourt.gov serves OT2016's application JSON for only some serials.
+  This change adds the Court's legacy HTML docket page as a second form for
+  `LEGACY_HTML_TERMS` (OT2016 alone), read where the JSON is not served,
+  parsed into the JSON's own keys and landed through the same live seam. The
+  reason to land the Term is the executive-action emergency-docket
+  replication, whose window opens on 2017-01-20. It is a scoring-baseline
+  entry and a conditioning one: the pool moves the stamped baseline, and the
+  provisioned statpack moves what interim cells read. No prompt byte, registry
+  field or stamp moves, so no process digest moves.
+
+  **The dry run, read 2026-10-27** from a dev checkout of this change's
+  branch (cut from `staging` `167174ffb`), with every serial fetched from
+  supremecourt.gov. The projection the walk read (highest stored serial
+  `16A1269`, no live-owned serial) came from blob
+  `5f84b2c30dcc8ee638f70c0bd215936857a9fd76c6187678aa33e8b028eb7d44`, the
+  one the OT2017 to OT2022 projections read. It was read again at
+  `origin/main` `c574ea437`'s pointer, blob
+  `0d8845cbac8d94634483601336bab522864a9ec0453c6a72122c028deddbe49c`
+  (`latest pull 2026-10-27, latest snapshot 2026-07-13`), and agrees:
+  highest stored serial `16A1269`, 1268 stored serials, none live-owned, and
+  `16A257` the one serial below it the corpus lacks. The count is an upper
+  bound (`unresolved=1253`). There is no
+  held row and no fetch failure, and the walk ended on 10 consecutive misses
+  past `16A1269`.
+
+  | Read from | Would land | Extension | Substantive | Unknown | Capital (substantive) | Referred (all kinds) | Substantive granted / resolved |
+  | --- | --- | --- | --- | --- | --- | --- | --- |
+  | Legacy page | 1,028 | 893 | 88 | 47 | 0 (0) | 51 | 4/88 = 4.5% |
+  | Docket JSON | 225 | 200 | 20 | 5 | 21 (7) | 13 | 5/19 = 26.3% |
+  | **OT2016** | **1,253** | 1,093 | 108 | 52 | 21 (7) | 64 | **9/107 = 8.4%** |
+
+  - **The two forms.** The pages serve most serials below `16A1051` and the
+    JSON most from there on, with a few of each on the other side (JSON for
+    `16A251`, `16A450`, `16A540` and others; pages for `16A1153`, `16A1178`,
+    `16A1236`). A sample of 80 page-served and 60 JSON-served serials found
+    none served in both forms. The JSON rows include the travel-ban stays
+    `16A1190` and `16A1191`, both granted, which are part of the JSON rows'
+    higher grant rate: without them those rows grant 3/17 = 17.6%, against
+    4.5% for the page rows. The page rows' asks and dispositions come from the
+    new reader, so 27 sampled page rows (12 `unknown`, 10 substantive, 5
+    extension) were read against their proceedings text, and each parse held
+    the text's ask and disposition; the kinds are then the shared classifier's,
+    as for every JSON Term. The page rows' `unknown` share is 47/1,028 = 4.6%,
+    the JSON rows' 5/225 = 2.2%.
+  - **What a page cannot give.** It carries no capital marker, so every
+    page-read row lands `capital_case` false: the 0 above is a gap, not a
+    count. It carries no related-case list, lower-court decision date or
+    document links either. 113 rows (all pages, linked to a cert docket) show
+    an empty docketed date, so their filing date is the submission entry's.
+    None of these feeds the interim pool, which reads the ask and the
+    disposition from the proceedings text, as the JSON's rows do.
+  - **Withheld.** 16 serials are served in neither form: `16A257`, `16A611`,
+    `16A798`, `16A824`, `16A872`, `16A898`, `16A917`, `16A926`, `16A934`,
+    `16A948`, `16A968`, `16A978`, `16A988`, `16A989`, `16A1033`, `16A1049`.
+    The statpack counts 1268 OT2016 numbers today, all `unparsed`. The one
+    serial the corpus lacks, `16A257`, is withheld, so every row the walk
+    serves lands on a stored stub (1,253 enrichments, no onboard), and the 15
+    other withheld serials are stored stubs that stay `unparsed`.
+  - One substantive row and two `unknown` rows read no machine-readable
+    disposition and stay outside the resolved denominator. 51 substantive
+    rows are dated on or after 2017-01-20, the rows the executive-action
+    replication draws on from this Term.
+
+  **The pools at the registered lookback of 10**, before (the statpack at
+  `7fbb5b9e2`, the refresh of 2026-10-27) and after the apply:
+  - **OT2026 application cells** (OT2016 to OT2025): **151/1259 = 11.99%** to
+    **160/1366 = 11.71%**.
+  - **OT2025 application cells** (OT2015 to OT2024): **134/1033 = 12.97%** to
+    **143/1140 = 12.54%**.
+  - **OT2024 application cells** (OT2014 to OT2023): **118/839 = 14.06%** to
+    **127/946 = 13.42%**.
+  - OT2017 to OT2023 cells move too (OT2023 from 100/712 to 109/819, and
+    OT2017 cells gain a pool of 9/107). No committed interim event has an
+    application Term before OT2025.
+  - **Direction:** down, by 0.28 points for OT2026 cells, because OT2016's
+    substantive rate (8.4%) sits below the pool's.
+  - **The unread asks.** 52 rows carry an `unknown` ask (50 resolved, 7
+    granted; the 7 resolved referred ones, none granted). Folding them into
+    the OT2026-cell pool would read between **160/1373 = 11.65%** (the
+    referred ones) and **167/1416 = 11.79%** (all of them). The registered
+    pool reads `substantive` alone.
+
+  **When the apply runs.** Only after this entry, the registration and the
+  legacy-page reader reach `main` in a promotion; only the dry run ran before
+  it. The pools above are a projection from the dry-run ledger; the apply's
+  own ledger and the next statpack are the record. One apply, so one break:
+  the anchor move is the first statpack refresh after it, whether the Monday
+  05:41 UTC cron or a `run-analytics` `metrics-refresh` dispatch, and it is
+  named below.
+
+  **The straddling cohort.** At `main` `c574ea437`, 54 interim events carry a
+  prediction: 44 have an evaluation and 10 are open (9 OT2026 applications,
+  1 OT2025). They are scored against whichever pool stands when they are
+  stamped, so after the refresh against ≈0.117 instead of ≈0.120 (OT2026)
+  and ≈0.125 instead of ≈0.130 (OT2025). Their cells anchored on the pool
+  current at each provisioning run, read from each cell's provisioning run id
+  against the refresh commits' times, as the OT2017 to OT2022 entry set out.
+  For scale: a forecast of 0.10 on a denial has Brier skill **+0.30**
+  against 151/1259 = 0.1199 and **+0.27** against 160/1366 = 0.1171. Interim
+  skill stays read keyed on the stamped `segment_base_rate`, never pooled
+  across values, as the OT2023 entry registered.
+
+  **What else moves in the provisioned statpack.** OT2016's interim row
+  fills from all-`unparsed` to parsed counts with its escalation columns
+  (`referred_to_court` 64). The pack-level interim totals and the live-slice
+  coverage counts move by the rows landed, and the resolved-disposition
+  totals move with the 1,250 newly resolved rows (1,093 extension, 107
+  substantive, 50 `unknown`). The newly resolved rows also become reachable
+  to similar-case priors retrieval; their snapshots are the page-read shape
+  (a `LegacyDocketSource` key, no capital, related-case or lower-court-date
+  field) for the 1,028 page rows, and a replay cell's retrieval stays masked
+  by its event date. **What does not move:** no committed `evaluation.json` is rewritten;
+  no cert rate moves; nothing is written by this change itself.
+
+  The runnable effect check once it is live:
+  - the apply `gh workflow run run-repair.yml --ref main -f
+    repair=application-backfill -f repair_mode=apply -f repair_target=16 -f
+    repair_bound=1253` lands at most 1,253 rows, and the control dry run after
+    it reports `would land 0 row(s)`;
+  - after the apply and a statpack refresh, the statpack's interim row for
+    OT2016 reports `substantive` **108**, `unknown` **52**, `extension`
+    **1093**, `substantive_granted` / `substantive_resolved` **9/107**,
+    `applications` **1268**, `unparsed` **15** and `duplicate_rows` **0**. An
+    `applications` count above 1268 means the apply onboarded a row beside an
+    existing one; any residue is named here rather than rounded away. A landed row's stored snapshot read from a page carries a
+    `LegacyDocketSource` key naming the page. `uv run fedcourts
+    process-digest --all` still prints `proc-v13` and the same six digests.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
+  sha>`, merged `<FILL: merged time UTC>`). Applied by run `<FILL: apply run
+  id>` on `<FILL: apply date>`, landing `<FILL: rows landed>` rows. The first
+  statpack refreshed after it, at commit `<FILL: statpack refresh commit>`,
+  reads the OT2026 pool as `<FILL: OT2026 pool granted/resolved>`, the OT2025
+  pool as `<FILL: OT2025 pool granted/resolved>` and the OT2024 pool as
+  `<FILL: OT2024 pool granted/resolved>`.

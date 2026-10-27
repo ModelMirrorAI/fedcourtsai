@@ -23,10 +23,12 @@ from fedcourtsai.pipeline.application_backfill import (
     backfill_applications,
     render_ledger,
 )
+from fedcourtsai.pipeline.legacy_docket import LEGACY_SOURCE_KEY
 from fedcourtsai.pipeline.live import discover_live, ingest_live_payload
 from fedcourtsai.schemas import EventKind
 from fedcourtsai.supremecourt import live_application_id
 from tests.conftest import seed_prediction
+from tests.test_legacy_docket import legacy_page
 from tests.test_live import _client, _payload
 
 TODAY = date(2026, 9, 30)
@@ -261,7 +263,7 @@ def test_the_fetch_limit_and_the_dev_cache(tmp_path: Path) -> None:
         (["--apply", "--max-rows", "1", "--cache-dir", "c"], "--cache-dir"),
         (["--term", "99"], "out of reach"),
         (["--term", "25", "--apply", "--max-rows", "1"], "no pre-registered apply"),
-        (["--term", "16"], "out of reach"),
+        (["--term", "15"], "out of reach"),
         (["--limit", "0"], "must be positive"),
     ],
 )
@@ -510,7 +512,7 @@ def _tamper(plan: dict[str, Any], change: str) -> None:  # noqa: PLR0912 - one b
     elif change == "extra-field":
         plan["note"] = "x"
     elif change == "version":
-        plan["version"] = 2
+        plan["version"] = 3
     elif change == "not-an-object":
         served[0]["payload"] = ["24A1"]
     elif change == "nested-extra":
@@ -737,6 +739,187 @@ def test_the_parse_writes_no_plan_the_writer_would_refuse(
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
+# --- the legacy pages: a Term below the JSON floor ------------------------------------
+
+
+class _LegacyUpstream(_Upstream):
+    """Served docket JSON beside served legacy pages, keyed by lower-cased number."""
+
+    def __init__(self, served: dict[str, dict[str, Any]], pages: dict[str, str]) -> None:
+        super().__init__(served)
+        self.pages = pages
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        if not request.url.path.endswith(".htm"):
+            return super().handler(request)
+        name = request.url.path.rsplit("/", 1)[-1]
+        self.requested.append(name)
+        if name.removesuffix(".htm") in self.pages:
+            return httpx.Response(
+                200,
+                text=self.pages[name.removesuffix(".htm")],
+                headers={"content-type": "text/html"},
+            )
+        return httpx.Response(404)
+
+
+def _legacy_seeded(tmp_path: Path) -> tuple[Path, Path, _LegacyUpstream]:
+    """OT2016: 16A1 and 16A2 served only as pages (16A2 a stub), 16A3 only as JSON."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    _stub(db, 72416202, "16A2")
+    upstream = _LegacyUpstream(
+        {"16A3": _application("16A3")},
+        {"16a1": legacy_page("16A1"), "16a2": legacy_page("16A2", linked=None)},
+    )
+    return db, data_root, upstream
+
+
+def test_a_legacy_term_reads_pages_where_the_json_is_not_served(tmp_path: Path) -> None:
+    db, data_root, upstream = _legacy_seeded(tmp_path)
+    with _client(upstream.handler) as client:
+        result = backfill_applications(
+            client, db, data_root, [16], today=TODAY, end_misses=2, apply=True, max_rows=3
+        )
+    assert [row.docket_number for row in result.candidates] == ["16A1", "16A2", "16A3"]
+    assert [row.action for row in result.candidates] == ["onboard", "enrich", "onboard"]
+    assert {row.disposition for row in result.candidates} == {"denied"}
+    # The form that served the serial before is read first: the walk opens on
+    # the pages, crosses to the JSON where a page is not served, and stays there.
+    assert upstream.requested[:6] == [
+        "16a1.htm",
+        "16a2.htm",
+        "16a3.htm",
+        "16A3",
+        "16A4",
+        "16a4.htm",
+    ]
+    assert result.applied
+    with corpus.connect(db) as conn:
+        page_read = corpus.latest_snapshot(conn, "scotus/72416202")
+        json_read = corpus.latest_snapshot(conn, f"scotus/{live_application_id(16, 3)}")
+        stub = corpus.get_row(conn, "scotus/72416202")
+    # A stored legacy record says what it is; a JSON one carries no such key.
+    assert page_read is not None and json_read is not None
+    assert page_read[1][LEGACY_SOURCE_KEY]["url"] == (
+        "https://www.supremecourt.gov/docketfiles/16a2.htm"
+    )
+    assert LEGACY_SOURCE_KEY not in json_read[1]
+    assert stub is not None and stub.last_live_polled == TODAY
+    # Landed rows are live-owned, so the control dry run reads zero.
+    with _client(upstream.handler) as client:
+        control = backfill_applications(client, db, data_root, [16], today=TODAY, end_misses=2)
+    assert control.candidates == []
+
+
+def test_a_term_above_the_json_floor_never_reads_a_page(tmp_path: Path) -> None:
+    db, data_root, _ = _seeded(tmp_path)
+    upstream = _LegacyUpstream({}, {"24a1": legacy_page("24A1")})
+    with _client(upstream.handler) as client:
+        result = backfill_applications(client, db, data_root, today=TODAY, end_misses=2)
+    assert result.candidates == []
+    assert not any(name.endswith(".htm") for name in upstream.requested)
+
+
+def test_a_legacy_page_over_the_cap_stops_the_walk(tmp_path: Path) -> None:
+    db, data_root, upstream = _legacy_seeded(tmp_path)
+    upstream.pages["16a2"] = legacy_page("16A2").replace(
+        "</BODY>", "<!--" + "x" * backfill_module._MAX_LEGACY_PAGE + "--></BODY>"
+    )
+    with _client(upstream.handler) as client:
+        result = backfill_applications(
+            client, db, data_root, [16], today=TODAY, end_misses=2, apply=True, max_rows=3
+        )
+    (ledger,) = result.terms
+    assert ledger.stopped == "upstream-error"
+    assert not result.applied and result.refused is not None
+
+
+def test_the_dev_cache_keeps_a_legacy_page_byte_for_byte(tmp_path: Path) -> None:
+    cache = DocketCache(tmp_path / "cache")
+    page = legacy_page("16A1").replace("\n", "\r\n")
+    cache.write_legacy(16, 1, page)
+    cache.write_legacy(16, 2, None)
+    assert cache.read_legacy(16, 1) == (True, page)
+    assert cache.read_legacy(16, 2) == (True, None)
+    assert cache.read_legacy(16, 3) == (False, None)
+
+
+def _legacy_split(tmp_path: Path) -> tuple[Path, Path, _LegacyUpstream, Path]:
+    db, data_root, upstream = _legacy_seeded(tmp_path)
+    projection_file = tmp_path / "handoff" / "projection.json"
+    with corpus.connect_local_unmigrated(db) as ro:
+        write_handoff(projection_file, backfill_module.application_projection(ro, [16]))
+    projection = read_handoff(projection_file, backfill_module.ApplicationProjection)
+    with _client(upstream.handler) as client:
+        _, plan = backfill_module.plan_applications(client, projection, [16], end_misses=2)
+    plan_file = tmp_path / "handoff" / "plan.json"
+    write_handoff(plan_file, plan)
+    return db, data_root, upstream, plan_file
+
+
+def test_the_split_carries_legacy_pages_verbatim_and_lands_them(tmp_path: Path) -> None:
+    db, data_root, upstream, plan_file = _legacy_split(tmp_path / "split")
+    plan = read_handoff(plan_file, backfill_module.ApplicationPlan)
+    by_serial = {docket.serial: docket for docket in plan.served}
+    assert by_serial[1].legacy_page == upstream.pages["16a1"]
+    assert by_serial[1].payload is None
+    assert by_serial[3].payload == upstream.served["16A3"]
+    assert by_serial[3].legacy_page is None
+    landed = backfill_module.apply_application_plan(
+        plan, db, data_root, [16], today=TODAY, apply=True, max_rows=3
+    )
+    one_db, one_root, one_upstream = _legacy_seeded(tmp_path / "one")
+    with _client(one_upstream.handler) as client:
+        one = backfill_applications(
+            client, one_db, one_root, [16], today=TODAY, end_misses=2, apply=True, max_rows=3
+        )
+    assert landed.applied and landed.written == one.written
+    with corpus.connect(db) as a, corpus.connect(one_db) as b:
+        for case_id in landed.written:
+            assert corpus.get_row(a, case_id) == corpus.get_row(b, case_id)
+            assert corpus.latest_snapshot(a, case_id) == corpus.latest_snapshot(b, case_id)
+
+
+@pytest.mark.parametrize(
+    "change", ["both", "neither", "other-term", "not-a-docket", "renumbered", "re-dispositioned"]
+)
+def test_a_tampered_legacy_page_is_refused_whole(tmp_path: Path, change: str) -> None:
+    db, data_root, _, plan_file = _legacy_split(tmp_path)
+    raw = json.loads(plan_file.read_text())
+    served = next(docket for docket in raw["served"] if docket["serial"] == 1)
+    if change == "both":
+        served["payload"] = _application("16A1")
+    elif change == "neither":
+        served["legacy_page"] = None
+    elif change == "other-term":
+        raw["terms"][0]["term"] = 24
+        for docket in raw["served"]:
+            docket["term"] = 24
+    elif change == "not-a-docket":
+        served["legacy_page"] = "<html><body>Not a docket</body></html>"
+    elif change == "renumbered":
+        served["legacy_page"] = served["legacy_page"].replace("No. 16A1<", "No. 16A9<")
+    elif change == "re-dispositioned":
+        served["legacy_page"] = served["legacy_page"].replace(
+            "denied by the Court", "granted by the Court"
+        )
+    plan_file.write_text(json.dumps(raw))
+    with pytest.raises(HandoffRefused):
+        plan = read_handoff(plan_file, backfill_module.ApplicationPlan)
+        backfill_module.apply_application_plan(
+            plan,
+            db,
+            data_root,
+            [24 if change == "other-term" else 16],
+            today=TODAY,
+            apply=True,
+            max_rows=10,
+        )
+    with corpus.connect(db) as conn:
+        assert corpus.get_row(conn, f"scotus/{live_application_id(16, 1)}") is None
+
+
 # A freeze-record entry opens with a top-level bullet whose bold head names the
 # Term, or the inclusive run of Terms, and the back-fill it registers; the
 # entry's own continuation lines are indented, so each entry is read from its
@@ -758,5 +941,5 @@ def test_every_registered_apply_term_has_its_freeze_record_entry() -> None:
         for term in range(int(match["first"]), int(match["last"] or match["first"]) + 1)
     }
     registered = backfill_module.REGISTERED_APPLY_TERMS
-    assert entered >= set(range(17, 25))
+    assert entered >= set(range(16, 25))
     assert registered <= entered, sorted(registered - entered)

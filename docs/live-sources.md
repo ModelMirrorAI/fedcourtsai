@@ -87,6 +87,13 @@ decided petition lands with a machine-readable cert label; and the probe is
 **re-run to re-establish that resolver recall claim** after any pattern change
 (and to confirm the document-window edge).
 
+Below the floor the Court still serves its legacy HTML docket page
+(`https://www.supremecourt.gov/docketfiles/<number>.htm`, the number
+lower-cased), the same Clerk's record in an older layout. One pass reads it:
+the application back-fill, for the OT2016 serials that serve no JSON, most of
+those below `16A1051` (*Maintenance passes* in [data-pipeline.md](data-pipeline.md)).
+No poll or rotation reads it, so the live channel's reach is unchanged.
+
 ## Architecture: a third channel, the same corpus
 
 The live source follows the replica guardrails exactly
