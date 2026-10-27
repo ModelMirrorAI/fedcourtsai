@@ -3,6 +3,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from fedcourtsai import site_status
@@ -89,6 +90,9 @@ def test_every_lane_names_a_workflow_that_declares_a_schedule() -> None:
     # A lane whose workflow lost its schedule would never read late, which is the
     # one thing the page exists to show.
     for lane in site_status.LANES:
+        # The run list names a run by the workflow's `name:`, which the lane
+        # matches on, so a renamed workflow would read as never having run.
+        assert yaml.safe_load((WORKFLOWS / f"{lane.stem}.yml").read_text())["name"] == lane.stem
         crons = site_status.workflow_crons(WORKFLOWS, lane.stem)
         assert crons, lane.stem
         for expression in crons:
@@ -293,3 +297,38 @@ def test_ops_report_writes_a_status_snapshot_without_spend(tmp_path: Path) -> No
     # The page is public: nothing in the snapshot is a dollar figure.
     assert "usd" not in out.read_text().lower()
     assert "spend" not in out.read_text().lower()
+
+
+def test_a_status_that_cannot_be_built_leaves_the_rest_of_the_report_written(
+    tmp_path: Path,
+) -> None:
+    # An empty workflows directory: every lane's file is missing.
+    workflows = tmp_path / "workflows"
+    workflows.mkdir()
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    status_out = tmp_path / "status.json"
+    json_out = tmp_path / "ops.json"
+
+    result = runner.invoke(
+        app,
+        [
+            "ops-report",
+            "--json",
+            str(json_out),
+            "--status-out",
+            str(status_out),
+            "--workflows-root",
+            str(workflows),
+        ],
+        env={
+            "FEDCOURTS_DATA_ROOT": str(tmp_path / "data"),
+            "FEDCOURTS_CONFIG_ROOT": str(config_root),
+            "FEDCOURTS_METRICS_ROOT": str(tmp_path / "metrics"),
+        },
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json_out.exists()
+    assert not status_out.exists()
+    assert "::warning::status snapshot not written" in result.output

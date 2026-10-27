@@ -12555,34 +12555,35 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     if data_health_out is not None:
         data_health_out.parent.mkdir(parents=True, exist_ok=True)
         data_health_out.write_text(render_data_health(data_health))
+    analytics = _weekly_analytics(settings.metrics_root)
+    production = _weekly_production(settings.data_root, settings.config_root, _parse_when(when))
     if digest_out is not None:
         write_text(
             digest_out,
-            render_weekly_digest(
-                report,
-                analytics=_weekly_analytics(settings.metrics_root),
-                production=_weekly_production(
-                    settings.data_root, settings.config_root, _parse_when(when)
-                ),
-            ),
+            render_weekly_digest(report, analytics=analytics, production=production),
         )
     if status_out is not None:
-        write_json(
-            status_out,
-            site_status.build_status(
+        # Best-effort: the status snapshot is a page, and a lane it cannot judge
+        # (a renamed workflow file, a cron shape the reader does not model) must
+        # not fail the run before the ops snapshot and the data-validation
+        # escalation have landed. Nothing is written, so no stale page is
+        # published under today's date, and the warning names why.
+        try:
+            status = site_status.build_status(
                 report=report,
                 runs=run_rows,
                 workflows_root=workflows_root,
-                production=_weekly_production(
-                    settings.data_root, settings.config_root, _parse_when(when)
-                ),
-                analytics=_weekly_analytics(settings.metrics_root),
+                production=production,
+                analytics=analytics,
                 merits=_vintaged(settings.metrics_root / "merits-backtest.json", MeritsBacktest),
                 frontier=frontier,
                 public_cases=len(scope_manifest.public_case_ids(settings.data_root)),
                 source_sha=_git("rev-parse", "HEAD"),
-            ),
-        )
+            )
+        except (OSError, ValueError) as error:
+            typer.echo(f"::warning::status snapshot not written: {error}", err=True)
+        else:
+            write_json(status_out, status)
     typer.echo(render_markdown(report), nl=False)
 
 

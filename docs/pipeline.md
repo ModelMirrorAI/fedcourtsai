@@ -145,7 +145,7 @@ and pushes it to the `ops-metrics` branch beside the ops snapshot. The public
 site reads it at its daily build and renders the status page from it as it
 stands. Four sections:
 
-- **Lanes**: one row per scheduled workflow (`site_status.LANES`), judged
+- **Lanes**: one row per scheduled pipeline lane (`site_status.LANES`), judged
   against the crons that workflow file declares, so a schedule change moves the
   judgement with it. A lane is **late** when no run of it on `main` started
   since its most recent schedule tick, taken two hours before the snapshot
@@ -153,7 +153,9 @@ stands. Four sections:
   conclusive run failed, timed out or failed to start. A cancelled run is not
   conclusive, because the corpus writers share one concurrency group and a
   superseded queued run ends cancelled with nothing wrong. Late wins over
-  failing.
+  failing. **No runs** means the listing the job reads (the newest 1,200 runs
+  across every workflow, a few days) holds none of the lane. A dispatch counts
+  as a start, so one made just before a tick with nothing after it reads late.
 - **Production**: the cell census over the trailing 7 days, 30 days and Term to
   date, the same windows as the weekly digest, without its spend.
 - **Coverage**: the public ledger's size and the live watchlist's document
@@ -162,7 +164,10 @@ stands. Four sections:
   vintage and the reading rule that travels with it.
 
 It carries counts, dates and committed headlines only: no spend figure and no
-agent-written text, because the page is public.
+agent-written text, because the page is public. Only a run on `main` publishes
+it, and a snapshot that cannot be built is skipped with a warning rather than
+failing the job, so the ops snapshot and the data-validation escalation still
+land.
 
 ### The weekly performance digest
 
