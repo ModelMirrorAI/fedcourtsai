@@ -821,6 +821,30 @@ def test_a_term_above_the_json_floor_never_reads_a_page(tmp_path: Path) -> None:
     assert not any(name.endswith(".htm") for name in upstream.requested)
 
 
+def test_a_legacy_page_over_the_cap_stops_the_walk(tmp_path: Path) -> None:
+    db, data_root, upstream = _legacy_seeded(tmp_path)
+    upstream.pages["16a2"] = legacy_page("16A2").replace(
+        "</BODY>", "<!--" + "x" * backfill_module._MAX_LEGACY_PAGE + "--></BODY>"
+    )
+    with _client(upstream.handler) as client:
+        result = backfill_applications(
+            client, db, data_root, [16], today=TODAY, end_misses=2, apply=True, max_rows=3
+        )
+    (ledger,) = result.terms
+    assert ledger.stopped == "upstream-error"
+    assert not result.applied and result.refused is not None
+
+
+def test_the_dev_cache_keeps_a_legacy_page_byte_for_byte(tmp_path: Path) -> None:
+    cache = DocketCache(tmp_path / "cache")
+    page = legacy_page("16A1").replace("\n", "\r\n")
+    cache.write_legacy(16, 1, page)
+    cache.write_legacy(16, 2, None)
+    assert cache.read_legacy(16, 1) == (True, page)
+    assert cache.read_legacy(16, 2) == (True, None)
+    assert cache.read_legacy(16, 3) == (False, None)
+
+
 def _legacy_split(tmp_path: Path) -> tuple[Path, Path, _LegacyUpstream, Path]:
     db, data_root, upstream = _legacy_seeded(tmp_path)
     projection_file = tmp_path / "handoff" / "projection.json"

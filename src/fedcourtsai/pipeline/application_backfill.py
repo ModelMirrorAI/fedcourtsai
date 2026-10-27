@@ -241,7 +241,7 @@ class DocketCache:
         """A cached legacy page, as :meth:`read` reads a cached JSON."""
         served, missing = self._legacy_paths(term, serial)
         if served.exists():
-            return True, served.read_text()
+            return True, served.read_bytes().decode("utf-8")
         if missing.exists():
             return True, None
         return False, None
@@ -252,7 +252,7 @@ class DocketCache:
         if page is None:
             missing.touch()
         else:
-            served.write_text(page)
+            served.write_bytes(page.encode("utf-8"))
 
 
 def _stored_serials(conn: sqlite3.Connection, term: int) -> tuple[set[int], set[int]]:
@@ -351,7 +351,9 @@ class _Walk:
         The Court serves each such serial in one form, and long runs of
         serials in the same one, so the form that served the serial before is
         read first, which keeps the walk near one fetch a serial. A page that
-        is not a docket page is a miss, as a body that is not JSON is.
+        is not a docket page is a miss, as a body that is not JSON is; a page
+        that parses under another docket number is a served record, held back
+        by the served-number check without the other form being read.
         """
         if term not in LEGACY_HTML_TERMS:
             return self._fetch_json(term, serial)
@@ -380,6 +382,12 @@ class _Walk:
         page = self._fetch_legacy(term, serial)
         if page is None:
             return None
+        if len(page) > _MAX_LEGACY_PAGE:
+            # No plan may carry it, so the walk stops on it as on an upstream
+            # error rather than land the Term without it.
+            raise httpx.RemoteProtocolError(
+                f"legacy page {_payload_key(term, serial)} runs past {_MAX_LEGACY_PAGE} characters"
+            )
         payload = _legacy_payload(page, term, serial)
         if payload is not None:
             self.legacy_pages[_payload_key(term, serial)] = page

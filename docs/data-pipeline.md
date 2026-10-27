@@ -2034,18 +2034,21 @@ registration, since reading moves nothing.
 **OT2016 reads the legacy pages.** The pass reaches closed Terms from the
 live floor (`live.term_floor_year`, OT2017), and below it only the Terms in
 `LEGACY_HTML_TERMS`, which holds OT2016. supremecourt.gov serves OT2016's
-application JSON only from `16A1051`; below that it still serves the Clerk's
-record as its legacy HTML docket page (`docketfiles/16a<n>.htm`). The walk
-reads the JSON first and, where none is served, the page, which
-`pipeline/legacy_docket.py` parses into the docket JSON's own keys, so the
-same live mapping and resolution read it, and nothing maps a field twice. The
+application JSON for some serials, mostly from `16A1051` on; for most of the
+rest it still serves the Clerk's record as its legacy HTML docket page
+(`docketfiles/16a<n>.htm`); a sample found no serial served in both forms.
+The walk opens each Term on the page and reads first the form that served the
+serial before, then the other on a miss, so it stays near one fetch a serial.
+`pipeline/legacy_docket.py` parses a page into the docket JSON's own keys, so
+the same live mapping and resolution read it, and nothing maps a field twice. The
 page carries the caption, the docketed date, the court below, a linked-case
 line, the dated proceedings and the counsel blocks; the parse keeps each
 block's attorney, counsel-of-record marker and party name and reads none of
 its address or phone columns. It carries no capital marker, related-case list,
 lower-court decision date or document links, so those stay unset on the rows
 it lands. Its stored snapshot carries a
-`LegacyDocketSource` key naming the page and the SHA-256 of the text parsed,
+`LegacyDocketSource` key naming the page and the SHA-256 of the page without
+its script elements, which change per request,
 so no reader mistakes it for the Court's JSON. The plan carries the page
 verbatim, and the writer parses it again, under the same whole-plan check.
 The live floor itself does not move: the rotations still skip OT2016, so no

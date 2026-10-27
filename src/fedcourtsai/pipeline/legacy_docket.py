@@ -1,8 +1,8 @@
 """Read the Court's legacy HTML docket page into the docket JSON's own keys.
 
-supremecourt.gov serves its docket JSON from the e-filing era on: OT2016's
-applications only from ``16A1051`` (docketed 2017-04-28). The dockets below that
-are still served, as the legacy HTML page at
+supremecourt.gov serves its docket JSON from the e-filing era on: of OT2016's
+applications, mostly those from ``16A1051`` (docketed 2017-04-28). Most of the
+rest are still served, as the legacy HTML page at
 :data:`~fedcourtsai.supremecourt.LEGACY_DOCKET_URL` — the same Clerk's record in
 an older layout: the number, the caption, the docketed date, the court below and
 its case numbers, a linked-case line, the dated proceedings, and the counsel
@@ -24,8 +24,10 @@ to withhold.
 
 The mapping is not the Court's JSON and never passes as it:
 :data:`LEGACY_SOURCE_KEY` names the page it was read from and the SHA-256 of
-the text that was parsed, so a stored snapshot says what it is and the served
-page can be re-read and checked against it.
+the page with its script elements removed, so a stored snapshot says what it
+is and a re-read of the page can be checked against it. The scripts are left
+out of the digest because the served page embeds a measurement beacon whose
+values change on every request; nothing the parse reads is in them.
 
 A leaf module over the standard library's HTML tokenizer: the page is tables
 of rows of cells, read in document order.
@@ -48,7 +50,7 @@ LEGACY_FORMAT: Final = "supremecourt-docketfiles-htm"
 
 _NUMBER = re.compile(r"^No\.\s+(\S+)$")
 _PARTY_NAME = re.compile(r"^Party name:\s*(.*)$")
-_HEADER = re.compile(r"^(Attorneys? for .+?):?$")
+_HEADER = re.compile(r"^(Attorneys? for .+?|Other):?$")
 _COUNSEL_OF_RECORD = "Counsel of Record"
 
 
@@ -207,6 +209,14 @@ class _Head:
             self.caption.append(first)
 
 
+_SCRIPT = re.compile(r"<script\b[^>]*>.*?</script\s*>", re.IGNORECASE | re.DOTALL)
+
+
+def page_digest(page: str) -> str:
+    """``page``'s SHA-256 without its script elements, as recorded under the source key."""
+    return hashlib.sha256(_SCRIPT.sub("", page).encode("utf-8")).hexdigest()
+
+
 def parse_legacy_docket(page: str, *, url: str) -> dict[str, Any] | None:
     """The page read into the docket JSON's keys, or ``None`` when it is not a docket page.
 
@@ -235,6 +245,6 @@ def parse_legacy_docket(page: str, *, url: str) -> dict[str, Any] | None:
     record[LEGACY_SOURCE_KEY] = {
         "format": LEGACY_FORMAT,
         "url": url,
-        "sha256": hashlib.sha256(page.encode("utf-8")).hexdigest(),
+        "sha256": page_digest(page),
     }
     return record

@@ -1293,7 +1293,7 @@ writer's, against the corpus it pulls under the lock: the dry run's count
 run fetches from supremecourt.gov, so an apply does not lead with a dry run,
 and a re-dispatched dry run after the apply is the control. Its plan carries
 the served dockets' party contact details (for OT2016, the served legacy
-pages below `16A1051`) to the writer under the narrow
+pages of the serials that serve no JSON) to the writer under the narrow
 carve-out in [data-sources.md](data-sources.md) (*PII stance*): one artifact,
 one day, never committed or printed. **Each Term's apply is pre-registered**:
 it moves that Term's unparsed rows into the population the pooled interim base

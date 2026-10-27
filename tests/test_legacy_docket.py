@@ -9,6 +9,7 @@ from fedcourtsai.pipeline.ingest import from_live_record, map_live_docket
 from fedcourtsai.pipeline.legacy_docket import (
     LEGACY_FORMAT,
     LEGACY_SOURCE_KEY,
+    page_digest,
     parse_legacy_docket,
 )
 
@@ -80,6 +81,9 @@ def legacy_page(
         + "<TR><TD>Bo&nbsp;Second</TD><TD>\n2 Example Lane</TD><TD></TD></TR>"
         + "<TR><TD COLSPAN=3>Party name: Ada Example</TD></TR>"
         + respondent
+        + "<TR><TD><B>Other:</B></TD><TD></TD><TD></TD></TR>"
+        + "<TR><TD>Cy&nbsp;Amicus</TD><TD>\n3 Example Lane</TD><TD></TD></TR>"
+        + "<TR><TD COLSPAN=3>Party name: Example Amicus Society</TD></TR>"
         + "</TABLE></BODY></HTML>"
     )
 
@@ -113,13 +117,18 @@ def test_the_page_reads_into_the_docket_jsons_keys() -> None:
     (respondent,) = record["Respondent"]
     assert respondent["IsCounselofRecord"] is True
     assert respondent["PartyName"] == "Warden of Example Prison"
+    # The page's bare `Other:` header opens its own side, as the JSON keys it.
+    assert record["AttorneyHeaderOther"] == "Other"
+    assert record["Other"] == [
+        {"Attorney": "Cy Amicus", "IsCounselofRecord": False, "PartyName": "Example Amicus Society"}
+    ]
     # Nothing the page does not carry is invented.
     for absent in ("bCapitalCase", "RelatedCaseNumber", "LowerCourtDecision", "sJsonTerm"):
         assert absent not in record
     assert record[LEGACY_SOURCE_KEY] == {
         "format": LEGACY_FORMAT,
         "url": URL,
-        "sha256": hashlib.sha256(page.encode("utf-8")).hexdigest(),
+        "sha256": page_digest(page),
     }
 
 
@@ -133,7 +142,7 @@ def test_a_legacy_record_maps_through_the_live_mapping() -> None:
     assert row.date_decided == date(2017, 1, 26)
     assert row.date_filed is None
     assert row.case_name == "Ada Example v. Warden of Example Prison"
-    assert len(row.counsel) == 3
+    assert len(row.counsel) == 4
 
 
 def test_a_page_without_a_number_or_proceedings_is_not_a_docket_page() -> None:
@@ -148,3 +157,16 @@ def test_a_page_without_counsel_blocks_carries_none() -> None:
     record = parse_legacy_docket(cut, url=URL)
     assert record is not None
     assert "Petitioner" not in record and "Respondent" not in record
+
+
+def test_the_digest_leaves_out_the_per_request_beacon() -> None:
+    page = legacy_page()
+    reread = page.replace("var x = '", "var x = 'rid=9f3; ")
+    assert page_digest(page) == page_digest(reread)
+    assert page_digest(page) != page_digest(page.replace("16-7710", "16-7711"))
+    assert (
+        page_digest(page)
+        == hashlib.sha256(
+            page.replace("<script>var x = '<tr><td>not a row</td></tr>';</script>", "").encode()
+        ).hexdigest()
+    )
