@@ -429,36 +429,36 @@
       }
     ]
   },
-  "corpus_rows": 2153708,
+  "corpus_rows": 2153727,
   "coverage": {
-    "census_filings": 46213,
-    "live_slice_resolved": 24976,
-    "live_slice_rows": 25963
+    "census_filings": 46221,
+    "live_slice_resolved": 31013,
+    "live_slice_rows": 32031
   },
-  "dated_resolved": 24999,
+  "dated_resolved": 31036,
   "interim": {
-    "applications": 27871,
+    "applications": 27882,
     "duplicate_rows": 23,
-    "extension": 3657,
-    "referred_to_court": 350,
-    "response_requested": 130,
-    "substantive": 650,
-    "substantive_grant_rate": 0.09472049689440994,
-    "substantive_granted": 61,
-    "substantive_resolved": 644,
+    "extension": 8706,
+    "referred_to_court": 744,
+    "response_requested": 289,
+    "substantive": 1374,
+    "substantive_grant_rate": 0.11855670103092783,
+    "substantive_granted": 161,
+    "substantive_resolved": 1358,
     "terms": [
       {
-        "applications": 564,
+        "applications": 575,
         "duplicate_rows": 0,
-        "extension": 440,
+        "extension": 450,
         "referred_to_court": 31,
         "response_requested": 20,
         "substantive": 102,
-        "substantive_grant_rate": 0.10309278350515463,
+        "substantive_grant_rate": 0.10101010101010101,
         "substantive_granted": 10,
-        "substantive_resolved": 97,
+        "substantive_resolved": 99,
         "term": 2026,
-        "unknown": 22,
+        "unknown": 23,
         "unparsed": 0,
         "with_amicus": 20
       },
@@ -510,92 +510,92 @@
       {
         "applications": 1131,
         "duplicate_rows": 2,
-        "extension": 0,
-        "referred_to_court": 0,
-        "response_requested": 0,
-        "substantive": 0,
-        "substantive_grant_rate": null,
-        "substantive_granted": 0,
-        "substantive_resolved": 0,
+        "extension": 962,
+        "referred_to_court": 61,
+        "response_requested": 14,
+        "substantive": 103,
+        "substantive_grant_rate": 0.08737864077669903,
+        "substantive_granted": 9,
+        "substantive_resolved": 103,
         "term": 2022,
-        "unknown": 0,
-        "unparsed": 1131,
-        "with_amicus": 0
+        "unknown": 66,
+        "unparsed": 0,
+        "with_amicus": 8
       },
       {
         "applications": 876,
         "duplicate_rows": 2,
-        "extension": 0,
-        "referred_to_court": 0,
-        "response_requested": 0,
-        "substantive": 0,
-        "substantive_grant_rate": null,
-        "substantive_granted": 0,
-        "substantive_resolved": 0,
+        "extension": 708,
+        "referred_to_court": 65,
+        "response_requested": 42,
+        "substantive": 121,
+        "substantive_grant_rate": 0.25,
+        "substantive_granted": 30,
+        "substantive_resolved": 120,
         "term": 2021,
-        "unknown": 0,
-        "unparsed": 876,
-        "with_amicus": 0
+        "unknown": 47,
+        "unparsed": 0,
+        "with_amicus": 28
       },
       {
         "applications": 178,
         "duplicate_rows": 5,
-        "extension": 0,
-        "referred_to_court": 0,
-        "response_requested": 0,
-        "substantive": 0,
-        "substantive_grant_rate": null,
-        "substantive_granted": 0,
-        "substantive_resolved": 0,
+        "extension": 3,
+        "referred_to_court": 73,
+        "response_requested": 40,
+        "substantive": 135,
+        "substantive_grant_rate": 0.18796992481203006,
+        "substantive_granted": 25,
+        "substantive_resolved": 133,
         "term": 2020,
-        "unknown": 0,
-        "unparsed": 178,
-        "with_amicus": 0
+        "unknown": 40,
+        "unparsed": 0,
+        "with_amicus": 1
       },
       {
         "applications": 1071,
         "duplicate_rows": 2,
-        "extension": 0,
-        "referred_to_court": 0,
-        "response_requested": 0,
-        "substantive": 0,
-        "substantive_grant_rate": null,
-        "substantive_granted": 0,
-        "substantive_resolved": 0,
+        "extension": 913,
+        "referred_to_court": 67,
+        "response_requested": 28,
+        "substantive": 121,
+        "substantive_grant_rate": 0.10084033613445378,
+        "substantive_granted": 12,
+        "substantive_resolved": 119,
         "term": 2019,
-        "unknown": 0,
-        "unparsed": 1071,
+        "unknown": 37,
+        "unparsed": 0,
         "with_amicus": 0
       },
       {
         "applications": 1369,
         "duplicate_rows": 2,
-        "extension": 0,
-        "referred_to_court": 0,
-        "response_requested": 0,
-        "substantive": 0,
-        "substantive_grant_rate": null,
-        "substantive_granted": 0,
-        "substantive_resolved": 0,
+        "extension": 1208,
+        "referred_to_court": 68,
+        "response_requested": 20,
+        "substantive": 115,
+        "substantive_grant_rate": 0.10619469026548672,
+        "substantive_granted": 12,
+        "substantive_resolved": 113,
         "term": 2018,
-        "unknown": 0,
-        "unparsed": 1369,
+        "unknown": 46,
+        "unparsed": 0,
         "with_amicus": 0
       },
       {
         "applications": 1425,
         "duplicate_rows": 0,
-        "extension": 0,
-        "referred_to_court": 0,
-        "response_requested": 0,
-        "substantive": 0,
-        "substantive_grant_rate": null,
-        "substantive_granted": 0,
-        "substantive_resolved": 0,
+        "extension": 1245,
+        "referred_to_court": 60,
+        "response_requested": 15,
+        "substantive": 129,
+        "substantive_grant_rate": 0.0967741935483871,
+        "substantive_granted": 12,
+        "substantive_resolved": 124,
         "term": 2017,
-        "unknown": 0,
-        "unparsed": 1425,
-        "with_amicus": 0
+        "unknown": 50,
+        "unparsed": 1,
+        "with_amicus": 3
       },
       {
         "applications": 1268,
@@ -838,34 +838,2258 @@
         "with_amicus": 0
       }
     ],
-    "unknown": 196,
-    "unparsed": 23368,
-    "with_amicus": 99
+    "unknown": 483,
+    "unparsed": 17319,
+    "with_amicus": 139
   },
-  "machine_readable_resolved": 31938,
+  "justice_votes": {
+    "terms": [
+      {
+        "complete": 51,
+        "documents": 70,
+        "judged": 50,
+        "justices": [
+          {
+            "disturb": 25,
+            "disturb_eligible": 49,
+            "in_part": 0,
+            "justice": "Alito",
+            "majority": 41,
+            "sat": 50
+          },
+          {
+            "disturb": 30,
+            "disturb_eligible": 50,
+            "in_part": 0,
+            "justice": "Barrett",
+            "majority": 46,
+            "sat": 51
+          },
+          {
+            "disturb": 30,
+            "disturb_eligible": 50,
+            "in_part": 0,
+            "justice": "Gorsuch",
+            "majority": 44,
+            "sat": 51
+          },
+          {
+            "disturb": 24,
+            "disturb_eligible": 49,
+            "in_part": 1,
+            "justice": "Jackson",
+            "majority": 35,
+            "sat": 51
+          },
+          {
+            "disturb": 26,
+            "disturb_eligible": 49,
+            "in_part": 1,
+            "justice": "Kagan",
+            "majority": 37,
+            "sat": 51
+          },
+          {
+            "disturb": 29,
+            "disturb_eligible": 49,
+            "in_part": 1,
+            "justice": "Kavanaugh",
+            "majority": 47,
+            "sat": 51
+          },
+          {
+            "disturb": 32,
+            "disturb_eligible": 50,
+            "in_part": 0,
+            "justice": "Roberts",
+            "majority": 49,
+            "sat": 51
+          },
+          {
+            "disturb": 25,
+            "disturb_eligible": 49,
+            "in_part": 1,
+            "justice": "Sotomayor",
+            "majority": 38,
+            "sat": 51
+          },
+          {
+            "disturb": 26,
+            "disturb_eligible": 50,
+            "in_part": 0,
+            "justice": "Thomas",
+            "majority": 42,
+            "sat": 51
+          }
+        ],
+        "pairs": [
+          {
+            "agree": 44,
+            "both": 50,
+            "justices": [
+              "Alito",
+              "Barrett"
+            ]
+          },
+          {
+            "agree": 44,
+            "both": 50,
+            "justices": [
+              "Alito",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 25,
+            "both": 49,
+            "justices": [
+              "Alito",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 27,
+            "both": 49,
+            "justices": [
+              "Alito",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 44,
+            "both": 49,
+            "justices": [
+              "Alito",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 41,
+            "both": 50,
+            "justices": [
+              "Alito",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 49,
+            "justices": [
+              "Alito",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 46,
+            "both": 50,
+            "justices": [
+              "Alito",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 47,
+            "both": 51,
+            "justices": [
+              "Barrett",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 30,
+            "both": 50,
+            "justices": [
+              "Barrett",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 34,
+            "both": 50,
+            "justices": [
+              "Barrett",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 42,
+            "both": 50,
+            "justices": [
+              "Barrett",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 46,
+            "both": 51,
+            "justices": [
+              "Barrett",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 33,
+            "both": 50,
+            "justices": [
+              "Barrett",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 45,
+            "both": 51,
+            "justices": [
+              "Barrett",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 30,
+            "both": 50,
+            "justices": [
+              "Gorsuch",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 32,
+            "both": 50,
+            "justices": [
+              "Gorsuch",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 43,
+            "both": 50,
+            "justices": [
+              "Gorsuch",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 44,
+            "both": 51,
+            "justices": [
+              "Gorsuch",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 31,
+            "both": 50,
+            "justices": [
+              "Gorsuch",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 45,
+            "both": 51,
+            "justices": [
+              "Gorsuch",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 44,
+            "both": 50,
+            "justices": [
+              "Jackson",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 31,
+            "both": 49,
+            "justices": [
+              "Jackson",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 33,
+            "both": 50,
+            "justices": [
+              "Jackson",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 47,
+            "both": 50,
+            "justices": [
+              "Jackson",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 26,
+            "both": 50,
+            "justices": [
+              "Jackson",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 33,
+            "both": 49,
+            "justices": [
+              "Kagan",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 37,
+            "both": 50,
+            "justices": [
+              "Kagan",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 47,
+            "both": 50,
+            "justices": [
+              "Kagan",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 50,
+            "justices": [
+              "Kagan",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 47,
+            "both": 50,
+            "justices": [
+              "Kavanaugh",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 34,
+            "both": 49,
+            "justices": [
+              "Kavanaugh",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 43,
+            "both": 50,
+            "justices": [
+              "Kavanaugh",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 50,
+            "justices": [
+              "Roberts",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 40,
+            "both": 51,
+            "justices": [
+              "Roberts",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 50,
+            "justices": [
+              "Sotomayor",
+              "Thomas"
+            ]
+          }
+        ],
+        "term": 2025
+      },
+      {
+        "complete": 53,
+        "documents": 63,
+        "judged": 51,
+        "justices": [
+          {
+            "disturb": 30,
+            "disturb_eligible": 50,
+            "in_part": 0,
+            "justice": "Alito",
+            "majority": 40,
+            "sat": 52
+          },
+          {
+            "disturb": 35,
+            "disturb_eligible": 49,
+            "in_part": 2,
+            "justice": "Barrett",
+            "majority": 48,
+            "sat": 53
+          },
+          {
+            "disturb": 28,
+            "disturb_eligible": 48,
+            "in_part": 1,
+            "justice": "Gorsuch",
+            "majority": 38,
+            "sat": 51
+          },
+          {
+            "disturb": 36,
+            "disturb_eligible": 49,
+            "in_part": 2,
+            "justice": "Jackson",
+            "majority": 38,
+            "sat": 53
+          },
+          {
+            "disturb": 34,
+            "disturb_eligible": 49,
+            "in_part": 2,
+            "justice": "Kagan",
+            "majority": 44,
+            "sat": 53
+          },
+          {
+            "disturb": 39,
+            "disturb_eligible": 51,
+            "in_part": 0,
+            "justice": "Kavanaugh",
+            "majority": 50,
+            "sat": 53
+          },
+          {
+            "disturb": 38,
+            "disturb_eligible": 51,
+            "in_part": 0,
+            "justice": "Roberts",
+            "majority": 51,
+            "sat": 53
+          },
+          {
+            "disturb": 35,
+            "disturb_eligible": 49,
+            "in_part": 2,
+            "justice": "Sotomayor",
+            "majority": 41,
+            "sat": 53
+          },
+          {
+            "disturb": 32,
+            "disturb_eligible": 51,
+            "in_part": 0,
+            "justice": "Thomas",
+            "majority": 42,
+            "sat": 53
+          }
+        ],
+        "pairs": [
+          {
+            "agree": 42,
+            "both": 50,
+            "justices": [
+              "Alito",
+              "Barrett"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 49,
+            "justices": [
+              "Alito",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 27,
+            "both": 50,
+            "justices": [
+              "Alito",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 33,
+            "both": 50,
+            "justices": [
+              "Alito",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 43,
+            "both": 52,
+            "justices": [
+              "Alito",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 40,
+            "both": 52,
+            "justices": [
+              "Alito",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 50,
+            "justices": [
+              "Alito",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 51,
+            "both": 52,
+            "justices": [
+              "Alito",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 49,
+            "justices": [
+              "Barrett",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 34,
+            "both": 50,
+            "justices": [
+              "Barrett",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 40,
+            "both": 50,
+            "justices": [
+              "Barrett",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 49,
+            "both": 51,
+            "justices": [
+              "Barrett",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 46,
+            "both": 51,
+            "justices": [
+              "Barrett",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 37,
+            "both": 50,
+            "justices": [
+              "Barrett",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 44,
+            "both": 51,
+            "justices": [
+              "Barrett",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 49,
+            "justices": [
+              "Gorsuch",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 30,
+            "both": 49,
+            "justices": [
+              "Gorsuch",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 35,
+            "both": 50,
+            "justices": [
+              "Gorsuch",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 50,
+            "justices": [
+              "Gorsuch",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 27,
+            "both": 49,
+            "justices": [
+              "Gorsuch",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 50,
+            "justices": [
+              "Gorsuch",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 45,
+            "both": 51,
+            "justices": [
+              "Jackson",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 35,
+            "both": 51,
+            "justices": [
+              "Jackson",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 51,
+            "justices": [
+              "Jackson",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 48,
+            "both": 51,
+            "justices": [
+              "Jackson",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 51,
+            "justices": [
+              "Jackson",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 41,
+            "both": 51,
+            "justices": [
+              "Kagan",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 42,
+            "both": 51,
+            "justices": [
+              "Kagan",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 46,
+            "both": 51,
+            "justices": [
+              "Kagan",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 35,
+            "both": 51,
+            "justices": [
+              "Kagan",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 50,
+            "both": 53,
+            "justices": [
+              "Kavanaugh",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 51,
+            "justices": [
+              "Kavanaugh",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 45,
+            "both": 53,
+            "justices": [
+              "Kavanaugh",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 39,
+            "both": 51,
+            "justices": [
+              "Roberts",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 42,
+            "both": 53,
+            "justices": [
+              "Roberts",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 30,
+            "both": 51,
+            "justices": [
+              "Sotomayor",
+              "Thomas"
+            ]
+          }
+        ],
+        "term": 2024
+      },
+      {
+        "complete": 48,
+        "documents": 54,
+        "judged": 46,
+        "justices": [
+          {
+            "disturb": 27,
+            "disturb_eligible": 45,
+            "in_part": 0,
+            "justice": "Alito",
+            "majority": 39,
+            "sat": 47
+          },
+          {
+            "disturb": 30,
+            "disturb_eligible": 46,
+            "in_part": 0,
+            "justice": "Barrett",
+            "majority": 43,
+            "sat": 48
+          },
+          {
+            "disturb": 33,
+            "disturb_eligible": 46,
+            "in_part": 0,
+            "justice": "Gorsuch",
+            "majority": 37,
+            "sat": 48
+          },
+          {
+            "disturb": 32,
+            "disturb_eligible": 46,
+            "in_part": 0,
+            "justice": "Jackson",
+            "majority": 36,
+            "sat": 48
+          },
+          {
+            "disturb": 30,
+            "disturb_eligible": 46,
+            "in_part": 0,
+            "justice": "Kagan",
+            "majority": 34,
+            "sat": 48
+          },
+          {
+            "disturb": 31,
+            "disturb_eligible": 46,
+            "in_part": 0,
+            "justice": "Kavanaugh",
+            "majority": 46,
+            "sat": 48
+          },
+          {
+            "disturb": 29,
+            "disturb_eligible": 46,
+            "in_part": 0,
+            "justice": "Roberts",
+            "majority": 46,
+            "sat": 48
+          },
+          {
+            "disturb": 30,
+            "disturb_eligible": 46,
+            "in_part": 0,
+            "justice": "Sotomayor",
+            "majority": 34,
+            "sat": 48
+          },
+          {
+            "disturb": 28,
+            "disturb_eligible": 46,
+            "in_part": 0,
+            "justice": "Thomas",
+            "majority": 38,
+            "sat": 48
+          }
+        ],
+        "pairs": [
+          {
+            "agree": 38,
+            "both": 47,
+            "justices": [
+              "Alito",
+              "Barrett"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 47,
+            "justices": [
+              "Alito",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 27,
+            "both": 47,
+            "justices": [
+              "Alito",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 25,
+            "both": 47,
+            "justices": [
+              "Alito",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 39,
+            "both": 47,
+            "justices": [
+              "Alito",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 39,
+            "both": 47,
+            "justices": [
+              "Alito",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 25,
+            "both": 47,
+            "justices": [
+              "Alito",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 43,
+            "both": 47,
+            "justices": [
+              "Alito",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 48,
+            "justices": [
+              "Barrett",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 33,
+            "both": 48,
+            "justices": [
+              "Barrett",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 33,
+            "both": 48,
+            "justices": [
+              "Barrett",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 43,
+            "both": 48,
+            "justices": [
+              "Barrett",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 41,
+            "both": 48,
+            "justices": [
+              "Barrett",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 33,
+            "both": 48,
+            "justices": [
+              "Barrett",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 39,
+            "both": 48,
+            "justices": [
+              "Barrett",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 31,
+            "both": 48,
+            "justices": [
+              "Gorsuch",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 48,
+            "justices": [
+              "Gorsuch",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 35,
+            "both": 48,
+            "justices": [
+              "Gorsuch",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 35,
+            "both": 48,
+            "justices": [
+              "Gorsuch",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 48,
+            "justices": [
+              "Gorsuch",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 39,
+            "both": 48,
+            "justices": [
+              "Gorsuch",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 44,
+            "both": 48,
+            "justices": [
+              "Jackson",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 34,
+            "both": 48,
+            "justices": [
+              "Jackson",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 34,
+            "both": 48,
+            "justices": [
+              "Jackson",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 44,
+            "both": 48,
+            "justices": [
+              "Jackson",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 26,
+            "both": 48,
+            "justices": [
+              "Jackson",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 34,
+            "both": 48,
+            "justices": [
+              "Kagan",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 34,
+            "both": 48,
+            "justices": [
+              "Kagan",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 46,
+            "both": 48,
+            "justices": [
+              "Kagan",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 24,
+            "both": 48,
+            "justices": [
+              "Kagan",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 46,
+            "both": 48,
+            "justices": [
+              "Kavanaugh",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 34,
+            "both": 48,
+            "justices": [
+              "Kavanaugh",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 48,
+            "justices": [
+              "Kavanaugh",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 34,
+            "both": 48,
+            "justices": [
+              "Roberts",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 48,
+            "justices": [
+              "Roberts",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 24,
+            "both": 48,
+            "justices": [
+              "Sotomayor",
+              "Thomas"
+            ]
+          }
+        ],
+        "term": 2023
+      },
+      {
+        "complete": 46,
+        "documents": 50,
+        "judged": 44,
+        "justices": [
+          {
+            "disturb": 30,
+            "disturb_eligible": 43,
+            "in_part": 1,
+            "justice": "Alito",
+            "majority": 37,
+            "sat": 46
+          },
+          {
+            "disturb": 28,
+            "disturb_eligible": 44,
+            "in_part": 0,
+            "justice": "Barrett",
+            "majority": 43,
+            "sat": 46
+          },
+          {
+            "disturb": 33,
+            "disturb_eligible": 43,
+            "in_part": 1,
+            "justice": "Gorsuch",
+            "majority": 37,
+            "sat": 46
+          },
+          {
+            "disturb": 27,
+            "disturb_eligible": 44,
+            "in_part": 0,
+            "justice": "Jackson",
+            "majority": 38,
+            "sat": 46
+          },
+          {
+            "disturb": 30,
+            "disturb_eligible": 44,
+            "in_part": 0,
+            "justice": "Kagan",
+            "majority": 37,
+            "sat": 46
+          },
+          {
+            "disturb": 32,
+            "disturb_eligible": 44,
+            "in_part": 0,
+            "justice": "Kavanaugh",
+            "majority": 45,
+            "sat": 46
+          },
+          {
+            "disturb": 31,
+            "disturb_eligible": 44,
+            "in_part": 0,
+            "justice": "Roberts",
+            "majority": 44,
+            "sat": 46
+          },
+          {
+            "disturb": 28,
+            "disturb_eligible": 44,
+            "in_part": 0,
+            "justice": "Sotomayor",
+            "majority": 37,
+            "sat": 46
+          },
+          {
+            "disturb": 26,
+            "disturb_eligible": 44,
+            "in_part": 0,
+            "justice": "Thomas",
+            "majority": 36,
+            "sat": 46
+          }
+        ],
+        "pairs": [
+          {
+            "agree": 36,
+            "both": 45,
+            "justices": [
+              "Alito",
+              "Barrett"
+            ]
+          },
+          {
+            "agree": 39,
+            "both": 45,
+            "justices": [
+              "Alito",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 45,
+            "justices": [
+              "Alito",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 45,
+            "justices": [
+              "Alito",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 45,
+            "justices": [
+              "Alito",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 37,
+            "both": 45,
+            "justices": [
+              "Alito",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 45,
+            "justices": [
+              "Alito",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 37,
+            "both": 45,
+            "justices": [
+              "Alito",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 45,
+            "justices": [
+              "Barrett",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 35,
+            "both": 46,
+            "justices": [
+              "Barrett",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 46,
+            "justices": [
+              "Barrett",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 42,
+            "both": 46,
+            "justices": [
+              "Barrett",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 41,
+            "both": 46,
+            "justices": [
+              "Barrett",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 46,
+            "justices": [
+              "Barrett",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 39,
+            "both": 46,
+            "justices": [
+              "Barrett",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 31,
+            "both": 45,
+            "justices": [
+              "Gorsuch",
+              "Jackson"
+            ]
+          },
+          {
+            "agree": 32,
+            "both": 45,
+            "justices": [
+              "Gorsuch",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 45,
+            "justices": [
+              "Gorsuch",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 35,
+            "both": 45,
+            "justices": [
+              "Gorsuch",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 32,
+            "both": 45,
+            "justices": [
+              "Gorsuch",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 33,
+            "both": 45,
+            "justices": [
+              "Gorsuch",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 41,
+            "both": 46,
+            "justices": [
+              "Jackson",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 37,
+            "both": 46,
+            "justices": [
+              "Jackson",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 46,
+            "justices": [
+              "Jackson",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 43,
+            "both": 46,
+            "justices": [
+              "Jackson",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 30,
+            "both": 46,
+            "justices": [
+              "Jackson",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 46,
+            "justices": [
+              "Kagan",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 37,
+            "both": 46,
+            "justices": [
+              "Kagan",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 44,
+            "both": 46,
+            "justices": [
+              "Kagan",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 31,
+            "both": 46,
+            "justices": [
+              "Kagan",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 43,
+            "both": 46,
+            "justices": [
+              "Kavanaugh",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 46,
+            "justices": [
+              "Kavanaugh",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 35,
+            "both": 46,
+            "justices": [
+              "Kavanaugh",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 35,
+            "both": 46,
+            "justices": [
+              "Roberts",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 46,
+            "justices": [
+              "Roberts",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 31,
+            "both": 46,
+            "justices": [
+              "Sotomayor",
+              "Thomas"
+            ]
+          }
+        ],
+        "term": 2022
+      },
+      {
+        "complete": 51,
+        "documents": 60,
+        "judged": 48,
+        "justices": [
+          {
+            "disturb": 31,
+            "disturb_eligible": 47,
+            "in_part": 1,
+            "justice": "Alito",
+            "majority": 42,
+            "sat": 51
+          },
+          {
+            "disturb": 33,
+            "disturb_eligible": 46,
+            "in_part": 0,
+            "justice": "Barrett",
+            "majority": 45,
+            "sat": 49
+          },
+          {
+            "disturb": 30,
+            "disturb_eligible": 45,
+            "in_part": 4,
+            "justice": "Breyer",
+            "majority": 32,
+            "sat": 51
+          },
+          {
+            "disturb": 35,
+            "disturb_eligible": 48,
+            "in_part": 0,
+            "justice": "Gorsuch",
+            "majority": 38,
+            "sat": 51
+          },
+          {
+            "disturb": 31,
+            "disturb_eligible": 46,
+            "in_part": 3,
+            "justice": "Kagan",
+            "majority": 35,
+            "sat": 51
+          },
+          {
+            "disturb": 35,
+            "disturb_eligible": 48,
+            "in_part": 0,
+            "justice": "Kavanaugh",
+            "majority": 48,
+            "sat": 51
+          },
+          {
+            "disturb": 35,
+            "disturb_eligible": 48,
+            "in_part": 1,
+            "justice": "Roberts",
+            "majority": 47,
+            "sat": 51
+          },
+          {
+            "disturb": 30,
+            "disturb_eligible": 46,
+            "in_part": 3,
+            "justice": "Sotomayor",
+            "majority": 30,
+            "sat": 51
+          },
+          {
+            "disturb": 32,
+            "disturb_eligible": 48,
+            "in_part": 1,
+            "justice": "Thomas",
+            "majority": 41,
+            "sat": 51
+          }
+        ],
+        "pairs": [
+          {
+            "agree": 43,
+            "both": 48,
+            "justices": [
+              "Alito",
+              "Barrett"
+            ]
+          },
+          {
+            "agree": 23,
+            "both": 46,
+            "justices": [
+              "Alito",
+              "Breyer"
+            ]
+          },
+          {
+            "agree": 40,
+            "both": 50,
+            "justices": [
+              "Alito",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 26,
+            "both": 47,
+            "justices": [
+              "Alito",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 45,
+            "both": 50,
+            "justices": [
+              "Alito",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 44,
+            "both": 49,
+            "justices": [
+              "Alito",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 21,
+            "both": 47,
+            "justices": [
+              "Alito",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 45,
+            "both": 49,
+            "justices": [
+              "Alito",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 26,
+            "both": 45,
+            "justices": [
+              "Barrett",
+              "Breyer"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 49,
+            "justices": [
+              "Barrett",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 46,
+            "justices": [
+              "Barrett",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 44,
+            "both": 49,
+            "justices": [
+              "Barrett",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 43,
+            "both": 48,
+            "justices": [
+              "Barrett",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 24,
+            "both": 46,
+            "justices": [
+              "Barrett",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 41,
+            "both": 48,
+            "justices": [
+              "Barrett",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 27,
+            "both": 47,
+            "justices": [
+              "Breyer",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 43,
+            "both": 47,
+            "justices": [
+              "Breyer",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 47,
+            "justices": [
+              "Breyer",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 47,
+            "justices": [
+              "Breyer",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 42,
+            "both": 47,
+            "justices": [
+              "Breyer",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 23,
+            "both": 47,
+            "justices": [
+              "Breyer",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 30,
+            "both": 48,
+            "justices": [
+              "Gorsuch",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 37,
+            "both": 51,
+            "justices": [
+              "Gorsuch",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 50,
+            "justices": [
+              "Gorsuch",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 27,
+            "both": 48,
+            "justices": [
+              "Gorsuch",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 50,
+            "justices": [
+              "Gorsuch",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 32,
+            "both": 48,
+            "justices": [
+              "Kagan",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 32,
+            "both": 48,
+            "justices": [
+              "Kagan",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 43,
+            "both": 48,
+            "justices": [
+              "Kagan",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 26,
+            "both": 48,
+            "justices": [
+              "Kagan",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 50,
+            "both": 50,
+            "justices": [
+              "Kavanaugh",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 27,
+            "both": 48,
+            "justices": [
+              "Kavanaugh",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 40,
+            "both": 50,
+            "justices": [
+              "Kavanaugh",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 27,
+            "both": 48,
+            "justices": [
+              "Roberts",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 40,
+            "both": 50,
+            "justices": [
+              "Roberts",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 21,
+            "both": 48,
+            "justices": [
+              "Sotomayor",
+              "Thomas"
+            ]
+          }
+        ],
+        "term": 2021
+      },
+      {
+        "complete": 40,
+        "documents": 48,
+        "judged": 39,
+        "justices": [
+          {
+            "disturb": 20,
+            "disturb_eligible": 37,
+            "in_part": 1,
+            "justice": "Alito",
+            "majority": 30,
+            "sat": 39
+          },
+          {
+            "disturb": 24,
+            "disturb_eligible": 35,
+            "in_part": 0,
+            "justice": "Barrett",
+            "majority": 32,
+            "sat": 36
+          },
+          {
+            "disturb": 29,
+            "disturb_eligible": 38,
+            "in_part": 1,
+            "justice": "Breyer",
+            "majority": 33,
+            "sat": 40
+          },
+          {
+            "disturb": 23,
+            "disturb_eligible": 37,
+            "in_part": 2,
+            "justice": "Gorsuch",
+            "majority": 33,
+            "sat": 40
+          },
+          {
+            "disturb": 27,
+            "disturb_eligible": 38,
+            "in_part": 1,
+            "justice": "Kagan",
+            "majority": 31,
+            "sat": 40
+          },
+          {
+            "disturb": 28,
+            "disturb_eligible": 39,
+            "in_part": 0,
+            "justice": "Kavanaugh",
+            "majority": 38,
+            "sat": 40
+          },
+          {
+            "disturb": 26,
+            "disturb_eligible": 39,
+            "in_part": 0,
+            "justice": "Roberts",
+            "majority": 36,
+            "sat": 40
+          },
+          {
+            "disturb": 26,
+            "disturb_eligible": 37,
+            "in_part": 2,
+            "justice": "Sotomayor",
+            "majority": 30,
+            "sat": 40
+          },
+          {
+            "disturb": 22,
+            "disturb_eligible": 38,
+            "in_part": 1,
+            "justice": "Thomas",
+            "majority": 30,
+            "sat": 40
+          }
+        ],
+        "pairs": [
+          {
+            "agree": 28,
+            "both": 34,
+            "justices": [
+              "Alito",
+              "Barrett"
+            ]
+          },
+          {
+            "agree": 23,
+            "both": 37,
+            "justices": [
+              "Alito",
+              "Breyer"
+            ]
+          },
+          {
+            "agree": 30,
+            "both": 37,
+            "justices": [
+              "Alito",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 21,
+            "both": 37,
+            "justices": [
+              "Alito",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 32,
+            "both": 38,
+            "justices": [
+              "Alito",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 32,
+            "both": 38,
+            "justices": [
+              "Alito",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 22,
+            "both": 37,
+            "justices": [
+              "Alito",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 38,
+            "justices": [
+              "Alito",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 26,
+            "both": 35,
+            "justices": [
+              "Barrett",
+              "Breyer"
+            ]
+          },
+          {
+            "agree": 30,
+            "both": 34,
+            "justices": [
+              "Barrett",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 35,
+            "justices": [
+              "Barrett",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 32,
+            "both": 36,
+            "justices": [
+              "Barrett",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 30,
+            "both": 36,
+            "justices": [
+              "Barrett",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 25,
+            "both": 34,
+            "justices": [
+              "Barrett",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 35,
+            "justices": [
+              "Barrett",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 27,
+            "both": 38,
+            "justices": [
+              "Breyer",
+              "Gorsuch"
+            ]
+          },
+          {
+            "agree": 35,
+            "both": 39,
+            "justices": [
+              "Breyer",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 31,
+            "both": 39,
+            "justices": [
+              "Breyer",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 39,
+            "justices": [
+              "Breyer",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 36,
+            "both": 38,
+            "justices": [
+              "Breyer",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 26,
+            "both": 38,
+            "justices": [
+              "Breyer",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 38,
+            "justices": [
+              "Gorsuch",
+              "Kagan"
+            ]
+          },
+          {
+            "agree": 31,
+            "both": 38,
+            "justices": [
+              "Gorsuch",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 38,
+            "justices": [
+              "Gorsuch",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 25,
+            "both": 38,
+            "justices": [
+              "Gorsuch",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 33,
+            "both": 38,
+            "justices": [
+              "Gorsuch",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 29,
+            "both": 39,
+            "justices": [
+              "Kagan",
+              "Kavanaugh"
+            ]
+          },
+          {
+            "agree": 27,
+            "both": 39,
+            "justices": [
+              "Kagan",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 34,
+            "both": 38,
+            "justices": [
+              "Kagan",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 38,
+            "justices": [
+              "Kagan",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 38,
+            "both": 40,
+            "justices": [
+              "Kavanaugh",
+              "Roberts"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 38,
+            "justices": [
+              "Kavanaugh",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 39,
+            "justices": [
+              "Kavanaugh",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 26,
+            "both": 38,
+            "justices": [
+              "Roberts",
+              "Sotomayor"
+            ]
+          },
+          {
+            "agree": 28,
+            "both": 39,
+            "justices": [
+              "Roberts",
+              "Thomas"
+            ]
+          },
+          {
+            "agree": 24,
+            "both": 38,
+            "justices": [
+              "Sotomayor",
+              "Thomas"
+            ]
+          }
+        ],
+        "term": 2020
+      }
+    ]
+  },
+  "machine_readable_resolved": 37975,
   "merits": {
     "affirmed": 150,
     "affirmed_in_part": 12,
     "cert_order_excluded": 76,
     "dig": 12,
-    "disturbed": 395,
-    "disturbed_rate": 0.7040998217468806,
+    "disturbed": 397,
+    "disturbed_rate": 0.7051509769094139,
     "equally_divided": 4,
-    "granted": 612,
-    "parsed": 561,
-    "reversed": 252,
+    "granted": 614,
+    "parsed": 563,
+    "reversed": 254,
     "terms": [
       {
         "affirmed": 7,
         "affirmed_in_part": 0,
         "cert_order_excluded": 10,
         "dig": 0,
-        "disturbed": 17,
-        "disturbed_rate": 0.7083333333333334,
+        "disturbed": 19,
+        "disturbed_rate": 0.7307692307692307,
         "equally_divided": 0,
-        "granted": 51,
-        "parsed": 24,
-        "reversed": 11,
+        "granted": 53,
+        "parsed": 26,
+        "reversed": 13,
         "term": 2025,
         "vacated": 6
       },
@@ -984,92 +3208,92 @@
     ],
     "vacated": 131
   },
-  "open": 2097765,
+  "open": 2091747,
   "overall": {
-    "cases": 2153708,
+    "cases": 2153727,
     "dispositions": [
       {
         "count": 24005,
         "disposition": "other",
-        "share": 0.4290974742148258
+        "share": 0.3873023555985802
       },
       {
-        "count": 19572,
+        "count": 20611,
         "disposition": "denied",
-        "share": 0.3498561035339542
+        "share": 0.33254275572765407
       },
       {
-        "count": 7187,
-        "disposition": "dismissed",
-        "share": 0.12847004987219135
-      },
-      {
-        "count": 4575,
+        "count": 9547,
         "disposition": "granted",
-        "share": 0.08177966859124466
+        "share": 0.15403355921264925
+      },
+      {
+        "count": 7191,
+        "disposition": "dismissed",
+        "share": 0.11602129719264279
       },
       {
         "count": 589,
         "disposition": "gvr",
-        "share": 0.010528573726829095
+        "share": 0.009503065505001613
       },
       {
-        "count": 12,
+        "count": 34,
         "disposition": "withdrawn",
-        "share": 0.0002145040487639204
+        "share": 0.0005485640529202969
       },
       {
         "count": 3,
         "disposition": "granted-in-part",
-        "share": 5.36260121909801e-05
+        "share": 4.84027105517909e-05
       }
     ],
     "key": "",
-    "open": 2097765,
-    "resolved": 55943
+    "open": 2091747,
+    "resolved": 61980
   },
-  "resolved": 55943,
+  "resolved": 61980,
   "schema_version": "1.0",
   "sections": [
     {
       "buckets": [
         {
-          "cases": 591629,
+          "cases": 591648,
           "dispositions": [
             {
-              "count": 19145,
+              "count": 20184,
               "disposition": "denied",
-              "share": 0.7575577714466604
+              "share": 0.644670861413651
             },
             {
-              "count": 4331,
+              "count": 9303,
               "disposition": "granted",
-              "share": 0.17137543526432417
+              "share": 0.2971350091028139
             },
             {
-              "count": 966,
+              "count": 970,
               "disposition": "dismissed",
-              "share": 0.03822412155745489
+              "share": 0.030981506914944584
             },
             {
               "count": 589,
               "disposition": "gvr",
-              "share": 0.02330642608420386
+              "share": 0.01881248203391996
             },
             {
               "count": 232,
               "disposition": "other",
-              "share": 0.009180120291231402
+              "share": 0.007410009901306334
             },
             {
-              "count": 9,
+              "count": 31,
               "disposition": "withdrawn",
-              "share": 0.00035612535612535614
+              "share": 0.0009901306333642084
             }
           ],
           "key": "scotus",
-          "open": 566357,
-          "resolved": 25272
+          "open": 560339,
+          "resolved": 31309
         },
         {
           "cases": 247637,
@@ -1442,7 +3666,7 @@
     {
       "buckets": [
         {
-          "cases": 126688,
+          "cases": 126359,
           "dispositions": [
             {
               "count": 204,
@@ -1466,7 +3690,7 @@
             }
           ],
           "key": "(none)",
-          "open": 126421,
+          "open": 126092,
           "resolved": 267
         },
         {
@@ -1501,32 +3725,37 @@
           "resolved": 12
         },
         {
-          "cases": 97059,
+          "cases": 97255,
           "dispositions": [
             {
-              "count": 5700,
+              "count": 6179,
               "disposition": "denied",
-              "share": 0.8731617647058824
+              "share": 0.6153156741684923
+            },
+            {
+              "count": 3257,
+              "disposition": "granted",
+              "share": 0.32433778131846247
             },
             {
               "count": 349,
               "disposition": "dismissed",
-              "share": 0.053462009803921566
+              "share": 0.0347540330611432
             },
             {
               "count": 249,
               "disposition": "gvr",
-              "share": 0.03814338235294118
+              "share": 0.024795857398924516
             },
             {
-              "count": 230,
-              "disposition": "granted",
-              "share": 0.0352328431372549
+              "count": 8,
+              "disposition": "withdrawn",
+              "share": 0.0007966540529774945
             }
           ],
           "key": "2010s",
-          "open": 90531,
-          "resolved": 6528
+          "open": 87213,
+          "resolved": 10042
         },
         {
           "cases": 62149,
@@ -1555,37 +3784,37 @@
           "resolved": 3
         },
         {
-          "cases": 35042,
+          "cases": 35194,
           "dispositions": [
             {
-              "count": 13432,
+              "count": 13992,
               "disposition": "denied",
-              "share": 0.7281006071118821
+              "share": 0.6672070955128511
             },
             {
-              "count": 4097,
+              "count": 6042,
               "disposition": "granted",
-              "share": 0.2220836947094536
+              "share": 0.2881121548805493
             },
             {
-              "count": 570,
+              "count": 574,
               "disposition": "dismissed",
-              "share": 0.030897658282740676
+              "share": 0.027371131562634113
             },
             {
               "count": 340,
               "disposition": "gvr",
-              "share": 0.018430182133564614
+              "share": 0.0162128653855324
             },
             {
-              "count": 9,
+              "count": 23,
               "disposition": "withdrawn",
-              "share": 0.0004878577623590633
+              "share": 0.0010967526584330742
             }
           ],
           "key": "2020s",
-          "open": 16594,
-          "resolved": 18448
+          "open": 14223,
+          "resolved": 20971
         },
         {
           "cases": 107,
@@ -1675,10 +3904,10 @@
           "resolved": 42591
         },
         {
-          "cases": 970,
+          "cases": 976,
           "dispositions": [],
           "key": "(open)",
-          "open": 970,
+          "open": 976,
           "resolved": 0
         },
         {
@@ -1695,17 +3924,17 @@
           "resolved": 918
         },
         {
-          "cases": 688,
+          "cases": 690,
           "dispositions": [
             {
-              "count": 688,
+              "count": 690,
               "disposition": "granted",
               "share": 1.0
             }
           ],
           "key": "granted",
           "open": 0,
-          "resolved": 688
+          "resolved": 690
         },
         {
           "cases": 589,
@@ -1732,7 +3961,7 @@
     {
       "buckets": [
         {
-          "cases": 11827,
+          "cases": 11831,
           "dispositions": [
             {
               "count": 11126,
@@ -1756,7 +3985,7 @@
             }
           ],
           "key": "(none)",
-          "open": 284,
+          "open": 288,
           "resolved": 11543
         },
         {
@@ -1788,7 +4017,7 @@
           "resolved": 5596
         },
         {
-          "cases": 5523,
+          "cases": 5525,
           "dispositions": [
             {
               "count": 5114,
@@ -1812,11 +4041,11 @@
             }
           ],
           "key": "ca5",
-          "open": 120,
+          "open": 122,
           "resolved": 5403
         },
         {
-          "cases": 3751,
+          "cases": 3752,
           "dispositions": [
             {
               "count": 3491,
@@ -1840,7 +4069,7 @@
             }
           ],
           "key": "ca11",
-          "open": 59,
+          "open": 60,
           "resolved": 3692
         },
         {
@@ -1872,7 +4101,7 @@
           "resolved": 3451
         },
         {
-          "cases": 3077,
+          "cases": 3078,
           "dispositions": [
             {
               "count": 2871,
@@ -1896,7 +4125,7 @@
             }
           ],
           "key": "ca6",
-          "open": 77,
+          "open": 78,
           "resolved": 3000
         },
         {
@@ -1933,27 +4162,27 @@
             {
               "count": 1870,
               "disposition": "denied",
-              "share": 0.9239130434782609
+              "share": 0.9234567901234568
             },
             {
-              "count": 54,
+              "count": 55,
               "disposition": "granted",
-              "share": 0.0266798418972332
+              "share": 0.027160493827160494
             },
             {
               "count": 51,
               "disposition": "dismissed",
-              "share": 0.025197628458498024
+              "share": 0.025185185185185185
             },
             {
               "count": 49,
               "disposition": "gvr",
-              "share": 0.024209486166007904
+              "share": 0.02419753086419753
             }
           ],
           "key": "ca2",
-          "open": 68,
-          "resolved": 2024
+          "open": 67,
+          "resolved": 2025
         },
         {
           "cases": 1971,
@@ -2101,27 +4330,27 @@
             {
               "count": 559,
               "disposition": "denied",
-              "share": 0.8858954041204438
+              "share": 0.884493670886076
             },
             {
-              "count": 38,
+              "count": 39,
               "disposition": "granted",
-              "share": 0.060221870047543584
+              "share": 0.061708860759493674
             },
             {
               "count": 20,
               "disposition": "dismissed",
-              "share": 0.03169572107765452
+              "share": 0.03164556962025317
             },
             {
               "count": 14,
               "disposition": "gvr",
-              "share": 0.022187004754358162
+              "share": 0.022151898734177215
             }
           ],
           "key": "cadc",
-          "open": 23,
-          "resolved": 631
+          "open": 22,
+          "resolved": 632
         },
         {
           "cases": 232,
@@ -2350,32 +4579,32 @@
     {
       "buckets": [
         {
-          "cases": 10575,
+          "cases": 10581,
           "dispositions": [
             {
               "count": 9880,
               "disposition": "denied",
-              "share": 0.9685324968140379
+              "share": 0.9683426443202979
+            },
+            {
+              "count": 136,
+              "disposition": "granted",
+              "share": 0.013329412917769283
             },
             {
               "count": 135,
               "disposition": "dismissed",
-              "share": 0.013233996666993432
-            },
-            {
-              "count": 134,
-              "disposition": "granted",
-              "share": 0.01313596706205274
+              "share": 0.01323140252866804
             },
             {
               "count": 52,
               "disposition": "gvr",
-              "share": 0.0050975394569159884
+              "share": 0.005096540233264726
             }
           ],
           "key": "0",
-          "open": 374,
-          "resolved": 10201
+          "open": 378,
+          "resolved": 10203
         },
         {
           "cases": 2568,
@@ -2473,32 +4702,32 @@
     {
       "buckets": [
         {
-          "cases": 13959,
+          "cases": 13965,
           "dispositions": [
             {
               "count": 12524,
               "disposition": "denied",
-              "share": 0.9240076730116571
+              "share": 0.9238713484803777
             },
             {
-              "count": 554,
+              "count": 556,
               "disposition": "granted",
-              "share": 0.040873542865574736
+              "share": 0.0410150486869283
             },
             {
               "count": 308,
               "disposition": "gvr",
-              "share": 0.02272391913826177
+              "share": 0.022720566538802008
             },
             {
               "count": 168,
               "disposition": "dismissed",
-              "share": 0.01239486498450642
+              "share": 0.012393036293892004
             }
           ],
           "key": "none",
-          "open": 405,
-          "resolved": 13554
+          "open": 409,
+          "resolved": 13556
         },
         {
           "cases": 180,
@@ -2540,32 +4769,127 @@
     {
       "buckets": [
         {
-          "cases": 13952,
+          "cases": 11395,
+          "dispositions": [
+            {
+              "count": 10557,
+              "disposition": "denied",
+              "share": 0.9503105590062112
+            },
+            {
+              "count": 218,
+              "disposition": "granted",
+              "share": 0.0196237285084166
+            },
+            {
+              "count": 196,
+              "disposition": "gvr",
+              "share": 0.017643352236925015
+            },
+            {
+              "count": 138,
+              "disposition": "dismissed",
+              "share": 0.012422360248447204
+            }
+          ],
+          "key": "0",
+          "open": 286,
+          "resolved": 11109
+        },
+        {
+          "cases": 1543,
+          "dispositions": [
+            {
+              "count": 1101,
+              "disposition": "denied",
+              "share": 0.7598343685300207
+            },
+            {
+              "count": 266,
+              "disposition": "granted",
+              "share": 0.18357487922705315
+            },
+            {
+              "count": 65,
+              "disposition": "gvr",
+              "share": 0.04485852311939269
+            },
+            {
+              "count": 17,
+              "disposition": "dismissed",
+              "share": 0.011732229123533472
+            }
+          ],
+          "key": "2+",
+          "open": 94,
+          "resolved": 1449
+        },
+        {
+          "cases": 1207,
+          "dispositions": [
+            {
+              "count": 969,
+              "disposition": "denied",
+              "share": 0.8339070567986231
+            },
+            {
+              "count": 120,
+              "disposition": "granted",
+              "share": 0.10327022375215146
+            },
+            {
+              "count": 56,
+              "disposition": "gvr",
+              "share": 0.04819277108433735
+            },
+            {
+              "count": 17,
+              "disposition": "dismissed",
+              "share": 0.014629948364888123
+            }
+          ],
+          "key": "1",
+          "open": 45,
+          "resolved": 1162
+        }
+      ],
+      "cert_stage": true,
+      "court": "scotus",
+      "group_by": "cert_amicus",
+      "live_slice": true,
+      "scope_note": "Amicus briefs are counted at the petition's disposition \u2014 every docket entry before the first disposition entry, the same where-it-ended timing the relist cut reads off its stored count \u2014 so a granted case's merits amici are not counted. The per-entry reading is the interim amicus count's: each entry naming amicus or amici curiae, plus each distinct lead filer docketed as submitted and not yet accepted, less the Court's orders on amicus motions, so a brief filed by motion counts once. It is a stakes proxy, not a census of briefs: a multi-filer brief counts once, a paper reciting the phrase (a consent to amicus filings, a certificate of service on a brief) counts beside the briefs, and the Solicitor General's invited brief counts, so a CVSG petition whose invited brief is on the record sits at 1 or above by construction. `(unknown)` is a row the live poll has not read since the count was stored. The split is a marginal one \u2014 it describes the populations, not what the count adds over the relist and CVSG cuts.",
+      "title": "Cert petitions by amicus-brief count (paid scored segment)",
+      "weighted": true
+    },
+    {
+      "buckets": [
+        {
+          "cases": 13958,
           "dispositions": [
             {
               "count": 12478,
               "disposition": "denied",
-              "share": 0.921838061465721
+              "share": 0.9217018762003251
             },
             {
-              "count": 580,
+              "count": 582,
               "disposition": "granted",
-              "share": 0.04284869976359338
+              "share": 0.04299010193529325
             },
             {
               "count": 307,
               "disposition": "gvr",
-              "share": 0.022680260047281325
+              "share": 0.02267690944009455
             },
             {
               "count": 171,
               "disposition": "dismissed",
-              "share": 0.012632978723404254
+              "share": 0.012631112424287192
             }
           ],
           "key": "unmarked",
-          "open": 416,
-          "resolved": 13536
+          "open": 420,
+          "resolved": 13538
         },
         {
           "cases": 187,
@@ -2607,32 +4931,32 @@
     {
       "buckets": [
         {
-          "cases": 10270,
+          "cases": 10276,
           "dispositions": [
             {
               "count": 9686,
               "disposition": "denied",
-              "share": 0.9749370910920987
+              "share": 0.9748389694041868
             },
             {
               "count": 125,
               "disposition": "dismissed",
-              "share": 0.012581781580271767
+              "share": 0.012580515297906603
             },
             {
-              "count": 83,
+              "count": 84,
               "disposition": "granted",
-              "share": 0.008354302969300453
+              "share": 0.008454106280193236
             },
             {
               "count": 41,
               "disposition": "gvr",
-              "share": 0.004126824358329139
+              "share": 0.004126409017713366
             }
           ],
           "key": "baseline",
-          "open": 335,
-          "resolved": 9935
+          "open": 340,
+          "resolved": 9936
         },
         {
           "cases": 2310,
@@ -2722,29 +5046,29 @@
           "cases": 220,
           "dispositions": [
             {
-              "count": 108,
+              "count": 109,
               "disposition": "granted",
-              "share": 0.5192307692307693
+              "share": 0.5215311004784688
             },
             {
               "count": 48,
               "disposition": "denied",
-              "share": 0.23076923076923078
+              "share": 0.22966507177033493
             },
             {
               "count": 45,
               "disposition": "gvr",
-              "share": 0.21634615384615385
+              "share": 0.215311004784689
             },
             {
               "count": 7,
               "disposition": "dismissed",
-              "share": 0.03365384615384615
+              "share": 0.03349282296650718
             }
           ],
           "key": "federal",
-          "open": 12,
-          "resolved": 208
+          "open": 11,
+          "resolved": 209
         }
       ],
       "cert_stage": true,
@@ -2786,7 +5110,7 @@
           "resolved": 2671
         },
         {
-          "cases": 2220,
+          "cases": 2222,
           "dispositions": [
             {
               "count": 1811,
@@ -2810,11 +5134,11 @@
             }
           ],
           "key": "ca5",
-          "open": 120,
+          "open": 122,
           "resolved": 2100
         },
         {
-          "cases": 1564,
+          "cases": 1565,
           "dispositions": [
             {
               "count": 1304,
@@ -2838,7 +5162,7 @@
             }
           ],
           "key": "ca11",
-          "open": 59,
+          "open": 60,
           "resolved": 1505
         },
         {
@@ -2870,7 +5194,7 @@
           "resolved": 1345
         },
         {
-          "cases": 1367,
+          "cases": 1368,
           "dispositions": [
             {
               "count": 1161,
@@ -2894,7 +5218,7 @@
             }
           ],
           "key": "ca6",
-          "open": 77,
+          "open": 78,
           "resolved": 1290
         },
         {
@@ -2903,27 +5227,27 @@
             {
               "count": 1060,
               "disposition": "denied",
-              "share": 0.8731466227347611
+              "share": 0.8724279835390947
             },
             {
-              "count": 54,
+              "count": 55,
               "disposition": "granted",
-              "share": 0.044481054365733116
+              "share": 0.04526748971193416
             },
             {
               "count": 51,
               "disposition": "dismissed",
-              "share": 0.042009884678747944
+              "share": 0.04197530864197531
             },
             {
               "count": 49,
               "disposition": "gvr",
-              "share": 0.04036243822075782
+              "share": 0.040329218106995884
             }
           ],
           "key": "ca2",
-          "open": 68,
-          "resolved": 1214
+          "open": 67,
+          "resolved": 1215
         },
         {
           "cases": 900,
@@ -3066,7 +5390,7 @@
           "resolved": 688
         },
         {
-          "cases": 538,
+          "cases": 540,
           "dispositions": [
             {
               "count": 485,
@@ -3080,7 +5404,7 @@
             }
           ],
           "key": "(none)",
-          "open": 42,
+          "open": 44,
           "resolved": 496
         },
         {
@@ -3089,27 +5413,27 @@
             {
               "count": 424,
               "disposition": "denied",
-              "share": 0.8548387096774194
+              "share": 0.8531187122736419
             },
             {
-              "count": 38,
+              "count": 39,
               "disposition": "granted",
-              "share": 0.07661290322580645
+              "share": 0.07847082494969819
             },
             {
               "count": 20,
               "disposition": "dismissed",
-              "share": 0.04032258064516129
+              "share": 0.04024144869215292
             },
             {
               "count": 14,
               "disposition": "gvr",
-              "share": 0.028225806451612902
+              "share": 0.028169014084507043
             }
           ],
           "key": "cadc",
-          "open": 23,
-          "resolved": 496
+          "open": 22,
+          "resolved": 497
         },
         {
           "cases": 430,
@@ -3485,7 +5809,7 @@
           "resolved": 60
         },
         {
-          "cases": 63,
+          "cases": 64,
           "dispositions": [
             {
               "count": 59,
@@ -3504,7 +5828,7 @@
             }
           ],
           "key": "Appeals Court of Massachusetts",
-          "open": 2,
+          "open": 3,
           "resolved": 61
         },
         {
@@ -3659,7 +5983,7 @@
           "resolved": 50
         },
         {
-          "cases": 50,
+          "cases": 51,
           "dispositions": [
             {
               "count": 43,
@@ -3673,7 +5997,7 @@
             }
           ],
           "key": "District Court of Appeal of Florida, First District",
-          "open": 2,
+          "open": 3,
           "resolved": 48
         },
         {
@@ -7782,7 +10106,7 @@
             {
               "band": "baseline",
               "est_grant_rate": 0.01807228915662651,
-              "ingested": 512,
+              "ingested": 518,
               "prefix_est_grant_rate": 0.03428571428571429,
               "prefix_resolved": 175,
               "prefix_weighted_resolved": 175,
@@ -7837,7 +10161,7 @@
             {
               "band": "baseline",
               "est_grant_rate": 0.012269938650306749,
-              "ingested": 479,
+              "ingested": 485,
               "prefix_est_grant_rate": 0.023529411764705882,
               "prefix_resolved": 170,
               "prefix_weighted_resolved": 170,
@@ -7892,7 +10216,7 @@
             {
               "band": "baseline",
               "est_grant_rate": 0.006172839506172839,
-              "ingested": 478,
+              "ingested": 484,
               "prefix_est_grant_rate": 0.01775147928994083,
               "prefix_resolved": 169,
               "prefix_weighted_resolved": 169,
@@ -7903,7 +10227,7 @@
         }
       ],
       "base_rates": {
-        "cases": 1444,
+        "cases": 1452,
         "dispositions": [
           {
             "count": 588,
@@ -7927,7 +10251,7 @@
           }
         ],
         "key": "2026",
-        "open": 836,
+        "open": 844,
         "resolved": 608
       },
       "classes": [
@@ -7957,8 +10281,8 @@
           ],
           "est_grant_rate": 0.03428571428571429,
           "fee_class": "paid",
-          "filings": 543,
-          "ingested": 531,
+          "filings": 549,
+          "ingested": 537,
           "resolved": 175,
           "timing": {
             "cases": 175,
@@ -7989,8 +10313,8 @@
           ],
           "est_grant_rate": 0.006928406466512702,
           "fee_class": "ifp",
-          "filings": 930,
-          "ingested": 913,
+          "filings": 932,
+          "ingested": 915,
           "resolved": 433,
           "timing": {
             "cases": 433,
@@ -8003,7 +10327,7 @@
       ],
       "est_grant_family_rate": 0.014802631578947368,
       "grants": 9,
-      "ingested": 1444,
+      "ingested": 1452,
       "median_days_to_grant": 71.0,
       "salience_version": "sal-v4",
       "segments": [
@@ -8050,7 +10374,7 @@
         {
           "band": "baseline",
           "est_grant_rate": 0.006172839506172839,
-          "ingested": 478,
+          "ingested": 484,
           "prefix_est_grant_rate": 0.01775147928994083,
           "prefix_resolved": 169,
           "prefix_weighted_resolved": 169,
@@ -8093,13 +10417,13 @@
             },
             {
               "band": "baseline",
-              "est_grant_rate": 0.01282051282051282,
+              "est_grant_rate": 0.014763779527559055,
               "ingested": 1038,
-              "prefix_est_grant_rate": 0.054133138258961225,
-              "prefix_resolved": 1367,
-              "prefix_weighted_resolved": 1367,
-              "resolved": 1014,
-              "weighted_resolved": 1014
+              "prefix_est_grant_rate": 0.05551497443389335,
+              "prefix_resolved": 1369,
+              "prefix_weighted_resolved": 1369,
+              "resolved": 1016,
+              "weighted_resolved": 1016
             }
           ]
         },
@@ -8108,13 +10432,13 @@
           "segments": [
             {
               "band": "federal",
-              "est_grant_rate": 0.47619047619047616,
+              "est_grant_rate": 0.5,
               "ingested": 22,
-              "prefix_est_grant_rate": 0.47619047619047616,
-              "prefix_resolved": 21,
-              "prefix_weighted_resolved": 21,
-              "resolved": 21,
-              "weighted_resolved": 21
+              "prefix_est_grant_rate": 0.5,
+              "prefix_resolved": 22,
+              "prefix_weighted_resolved": 22,
+              "resolved": 22,
+              "weighted_resolved": 22
             },
             {
               "band": "high",
@@ -8148,13 +10472,13 @@
             },
             {
               "band": "baseline",
-              "est_grant_rate": 0.00906344410876133,
+              "est_grant_rate": 0.01006036217303823,
               "ingested": 1013,
-              "prefix_est_grant_rate": 0.04106463878326996,
-              "prefix_resolved": 1315,
-              "prefix_weighted_resolved": 1315,
-              "resolved": 993,
-              "weighted_resolved": 993
+              "prefix_est_grant_rate": 0.04179331306990881,
+              "prefix_resolved": 1316,
+              "prefix_weighted_resolved": 1316,
+              "resolved": 994,
+              "weighted_resolved": 994
             }
           ]
         },
@@ -8163,13 +10487,13 @@
           "segments": [
             {
               "band": "federal",
-              "est_grant_rate": 0.5217391304347826,
+              "est_grant_rate": 0.5416666666666666,
               "ingested": 25,
-              "prefix_est_grant_rate": 0.5217391304347826,
-              "prefix_resolved": 23,
-              "prefix_weighted_resolved": 23,
-              "resolved": 23,
-              "weighted_resolved": 23
+              "prefix_est_grant_rate": 0.5416666666666666,
+              "prefix_resolved": 24,
+              "prefix_weighted_resolved": 24,
+              "resolved": 24,
+              "weighted_resolved": 24
             },
             {
               "band": "high",
@@ -8203,13 +10527,13 @@
             },
             {
               "band": "baseline",
-              "est_grant_rate": 0.00906344410876133,
+              "est_grant_rate": 0.01006036217303823,
               "ingested": 1012,
-              "prefix_est_grant_rate": 0.039603960396039604,
-              "prefix_resolved": 1313,
-              "prefix_weighted_resolved": 1313,
-              "resolved": 993,
-              "weighted_resolved": 993
+              "prefix_est_grant_rate": 0.04033485540334855,
+              "prefix_resolved": 1314,
+              "prefix_weighted_resolved": 1314,
+              "resolved": 994,
+              "weighted_resolved": 994
             }
           ]
         }
@@ -8220,27 +10544,27 @@
           {
             "count": 3816,
             "disposition": "denied",
-            "share": 0.954
+            "share": 0.9535232383808095
           },
           {
             "count": 80,
             "disposition": "dismissed",
-            "share": 0.02
+            "share": 0.01999000499750125
           },
           {
-            "count": 52,
+            "count": 54,
             "disposition": "granted",
-            "share": 0.013
+            "share": 0.013493253373313344
           },
           {
             "count": 52,
             "disposition": "gvr",
-            "share": 0.013
+            "share": 0.012993503248375811
           }
         ],
         "key": "2025",
-        "open": 134,
-        "resolved": 4000
+        "open": 132,
+        "resolved": 4002
       },
       "classes": [
         {
@@ -8249,36 +10573,36 @@
             {
               "count": 1279,
               "disposition": "denied",
-              "share": 0.9356254572055597
+              "share": 0.9342585829072315
             },
             {
-              "count": 47,
+              "count": 49,
               "disposition": "granted",
-              "share": 0.03438185808339429
+              "share": 0.03579254930606282
             },
             {
               "count": 27,
               "disposition": "gvr",
-              "share": 0.019751280175566936
+              "share": 0.019722425127830533
             },
             {
               "count": 14,
               "disposition": "dismissed",
-              "share": 0.010241404535479151
+              "share": 0.010226442658875092
             }
           ],
-          "est_grant_rate": 0.054133138258961225,
+          "est_grant_rate": 0.05551497443389335,
           "fee_class": "paid",
           "filings": 1432,
           "ingested": 1432,
-          "resolved": 1367,
+          "resolved": 1369,
           "timing": {
-            "cases": 1367,
-            "mean_days": 91.3,
+            "cases": 1369,
+            "mean_days": 91.2,
             "median_days": 74.0,
             "p90_days": 154.0
           },
-          "weighted_resolved": 1367
+          "weighted_resolved": 1369
         },
         {
           "complete": true,
@@ -8318,21 +10642,21 @@
           "weighted_resolved": 2633
         }
       ],
-      "est_grant_family_rate": 0.026,
-      "grants": 104,
+      "est_grant_family_rate": 0.026486756621689155,
+      "grants": 106,
       "ingested": 4134,
-      "median_days_to_grant": 154.0,
+      "median_days_to_grant": 153.0,
       "salience_version": "sal-v4",
       "segments": [
         {
           "band": "federal",
-          "est_grant_rate": 0.5217391304347826,
+          "est_grant_rate": 0.5416666666666666,
           "ingested": 25,
-          "prefix_est_grant_rate": 0.5217391304347826,
-          "prefix_resolved": 23,
-          "prefix_weighted_resolved": 23,
-          "resolved": 23,
-          "weighted_resolved": 23
+          "prefix_est_grant_rate": 0.5416666666666666,
+          "prefix_resolved": 24,
+          "prefix_weighted_resolved": 24,
+          "resolved": 24,
+          "weighted_resolved": 24
         },
         {
           "band": "high",
@@ -8366,19 +10690,19 @@
         },
         {
           "band": "baseline",
-          "est_grant_rate": 0.00906344410876133,
+          "est_grant_rate": 0.01006036217303823,
           "ingested": 1012,
-          "prefix_est_grant_rate": 0.039603960396039604,
-          "prefix_resolved": 1313,
-          "prefix_weighted_resolved": 1313,
-          "resolved": 993,
-          "weighted_resolved": 993
+          "prefix_est_grant_rate": 0.04033485540334855,
+          "prefix_resolved": 1314,
+          "prefix_weighted_resolved": 1314,
+          "resolved": 994,
+          "weighted_resolved": 994
         }
       ],
       "term": 2025,
       "timing": {
-        "cases": 4000,
-        "mean_days": 77.5,
+        "cases": 4002,
+        "mean_days": 77.4,
         "median_days": 63.0,
         "p90_days": 139.0
       }
@@ -10911,9 +13235,9 @@
     }
   ],
   "timing": {
-    "cases": 23643,
-    "mean_days": 72.0,
-    "median_days": 62.0,
-    "p90_days": 139.0
+    "cases": 29324,
+    "mean_days": 59.1,
+    "median_days": 52.0,
+    "p90_days": 131.0
   }
 }
