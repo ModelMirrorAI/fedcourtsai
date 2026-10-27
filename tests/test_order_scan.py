@@ -18,7 +18,7 @@ from pydantic import ValidationError
 from typer.testing import CliRunner
 
 from fedcourtsai.cli import app
-from fedcourtsai.courtlistener import CourtListenerClient, default_rate_limiter
+from fedcourtsai.courtlistener import CourtListenerClient, RateLimiter, default_rate_limiter
 from fedcourtsai.pipeline import order_scan
 from fedcourtsai.pipeline.order_scan import (
     OrderScanConfig,
@@ -53,8 +53,8 @@ def _config(**overrides: Any) -> OrderScanConfig:
         "max_requests_per_run": 50,
         "max_pages_per_search": 5,
         "windows": [
-            {"name": "w1", "filed_after": "2017-01-20", "filed_before": "2021-01-20"},
-            {"name": "w2", "filed_after": "2021-01-20", "filed_before": "2025-01-20"},
+            {"name": "w1", "start": "2017-01-20", "end": "2021-01-20"},
+            {"name": "w2", "start": "2021-01-20", "end": "2025-01-20"},
         ],
         "queries": [
             {"name": "pi", "params": {"description": '"preliminary injunction"'}},
@@ -74,7 +74,6 @@ def _result(
         "docketNumber": f"1:25-cv-{docket_id:05d}",
         "caseName": f"State v. Agency {docket_id}",
         "dateFiled": "2025-03-01",
-        "suitNature": "899 Other Statutes: Administrative Procedures Act",
         "recap_documents": list(docs),
         "more_docs": False,
         **extra,
@@ -104,7 +103,7 @@ class _Upstream:
     def __call__(self, request: httpx.Request) -> httpx.Response:
         params = dict(parse_qsl(request.url.query.decode()))
         self.requests.append(params)
-        key = (params.get("filed_after", ""), params.get("cursor", ""))
+        key = (params.get("entry_date_filed_after", ""), params.get("cursor", ""))
         if key not in self.pages:
             return httpx.Response(200, json=_page([]))
         return httpx.Response(200, json=self.pages[key])
@@ -127,6 +126,12 @@ def test_read_entry_names_kinds_and_polarity() -> None:
         ["stay-705"],
         "unclear",
     )
+    assert read_entry("ORDER GRANTING MOTION FOR TEMPORARY RESTRAINING ORDER") == (
+        ["tro"],
+        "granted",
+    )
+    assert read_entry("ORDER granting 705 Motion to Compel") == ([], "granted")
+    assert read_entry("Stay under 5 U.S.C. 705 granted")[0] == ["stay-705"]
     assert read_entry("NOTICE of appearance") == ([], "unclear")
 
 
@@ -137,7 +142,7 @@ def test_config_refuses_an_unknown_search_parameter() -> None:
 
 def test_config_refuses_a_backwards_window() -> None:
     with pytest.raises(ValidationError, match="ends on or before"):
-        SearchWindow(name="w", filed_after=date(2021, 1, 1), filed_before=date(2020, 1, 1))
+        SearchWindow(name="w", start=date(2021, 1, 1), end=date(2020, 1, 1))
 
 
 def test_config_refuses_duplicate_and_slashed_names() -> None:
@@ -148,7 +153,7 @@ def test_config_refuses_duplicate_and_slashed_names() -> None:
 
 
 def test_scan_pages_merges_and_keeps_district_dockets_only() -> None:
-    next_url = f"{_BASE}search/?type=r&filed_after=2017-01-20&cursor=abc"
+    next_url = f"{_BASE}search/?type=r&entry_date_filed_after=2017-01-20&cursor=abc"
     upstream = _Upstream(
         {
             ("2017-01-20", ""): _page(
@@ -183,7 +188,7 @@ def test_scan_pages_merges_and_keeps_district_dockets_only() -> None:
     )
 
     assert upstream.requests[0]["type"] == "r"
-    assert upstream.requests[0]["filed_before"] == "2021-01-20"
+    assert upstream.requests[0]["entry_date_filed_before"] == "2021-01-19"
     assert upstream.requests[1]["cursor"] == "abc"
     assert report.requests == 3
     assert [hit.docket_id for hit in report.hits] == [1, 3]
@@ -228,7 +233,7 @@ def test_a_refused_credential_stops_the_scan() -> None:
 
 def test_a_failed_search_is_recorded_and_the_scan_goes_on() -> None:
     def answer(request: httpx.Request) -> httpx.Response:
-        if "2017-01-20" in str(request.url):
+        if "entry_date_filed_after=2017-01-20" in str(request.url):
             return httpx.Response(400, json={"detail": "bad query"})
         return httpx.Response(200, json=_page([_result(4)]))
 
@@ -261,7 +266,7 @@ def test_an_off_endpoint_next_link_fails_only_its_search() -> None:
 
 def test_the_committed_config_loads_and_fits_its_cap() -> None:
     config = load_order_scan_config(_ROOT / "config" / "order-scan.yaml")
-    worst = len(config.searches()) * config.max_pages_per_search
+    worst = config.worst_case_requests()
     assert worst <= config.max_requests_per_run
     assert len({g.docket_id for g in config.gold}) == len(config.gold)
     assert config.max_requests_per_run <= 150
@@ -299,3 +304,114 @@ def test_summary_names_missed_gold() -> None:
     lines = order_scan.summary_lines(report)
     assert "gold recall: 0 of 1" in lines
     assert any("dcd 1:25-cv-1" in line for line in lines)
+
+
+def test_results_naming_no_docket_or_court_are_unparsed_not_other_courts() -> None:
+    def answer(request: httpx.Request) -> httpx.Response:
+        page = _page([{"id": 1, "court": "mad"}, _result(2, "ca9")])
+        page["results"].insert(1, "junk")
+        return httpx.Response(200, json=page)
+
+    report = scan(_client(answer), _config(windows=_config().windows[:1]), max_requests=50)
+    outcome = report.searches[0]
+    assert (outcome.district, outcome.other_courts, outcome.unparsed) == (0, 1, 2)
+
+
+def test_a_page_with_no_results_list_fails_its_search() -> None:
+    report = scan(
+        _client(lambda request: httpx.Response(200, json={"count": 3, "next": None})),
+        _config(),
+        max_requests=50,
+    )
+    assert all(s.error and "no results list" in s.error for s in report.searches)
+    assert order_scan.failure(report) == "every search failed"
+
+
+def test_a_search_failing_after_its_first_page_is_marked_partial() -> None:
+    def answer(request: httpx.Request) -> httpx.Response:
+        if "cursor" in str(request.url):
+            return httpx.Response(400)
+        next_url = f"{_BASE}search/?type=r&cursor=two"
+        return httpx.Response(200, json=_page([_result(1)], next_url))
+
+    report = scan(_client(answer), _config(), max_requests=50)
+    assert all(s.truncated and s.error for s in report.searches)
+    assert [h.docket_id for h in report.hits] == [1]
+
+
+def test_a_count_only_control_keeps_no_hits_and_reads_one_page() -> None:
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_page([_result(7)], f"{_BASE}search/?type=r&cursor=more"))
+
+    config = _config(
+        queries=[{"name": "ctl", "count_only": True, "params": {"description": "x"}}],
+    )
+    report = scan(_client(answer), config, max_requests=50)
+    assert report.hits == []
+    assert [(s.pages, s.truncated, s.count_only, s.district) for s in report.searches] == [
+        (1, False, True, 1),
+        (1, False, True, 1),
+    ]
+    assert config.worst_case_requests() == 2
+
+
+def test_a_refused_next_link_spends_no_request() -> None:
+    upstream_calls: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        upstream_calls.append(str(request.url))
+        return httpx.Response(200, json=_page([_result(1)], "https://example.com/next"))
+
+    report = scan(_client(answer), _config(), max_requests=50)
+    assert report.requests == len(upstream_calls) == 2
+
+
+def test_persistent_throttling_stops_the_scan() -> None:
+    report = scan(_client(lambda request: httpx.Response(429)), _config(), max_requests=50)
+    assert report.stopped is not None and "throttling" in report.stopped
+    assert report.deferred == ["pi/w1", "pi/w2"]
+
+
+def test_the_governors_budget_stops_the_scan() -> None:
+    client = CourtListenerClient(
+        rate_limiter=RateLimiter([(1, 3600.0)], max_wait=1.0, sleep_fn=lambda _s: None)
+    )
+    client._client = httpx.Client(base_url=_BASE, transport=httpx.MockTransport(_Upstream({})))
+    report = scan(client, _config(), max_requests=50)
+    assert report.stopped is not None and report.stopped.startswith("API budget exhausted")
+    assert report.deferred == ["pi/w2"]
+
+
+def test_entries_with_no_ids_are_each_kept() -> None:
+    bare = {"description": "ORDER granting preliminary injunction"}
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=_page([_result(1, "mad", bare, dict(bare))]))
+
+    report = scan(_client(answer), _config(windows=_config().windows[:1]), max_requests=50)
+    assert len(report.hits[0].entries) == 2
+
+
+def test_cli_exits_one_on_a_refused_credential(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FEDCOURTS_COURTLISTENER_API_TOKEN", "test-token")
+    monkeypatch.setattr(
+        "fedcourtsai.cli._client", lambda: _client(lambda request: httpx.Response(401))
+    )
+    result = CliRunner().invoke(app, ["order-scan", "--max-requests", "5"])
+    assert result.exit_code == 1
+    assert '"stopped"' in result.output
+    assert "failed: CourtListener refused the credential" in result.output
+
+
+def test_summary_keeps_an_error_on_one_fenced_line() -> None:
+    report = order_scan.OrderScanReport(
+        generated_at="2026-10-27T00:00:00+00:00",
+        max_requests=10,
+        searches=[
+            order_scan.SearchOutcome(
+                search="a/b", query="a", window="b", error="bad ```\nlink " + "x" * 400
+            )
+        ],
+    )
+    line = order_scan.summary_lines(report)[1]
+    assert "`" not in line and "\n" not in line and len(line) < 300

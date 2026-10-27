@@ -271,15 +271,20 @@ class CourtListenerClient:
         return self._get("search/", dict(params))
 
     def search_next(self, next_url: str) -> JsonDict:
-        """Fetch the page a search result's ``next`` link names.
+        """Fetch the page a search result's ``next`` link names."""
+        return self.search(self.search_link_params(next_url))
+
+    def search_link_params(self, next_url: str) -> dict[str, str]:
+        """The parameters of a search result's ``next`` link, once it is checked.
 
         Search pages are cursor-paginated, so the link is the only way to the
-        next page. It is followed only when it addresses this client's own
-        ``search/`` endpoint (same scheme, host and path); its query string is
-        re-sent as parameters, so the request is still one this client built.
-        A link anywhere else, or one repeating a parameter, raises
-        ``ValueError`` rather than carrying the token to an address this
-        client did not choose, or asking a question the link did not.
+        next page. It is accepted only when it addresses this client's own
+        ``search/`` endpoint (same scheme, host and path), and its query string
+        is re-sent as parameters, so the request is still one this client
+        built. A link anywhere else, or one repeating a parameter, raises
+        ``ValueError`` before any request, rather than carrying the token to an
+        address this client did not choose, or asking a question the link did
+        not.
         """
         expected = urlsplit(f"{self.base_url}search/")
         link = urlsplit(next_url)
@@ -293,7 +298,7 @@ class CourtListenerClient:
         params = dict(pairs)
         if len(params) != len(pairs):
             raise ValueError(f"search next link repeats a parameter: {next_url!r}")
-        return self._get("search/", params)
+        return params
 
     def iter_dockets(
         self,

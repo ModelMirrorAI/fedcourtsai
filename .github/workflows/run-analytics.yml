@@ -217,17 +217,19 @@ permissions: {}
 
 # Concurrency is per-job (not workflow-level): corpus-stats cancels a superseded
 # run of itself, while a metrics refresh or a labeling run must never be
-# cancelled mid-PR (or mid-agent) by an unrelated analysis dispatch. The census
-# and text-coverage each take their own never-cancelled group: a cancelled job
-# runs no upload step, and the artifact is what those modes exist to produce.
-# All the analysis jobs are read-only, so overlap costs nothing.
+# cancelled mid-PR (or mid-agent) by an unrelated analysis dispatch. The census,
+# text-coverage and order-scan each take their own never-cancelled group: a
+# cancelled job runs no upload step, and the artifact is what those modes exist
+# to produce. The corpus analysis jobs are read-only, so their overlap costs
+# nothing; order-scan's costs CourtListener requests on the one account every
+# environment's token belongs to, which its job's own note covers.
 # The labeling mode's two jobs take separate groups: they are already sequenced
 # by `needs`, and a shared group would let a second dispatch's extract slip
 # between the first dispatch's extract and its labeler.
 # Every group carries the dispatching ref, because the environments do too: a
 # staging rehearsal and a prod run of the same mode are different environments
-# reading different corpus pairs, and one must never cancel — or queue behind —
-# the other.
+# (for the corpus modes, reading different corpus pairs), and one must never
+# cancel — or queue behind — the other.
 
 jobs:
   # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
@@ -2588,11 +2590,13 @@ jobs:
     timeout-minutes: 30
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     # Its own group, never cancelled: a cancelled scan uploads no report, and
-    # the requests it already spent are gone either way. One scan at a time
-    # per ref, so two dispatches never double the hour's spend; the group
-    # carries the ref as every group here does, so a rehearsal and a
-    # production scan, which spend the same account, are not dispatched in
-    # the same hour.
+    # the requests it already spent are gone either way. The group keeps two
+    # scans of one ref from overlapping, not from sharing an hour: a second
+    # dispatch queues and starts when the first ends, so spacing scans an hour
+    # apart is the dispatcher's job. It carries the ref as every group here
+    # does, so nothing stops a staging and a production scan, which spend the
+    # same account, from overlapping either; do not dispatch the two in the
+    # same hour.
     concurrency:
       group: run-analytics-order-scan-${{ github.ref_name }}
       cancel-in-progress: false
@@ -2611,36 +2615,50 @@ jobs:
         timeout-minutes: 20
         env:
           FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
-          # The account's tier, as run-pull reads it; the fallbacks are the
-          # held tier's (see run-pull's refresh step).
+          # The account's per-minute and per-day tier, as run-pull reads it
+          # (the fallbacks are the held tier's; see run-pull's refresh step).
+          # The hourly window is not the tier's: it is the scan's own run cap
+          # (`max_requests_per_run` in config/order-scan.yaml), so the governor
+          # counts every request this process sends, retries included, and
+          # stops the scan cleanly at the cap. The job finishes well inside the
+          # hour, so the hourly window bounds the whole run.
           FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '25' }}
-          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '300' }}
+          FEDCOURTS_COURTLISTENER_RPH: "150"
           FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/order-scan.json"
+          summary="$RUNNER_TEMP/order-scan-summary.txt"
           # The report JSON to the artifact file, the plain-text summary
           # (counts, spend, gold recall and the missed gold dockets) to stderr;
-          # the summary goes on the page as a fenced block.
-          uv run fedcourts order-scan > "$out" 2> order-scan-summary.txt || status=$?
+          # the summary goes on the page as a fenced block. A run that fails
+          # (a refused credential, every search failed) still prints its
+          # report, so the summary is written either way and the step then
+          # fails with the scan's own status.
+          uv run fedcourts order-scan > "$out" 2> "$summary" || status=$?
           {
             echo "## order-scan — $(date -u +%Y-%m-%d)"
             echo '```'
-            cat order-scan-summary.txt
+            cat "$summary"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-          cat order-scan-summary.txt
+          cat "$summary"
           exit "${status:-0}"
 
       - name: Upload the scan report
+        # A failed scan's report is uploaded too: it says why it failed. A run
+        # that wrote no report (an argument or config refusal) fails here on
+        # the missing file instead.
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: order-scan
           path: ${{ runner.temp }}/order-scan.json
           if-no-files-found: error
-          # The report names district dockets by court, number and caption —
-          # public court records CourtListener already serves, none of them
-          # in the corpus — with entry numbers and dates but no entry text.
+          # The report names district dockets by court and number — public
+          # court records CourtListener already serves, none of them in the
+          # corpus — with entry numbers and dates, and no caption, entry text
+          # or nature of suit.
           # It rides the one-day window of the other analytics run artifacts
           # (docs/security.md); the hand coding it seeds downloads it within
           # the day, and a re-dispatch re-derives it at the cost of its spend.

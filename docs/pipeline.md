@@ -433,20 +433,28 @@ queues behind the production run of the same mode. The modes:
 - **`order-scan`** (dispatch) runs `fedcourts order-scan`: a bounded RECAP
   search for district orders against federal executive action, the candidate
   generation the adverse-order pool is hand-coded from
-  (`config/order-scan.yaml` holds the queries, the filing windows, the run's
-  request cap and the gold set its recall is measured against). It is the one
-  analysis mode that reads CourtListener rather than the corpus, so it holds
-  the CourtListener token, scoped to its scan step, and no cloud role. The
-  token's rate limits are the account's, shared with `run-pull`, and the
-  governor counts per process, so the config's cap (150 requests) is sized to
-  fit beside a pull window and a live window's enrichment step inside the
-  hourly ceiling; dispatch it in the quiet odd hours `run-pull`'s enrich job
-  names. The report (identifiers, dates and order readings, no entry text) is
-  uploaded on the same one-day retention as the census, and the step summary
-  carries the per-search counts, the spend and the gold recall. Its own
+  (`config/order-scan.yaml` holds the queries, the entry-date windows, one per
+  administration, the run's request cap and the gold set its recall is
+  measured against). It is the one analysis mode that reads CourtListener
+  rather than the corpus, so it holds the CourtListener token, scoped to its
+  scan step, and no cloud role. The token's rate limits are the account's,
+  shared with `run-pull`, and each process's governor counts only its own
+  requests, so the config's cap (150) is sized to fit beside a pull window and
+  a live window's enrichment step inside the hourly ceiling; the step runs the
+  governor with that cap as its hourly limit, so retries count against it too.
+  Dispatch it in the quiet odd hours `run-pull`'s enrich job names. The report
+  (court-record identifiers and order readings; no caption, entry text or
+  nature of suit) is uploaded on the same one-day retention as the census,
+  failed runs included, and the step summary carries the per-search counts,
+  the spend and the gold recall. The run fails when the credential is refused
+  or every search fails, so neither reads as an empty result. Its own
   never-cancelled, ref-suffixed concurrency group keeps two scans of one ref
-  from doubling an hour's spend; a staging rehearsal spends the same account
-  as a production scan, so the two are not dispatched in the same hour.
+  from overlapping but not from sharing an hour (a second dispatch starts when
+  the first ends), and nothing keeps a staging scan off a production one,
+  though both spend the same account: space dispatches an hour apart. The
+  staging environment holds no CourtListener token today, so a staging
+  dispatch stops at the scan's no-token refusal; the first scan that reads
+  upstream is a production one.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the

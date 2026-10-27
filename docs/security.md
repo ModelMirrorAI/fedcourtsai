@@ -1594,6 +1594,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
+| `run-analytics` — order-scan              | none          | reads CourtListener's REST API only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its scan step |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
 | `summarize` — generate, publish           | none          | generate holds the environment's Anthropic API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |
@@ -1919,7 +1920,16 @@ grant-correlated cut argued above) and the queued application-form cases holding
 no application document (membership conditioned on the interim lane's own
 predict-queue decision, which turns on the ask being substantive rather than on
 any grant-correlated cut, and is the weaker of the two) — re-derivable on a
-re-dispatch over the blob its own vintage lines name. But it
+re-dispatch over the blob its own vintage lines name. A sixth rides the same
+window: the `order-scan` report, which names district dockets the corpus does
+not hold, by court, docket id, number and filing date, with the numbers and
+dates of the entries a RECAP search matched and the order kinds read from them.
+It copies no caption, since a district caption can name an individual party (a
+noncitizen in an immigration suit, say), no entry text and no CourtListener
+value-add field such as nature of suit; what it adds to records CourtListener
+serves to anyone is the compilation (which dockets the configured queries
+select), re-derivable on a re-dispatch at the cost of its CourtListener spend.
+Its job holds the CourtListener token and nothing else. But it
 widens
 discovery, not reach: the role can already `GetObject` that content by key, and
 the no-republication posture is license/content-based (see
@@ -1929,15 +1939,6 @@ useful for console/Codespaces inspection and future read-side work. The
 least-privilege line that carries the threat model is the one the role already
 holds: **no write or delete** (append-only remote, explicit deny, versioning
 on), the cell-blast-radius bound stated above.
-
-A sixth analytics run artifact rides the same one-day window: the
-`order-scan` report, which names district dockets the corpus does not hold, by
-court, number and caption, with the numbers and dates of the entries a RECAP
-search matched and no entry text. These are public records CourtListener serves
-to anyone, so what the artifact adds is the compilation (which dockets the
-configured queries select), re-derivable on a re-dispatch at the cost of its
-CourtListener spend. The job that writes it holds the CourtListener token and
-nothing else: no cloud role, no App token, no write.
 
 The case-summary lane adds two run artifacts to the same public channel,
 argued in [case-summaries.md](case-summaries.md). `summary-stage`, one day,

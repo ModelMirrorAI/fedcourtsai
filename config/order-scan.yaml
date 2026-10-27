@@ -5,26 +5,32 @@
 # and writes nothing but its report.
 #
 # Spend. Every search below runs once per window; a search is at most
-# `max_pages_per_search` pages, one request each, and a run stops before the
-# request that would pass `max_requests_per_run`. The cap sits under the Tier 4
-# hourly ceiling (300) with room for a pull window's ~90 requests and a live
-# window's enrichment step in the same hour, since the governor counts per
-# process and the account does not (docs/data-sources.md).
+# `max_pages_per_search` pages (one for a `count_only` control), one request each,
+# and a run stops before the request that would pass `max_requests_per_run`.
+# The searches below ask for at most 123 pages, so the cap is a ceiling for a
+# grown config, not the expected spend. The cap sits under the Tier 4 hourly
+# ceiling (300) with room for a pull window's ~90 requests and a live window's
+# enrichment step in the same hour, since the governor counts per process and
+# the account does not (docs/data-sources.md). The cap counts pages; a page the
+# client retries after a transient fault costs up to three requests more, which
+# the run-analytics job bounds by running the scan under an hourly governor
+# ceiling equal to this cap.
 max_requests_per_run: 150
 max_pages_per_search: 10
 
-# Filing windows, one per administration, so per-window counts compare.
-# `filed_before` is exclusive.
+# Windows on the entry date (when an order was entered), one per
+# administration, so per-window counts compare. `end` is exclusive; the request
+# carries the day before, since upstream's bounds are inclusive.
 windows:
   - name: trump-1
-    filed_after: 2017-01-20
-    filed_before: 2021-01-20
+    start: 2017-01-20
+    end: 2021-01-20
   - name: biden
-    filed_after: 2021-01-20
-    filed_before: 2025-01-20
+    start: 2021-01-20
+    end: 2025-01-20
   - name: trump-2
-    filed_after: 2025-01-20
-    filed_before: 2027-01-01
+    start: 2025-01-20
+    end: 2027-01-01
 
 # The immigration pilot. Each query's `params` are upstream's RECAP search
 # filters, verbatim; `description` matches docket-entry text, `party_name` the
@@ -61,6 +67,13 @@ queries:
     params:
       description: '"preliminary injunction" OR "temporary restraining order"'
       nature_of_suit: "465"
+  # A control, read for its upstream `count` alone (one page a window, its
+  # results not kept): the pi-agency phrase with no party filter. A pi-agency
+  # count close to this one says the party filter was ignored, not applied.
+  - name: pi-control
+    count_only: true
+    params:
+      description: '"preliminary injunction"'
 
 # The recall reference: the district dockets the corpus's immigration
 # applications (policy area `immigration`) trace back to, through the circuit

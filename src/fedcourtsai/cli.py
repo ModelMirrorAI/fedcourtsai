@@ -13872,19 +13872,22 @@ def order_scan_command(
 ) -> None:
     """Search CourtListener's RECAP index for district orders against federal executive action.
 
-    Runs every configured query over every filing window as a RECAP search
+    Runs every configured query over every entry-date window as a RECAP search
     (dockets whose entries match an order phrase), keeps the district dockets
     each returns, reads each matched entry's description for the order kind
     (TRO, preliminary or permanent injunction, vacatur, a 705 stay) and whether
     it grants or denies, and checks the config's gold set — the district
-    dockets the corpus's applications trace back to — for recall. Prints the
+    dockets the corpus's immigration applications trace back to — for recall.
+    Prints the
     report as JSON on stdout and a summary on stderr.
 
     Strictly **read-only**: writes no corpus, content store or ledger, and
-    copies no entry text into the report, only identifiers, dates and the
-    readings. It spends CourtListener REST requests through the shared client
-    and rate governor, one per search page, stopping before the request that
-    would pass the run cap; `--plan` shows the spend first and needs no token.
+    copies no caption or entry text into the report, only identifiers, dates
+    and the readings. Exits 1 after printing the report when the credential
+    was refused or every search failed. It spends CourtListener REST requests
+    through the shared client and rate governor, one per search page, stopping
+    before the request that would pass the run cap; `--plan` shows the spend
+    first and needs no token.
     """
     settings = get_settings()
     path = config if config is not None else settings.config_root / "order-scan.yaml"
@@ -13916,6 +13919,11 @@ def order_scan_command(
     typer.echo(report.model_dump_json(indent=2))
     for line in order_scan.summary_lines(report):
         typer.echo(line, err=True)
+    failed = order_scan.failure(report)
+    if failed is not None:
+        # The report is printed first, so a failing run still leaves it to read.
+        typer.echo(f"order-scan: failed: {failed}", err=True)
+        raise typer.Exit(code=1)
 
 
 @app.command("order-notations")

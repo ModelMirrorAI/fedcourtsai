@@ -7,36 +7,45 @@ district-court preliminary injunctions, temporary restraining orders and
 vacaturs, and CourtListener's bulk exports carry no docket entries, so the
 order language that marks one can only be read through the REST API. This
 module runs that read as a bounded **RECAP search**: each configured query asks
-for district dockets whose entries match an order phrase, within one filing
-window, and each result names the dockets and the entries that matched.
+for district dockets whose entries match an order phrase, within one window
+of entry dates, and each result names the dockets and the entries
+that matched.
 
 **A measurement, not a store.** Nothing here writes the corpus, the content
 store or the ledger. The ``order-scan`` command prints one
 :class:`OrderScanReport`, which a maintainer reads to hand-code the candidate
 orders and to measure recall before any district docket is admitted anywhere.
-The report carries identifiers only: court, docket id and number, the caption,
-the filing date and nature of suit, and for each matched entry its number, date
-and the order kinds its description reads as. The entry text itself is not
-copied; a coder reads it on CourtListener. No request buys anything: RECAP
+The report carries court-record identifiers and the scan's own readings: for
+each docket its court, id, number, filing date and the searches that found it,
+and for each matched entry its number, document id, date, the order kinds its
+description reads as and their polarity. It copies no caption (a district
+caption can name an individual party), no entry text and no CourtListener
+value-add field such as nature of suit; a coder reads all three on
+CourtListener. No request buys anything: RECAP
 search reads only what CourtListener already holds, and RECAP Fetch is never
 called.
 
 **The queries are configuration.** ``config/order-scan.yaml`` names each query's
 search filters verbatim (upstream's own parameter names, a closed set checked
-here) and the filing windows each runs over, so the scan is retuned by a
-reviewed config change rather than a code change. Every query runs once per
-window, and each window is the same span for every query, so the per-window
-counts compare across administrations.
+here) and the windows each runs over, so the scan is retuned by a reviewed
+config change rather than a code change. A window bounds the **entry** date
+(when the order was entered), not the docket's filing date, since the pool's
+unit is the order and an order's administration is the one in office when it
+was entered: a suit filed in 2018 whose injunction issued in 2022 counts in
+2022's window. Every query runs once per window, and each window is the same
+span for every query, so the per-window counts compare across
+administrations.
 
 **The order reading is text, and says so.** A matched entry's kinds come from a
-pattern match over its description (the short description, then the search
-snippet, where upstream returns no description): a TRO, a preliminary or
+pattern match over its description (or, where upstream returns none, its
+short description, then the search snippet): a TRO, a preliminary or
 permanent injunction, a vacatur or set-aside, a stay under 5 U.S.C. 705. Its
 polarity is ``granted``, ``denied``, ``mixed`` (both words) or ``unclear``.
 These readings sort the candidates for hand review; they are not codes.
 
 **District courts only.** A result from any other court (a circuit, a
-bankruptcy court, the Supreme Court) is counted and dropped: the pool's unit is
+bankruptcy court, the Supreme Court) is counted and dropped, and one naming no
+docket id or court is counted apart as unparsed: the pool's unit is
 the district order, and the circuit stay rulings it also needs are reached from
 the district dockets.
 
@@ -57,7 +66,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Final, Literal
 
@@ -69,7 +78,7 @@ from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_throttle
 
 #: Upstream's RECAP search filters this scan may set. ``type`` is not among
 #: them: the scan always asks for ``r`` (dockets with their matching entries),
-#: and the filing window comes from the window, not the query.
+#: and the entry-date bounds come from the window, not the query.
 SEARCH_PARAMS: Final = frozenset(
     {
         "q",
@@ -80,8 +89,8 @@ SEARCH_PARAMS: Final = frozenset(
         "cause",
         "court",
         "party_name",
-        "entry_date_filed_after",
-        "entry_date_filed_before",
+        "filed_after",
+        "filed_before",
         "order_by",
     }
 )
@@ -95,30 +104,47 @@ OrderKind = Literal["tro", "preliminary-injunction", "permanent-injunction", "va
 Polarity = Literal["granted", "denied", "mixed", "unclear"]
 
 _KINDS: Final[tuple[tuple[OrderKind, re.Pattern[str]], ...]] = (
-    ("tro", re.compile(r"\btemporary restraining order\b|\bTRO\b")),
+    ("tro", re.compile(r"(?i:\btemporary restraining order\b)|\bTRO\b")),
     ("preliminary-injunction", re.compile(r"\bpreliminar(?:y|ily) (?:injunction|enjoin)", re.I)),
     ("permanent-injunction", re.compile(r"\bpermanent(?:ly)? (?:injunction|enjoin)", re.I)),
     ("vacatur", re.compile(r"\bvacat(?:e|ed|es|ing|ur)\b|\bset(?:ting)? aside\b", re.I)),
-    ("stay-705", re.compile(r"\b705\b|\bpostpone\w* the effective date", re.I)),
+    (
+        "stay-705",
+        re.compile(
+            r"(?:\bsection|\bsec\.|§|U\.S\.C\.?)\s*705\b|\bpostpone\w* the effective date", re.I
+        ),
+    ),
 )
 _GRANTED: Final = re.compile(r"\bgrant(?:s|ed|ing)?\b", re.I)
 _DENIED: Final = re.compile(r"\bden(?:y|ies|ied|ying)\b", re.I)
 
 
 class SearchWindow(BaseModel):
-    """One filing window: dockets filed on or after ``filed_after`` and before ``filed_before``."""
+    """One window: entries filed on or after ``start`` and before ``end``.
+
+    Upstream's entry-date filters are inclusive at both ends, so the request
+    carries ``end`` less a day, and two windows sharing a boundary date never
+    both hold an entry filed on it.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     name: str = Field(pattern=r"^[a-z0-9][a-z0-9-]*$")
-    filed_after: date
-    filed_before: date
+    start: date
+    end: date
 
     @model_validator(mode="after")
     def _ordered(self) -> SearchWindow:
-        if self.filed_before <= self.filed_after:
+        if self.end <= self.start:
             raise ValueError(f"window {self.name!r} ends on or before it starts")
         return self
+
+    def params(self) -> dict[str, str]:
+        """The window's entry-date filters, both inclusive as upstream reads them."""
+        return {
+            "entry_date_filed_after": self.start.isoformat(),
+            "entry_date_filed_before": (self.end - timedelta(days=1)).isoformat(),
+        }
 
 
 class SearchQuery(BaseModel):
@@ -128,6 +154,13 @@ class SearchQuery(BaseModel):
 
     name: str = Field(pattern=r"^[a-z0-9][a-z0-9-]*$")
     params: dict[str, str]
+    #: A control: read for its upstream ``count`` alone, one page a window,
+    #: with its results neither kept as hits nor counted toward recall.
+    count_only: bool = False
+
+    def page_cap(self, default: int) -> int:
+        """The pages one search of this query may read."""
+        return 1 if self.count_only else default
 
     @field_validator("params")
     @classmethod
@@ -174,6 +207,10 @@ class OrderScanConfig(BaseModel):
                 raise ValueError(f"duplicate {label} names: {names}")
         return self
 
+    def worst_case_requests(self) -> int:
+        """Every search at its page cap: the most a run of this config can ask for."""
+        return sum(query.page_cap(self.max_pages_per_search) for query, _window in self.searches())
+
     def searches(self) -> list[tuple[SearchQuery, SearchWindow]]:
         """Every query in every window, query-major, in config order."""
         return [(query, window) for query in self.queries for window in self.windows]
@@ -205,9 +242,7 @@ class ScanHit(BaseModel):
     docket_id: int
     court: str
     docket_number: str = ""
-    case_name: str = ""
     date_filed: str | None = None
-    nature_of_suit: str = ""
     searches: list[str] = Field(default_factory=list)
     entries: list[MatchedEntry] = Field(default_factory=list)
     more_entries: bool = False
@@ -221,11 +256,13 @@ class SearchOutcome(BaseModel):
     search: str
     query: str
     window: str
+    count_only: bool = False
     pages: int = 0
     count: int | None = None
     results: int = 0
     district: int = 0
     other_courts: int = 0
+    unparsed: int = 0
     truncated: bool = False
     error: str | None = None
 
@@ -323,21 +360,28 @@ def _stop_reason(exc: Exception) -> str | None:
     return None
 
 
-def _merge(hits: dict[int, ScanHit], result: Mapping[str, Any], search: str) -> bool:
-    """Fold one result into the hits; False when it is not a district docket."""
+def _merge(
+    hits: dict[int, ScanHit], result: Mapping[str, Any], search: str
+) -> Literal["district", "other", "unparsed"]:
+    """Fold one result into the hits, saying whether it was a district docket.
+
+    A result naming no docket id or no court is ``unparsed``, counted apart from
+    the other courts so that a renamed upstream field reads as a fault rather
+    than as a search that found only circuit dockets.
+    """
     docket_id = _int(result.get("docket_id"))
     court = _text(result.get("court_id"))
-    if docket_id is None or not DISTRICT_COURT.fullmatch(court):
-        return False
+    if docket_id is None or not court:
+        return "unparsed"
+    if not DISTRICT_COURT.fullmatch(court):
+        return "other"
     hit = hits.get(docket_id)
     if hit is None:
         hit = hits[docket_id] = ScanHit(
             docket_id=docket_id,
             court=court,
             docket_number=_text(result.get("docketNumber")),
-            case_name=_text(result.get("caseName")),
             date_filed=_text(result.get("dateFiled"))[:10] or None,
-            nature_of_suit=_text(result.get("suitNature")),
         )
     if search not in hit.searches:
         hit.searches.append(search)
@@ -346,11 +390,14 @@ def _merge(hits: dict[int, ScanHit], result: Mapping[str, Any], search: str) -> 
     for doc in documents if isinstance(documents, list) else []:
         if isinstance(doc, Mapping):
             entry = _entry(doc)
-            if (entry.entry_number, entry.document_id) not in seen:
-                seen.add((entry.entry_number, entry.document_id))
+            key = (entry.entry_number, entry.document_id)
+            # An entry with neither id is kept as it comes: there is nothing to
+            # tell two of them apart by.
+            if key == (None, None) or key not in seen:
+                seen.add(key)
                 hit.entries.append(entry)
     hit.more_entries = hit.more_entries or bool(result.get("more_docs"))
-    return True
+    return "district"
 
 
 def _fetch(
@@ -361,10 +408,13 @@ def _fetch(
     next_url: str | None,
 ) -> dict[str, Any]:
     """One search page, refused before the request that would pass the run cap."""
+    if next_url is not None:
+        # Checked before the cap and the count: a refused link sends nothing.
+        params = client.search_link_params(next_url)
     if report.requests >= report.max_requests:
         raise _RunCapReached(f"run cap of {report.max_requests} requests reached")
     report.requests += 1
-    page = client.search(params) if next_url is None else client.search_next(next_url)
+    page = client.search(params)
     outcome.pages += 1
     return page
 
@@ -376,14 +426,17 @@ def _read_page(
     if outcome.count is None:
         outcome.count = _int(page.get("count"))
     results = page.get("results")
-    for result in results if isinstance(results, list) else []:
-        if not isinstance(result, Mapping):
-            continue
+    if not isinstance(results, list):
+        raise ValueError("search page carries no results list")
+    for result in results:
         outcome.results += 1
-        if _merge(hits, result, outcome.search):
+        kind = _merge(hits, result, outcome.search) if isinstance(result, Mapping) else "unparsed"
+        if kind == "district":
             outcome.district += 1
-        else:
+        elif kind == "other":
             outcome.other_courts += 1
+        else:
+            outcome.unparsed += 1
     next_url = page.get("next")
     return next_url if isinstance(next_url, str) and next_url else None
 
@@ -404,28 +457,33 @@ def scan(
     searches = config.searches()
     for index, (query, window) in enumerate(searches):
         name = f"{query.name}/{window.name}"
-        outcome = SearchOutcome(search=name, query=query.name, window=window.name)
+        outcome = SearchOutcome(
+            search=name, query=query.name, window=window.name, count_only=query.count_only
+        )
+        # A control's results are read for the counts and then dropped.
+        kept = {} if query.count_only else hits
         params = {
             **query.params,
             "type": "r",
-            "filed_after": window.filed_after.isoformat(),
-            "filed_before": window.filed_before.isoformat(),
+            **window.params(),
         }
         stop: str | None = None
         try:
             page = _fetch(client, report, outcome, params, None)
             while True:
-                next_url = _read_page(page, outcome, hits)
+                next_url = _read_page(page, outcome, kept)
                 if next_url is None:
                     break
-                if outcome.pages >= config.max_pages_per_search:
-                    outcome.truncated = True
+                if outcome.pages >= query.page_cap(config.max_pages_per_search):
+                    outcome.truncated = not query.count_only
                     break
                 page = _fetch(client, report, outcome, params, next_url)
         except (_RunCapReached, RateBudgetExceeded, httpx.HTTPError, ValueError) as exc:
             stop = _stop_reason(exc)
             if stop is None:
                 outcome.error = f"{type(exc).__name__}: {exc}"
+                # Pages read before the fault stay merged, so say they are partial.
+                outcome.truncated = outcome.pages > 0
         if stop is not None:
             # The search that hit the wall is deferred with the rest, though the
             # pages it already read stay counted and merged.
@@ -464,22 +522,41 @@ def _gold(item: GoldDocket, hits: Mapping[int, ScanHit]) -> GoldOutcome:
 def plan_lines(config: OrderScanConfig, *, max_requests: int) -> list[str]:
     """The searches a run would make and its worst-case spend, with no request sent."""
     searches = config.searches()
-    worst = len(searches) * config.max_pages_per_search
     lines = [
         f"order-scan plan: {len(searches)} searches "
         + f"({len(config.queries)} queries x {len(config.windows)} windows), "
-        + f"up to {config.max_pages_per_search} pages each; worst case {worst} requests, "
-        + f"run cap {max_requests}",
+        + f"up to {config.max_pages_per_search} pages each (one for a count-only control); "
+        + f"worst case {config.worst_case_requests()} requests, run cap {max_requests}",
     ]
     for query, window in searches:
         filters = ", ".join(f"{key}={value!r}" for key, value in sorted(query.params.items()))
+        pages = query.page_cap(config.max_pages_per_search)
         lines.append(
-            f"  {query.name}/{window.name}: filed {window.filed_after} to {window.filed_before}; "
-            + filters
+            f"  {query.name}/{window.name}: entries {window.start} to {window.end} (exclusive), "
+            + f"up to {pages} page{'s' if pages != 1 else ''}; {filters}"
         )
     if config.gold:
         lines.append(f"gold set: {len(config.gold)} dockets")
     return lines
+
+
+def _printable(text: str, limit: int = 160) -> str:
+    """An error string fit for a fenced summary: one line, no backticks, bounded."""
+    flat = " ".join(text.replace("`", "'").split())
+    return flat if len(flat) <= limit else flat[: limit - 3] + "..."
+
+
+def failure(report: OrderScanReport) -> str | None:
+    """Why the run should fail its job, though the report stands; None when it should not.
+
+    A refused credential, or a run in which every search that ran failed,
+    yields a report with no hits that would otherwise read as a quiet result.
+    """
+    if report.stopped is not None and "HTTP 401" in report.stopped:
+        return report.stopped
+    if report.searches and all(outcome.error for outcome in report.searches):
+        return "every search failed"
+    return None
 
 
 def summary_lines(report: OrderScanReport) -> list[str]:
@@ -491,11 +568,14 @@ def summary_lines(report: OrderScanReport) -> list[str]:
     if report.stopped:
         lines.append(f"stopped: {report.stopped}; {len(report.deferred)} searches deferred")
     for outcome in report.searches:
-        flag = " (truncated)" if outcome.truncated else ""
-        error = f" error: {outcome.error}" if outcome.error else ""
+        flag = (
+            " (truncated)" if outcome.truncated else " (count only)" if outcome.count_only else ""
+        )
+        error = f" error: {_printable(outcome.error)}" if outcome.error else ""
         lines.append(
             f"  {outcome.search}: count {outcome.count}, {outcome.pages} pages, "
-            + f"{outcome.district} district / {outcome.other_courts} other{flag}{error}"
+            + f"{outcome.district} district / {outcome.other_courts} other / "
+            + f"{outcome.unparsed} unparsed{flag}{error}"
         )
     for window, count in sorted(report.hits_by_window.items()):
         lines.append(f"  window {window}: {count} dockets")
