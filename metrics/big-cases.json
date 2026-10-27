@@ -1,10 +1,10 @@
 {
-  "cases": 327,
+  "cases": 330,
   "cases_out_of_scope": 0,
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 290,
+      "cases": 293,
       "n": 3
     },
     {
@@ -16,18 +16,18 @@
       "n": 1
     }
   ],
-  "current_reads": 979,
+  "current_reads": 988,
   "declared_no_view": 23,
   "frozen_process": {
     "digests": [
       "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
-      "sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f",
+      "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+      "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
       "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
-      "sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9",
-      "sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4",
-      "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac"
+      "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+      "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745"
     ],
-    "since": "2026-10-25T13:40:46Z",
+    "since": "2026-10-26T19:00:50Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -102,7 +102,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-26T19:00:50Z",
         "digest": "sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f",
         "label": "proc-v12",
         "opens": "2026-10-25T13:40:46Z",
@@ -110,7 +110,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-26T19:00:50Z",
         "digest": "sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4",
         "label": "proc-v12",
         "opens": "2026-10-25T13:40:46Z",
@@ -118,10 +118,34 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-26T19:00:50Z",
         "digest": "sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9",
         "label": "proc-v12",
         "opens": "2026-10-25T13:40:46Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
+        "label": "proc-v13",
+        "opens": "2026-10-26T19:00:50Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+        "label": "proc-v13",
+        "opens": "2026-10-26T19:00:50Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745",
+        "label": "proc-v13",
+        "opens": "2026-10-26T19:00:50Z",
         "predictor_id": "gemini-baseline",
         "revoked_at": null
       }
@@ -145,7 +169,7 @@
     "leakage_note": "A leakage-flagged read is worse here than on a board that drops it. A stakes read is partly a read of the disposition, so a predictor that saw its own outcome may have read the stakes off it too \u2014 and on this board that cell is not one point inside a coefficient, it is the published number. Every read and every row carries `leakage_suspected`, set where any committed grading of that run recorded the bit. Read a marked row as evidence about the cell, not about the case. The **row** mark is moment-scoped like every other row figure: it covers the reads the row publishes, so a flagged read on an earlier moment leaves the row unmarked while staying visible, and marked, under its own event.",
     "no_time_series": "The committed ledger spans a boundary at which `big_case_score` became required with an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two populations \u2014 the ask changed, so which cells carry a read changed with it \u2014 and **this build spans it**, so the board publishes no trend and no history. Nor is a movement between two consecutive builds a measurement: a row's mean, `n` and rank also move when its `moment` does, which is the **docket** advancing and the whole panel switching question at once, not a predictor changing its mind. A movement across any of these boundaries measures nothing.",
     "population": "Every case in the committed ledger carrying at least one **in-scope** scored read on its current moment, pending and decided alike. `cases_without_score` counts the predicted cases whose in-scope reads carry no number at all and which are therefore absent \u2014 including a case whose current moment drew only declining reads whilst an earlier moment carried scores, which are history here and never promoted back into a row. The list is the predictions', never the corpus's \u2014 and the predictions' list is the salience gate's deliberately non-representative selection (`docs/salience.md`), so the board inherits that gate and is **not** a sample of the docket or of any conference. `status` says only whether a committed `outcome.json` sits on the case's predicted events: `pending` means the ledger records no outcome, which is not a statement about what the Court has done.",
-    "process_label": "proc-v12",
+    "process_label": "proc-v13",
     "rank_resolution": "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer together than the predictors inside a single row sit to each other, so the difference between two adjacent ranks is smaller than the disagreement the ranks are built from. `median_adjacent_gap` and `median_score_range` are published beside each other so that comparison can be made rather than assumed. The moment-first collapse sharpens this rather than settling it: each row is one moment, so a row's mean **is** comparable across its own predictors, but two rows on different moments are not comparable to each other and the `#` column orders across moments anyway. The panel reads stakes systematically higher at later moments, so a row's position reflects which question its panel answered as well as how big its case is.",
     "reading_rule": "A stakes read is neither scored nor ranked: it resolves against nothing, so no **stakes** figure here is an accuracy, a calibration or an ordering of predictors, and none may be quoted as one. The per-cell `probability` carried beside it **is** a forecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and it is not a claimable one either; scored forecast performance lives on the leaderboard and nowhere else. Like the leaderboard's big-case views, this board reads the ledger directly, so neither the forward-claim exclusion nor the leakage exclusion applies; it is wider still than those, since it also reads cells no judge has graded and every process version. A wider population than the scored boards, deliberately, and a caveat that has to travel with a quoted number. The mean is a panel opinion about which cases matter, and it says nothing about how likely any of them is to be granted.",
     "schedule_rule": "`scheduled` is joined by case id from the committed `data/schedule/schedule.json`, which the live poll writes from the conference each pending public docket's newest 'DISTRIBUTED for Conference of ...' entry names. It is null where the case is not on the schedule (decided, never distributed, or not read by the live channel) and where the conference had already passed on the day the schedule was built. The row carries no build day, so the board moves only when a case's date does; a reader rendering on a later day drops a date that has since passed rather than show it as upcoming. A schedule moves on every relist, so the field is display-only and never a ledger record: nothing predicts, evaluates or scores on it, and no cell is provisioned with it.",
@@ -10064,176 +10088,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Robinhood Markets",
-      "caption": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al.",
-      "caption_event_id": "evt-order-cvsg-disposition",
-      "case_id": "scotus/73280982",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A Section 11 / Item 303 ruling on whether IPO issuers must disclose intra-quarter financial data would reshape offering-disclosure practice and the pleading of Securities Act class actions in the circuit that hears most of them; large for securities law and issuers, modest for the general public.",
-          "big_case_score": 0.6,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260918T174135Z"
-        },
-        {
-          "big_case_rationale": "The questions could materially affect nationwide IPO disclosure duties and securities-litigation exposure for issuers and underwriters, but concern technical disclosure standards rather than a broad constitutional or governmental power.",
-          "big_case_score": 0.64,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260918T174135Z"
-        },
-        {
-          "big_case_rationale": "High-profile securities litigation involving Robinhood and major amicus support regarding the SEC's periodic reporting regime.",
-          "big_case_score": 0.8,
-          "event_id": "evt-order-cvsg-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260918T174135Z"
-        }
-      ],
-      "docket_id": 73280982,
-      "docket_number": "25-944",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-944.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-cvsg-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A Section 11 / Item 303 ruling on whether IPO issuers must disclose intra-quarter financial data would reshape offering-disclosure practice and the pleading of Securities Act class actions in the circuit that hears most of them; large for securities law and issuers, modest for the general public.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
-              "confidence": 0.45,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "claude-baseline",
-              "probability": 0.52,
-              "run_id": "20260918T174135Z"
-            },
-            {
-              "big_case_rationale": "The questions could materially affect nationwide IPO disclosure duties and securities-litigation exposure for issuers and underwriters, but concern technical disclosure standards rather than a broad constitutional or governmental power.",
-              "big_case_score": 0.64,
-              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.44,
-              "run_id": "20260918T174135Z"
-            },
-            {
-              "big_case_rationale": "High-profile securities litigation involving Robinhood and major amicus support regarding the SEC's periodic reporting regime.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "granted",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.55,
-              "run_id": "20260918T174135Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Post-Macquarie Section 11/Item 303 disclosure standards for every IPO issuer, arising from Robinhood's meme-stock-era IPO, with Chamber/SIFMA backing \u2014 high stakes for capital markets, though doctrinally technical.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/claude-baseline/20260716T205846Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.35,
-              "run_id": "20260716T205846Z"
-            },
-            {
-              "big_case_rationale": "The questions could reshape interim-disclosure duties for IPOs and public-company reporting nationwide, with potentially large securities-litigation consequences.",
-              "big_case_score": 0.78,
-              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/codex-baseline/20260716T205846Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/codex-baseline/20260716T205846Z",
-              "confidence": 0.67,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.36,
-              "run_id": "20260716T205846Z"
-            },
-            {
-              "big_case_rationale": "High-stakes Section 11 securities class action testing continuous disclosure of interim financial data, following closely on Macquarie.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/gemini-baseline/20260716T205846Z",
-              "confidence": 0.7,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": null,
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.35,
-              "run_id": "20260716T205846Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.68,
-      "moment": "evt-order-cvsg-disposition",
-      "moment_opened_at": "2026-06-01",
-      "n": 3,
-      "other_party": "Sodha",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Robinhood Markets' case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Robinhood Markets' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-06",
-        "kind": "conference"
-      },
-      "score_max": 0.8,
-      "score_min": 0.6,
-      "score_range": 0.2,
-      "short_caption": "Robinhood Markets v. Sodha",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Pharmaceutical Research and Manufacturers of America",
       "caption": "Pharmaceutical Research and Manufacturers of America v. Sean O'Day, in His Official Capacity as Director of the Oregon Department of Consumer and Business Services",
       "caption_event_id": "evt-order-cvsg-disposition",
@@ -15414,6 +15268,226 @@
       "status": "pending"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Robinhood Markets",
+      "caption": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al.",
+      "caption_event_id": "evt-brief-sg-disposition",
+      "case_id": "scotus/73280982",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Section 11 misleading-omissions standard for interim financial data affects every IPO and the SEC periodic-reporting regime; important to securities bar and issuers, but technical and low public salience.",
+          "big_case_score": 0.55,
+          "event_id": "evt-brief-sg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261026T092709Z"
+        },
+        {
+          "big_case_rationale": "A consequential nationwide securities-disclosure and IPO-liability question affecting issuers and investors, but a technical statutory dispute rather than a broad constitutional or public-policy watershed.",
+          "big_case_score": 0.64,
+          "event_id": "evt-brief-sg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261026T092709Z"
+        },
+        {
+          "big_case_rationale": "Significant securities-law question under Section 11(a) of the Securities Act of 1933 governing IPO disclosure obligations for interim financial data, backed by the Solicitor General, SEC, and major industry amici.",
+          "big_case_score": 0.65,
+          "event_id": "evt-brief-sg-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261026T092709Z"
+        }
+      ],
+      "docket_id": 73280982,
+      "docket_number": "25-944",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-944.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-sg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Section 11 misleading-omissions standard for interim financial data affects every IPO and the SEC periodic-reporting regime; important to securities bar and issuers, but technical and low public salience.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/claude-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/claude-baseline/20261026T092709Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted-in-part",
+              "predictor_id": "claude-baseline",
+              "probability": 0.8,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "A consequential nationwide securities-disclosure and IPO-liability question affecting issuers and investors, but a technical statutory dispute rather than a broad constitutional or public-policy watershed.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/codex-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/codex-baseline/20261026T092709Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted-in-part",
+              "predictor_id": "codex-baseline",
+              "probability": 0.84,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "Significant securities-law question under Section 11(a) of the Securities Act of 1933 governing IPO disclosure obligations for interim financial data, backed by the Solicitor General, SEC, and major industry amici.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-brief-sg-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.78,
+              "run_id": "20261026T092709Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-cvsg-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A Section 11 / Item 303 ruling on whether IPO issuers must disclose intra-quarter financial data would reshape offering-disclosure practice and the pleading of Securities Act class actions in the circuit that hears most of them; large for securities law and issuers, modest for the general public.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/claude-baseline/20260918T174135Z",
+              "confidence": 0.45,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "claude-baseline",
+              "probability": 0.52,
+              "run_id": "20260918T174135Z"
+            },
+            {
+              "big_case_rationale": "The questions could materially affect nationwide IPO disclosure duties and securities-litigation exposure for issuers and underwriters, but concern technical disclosure standards rather than a broad constitutional or governmental power.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/codex-baseline/20260918T174135Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.44,
+              "run_id": "20260918T174135Z"
+            },
+            {
+              "big_case_rationale": "High-profile securities litigation involving Robinhood and major amicus support regarding the SEC's periodic reporting regime.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-order-cvsg-disposition/predictions/gemini-baseline/20260918T174135Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.55,
+              "run_id": "20260918T174135Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Section 11 strict-liability scope for interim financial data touches every IPO and periodic filing; SEC, Chamber/SIFMA engaged, but the question is technical securities doctrine rather than a headline constitutional issue.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/claude-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/claude-baseline/20261026T092709Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted-in-part",
+              "predictor_id": "claude-baseline",
+              "probability": 0.72,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "The scope of Section 11 omission liability affects IPO disclosures and securities litigation nationwide; this is consequential commercial law rather than a broad constitutional controversy.",
+              "big_case_score": 0.64,
+              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/codex-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/codex-baseline/20261026T092709Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted-in-part",
+              "predictor_id": "codex-baseline",
+              "probability": 0.82,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "Major Securities Act Section 11(a) case on IPO disclosure of intra-quarter financial data following Macquarie, affecting public offerings across capital markets without raising constitutional questions.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73280982/events/evt-petition-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73280982/events/evt-petition-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "confidence": 0.78,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.78,
+              "run_id": "20261026T092709Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Robinhood Markets, Inc., et al. v. Vinod Sodha, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6133,
+      "moment": "evt-brief-sg-disposition",
+      "moment_opened_at": "2026-10-07",
+      "n": 3,
+      "other_party": "Sodha",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Robinhood Markets' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Robinhood Markets' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-06",
+        "kind": "conference"
+      },
+      "score_max": 0.65,
+      "score_min": 0.55,
+      "score_range": 0.1,
+      "short_caption": "Robinhood Markets v. Sodha",
+      "status": "pending"
+    },
+    {
       "asking_declined": "cross_petition",
       "asking_party": null,
       "caption": "Richard Hershey v. City of Bossier City, Louisiana, et al.",
@@ -15918,6 +15992,123 @@
       "score_min": 0.45,
       "score_range": 0.25,
       "short_caption": "Calce v. City of New York",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Hellman",
+      "caption": "Ariella Hellman, on Their Own Behalf and as Next Friend of Their Child, E. H., et al. v. Katherine Craven, Chair, Massachusetts Board of Elementary and Secondary Education, et al.",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000097",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Asks whether unconstitutional-conditions doctrine protects the Pierce right to choose private school; reaches the 14 secular no-aid state amendments and special-education delivery nationwide, but the immediate dispute is the location of services for two children.",
+          "big_case_score": 0.5,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261026T092709Z"
+        },
+        {
+          "big_case_rationale": "The question could materially extend parental educational-choice protections to conditions on public benefits, with nationwide implications for special education and private schooling; the immediate dispute concerns a narrower service-location rule.",
+          "big_case_score": 0.66,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261026T092709Z"
+        },
+        {
+          "big_case_rationale": "If granted and decided on the merits, resolving whether the unconstitutional conditions doctrine applies to the Pierce v. Society of Sisters substantive due process right to private schooling would carry significant nationwide consequences for state special-education funding and school-choice programs beyond the Free Exercise Clause.",
+          "big_case_score": 0.65,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261026T092709Z"
+        }
+      ],
+      "docket_id": 9026000097,
+      "docket_number": "26-97",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-97.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Asks whether unconstitutional-conditions doctrine protects the Pierce right to choose private school; reaches the 14 secular no-aid state amendments and special-education delivery nationwide, but the immediate dispute is the location of services for two children.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/9026000097/events/evt-petition-disposition/predictions/claude-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000097/events/evt-petition-disposition/predictions/claude-baseline/20261026T092709Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.17,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "The question could materially extend parental educational-choice protections to conditions on public benefits, with nationwide implications for special education and private schooling; the immediate dispute concerns a narrower service-location rule.",
+              "big_case_score": 0.66,
+              "cell_path": "data/cases/scotus/9026000097/events/evt-petition-disposition/predictions/codex-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000097/events/evt-petition-disposition/predictions/codex-baseline/20261026T092709Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.24,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "If granted and decided on the merits, resolving whether the unconstitutional conditions doctrine applies to the Pierce v. Society of Sisters substantive due process right to private schooling would carry significant nationwide consequences for state special-education funding and school-choice programs beyond the Free Exercise Clause.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000097/events/evt-petition-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000097/events/evt-petition-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "confidence": 0.9,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.015,
+              "run_id": "20261026T092709Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Ariella Hellman, on Their Own Behalf and as Next Friend of Their Child, E. H., et al. v. Katherine Craven, Chair, Massachusetts Board of Elementary and Secondary Education, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6033,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-07-21",
+      "n": 3,
+      "other_party": "Craven",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Hellman's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Hellman's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.66,
+      "score_min": 0.5,
+      "score_range": 0.16,
+      "short_caption": "Hellman v. Craven",
       "status": "pending"
     },
     {
@@ -23781,6 +23972,123 @@
       "status": "pending"
     },
     {
+      "asking_declined": null,
+      "asking_party": "Delaine",
+      "caption": "Mario Delaine v. United States",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000231",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Recurring ACCA elements-clause mens rea question with a 15-year mandatory minimum at stake across several States' injury-result battery statutes; important to federal sentencing but technical and narrow outside it.",
+          "big_case_score": 0.4,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261026T092709Z"
+        },
+        {
+          "big_case_rationale": "A recurring federal sentencing question affecting ACCA's fifteen-year minimum and related elements clauses nationwide, with substantial liberty stakes but less general public salience than a major constitutional dispute.",
+          "big_case_score": 0.61,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261026T153526Z"
+        },
+        {
+          "big_case_rationale": "If decided, the case would clarify whether Borden requires a purposeful or knowing mens rea as to resulting bodily injury under ACCA's elements clause (and potentially address Marks's application to Borden), affecting federal criminal sentencing nationwide while remaining a technical statutory-interpretation dispute.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261026T092709Z"
+        }
+      ],
+      "docket_id": 9026000231,
+      "docket_number": "26-231",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-231.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Recurring ACCA elements-clause mens rea question with a 15-year mandatory minimum at stake across several States' injury-result battery statutes; important to federal sentencing but technical and narrow outside it.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/9026000231/events/evt-petition-disposition/predictions/claude-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000231/events/evt-petition-disposition/predictions/claude-baseline/20261026T092709Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.22,
+              "run_id": "20261026T092709Z"
+            },
+            {
+              "big_case_rationale": "A recurring federal sentencing question affecting ACCA's fifteen-year minimum and related elements clauses nationwide, with substantial liberty stakes but less general public salience than a major constitutional dispute.",
+              "big_case_score": 0.61,
+              "cell_path": "data/cases/scotus/9026000231/events/evt-petition-disposition/predictions/codex-baseline/20261026T153526Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000231/events/evt-petition-disposition/predictions/codex-baseline/20261026T153526Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.3,
+              "run_id": "20261026T153526Z"
+            },
+            {
+              "big_case_rationale": "If decided, the case would clarify whether Borden requires a purposeful or knowing mens rea as to resulting bodily injury under ACCA's elements clause (and potentially address Marks's application to Borden), affecting federal criminal sentencing nationwide while remaining a technical statutory-interpretation dispute.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000231/events/evt-petition-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000231/events/evt-petition-disposition/predictions/gemini-baseline/20261026T092709Z",
+              "confidence": 0.82,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.11,
+              "run_id": "20261026T092709Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Mario Delaine v. United States"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.4533,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-08-24",
+      "n": 3,
+      "other_party": "United States",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Delaine's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Delaine's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.61,
+      "score_min": 0.35,
+      "score_range": 0.26,
+      "short_caption": "Delaine v. United States",
+      "status": "pending"
+    },
+    {
       "asking_declined": "short_form",
       "asking_party": null,
       "caption": "Benjamin M. Bauer v. Anne Elizabeth Alma Marks",
@@ -25627,7 +25935,7 @@
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26a499.html",
       "events": [
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-brief-response-disposition",
           "reads": [
             {
@@ -25673,11 +25981,11 @@
               "run_id": "20261021T170410Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-26",
           "title": "Louisiana, et al. v. Devon Energy Production Company, L.P."
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-motion-disposition",
           "reads": [
             {
@@ -25723,11 +26031,11 @@
               "run_id": "20261015T173805Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-26",
           "title": "Louisiana, et al. v. Devon Energy Production Company, L.P."
         },
         {
-          "actual_disposition": null,
+          "actual_disposition": "denied",
           "event_id": "evt-order-response-requested-disposition",
           "reads": [
             {
@@ -25773,7 +26081,7 @@
               "run_id": "20261015T142602Z"
             }
           ],
-          "resolved_at": null,
+          "resolved_at": "2026-10-26",
           "title": "Louisiana, et al. v. Devon Energy Production Company, L.P."
         }
       ],
@@ -25800,7 +26108,7 @@
       "score_min": 0.3,
       "score_range": 0.28,
       "short_caption": "Louisiana v. Devon Energy Production",
-      "status": "pending"
+      "status": "resolved"
     },
     {
       "asking_declined": null,
@@ -39341,6 +39649,123 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Lugo",
+      "caption": "Diana Y. Lugo v. Birmingham Jefferson County Transit Authority",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000545",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A pro se single-plaintiff employment-discrimination and retaliation dispute from an unpublished per curiam affirmance of summary judgment; the comparator and third-party-advocacy questions have some doctrinal reach, but this vehicle and posture give the case little stakes beyond the parties.",
+          "big_case_score": 0.05,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261026T191633Z"
+        },
+        {
+          "big_case_rationale": "Comparator standards and ADA advocacy protection have broad potential importance, but this unpublished, record-specific employment dispute is a weak vehicle for deciding either issue.",
+          "big_case_score": 0.22,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261026T191633Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se employment discrimination and retaliation dispute arising from an unpublished Eleventh Circuit per curiam affirmance of summary judgment with no institutional, political, or national policy salience.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261026T191633Z"
+        }
+      ],
+      "docket_id": 9026000545,
+      "docket_number": "26-545",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-545.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A pro se single-plaintiff employment-discrimination and retaliation dispute from an unpublished per curiam affirmance of summary judgment; the comparator and third-party-advocacy questions have some doctrinal reach, but this vehicle and posture give the case little stakes beyond the parties.",
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/9026000545/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261026T191633Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000545/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261026T191633Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261026T191633Z"
+            },
+            {
+              "big_case_rationale": "Comparator standards and ADA advocacy protection have broad potential importance, but this unpublished, record-specific employment dispute is a weak vehicle for deciding either issue.",
+              "big_case_score": 0.22,
+              "cell_path": "data/cases/scotus/9026000545/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261026T191633Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000545/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261026T191633Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.006,
+              "run_id": "20261026T191633Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se employment discrimination and retaliation dispute arising from an unpublished Eleventh Circuit per curiam affirmance of summary judgment with no institutional, political, or national policy salience.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000545/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261026T191633Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000545/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261026T191633Z",
+              "confidence": 0.98,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.002,
+              "run_id": "20261026T191633Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Diana Y. Lugo v. Birmingham Jefferson County Transit Authority"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.1,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-26",
+      "n": 3,
+      "other_party": "Birmingham Jefferson County Transit Authority",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Lugo's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Lugo's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.22,
+      "score_min": 0.03,
+      "score_range": 0.19,
+      "short_caption": "Lugo v. Birmingham Jefferson County Transit Authority",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "John Paul Gomez",
       "caption": "John Paul Gomez v. David Ryan, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -43142,5 +43567,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.3",
-  "scored_reads": 942
+  "scored_reads": 951
 }
