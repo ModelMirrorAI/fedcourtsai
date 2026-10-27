@@ -42,13 +42,15 @@ grant freeze for health research is ``health``, one for foreign aid
 
 **How the reference was labeled.** Two agent raters, each blind to the other
 but not to the outcome, labeled every in-scope and unknown-scope application
-of the ``exec-action-v1`` cut from its caption, court below and docket
+of the ``exec-action-v1`` cut, and the federal-party rows it reads out of
+scope, from its caption, court below and docket
 entries, and from their own knowledge of a public case the docket names, so a
 label is not reproducible from the record alone. The disagreements were
 adjudicated row by row by the session that assembled the reference, which was
 not blind. Each entry carries a short note
-naming the policy and an ``uncertain`` flag where either rater was unsure of
-the subject. The labels cover the applications the corpus held when they were
+naming the policy and an ``uncertain`` flag where the subject is in doubt:
+either rater was unsure of it, or, in the later round, the raters' areas
+differed. The labels cover the applications the corpus held when they were
 assigned, so a later application is ``unlabeled`` until it is added, and the
 cut counts those beside its cells.
 
