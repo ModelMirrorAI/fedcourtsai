@@ -1,0 +1,20 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000499",
+  "gaps": [],
+  "helpful": [
+    "Provisioned full text of application.txt, application-response.txt, and application-reply.txt alongside the 2026-10-26 snapshot and outcome.json",
+    "Complete harness-captured retrieval_log.json and blinded candidate staging under record/blinded/",
+    "Interim-docket substantive base-rate table in metrics/statpack.md"
+  ],
+  "notes": "All three blinded candidates were forward predictions created on 2026-10-21 prior to the 2026-10-26 denial by Justice Sotomayor.",
+  "role": "evaluator",
+  "run_id": "20261027T154956Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

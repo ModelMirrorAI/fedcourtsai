@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9526000499",
+  "run_id": "20261027T154956Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": [
+    "shell"
+  ],
+  "helpful": [
+    "The case-level snapshot showed who disposed of the application (Circuit Justice alone, no referral), which made the outcome unambiguous"
+  ],
+  "gaps": [],
+  "notes": "Interim cell: the baseline and skill are stamped by the harness, so I did not need the statpack."
+}

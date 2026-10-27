@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000499",
+  "gaps": [],
+  "helpful": [
+    "provisioned application, opposition, and reply texts in record/documents/",
+    "harness-captured retrieval_log.json for each blinded candidate",
+    "metrics/statpack.md interim docket table"
+  ],
+  "notes": "All provisioned filings (application, opposition, and reply) and candidate artifacts were complete and clear.",
+  "role": "evaluator",
+  "run_id": "20261027T154956Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "run_shell_command",
+    "write_file"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
