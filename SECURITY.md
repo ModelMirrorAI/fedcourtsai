@@ -51,9 +51,10 @@ runbook, [docs/security.md](docs/security.md).
   record — and the collect job's
   **aggregate step**, where the secret scan (below) needs the live value to
   search the run's output for it — a step that parses agent bytes with
-  jq/git/tested Python but never executes them. (Pull's ingestion holds the
-  same secret under its own name; the two kinds here are the agent
-  workflows'. A new caller of the composite is a new *call site*, never a new
+  jq/git/tested Python but never executes them. (Pull's ingestion, the
+  opinion enrichment and `run-analytics`' order-scan step hold the same secret
+  under its own name, each in a deterministic step that runs no agent; the two
+  kinds here are the agent workflows'. A new caller of the composite is a new *call site*, never a new
   kind of place — the token reaches the launch step's env and stops there.) **No agent step holds it, and no file an agent can read
   carries it:** the client configs name only the sidecar's `localhost` URL, so no
   client-config file on a cell runner carries the token as a literal value for

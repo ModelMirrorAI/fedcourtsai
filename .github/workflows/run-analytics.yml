@@ -69,13 +69,22 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      rather than a dispatch input, since the inputs are near
 #                      the cap. The job-level `QP_FRAME` and `LABELS_NAME`
 #                      below are the only places the two frames differ.
+#   - order-scan:      search CourtListener's RECAP index for district orders
+#                      against federal executive action (`fedcourts
+#                      order-scan`, `config/order-scan.yaml`) — the candidate
+#                      generation the adverse-order pool is hand-coded from,
+#                      with its recall against the traced immigration dockets.
+#                      The one analysis mode that reads CourtListener rather
+#                      than the corpus: it holds the CourtListener token and
+#                      no cloud role, spends a capped slice of the account's
+#                      REST budget, and leaves its report as a run artifact.
 #
-# The read-only analysis modes (corpus-stats, census, text-coverage, tool-usage) write neither the
+# The read-only analysis modes (corpus-stats, census, text-coverage, tool-usage, order-scan) write neither the
 # corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
 # result goes to the Actions step summary and the run log, and the census's machine
 # JSON additionally to a run artifact, because a review of record has to outlive the
 # summary page it is read beside — and text-coverage's ledgers to an artifact for
-# the same reason. The four committing modes write only under their own
+# the same reason, as does order-scan's report. The four committing modes write only under their own
 # paths — metrics-refresh under `metrics/` + `data/scope/`, big-cases under
 # `metrics/big-cases.*`, public-updates under `metrics/updates/`, qp-topic-label
 # under `data/qp-topics/` — and land the change as a PR to `main`, reviewed
@@ -149,6 +158,7 @@ on:
           - tool-usage
           - qp-topic-label
           - qp-topic-label-applications
+          - order-scan
         default: corpus-stats
       label_model:
         description: "qp-topic-label and qp-topic-label-applications: the model the Claude Code labeler runs (ignored by the other modes)."
@@ -207,17 +217,19 @@ permissions: {}
 
 # Concurrency is per-job (not workflow-level): corpus-stats cancels a superseded
 # run of itself, while a metrics refresh or a labeling run must never be
-# cancelled mid-PR (or mid-agent) by an unrelated analysis dispatch. The census
-# and text-coverage each take their own never-cancelled group: a cancelled job
-# runs no upload step, and the artifact is what those modes exist to produce.
-# All the analysis jobs are read-only, so overlap costs nothing.
+# cancelled mid-PR (or mid-agent) by an unrelated analysis dispatch. The census,
+# text-coverage and order-scan each take their own never-cancelled group: a
+# cancelled job runs no upload step, and the artifact is what those modes exist
+# to produce. The corpus analysis jobs are read-only, so their overlap costs
+# nothing; order-scan's costs CourtListener requests on the one account every
+# environment's token belongs to, which its job's own note covers.
 # The labeling mode's two jobs take separate groups: they are already sequenced
 # by `needs`, and a shared group would let a second dispatch's extract slip
 # between the first dispatch's extract and its labeler.
 # Every group carries the dispatching ref, because the environments do too: a
 # staging rehearsal and a prod run of the same mode are different environments
-# reading different corpus pairs, and one must never cancel — or queue behind —
-# the other.
+# (for the corpus modes, reading different corpus pairs), and one must never
+# cancel — or queue behind — the other.
 
 jobs:
   # The run gate (src/fedcourtsai/run_gate.py): a dispatch, or a re-run of any
@@ -2551,6 +2563,107 @@ jobs:
           echo "qp-topic-publish rehearsal: the measured artifact reached the publish job; the labels PR is fenced to main-branch runs — nothing published from this dispatch." \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
+  order-scan:
+    needs: [authorize]
+    # The adverse-order candidate scan: a bounded RECAP search over the
+    # configured queries and filing windows, reported as JSON (identifiers,
+    # dates and order readings; no entry text). It reads CourtListener's REST
+    # API and nothing else — no corpus, no cloud role, no App token — so the
+    # CourtListener token is the job's one secret, scoped to the scan step.
+    #
+    # Its spend is the account's, shared with run-pull's windows: the rate
+    # governor counts per process, so the run's own cap
+    # (`config/order-scan.yaml`) is sized to fit beside a pull window and a live
+    # window's enrichment step inside the hourly ceiling, and a dispatch belongs
+    # in the quiet odd hours run-pull's enrich job names. A staging rehearsal
+    # spends on the same account as a production run: the staging
+    # environment's token, where it holds one, is a credential for that one
+    # account too, and without one the scan refuses before any request.
+    if: >-
+      ${{ inputs.mode == 'order-scan'
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    # At most 150 requests at the governor's per-minute pace (25) is about six
+    # minutes, plus setup; the cap frees the runner if a request hangs.
+    timeout-minutes: 30
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    # Its own group, never cancelled: a cancelled scan uploads no report, and
+    # the requests it already spent are gone either way. The group keeps two
+    # scans of one ref from overlapping, not from sharing an hour: a second
+    # dispatch queues and starts when the first ends, so spacing scans an hour
+    # apart is the dispatcher's job. It carries the ref as every group here
+    # does, so nothing stops a staging and a production scan, which spend the
+    # same account, from overlapping either; do not dispatch the two in the
+    # same hour.
+    concurrency:
+      group: run-analytics-order-scan-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Scan for adverse orders
+        timeout-minutes: 20
+        env:
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # The account's per-minute and per-day tier, as run-pull reads it
+          # (the fallbacks are the held tier's; see run-pull's refresh step).
+          # The hourly window is not the tier's: it is the scan's own run cap
+          # (`max_requests_per_run` in config/order-scan.yaml), so the governor
+          # counts every request this process sends, retries included, and
+          # stops the scan cleanly at the cap. The job finishes well inside the
+          # hour, so the hourly window bounds the whole run.
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '25' }}
+          FEDCOURTS_COURTLISTENER_RPH: "150"
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/order-scan.json"
+          summary="$RUNNER_TEMP/order-scan-summary.txt"
+          # The report JSON to the artifact file, the plain-text summary
+          # (counts, spend, gold recall and the missed gold dockets) to stderr;
+          # the summary goes on the page as a fenced block. A run that fails
+          # (a refused credential, every search failed) still prints its
+          # report, so the summary is written either way and the step then
+          # fails with the scan's own status.
+          uv run fedcourts order-scan > "$out" 2> "$summary" || status=$?
+          {
+            echo "## order-scan — $(date -u +%Y-%m-%d)"
+            echo '```'
+            cat "$summary"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat "$summary"
+          exit "${status:-0}"
+
+      - name: Upload the scan report
+        # A failed scan's report is uploaded too: it says why it failed. A run
+        # that wrote no report (an argument or config refusal) fails here on
+        # the missing file instead.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: order-scan
+          path: ${{ runner.temp }}/order-scan.json
+          if-no-files-found: error
+          # The report names district dockets by court and number — public
+          # court records CourtListener already serves, none of them in the
+          # corpus — with entry numbers and dates, and no caption, entry text
+          # or nature of suit.
+          # It rides the one-day window of the other analytics run artifacts
+          # (docs/security.md); the hand coding it seeds downloads it within
+          # the day, and a re-dispatch re-derives it at the cost of its spend.
+          retention-days: 1
+
   # The run gate's verdict on the run as a whole. A refused partial re-run
   # skips every job it re-runs, which alone would leave the earlier attempt's
   # successes standing and the run concluding `success`. This job needs every
@@ -2558,7 +2671,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, corpus-stats, distribution-census, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-extract, qp-topic-label, qp-topic-publish]
+    needs: [authorize, corpus-stats, distribution-census, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-extract, qp-topic-label, qp-topic-publish, order-scan]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5
