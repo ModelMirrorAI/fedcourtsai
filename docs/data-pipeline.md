@@ -1666,6 +1666,7 @@ population and apply against another.
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
 | `lost-outcomes` | `record-lost-outcomes` | `--max-cases` (cases written, recorded and marked together: the dry run's `cases_written`) | — | — |
+| `event-definition-backfill` | `backfill-event-definitions` | `--max-rewrites` (`event.yaml` files rewritten: the dry run's "would rewrite N file(s)", not the field counts) | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `cert-amicus-rederive` | `rederive-cert-amicus-briefs` | `--max-changes` (rows written: the dry run's `total_changes`, fills plus raises) | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |

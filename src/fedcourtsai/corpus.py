@@ -5692,6 +5692,19 @@ def open_unexcluded_case_ids(conn: ReadConnection, *, court: str) -> list[str]:
     return [str(record["case_id"]) for record in cur]
 
 
+def iter_court_events(conn: ReadConnection, *, court: str) -> Iterator[CorpusEvent]:
+    """Yield every event of one ``court``, open and resolved, in ``(case_id, event_id)`` order.
+
+    The union of :func:`iter_open_events` and :func:`iter_resolved_events` as one
+    scan, for a read that compares the corpus against the committed ledger
+    whatever each event's resolution — one pass over the table rather than a
+    per-case query for each of thousands of committed definitions.
+    """
+    cur = conn.execute("SELECT * FROM events WHERE court = ? ORDER BY case_id, event_id", (court,))
+    for record in cur:
+        yield _event_from_record(record)
+
+
 def iter_resolved_events(
     conn: ReadConnection, *, court: str | None = None
 ) -> Iterator[CorpusEvent]:

@@ -10883,9 +10883,9 @@ freeze commit is recorded here.
 
   Carried to `main` by promotion/2026-10-18 (merge commit
   dbb042ca4bd6b6d6f4fcb1f02e0d175ac76d0f2c, merged 2026-10-18T01:06:13Z). The first statpack refreshed
-  after it, at commit <FILL: refresh commit>, reads the OT2026 pool as
-  <FILL: OT2026-cell pool> and the OT2025 pool as
-  <FILL: OT2025-cell pool>.
+  after it, at commit ac757d745d0b3f881d1306bd5924f4f5117bbdba, reads the OT2026 pool as
+  51/547 and the OT2025 pool as
+  34/321.
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_statpack.py tests/test_interim_reading_census.py
@@ -13782,14 +13782,15 @@ freeze commit is recorded here.
 
   Carried to `main` by `promotion/2026-10-26` (merge commit
   `728efab06a9ad44bf39523c7181827d4eade70de`, merged `2026-10-26T19:00:50Z`). Applied by runs
-  `<FILL: apply run ids, one per Term>` on `<FILL: apply dates>`, landing
-  `<FILL: rows landed per Term>` rows. The first statpack refreshed after
-  the last of them, at commit `<FILL: statpack refresh commit>`, reads the
-  OT2026 pool as `<FILL: OT2026 pool granted/resolved>` (from
-  `<FILL: OT2026 pool before, granted/resolved>`), the OT2025 pool as
-  `<FILL: OT2025 pool granted/resolved>` and the OT2024 pool as
-  `<FILL: OT2024 pool granted/resolved>`, and any refresh between two
-  applies is named here with the pools it read.
+  `40387289329` (OT2022), `40400365799` (OT2021), `40415596551` (OT2020),
+  `40423385201` (OT2019), `40486584873` (OT2018) and `40495393067`
+  (OT2017) on `2026-10-26` to `2026-10-27`, landing 1131, 876, 178, 1071,
+  1369 and 1424 rows (OT2017's stored `17A109` is withheld upstream and
+  stays its one unparsed row), each followed by a control dry run that
+  would land 0 rows. The first statpack refreshed after the last of them,
+  at commit `7fbb5b9e26da91fc3406351a088b2f66e2c7a9f5`, reads the OT2026 pool as
+  `151/1259` (from `51/547`), the OT2025 pool as `134/1033` and the OT2024
+  pool as `118/839`, and no refresh ran between two applies.
 
   The runnable effect check once it is live:
   - for each Term `NN` from `17` to `22`, the apply `gh workflow run
