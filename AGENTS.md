@@ -219,6 +219,10 @@ before the first command rather than mid-task:
   being a courtesy and becomes the review itself. If you could not invoke one
   and self-reviewed against its checklist instead, say so in the PR
   description — an unstated self-review reads as a review that happened.
+- **"Report it ready" means out of draft, with a review requested.** When
+  work that waits for the maintainer is done, mark its PR ready for review and
+  request the maintainer's review; a draft with no request is invisible to
+  them, however green it is.
 - **`Closes #<n>` does not close anything from `staging`.** GitHub only
   auto-closes a linked issue when the PR merges into the **default** branch, so
   a reference in a staging PR fires at the next promotion, not on merge. Put it
