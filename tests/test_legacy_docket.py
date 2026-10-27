@@ -170,3 +170,9 @@ def test_the_digest_leaves_out_the_per_request_beacon() -> None:
             page.replace("<script>var x = '<tr><td>not a row</td></tr>';</script>", "").encode()
         ).hexdigest()
     )
+
+
+def test_the_digest_drops_a_script_whatever_its_end_tag_carries() -> None:
+    page = legacy_page()
+    loose = page.replace("</script>", "</script\t\n bar>")
+    assert page_digest(loose) == page_digest(page)

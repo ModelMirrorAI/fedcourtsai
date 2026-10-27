@@ -209,7 +209,9 @@ class _Head:
             self.caption.append(first)
 
 
-_SCRIPT = re.compile(r"<script\b[^>]*>.*?</script\s*>", re.IGNORECASE | re.DOTALL)
+#: A script element, start tag to end tag. The end tag admits anything up to its
+#: ``>``, as a browser's tokenizer does, so no variant leaves script text behind.
+_SCRIPT = re.compile(r"<script\b[^>]*>.*?</script\b[^>]*>", re.IGNORECASE | re.DOTALL)
 
 
 def page_digest(page: str) -> str:
