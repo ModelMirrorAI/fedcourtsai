@@ -12063,7 +12063,11 @@ class ExecutiveSuccessRow(_Strict):
         default=None, description="The row's policy area; null where it is unlabeled"
     )
     policy_uncertain: bool = Field(
-        default=False, description="Whether the label's raters were unsure of the subject"
+        default=False,
+        description=(
+            "Whether the label's subject is in doubt: a rater was unsure of it "
+            "or the raters differed"
+        ),
     )
 
 
