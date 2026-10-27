@@ -6,7 +6,8 @@ that links them or from the court and docket number they were filed under (the
 opinion-enrichment channel —
 :mod:`fedcourtsai.pipeline.opinion_enrichment`), and a lower court's docket
 rows by number for the decision-below measurement
-(:mod:`fedcourtsai.pipeline.decision_below`). Every endpoint goes
+(:mod:`fedcourtsai.pipeline.decision_below`), and RECAP search pages for the
+adverse-order scan (:mod:`fedcourtsai.pipeline.order_scan`). Every endpoint goes
 through one throttled, retried :meth:`CourtListenerClient._get`, so each shares
 the same rate governor, retry policy, and error classification.
 
@@ -21,9 +22,11 @@ Docs: https://www.courtlistener.com/help/api/rest/
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date
 from types import TracebackType
 from typing import Any, Literal
+from urllib.parse import parse_qsl, urlsplit
 
 import httpx
 from tenacity import (
@@ -257,6 +260,40 @@ class CourtListenerClient:
                 "page": page,
             },
         )
+
+    def search(self, params: Mapping[str, str]) -> JsonDict:
+        """Fetch the first page of a search (``search/``) for the given filters.
+
+        The filters travel as query parameters, url-encoded by the transport;
+        which ones a search type honours is upstream's contract (``type=r``
+        answers with dockets, each carrying the entries that matched).
+        """
+        return self._get("search/", dict(params))
+
+    def search_next(self, next_url: str) -> JsonDict:
+        """Fetch the page a search result's ``next`` link names.
+
+        Search pages are cursor-paginated, so the link is the only way to the
+        next page. It is followed only when it addresses this client's own
+        ``search/`` endpoint (same scheme, host and path); its query string is
+        re-sent as parameters, so the request is still one this client built.
+        A link anywhere else, or one repeating a parameter, raises
+        ``ValueError`` rather than carrying the token to an address this
+        client did not choose, or asking a question the link did not.
+        """
+        expected = urlsplit(f"{self.base_url}search/")
+        link = urlsplit(next_url)
+        if (link.scheme, link.netloc, link.path) != (
+            expected.scheme,
+            expected.netloc,
+            expected.path,
+        ):
+            raise ValueError(f"search next link is off the search endpoint: {next_url!r}")
+        pairs = parse_qsl(link.query, keep_blank_values=True)
+        params = dict(pairs)
+        if len(params) != len(pairs):
+            raise ValueError(f"search next link repeats a parameter: {next_url!r}")
+        return self._get("search/", params)
 
     def iter_dockets(
         self,

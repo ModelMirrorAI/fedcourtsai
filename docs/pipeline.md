@@ -430,6 +430,23 @@ queues behind the production run of the same mode. The modes:
   8100`, a 110-minute step cap inside a 125-minute job, and its own
   never-cancelled concurrency group so a sibling dispatch cannot take the
   artifact with it.
+- **`order-scan`** (dispatch) runs `fedcourts order-scan`: a bounded RECAP
+  search for district orders against federal executive action, the candidate
+  generation the adverse-order pool is hand-coded from
+  (`config/order-scan.yaml` holds the queries, the filing windows, the run's
+  request cap and the gold set its recall is measured against). It is the one
+  analysis mode that reads CourtListener rather than the corpus, so it holds
+  the CourtListener token, scoped to its scan step, and no cloud role. The
+  token's rate limits are the account's, shared with `run-pull`, and the
+  governor counts per process, so the config's cap (150 requests) is sized to
+  fit beside a pull window and a live window's enrichment step inside the
+  hourly ceiling; dispatch it in the quiet odd hours `run-pull`'s enrich job
+  names. The report (identifiers, dates and order readings, no entry text) is
+  uploaded on the same one-day retention as the census, and the step summary
+  carries the per-search counts, the spend and the gold recall. Its own
+  never-cancelled, ref-suffixed concurrency group keeps two scans of one ref
+  from doubling an hour's spend; a staging rehearsal spends the same account
+  as a production scan, so the two are not dispatched in the same hour.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the

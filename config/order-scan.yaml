@@ -1,0 +1,94 @@
+# The adverse-order scan (`fedcourts order-scan`, src/fedcourtsai/pipeline/order_scan.py):
+# a bounded RECAP search for district orders against federal executive action,
+# the candidate generation the adverse-order pool is hand-coded from. It reads
+# CourtListener's REST API only, through the shared client and rate governor,
+# and writes nothing but its report.
+#
+# Spend. Every search below runs once per window; a search is at most
+# `max_pages_per_search` pages, one request each, and a run stops before the
+# request that would pass `max_requests_per_run`. The cap sits under the Tier 4
+# hourly ceiling (300) with room for a pull window's ~90 requests and a live
+# window's enrichment step in the same hour, since the governor counts per
+# process and the account does not (docs/data-sources.md).
+max_requests_per_run: 150
+max_pages_per_search: 10
+
+# Filing windows, one per administration, so per-window counts compare.
+# `filed_before` is exclusive.
+windows:
+  - name: trump-1
+    filed_after: 2017-01-20
+    filed_before: 2021-01-20
+  - name: biden
+    filed_after: 2021-01-20
+    filed_before: 2025-01-20
+  - name: trump-2
+    filed_after: 2025-01-20
+    filed_before: 2027-01-01
+
+# The immigration pilot. Each query's `params` are upstream's RECAP search
+# filters, verbatim; `description` matches docket-entry text, `party_name` the
+# docket's parties (which name the agency even where the caption names only an
+# officer), `nature_of_suit` the civil cover sheet's code and title. The
+# party-name queries reach immigration-policy suits filed as APA (899), other
+# statutory (890) or civil-rights (440) cases; the 465 query reaches the
+# immigration code itself, whatever the parties are named.
+queries:
+  - name: pi-agency
+    params:
+      description: '"preliminary injunction"'
+      party_name: >-
+        "Homeland Security" OR "Immigration and Customs" OR "Citizenship and Immigration"
+        OR "Customs and Border" OR "Executive Office for Immigration Review"
+        OR "Refugee Resettlement"
+  - name: tro-agency
+    params:
+      description: '"temporary restraining order"'
+      party_name: >-
+        "Homeland Security" OR "Immigration and Customs" OR "Citizenship and Immigration"
+        OR "Customs and Border" OR "Executive Office for Immigration Review"
+        OR "Refugee Resettlement"
+  - name: vacatur-agency
+    params:
+      description: >-
+        ("summary judgment" AND (vacat* OR "set aside")) OR "section 705"
+        OR "postpone the effective date"
+      party_name: >-
+        "Homeland Security" OR "Immigration and Customs" OR "Citizenship and Immigration"
+        OR "Customs and Border" OR "Executive Office for Immigration Review"
+        OR "Refugee Resettlement"
+  - name: pi-tro-465
+    params:
+      description: '"preliminary injunction" OR "temporary restraining order"'
+      nature_of_suit: "465"
+
+# The recall reference: the district dockets the corpus's immigration
+# applications (policy area `immigration`) trace back to, through the circuit
+# docket each application names and that docket's originating-court record in
+# CourtListener's bulk export. Applications whose circuit case the export does
+# not trace to a district docket are not listed, nor are three that trace to a
+# docket outside the export slice the gold set was matched in (district
+# dockets filed 2017 on under the policy nature-of-suit codes).
+gold:
+  - {docket_id: 4580528, court: hid, docket_number: "1:17-cv-00050", applications: [17A275, 17A550, 17A824]}
+  - {docket_id: 4581930, court: mdd, docket_number: "8:17-cv-00361", applications: [17A132]}
+  - {docket_id: 6133859, court: ilnd, docket_number: "1:17-cv-05720", applications: [17A1379]}
+  - {docket_id: 8124916, court: mad, docket_number: "1:18-cv-12255", applications: [22A345]}
+  - {docket_id: 8160426, court: cand, docket_number: "4:18-cv-06810", applications: [18A615]}
+  - {docket_id: 14559179, court: cand, docket_number: "4:19-cv-00892", applications: [19A60]}
+  - {docket_id: 14560345, court: cand, docket_number: "3:19-cv-00807", applications: [19A960]}
+  - {docket_id: 15871646, court: mad, docket_number: "1:19-cv-11450", applications: [22A345]}
+  - {docket_id: 16079685, court: nysd, docket_number: "1:19-cv-07777", applications: [19A785]}
+  - {docket_id: 16115562, court: nysd, docket_number: "1:19-cv-07993", applications: [19A785]}
+  - {docket_id: 16236860, court: ilnd, docket_number: "1:19-cv-06334", applications: [19A905, 20A150]}
+  - {docket_id: 59798105, court: txsd, docket_number: "6:21-cv-00016", applications: [22A17]}
+  - {docket_id: 59815977, court: txnd, docket_number: "2:21-cv-00067", applications: [21A21]}
+  - {docket_id: 67909144, court: txwd, docket_number: "2:23-cv-00055", applications: [23A607]}
+  - {docket_id: 68134300, court: txwd, docket_number: "1:24-cv-00008", applications: [23A814]}
+  - {docket_id: 69561497, court: mad, docket_number: "1:25-cv-10139", applications: [24A886]}
+  - {docket_id: 69563661, court: mdd, docket_number: "8:25-cv-00201", applications: [24A884]}
+  - {docket_id: 69695790, court: mad, docket_number: "1:25-cv-10495", applications: [24A1079]}
+  - {docket_id: 69741724, court: dcd, docket_number: "1:25-cv-00766", applications: [24A931]}
+  - {docket_id: 70616413, court: mad, docket_number: "1:25-cv-10676", applications: [24A1153, 26A406]}
+  - {docket_id: 70793093, court: txnd, docket_number: "6:25-cv-00059", applications: [24A1007]}
+  - {docket_id: 70965949, court: dcd, docket_number: "1:25-cv-02471", applications: [25A999]}

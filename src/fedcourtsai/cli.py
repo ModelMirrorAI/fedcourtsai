@@ -282,6 +282,7 @@ from .pipeline import (
     opinion_lineups,
     opinion_record,
     order_lineups,
+    order_scan,
     pre_mint,
     qp_topics,
     same_question,
@@ -13846,6 +13847,75 @@ def decision_below_command(
         typer.echo(
             f"  stopped: {report.stopped} ({len(report.deferred)} case(s) deferred)", err=True
         )
+
+
+@app.command("order-scan")
+def order_scan_command(
+    config: Annotated[
+        Path | None,
+        typer.Option(help="The scan config; defaults to config/order-scan.yaml."),
+    ] = None,
+    max_requests: Annotated[
+        int | None,
+        typer.Option(
+            help="Requests this run may spend; defaults to the config's "
+            "max_requests_per_run, and may only lower it.",
+        ),
+    ] = None,
+    plan: Annotated[
+        bool,
+        typer.Option(
+            "--plan",
+            help="Print the searches and the worst-case spend, sending no request.",
+        ),
+    ] = False,
+) -> None:
+    """Search CourtListener's RECAP index for district orders against federal executive action.
+
+    Runs every configured query over every filing window as a RECAP search
+    (dockets whose entries match an order phrase), keeps the district dockets
+    each returns, reads each matched entry's description for the order kind
+    (TRO, preliminary or permanent injunction, vacatur, a 705 stay) and whether
+    it grants or denies, and checks the config's gold set — the district
+    dockets the corpus's applications trace back to — for recall. Prints the
+    report as JSON on stdout and a summary on stderr.
+
+    Strictly **read-only**: writes no corpus, content store or ledger, and
+    copies no entry text into the report, only identifiers, dates and the
+    readings. It spends CourtListener REST requests through the shared client
+    and rate governor, one per search page, stopping before the request that
+    would pass the run cap; `--plan` shows the spend first and needs no token.
+    """
+    settings = get_settings()
+    path = config if config is not None else settings.config_root / "order-scan.yaml"
+    try:
+        scan_config = order_scan.load_order_scan_config(path)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"order-scan: cannot read {path}: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    cap = scan_config.max_requests_per_run
+    if max_requests is not None:
+        if not 0 < max_requests <= cap:
+            typer.echo(
+                f"order-scan: --max-requests must be between 1 and the config's {cap}",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        cap = max_requests
+    if plan:
+        for line in order_scan.plan_lines(scan_config, max_requests=cap):
+            typer.echo(line)
+        return
+    if not settings.courtlistener_api_token:
+        # Every v4 request answers 401 without one, so the run could only fail
+        # search by search; it is refused before anything is read.
+        typer.echo("order-scan: no CourtListener API token is configured", err=True)
+        raise typer.Exit(code=2)
+    with _client() as client:
+        report = order_scan.scan(client, scan_config, max_requests=cap)
+    typer.echo(report.model_dump_json(indent=2))
+    for line in order_scan.summary_lines(report):
+        typer.echo(line, err=True)
 
 
 @app.command("order-notations")

@@ -796,7 +796,9 @@ lane also spends on, held in `summarize` by its generate job alone), the
 Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion; by the opinion
 enrichment — the dispatched enrich job's step and, step-scoped, the live job's
-one awaiting-grading enrichment step, the only step of that job holding it; by the MCP
+one awaiting-grading enrichment step, the only step of that job holding it; by
+`run-analytics`'s order-scan job, step-scoped to its scan step, in a job that
+assumes no cloud role and mints no App token; by the MCP
 sidecar composite's launch step — the cells', `integration-test`'s
 engine-smoke **codex** leg, its engine-actions-smoke legs and each
 repro-family leg, all of which wire the same sidecar to exercise it —
@@ -1927,6 +1929,15 @@ useful for console/Codespaces inspection and future read-side work. The
 least-privilege line that carries the threat model is the one the role already
 holds: **no write or delete** (append-only remote, explicit deny, versioning
 on), the cell-blast-radius bound stated above.
+
+A sixth analytics run artifact rides the same one-day window: the
+`order-scan` report, which names district dockets the corpus does not hold, by
+court, number and caption, with the numbers and dates of the entries a RECAP
+search matched and no entry text. These are public records CourtListener serves
+to anyone, so what the artifact adds is the compilation (which dockets the
+configured queries select), re-derivable on a re-dispatch at the cost of its
+CourtListener spend. The job that writes it holds the CourtListener token and
+nothing else: no cloud role, no App token, no write.
 
 The case-summary lane adds two run artifacts to the same public channel,
 argued in [case-summaries.md](case-summaries.md). `summary-stage`, one day,

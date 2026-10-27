@@ -53,11 +53,12 @@ closes once read: a daily prediction-reading digest — one predicted event with
 every predictor side by side — and a Monday performance digest carrying the
 cells and spend produced over the week, the trailing month and the Term to
 date, plus the back-test results) and
-`run-analytics` — eight dispatch modes: corpus statistics, the
+`run-analytics` — nine dispatch modes: corpus statistics, the
 distribution-parse census, the document text-coverage enumeration, the
 tool-usage roll-up, the metrics refresh, the daily big-case board, the weekly
-public update history, and the
-qp-topic labeler (the only one that runs an agent) — both schedule/dispatch
+public update history, the
+qp-topic labeler (the only one that runs an agent), and the adverse-order scan
+of CourtListener's RECAP index — both schedule/dispatch
 only. A development lane, `corpus-check`, runs the check a pull request's
 description declares at the PR's head against the corpus, read-only, once the
 maintainer approves it — or, for an allowlisted read-only query the PR asks to

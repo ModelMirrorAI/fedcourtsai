@@ -733,6 +733,15 @@ The automated consumer stays within CourtListener's published API limits by desi
   own. It is a maintainer's measurement, not a lane, and it reads only what
   CourtListener already holds — no RECAP Fetch request, so no PACER charge
   ([cli.md](cli.md)).
+- **The adverse-order scan shares it too.** `order-scan` runs the RECAP
+  searches `config/order-scan.yaml` configures — district dockets whose
+  entries match an order phrase, one request a page — through the same client
+  and configured ceilings, and stops before the request that would pass the
+  config's run cap (150). It is dispatched as `run-analytics`'s `order-scan`
+  mode, never scheduled, so its spend is a maintainer's choice of hour. It
+  reads only what CourtListener already holds (no RECAP Fetch, no PACER
+  charge), and its report names district dockets by court, number and caption
+  without copying entry text; those dockets are not admitted to the corpus.
 
 The pilot holds a paid Free Law Project **membership tier** — **Tier 4**, at 25
 requests a minute, 300 an hour and 1,400 a day, for $1,000 a year. It is the top
