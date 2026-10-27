@@ -76,6 +76,7 @@ on:
           - merits-phantom-removal
           - disposition-convergence
           - lost-outcomes
+          - event-definition-backfill
           - amicus-rederive
           - cert-amicus-rederive
           - regrade-stale
@@ -234,6 +235,8 @@ jobs:
               accepted_options="include-scored" ;;
             lost-outcomes)
               bound_flag="--max-cases"; bound_required_on_apply=1 ;;
+            event-definition-backfill)
+              bound_flag="--max-rewrites"; bound_required_on_apply=1 ;;
             amicus-rederive)
               bound_flag="--max-changes"; bound_required_on_apply=1 ;;
             cert-amicus-rederive)
@@ -399,7 +402,7 @@ jobs:
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
     if: >-
-      ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","recut","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive","cert-amicus-rederive"]'), inputs.repair)
+      ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","recut","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","event-definition-backfill","amicus-rederive","cert-amicus-rederive"]'), inputs.repair)
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -421,7 +424,7 @@ jobs:
     # overlap a writer's push; the blob is content-addressed, so it reads one
     # consistent version either way.
     concurrency:
-      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","recut","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive","cert-amicus-rederive"]'), inputs.repair) && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","recut","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","event-definition-backfill","amicus-rederive","cert-amicus-rederive"]'), inputs.repair) && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-26.04
     # Headroom over the longest chain of capped steps a dispatch can run, which
@@ -2233,6 +2236,75 @@ jobs:
           git commit -m "repair: record lost ledger outcomes"
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "lost-outcome pointer"
+
+      # Back-fill `stage`, `moment` and `opened_at` onto committed `event.yaml`
+      # from the corpus event row: the migration `materialize-event`'s drift
+      # warning names, since a cell never rewrites a committed definition. It
+      # reads the corpus and writes only under `data/`; `stage` and `moment`
+      # are fill-only, and `opened_at` moves on resolved events of unscored
+      # cases alone, so no cut and no graded figure moves (docs/pipeline.md).
+      - name: Back-fill the committed event definitions
+        if: ${{ inputs.repair == 'event-definition-backfill' && steps.dedupe-live-rows.outcome == 'success' }}
+        # One scan of the events table against every committed event.yaml.
+        timeout-minutes: 15
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+        run: |
+          set -euo pipefail
+          # The bound before anything else, as every bounded pass here: the
+          # command refuses an unbounded apply on its own too; this refusal is
+          # the one with the maintainer's procedure in it. `Validate the repair
+          # selector` duplicates it word for word so a bad dispatch dies before
+          # any credential is minted; this copy is the one of record.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          if [ ! -f corpus/corpus.db.ref ]; then
+            echo "no corpus pointer yet; skipping the event-definition back-fill"; exit 0
+          fi
+          if [ "${REPAIR_MODE}" = "apply" ]; then
+            gh auth setup-git # persist-credentials is false on checkout
+          fi
+          # The pass reads every committed event.yaml and which cases carry an
+          # evaluation, and rewrites beside them, so it needs the remote tip,
+          # not this checkout's. Fast-forward only, for the merits-phantom
+          # pass's reason.
+          git fetch origin "$GITHUB_REF_NAME"
+          git merge --ff-only FETCH_HEAD
+          # Dry-run first: the ledger (stdout) goes to the summary, and its
+          # file count is the bound the apply carries. The per-file list is on
+          # stderr, so it lands in the step log — thousands of lines, which a
+          # step summary's size cap would not hold twice on an apply. (On an
+          # apply this run is a receipt, not a reading.)
+          uv run fedcourts backfill-event-definitions | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "${REPAIR_MODE}" != "apply" ]; then
+            echo "dry-run only; nothing written."
+            exit 0
+          fi
+          uv run fedcourts backfill-event-definitions --apply \
+            --max-rewrites "${REPAIR_BOUND}" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Blob before pointer commit, as everywhere: the pass writes no
+          # corpus row, but the dedupe prerequisite above may have.
+          uv run fedcourts corpus-push
+          # The rewrites land in `data/` (`event.yaml`); stage them with the
+          # pointer so the ledger and the corpus it was read against move
+          # together.
+          git add corpus/corpus.db.ref
+          if [ -d data ]; then
+            git add data/
+          fi
+          if git diff --cached --quiet; then
+            echo "Event definitions already back-filled; nothing to persist."
+            exit 0
+          fi
+          git commit -m "repair: back-fill committed event definitions from the corpus"
+          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
+            "event-definition pointer"
 
       # Re-derive the interim `amicus_briefs` column under the widened
       # submitted-form reading with the end-of-day cut, and re-freeze the

@@ -179,6 +179,7 @@ from .dataset_export import (
 from .dispatch_chain import ChainMode, chain_step, forecast_relevance
 from .disposition_convergence import converge_disposition_labels
 from .docket_marking_migration import normalize_docket_markings
+from .event_definition_backfill import HOLD_REASONS, backfill_event_definitions
 from .finalize import (
     FinalizeRole,
     JudgeFileOutcome,
@@ -4058,6 +4059,110 @@ def converge_disposition_labels_cmd(
         )
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("backfill-event-definitions")
+def backfill_event_definitions_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rewrite the committed files; omit for a dry-run report."),
+    ] = False,
+    max_rewrites: Annotated[
+        int | None,
+        typer.Option(
+            "--max-rewrites",
+            help="Blast-radius bound, required with --apply: refuse to rewrite more "
+            "event.yaml files than this.",
+        ),
+    ] = None,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Back-fill `stage`, `moment` and `opened_at` onto committed event.yaml from the corpus.
+
+    The migration `materialize-event`'s drift warning names: a cell never
+    rewrites a committed definition, so a file written before the moment axis
+    existed keeps no `stage` and no `moment`, and an interim arrival definition
+    committed before the submission-entry rule keeps its docketing date, on
+    every round that touches it. This compares each committed `event.yaml` under
+    the ledger with its corpus event row and carries the row's values across:
+    `stage` and `moment` **fill-only** (a recorded value that differs is a
+    conflict, reported), held back where the fill would move a graded cell
+    between board blocks; `opened_at` on **resolved** events of cases with **no
+    committed evaluation** only — an open event's definition is rewritten from
+    the corpus by the outcome writer at resolution, and its cut is computed from
+    the corpus row, not this file. A field the corpus records nothing for keeps
+    its committed value. The corpus is only read.
+
+    Dry-run by default. stdout is the ledger: the counts, each fill shape with
+    its count, every `opened_at` rewrite and every held-back field. stderr lists
+    every file the pass rewrites, with its fields. `--apply` writes and
+    **requires** `--max-rewrites`, the dry run's file count; it refuses above
+    it, since the population is finite and non-growing, so a larger count means
+    the predicate widened. Run where the corpus is pulled (or `--corpus-backend
+    ranged`), over the committed ledger at the default branch's tip.
+    """
+    settings = get_settings()
+    if apply and max_rewrites is None:
+        typer.echo(
+            "backfill-event-definitions: --apply requires an explicit --max-rewrites. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the event-definition back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        vintage = corpus.latest_pull_date(conn)
+        result = backfill_event_definitions(
+            conn, settings.data_root, apply=apply, max_rewrites=max_rewrites
+        )
+    if result.refused:
+        typer.echo(
+            f"backfill-event-definitions: refusing to rewrite {len(result.rewrites)} "
+            f"event.yaml file(s) (--max-rewrites {max_rewrites}). The population this "
+            "pass converges is finite and non-growing; a count this size means the "
+            "predicate widened — triage before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "rewrote" if result.applied else "would rewrite"
+    fields = result.field_counts()
+    held = result.held_counts()
+    typer.echo(
+        f"backfill-event-definitions ({'applied' if result.applied else 'dry-run'}, "
+        f"corpus vintage {vintage.isoformat() if vintage else 'unknown'}): "
+        f"{result.committed} committed event.yaml; {len(result.no_corpus_row)} with no "
+        f"corpus row; {len(result.unreadable)} unreadable; {verb} {len(result.rewrites)} "
+        f"file(s): {fields['stage']} stage fill(s), {fields['moment']} moment fill(s), "
+        f"{fields['opened_at']} opened_at rewrite(s); {len(result.held)} drifted "
+        f"field(s) held back"
+    )
+    for (kind, stage, moment, state), count in sorted(result.fill_populations().items()):
+        typer.echo(f"  fill shape kind={kind} stage={stage} moment={moment} [{state}]: {count}")
+    for rewrite in result.rewrites:
+        for change in rewrite.changes:
+            if change.name == "opened_at":
+                typer.echo(f"  {verb} {rewrite.ref}: {change.render()} [resolved]")
+    for reason, count in sorted(held.items()):
+        typer.echo(f"  held {reason}: {count} — {HOLD_REASONS[reason]}")
+    for entry in result.held:
+        typer.echo(f"  held {entry.ref}: {entry.change.render()} [{entry.reason}]")
+    for ref in result.no_corpus_row:
+        typer.echo(f"  no corpus row: {ref}")
+    for path in result.unreadable:
+        typer.echo(f"  unreadable: {path}")
+    for rewrite in result.rewrites:
+        typer.echo(
+            f"{verb} {rewrite.ref}: {', '.join(c.render() for c in rewrite.changes)}",
+            err=True,
+        )
 
 
 @app.command("record-lost-outcomes")
@@ -17909,8 +18014,10 @@ def materialize_event(
     run PR as a jailed modification. When the corpus projection differs from
     the committed file the drift is warned, field by field; the warning is the
     accepted steady state (the deterministic outcome writer refreshes the
-    definition at resolution on its own lane), and a wholesale ledger backfill
-    would be a one-time migration, not a cell command. ``--out`` still writes
+    definition at resolution on its own lane), and the back-fill of the
+    ``stage``, ``moment`` and ``opened_at`` drift resolution does not reach is
+    a maintainer's migration (``backfill-event-definitions``, run-repair's
+    ``event-definition-backfill`` pass), not a cell command. ``--out`` still writes
     wherever it points, unconditionally.
     """
     settings = get_settings()
@@ -17981,7 +18088,8 @@ def materialize_event(
             typer.echo(
                 f"::warning::{case} event {event}: the corpus projection drifted from "
                 f"the committed event.yaml on {', '.join(loud)}; leaving the "
-                f"committed file untouched (a backfill is a migration, not a cell step)",
+                f"committed file untouched (a backfill is a migration, not a cell step: "
+                f"backfill-event-definitions)",
                 err=True,
             )
         if quiet:
