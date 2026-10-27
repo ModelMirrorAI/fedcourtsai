@@ -1,0 +1,24 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000499",
+  "gaps": [],
+  "helpful": [
+    "Blinded candidate records",
+    "Mode and result-capture markers in retrieval logs",
+    "Provisioned application and resolved docket snapshot",
+    "Committed interim statpack and output schemas"
+  ],
+  "notes": "No new case facts or external authorities were retrieved. gemini-baseline's all-unobserved results limit audit certainty without establishing a defect or leakage. Interim baseline, skill, and mechanical claim scores are reserved for the harness.",
+  "role": "evaluator",
+  "run_id": "20261027T154956Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "local file reads",
+    "jq",
+    "apply_patch",
+    "JSON Schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

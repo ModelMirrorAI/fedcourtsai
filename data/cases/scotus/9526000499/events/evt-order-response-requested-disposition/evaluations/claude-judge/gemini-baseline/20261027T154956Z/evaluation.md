@@ -1,0 +1,11 @@
+# gemini-baseline: denied, P(grant) = 0.15
+
+**Cell.** Interim stage (application to vacate the Fifth Circuit stay of a remand order, forecast at the response-requested moment). Outcome: `denied` on 2026-10-26, `actual_granted` = 0. Signals at resolution: response requested, not referred, 0 amicus. The segment base rate and Brier skill are the harness's on an interim cell (the substantive-application grant rate pooled over strictly-prior application-Terms from the committed statpack), so I wrote neither and left `base_rate_basis` null. Refer to the stamped segment base rate; if it is null, the pack could not support the pool (below its registered floor or no interim section). No votes are scored on an interim cell. `claim_scores` is computed by the harness and not graded here. There is no semantic set on this stage.
+
+**Big case (my own read, 0.45).** An acknowledged circuit split on a recurring removal-procedure question, with state-court authority at stake. But it is a procedural question on the interim docket, and the related *City of Brunswick* petition is the more natural vehicle.
+
+**Result.** Correct (denied). Brier = 0.15² = 0.0225.
+
+**Reasoning quality: 0.55.** The anchor is right: 53/549 ≈ 9.65% from the statpack's interim section, over strictly-prior Terms. The upward move for the response request and the circuit split is reasonable, and so is the point that vacating an appellate stay is a high bar. The analysis is thin, though. It never weighs the irreparable-harm showing, the *Coinbase*/Griggs analogy on the respondent's side, or the demanding *Western Airlines* standard. It also floats an odd alternative ("treat this application as a cert petition") without developing it. The amicus reasoning ("climate/energy … typically attract amicus attention") is generic. One more small gap: retrieval.md says nothing was retrieved beyond the provisioned inputs and the statpack, but the log shows a bounded `fedcourts query`. The query was pre-cutoff and harmless, but the disclosure is incomplete. The direction and magnitude were sound; the depth was shallow.
+
+**Leakage.** Forward, cutoff 2026-10-15, before the 2026-10-26 resolution. Nothing in the log or reasoning touches this application's disposition. Graded `not_applicable`.

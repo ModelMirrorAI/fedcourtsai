@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "A single-Justice emergency application to vacate a Fifth Circuit stay pending a federal-officer removal appeal in Louisiana coastal-land-loss litigation. The underlying Griggs/Coinbase post-remand automatic-stay question is a real inter-circuit split with national reach for removal practice, but the Court had declined it on cert (City of Brunswick, Oct. 19, 2026) days earlier, and the application concerns forum timing rather than liability. It was denied by the Circuit Justice alone, without referral. Modest stakes."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": 0.7497350291653875,
+  "case_id": "scotus/9526000499",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1199364575059571,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": 0.010784753839078256
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.8,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.010784753839078256,
+    "total": 0.010784753839078256
+  },
+  "correct": 1,
+  "created_at": "2026-10-27T16:01:29Z",
+  "engine": "claude-code",
+  "evaluator_id": "claude-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward cell (prediction 2026-10-21, cutoff 2026-10-22; resolution 2026-10-26). The log shows only provisioned-file reads, repo/schema reads, and two generic web attempts (a supremecourt.gov phrase search and a Justia URL for a 1976 in-chambers opinion), both unobserved and neither aimed at this case or its outcome. The City of Brunswick denial it relies on is reported in the provisioned Oct. 21 response. No outcome material for this application could exist at prediction time.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "claude-opus-5-5",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": null,
+  "predicted_reasoning_review": null,
+  "prediction_run_id": "20261021T170410Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+    "label": "proc-v13",
+    "pipeline_sha": "8e1407aa36e9bbd5e653f6116e2916ff272bace7",
+    "stamped_at": "2026-10-27T16:02:31.236945Z"
+  },
+  "reasoning_quality": 0.86,
+  "run_id": "20261027T154956Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1199364575059571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,1 @@
+Read the committed `metrics/statpack.md` interim-applications section to check baseline availability and interpret the candidates' anchoring discussion. No corpus query, CourtListener lookup, web search, or external retrieval was performed. All case facts came from the provisioned event, outcome, case record, and blinded candidate materials.
