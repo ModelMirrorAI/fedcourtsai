@@ -351,6 +351,7 @@ from .pipeline.documents import (
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.exec_action import EXEC_ACTION_RULES
 from .pipeline.executive_success import DEFAULT_SCOPE_RULE, READINGS, executive_success
+from .pipeline.filing_simulation import filing_simulation
 from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
@@ -2102,6 +2103,71 @@ def executive_success_cmd(
             err=True,
         )
     typer.echo(result.model_dump_json())
+
+
+def _fmt(value: float | None, spec: str = ".3f") -> str:
+    return "-" if value is None else format(value, spec)
+
+
+@app.command("filing-simulation")
+def filing_simulation_cmd(
+    seed: int = typer.Option(
+        0, "--seed", help="Seed for the whole study; the same seed gives the same report."
+    ),
+    runs: int = typer.Option(200, "--runs", help="Simulated datasets per scenario."),
+    bootstrap_draws: int = typer.Option(
+        100,
+        "--bootstrap-draws",
+        help=(
+            "Controversy-level bootstrap draws per run for the Imbens-Manski interval; 0 skips it."
+        ),
+    ),
+    level: float = typer.Option(
+        0.95, "--level", help="Nominal coverage of the Imbens-Manski interval."
+    ),
+) -> None:
+    """Simulate strategic filing and check the selection bounds against a known truth.
+
+    Computed by `pipeline.filing_simulation`, over the estimators in
+    `pipeline.selection_bounds`. Reads no corpus and writes nothing: each
+    scenario draws pools of adverse orders for two administrations, files them
+    by a payoff rule, and records the true comparable-case gap, the naive gap
+    in observed win rates, and the tier 1-3 bounds. Prints a
+    `FilingSimulationReport`; the coverage table and the attenuation series go
+    to stderr. Fails on a non-positive `--runs`, a negative
+    `--bootstrap-draws` or a `--level` outside (0, 1) (exit 2).
+    """
+    if runs < 1 or bootstrap_draws < 0 or not 0.0 < level < 1.0:
+        typer.echo(
+            "--runs must be at least 1, --bootstrap-draws non-negative, and --level in (0, 1)",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    report = filing_simulation(seed=seed, runs=runs, bootstrap_draws=bootstrap_draws, level=level)
+    typer.echo(
+        f"filing simulation (seed {report.seed}, {report.runs} run(s) a scenario, "
+        f"{report.bootstrap_draws} bootstrap draw(s), level {report.level}); "
+        "gaps are rate(A) - rate(B)",
+        err=True,
+    )
+    for item in report.scenarios:
+        typer.echo(
+            f"{item.name}: true gap {_fmt(item.true_gap)}, naive {_fmt(item.mean_naive_gap)}, "
+            f"tier 3 [{_fmt(item.mean_tier3_lower)}, {_fmt(item.mean_tier3_upper)}] "
+            f"width {_fmt(item.mean_tier3_width)}, covers {_fmt(item.tier3_coverage, '.0%')} "
+            f"of {item.tier3_defined_runs}, interval covers {_fmt(item.ci_coverage, '.0%')} "
+            f"of {item.ci_defined_runs}; filing share A {item.mean_filing_share_a:.2f} "
+            f"B {item.mean_filing_share_b:.2f}; breakdown rho {_fmt(item.mean_breakdown_rho)}; "
+            f"prediction-trimmed error {_fmt(item.mean_prediction_trimmed_error)}",
+            err=True,
+        )
+    for point in report.attenuation:
+        typer.echo(
+            f"attenuation: A perceives {point.perceived_effect_a:+.1f}: true gap "
+            f"{_fmt(point.true_gap)}, naive {_fmt(point.mean_naive_gap)}",
+            err=True,
+        )
+    typer.echo(report.model_dump_json())
 
 
 @app.command("distribution-census")
