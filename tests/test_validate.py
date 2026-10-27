@@ -858,6 +858,77 @@ def test_decided_before_filed_above_baseline_fails(
     assert _verdict_by_check(verdict)[CHECK_CASE_DATES] is False
 
 
+def _decided_before_filed_application(conn: sqlite3.Connection) -> None:
+    # An extension of time granted in chambers before the Clerk docketed it: the
+    # shape the SCOTUS application population's own baseline exists for.
+    corpus.upsert_rows(
+        conn,
+        [
+            corpus.CorpusRow(
+                case_id="scotus/72416225",
+                court="scotus",
+                docket_number="24A3",
+                application_kind="extension",
+                disposition=Disposition.granted,
+                date_filed=date(2024, 7, 3),
+                date_decided=date(2024, 7, 2),
+            )
+        ],
+    )
+    conn.commit()
+
+
+def test_decided_before_filed_counts_each_population(tmp_path: Path) -> None:
+    # Both populations are counted, each named in the detail, and the true total
+    # still rides `failures` for the monitor.
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET date_filed = '2026-02-01', date_decided = '2026-01-01' "
+            "WHERE case_id = 'ca9/1'"
+        )
+        _decided_before_filed_application(conn)
+    verdict = _run(db, tmp_path / "data")
+    check = next(c for c in verdict.checks if c.name == CHECK_CASE_DATES)
+    assert check.passed
+    assert check.failures == 2
+    assert check.detail is not None
+    assert "2 decided-before-filed" in check.detail
+    assert "1 docket rows" in check.detail
+    assert "1 SCOTUS application rows" in check.detail
+    assert any("application row)" in line for line in check.problems)
+    assert any("docket row)" in line for line in check.problems)
+
+
+def test_application_rows_above_their_baseline_fail(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The application population has its own floor: a climb there fails even
+    # while the docket rows sit well inside theirs.
+    monkeypatch.setattr("fedcourtsai.validate._CASE_DATE_ORDER_APPLICATION_BASELINE", 0)
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        _decided_before_filed_application(conn)
+    verdict = _run(db, tmp_path / "data")
+    assert not verdict.ok
+    assert _verdict_by_check(verdict)[CHECK_CASE_DATES] is False
+
+
+def test_application_rows_do_not_spend_the_docket_baseline(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # An application row is counted against its own floor, never the docket one.
+    monkeypatch.setattr("fedcourtsai.validate._CASE_DATE_ORDER_BASELINE", 0)
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)
+    with corpus.connect(db) as conn:
+        _decided_before_filed_application(conn)
+    verdict = _run(db, tmp_path / "data")
+    assert _verdict_by_check(verdict)[CHECK_CASE_DATES] is True
+
+
 def test_ordered_dates_pass(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _seed_corpus(db)

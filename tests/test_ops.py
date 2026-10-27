@@ -503,7 +503,8 @@ def test_render_data_health_surfaces_monitored_within_baseline() -> None:
                     name="case_dates_ordered",
                     passed=True,
                     failures=20,
-                    detail="0 future-dated, 20 decided-before-filed vs accepted baseline 50",
+                    detail="0 future-dated, 20 decided-before-filed (12 docket rows vs accepted "
+                    + "baseline 30, 8 SCOTUS application rows vs accepted baseline 50)",
                 ),
             ],
         ),
