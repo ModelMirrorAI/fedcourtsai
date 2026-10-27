@@ -14757,7 +14757,8 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     cache_dir: Annotated[
         Path | None,
         typer.Option(
-            help="Dry run only: keep fetched docket JSON here and re-read it from here (a "
+            help="Dry run only: keep fetched docket JSON and legacy pages here and re-read "
+            "them from here (a "
             "dev cache read without host scoping, refused with --apply)."
         ),
     ] = None,
@@ -14805,8 +14806,11 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     corpus write and moves the interim base-rate population, so the apply runs
     on run-repair's `application-backfill` pass; a dev checkout over a pulled
     corpus produces the dry run. Terms at or after the current docket Term are
-    refused: that stream is frontier discovery's. An apply is refused for a
-    Term outside `REGISTERED_APPLY_TERMS` (OT2017 to OT2024): each Term's apply
+    refused: that stream is frontier discovery's. Below the live floor only the
+    Terms in `LEGACY_HTML_TERMS` (OT2016) are read: a serial the docket JSON
+    does not serve is read from the Court's legacy HTML docket page instead, and
+    its stored snapshot names that page and its digest. An apply is refused for a
+    Term outside `REGISTERED_APPLY_TERMS` (OT2016 to OT2024): each Term's apply
     moves the interim base rate by its own amount, so each needs a
     freeze-record entry first.
 
@@ -14853,13 +14857,19 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     today = datetime.now(UTC).date()
     current = current_docket_term(today)
     floor = live_cfg.term_floor_year % 100
-    unreachable = [t for t in terms if not floor <= t < current]
+    unreachable = [
+        t
+        for t in terms
+        if not (floor <= t or t in application_backfill.LEGACY_HTML_TERMS) or t >= current
+    ]
     if unreachable:
+        legacy = ", ".join(f"OT20{t:02d}" for t in sorted(application_backfill.LEGACY_HTML_TERMS))
         typer.echo(
             f"backfill-applications: Term(s) {unreachable} out of reach — the pass reads "
             f"closed Terms from the live floor (OT{live_cfg.term_floor_year}) to the one "
             f"before the current docket Term ({current:02d}), whose stream is frontier "
-            "discovery's.",
+            f"discovery's, and below the floor only {legacy}, through the legacy docket "
+            "pages.",
             err=True,
         )
         raise typer.Exit(code=2)

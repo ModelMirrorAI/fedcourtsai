@@ -1292,12 +1292,13 @@ writer's, against the corpus it pulls under the lock: the dry run's count
 (`unresolved=N` in its ledger) is an upper bound on what the apply lands. Each
 run fetches from supremecourt.gov, so an apply does not lead with a dry run,
 and a re-dispatched dry run after the apply is the control. Its plan carries
-the served dockets' party contact details to the writer under the narrow
+the served dockets' party contact details (for OT2016, the served legacy
+pages below `16A1051`) to the writer under the narrow
 carve-out in [data-sources.md](data-sources.md) (*PII stance*): one artifact,
 one day, never committed or printed. **Each Term's apply is pre-registered**:
 it moves that Term's unparsed rows into the population the pooled interim base
 rate is computed over, so it has its own entry in
-[freeze-record.md](freeze-record.md). OT2017 to OT2024 are registered: an
+[freeze-record.md](freeze-record.md). OT2016 to OT2024 are registered: an
 apply for any other Term is refused until a freeze-record entry projects its
 move and it has a place in `REGISTERED_APPLY_TERMS`.
 

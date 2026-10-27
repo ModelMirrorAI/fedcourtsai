@@ -22,7 +22,8 @@ ingestion channels (**pull**, **live**, **historical**, **enrich** —
   the storage projection keys on
   ([data-pipeline.md](data-pipeline.md)). The CourtListener terms below cover
   both channels.
-- **supremecourt.gov's per-docket JSON and filed-document PDFs**, served by the
+- **supremecourt.gov's per-docket JSON and filed-document PDFs**, and its
+  legacy HTML docket pages for the dockets the JSON does not serve, served by the
   Court itself — the live SCOTUS channel that owns SCOTUS freshness and loads
   the historical Term set. These are public records with no third-party license
   attached (the CourtListener terms below cover Free Law Project's curation,
@@ -775,19 +776,22 @@ material**:
   filer's contact detail travels unscrubbed are the transient run artifacts
   in the two carve-outs below, which hold no stored copy and never reach git.
 - **One carve-out: the application back-fill's plan artifact** (maintainer
-  decision, 2026-10-01). Every byte it admits is the Court's own public docket
+  decision, 2026-10-01; extended to OT2016's legacy docket pages, 2026-10-27).
+  Every byte it admits is the Court's own public docket
   record, served openly at supremecourt.gov, and none of it comes from our
   private stores; it lets that record transit one short-lived workflow
   artifact between two jobs of the same run.
   - *What:* the docket JSON exactly as supremecourt.gov serves it for the
-    dockets in one `application-backfill` run's plan — counsel blocks
+    dockets in one `application-backfill` run's plan — and, for a serial of
+    a Term in `LEGACY_HTML_TERMS` (OT2016) that serves no JSON, the Court's
+    legacy HTML docket page exactly as served — counsel blocks
     included, which for a self-represented filer carry a home address,
     telephone, email or prisoner register number — plus the structured fields
     parsed from it. Nothing read from the corpus, the content store or any
     snapshot we stored — which rests on the job that writes the plan holding
     no corpus credential at all. Both that job and the applications writer
-    refuse a plan not shaped as served docket JSON plus the fields parsed
-    from it.
+    refuse a plan not shaped as served docket JSON or a served docket page
+    plus the fields parsed from it.
   - *Where:* one workflow artifact, `repair-plan-<run_id>`, kept one day and
     consumed by the applications writer in the same run. It is never committed
     to git and never printed to a log or step summary; the step summary
