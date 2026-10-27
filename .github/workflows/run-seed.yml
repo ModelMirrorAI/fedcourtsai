@@ -112,7 +112,7 @@ jobs:
   # the attempt it judged, because re-running some jobs does not re-run this
   # one; `run-gate` below fails the run when that check refused.
   authorize:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -146,7 +146,7 @@ jobs:
       ${{ needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The checkpointed loop caps each chunk to its remaining LOOP_BUDGET_SECONDS
     # (--max-run-seconds), stopping itself at the soft budget; this hard cap is
     # the backstop headroom above it — setup + the final checkpoint + the
@@ -1214,7 +1214,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     continue-on-error: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup and the read-only corpus pull (about a gigabyte); the projection
     # is one local query.
     timeout-minutes: 20
@@ -1283,7 +1283,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     continue-on-error: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The read step's cap plus setup.
     timeout-minutes: 40
     permissions:
@@ -1375,7 +1375,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     continue-on-error: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup, a local re-validation and write per planned stamp, and the push.
     timeout-minutes: 20
     environment: prod
@@ -1544,7 +1544,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     continue-on-error: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup, the read-only corpus pull (about a gigabyte) and the class walk,
     # which reads each live-slice case's documents from the content store:
     # about five minutes on the 2026-10-17 blob.
@@ -1629,7 +1629,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     continue-on-error: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup, the binary install and the read step's cap.
     timeout-minutes: 50
     permissions:
@@ -1746,7 +1746,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     continue-on-error: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup, the corpus pull, at most the cap's worth of content-store writes,
     # the blob push and the commit.
     timeout-minutes: 30
@@ -1947,7 +1947,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     continue-on-error: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup and the read-only corpus pull (about a gigabyte); the projection
     # is one local query.
     timeout-minutes: 20
@@ -2015,7 +2015,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     continue-on-error: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The read step's cap plus setup.
     timeout-minutes: 25
     permissions:
@@ -2126,7 +2126,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     continue-on-error: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup, the corpus pull (about a gigabyte), a local insert of at most the
     # slice's rows, the blob push and the commit.
     timeout-minutes: 15
@@ -2287,7 +2287,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Sized to the retry worst case: 4 retried call groups x 3 bounded 30s
     # attempts plus 60s of backoff sleeps. Nothing downstream waits on this job.
     timeout-minutes: 10
@@ -2397,7 +2397,7 @@ jobs:
       - opinion-record
       - guard
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions: {}
     steps:

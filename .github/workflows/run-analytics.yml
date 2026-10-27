@@ -228,7 +228,7 @@ jobs:
   # the attempt it judged, because re-running some jobs does not re-run this
   # one; `run-gate` below fails the run when that check refused.
   authorize:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -263,7 +263,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
@@ -345,7 +345,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # What bounds this job is the credential clock, not the wall clock. The
     # census walks the gate's scored segment and, with the corpus-split mode on,
     # takes a latest-snapshot read per frame case — one `snapshots/` listing plus
@@ -504,7 +504,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     concurrency:
       group: run-analytics-tool-usage-${{ github.ref_name }}
@@ -540,7 +540,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The credential clock bounds this job the census's way: the walk reads the
     # documents of every live-slice case — under the split a content-store
     # manifest round trip per case plus a text body per stored document, on the
@@ -668,7 +668,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
@@ -884,7 +884,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The regeneration takes a few minutes; the rest is the merge's wait for
     # the PR's required checks, which the merge script bounds at 20.
     timeout-minutes: 35
@@ -1083,7 +1083,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The render takes seconds; the rest is the merge's wait for the PR's
     # required checks, which the merge script bounds at 20.
     timeout-minutes: 30
@@ -1221,7 +1221,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
@@ -1404,7 +1404,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The step caps have to fit inside this one or the run loses its artifact
     # to the job clock: the 40-minute labeler, the 5-minute CLI install, the
     # three post-agent transcript steps at 5 each and the 3-minute labels scan
@@ -2283,7 +2283,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
@@ -2560,7 +2560,7 @@ jobs:
   run-gate:
     needs: [authorize, corpus-stats, distribution-census, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-extract, qp-topic-label, qp-topic-publish]
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions: {}
     steps:

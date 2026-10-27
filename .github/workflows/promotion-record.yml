@@ -47,7 +47,7 @@ jobs:
   # the attempt it judged, because re-running some jobs does not re-run this
   # one; `run-gate` below fails the run when that check refused.
   authorize:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -81,7 +81,7 @@ jobs:
       ${{ needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read # read the commit's parents
@@ -153,7 +153,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     # The data App's credentials live on `prod`, whose deployment-branch policy
     # is `main`-only, so a dispatch from any other ref is refused here.
@@ -398,7 +398,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       issues: write # the failure issue (ambient, triggers nothing)
@@ -491,7 +491,7 @@ jobs:
   run-gate:
     needs: [authorize, classify, write, report]
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions: {}
     steps:

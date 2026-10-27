@@ -119,7 +119,7 @@ jobs:
   # the attempt it judged, because re-running some jobs does not re-run this
   # one; `run-gate` below fails the run when that check refused.
   authorize:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -171,7 +171,7 @@ jobs:
       ${{ needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Seconds of bash over five environment variables.
     timeout-minutes: 5
     permissions: {}
@@ -423,7 +423,7 @@ jobs:
     concurrency:
       group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","ocr-recovery","document-backfill","recut","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","amicus-rederive","cert-amicus-rederive"]'), inputs.repair) && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Headroom over the longest chain of capped steps a dispatch can run, which
     # is the OCR recovery's: the dedupe prerequisite (10m), its own binary
     # install (5m), the fresh credentials (the assume-role's own 120s bound;
@@ -2508,7 +2508,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup and the read-only corpus pull (about a gigabyte); each projection
     # is one local query.
     timeout-minutes: 20
@@ -2616,7 +2616,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The longest pass step's 60-minute cap plus setup.
     timeout-minutes: 80
     permissions:
@@ -2849,7 +2849,7 @@ jobs:
     concurrency:
       group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes') && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup, a local re-validation and write per planned stamp, and the push.
     timeout-minutes: 20
     environment: prod
@@ -3048,7 +3048,7 @@ jobs:
     concurrency:
       group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && inputs.repair == 'application-backfill' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup, the corpus pull, the land step's 30 minutes and the commit.
     timeout-minutes: 50
     environment: corpus-write
@@ -3265,7 +3265,7 @@ jobs:
     concurrency:
       group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && inputs.repair == 'decision-record' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The pass step's 25-minute cap plus setup, the corpus pull and the commit.
     timeout-minutes: 45
     environment: corpus-write
@@ -3447,7 +3447,7 @@ jobs:
     concurrency:
       group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && inputs.repair == 'opinion-record' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup, the corpus pull (about a gigabyte), the insert step's 25 minutes
     # (a local insert plus the blob push) and the commit.
     timeout-minutes: 50
@@ -3628,7 +3628,7 @@ jobs:
     concurrency:
       group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && inputs.repair == 'regrade-stale' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # One local recompute per named cell over a maintainer-sized list, plus
     # setup.
     timeout-minutes: 25
@@ -3783,7 +3783,7 @@ jobs:
   run-gate:
     needs: [authorize, validate, repair, handoff-projection, handoff-parse, votes, applications, decision-record, opinion-record, regrade]
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions: {}
     steps:

@@ -4927,7 +4927,7 @@ def test_the_settled_case_cascades_keep_both_of_their_refusals() -> None:
 
 
 #: The runner image every workflow job runs on, named exactly.
-PINNED_RUNNER = "ubuntu-24.04"
+PINNED_RUNNER = "ubuntu-26.04"
 
 
 def test_every_workflow_job_runs_on_the_pinned_runner_image() -> None:

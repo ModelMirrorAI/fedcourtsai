@@ -337,7 +337,7 @@ jobs:
   # the attempt it judged, because re-running some jobs does not re-run this
   # one; `run-gate` below fails the run when that check refused.
   authorize:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -400,7 +400,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # 15, not 5: the resolve path checks out, builds the Python env, assumes
     # the read-only role, and walks a bounded candidate window over the blob.
     timeout-minutes: 15
@@ -632,7 +632,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     needs: [authorize, plan]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       # A broken leg must not cancel the others: each leg is independent
       # freshness evidence for its scenario, and a `gate` run's whole-suite
@@ -1020,7 +1020,7 @@ jobs:
           install-codex: ${{ matrix.scenario == 'engine-smoke' }}
 
       # The codex sandbox (bubblewrap) needs unprivileged user namespaces,
-      # which Ubuntu 24.04 runners restrict via AppArmor: without this, every
+      # which the Ubuntu runner images restrict via AppArmor: without this, every
       # command the agent runs — and even its file writes — dies with
       # `bwrap: setting up uid map: Permission denied` and the cell finishes
       # blocked. The same prerequisite codex-action applies for the live
@@ -2436,7 +2436,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     permissions:
       contents: read # checkout; the run-PR push goes to the scratch remote, never here
@@ -2869,7 +2869,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The capped steps come to 25 — 5 for the CLI install, 15 for the labeler,
     # 5 for the execution-file digest — so the job clock has to leave room
     # around them: the checkout, apt, `setup-python-env`, the seed, the
@@ -3217,7 +3217,7 @@ jobs:
   run-gate:
     needs: [authorize, plan, scenario, collect-scenario, qp-labeler-smoke]
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions: {}
     steps:

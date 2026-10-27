@@ -197,8 +197,8 @@ same guard.
   its own PRs, and the package, its dependencies and its lockfile are not
   code-owned. So the `authorize` job runs no project code: it sparse-checks-out
   the module and the allow-list alone (no persisted credential), and runs
-  `python3 -I -S src/fedcourtsai/run_gate.py` with the runner's own Python
-  (3.12 on `ubuntu-24.04`) in isolated mode without `site` — no site
+  `python3 -I -S src/fedcourtsai/run_gate.py` with the runner image's own
+  system Python in isolated mode without `site` — no site
   packages, user or system, no script directory on the path, no `PYTHON*`
   environment. The module imports only
   the standard library, which `tests/test_run_gate.py` checks.

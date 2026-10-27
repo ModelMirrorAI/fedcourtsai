@@ -102,7 +102,7 @@ jobs:
   # the attempt it judged, because re-running some jobs does not re-run this
   # one; `run-gate` below fails the run when that check refused.
   authorize:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -136,7 +136,7 @@ jobs:
       ${{ needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The slice is bounded by the command's own --max-cases, and each case
     # costs a handful of small S3 objects plus point lookups over the ranged
     # index, so a refresh is minutes. The cap is a backstop against a degraded
@@ -268,7 +268,7 @@ jobs:
   run-gate:
     needs: [authorize, refresh]
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions: {}
     steps:
