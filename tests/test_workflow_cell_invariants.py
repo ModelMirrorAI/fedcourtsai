@@ -2118,6 +2118,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Remove ungranted merits phantoms", ()),
     ("repair", "Converge disposition labels", ()),
     ("repair", "Record the lost outcomes", ()),
+    ("repair", "Back-fill the committed event definitions", ()),
     ("regrade", "Re-grade named cells", ()),
     ("handoff-projection", "Write the application back-fill projection", ()),
     ("handoff-parse", "Read the vote records", ()),

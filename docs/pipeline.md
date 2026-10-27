@@ -1216,6 +1216,28 @@ evaluate, so the pass moves no grade. Its bound is the dry run's
 `cases_written`. *Ledger-outcome coverage* in
 [data-pipeline.md](data-pipeline.md) states what the ledger then holds.
 
+`event-definition-backfill` carries the corpus event row's `stage`, `moment` and
+`opened_at` onto committed `event.yaml` files, the migration `materialize-event`'s
+drift warning names: a cell never rewrites a committed definition, so a file
+written before the moment axis existed keeps no `stage` or `moment` until the
+outcome writer rewrites it at resolution, and one resolved by a lane that never
+rewrote it keeps none for good. It reads the corpus and writes only `event.yaml`
+under `data/`, staged with the pointer in the step's one commit. What it moves is
+bounded so that nothing scored and no cut moves. `stage` and `moment` are
+fill-only, a recorded value that differs is reported as a conflict, and a fill
+that would change the stage and moment the scored joins already read for a
+missing value (a petition baseline with neither reads as `cert@distribution`) is
+held back on any case carrying a committed evaluation. `opened_at` moves only on
+resolved events of cases with no committed evaluation. An open event is held,
+because its cut is computed from the corpus row, never from this file, and the
+outcome writer rewrites the definition at resolution. A scored case is held,
+because the claim set-aside reads a committed `opened_at`. Where the two sides
+differ on an interim arrival, the corpus is the right one: it carries the
+submission-entry date the arrival moment is registered on, where the committed
+file carries the docketing date. The summary carries the ledger: the counts,
+each fill shape with its count, every `opened_at` rewrite and every held field.
+The per-file list is in the step log. Its bound is the dry run's file count.
+
 Four of the passes that fetch and parse the Court's content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
 **credential split** of three jobs (`ocr-recovery`, `document-backfill` and
