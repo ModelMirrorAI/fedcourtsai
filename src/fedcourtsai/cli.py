@@ -9770,8 +9770,9 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
 
     The harness owns the stamp, not the agent — so a cell's version is derived
     from the registry and prompt in force at run time, exactly like ``usage.json``
-    reads the engine's own log rather than the agent's word. Runs as a post-agent
-    step, before ``validate``.
+    reads the engine's own log rather than the agent's word. ``created_at`` is
+    the harness's too: it is overwritten with the stamp's own time. Runs as a
+    post-agent step, before ``validate``.
 
     Before stamping it tidies the cell's own reports: on ``--role evaluator`` it
     moves a judge-level ``retrieval.md`` / ``tooling.json`` the judge copied into
@@ -9899,7 +9900,8 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     so their bits stay computed against different runs through any number of
     re-grades. The remedy there is the ordinary re-stamp of the event's
     evaluations, which re-resolves the identity to the latest prediction — at
-    the stated cost that it rewrites ``process_version``, attributing the
+    the stated cost that it rewrites ``process_version`` (and ``created_at``
+    with it), attributing the
     grading to the registry in force now rather than the one that produced
     it; that trade is why the straddle should be repaired promptly, not left
     to age.
@@ -9921,7 +9923,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     event_paths = case_paths.event(event)
     if not regrade:
         digest = process_version.digest_for_actor(Path.cwd(), settings.config_root, role, actor)
-        update["process_version"] = _resolve_stamp(digest, pipeline_sha, stamped_at)
+        update |= _stamp_fields(_resolve_stamp(digest, pipeline_sha, stamped_at))
         # Before the tripwire below, so it appends to a file that parses, and
         # before `validate`, so an advisory note can never take the cell's output
         # with it. A re-grade is a correction over committed cells and leaves
@@ -10927,6 +10929,15 @@ def _echo_frozen_scope(records: Sequence[tuple[Path, Evaluation]]) -> None:
         )
         scope = "frozen" if graded else "alpha"
         typer.echo(f"regrade: {path} — {scope}-scope cell stamped {stamp.label}")
+
+
+def _stamp_fields(stamp: ProcessVersion) -> dict[str, object]:
+    """The record fields an ordinary stamp overwrites: the version, and ``created_at``.
+
+    ``created_at`` is the stamp's time, not the agent's word: an agent-written
+    time is unverified, and the record carries it beside the scored fields.
+    """
+    return {"process_version": stamp, "created_at": stamp.stamped_at}
 
 
 def _resolve_stamp(digest: str, pipeline_sha: str, stamped_at: str) -> ProcessVersion:

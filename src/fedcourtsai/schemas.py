@@ -13568,8 +13568,9 @@ class ExportPredictionRow(_Strict):
         description="The prediction's run id (a UTC timestamp), as its ledger path spells it"
     )
     created_at: datetime = Field(
-        description="When the predictor says it wrote the prediction (agent-written; the "
-        "harness clock is `stamped_at`)"
+        description="When the harness ran the cell: the process stamp's `stamped_at`, or "
+        "the record's own `created_at` on a shakedown cell the harness never stamped "
+        "(`fedcourtsai.integrity.cell_clock`)"
     )
     probability: float = Field(
         description="The forecast probability of the positive outcome (a grant, at the cert stage)"
