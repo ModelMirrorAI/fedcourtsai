@@ -861,6 +861,35 @@ appendix-aware cut reads every page, which on a scan means recognizing every
 page, and a long scan would spend its whole document budget and be discarded on
 every pass.
 
+**The combined-row cut.** A combined row of more than one selected filing (the
+opposition, the supplemental briefs, the party letters) shares one cap, and a
+cut over the joined text in docket order would spend it first-come: the first
+respondent's bound appendix kept, the second respondent's argument never
+reached. Each filing is read as the appendix-aware cut reads it, every page up
+to ten times the cap, and the row is cut filing by filing:
+
+- **under the cap nothing is cut**: every filing's pages joined under its
+  `=== <docket entry> ===` header;
+- **every filing's own text comes before any appendix**: each filing is split
+  where its bound appendix starts, read as above. Where the filings' own texts
+  fit together, each is kept whole and the appendices share what is left; where
+  they do not, every appendix is left out and the filings share the cap;
+- **a share is even, not first-come**: a filing shorter than its even share
+  keeps all of it and passes the rest on, so a short letter is never cut for a
+  long brief filed before it;
+- **every cut is stated inside the filing it falls in**, in the same
+  `[pipeline note: …]` form, including an appendix left out whole and the pages
+  never read past the ceiling.
+
+A cap too small to give every filing about a printed page takes the plain head
+cut over the joined text instead, with one note at its end. A group of one
+selected filing is stored raw under the plain head cut, which already keeps its
+own text ahead of its appendix; a group of two or more of which one was fetched
+is cut by the rule above, as one filing under its header. Each combined kind's
+`kind_description` says how its row is cut. Like the appendix-aware cut, this one applies to
+rows stored under it: a combined row is re-fetched only when its set of links
+changes, so a row stored before keeps its docket-order cut until then.
+
 That staged copy is where the **contact-detail scrub** applies, and it applies
 to the copy alone: the source PDF and the stored row keep the filing as filed.
 A cell's prose lands in the public ledger, so the text it reads is a
