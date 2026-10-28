@@ -9,15 +9,15 @@
       "problems": []
     },
     {
-      "checked": 2153775,
-      "detail": "2153775 rows vs baseline 2153775",
+      "checked": 2153795,
+      "detail": "2153795 rows vs baseline 2153775",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
       "problems": []
     },
     {
-      "checked": 4310961,
+      "checked": 4311005,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +25,7 @@
       "problems": []
     },
     {
-      "checked": 2153775,
+      "checked": 2153795,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -41,7 +41,7 @@
       "problems": []
     },
     {
-      "checked": 691,
+      "checked": 692,
       "detail": "granted before 2024-10-28 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
@@ -49,7 +49,7 @@
       "problems": []
     },
     {
-      "checked": 2153775,
+      "checked": 2153795,
       "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-10-28); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
       "failures": 66,
       "name": "case_dates_ordered",
@@ -78,7 +78,7 @@
       ]
     },
     {
-      "checked": 4307888,
+      "checked": 4307932,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +86,7 @@
       "problems": []
     },
     {
-      "checked": 4310961,
+      "checked": 4311005,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -102,7 +102,7 @@
       "problems": []
     },
     {
-      "checked": 304,
+      "checked": 306,
       "detail": "",
       "failures": 0,
       "name": "minted_moments_defined_in_ledger",
@@ -110,7 +110,7 @@
       "problems": []
     },
     {
-      "checked": 29279,
+      "checked": 29281,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -214,8 +214,8 @@
       "problems": []
     }
   ],
-  "corpus_events": 2154113,
-  "corpus_rows": 2153775,
+  "corpus_events": 2154137,
+  "corpus_rows": 2153795,
   "ok": true,
   "schema_version": "1.0",
   "skipped": false
