@@ -13,6 +13,7 @@ import json
 import logging
 import math
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -134,6 +135,7 @@ from .collect import (
     PriorAvailabilityRollup,
     PrPlan,
     SelfProvisionedRollup,
+    ServedModelRollup,
     StakesReadRollup,
     ThrottleRollup,
     assert_board_within_jail,
@@ -471,6 +473,7 @@ from .schemas import (
     AgentToolingFeedback,
     AuthorshipTally,
     Backtest,
+    BlindingRecord,
     CellFailure,
     CellMode,
     CertBacktest,
@@ -567,8 +570,11 @@ from .supremecourt import (
     parse_scotus_docket_number,
 )
 from .usage import (
+    parse_claude_served_models,
     parse_claude_usage,
+    parse_codex_served_models,
     parse_codex_usage,
+    parse_gemini_served_models,
     parse_gemini_usage,
     resolve_engine_version,
     resolve_pipeline_sha,
@@ -9902,6 +9908,21 @@ def _resolve_token_counts(
     return explicit
 
 
+def _resolve_served_models(
+    claude_execution_file: Path | None,
+    codex_sessions_dir: Path | None,
+    gemini_telemetry_file: Path | None,
+) -> list[str] | None:
+    """The models the named engine log says served the cell, read like its tokens."""
+    if claude_execution_file is not None:
+        return parse_claude_served_models(claude_execution_file)
+    if codex_sessions_dir is not None:
+        return parse_codex_served_models(codex_sessions_dir)
+    if gemini_telemetry_file is not None:
+        return parse_gemini_served_models(gemini_telemetry_file)
+    return None
+
+
 @app.command("poll-docket")
 def poll_docket_cmd(
     court: Annotated[str, typer.Option()],
@@ -10064,6 +10085,9 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         actor_id=actor,
         engine=engine,
         model=resolved_model,
+        served_models=_resolve_served_models(
+            claude_execution_file, codex_sessions_dir, gemini_telemetry_file
+        ),
         created_at=when,
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
         engine_version=recorded_version,
@@ -10835,8 +10859,72 @@ def _tidy_cell_self_reports(event_paths: EventPaths, where: CellCoordinates, eve
     _normalise_cell_flags(event_paths, where)
     _normalise_cell_tooling(event_paths, where)
     _flag_judge_level_outputs(event_paths, where, event_id, settled)
+    if where.role == UsageRole.evaluator:
+        _flag_names_the_judge_wrote(event_paths, where, event_id)
     if where.role == UsageRole.predictor:
         _flag_cell_access(event_paths, where, event_id)
+
+
+_BLINDING_PREFIX = "Harness check: before un-aliasing, the judge's own output named"
+# How many (term, file) rows the note quotes before it summarizes the rest.
+_BLINDING_EXAMPLES = 6
+
+
+def _flag_names_the_judge_wrote(
+    event_paths: EventPaths, where: CellCoordinates, event_id: str
+) -> None:
+    """Note in the cell's ``flags.json`` any identity term the judge wrote itself.
+
+    Reads the ``blinding.json`` un-aliasing wrote for this cell
+    (:class:`~fedcourtsai.schemas.BlindingRecord`); its ``names_present`` rows
+    are names that were already in the judge's text before the harness put any
+    there, which the committed prose can no longer tell apart from a
+    substitution. A ``warning`` in the channel the collect job rolls into the
+    run PR and the agent-feedback issue, because a judge that names a candidate
+    is the one way a blinded grade stops being blind, and the ledger alone
+    would never show it. Silent when the record is absent, unreadable or
+    empty: the record's own file is the durable copy either way.
+    """
+    path = event_paths.evaluation_blinding(where.actor_id, where.run_id)
+    try:
+        record = BlindingRecord.model_validate_json(path.read_text())
+    except (OSError, ValueError):
+        return
+    if not record.names_present:
+        return
+    rows = [
+        f"`{_one_line(row.term)[:60]}` x{row.count} in `{_one_line(row.file)[:120]}`"
+        for row in record.names_present
+    ]
+    rest = len(rows) - _BLINDING_EXAMPLES
+    shown = "; ".join(rows[:_BLINDING_EXAMPLES]) + (f"; and {rest} more" if rest > 0 else "")
+    total = sum(row.count for row in record.names_present)
+    typer.echo(
+        f"::warning::stamp: {where.actor_id} {_one_line(where.case_id)} wrote {total} "
+        + "identity term(s) of its own before un-aliasing; see its blinding.json.",
+        err=True,
+    )
+    message = (
+        f"{_BLINDING_PREFIX} {total} identity term(s) itself: {shown}. The staged "
+        + "candidates had every such name redacted, so these were not put there by the "
+        + "harness: read each as the judge recognising a candidate, a route around the "
+        + "blind, or a family word in its ordinary sense. Counts are in this cell's "
+        + "blinding.json."
+    )
+    _append_harness_notes(
+        event_paths.evaluation_flags(where.actor_id, where.run_id),
+        where,
+        [
+            AgentFlag(
+                category=FlagCategory.other,
+                severity=FlagSeverity.warning,
+                message=message[:_FLAG_MESSAGE_LIMIT],
+                event_id=event_id,
+                source=FlagSource.harness,
+            )
+        ],
+        what="blinding note",
+    )
 
 
 _JUDGE_PAIR_PREFIX = "Harness check: the judge-level"
@@ -18020,6 +18108,7 @@ def unblind_evaluations_cmd(
     try:
         moved = blinding.unblind_evaluations(
             data_root=settings.data_root,
+            config_root=settings.config_root,
             court=court,
             docket=docket,
             event_id=event,
@@ -24679,6 +24768,9 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # not the clean comparison it presents as, and nothing else says so.
         # Empty on a run where no cell fetched one.
         "self_provisioned": plan.self_provisioned_markdown,
+        # Which cells' engine logs name a model other than the one requested.
+        # Rides the PR body; empty on a run where every legible log matched.
+        "served_models": plan.served_models_markdown,
         # The census of this run's own output rather than of what reached it:
         # how many predictions landed with no `big_case_score`, and whose. It
         # rides the PR body like the two above, and unlike them the collect
@@ -25120,6 +25212,60 @@ def _load_stakes_reads(status_dir: Path, run_id: str) -> StakesReadRollup:
     return rollup
 
 
+# A served id that is the requested one plus a dated or numbered release
+# suffix (`-001`, `-05-06`, `-20251001`, `-2025-10-01`): the spelling a provider
+# reports a pinned version of the model under, not another model. A short
+# number (`-1`) is a point release, so it is not one of these.
+_VERSION_SUFFIX = re.compile(r"-(?:[0-9]{3}|[0-9]{8}|[0-9]{2}-[0-9]{2}|[0-9]{4}-[0-9]{2}-[0-9]{2})")
+
+
+def _same_model(requested: str, served: str) -> bool:
+    """Whether a logged model id names the requested model, release suffix aside."""
+    if served == requested:
+        return True
+    return served.startswith(requested) and bool(
+        _VERSION_SUFFIX.fullmatch(served[len(requested) :])
+    )
+
+
+def _load_served_models(status_dir: Path, run_id: str) -> ServedModelRollup:
+    """Census this run's ``usage.json`` records for the model each cell ran on.
+
+    The same walk shape and the same two filters as
+    :func:`_load_retrieval_rollups`, for the same reasons — every artifact carries
+    the committed history beside this run's records, and a record of this run
+    rides along in later cells' artifacts — keyed on the identity the record
+    carries itself. A record that does not parse is skipped: a usage record names
+    no model either way, and never fatal, since this is a notification.
+    """
+    seen: set[tuple[str, str, str, str]] = set()
+    rollup = ServedModelRollup()
+    for path in sorted(status_dir.glob(f"**/{run_id}/usage.json")):
+        try:
+            record = ModelUsage.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if record.run_id != run_id:
+            continue
+        identity = (record.case_id, record.event_id, record.actor_id, str(record.role))
+        if identity in seen:
+            continue
+        seen.add(identity)
+        rollup = replace(rollup, cells=rollup.cells + 1)
+        if record.served_models is None:
+            rollup = replace(rollup, unknown=rollup.unknown + 1)
+        elif any(not _same_model(record.model, served) for served in record.served_models):
+            cell = f"{record.case_id}/{record.event_id}/{record.actor_id}"
+            rollup = replace(
+                rollup,
+                substituted=(
+                    *rollup.substituted,
+                    (cell, record.model, ", ".join(record.served_models)),
+                ),
+            )
+    return rollup
+
+
 @app.command("collect-plan")
 def collect_plan_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
@@ -25228,6 +25374,10 @@ def collect_plan_cmd(
         stakes_reads=(
             _load_stakes_reads(status_dir, run_id) if role is FinalizeRole.predict else None
         ),
+        # And whether any cell's own engine log says it ran on a model other
+        # than the one requested — a provider or CLI fallback that leaves the
+        # prediction looking like the registered model's.
+        served_models=_load_served_models(status_dir, run_id),
     )
     typer.echo(
         json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))

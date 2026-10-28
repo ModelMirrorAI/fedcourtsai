@@ -3281,7 +3281,9 @@ note is harness-rendered from the logs rather than agent free text, so it rides
 even the facts-only PR of a wholesale-failed run, where starvation is a live
 candidate cause. It is the only per-run record there is: the 429 payload itself
 is digested away at capture, so without the marker a starved run and a well-fed
-one look identical afterwards.
+one look identical afterwards. Beside it, the run's `usage.json` records name
+every cell whose engine log says it ran on a model other than the one requested
+(`served_models`), and a run where every legible log matched prints nothing.
 
 The same walk asks the corpus-side version of that question and writes a second
 harness-rendered note beside it: which cells ran a `fedcourts` corpus query
