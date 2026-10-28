@@ -14320,10 +14320,11 @@ def _report_vote_write(
         )
     for ref, reason in result.held_back:
         typer.echo(f"  held back {ref}: {reason}")
-    # The two classes that are the ordinary state of most outcomes are counted
-    # above and not listed one by one; every other reason is.
+    # The classes that are the ordinary state of most outcomes, and those with
+    # no order text to read by design, are counted above and not listed one by
+    # one; every other reason is.
     for ref, reason in result.skipped:
-        if not reason.startswith(("nothing observed", "inside the")):
+        if not reason.startswith(("nothing observed", "inside the", "no order text expected")):
             typer.echo(f"  nothing to stamp {ref}: {reason}")
 
 
@@ -14546,14 +14547,19 @@ def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
     current Term. For
     each resolution date it reads every order list, miscellaneous order and
     opinion relating to orders the Court lists for that date
-    (`order-notations`), and stamps each outcome with its docket's reading:
-    the partial vote list (`complete: false` always — only noted votes and
-    non-participation are observable), and `writing_roles` where every
-    participating Justice's writing was observed. Nothing is read for a date
-    inside the 7-day settling window, since a writing can follow its order.
+    (`order-notations`; for a date in October the outgoing Term's listing too,
+    since the Court's pages roll over on the first Monday), and stamps each
+    outcome with its docket's reading: the partial vote list (`complete:
+    false` always — only noted votes and non-participation are observable),
+    and `writing_roles` where every participating Justice's writing was
+    observed. Nothing is read for a date inside the 7-day settling window,
+    since a writing can follow its order.
     A docket whose reading has a problem, whose order text mentions a
     rehearing, or which only a writing names is held back; one with no noted
-    vote and writings not complete has nothing to stamp.
+    vote and writings not complete has nothing to stamp. A dismissed petition,
+    a withdrawn application and one decided in chambers that no document names
+    are skipped under their own `no order text expected` reasons, counted but
+    not listed.
 
     Reads the corpus, writes only `outcome.json` under `data/`. An outcome
     carrying the same record is left alone; one carrying a different record is
