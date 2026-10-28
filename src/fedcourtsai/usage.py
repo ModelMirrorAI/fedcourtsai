@@ -271,6 +271,108 @@ def _codex_parent_id(meta: dict[str, Any]) -> str | None:
     return str(parent) if parent else None
 
 
+# --- Served model ------------------------------------------------------------
+#
+# The model each engine's own log names for the cell's main-agent calls, kept
+# beside the requested ``model`` a cell is priced at. Each engine logs it at a
+# different distance from the provider, and the distance is the reading:
+#
+# - **Claude Code**: each main-thread ``assistant`` event's ``message.model`` is
+#   the model the API response named, so a provider-side substitution shows.
+# - **Gemini**: each ``gemini_cli.api_response`` record's ``model`` is the
+#   response's own ``modelVersion`` where the API sent one, else the model the
+#   CLI requested — so it shows a provider substitution and the CLI's own
+#   fallback alike, in the provider's spelling of the version.
+# - **Codex**: each ``turn_context`` record's ``model`` is the model the CLI
+#   addressed for that turn. A server-side reroute Codex reports only as a
+#   transient event its rollout does not persist, so on this engine the value
+#   shows a client-side switch and never a provider substitution.
+
+# Claude Code's placeholder for a message it composed itself (an API error
+# rendered as a turn), which no model served.
+_CLAUDE_SYNTHETIC_MODEL = "<synthetic>"
+# Gemini's main-agent role; its utility calls (routing, loop detection,
+# compression, summaries) carry roles of their own and run on helper models by
+# design, so they are not the cell's model. A record with no role predates the
+# attribute and is read as the main agent's.
+_GEMINI_MAIN_ROLES = frozenset({"", "main"})
+
+
+def _first_seen(models: list[str]) -> list[str] | None:
+    """Distinct non-empty model ids in first-seen order; ``None`` when there are none."""
+    distinct = list(dict.fromkeys(model for model in models if model))
+    return distinct or None
+
+
+def parse_claude_served_models(execution_file: Path) -> list[str] | None:
+    """The models a Claude Code transcript's main-thread responses name.
+
+    Main thread only: a subagent the session spawned (``parent_tool_use_id``
+    set) runs on whatever model its definition names, by design.
+    """
+    doc = _load_json(execution_file)
+    events = doc if isinstance(doc, list) else [doc]
+    models: list[str] = []
+    for event in events:
+        if not isinstance(event, dict) or event.get("type") != "assistant":
+            continue
+        if event.get("parent_tool_use_id"):
+            continue
+        message = event.get("message")
+        model = message.get("model") if isinstance(message, dict) else None
+        if isinstance(model, str) and model != _CLAUDE_SYNTHETIC_MODEL:
+            models.append(model)
+    return _first_seen(models)
+
+
+def parse_codex_served_models(sessions_dir: Path) -> list[str] | None:
+    """The models the cell's parent Codex session addressed, one per turn context."""
+    rollouts = codex_cell_rollouts(sessions_dir)
+    if not rollouts:
+        return None
+    models: list[str] = []
+    try:
+        lines = rollouts[0].read_text().splitlines()
+    except OSError:
+        return None
+    for raw in lines:
+        try:
+            record = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(record, dict) or record.get("type") != "turn_context":
+            continue
+        payload = record.get("payload")
+        model = payload.get("model") if isinstance(payload, dict) else None
+        if isinstance(model, str):
+            models.append(model)
+    return _first_seen(models)
+
+
+def parse_gemini_served_models(telemetry_file: Path) -> list[str] | None:
+    """The models a Gemini CLI telemetry log's main-agent responses name."""
+    models: list[str] = []
+    # The token walk pops its stack from the end, so it visits a run of
+    # top-level records last-first; reversing restores log order, and the
+    # timestamp (where the record carries one) settles the rest.
+    events = sorted(
+        reversed(_find_gemini_token_events(_load_json_objects(telemetry_file))),
+        key=lambda attrs: str(attrs.get("event.timestamp") or ""),
+    )
+    for attrs in events:
+        # Token counts are what usage reads a response by, so a record naming
+        # no event is still one; a record naming another event is not.
+        name = str(attrs.get("event.name") or "")
+        if name and not name.endswith("api_response"):
+            continue
+        if str(attrs.get("role") or "") not in _GEMINI_MAIN_ROLES:
+            continue
+        model = attrs.get("model")
+        if isinstance(model, str):
+            models.append(model)
+    return _first_seen(models)
+
+
 def _last_codex_token_usage(rollout: Path) -> dict[str, Any] | None:
     """The cumulative ``total_token_usage`` from the last ``token_count`` event."""
     found: dict[str, Any] | None = None
@@ -314,6 +416,12 @@ _GEMINI_TOKEN_FIELDS: tuple[str, ...] = (
     "cached_content_token_count",
     "thoughts_token_count",
 )
+
+
+# The response attributes the served-model read keys on, flattened from the
+# record itself where an exporter left them there rather than under
+# ``attributes``, exactly as the token counts are.
+_GEMINI_RESPONSE_FIELDS: tuple[str, ...] = ("model", "role")
 
 
 def parse_gemini_usage(telemetry_file: Path) -> TokenCounts | None:
@@ -380,7 +488,7 @@ def _gemini_attrs(node: dict[str, Any]) -> dict[str, Any]:
         for item in raw:
             if isinstance(item, dict) and "key" in item:
                 attrs[item["key"]] = _otel_value(item.get("value"))
-    for field in _GEMINI_TOKEN_FIELDS:
+    for field in (*_GEMINI_TOKEN_FIELDS, *_GEMINI_RESPONSE_FIELDS):
         if field in node:
             attrs.setdefault(field, node[field])
     return attrs

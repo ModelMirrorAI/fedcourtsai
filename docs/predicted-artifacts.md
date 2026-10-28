@@ -605,7 +605,14 @@ Part of what a prediction consists of is not the agent's word, and reading the
 directory without knowing which part is which invites trusting the wrong half.
 
 - **`usage.json`** — measured token counts and the estimated cost for the cell,
-  written by a post-run harness step from the engine log. On a forward predict
+  written by a post-run harness step from the engine log. `model` is the model
+  requested and priced; `served_models` is what the engine log names for the
+  cell's main-agent calls, so a cell that ran on something else shows, and the
+  run PR names each one. The engines differ in how close that value sits to
+  the provider: claude's is the model each API response named, gemini's the
+  response's own version string (so a version suffix alone differs too), and
+  codex's the model the CLI addressed, which never shows a provider-side reroute.
+  Null means the log named no model: unknown, not a match. On a forward predict
   cell it also carries the docket bracket: `pre_mint_poll`, taken just before the
   cell was minted, and `post_run_poll`, taken after its engine stopped, each with
   `polled_at` (when the fetch began), the docket number polled, and a state.

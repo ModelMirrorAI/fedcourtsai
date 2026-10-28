@@ -134,6 +134,7 @@ from .collect import (
     PriorAvailabilityRollup,
     PrPlan,
     SelfProvisionedRollup,
+    ServedModelRollup,
     StakesReadRollup,
     ThrottleRollup,
     assert_board_within_jail,
@@ -555,8 +556,11 @@ from .supremecourt import (
     parse_scotus_docket_number,
 )
 from .usage import (
+    parse_claude_served_models,
     parse_claude_usage,
+    parse_codex_served_models,
     parse_codex_usage,
+    parse_gemini_served_models,
     parse_gemini_usage,
     resolve_engine_version,
     resolve_pipeline_sha,
@@ -9550,6 +9554,21 @@ def _resolve_token_counts(
     return explicit
 
 
+def _resolve_served_models(
+    claude_execution_file: Path | None,
+    codex_sessions_dir: Path | None,
+    gemini_telemetry_file: Path | None,
+) -> list[str] | None:
+    """The models the named engine log says served the cell, read like its tokens."""
+    if claude_execution_file is not None:
+        return parse_claude_served_models(claude_execution_file)
+    if codex_sessions_dir is not None:
+        return parse_codex_served_models(codex_sessions_dir)
+    if gemini_telemetry_file is not None:
+        return parse_gemini_served_models(gemini_telemetry_file)
+    return None
+
+
 @app.command("poll-docket")
 def poll_docket_cmd(
     court: Annotated[str, typer.Option()],
@@ -9712,6 +9731,9 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         actor_id=actor,
         engine=engine,
         model=resolved_model,
+        served_models=_resolve_served_models(
+            claude_execution_file, codex_sessions_dir, gemini_telemetry_file
+        ),
         created_at=when,
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
         engine_version=recorded_version,
@@ -24242,6 +24264,9 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # not the clean comparison it presents as, and nothing else says so.
         # Empty on a run where no cell fetched one.
         "self_provisioned": plan.self_provisioned_markdown,
+        # Which cells' engine logs name a model other than the one requested.
+        # Rides the PR body; empty on a run where every legible log matched.
+        "served_models": plan.served_models_markdown,
         # The census of this run's own output rather than of what reached it:
         # how many predictions landed with no `big_case_score`, and whose. It
         # rides the PR body like the two above, and unlike them the collect
@@ -24683,6 +24708,44 @@ def _load_stakes_reads(status_dir: Path, run_id: str) -> StakesReadRollup:
     return rollup
 
 
+def _load_served_models(status_dir: Path, run_id: str) -> ServedModelRollup:
+    """Census this run's ``usage.json`` records for the model each cell ran on.
+
+    The same walk shape and the same two filters as
+    :func:`_load_retrieval_rollups`, for the same reasons — every artifact carries
+    the committed history beside this run's records, and a record of this run
+    rides along in later cells' artifacts — keyed on the identity the record
+    carries itself. A record that does not parse is skipped: a usage record names
+    no model either way, and never fatal, since this is a notification.
+    """
+    seen: set[tuple[str, str, str, str]] = set()
+    rollup = ServedModelRollup()
+    for path in sorted(status_dir.glob(f"**/{run_id}/usage.json")):
+        try:
+            record = ModelUsage.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if record.run_id != run_id:
+            continue
+        identity = (record.case_id, record.event_id, record.actor_id, str(record.role))
+        if identity in seen:
+            continue
+        seen.add(identity)
+        rollup = replace(rollup, cells=rollup.cells + 1)
+        if record.served_models is None:
+            rollup = replace(rollup, unknown=rollup.unknown + 1)
+        elif record.served_models != [record.model]:
+            cell = f"{record.case_id}/{record.event_id}/{record.actor_id}"
+            rollup = replace(
+                rollup,
+                substituted=(
+                    *rollup.substituted,
+                    (cell, record.model, ", ".join(record.served_models)),
+                ),
+            )
+    return rollup
+
+
 @app.command("collect-plan")
 def collect_plan_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
@@ -24791,6 +24854,10 @@ def collect_plan_cmd(
         stakes_reads=(
             _load_stakes_reads(status_dir, run_id) if role is FinalizeRole.predict else None
         ),
+        # And whether any cell's own engine log says it ran on a model other
+        # than the one requested — a provider or CLI fallback that leaves the
+        # prediction looking like the registered model's.
+        served_models=_load_served_models(status_dir, run_id),
     )
     typer.echo(
         json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))

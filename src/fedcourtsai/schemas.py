@@ -2770,6 +2770,22 @@ class ModelUsage(_Strict):
     actor_id: str = Field(description="The predictor_id (predict) or evaluator_id (evaluate)")
     engine: Engine
     model: str = Field(description="Model the cost rates were applied to (resolved, never null)")
+    served_models: list[str] | None = Field(
+        default=None,
+        description="The models the engine's own log names for the cell's main-agent "
+        "calls, distinct and in first-seen order — harness-read from the log, never the "
+        "agent's word, and kept beside the requested `model` so a cell that ran on "
+        "something else shows in the record. How close each engine's value sits to the "
+        "provider differs, and that is the reading: claude-code's is the model each "
+        "main-thread API response named; gemini's is each main-role response's own "
+        "`modelVersion` where the API sent one, else the model the CLI requested, so it "
+        "shows the CLI's own fallback too and spells a version the way the provider does; "
+        "codex's is the model each turn context addressed, which shows a client-side "
+        "switch and never a provider substitution, since Codex does not persist a reroute "
+        "to its rollout. Subagent and utility calls are left out on every engine: they run "
+        "on helper models by design. Pricing stays on `model`. Null when the log names "
+        "no model, or on a record written before the field existed: unknown, not a match.",
+    )
     created_at: datetime
     pipeline_sha: str | None = Field(
         default=None,

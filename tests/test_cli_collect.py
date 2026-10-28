@@ -280,6 +280,8 @@ def test_collect_plan_no_cells_emits_nulls(tmp_path: Path) -> None:
         "stakes_reads": "",
         # Nor any cell a pre-mint poll refused.
         "pre_mint_refusals": "",
+        # Nor any usage record naming a model other than the requested one.
+        "served_models": "",
         "feedback_comment": "",
         "stalled": False,
         "dead_actors": [],
@@ -1453,3 +1455,99 @@ def test_collect_plan_stays_quiet_where_no_cell_fetched_a_filing(tmp_path: Path)
     plan = json.loads(result.stdout)
     assert plan["self_provisioned"] == ""
     assert "reached outside the provisioned" not in plan["ready"]["body"]
+
+
+def _write_usage(
+    root: Path,
+    cell: str,
+    actor: str,
+    *,
+    model: str,
+    served: list[str] | None,
+    run_id: str = "R",
+    case: str = "1",
+) -> None:
+    usage_dir = (
+        root / cell / "data" / "cases" / "scotus" / case / "events" / "evt-x" / actor / run_id
+    )
+    usage_dir.mkdir(parents=True, exist_ok=True)
+    (usage_dir / "usage.json").write_text(
+        json.dumps(
+            {
+                "case_id": f"scotus/{case}",
+                "event_id": "evt-x",
+                "run_id": run_id,
+                "role": "predictor",
+                "actor_id": actor,
+                "engine": "gemini",
+                "model": model,
+                "served_models": served,
+                "created_at": "2026-10-28T12:00:00Z",
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "estimated_cost_usd": 0.0,
+            }
+        )
+    )
+
+
+def test_collect_plan_names_a_cell_whose_log_names_another_model(tmp_path: Path) -> None:
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    for name, actor in (("cell-a", "gemini-baseline"), ("cell-b", "claude-baseline")):
+        _write_cell(
+            tmp_path, name, actor=actor, produced=True, validated=True, agent_ok=True, **base
+        )
+    _write_usage(
+        tmp_path,
+        "cell-a",
+        "gemini-baseline",
+        model="gemini-4-argon",
+        served=["gemini-4-argon", "gemini-4-flash"],
+    )
+    # The same record riding along in the other artifact — counted once.
+    _write_usage(
+        tmp_path,
+        "cell-b",
+        "gemini-baseline",
+        model="gemini-4-argon",
+        served=["gemini-4-argon", "gemini-4-flash"],
+    )
+    _write_usage(
+        tmp_path, "cell-b", "claude-baseline", model="claude-opus-5-5", served=["claude-opus-5-5"]
+    )
+    # A prior run's record is not this run's.
+    _write_usage(
+        tmp_path, "cell-a", "codex-baseline", model="m", served=["other"], run_id="Q", case="2"
+    )
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    assert "1 of 2 cell(s) ran on a model other than the one requested" in plan["served_models"]
+    assert (
+        "`scotus/1/evt-x/gemini-baseline` asked for `gemini-4-argon`, "
+        + "log names `gemini-4-argon, gemini-4-flash`"
+    ) in plan["ready"]["body"]
+
+
+def test_collect_plan_is_silent_when_every_log_names_the_requested_model(
+    tmp_path: Path,
+) -> None:
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path, "cell-a", actor="gemini-baseline", produced=True, validated=True, agent_ok=True,
+        **base,
+    )
+    _write_usage(tmp_path, "cell-a", "gemini-baseline", model="g", served=["g"])
+    # A log naming no model is unknown, not a substitution.
+    _write_usage(tmp_path, "cell-a", "codex-baseline", model="c", served=None)
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0, result.output
+    plan = json.loads(result.stdout)
+    assert plan["served_models"] == ""
+    assert "ran on a model other" not in plan["ready"]["body"]

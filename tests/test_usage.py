@@ -10,8 +10,11 @@ from fedcourtsai.pricing import TokenCounts
 from fedcourtsai.usage import (
     codex_cell_rollouts,
     engine_version_from_output,
+    parse_claude_served_models,
     parse_claude_usage,
+    parse_codex_served_models,
     parse_codex_usage,
+    parse_gemini_served_models,
     parse_gemini_usage,
     resolve_engine_version,
     resolve_pipeline_sha,
@@ -327,3 +330,90 @@ def test_cell_rollouts_follow_the_parent_chain_and_skip_another_top_level_sessio
     _codex_session(child, {"id": "c", "parent_thread_id": "p", "source": "exec"}, usage)
     _codex_session(orphan, {"id": "o", "source": {"subagent": "compact"}}, usage)
     assert codex_cell_rollouts(tmp_path / "sessions") == [parent, grandchild, child, orphan]
+
+
+def test_claude_served_models_read_the_main_threads_responses(tmp_path: Path) -> None:
+    transcript = _write_claude(
+        tmp_path / "execution.json",
+        [
+            {"type": "system", "subtype": "init", "model": "claude-opus-5-5"},
+            {"type": "assistant", "message": {"model": "claude-opus-5-5"}},
+            # A subagent runs on its own model by design.
+            {
+                "type": "assistant",
+                "parent_tool_use_id": "toolu_1",
+                "message": {"model": "claude-haiku-5-5"},
+            },
+            # Claude Code's own placeholder turn, which no model served.
+            {"type": "assistant", "message": {"model": "<synthetic>"}},
+            {"type": "assistant", "message": {"model": "claude-sonnet-5-5"}},
+            {"type": "assistant", "message": {"model": "claude-opus-5-5"}},
+        ],
+    )
+    assert parse_claude_served_models(transcript) == ["claude-opus-5-5", "claude-sonnet-5-5"]
+    assert parse_claude_served_models(tmp_path / "missing.json") is None
+
+
+def test_codex_served_models_read_the_parent_sessions_turn_contexts(tmp_path: Path) -> None:
+    day = tmp_path / "sessions" / "2026" / "10" / "16"
+    day.mkdir(parents=True)
+    (day / "rollout-2026-10-16T09-00-00-p.jsonl").write_text(
+        "\n".join(
+            json.dumps(record)
+            for record in (
+                {"type": "session_meta", "payload": {"id": "p", "source": "exec"}},
+                {"type": "turn_context", "payload": {"model": "gpt-6.1-sol"}},
+                {"type": "turn_context", "payload": {"model": "gpt-6.1-sol"}},
+            )
+        )
+    )
+    (day / "rollout-2026-10-16T09-01-00-c.jsonl").write_text(
+        "\n".join(
+            json.dumps(record)
+            for record in (
+                {"type": "session_meta", "payload": {"id": "c", "parent_thread_id": "p"}},
+                {"type": "turn_context", "payload": {"model": "gpt-6.1-mini"}},
+            )
+        )
+    )
+    assert parse_codex_served_models(tmp_path / "sessions") == ["gpt-6.1-sol"]
+    assert parse_codex_served_models(tmp_path / "none") is None
+
+
+def test_gemini_served_models_read_main_role_responses(tmp_path: Path) -> None:
+    log = tmp_path / "telemetry.log"
+    records = [
+        {
+            "attributes": {
+                "event.name": "gemini_cli.api_response",
+                "model": "gemini-4-argon",
+                "role": "main",
+                "input_token_count": 10,
+            }
+        },
+        # Utility calls run on helper models by design.
+        {
+            "attributes": {
+                "event.name": "gemini_cli.api_response",
+                "model": "gemini-4-flash-lite",
+                "role": "utility_loop_detector",
+                "input_token_count": 3,
+            }
+        },
+        # The CLI fell back mid-run.
+        {
+            "attributes": [
+                {"key": "event.name", "value": {"stringValue": "gemini_cli.api_response"}},
+                {"key": "model", "value": {"stringValue": "gemini-4-flash"}},
+                {"key": "input_token_count", "value": {"intValue": "4"}},
+            ]
+        },
+        # A record of another event is not a response.
+        {"attributes": {"event.name": "gemini_cli.api_request", "model": "x"}},
+    ]
+    log.write_text("\n".join(json.dumps(record) for record in records))
+    assert parse_gemini_served_models(log) == ["gemini-4-argon", "gemini-4-flash"]
+    # The usage fixture's flat shape names its model on the record itself.
+    flat = tmp_path / "flat.log"
+    flat.write_text(json.dumps(_gemini_event(1, 0, 1, 0)))
+    assert parse_gemini_served_models(flat) == ["gemini-3.1-pro-preview"]
