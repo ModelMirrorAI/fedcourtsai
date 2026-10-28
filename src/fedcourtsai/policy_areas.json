@@ -1,6 +1,71 @@
 {
  "rule_version": "policy-area-v1",
  "labels": {
+  "16A731": {
+   "area": "other",
+   "note": "Certificate of appealability in a federal criminal/collateral case; no general policy",
+   "uncertain": false
+  },
+  "16A792": {
+   "area": "other",
+   "note": "Word-limit extension only, in a DC criminal case (Turner); no policy",
+   "uncertain": false
+  },
+  "16A847": {
+   "area": "other",
+   "note": "Individual Social Security benefits dispute; no entries shown, no general policy",
+   "uncertain": true
+  },
+  "16A888": {
+   "area": "other",
+   "note": "Individual seeks injunction against DHS; subject and any policy challenged unknown",
+   "uncertain": true
+  },
+  "16A912": {
+   "area": "other",
+   "note": "Individual stay pending cert vs United States, likely criminal; no policy shown",
+   "uncertain": true
+  },
+  "16A937": {
+   "area": "other",
+   "note": "Page-limit extension only, in a federal criminal case; no policy",
+   "uncertain": false
+  },
+  "16A955": {
+   "area": "other",
+   "note": "Bail pending rehearing in a federal criminal case; no general policy",
+   "uncertain": false
+  },
+  "16A990": {
+   "area": "immigration",
+   "note": "Individual stay of removal pending petition for review; no general policy",
+   "uncertain": false
+  },
+  "16A1156": {
+   "area": "other",
+   "note": "Certificate of appealability in a federal criminal/collateral case; no general policy",
+   "uncertain": false
+  },
+  "16A1165": {
+   "area": "immigration",
+   "note": "Individual stay of removal pending cert; contests no general policy",
+   "uncertain": false
+  },
+  "16A1190": {
+   "area": "immigration",
+   "note": "Travel ban EO 13780 entry suspension; government seeks stay of injunction (IRAP)",
+   "uncertain": false
+  },
+  "16A1191": {
+   "area": "immigration",
+   "note": "Travel ban EO 13780 entry and refugee suspension; government seeks stay (Hawaii)",
+   "uncertain": false
+  },
+  "16A1241": {
+   "area": "immigration",
+   "note": "Individual stay of removal pending cert; contests no general policy",
+   "uncertain": false
+  },
   "17A126": {
    "area": "foreign-affairs",
    "note": "extradition bail; custody matter",

@@ -49,7 +49,7 @@ label is not reproducible from the record alone. The disagreements were
 adjudicated row by row by the session that assembled the reference, which was
 not blind. Each entry carries a short note
 naming the policy and an ``uncertain`` flag where the subject is in doubt:
-either rater was unsure of it, or, in the later round, the raters' areas
+either rater was unsure of it, or, in the later rounds, the raters' areas
 differed. The labels cover the applications the corpus held when they were
 assigned, so a later application is ``unlabeled`` until it is added, and the
 cut counts those beside its cells.
