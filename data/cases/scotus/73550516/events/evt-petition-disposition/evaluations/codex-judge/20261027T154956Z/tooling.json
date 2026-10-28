@@ -1,0 +1,23 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/73550516",
+  "gaps": [
+    "gemini-baseline's log carries no observed results, limiting content-level leakage verification."
+  ],
+  "helpful": [
+    "Blinded candidate inputs preserve the probability, rationale, forecast, and frozen context needed for independent scoring.",
+    "The staged snapshot distinguishes the Rule 46 dismissal from a denial.",
+    "Capture markers distinguish unobserved retrieval results from empty or failed results."
+  ],
+  "notes": "All three predictions froze a cert salience band, so baseline and skill stamping were left to the harness. No corpus lookup, CourtListener lookup, web retrieval, or committed statpack consultation was needed.",
+  "role": "evaluator",
+  "run_id": "20261027T154956Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "apply_patch",
+    "pydantic"
+  ],
+  "used_base_rates": false,
+  "used_corpus_query": false
+}

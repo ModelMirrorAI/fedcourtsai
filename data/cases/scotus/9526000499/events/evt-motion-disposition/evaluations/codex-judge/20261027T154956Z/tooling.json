@@ -1,0 +1,25 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9526000499",
+  "gaps": [
+    "One candidate has no captured tool results; its retrieval assessment necessarily rests on queries and prose.",
+    "The short denial entry provides no substantive judicial rationale against which to confirm the proposed reasons for denial."
+  ],
+  "helpful": [
+    "Blinded candidate directories preserve alias-only grading.",
+    "The decided snapshot corroborates the outcome and distinguishes individual-Justice denial from full-Court referral.",
+    "Capture markers permit query-based leakage assessment without mistaking unobserved results for empty results.",
+    "The provisioned application supports checking the asserted circuit split without external case retrieval."
+  ],
+  "notes": "Scored every staged alias. Base-rate context was read from committed metrics, but interim baseline, skill, and claim scores remain for the harness. No external retrieval or corpus access was needed; no cell anomaly requires flags.json.",
+  "role": "evaluator",
+  "run_id": "20261027T154956Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "apply_patch",
+    "local JSON Schema and Pydantic validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

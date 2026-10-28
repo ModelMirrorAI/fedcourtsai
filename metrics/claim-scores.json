@@ -2,12 +2,12 @@
   "by_protocol": [
     {
       "forward": {
-        "cells": 378,
+        "cells": 380,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.031517550807919965,
-            "scored": 126
+            "mean_score": 0.030975984647532036,
+            "scored": 127
           },
           {
             "claim_id": "relist-increment",
@@ -33,13 +33,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 126,
+        "events": 127,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.740204397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.0491000106831871,
-        "mean_total": 0.0491000106831871,
-        "scored_events": 126
+        "mean_lift": 0.048419999956852186,
+        "mean_total": 0.048419999956852186,
+        "scored_events": 127
       },
       "predictor_id": "claude-baseline",
       "procedural": null,
@@ -94,12 +94,12 @@
     },
     {
       "forward": {
-        "cells": 381,
+        "cells": 383,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.03277162383927553,
-            "scored": 127
+            "mean_score": 0.032086991218958166,
+            "scored": 128
           },
           {
             "claim_id": "relist-increment",
@@ -125,13 +125,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 127,
+        "events": 128,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.821804397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.047586111589540556,
-        "mean_total": 0.047586111589540556,
-        "scored_events": 127
+        "mean_lift": 0.04678574078367425,
+        "mean_total": 0.04678574078367425,
+        "scored_events": 128
       },
       "predictor_id": "codex-baseline",
       "procedural": null,
@@ -140,12 +140,12 @@
     },
     {
       "forward": {
-        "cells": 381,
+        "cells": 383,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.004185033288094429,
-            "scored": 127
+            "mean_score": 0.003920608406458167,
+            "scored": 128
           },
           {
             "claim_id": "relist-increment",
@@ -171,13 +171,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 127,
+        "events": 128,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.897704397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.0001770800934775717,
-        "mean_total": 0.0001770800934775717,
-        "scored_events": 127
+        "mean_lift": -5.603265382574639e-05,
+        "mean_total": -5.603265382574639e-05,
+        "scored_events": 128
       },
       "predictor_id": "gemini-baseline",
       "procedural": null,
@@ -185,16 +185,16 @@
       "retrospective": null
     }
   ],
-  "cells_with_claims": 1143,
+  "cells_with_claims": 1149,
   "entries": [
     {
       "forward": {
-        "cells": 381,
+        "cells": 383,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.031210608091244034,
-            "scored": 127
+            "mean_score": 0.030675670906458164,
+            "scored": 128
           },
           {
             "claim_id": "relist-increment",
@@ -220,13 +220,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 127,
+        "events": 128,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.740204397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.04865462340056418,
-        "mean_total": 0.04865462340056418,
-        "scored_events": 127
+        "mean_lift": 0.04798340484617425,
+        "mean_total": 0.04798340484617425,
+        "scored_events": 128
       },
       "predictor_id": "claude-baseline",
       "procedural": null,
@@ -234,7 +234,7 @@
       "retrospective": null,
       "windows": [
         {
-          "n": 378,
+          "n": 380,
           "opens": "2026-09-16T00:26:04Z",
           "process_window": "proc-v8"
         },
@@ -247,12 +247,12 @@
     },
     {
       "forward": {
-        "cells": 381,
+        "cells": 383,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.03277162383927553,
-            "scored": 127
+            "mean_score": 0.032086991218958166,
+            "scored": 128
           },
           {
             "claim_id": "relist-increment",
@@ -278,13 +278,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 127,
+        "events": 128,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.821804397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.047586111589540556,
-        "mean_total": 0.047586111589540556,
-        "scored_events": 127
+        "mean_lift": 0.04678574078367425,
+        "mean_total": 0.04678574078367425,
+        "scored_events": 128
       },
       "predictor_id": "codex-baseline",
       "procedural": null,
@@ -292,7 +292,7 @@
       "retrospective": null,
       "windows": [
         {
-          "n": 381,
+          "n": 383,
           "opens": "2026-09-16T00:26:04Z",
           "process_window": "proc-v8"
         }
@@ -300,12 +300,12 @@
     },
     {
       "forward": {
-        "cells": 381,
+        "cells": 383,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.004185033288094429,
-            "scored": 127
+            "mean_score": 0.003920608406458167,
+            "scored": 128
           },
           {
             "claim_id": "relist-increment",
@@ -331,13 +331,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 127,
+        "events": 128,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.897704397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.0001770800934775717,
-        "mean_total": 0.0001770800934775717,
-        "scored_events": 127
+        "mean_lift": -5.603265382574639e-05,
+        "mean_total": -5.603265382574639e-05,
+        "scored_events": 128
       },
       "predictor_id": "gemini-baseline",
       "procedural": null,
@@ -345,26 +345,26 @@
       "retrospective": null,
       "windows": [
         {
-          "n": 381,
+          "n": 383,
           "opens": "2026-09-16T00:26:04Z",
           "process_window": "proc-v8"
         }
       ]
     }
   ],
-  "evaluations_total": 1143,
+  "evaluations_total": 1149,
   "forward_agreement": {
     "masked_claim_total": 0,
     "missing_claim_block": 0,
     "missing_reasoning_quality": 0,
-    "pair_events": 127,
-    "pairs": 1143,
-    "rank_agreement": 0.1246304513599016,
+    "pair_events": 128,
+    "pairs": 1149,
+    "rank_agreement": 0.1264264677965672,
     "rubrics": [
       {
         "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
         "evaluator_id": "claude-judge",
-        "n": 108
+        "n": 111
       },
       {
         "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
@@ -394,7 +394,7 @@
       {
         "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
         "evaluator_id": "gemini-judge",
-        "n": 51
+        "n": 54
       },
       {
         "digest": "sha256:dbdc90647bc81eec9b4de523188f1e46c5dcb64b5717a30da16b8886e4a6d4fe",
@@ -405,7 +405,7 @@
     "suppressed": false,
     "windows": [
       {
-        "n": 378,
+        "n": 380,
         "predictor_id": "claude-baseline",
         "process_window": "proc-v8"
       },
@@ -415,12 +415,12 @@
         "process_window": "proc-v9"
       },
       {
-        "n": 381,
+        "n": 383,
         "predictor_id": "codex-baseline",
         "process_window": "proc-v8"
       },
       {
-        "n": 381,
+        "n": 383,
         "predictor_id": "gemini-baseline",
         "process_window": "proc-v8"
       }
@@ -428,20 +428,20 @@
   },
   "forward_claim": {
     "by_predictor": {},
-    "claimed_forward": 1452,
+    "claimed_forward": 1461,
     "excluded": 0,
     "policy": "exclude"
   },
   "frozen_process": {
     "digests": [
       "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
-      "sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f",
+      "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+      "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
       "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
-      "sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9",
-      "sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4",
-      "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac"
+      "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+      "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745"
     ],
-    "since": "2026-10-25T13:40:46Z",
+    "since": "2026-10-26T19:00:50Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -516,7 +516,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-26T19:00:50Z",
         "digest": "sha256:457d3e0e44be5ed4d2a5da50b0078129a08c0cd4d35108569ee058c53759513f",
         "label": "proc-v12",
         "opens": "2026-10-25T13:40:46Z",
@@ -524,7 +524,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-26T19:00:50Z",
         "digest": "sha256:87e57da6f663878435c82b1f527cb13eea1017130fcdb13b134e759583db60f4",
         "label": "proc-v12",
         "opens": "2026-10-25T13:40:46Z",
@@ -532,17 +532,41 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-26T19:00:50Z",
         "digest": "sha256:8057aacc92139d6caed4284137fd96ec5c008ddd60fa0c75a0752793369e07c9",
         "label": "proc-v12",
         "opens": "2026-10-25T13:40:46Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
+        "label": "proc-v13",
+        "opens": "2026-10-26T19:00:50Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+        "label": "proc-v13",
+        "opens": "2026-10-26T19:00:50Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745",
+        "label": "proc-v13",
+        "opens": "2026-10-26T19:00:50Z",
         "predictor_id": "gemini-baseline",
         "revoked_at": null
       }
     ]
   },
   "leakage_exclusion": {
-    "assessed": 1452,
+    "assessed": 1461,
     "by_predictor": {
       "gemini-baseline": 3
     },
@@ -575,12 +599,12 @@
   "set_aside_sensitivity": [
     {
       "including": {
-        "cells": 402,
+        "cells": 404,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.027241306542570974,
-            "scored": 134
+            "mean_score": 0.026763509075134542,
+            "scored": 135
           },
           {
             "claim_id": "relist-increment",
@@ -606,13 +630,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 134,
+        "events": 135,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.740204397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.04454033859860259,
-        "mean_total": 0.04454033859860259,
-        "scored_events": 134
+        "mean_lift": 0.04393440015297333,
+        "mean_total": 0.04393440015297333,
+        "scored_events": 135
       },
       "predictor_id": "claude-baseline",
       "set_aside": 21,
@@ -620,12 +644,12 @@
     },
     {
       "including": {
-        "cells": 402,
+        "cells": 404,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.03124431400525754,
-            "scored": 134
+            "mean_score": 0.03060649426031973,
+            "scored": 135
           },
           {
             "claim_id": "relist-increment",
@@ -651,13 +675,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 134,
+        "events": 135,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.821804397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.04575267441949811,
-        "mean_total": 0.04575267441949811,
-        "scored_events": 134
+        "mean_lift": 0.04500738533815852,
+        "mean_total": 0.04500738533815852,
+        "scored_events": 135
       },
       "predictor_id": "codex-baseline",
       "set_aside": 21,
@@ -665,12 +689,12 @@
     },
     {
       "including": {
-        "cells": 402,
+        "cells": 404,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.0043675378858545584,
-            "scored": 134
+            "mean_score": 0.004115472038097508,
+            "scored": 135
           },
           {
             "claim_id": "relist-increment",
@@ -696,13 +720,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 134,
+        "events": 135,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.897704397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.0014844803896473663,
-        "mean_total": 0.0014844803896473663,
-        "scored_events": 134
+        "mean_lift": 0.0012537705233437032,
+        "mean_total": 0.0012537705233437032,
+        "scored_events": 135
       },
       "predictor_id": "gemini-baseline",
       "set_aside": 21,

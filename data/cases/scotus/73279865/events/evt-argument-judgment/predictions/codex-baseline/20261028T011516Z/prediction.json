@@ -1,0 +1,143 @@
+{
+  "big_case_rationale": "The case determines access to district courts for constitutional challenges to veterans' benefits statutes and may clarify agency adjudicators' duties, but does not itself decide entitlement to benefits or the validity of the incarceration reduction.",
+  "big_case_score": 0.61,
+  "case_id": "scotus/73279865",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.12,
+        "Barrett": 0.05,
+        "Gorsuch": 0.28,
+        "Jackson": 0.1,
+        "Kagan": 0.04,
+        "Kavanaugh": 0.18,
+        "Roberts": 0.1,
+        "Sotomayor": 0.08,
+        "Thomas": 0.04,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.15,
+        "Barrett": 0.16,
+        "Gorsuch": 0.24,
+        "Jackson": 0.22,
+        "Kagan": 0.32,
+        "Kavanaugh": 0.1,
+        "Roberts": 0.03,
+        "Sotomayor": 0.13,
+        "Thomas": 0.27
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.78
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-06",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-06",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-28T01:35:22Z",
+  "engine": "codex",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-06.json",
+  "judgment": "reversed",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.78,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+    "label": "proc-v13",
+    "pipeline_sha": "e8becdd9c4b50f65c5334cf1037209962db0fd29",
+    "stamped_at": "2026-10-28T01:37:39.200146Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Section 511(a) does not preclude district-court jurisdiction over a standalone constitutional challenge to a veterans' benefits statute: deciding the statute's validity is not necessary to a Secretary's decision applying that statute, and the VJRA preserves Robison's distinction between challenges to statutory validity and challenges to agency administration."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding establishes a general district-court route for constitutional attacks on the validity of veterans' benefits statutes, not an exception confined to Johnson's incarceration or Section 5313, while leaving challenges to agency interpretation and administration within the VJRA review scheme."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

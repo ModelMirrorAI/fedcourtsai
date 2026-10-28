@@ -1,0 +1,143 @@
+{
+  "big_case_rationale": "Decides the threshold 'consumer' element for the wave of VPPA pixel class actions against websites; large aggregate statutory-damages exposure, but a single-clause statutory question with other limiting elements left open.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/73278510",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.05,
+        "Barrett": 0.12,
+        "Gorsuch": 0.13,
+        "Jackson": 0.1,
+        "Kagan": 0.17,
+        "Kavanaugh": 0.13,
+        "Roberts": 0.1,
+        "Sotomayor": 0.1,
+        "Thomas": 0.06,
+        "per-curiam": 0.04
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.55,
+        "Barrett": 0.25,
+        "Gorsuch": 0.28,
+        "Jackson": 0.3,
+        "Kagan": 0.12,
+        "Kavanaugh": 0.25,
+        "Roberts": 0.08,
+        "Sotomayor": 0.18,
+        "Thomas": 0.4
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.75
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-15",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-15",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-28T01:20:10Z",
+  "engine": "claude-code",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-15.json",
+  "judgment": "reversed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.75,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
+    "label": "proc-v13",
+    "pipeline_sha": "e8becdd9c4b50f65c5334cf1037209962db0fd29",
+    "stamped_at": "2026-10-28T01:21:13.294433Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that 'goods or services' in 18 U.S.C. 2710(a)(1) carries its ordinary, unmodified meaning, so a renter, purchaser, or subscriber of any good or service from a video tape service provider is a 'consumer'; the phrase 'from a video tape service provider' identifies the source of the goods or services, not their subject matter, and the Court rests this on the contrast with the video-specific modifiers Congress used in the neighbouring definitions of 'personally identifiable information' (a)(3) and 'video tape service provider' (a)(4), rejecting the Sixth Circuit's audiovisual-only reading."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is confined to the 'consumer' definition: the opinion expressly declines to decide whether Paramount/247Sports is a 'video tape service provider', whether a Facebook-ID/pixel disclosure is 'personally identifiable information', and Article III standing questions beyond what jurisdiction requires, and remands for those issues rather than announcing any broader rule about online video or targeted-advertising data sharing."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

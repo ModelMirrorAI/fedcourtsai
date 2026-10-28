@@ -1,0 +1,25 @@
+# Evaluation of `claude-baseline` (`scotus/9526000499` — `evt-motion-disposition`)
+
+## Stage and Quantitative Summary
+
+This cell evaluates an **interim-stage** event (`evt-motion-disposition` at the `arrival` moment): the application by the State of Louisiana and Cameron Parish (No. 26A499) to vacate the Fifth Circuit's October 5, 2026 stay order pending appeal of a remand order. On October 14, 2026, Justice Sotomayor requested a response; respondent Devon Energy filed its opposition on October 21, applicants replied on October 23, and on October 26, 2026, Justice Sotomayor denied the application in chambers without referring it to the full Court (`actual_disposition = "denied"`, `actual_granted = 0`, `response_requested = true`, `referred_to_court = false`, `amicus_briefs = 0`).
+
+Because this is an interim-stage cell, `segment_base_rate`, `brier_skill_score`, and `claim_scores` are computed and stamped by the harness from the committed statpack's interim section (with `base_rate_basis` left `null` structurally, as interim applications are not a salience-band product). The committed statpack's prior-Term substantive interim pool clears the pre-registered 50-resolution floor, so the stamped segment base rate and skill score are populated by `stamp-cell`.
+
+- **Predicted disposition:** `denied` (`correct = 1`)
+- **Predicted probability of grant:** `0.09` (`brier_score = 0.0081`)
+- **Reasoning quality:** `0.92`
+
+## Assessment of `reasoning.md`
+
+`claude-baseline` delivered a well-calibrated, concise, and analytically perceptive rationale (`reasoning_quality = 0.92`):
+
+1. **Disciplined base-rate anchoring and net adjustment:** `claude-baseline` properly anchored on the committed statpack's interim section over strictly prior Terms in the ten-Term window (which at prediction time carried 53 grants out of 549 resolved substantive applications across OT2023–OT2025, or 9.7%) and resisted the temptation to inflate the probability of emergency vacatur merely because the application presented a circuit split and a sovereign State applicant. Recognizing that the upward factors (state sovereign applicant, published Fifth Circuit stay order halting state-court proceedings, and a real split between the Ninth Circuit and the Fifth/Eleventh Circuits) and downward factors roughly canceled out, `claude-baseline` landed at `0.09`—just below its anchor—producing the strongest Brier score (`0.0081`) in the panel.
+2. **Decisive vehicle and docket-context insight (*City of Brunswick* and *Harrison*):** `claude-baseline` highlighted that *City of Brunswick v. Honeywell* (No. 26-289), raising the same post-transmittal *Griggs*/*Coinbase* stay question, was scheduled for the October 16, 2026 conference, and that the Court had already denied certiorari on the issue in *Harrison* in January 2026. `claude-baseline` reasoned that *Brunswick* gave the Court an orderly plenary vehicle if it wished to address the question, and that a denial in *Brunswick* would signal little appetite to intervene on an emergency basis here. That analysis was fully borne out: the Court denied certiorari in *Brunswick* on October 19, 2026, and Devon Energy's opposition brief two days later led with that denial before Justice Sotomayor denied this application on October 26.
+3. **Institutional and procedural realism:** `claude-baseline` accurately noted the extraordinary deference the Court gives to a circuit court's management of its own pending appeal, the arithmetic hurdle created by Justice Alito's recusal (requiring five of eight Justices to vacate), and the absence of irreversible interim harm from ordinary litigation delay in the coastal-damage suit. In its discussion of the escalation rungs, `claude-baseline` also rightly identified that while a response call was likely (0.80, borne out), an in-chambers denial by Justice Sotomayor was the primary reason the application might not be referred to the full Court (assigning 0.60 to referral, noticeably more cautious than peers, and 0.25 to amicus activity, both borne out by the in-chambers denial with zero amici).
+4. **Minor limitation:** `claude-baseline` read only the first 30 KB of `application.txt` (covering the introduction, background, question presented, and table of contents) rather than the full 48-page filing, though it candidly disclosed that scope limitation and still extracted the decisive legal and institutional signals.
+
+## Leakage Assessment
+
+- **Mode:** `forward` (prediction timestamp `2026-10-15T14:52:33Z`; event resolved `2026-10-26`).
+- **Audit:** The harness-captured `retrieval_log.json` (`result_capture_coverage = 1.0`) shows reads of the prompt, schemas, `event.yaml`, `context.json`, `2026-10-10.json`, the first 30 KB of `application.txt`, `metrics/statpack.md`, and a single CourtListener MCP search (`"Parish of Cameron" Devon Energy Griggs stay`) that returned the Fifth Circuit stay opinion filed `2026-10-06`. The case was genuinely open at prediction time and no outcome material existed or was retrieved (`retrieved_outcome_material = false`, `influenced_prediction = "not_applicable"`, `leakage_suspected = false`).

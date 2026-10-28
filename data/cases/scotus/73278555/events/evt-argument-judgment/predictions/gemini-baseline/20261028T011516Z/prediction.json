@@ -1,0 +1,143 @@
+{
+  "big_case_rationale": "Significant ERISA pleading precedent governing class-action challenges to 401(k) and defined-contribution retirement plan investment options nationwide, resolving a circuit split on the meaningful-benchmark standard.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/73278555",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.04,
+        "Barrett": 0.215,
+        "Gorsuch": 0.11,
+        "Jackson": 0.06,
+        "Kagan": 0.195,
+        "Kavanaugh": 0.14,
+        "Roberts": 0.1,
+        "Sotomayor": 0.09,
+        "Thomas": 0.04,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.1,
+        "Barrett": 0.07,
+        "Gorsuch": 0.18,
+        "Jackson": 0.2,
+        "Kagan": 0.06,
+        "Kavanaugh": 0.18,
+        "Roberts": 0.02,
+        "Sotomayor": 0.12,
+        "Thomas": 0.16
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.18
+    }
+  ],
+  "confidence": 0.82,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-07",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-07",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-28T01:15:16Z",
+  "engine": "gemini",
+  "event_id": "evt-argument-judgment",
+  "granted": 0,
+  "input_snapshot": "2026-10-07.json",
+  "judgment": "affirmed",
+  "model": "gemini-4-argon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.18,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745",
+    "label": "proc-v13",
+    "pipeline_sha": "e8becdd9c4b50f65c5334cf1037209962db0fd29",
+    "stamped_at": "2026-10-28T01:29:55.022724Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Applying Twombly, Iqbal, Dudenhoeffer, and Hughes to ERISA's prudent-person text in 29 U.S.C. 1104(a)(1)(B) ('an enterprise of a like character and with like aims'), the Court holds that a complaint seeking to infer an imprudent fiduciary process from fund underperformance must plead a meaningful benchmark\u2014a comparator sharing similar investment aims and risk-return profile\u2014to rule out the obvious alternative explanation that the return differential resulted from different investment objectives rather than fiduciary imprudence."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court announces a general pleading rule for ERISA underperformance claims across circuits while explicitly clarifying two limits: first, a 'meaningful benchmark' requires similar aims and risk profile rather than an identical twin or identical underlying asset allocation, and second, non-comparative or direct process/asset-allocation challenges need not plead a performance benchmark when not relying on underperformance, though Intel's non-performance allegations independently failed on their own terms."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

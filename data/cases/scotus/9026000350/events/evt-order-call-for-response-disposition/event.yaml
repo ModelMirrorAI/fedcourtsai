@@ -1,0 +1,15 @@
+case_id: scotus/9026000350
+decision_target: disposition
+description: Disposition of the petition, forecast after the Court called for a response
+  to it.
+docket_entry_id: null
+event_id: evt-order-call-for-response-disposition
+kind: order
+moment: response-requested
+opened_at: '2026-10-27'
+resolved: false
+schema_version: '1.0'
+stage: cert
+title: Altrad Investment Authority S.A.S, et al. v. Cape Intermediate Holdings Limited,
+  Individually and as Successor in Interest to Cape Asbestos Company Limited, By and
+  Through Its Receiver Peter D. Protopapas, et al.

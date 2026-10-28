@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-judge",
+  "case_id": "scotus/9526000499",
+  "gaps": [],
+  "helpful": [
+    "Provisioned application, opposition response, and reply filings in record/documents/ made it easy to evaluate how each candidate's arrival-stage reasoning held up against the full adversarial briefing and disposition.",
+    "Committed metrics/statpack.md interim docket table clearly showed the prior-Term substantive application counts."
+  ],
+  "notes": "Evaluated three blinded forward-mode predictions for interim event evt-motion-disposition.",
+  "role": "evaluator",
+  "run_id": "20261027T154956Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "run_shell_command",
+    "write_file"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

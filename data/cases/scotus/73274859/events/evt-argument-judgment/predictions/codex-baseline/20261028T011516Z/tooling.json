@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73274859",
+  "gaps": [
+    "corpus-info cannot report freshness through the cell's service backend; the committed pack's source vintage could not be verified.",
+    "No provisioned sitting-assignment tally was present for case-specific authorship allocation.",
+    "The first citation-only Ouellette lookup returned an unrelated case; restricting by court and case name resolved it."
+  ],
+  "helpful": [
+    "The snapshot identifies both the added jurisdiction question and Alito's nonparticipation.",
+    "Both merits briefs, the reply, the United States amicus, and a complete transcript support a substantive merits forecast.",
+    "Argument-feature coverage makes the questioning counts interpretable without treating counts as votes.",
+    "The guarded merits cohort and prior-Term writing and lineup counts make the reference populations explicit."
+  ],
+  "notes": "The default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache allowed the CLI to run. No case outcome or other cell output was retrieved. Tooling limitations did not block production of the forecast.",
+  "role": "predictor",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot, context, document manifest, merits briefs, argument transcript and argument features",
+    "committed statpack merits, justice_votes and authorship sections",
+    "CourtListener MCP search and search_document for predecessor decisions",
+    "read-only independent transcript analysis and statistical audit",
+    "fedcourts paths, corpus-info and validate",
+    "web search/open attempts with no usable result"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

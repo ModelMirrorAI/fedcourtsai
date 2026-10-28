@@ -1,0 +1,88 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:a3d8b94fbfc924a5c3504e7620ed430e6ce6b9e716739f5e100724e3db15e59c",
+  "big_case": {
+    "evaluator_score": 0.3,
+    "notes": "The question has meaningful international-arbitration and insurance-market implications, but this is an unpublished follower vehicle concerning nonsignatory enforcement, not a broad public-rights dispute. The Rule 46 dismissal resolves no governing-law question."
+  },
+  "brier_score": 0.0576,
+  "brier_skill_score": -20.032272411107098,
+  "case_id": "scotus/73550516",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05233209759462023,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.24,
+        "score": -0.054861351561347145
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.7,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.12,
+        "score": null
+      },
+      {
+        "baseline": 0.3432657926102503,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.65,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.03,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.054861351561347145,
+    "total": -0.054861351561347145
+  },
+  "correct": 0,
+  "created_at": "2026-10-27T16:03:30Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The 42-call log has 39 captured and three unobserved results. The unobserved web queries target historical GE Energy and Setty opinions, not this petition's disposition; they are not treated as empty results. The staged reasoning distinguishes historical holdings from the petition's allegations and does not assert knowledge of later docket events. Prediction and research on October 6 precede the October 19 stipulation and October 20 dismissal.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": null,
+  "predicted_reasoning_review": null,
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+    "label": "proc-v13",
+    "pipeline_sha": "8e1407aa36e9bbd5e653f6116e2916ff272bace7",
+    "stamped_at": "2026-10-27T16:05:13.720203Z"
+  },
+  "reasoning_quality": 0.88,
+  "run_id": "20261027T154956Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05233209759462023,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

@@ -1,0 +1,143 @@
+{
+  "big_case_rationale": "Settles whether Williamson County finality reaches First Amendment/RLUIPA land-use claims \u2014 a recurring religious-liberty and zoning question with heavy amicus interest \u2014 but a remand-shaped ripeness ruling, not a substantive Free Exercise holding.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/73281006",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.1,
+        "Barrett": 0.14,
+        "Gorsuch": 0.14,
+        "Jackson": 0.07,
+        "Kagan": 0.08,
+        "Kavanaugh": 0.11,
+        "Roberts": 0.14,
+        "Sotomayor": 0.07,
+        "Thomas": 0.09,
+        "per-curiam": 0.06
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.35,
+        "Barrett": 0.2,
+        "Gorsuch": 0.45,
+        "Jackson": 0.35,
+        "Kagan": 0.12,
+        "Kavanaugh": 0.2,
+        "Roberts": 0.05,
+        "Sotomayor": 0.25,
+        "Thomas": 0.45
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.8
+    }
+  ],
+  "confidence": 0.6,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-24",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 5,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-24",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-28T01:35:17Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-24.json",
+  "judgment": "vacated",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.8,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
+    "label": "proc-v13",
+    "pipeline_sha": "e8becdd9c4b50f65c5334cf1037209962db0fd29",
+    "stamped_at": "2026-10-28T01:36:28.119344Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "Williamson County's finality requirement is an application of ordinary Article III injury principles to claims whose injury is the denial of a desired land use, not a freestanding categorical ripeness rule for every as-applied land-use claim; because Grand's claims for retrospective relief (damages for the past chill from the cease-and-desist demand and threats, the permit costs, and alleged discriminatory treatment) rest on injuries independent of any Planning Commission decision, they are judged under ordinary standing/chilling-effect doctrine (SBA List) and the Sixth Circuit erred in requiring a final local decision first."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is narrow and remand-shaped: the Court rejects only the Sixth Circuit's categorical finality bar and does not itself decide whether Grand's prospective claims were ripe or have become moot after his move out of University Heights, nor whether his damages theory was preserved; it leaves those questions, and Williamson County's continued application to takings and to challenges to a permit outcome, for the lower courts on remand."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

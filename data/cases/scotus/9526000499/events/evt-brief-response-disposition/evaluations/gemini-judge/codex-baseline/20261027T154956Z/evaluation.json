@@ -1,0 +1,81 @@
+{
+  "base_rate_basis": null,
+  "base_rate_lookback_terms": null,
+  "base_rate_salience_version": null,
+  "base_rate_statpack_digest": null,
+  "big_case": {
+    "evaluator_score": 0.35,
+    "notes": "State of Louisiana and Cameron Parish emergency application to vacate a published Fifth Circuit stay order in high-dollar coastal-erosion litigation following Chevron USA Inc. v. Plaquemines Parish, raising an acknowledged circuit split over whether a post-transmittal 28 U.S.C. 1447(d) remand appeal triggers an automatic Griggs/Coinbase stay of state-court proceedings, but arising in an interlocutory stay posture with Justice Alito recused and days after the Court denied certiorari on the same question in City of Brunswick v. Honeywell."
+  },
+  "brier_score": 0.0036,
+  "brier_skill_score": 0.7497350291653875,
+  "case_id": "scotus/9526000499",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.1199364575059571,
+        "claim_id": "interim-disposition",
+        "outcome": 0,
+        "probability": 0.06,
+        "score": 0.010784753839078256
+      },
+      {
+        "baseline": null,
+        "claim_id": "response-requested-increment",
+        "outcome": null,
+        "probability": 0.0,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "referral-increment",
+        "outcome": 0,
+        "probability": 0.8,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "amicus-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      }
+    ],
+    "declared_set_version": "interim-v1",
+    "floor": 0.0,
+    "lift": 0.010784753839078256,
+    "total": 0.010784753839078256
+  },
+  "correct": 1,
+  "created_at": "2026-10-27T15:54:00Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-brief-response-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created on 2026-10-21T17:10:16Z, five days before the 2026-10-26 denial order. Retrieval log shows local file reads of provisioned snapshot and briefs, statpack, and two generic legal web searches that returned no case-specific outcome information.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": null,
+  "predicted_reasoning_review": null,
+  "prediction_run_id": "20261021T170410Z",
+  "predictor_id": "codex-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+    "label": "proc-v13",
+    "pipeline_sha": "8e1407aa36e9bbd5e653f6116e2916ff272bace7",
+    "stamped_at": "2026-10-27T16:09:54.202440Z"
+  },
+  "reasoning_quality": 0.92,
+  "run_id": "20261027T154956Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.1199364575059571,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

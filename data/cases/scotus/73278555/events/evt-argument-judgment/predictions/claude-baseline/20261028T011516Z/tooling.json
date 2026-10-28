@@ -1,0 +1,21 @@
+{
+  "case_id": "scotus/73278555",
+  "run_id": "20261028T011516Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned documents",
+    "argument-features.json",
+    "metrics/statpack.md merits section"
+  ],
+  "helpful": [
+    "Provisioned argument transcript and full merits briefing made this cell self-sufficient",
+    "argument-features.json was a quick cross-check on where questioning fell"
+  ],
+  "gaps": [
+    "No statpack cut of the disturbed rate conditioned on the Solicitor General's merits-amicus side"
+  ],
+  "notes": "No corpus query or MCP retrieval; the transcript was decisive."
+}
