@@ -2566,10 +2566,17 @@ jobs:
   order-scan:
     needs: [authorize]
     # The adverse-order candidate scan: a bounded RECAP search over the
-    # configured queries and filing windows, reported as JSON (identifiers,
-    # dates and order readings; no entry text). It reads CourtListener's REST
-    # API and nothing else — no corpus, no cloud role, no App token — so the
-    # CourtListener token is the job's one secret, scoped to the scan step.
+    # configured queries and entry-date windows, reported as JSON (identifiers,
+    # dates and order readings; no caption or entry text). It reads
+    # CourtListener's REST API and nothing else — no corpus, no cloud role, no
+    # App token — so the CourtListener token is the job's one secret, scoped to
+    # the scan step.
+    #
+    # A scan outgrows one run's cap, so each run carries the previous run's
+    # report forward: the newest unexpired `order-scan` artifact a dispatch of
+    # this workflow on this ref uploaded, read with the job's `actions: read`.
+    # The report artifact's one-day retention is therefore also the window a
+    # scan's runs must fall in; a gap longer than a day starts a fresh scan.
     #
     # Its spend is the account's, shared with run-pull's windows: the rate
     # governor counts per process, so the run's own cap
@@ -2585,9 +2592,9 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    # At most 150 requests at the governor's per-minute pace (25) is about six
+    # At most 150 requests at the scan's per-minute pace (8) is about nineteen
     # minutes, plus setup; the cap frees the runner if a request hangs.
-    timeout-minutes: 30
+    timeout-minutes: 40
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     # Its own group, never cancelled: a cancelled scan uploads no report, and
     # the requests it already spent are gone either way. The group keeps two
@@ -2602,6 +2609,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: read
+      actions: read # the previous run's report artifact, which this run resumes
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -2611,18 +2619,56 @@ jobs:
         with:
           restore-cache: "false"
 
+      - name: Fetch the previous run's report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          prior="$RUNNER_TEMP/order-scan-prior.json"
+          # The newest unexpired `order-scan` artifact uploaded from this ref.
+          # Its run is checked to be a dispatch of this workflow before it is
+          # read, so an artifact of the same name from any other workflow is
+          # never resumed.
+          found=$(gh api "repos/${REPO}/actions/artifacts?name=order-scan&per_page=50" \
+            --jq "[.artifacts[] | select(.expired | not)
+                   | select(.workflow_run.head_branch == \"${REF}\")]
+                  | sort_by(.created_at) | last | [.id, .workflow_run.id] | @tsv // empty")
+          if [ -z "$found" ]; then
+            echo "No previous order-scan report on ${REF}: this run starts a fresh scan."
+            exit 0
+          fi
+          artifact=$(cut -f1 <<<"$found")
+          run=$(cut -f2 <<<"$found")
+          path=$(gh api "repos/${REPO}/actions/runs/${run}" --jq '.path + " " + .event')
+          if [ "$path" != ".github/workflows/run-analytics.yml workflow_dispatch" ]; then
+            echo "The newest order-scan artifact is from ${path}, not this workflow: starting fresh."
+            exit 0
+          fi
+          gh api "repos/${REPO}/actions/artifacts/${artifact}/zip" > "$RUNNER_TEMP/order-scan-prior.zip"
+          # Extract the one member by name, never by the archive's own paths.
+          python3 -I -c '
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as z, open(sys.argv[2], "wb") as out:
+              out.write(z.read("order-scan.json"))
+          ' "$RUNNER_TEMP/order-scan-prior.zip" "$prior"
+          echo "Resuming from run ${run}'s report."
+
       - name: Scan for adverse orders
-        timeout-minutes: 20
+        timeout-minutes: 25
         env:
           FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
-          # The account's per-minute and per-day tier, as run-pull reads it
-          # (the fallbacks are the held tier's; see run-pull's refresh step).
-          # The hourly window is not the tier's: it is the scan's own run cap
-          # (`max_requests_per_run` in config/order-scan.yaml), so the governor
-          # counts every request this process sends, retries included, and
-          # stops the scan cleanly at the cap. The job finishes well inside the
-          # hour, so the hourly window bounds the whole run.
-          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '25' }}
+          # The per-day window is the account's tier, as run-pull reads it
+          # (the fallback is the held tier's; see run-pull's refresh step).
+          # The other two are the scan's own. Upstream throttles its search
+          # endpoint below the tier's per-minute rate (a 429 at about 23 a
+          # minute), so the scan paces itself at 8. The hourly window is the
+          # run cap (`max_requests_per_run` in config/order-scan.yaml), so the
+          # governor counts every request this process sends, retries
+          # included, and stops the scan cleanly at the cap; the job finishes
+          # inside the hour, so that window bounds the whole run.
+          FEDCOURTS_COURTLISTENER_RPM: "8"
           FEDCOURTS_COURTLISTENER_RPH: "150"
           FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
         run: |
@@ -2635,7 +2681,12 @@ jobs:
           # (a refused credential, every search failed) still prints its
           # report, so the summary is written either way and the step then
           # fails with the scan's own status.
-          uv run fedcourts order-scan > "$out" 2> "$summary" || status=$?
+          prior="$RUNNER_TEMP/order-scan-prior.json"
+          resume=()
+          if [ -f "$prior" ]; then
+            resume=(--resume "$prior")
+          fi
+          uv run fedcourts order-scan "${resume[@]}" > "$out" 2> "$summary" || status=$?
           {
             echo "## order-scan — $(date -u +%Y-%m-%d)"
             echo '```'
@@ -2660,8 +2711,9 @@ jobs:
           # corpus — with entry numbers and dates, and no caption, entry text
           # or nature of suit.
           # It rides the one-day window of the other analytics run artifacts
-          # (docs/security.md); the hand coding it seeds downloads it within
-          # the day, and a re-dispatch re-derives it at the cost of its spend.
+          # (docs/security.md). Each run's report describes the whole scan so
+          # far, so the hand coding downloads the last run's, and the next run
+          # resumes from it inside the same day.
           retention-days: 1
 
   # The run gate's verdict on the run as a whole. A refused partial re-run

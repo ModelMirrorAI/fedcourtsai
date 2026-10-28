@@ -13869,6 +13869,14 @@ def order_scan_command(
             help="Print the searches and the worst-case spend, sending no request.",
         ),
     ] = False,
+    resume: Annotated[
+        Path | None,
+        typer.Option(
+            help="A previous run's report to carry forward: its finished searches are "
+            "kept, a stopped one resumes, its hits accumulate. A complete report, or "
+            "one under another config, starts a fresh scan.",
+        ),
+    ] = None,
 ) -> None:
     """Search CourtListener's RECAP index for district orders against federal executive action.
 
@@ -13878,8 +13886,11 @@ def order_scan_command(
     (TRO, preliminary or permanent injunction, vacatur, a 705 stay) and whether
     it grants or denies, and checks the config's gold set — the district
     dockets the corpus's immigration applications trace back to — for recall.
-    Prints the
-    report as JSON on stdout and a summary on stderr.
+    Prints the report as JSON on stdout and a summary on stderr.
+
+    A scan outgrows one run's cap, so `--resume` takes the previous run's
+    report and carries the scan forward from where it stopped; the new report
+    describes the whole scan so far.
 
     Strictly **read-only**: writes no corpus, content store or ledger, and
     copies no caption or entry text into the report, only identifiers, dates
@@ -13914,8 +13925,15 @@ def order_scan_command(
         # search by search; it is refused before anything is read.
         typer.echo("order-scan: no CourtListener API token is configured", err=True)
         raise typer.Exit(code=2)
+    prior: order_scan.OrderScanReport | None = None
+    if resume is not None:
+        try:
+            prior = order_scan.OrderScanReport.model_validate_json(resume.read_text())
+        except (OSError, ValueError) as exc:
+            typer.echo(f"order-scan: cannot read --resume {resume}: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
     with _client() as client:
-        report = order_scan.scan(client, scan_config, max_requests=cap)
+        report = order_scan.scan(client, scan_config, max_requests=cap, prior=prior)
     typer.echo(report.model_dump_json(indent=2))
     for line in order_scan.summary_lines(report):
         typer.echo(line, err=True)

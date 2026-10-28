@@ -441,12 +441,20 @@ queues behind the production run of the same mode. The modes:
   shared with `run-pull`, and each process's governor counts only its own
   requests, so the config's cap (150) is sized to fit beside a pull window and
   a live window's enrichment step inside the hourly ceiling; the step runs the
-  governor with that cap as its hourly limit, so retries count against it too.
-  Dispatch it in the quiet odd hours `run-pull`'s enrich job names. The report
+  governor with that cap as its hourly limit, so retries count against it too,
+  and at 8 requests a minute, because CourtListener throttles its search
+  endpoint below the tier's per-minute rate. Dispatch it in the quiet odd hours
+  `run-pull`'s enrich job names. A scan is larger than one run's cap, so each
+  run resumes the last: the job holds `actions: read` to fetch the newest
+  unexpired `order-scan` artifact a dispatch of this workflow on the same ref
+  uploaded, and hands it to `--resume`. That artifact's one-day retention makes
+  a day the window a scan's runs must fall in; a longer gap starts a fresh
+  scan, as does a change to the config's queries, windows or page cap. `--plan`
+  prints how many runs the committed config takes at most. The report
   (court-record identifiers and order readings; no caption, entry text or
   nature of suit) is uploaded on the same one-day retention as the census,
-  failed runs included, and the step summary carries the per-search counts,
-  the spend and the gold recall. The run fails when the credential is refused
+  failed runs included, and the step summary carries the scan's progress, the
+  per-search counts, the spend and the gold recall. The run fails when the credential is refused
   or every search fails, so neither reads as an empty result. Its own
   never-cancelled, ref-suffixed concurrency group keeps two scans of one ref
   from overlapping but not from sharing an hour (a second dispatch starts when
