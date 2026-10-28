@@ -14075,10 +14075,10 @@ freeze commit is recorded here.
     process-digest --all` still prints `proc-v13` and the same six digests.
 
   Carried to `main` by `promotion/2026-10-28` (merge commit `6027eac9f56905afd57a2e31725c2cea79405e3a`, merged `2026-10-28T12:42:27Z`). Applied by run `40694854621` on `2026-10-28`, landing `1253` rows. The first
-  statpack refreshed after it, at commit `<FILL: statpack refresh commit>`,
-  reads the OT2026 pool as `<FILL: OT2026 pool granted/resolved>`, the OT2025
-  pool as `<FILL: OT2025 pool granted/resolved>` and the OT2024 pool as
-  `<FILL: OT2024 pool granted/resolved>`.
+  statpack refreshed after it, at commit `7bcde3b105cb212283905eda17b827efc188e80c`,
+  reads the OT2026 pool as `160/1366`, the OT2025
+  pool as `143/1140` and the OT2024 pool as
+  `127/946`.
 
 - **Every job moves to the `ubuntu-26.04` runner image, and with it the
   system Python, 2026-10-28.** A **harness note** under unchanged digests:
