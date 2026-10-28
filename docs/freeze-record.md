@@ -14081,3 +14081,40 @@ freeze commit is recorded here.
   reads the OT2026 pool as `<FILL: OT2026 pool granted/resolved>`, the OT2025
   pool as `<FILL: OT2025 pool granted/resolved>` and the OT2024 pool as
   `<FILL: OT2024 pool granted/resolved>`.
+
+- **Every job moves to the `ubuntu-26.04` runner image, and with it the
+  system Python, 2026-10-28.** A **harness note** under unchanged digests:
+  no prompt byte, registry field, stamp, rule or `salience_version` moves,
+  and `uv run fedcourts process-digest --all` prints the same six digests.
+  The image sits under every cell, writer and gate but is no input to the
+  process digest, which is why the move is recorded here.
+
+  **What moved.** Every job's `runs-on` and `PINNED_RUNNER` in
+  `tests/test_workflow_cell_invariants.py` move from `ubuntu-24.04` to
+  `ubuntu-26.04` together, in one commit on `staging`, `0f02c2e43`. The
+  repository pins no interpreter (`requires-python = ">=3.12"`, no
+  `.python-version`), so `uv` resolves the image's system Python: CPython
+  3.12 on `ubuntu-24.04`, and CPython 3.14.4 at `/usr/bin/python3` on
+  `ubuntu-26.04` image version `20261012.163.1`. The engine CLIs are pinned by their lockfiles under
+  `.github/engines/` and do not move with the image, but the Node runtime
+  that `engine-cli` installs them under is the image's own, so it moves
+  with the image as Python does.
+
+  **The executed check.** `integration-test` with `scenario=all` ran on
+  `staging` `ea23b1c4d` as run 40668178974 (2026-10-28T09:56Z to
+  10:05Z), every job labelled `ubuntu-26.04`, and passed: all twelve
+  scenario matrix legs (`engine-smoke` and `engine-actions-smoke` for each
+  of the three engines, `stub-cascade`, `ranged-reads`, `corpus-service`,
+  `mcp-sidecar`, `qp-topic` and `codex-application-repro`), the
+  `collect-scenario` job and the `qp-labeler-smoke` job.
+
+  **Why it is not registered as a boundary.** Nothing measured is expected
+  to move: the cells' inputs, prompts and engines are byte-for-byte the
+  same, and the interpreter runs the harness rather than the model. A cell
+  minted on either image reads the same record. If a later reading finds a
+  figure that breaks at this instant, a new entry registers the boundary
+  then. Until then a reading that wants to hold the image fixed splits at
+  the carrying promotion's merge time below.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
+  sha>`, merged `<FILL: merged time UTC>`).
