@@ -130,7 +130,7 @@ import logging
 import sqlite3
 import time
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
 from typing import Any, Literal
 
@@ -409,6 +409,15 @@ class DocumentBackfillResult(BaseModel):
         "that selected a link and still stored nothing is attributable. Zero-filled "
         "and always present, so an unlisted reason is never an omitted one",
     )
+    left_class: int = Field(
+        ge=0,
+        default=0,
+        description="Candidates the split's writer found no longer in the class "
+        "when it came to write what the parse read for them — recovered, stamped "
+        "or no longer predict-relevant since the projection cut the worklist — and "
+        "so wrote nothing for (the credential split's writer alone; the pass in one "
+        "job reads and writes the same class)",
+    )
     refused: bool = Field(
         default=False,
         description="True when an apply was asked for with no slice bound. Nothing "
@@ -434,6 +443,9 @@ class DocumentGap:
     #: The Term the docket number belongs to, or ``None`` where it carries no
     #: parseable one — what decides whether a `no_entry` reading is a floor.
     term_year: int | None
+    #: The stored ``(kind, url)`` pairs, which the fetch is idempotent against:
+    #: a document whose URL is unchanged is not re-fetched.
+    stored_urls: tuple[tuple[str, str], ...] = ()
 
     @property
     def merits(self) -> bool:
@@ -665,6 +677,9 @@ def document_gaps(conn: corpus.ReadConnection) -> DocumentGapScan:
                     kinds=tuple(missing),
                     address=_address(row),
                     term_year=_term_year(row),
+                    stored_urls=tuple(
+                        sorted((document.kind, document.url) for document in documents)
+                    ),
                 )
             )
     return DocumentGapScan(
@@ -785,7 +800,7 @@ def backfill_documents(
 
     Additive, and self-advancing on both halves of the class. A recovered case
     leaves it by holding every kind it was missing. A candidate at either floor
-    leaves it by being **stamped** (:func:`_stamp_floor`) against the docket
+    leaves it by being **stamped** (:class:`BackfillLedger`) against the docket
     version its floor was read on, and re-enters when that docket is next polled
     — so a floor costs the class one paced docket GET per docket version rather
     than one per dispatch, and the candidates behind a thousand of them are
@@ -828,7 +843,7 @@ def backfill_documents(
     # `fetch_losses` are this slice's rather than the run's.
     reset_document_fetch_losses()
 
-    tally = _SliceTally()
+    ledger = BackfillLedger(conn, apply=apply, today=today)
     unreached: list[str] = []
 
     for index, gap in enumerate(slice_):
@@ -850,80 +865,244 @@ def backfill_documents(
                     estimate,
                 )
                 break
-        payload, lead, refused = _fetch_docket(client, gap)
-        if payload is None:
-            if refused == "docket-unserved":
-                tally.docket_unserved += 1
-            else:
-                tally.docket_errors += 1
-            continue
-        refs = [ref for ref in select_documents(payload, lead=lead) if ref.kind in gap.kinds]
-        if not refs:
-            alarmed = _record_floor(payload, gap, tally, lead=lead)
-            # A floor the alarm fired on is not stamped. That reading is a
-            # missing kind the selector matched no entry for on a docket modern
-            # enough to carry links — which is this pass's own blind spot rather
-            # than the docket's last word, and the class it exists to stop
-            # producing. Stamping it would bank an exclusion over a defect on our
-            # side, and the same shape is what an upstream payload that changed
-            # or degraded would produce across a whole slice: the candidates a
-            # selector regression floors stay in the class, so widening the
-            # selector is all that is needed to recover them.
-            if apply and not alarmed:
-                _stamp_floor(conn, gap, today=today, tally=tally)
-        elif not apply:
-            tally.selected[gap.case_id] = [ref.kind for ref in refs]
-        else:
-            _store_case(
-                conn, client, gap, payload, lead=lead, char_cap=char_cap, today=today, tally=tally
-            )
+        ledger.take(gap, read_candidate(client, gap, apply=apply, char_cap=char_cap, today=today))
 
-    return DocumentBackfillResult(
-        applied=apply,
-        cases_seen=scan.cases_seen,
-        cases_with_documents=scan.cases_with_documents,
+    return ledger.result(
+        scan,
         unaddressable=len(unaddressable),
         candidates=len(candidates),
-        standing_floors=scan.standing_floors,
         merits_candidates=sum(1 for gap in candidates if gap.merits),
         bound=max_cases,
-        attempted=len(slice_) - len(unreached),
+        sliced=len(slice_),
         unreached=unreached,
-        recovered=len(tally.recovered),
-        # Both subtractions are the same fact: a candidate that left the class.
-        # A recovered one left by gaining every kind it was missing, a stamped
-        # one by having its floor recorded against the docket version it was
-        # read on, and the next scan will see neither. The lane's witness is a
-        # walk-only re-read compared against this number, so a stamp missing
-        # here would read as an apply that failed to converge.
-        remaining=len(candidates) - len(tally.recovered) - tally.floors_stamped,
-        floors_stamped=tally.floors_stamped,
-        stored=dict(sorted(tally.stored.items())),
-        documents=dict(sorted(tally.documents.items())),
-        selected=dict(sorted(tally.selected.items())),
-        no_link=tally.no_link,
-        no_entry=tally.no_entry,
-        no_entry_modern_cases=tally.no_entry_modern,
-        docket_unserved=tally.docket_unserved,
-        docket_errors=tally.docket_errors,
         fetch_losses=_loss_counts(),
     )
 
 
-@dataclass
-class _SliceTally:
-    """What one slice has recorded so far, accumulated across its candidates."""
+@dataclass(frozen=True)
+class CandidateReading:
+    """What one candidate's fetch found, before anything is written.
 
-    stored: dict[str, int] = field(default_factory=dict)
-    documents: dict[str, list[str]] = field(default_factory=dict)
-    selected: dict[str, list[str]] = field(default_factory=dict)
-    no_entry_modern: list[str] = field(default_factory=list)
-    recovered: set[str] = field(default_factory=set)
-    no_link: int = 0
-    no_entry: int = 0
-    floors_stamped: int = 0
-    docket_unserved: int = 0
-    docket_errors: int = 0
+    Exactly one shape holds: a docket ``loss``, a ``floor`` (with whether the
+    modern-docket ``alarmed``), the kinds a dry run ``selected``, or the
+    ``documents`` an apply fetched, which can be none when every selected
+    filing was lost fetch-side.
+    """
+
+    loss: Literal["docket-unserved", "docket-error"] | None = None
+    floor: Literal["no-link", "no-entry"] | None = None
+    alarmed: bool = False
+    selected: tuple[str, ...] = ()
+    documents: tuple[corpus.CaseDocument, ...] = ()
+
+
+def read_candidate(
+    client: SupremeCourtClient,
+    gap: DocumentGap,
+    *,
+    apply: bool,
+    char_cap: int,
+    today: date,
+) -> CandidateReading:
+    """Fetch one candidate's docket and, on an apply, the filings it nominates.
+
+    The pass's whole upstream half, and nothing of the corpus: what it needs of
+    the stored state rides on ``gap`` (its address, its missing kinds and the
+    stored ``(kind, url)`` pairs the fetch is idempotent against), so the same
+    reading is made in one job or in the credential split's parse.
+    """
+    payload, lead, refused = _fetch_docket(client, gap)
+    if payload is None:
+        return CandidateReading(
+            loss="docket-unserved" if refused == "docket-unserved" else "docket-error"
+        )
+    refs = [ref for ref in select_documents(payload, lead=lead) if ref.kind in gap.kinds]
+    if not refs:
+        floor, alarmed = _floor_reading(payload, gap, lead=lead)
+        return CandidateReading(floor=floor, alarmed=alarmed)
+    if not apply:
+        return CandidateReading(selected=tuple(ref.kind for ref in refs))
+    fetched = fetch_case_documents(
+        client,
+        gap.case_id,
+        payload,
+        stored_urls=dict(gap.stored_urls),
+        char_cap=char_cap,
+        today=today,
+        lead=lead,
+    )
+    return CandidateReading(documents=tuple(fetched))
+
+
+class BackfillLedger:
+    """One slice's tallies, and its writes on an apply, taken a candidate at a time.
+
+    Written per case as each reading is taken rather than batched at the end,
+    because the step that runs the pass has a wall-clock cap: a batched write
+    turns a cap hit into a slice that recovered a dozen cases and stored none of
+    them. Under the corpus split the per-case content-store write is itself the
+    durable one, so that banks the work.
+    """
+
+    def __init__(self, conn: sqlite3.Connection | None, *, apply: bool, today: date) -> None:
+        if apply and conn is None:
+            raise ValueError("an applying ledger writes, so it needs the corpus")
+        self._conn = conn
+        self._apply = apply
+        self._today = today
+        self._stored: dict[str, int] = {}
+        self._documents: dict[str, list[str]] = {}
+        self._selected: dict[str, list[str]] = {}
+        self._no_entry_modern: list[str] = []
+        self._recovered: set[str] = set()
+        self._no_link = 0
+        self._no_entry = 0
+        self._floors_stamped = 0
+        self._docket_unserved = 0
+        self._docket_errors = 0
+        self._left_class = 0
+
+    def take(self, gap: DocumentGap, reading: CandidateReading, *, in_class: bool = True) -> None:
+        """Count one reading, and on an apply write what it calls for.
+
+        ``in_class`` is false where the split's writer finds the candidate no
+        longer in the class it walked: the reading is counted as read, and
+        nothing is written for it.
+        """
+        if reading.loss is not None:
+            if reading.loss == "docket-unserved":
+                self._docket_unserved += 1
+            else:
+                self._docket_errors += 1
+            return
+        if reading.floor is not None:
+            self._take_floor(gap, reading, in_class=in_class)
+            return
+        if not self._apply:
+            self._selected[gap.case_id] = list(reading.selected)
+            return
+        if not reading.documents:
+            return
+        if not in_class:
+            self._left_class += 1
+            return
+        self._store(gap, reading.documents)
+
+    def _take_floor(self, gap: DocumentGap, reading: CandidateReading, *, in_class: bool) -> None:
+        if reading.floor == "no-link":
+            self._no_link += 1
+        else:
+            self._no_entry += 1
+        if reading.alarmed:
+            self._no_entry_modern.append(gap.case_id)
+        # A floor the alarm fired on is not stamped. That reading is a
+        # missing kind the selector matched no entry for on a docket modern
+        # enough to carry links — which is this pass's own blind spot rather
+        # than the docket's last word, and the class it exists to stop
+        # producing. Stamping it would bank an exclusion over a defect on our
+        # side, and the same shape is what an upstream payload that changed
+        # or degraded would produce across a whole slice: the candidates a
+        # selector regression floors stay in the class, so widening the
+        # selector is all that is needed to recover them.
+        if self._apply and not reading.alarmed:
+            if in_class:
+                self._stamp_floor(gap)
+            else:
+                self._left_class += 1
+
+    def _stamp_floor(self, gap: DocumentGap) -> None:
+        """Record that this candidate's docket was read at a floor today.
+
+        A column write through :func:`~fedcourtsai.corpus.stamp_document_floor_probe`
+        rather than a row upsert, and that is load-bearing under the corpus split
+        rather than a style choice: the population is read off the payload-free
+        index, so a row in hand carries no opinion body, and upserting it back
+        would re-mirror a body-less ``case.json`` over the one the content store
+        holds — deleting the body while ``has_opinion`` stays latched. The class
+        is granted and decided cases, which is precisely where the enrichment
+        lands bodies.
+
+        Stamped per case as the floor is read rather than batched at the end of
+        the slice, matching the per-case document writes. The stamps are index
+        columns, so the durable step for them is the lane's pointer push rather
+        than the content-store write that banks the documents.
+
+        Apply-only. The stamp lives in the index, which the lane pushes only
+        after an apply, so a dry run's would be discarded with the runner — and a
+        dry run that quietly moved the class its own ledger reports would be
+        worse than one that spends the round trips.
+        """
+        assert self._conn is not None  # an applying ledger holds the corpus
+        corpus.stamp_document_floor_probe(self._conn, gap.case_id, self._today)
+        self._floors_stamped += 1
+
+    def _store(self, gap: DocumentGap, documents: tuple[corpus.CaseDocument, ...]) -> None:
+        """Write one candidate's fetched documents and count what they recovered.
+
+        A case whose selected filing the fetch did not return stores nothing and
+        is a *loss* rather than a floor — ``fetch_losses`` carries which one,
+        recorded fetch-side.
+        """
+        assert self._conn is not None  # an applying ledger holds the corpus
+        corpus.upsert_documents(self._conn, list(documents))
+        kinds = sorted(document.kind for document in documents)
+        self._documents[gap.case_id] = kinds
+        for kind in kinds:
+            self._stored[kind] = self._stored.get(kind, 0) + 1
+        if set(gap.kinds) <= set(kinds):
+            # Recovery is leaving the class, so it is measured against **every**
+            # kind the candidate was missing: a case that gained only its
+            # opposition briefs, or only one of its two merits briefs, is still
+            # in the class and still at the head of the next slice. Nothing in
+            # `gap.kinds` can be skipped as already-stored here — the scan put
+            # the case in the class precisely because none of them was stored —
+            # so the fetched set is the whole of what this candidate gained.
+            self._recovered.add(gap.case_id)
+
+    def result(
+        self,
+        scan: DocumentGapScan,
+        *,
+        unaddressable: int,
+        candidates: int,
+        merits_candidates: int,
+        bound: int | None,
+        sliced: int,
+        unreached: list[str],
+        fetch_losses: dict[str, int],
+    ) -> DocumentBackfillResult:
+        """The slice's ledger, over the class ``scan`` walked."""
+        return DocumentBackfillResult(
+            applied=self._apply,
+            cases_seen=scan.cases_seen,
+            cases_with_documents=scan.cases_with_documents,
+            unaddressable=unaddressable,
+            candidates=candidates,
+            standing_floors=scan.standing_floors,
+            merits_candidates=merits_candidates,
+            bound=bound,
+            attempted=sliced - len(unreached),
+            unreached=unreached,
+            recovered=len(self._recovered),
+            # Both subtractions are the same fact: a candidate that left the
+            # class. A recovered one left by gaining every kind it was missing, a
+            # stamped one by having its floor recorded against the docket version
+            # it was read on, and the next scan will see neither. The lane's
+            # witness is a walk-only re-read compared against this number, so a
+            # stamp missing here would read as an apply that failed to converge.
+            remaining=candidates - len(self._recovered) - self._floors_stamped,
+            floors_stamped=self._floors_stamped,
+            stored=dict(sorted(self._stored.items())),
+            documents=dict(sorted(self._documents.items())),
+            selected=dict(sorted(self._selected.items())),
+            no_link=self._no_link,
+            no_entry=self._no_entry,
+            no_entry_modern_cases=self._no_entry_modern,
+            docket_unserved=self._docket_unserved,
+            docket_errors=self._docket_errors,
+            fetch_losses=fetch_losses,
+            left_class=self._left_class,
+        )
 
 
 def _entry_matched(
@@ -947,17 +1126,16 @@ def _entry_matched(
     return primary_entry_matched(payload, kind=kind)
 
 
-def _record_floor(
+def _floor_reading(
     payload: Mapping[str, Any],
     gap: DocumentGap,
-    tally: _SliceTally,
     *,
     lead: Mapping[str, Any] | None = None,
-) -> bool:
+) -> tuple[Literal["no-link", "no-entry"], bool]:
     """Attribute a candidate selection nominated nothing for, to its own floor.
 
-    Returns whether this candidate raised the modern-docket **alarm**, which the
-    caller reads to decide whether the floor may be stamped: a floor this pass
+    Returns the floor and whether this candidate raised the modern-docket
+    **alarm**, which decides whether the floor may be stamped: a floor this pass
     may be the cause of is not one to record against the docket.
 
     Told apart by the docket's own text: an entry the selector recognizes with no
@@ -966,9 +1144,9 @@ def _record_floor(
     drains — but only the second can also mean the selector is blind, which is
     why a modern docket landing there is named rather than counted.
 
-    The two **counts** are per candidate, because they size a class: a candidate
+    The **floor** is per candidate, because the counts size a class: a candidate
     missing several kinds is one candidate and takes one floor, reading
-    ``no_link`` if the docket carries an entry for **any** of them. Otherwise a
+    ``no-link`` if the docket carries an entry for **any** of them. Otherwise a
     granted case whose petition-era entry predates the link window and whose
     merits briefs are on the docket would be counted at both floors at once, and
     the class sizes would stop adding up against ``attempted``.
@@ -976,9 +1154,9 @@ def _record_floor(
     The **alarm** is per *kind*, and deliberately not per candidate. A filing
     shape the selector cannot read on a modern docket is a regression whichever
     other kinds that docket happens to post, so a candidate whose merits entries
-    are there and whose opening entry is not is named here even though its count
-    went to ``no_link``. Folding the alarm into the count instead would hide
-    exactly the case the alarm exists for behind the one kind that did match.
+    are there and whose opening entry is not is named even though its count went
+    to ``no_link``. Folding the alarm into the count instead would hide exactly
+    the case the alarm exists for behind the one kind that did match.
 
     On a **consolidated member** the lead's entries are read too, on text alone.
     So a member whose lead carries the filing but lends nothing — every such
@@ -988,12 +1166,10 @@ def _record_floor(
     docket version read is this route's to fetch, and the next poll releases it.
     """
     unmatched = [kind for kind in gap.kinds if not _entry_matched(payload, kind=kind, lead=lead)]
-    if len(unmatched) < len(gap.kinds):
-        tally.no_link += 1
-    else:
-        tally.no_entry += 1
+    floor: Literal["no-link", "no-entry"] = (
+        "no-link" if len(unmatched) < len(gap.kinds) else "no-entry"
+    )
     if unmatched and gap.term_year is not None and gap.term_year >= MODERN_LINK_TERM:
-        tally.no_entry_modern.append(gap.case_id)
         logger.warning(
             "document-backfill: %s (OT%d) matched no %s entry — "
             "the selector has no arm for this filing type",
@@ -1001,88 +1177,8 @@ def _record_floor(
             gap.term_year,
             ", ".join(unmatched),
         )
-        return True
-    return False
-
-
-def _stamp_floor(
-    conn: sqlite3.Connection,
-    gap: DocumentGap,
-    *,
-    today: date,
-    tally: _SliceTally,
-) -> None:
-    """Record that this candidate's docket was read at a floor today.
-
-    A column write through :func:`~fedcourtsai.corpus.stamp_document_floor_probe`
-    rather than a row upsert, and that is load-bearing under the corpus split
-    rather than a style choice: the population is read off the payload-free
-    index, so a row in hand carries no opinion body, and upserting it back would
-    re-mirror a body-less ``case.json`` over the one the content store holds —
-    deleting the body while ``has_opinion`` stays latched. The class is granted
-    and decided cases, which is precisely where the enrichment lands bodies.
-
-    Stamped per case as the floor is read rather than batched at the end of the
-    slice, matching the per-case document writes: the step that runs this has a
-    wall-clock cap, and a batched stamp turns a cap hit into a slice that walked
-    a thousand floors and recorded none of them. The stamps are index columns,
-    so the durable step for them is the lane's pointer push rather than the
-    content-store write that banks the documents.
-
-    Apply-only, decided by the caller. The stamp lives in the index, which the
-    lane pushes only after an apply, so a dry run's would be discarded with the
-    runner — and a dry run that quietly moved the class its own ledger reports
-    would be worse than one that spends the round trips.
-    """
-    corpus.stamp_document_floor_probe(conn, gap.case_id, today)
-    tally.floors_stamped += 1
-
-
-def _store_case(
-    conn: sqlite3.Connection,
-    client: SupremeCourtClient,
-    gap: DocumentGap,
-    payload: Mapping[str, Any],
-    *,
-    lead: Mapping[str, Any] | None,
-    char_cap: int,
-    today: date,
-    tally: _SliceTally,
-) -> None:
-    """Fetch one candidate's documents through the poller's own path and store them.
-
-    Written here, per case, rather than batched by the caller: under the corpus
-    split the content-store write is the durable one, so a step that hits its cap
-    keeps what this case recovered. A case whose selected filing the fetch did
-    not return stores nothing and is a *loss* rather than a floor —
-    ``fetch_losses`` carries which one, recorded fetch-side.
-    """
-    stored_urls = {d.kind: d.url for d in corpus.documents_for_case(conn, gap.case_id)}
-    fetched = fetch_case_documents(
-        client,
-        gap.case_id,
-        payload,
-        stored_urls=stored_urls,
-        char_cap=char_cap,
-        today=today,
-        lead=lead,
-    )
-    if not fetched:
-        return
-    corpus.upsert_documents(conn, fetched)
-    kinds = sorted(document.kind for document in fetched)
-    tally.documents[gap.case_id] = kinds
-    for kind in kinds:
-        tally.stored[kind] = tally.stored.get(kind, 0) + 1
-    if set(gap.kinds) <= set(kinds):
-        # Recovery is leaving the class, so it is measured against **every** kind
-        # the candidate was missing: a case that gained only its opposition
-        # briefs, or only one of its two merits briefs, is still in the class and
-        # still at the head of the next slice. Nothing in `gap.kinds` can be
-        # skipped as already-stored here — the scan put the case in the class
-        # precisely because none of them was stored — so the fetched set is the
-        # whole of what this candidate gained.
-        tally.recovered.add(gap.case_id)
+        return floor, True
+    return floor, False
 
 
 def _loss_counts() -> dict[str, int]:
