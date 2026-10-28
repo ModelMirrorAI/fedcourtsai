@@ -2117,11 +2117,11 @@ def persist_moment_events(
     story: the corpus upsert is keyed on ``(case_id, event_id)`` and
     ``resolved`` MAX-latches, so a re-mint can neither duplicate an event nor
     reopen one a later judgment closed — and the ledger ``event.yaml`` is
-    written from the **post-upsert** row, so the committed definition honours
-    the same latch. Corpus first, ledger second: the ledger file is derived
-    from the corpus row, so an interruption leaves the corpus authoritative
-    and the next run converges the ledger. ``events`` must all belong to the
-    case ``(court_id, docket_id)`` names.
+    written from the **post-upsert** row (its title excepted, below), so the
+    committed definition honours the same latch. Corpus first, ledger second:
+    the ledger file is derived from the corpus row, so an interruption leaves
+    the corpus authoritative and the next run converges the ledger.
+    ``events`` must all belong to the case ``(court_id, docket_id)`` names.
 
     **When each half of an event is owed.** A stage's case-level *baseline* —
     the cert petition's ``evt-petition-disposition``, the interim application's
@@ -2136,13 +2136,25 @@ def persist_moment_events(
     asymmetry is what makes a baseline row without a ledger file ordinary and a
     minted row without one a defect, which is the line
     ``validate-corpus``'s corpus→ledger check draws.
+
+    **A re-mint keeps the committed caption.** A moment mint re-fires on every
+    poll that still sees its trigger (the CVSG, SG brief, call-for-response,
+    relist, interim response and later merits moments), and each re-fire
+    restamps the corpus title from the row's current caption. The ledger ``event.yaml``
+    keeps the title it was first written with, so it stays the caption a
+    prediction on the moment was made under — the witness the re-docketing
+    check (:mod:`fedcourtsai.pipeline.redocket`) reads when the corpus title
+    has re-tracked a re-entered number. A committed file the check could not
+    read as a witness (:func:`ledger_identities`) is rewritten whole.
     """
     if not events:
         return []
     corpus.upsert_events(conn, events)
     stored_all = {e.event_id: e for e in corpus.events_for_case(conn, events[0].case_id)}
+    committed = ledger_identities(data_root, court_id, docket_id, (e.event_id for e in events))
     for event in events:
         stored = stored_all[event.event_id]
+        prior = committed.get(event.event_id)
         write_yaml(
             CasePaths(data_root, court_id, docket_id).event(event.event_id).event_file,
             PredictableEvent(
@@ -2151,7 +2163,7 @@ def persist_moment_events(
                 kind=stored.kind,
                 stage=stored.stage,
                 moment=stored.moment,
-                title=stored.title,
+                title=prior.title if prior is not None else stored.title,
                 description=stored.description,
                 docket_entry_id=stored.docket_entry_id,
                 opened_at=stored.opened_at,

@@ -14300,3 +14300,48 @@ freeze commit is recorded here.
   merge as at its first parent.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+- **A re-fired moment mint keeps the committed caption, so the re-docketing
+  check keeps its ledger witness; recorded 2026-10-28.** An **attribution**
+  entry under the 2026-10-17 re-docketing rule above, closing the limit it
+  listed as *Rewritten witnesses*. It moves no digest: no prompt template,
+  neither agent config and not `src/fedcourtsai/process_version.py` changes,
+  and `uv run fedcourts process-digest --all` at this commit prints what it
+  prints at its parent on `staging`: `proc-v13` and the six digests
+  `6a176c28…` (claude-baseline), `2827480e…` (codex-baseline), `b69b2b3a…`
+  (gemini-baseline), `167b7d71…` (claude-judge), `a8610eec…` (codex-judge)
+  and `6a88d3dc…` (gemini-judge).
+
+  **What changes.** `pipeline.outcome.persist_moment_events`, the one write
+  path for a minted moment, writes a definition whose committed `event.yaml`
+  already exists with that file's `title` kept, where it took the corpus
+  row's. The corpus event's title still re-tracks the row on every re-mint.
+  A moment mint re-fires on every poll that still sees its trigger (the
+  CVSG, SG brief, call-for-response, relist, interim response and later merits
+  moments), so from this entry's carrying merge a minted moment's committed
+  file keeps the caption the moment was first minted under, which is the caption a prediction on it was made under,
+  and the check reads it as it reads a baseline's. A committed file the check
+  could not read as a witness is rewritten whole, as before. Every other field
+  is still written from the post-upsert corpus row.
+
+  **What moves.** Nothing at this commit: the change acts on the next re-mint,
+  and no committed file is rewritten by it. Every committed minted-moment
+  definition at the parent (among them 91 call-for-response, 21 response
+  requested, 19 relist, 17 CVSG, 4 SG brief, and 52, 22 and 6 order, brief
+  and argument merits definitions, by directory count) keeps what it carries
+  now. The 2026-10-17 census found no moment on a re-docketed number beyond
+  the one already voided, so **0 scored outcomes move**. After a later
+  re-docketing, a predicted minted moment on the number is refused with the re-docketing reason where
+  it was graded against the other petition's disposition.
+
+  **What the rule still misses.** A re-docketing that falls before a moment's
+  first mint is invisible to its definition, as for a baseline before its
+  first touch; nothing was predicted on it. A caption the Court changes on the
+  same petition (a substituted party) is kept at its first-mint rendering in
+  the committed file; the rule reads party words, so a substitution with an
+  office word still overlaps.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_outcome.py -k "re_fired_mint or re_mint_over"` is green, and `uv
+  run python scripts/checks/redocketed_numbers.py` reports the same refusal
+  counts at the carrying merge as at its first parent.

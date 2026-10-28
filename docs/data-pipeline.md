@@ -1476,11 +1476,10 @@ or network.
      one's disposition. Detection refuses it (`pipeline.redocket`), on every
      refresh channel and in both convergence passes. A SCOTUS moment's caption
      is read from its corpus event and from its committed `event.yaml`, which
-     `materialize-event` never rewrites and the outcome writer rewrites only
-     beside an outcome, so it keeps the caption a committed prediction was made
-     under. The exception is a moment whose mint re-fires on every poll (the
-     CVSG and interim response moments): each re-mint rewrites both copies from
-     the row, so after a re-docketing neither keeps the earlier caption. A
+     `materialize-event` never rewrites, a re-fired moment mint (a mint
+     re-fires on every poll that still sees its trigger) rewrites with its
+     committed title kept, and the outcome writer rewrites only beside an outcome, so it keeps
+     the caption a committed prediction was made under. A
      moment is refused when either caption shares
      no party word with the row's current caption on the petitioner side, or,
      for a cert or merits moment opened before the row's current docketed date,
