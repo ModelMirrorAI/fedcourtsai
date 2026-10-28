@@ -475,6 +475,30 @@ def test_a_failed_search_restarts_on_the_next_run() -> None:
     assert all(s.error is None for s in second.searches)
 
 
+def test_a_search_that_fails_twice_is_settled_with_its_error() -> None:
+    def broken(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400)
+
+    first = scan(_client(broken), _config(), max_requests=50)
+    second = scan(_client(broken), _config(), max_requests=50, prior=first)
+    assert all(s.error and s.done and s.failures == 2 for s in second.searches)
+    assert second.complete and second.deferred == []
+    third = scan(_client(_paged(1)), _config(), max_requests=50, prior=second)
+    assert third.run == 1
+
+
+def test_a_wall_on_a_resumed_link_keeps_the_link() -> None:
+    config = _config()
+    first = scan(_client(_paged(3)), config, max_requests=4)
+    link = first.searches[1].resume_link
+    second = scan(_client(_paged(3)), config, max_requests=0, prior=first)
+    assert second.stopped is not None and second.requests == 0
+    assert second.searches[1].resume_link == link
+    assert second.searches[0].done and second.attempted == []
+    assert [h.docket_id for h in second.hits] == [h.docket_id for h in first.hits]
+    assert second.gold_found == first.gold_found
+
+
 def test_cli_resumes_from_a_report_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("FEDCOURTS_COURTLISTENER_API_TOKEN", "test-token")
     config = load_order_scan_config(_ROOT / "config" / "order-scan.yaml")

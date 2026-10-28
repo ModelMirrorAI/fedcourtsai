@@ -288,6 +288,10 @@ class SearchOutcome(BaseModel):
     #: The next page's link when a run stopped mid-search, so the next run
     #: resumes there rather than from the first page.
     resume_link: str | None = None
+    #: The runs this search failed in. It restarts once; a second failure
+    #: settles it as done with its error, so one bad search cannot hold the
+    #: scan open.
+    failures: int = 0
 
 
 class GoldOutcome(BaseModel):
@@ -474,6 +478,10 @@ def _read_page(
     return next_url if isinstance(next_url, str) and next_url else None
 
 
+#: The runs a search may fail in before it is settled as done with its error.
+MAX_SEARCH_FAILURES = 2
+
+
 def _run_search(
     client: CourtListenerClient,
     report: OrderScanReport,
@@ -501,10 +509,12 @@ def _run_search(
     except (_RunCapReached, RateBudgetExceeded, httpx.HTTPError, ValueError) as exc:
         stop = _stop_reason(exc)
         if stop is None:
-            # A failed search is left undone and restarts from its first page
-            # on the next run; the pages read before the fault stay merged.
+            # A failed search restarts from its first page on the next run,
+            # once; the pages read before the fault stay merged.
             outcome.error = f"{type(exc).__name__}: {exc}"
             outcome.truncated = outcome.pages > 0
+            outcome.failures += 1
+            outcome.done = outcome.failures >= MAX_SEARCH_FAILURES
             return None
         # A wall: the next run resumes at the page this one could not read.
         outcome.resume_link = link
@@ -523,9 +533,10 @@ def scan(
 
     ``prior`` is the previous run's report. Its finished searches are carried
     over unread, a search it stopped in resumes at the page it could not read,
-    a failed one restarts, and its hits are kept and added to. A complete prior
-    report (every search done) starts a fresh scan, as no prior does, and so
-    does one made under another config digest.
+    a failed one restarts (once: a second failure settles it), and its hits
+    are kept and added to. A complete prior report (every search done) starts a
+    fresh scan, as no prior does, and so does one made under another config
+    digest.
     """
     digest = config.digest()
     if prior is not None and (prior.complete or prior.config_digest != digest):
@@ -550,7 +561,11 @@ def scan(
             outcome = carried.model_copy(deep=True)
         else:
             outcome = SearchOutcome(
-                search=name, query=query.name, window=window.name, count_only=query.count_only
+                search=name,
+                query=query.name,
+                window=window.name,
+                count_only=query.count_only,
+                failures=carried.failures if carried is not None else 0,
             )
         params = {**query.params, "type": "r", **window.params()}
         sent = report.requests

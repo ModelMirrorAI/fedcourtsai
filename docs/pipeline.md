@@ -448,8 +448,10 @@ queues behind the production run of the same mode. The modes:
   run resumes the last: the job holds `actions: read` to fetch the newest
   unexpired `order-scan` artifact a dispatch of this workflow on the same ref
   uploaded, and hands it to `--resume`. That artifact's one-day retention makes
-  a day the window a scan's runs must fall in; a longer gap starts a fresh
-  scan, as does a change to the config's queries, windows or page cap. `--plan`
+  a day the longest gap between a scan's runs; a longer gap starts a fresh
+  scan, as does a change to the config's queries, windows or page cap. A report
+  that cannot be fetched or read is not resumed either: the run starts fresh,
+  with a warning. `--plan`
   prints how many runs the committed config takes at most. The report
   (court-record identifiers and order readings; no caption, entry text or
   nature of suit) is uploaded on the same one-day retention as the census,

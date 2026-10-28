@@ -2575,8 +2575,8 @@ jobs:
     # A scan outgrows one run's cap, so each run carries the previous run's
     # report forward: the newest unexpired `order-scan` artifact a dispatch of
     # this workflow on this ref uploaded, read with the job's `actions: read`.
-    # The report artifact's one-day retention is therefore also the window a
-    # scan's runs must fall in; a gap longer than a day starts a fresh scan.
+    # The report artifact's one-day retention is therefore the longest gap
+    # between a scan's runs; a longer gap starts a fresh scan.
     #
     # Its spend is the account's, shared with run-pull's windows: the rate
     # governor counts per process, so the run's own cap
@@ -2627,32 +2627,53 @@ jobs:
         run: |
           set -euo pipefail
           prior="$RUNNER_TEMP/order-scan-prior.json"
-          # The newest unexpired `order-scan` artifact uploaded from this ref.
-          # Its run is checked to be a dispatch of this workflow before it is
-          # read, so an artifact of the same name from any other workflow is
-          # never resumed.
-          found=$(gh api "repos/${REPO}/actions/artifacts?name=order-scan&per_page=50" \
-            --jq "[.artifacts[] | select(.expired | not)
-                   | select(.workflow_run.head_branch == \"${REF}\")]
-                  | sort_by(.created_at) | last | [.id, .workflow_run.id] | @tsv // empty")
-          if [ -z "$found" ]; then
-            echo "No previous order-scan report on ${REF}: this run starts a fresh scan."
+          # This workflow's own dispatches on this ref, newest first, from the
+          # last day (the artifact retention, so nothing older can resume).
+          # The API filters by workflow, ref and event, so an artifact from a
+          # pull request, a fork or another workflow is never a candidate. A
+          # scan resumes from the newest of them that uploaded a live report.
+          # Any failure on the way degrades to a fresh scan, which spends more
+          # requests but reads nothing it should not.
+          since=$(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%SZ)
+          if ! runs=$(gh api -X GET "repos/${REPO}/actions/workflows/run-analytics.yml/runs" \
+              -f branch="$REF" -f event=workflow_dispatch -f created=">=${since}" \
+              -F per_page=100 --jq '.workflow_runs[].id'); then
+            echo "::warning::Could not list this workflow's runs: this run starts a fresh scan."
             exit 0
           fi
-          artifact=$(cut -f1 <<<"$found")
-          run=$(cut -f2 <<<"$found")
-          path=$(gh api "repos/${REPO}/actions/runs/${run}" --jq '.path + " " + .event')
-          if [ "$path" != ".github/workflows/run-analytics.yml workflow_dispatch" ]; then
-            echo "The newest order-scan artifact is from ${path}, not this workflow: starting fresh."
+          artifact=""
+          for run in $runs; do
+            if [ "$run" = "$GITHUB_RUN_ID" ]; then
+              continue
+            fi
+            artifact=$(gh api "repos/${REPO}/actions/runs/${run}/artifacts?name=order-scan" \
+              --jq '[.artifacts[] | select(.expired | not) | .id] | first // empty') || artifact=""
+            if [ -n "$artifact" ]; then
+              break
+            fi
+          done
+          if [ -z "$artifact" ]; then
+            echo "No order-scan report on ${REF} in the last day: this run starts a fresh scan."
             exit 0
           fi
-          gh api "repos/${REPO}/actions/artifacts/${artifact}/zip" > "$RUNNER_TEMP/order-scan-prior.zip"
-          # Extract the one member by name, never by the archive's own paths.
-          python3 -I -c '
+          # Extract the one member by name, never by the archive's own paths,
+          # then check it parses as a report: an unreadable one is not resumed,
+          # so it cannot fail every run after it.
+          if ! gh api "repos/${REPO}/actions/artifacts/${artifact}/zip" > "$RUNNER_TEMP/order-scan-prior.zip" \
+            || ! python3 -I -c '
           import sys, zipfile
           with zipfile.ZipFile(sys.argv[1]) as z, open(sys.argv[2], "wb") as out:
               out.write(z.read("order-scan.json"))
-          ' "$RUNNER_TEMP/order-scan-prior.zip" "$prior"
+          ' "$RUNNER_TEMP/order-scan-prior.zip" "$prior" \
+            || ! uv run --no-sync python -I -c '
+          import pathlib, sys
+          from fedcourtsai.pipeline.order_scan import OrderScanReport
+          OrderScanReport.model_validate_json(pathlib.Path(sys.argv[1]).read_bytes())
+          ' "$prior"; then
+            rm -f "$prior"
+            echo "::warning::Run ${run}'s report could not be read: this run starts a fresh scan."
+            exit 0
+          fi
           echo "Resuming from run ${run}'s report."
 
       - name: Scan for adverse orders
@@ -2687,6 +2708,11 @@ jobs:
             resume=(--resume "$prior")
           fi
           uv run fedcourts order-scan "${resume[@]}" > "$out" 2> "$summary" || status=$?
+          # A refusal before the scan prints no report; leave no empty file
+          # for the upload to carry forward.
+          if [ ! -s "$out" ]; then
+            rm -f "$out"
+          fi
           {
             echo "## order-scan — $(date -u +%Y-%m-%d)"
             echo '```'
@@ -2698,14 +2724,15 @@ jobs:
 
       - name: Upload the scan report
         # A failed scan's report is uploaded too: it says why it failed. A run
-        # that wrote no report (an argument or config refusal) fails here on
-        # the missing file instead.
+        # that wrote no report (an argument or config refusal) uploads nothing,
+        # with a warning, so the next run resumes from the last good report
+        # rather than from nothing.
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: order-scan
           path: ${{ runner.temp }}/order-scan.json
-          if-no-files-found: error
+          if-no-files-found: warn
           # The report names district dockets by court and number — public
           # court records CourtListener already serves, none of them in the
           # corpus — with entry numbers and dates, and no caption, entry text
