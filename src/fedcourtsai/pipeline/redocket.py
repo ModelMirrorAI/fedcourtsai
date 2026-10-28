@@ -12,9 +12,10 @@ An event's own record of whose petition it forecasts is its **caption**, its
 ``opened_at`` and its stage. The corpus event's ``title`` is stamped from the
 row's caption when the event is written. The committed ledger ``event.yaml``
 keeps the caption and opening date it carried at first touch:
-``materialize-event`` never rewrites it, and the outcome writer rewrites it only
-beside an outcome. So it is the identity a committed prediction was made
-under. A case-level baseline's corpus title and opening date re-track the row on
+``materialize-event`` never rewrites it, a re-fired mint keeps its title
+(:func:`fedcourtsai.pipeline.outcome.persist_moment_events`), and the outcome
+writer rewrites it only beside an outcome. So it is the identity a committed
+prediction was made under. A case-level baseline's corpus title and opening date re-track the row on
 every re-extraction, so for a baseline the ledger copy is the only surviving
 witness, and both are read.
 
@@ -54,11 +55,7 @@ refused.
 common first name or surname, or a shared word such as ``County`` in two
 governments' names — read as one, unless the respondent arm catches them. A
 party renamed outright (a corporation's new name, a substituted officer named
-without an office) reads as another petition, which refuses a real decision. A
-moment whose mint re-fires on every poll (the CVSG and interim response moments,
-through :func:`fedcourtsai.pipeline.outcome.persist_moment_events`) has both its
-corpus title and its ``event.yaml`` rewritten from the row on each re-mint, so
-after a re-docketing neither witness keeps the earlier caption.
+without an office) reads as another petition, which refuses a real decision.
 
 What a refusal does is the caller's: outcome detection surfaces the event for
 triage with :data:`REDOCKETED_REASON` instead of attributing the row's
