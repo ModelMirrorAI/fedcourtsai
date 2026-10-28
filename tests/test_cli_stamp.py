@@ -217,6 +217,25 @@ def test_stamp_replaces_an_agent_written_created_at_with_the_stamps_time(
         assert record["created_at"] == record["process_version"]["stamped_at"]
 
 
+def test_stamp_warns_on_a_missing_or_overlong_prediction_summary(_data_root: Path) -> None:
+    """The summary is display material, so its absence or length only warns."""
+    seed_prediction(_data_root, "scotus", 1, "evt-x", predictor_id="claude-baseline")
+    event_paths = CasePaths(_data_root, "scotus", 1).event("evt-x")
+    summary = event_paths.prediction_summary("claude-baseline", "20260101T000000Z")
+
+    missing = _stamp("predictor", "claude-baseline", 1, "evt-x", "20260101T000000Z")
+    assert missing.exit_code == 0, missing.output
+    assert "wrote no prediction_summary.md" in missing.output
+
+    summary.write_text("word " * 200)
+    long = _stamp("predictor", "claude-baseline", 1, "evt-x", "20260101T000000Z")
+    assert "prediction_summary.md of 200 words" in long.output
+
+    summary.write_text("Very likely denied: the question has no split below.\n")
+    fine = _stamp("predictor", "claude-baseline", 1, "evt-x", "20260101T000000Z")
+    assert "prediction_summary" not in fine.output
+
+
 def test_stamp_is_byte_stable_under_a_fixed_clock(_data_root: Path) -> None:
     """Everything but `stamped_at` (and the `created_at` it sets) is deterministic:
     re-stamping with the same clock is byte-identical. In production `stamped_at`

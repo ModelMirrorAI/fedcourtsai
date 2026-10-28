@@ -31,6 +31,7 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/predictions/<predictor_id>/<
   prediction.json          # the quantitative judgment
   predicted_reasoning.md   # what the Court will do
   reasoning.md             # why this number
+  prediction_summary.md    # the call in plain language, for a lay reader
   retrieval.md             # what was consulted beyond the provisioned inputs
   flags.json               # optional: a durable note for a maintainer
   tooling.json             # a short self-report on the tooling the cell had
@@ -451,6 +452,15 @@ epistemic status: `predicted_reasoning.md` resolves against the docket, while
 neither can be read for what it is, and the forecast cannot be scored because
 it cannot be separated from the rationale. The evaluator's `reasoning_quality`
 grades `reasoning.md` and that document only.
+
+## `prediction_summary.md`
+
+One paragraph of about 80 words for a reader with no legal training: the call,
+its probability in words, and the main reason, with the predicted judgment and
+vote split at the merits stage. It restates `prediction.json` and must agree
+with it; it is not a second prediction. Blinded staging copies only the files a
+grade needs, so no judge reads it, and nothing scores it. `stamp-cell` warns,
+and only warns, where a cell left none or one over 160 words.
 
 ## `retrieval.md`
 

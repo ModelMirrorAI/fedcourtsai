@@ -922,7 +922,7 @@ or the argument, was worth.
   from the pre-decision record; if the opinion or its reasoning surfaces anyway,
   disclose it in `flags.json` (`leakage-disclosure`) rather than folding it in.
 
-## Outputs (your three files, `retrieval.md` + a brief `tooling.json`, plus `flags.json` if you have something to flag)
+## Outputs (your four files, `retrieval.md` + a brief `tooling.json`, plus `flags.json` if you have something to flag)
 
 Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTOR_ID/$RUN_ID/`:
 
@@ -1208,6 +1208,13 @@ willing to be scored on, not a hedge.
   filings whether the issue was preserved below. `documents.json` shows the BIO
   fetched with `empty_text: true`, so my read of the opposition is inference from
   the docket, not from its text."*
+- **`prediction_summary.md`** — one paragraph, about 80 words, for a reader with
+  no legal training. State the call, the probability in words ("very likely",
+  "about one in five") and the main reason; at the merits stage, the predicted
+  judgment and, where you forecast one, the expected vote split. It restates
+  `prediction.json` and must agree with it: it is not a second prediction.
+  Explain any legal term you cannot avoid in the same sentence. No reader of
+  the forecast documents sees it, and nothing scores it.
 - **`retrieval.md`** — your retrieval log: what you consulted beyond the provisioned
   inputs, so the record shows what informed this prediction (what you consult is
   logged, not limited). List each corpus lookup (the `fedcourts` command line and the
