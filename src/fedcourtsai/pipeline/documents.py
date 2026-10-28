@@ -2542,6 +2542,146 @@ def extract_filing_text(data: bytes, *, kind: str, char_cap: int) -> ExtractedTe
         return ExtractedText(text="", pages=0, truncated=False)
 
 
+# --- Combined-row cut ---------------------------------------------------------
+#
+# A combined row (:data:`COMBINED_KINDS`) of two or more filings shares one cap,
+# and a cut over the joined text spends it in docket order: the first
+# respondent's appendix is kept before the second respondent's argument is
+# reached. The rule, per row:
+#
+# 1. **Under the cap, nothing changes**: every filing's pages joined under its
+#    header, as the plain extractor joins them.
+# 2. **Every filing's own body is kept before any appendix.** Each filing is
+#    split where its bound appendix starts (:func:`_appendix_start`). Where the
+#    bodies fit together, each is kept whole and the appendices share what is
+#    left; where they do not, every appendix is left out and the bodies share the
+#    cap.
+# 3. **A share is fair, not first-come**: the budget is split evenly, and a
+#    filing shorter than its even share keeps all of it and passes the rest on
+#    (:func:`_fair_shares`), so a short letter is never cut for a long brief
+#    filed before it.
+# 4. **Every cut is stated in the text** inside the filing it falls in, on its
+#    own line, as the appendix-aware cut states its own.
+#
+# A cap too small to give every filing about a printed page takes the plain head
+# cut over the joined text instead, with one note at the end. A group of one
+# selected filing is stored raw under the plain head cut, which keeps its body
+# ahead of its appendix already; a group of two or more of which one was fetched
+# is cut by the rule above, as one filing under its header.
+
+#: What one filing of a combined row is read as: its header line, the page
+#: texts read, and its page count (more than the pages read where reading stopped
+#: at the ceiling).
+CombinedFiling = tuple[str, Sequence[str], int]
+
+
+def read_filing_pages(data: bytes, *, char_cap: int) -> tuple[list[str], int, bool]:
+    """A filing's page texts, its page count, and whether OCR contributed.
+
+    Read as the appendix-aware cut reads (:func:`extract_filing_text`): every
+    page up to :data:`_READ_CEILING_CAPS` times the cap, a page that fails to
+    extract read as blank, and the cut note's opener defused wherever the filing
+    prints it. A PDF that will not open reads as no pages.
+    """
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        parts, _, ocr_derived = _read_pages(
+            reader, ocr_page=None, stop_at=char_cap * _READ_CEILING_CAPS, page_tolerant=True
+        )
+        parts = [part.replace(_CUT_NOTE_OPENER, "[pipeline-note-in-filing:") for part in parts]
+        return parts, len(reader.pages), ocr_derived
+    except (PyPdfError, ValueError, TypeError):
+        return [], 0, False
+
+
+def _fair_shares(lengths: Sequence[int], budget: int) -> list[int]:
+    """Split ``budget`` over ``lengths`` evenly, a shorter one passing on what it leaves."""
+    shares = [0] * len(lengths)
+    remaining = max(budget, 0)
+    order = sorted(range(len(lengths)), key=lambda index: lengths[index])
+    for position, index in enumerate(order):
+        share = min(lengths[index], remaining // (len(order) - position))
+        shares[index] = share
+        remaining -= share
+    return shares
+
+
+def cut_combined_text(filings: Sequence[CombinedFiling], *, char_cap: int) -> tuple[str, bool]:
+    """A combined row's text over ``filings``, cut to ``char_cap`` filing by filing.
+
+    Each filing is its header line, its page texts and its page count
+    (:data:`CombinedFiling`). Returns the text and whether anything was cut. The
+    rule, and why, is stated above :data:`CombinedFiling`.
+    """
+    whole = "\n\n".join(f"{header}\n" + "\n".join(pages) for header, pages, _ in filings)
+    if len(whole) <= char_cap:
+        return whole, False
+    count = len(filings)
+    # The headers, their line breaks and the blank line between two filings,
+    # then room for up to three notes a filing: its body's cut, its appendix's,
+    # and the pages never read.
+    fixed = sum(len(header) + 1 for header, _, _ in filings) + 2 * (count - 1)
+    usable = char_cap - fixed - count * 3 * (_CUT_NOTE_RESERVE + 2)
+    if usable < count * _ITEM_OPENING:
+        # Too many filings for the cap to give each a printed page: the plain
+        # head cut over the joined text, its cut stated at the end.
+        cut = _clean_cut(whole, max(char_cap - 1 - _CUT_NOTE_RESERVE, 0))
+        note = (
+            f"{_CUT_NOTE_OPENER} {len(whole) - cut:,} characters of these filings omitted"
+            f" here, to the end of the last, to fit the {char_cap:,}-character text cap]"
+        )
+        return f"{whole[:cut]}\n{note}"[:char_cap], True
+    splits = [_appendix_start(pages) for _, pages, _ in filings]
+    ends = [
+        len(pages) if start is None else start
+        for (_, pages, _), start in zip(filings, splits, strict=True)
+    ]
+    bodies = [len("\n".join(pages[:end])) for (_, pages, _), end in zip(filings, ends, strict=True)]
+    appendices = [
+        len("\n".join(pages[end:])) if end < len(pages) else 0
+        for (_, pages, _), end in zip(filings, ends, strict=True)
+    ]
+    if sum(bodies) <= usable:
+        body_shares = bodies
+        appendix_shares = _fair_shares(appendices, usable - sum(bodies))
+    else:
+        body_shares = _fair_shares(bodies, usable)
+        appendix_shares = [0] * count
+    blocks: list[str] = []
+    for (header, pages, total), end, body_share, appendix_share, appendix in zip(
+        filings, ends, body_shares, appendix_shares, appendices, strict=True
+    ):
+        pieces = [_cut_span(pages, 0, end, body_share, cap=char_cap, what="this filing")]
+        if end < len(pages):
+            if appendix_share > 0:
+                pieces.append(
+                    _cut_span(
+                        pages,
+                        end,
+                        len(pages),
+                        appendix_share,
+                        cap=char_cap,
+                        what="this filing's appendix",
+                    )
+                )
+            else:
+                pieces.append(
+                    f"{_CUT_NOTE_OPENER} this filing's appendix, PDF pages {end + 1} to"
+                    f" {len(pages)} ({appendix:,} characters), omitted here so every filing's"
+                    f" own text fits the {char_cap:,}-character text cap]"
+                )
+        if len(pages) < total:
+            pieces.append(
+                f"{_CUT_NOTE_OPENER} PDF pages {len(pages) + 1} to {total} of this filing were"
+                f" not read; the pages before them already exceed the {char_cap:,}-character"
+                f" text cap {_READ_CEILING_CAPS} times over]"
+            )
+        blocks.append(f"{header}\n" + "\n".join(pieces))
+    # The reserve above leaves room for every note, so this slice never bites; it
+    # is the safety net that keeps a row at the cap whatever a future note says.
+    return "\n\n".join(blocks)[:char_cap], True
+
+
 # --- Contact-detail scrub ---------------------------------------------------
 #
 # A cell's prose lands in the public git ledger, so the text staged for it is a
@@ -4316,7 +4456,10 @@ def _combine_documents(
     written from here on, and an already-stored row keeps the date it was
     written with until its set of briefs changes. The combined text is capped at
     ``char_cap`` total, in docket order (the lead respondent's brief first,
-    typically).
+    typically). Over the cap it is cut filing by filing
+    (:func:`cut_combined_text`): every brief's own argument is kept before any
+    brief's appendix, and the cap is shared evenly rather than spent
+    first-come.
 
     The row is **dated by the earliest brief it carries**
     (:func:`_earliest_entry_date`) — the date a moment cutoff then places the
@@ -4367,6 +4510,7 @@ def _combine_documents(
     single = len(refs) == 1
     fetched_refs: list[DocumentRef] = []
     blocks: list[str] = []
+    filings: list[CombinedFiling] = []
     pages = 0
     truncated = False
     ocr_derived = False
@@ -4384,28 +4528,32 @@ def _combine_documents(
         if data is None:
             _record_fetch_loss(FETCH_LOSS_UNAVAILABLE, case_id, ref.kind, ref.url)
             continue
-        extracted = extract_pdf_text(data, char_cap=char_cap)
         fetched_refs.append(ref)
         if single:
+            extracted = extract_pdf_text(data, char_cap=char_cap)
             blocks.append(extracted.text)  # a lone BIO stays raw (no header)
+            page_count, truncated, read_by_ocr = (
+                extracted.pages,
+                extracted.truncated,
+                extracted.ocr_derived,
+            )
         else:
             heading = ref.description or _COMBINED_HEADINGS[kind]
             if ref.entry_date:
                 heading = f"{heading} ({ref.entry_date})"
-            blocks.append(f"=== {heading} ===\n{extracted.text}")
-        pages += extracted.pages
-        truncated = truncated or extracted.truncated
+            read, page_count, read_by_ocr = read_filing_pages(data, char_cap=char_cap)
+            filings.append((f"=== {heading} ===", read, page_count))
+        pages += page_count
         # Any OCR-derived brief marks the whole combined row: the reader holds one
         # document, so the weaker provenance is the one that has to survive.
-        ocr_derived = ocr_derived or extracted.ocr_derived
+        ocr_derived = ocr_derived or read_by_ocr
     if kind == KIND_BRIEF_IN_OPPOSITION:
         _record_opposition_shortfall(case_id, selected=len(refs), fetched=len(fetched_refs))
     if not fetched_refs:
         return None
-    text = "\n\n".join(blocks)
-    if len(text) > char_cap:
-        text = text[:char_cap]
-        truncated = True
+    text, truncated = (
+        (blocks[0], truncated) if single else cut_combined_text(filings, char_cap=char_cap)
+    )
     return corpus.CaseDocument(
         case_id=case_id,
         kind=kind,
@@ -4950,6 +5098,12 @@ _CUT_NOTE_DESCRIPTION = (
     "'[pipeline note: ...]' line; a truncated row with no such line was cut at "
     "the cap from the end."
 )
+_COMBINED_CUT_DESCRIPTION = (
+    "Over the text cap, each filing's own text is kept before any appendix and the "
+    "cap is shared between the filings, each cut marked inside its filing by a "
+    "'[pipeline note: ...]' line; a truncated row with no such line was cut at the "
+    "cap from the end, in docket order."
+)
 KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_PETITION: (
         "The filing that opened the case (a petition for certiorari, an extraordinary "
@@ -4980,7 +5134,7 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_BRIEF_IN_OPPOSITION: (
         "Every non-amicus cert-stage brief in opposition or response to the petition, "
         "combined in docket order, each under a '=== <docket entry> ===' header where "
-        "there is more than one."
+        "there is more than one. " + _COMBINED_CUT_DESCRIPTION
     ),
     KIND_CERT_REPLY: (
         "The petitioner's reply at the cert stage: its answer to the brief in opposition."
@@ -5000,12 +5154,12 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_SUPPLEMENTAL_BRIEF: (
         "Every party's supplemental brief filed while the petition was pending, "
         "combined in docket order, each under a '=== <docket entry> ===' header where "
-        "there is more than one."
+        "there is more than one. " + _COMBINED_CUT_DESCRIPTION
     ),
     KIND_PARTY_LETTER: (
         "Every party's letter to the Clerk bearing on the case filed while the "
         "petition was pending, combined in docket order, each under a "
-        "'=== <docket entry> ===' header where there is more than one."
+        "'=== <docket entry> ===' header where there is more than one. " + _COMBINED_CUT_DESCRIPTION
     ),
     KIND_QUESTIONS_PRESENTED: (
         "The questions-presented section cut out of the petition's own text."

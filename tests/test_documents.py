@@ -692,12 +692,13 @@ def test_same_day_oppositions_both_reach_the_stored_record(
     assert documents_before([bio], date(2026, 7, 1)) == [bio]
 
 
-def test_a_capped_combined_opposition_loses_its_tail_and_says_so() -> None:
-    # Which end the shared cap cuts, and what it leaves behind — the pair of
-    # facts that tell a capped row apart from one that lost a fetch. The join is
-    # in docket order, so the cap takes the LATER brief; and the row comes back
-    # `truncated`, which reaches the cell through `documents.json`. A row
-    # missing its LEAD brief and reading untruncated was not cut by the cap.
+def test_a_cap_too_small_to_share_head_cuts_the_combined_opposition_and_says_so() -> None:
+    # A cap too small to give each brief a printed page takes the plain head cut
+    # over the docket-order join (`cut_combined_text`), so the LATER brief goes;
+    # the row comes back `truncated`, which reaches the cell through
+    # `documents.json`. A row missing its LEAD brief and reading untruncated was
+    # not cut by the cap. The cut at a cap that can be shared is
+    # tests/test_combined_cut.py's.
     entries = _SAME_DAY_BIO_ENTRIES
     served = {
         "https://www.supremecourt.gov/petition.pdf": _pdf("QUESTION PRESENTED Whether X."),
@@ -717,6 +718,8 @@ def test_a_capped_combined_opposition_loses_its_tail_and_says_so() -> None:
     assert bio.truncated is True
     assert entries[0][1] in bio.text  # the lead brief's header survives
     assert "Second respondent says deny." not in bio.text  # the tail is what goes
+    assert bio.text.endswith("-character text cap]")  # and the cut says so
+    assert len(bio.text) <= 300
     # Both briefs were fetched, so the key still records the whole set: the cap
     # is a content loss, not a fetch loss, and nothing will re-fetch for it.
     assert bio.url == BIO_URL_JOIN.join(sorted(url for _d, _t, url in entries))

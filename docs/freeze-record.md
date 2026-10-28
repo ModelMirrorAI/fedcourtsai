@@ -14211,3 +14211,92 @@ freeze commit is recorded here.
   merge as at its first parent.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+- **A combined row of several filings is cut filing by filing, every filing's
+  own text before any appendix; recorded 2026-10-28.** A **conditioning**
+  entry in the *what the pipeline provisions* class, under unchanged digests:
+  no prompt byte and no registry field the digests read moves, and `uv run
+  fedcourts process-digest --all` at this commit prints what it prints at its
+  parent on `staging`: `proc-v13` and the six digests `6a176c28…`
+  (claude-baseline), `2827480e…` (codex-baseline), `b69b2b3a…`
+  (gemini-baseline), `167b7d71…` (claude-judge), `a8610eec…` (codex-judge)
+  and `6a88d3dc…` (gemini-judge).
+
+  **What changes**, at ingest (`pipeline.documents.cut_combined_text`, called
+  by `_combine_documents`), for a `brief-in-opposition`, `supplemental-brief`
+  or `party-letter` row of two or more selected filings whose joined text
+  exceeds `document_text_cap`:
+  - **Each filing is read to the appendix-aware cut's ceiling** and split
+    where its bound appendix starts (`_appendix_start`).
+  - **Every filing's own text is kept before any appendix.** Where the
+    filings' own texts fit together, each is kept whole and the appendices
+    share what is left; where they do not, every appendix is left out and the
+    filings share the cap.
+  - **Shares are even, not first-come**: a filing under its even share keeps
+    all of it and passes the rest on.
+  - **Every cut is stated inside its filing** as a `[pipeline note: …]` line,
+    an appendix left out whole and pages never read included.
+  - **A cap too small to give every filing about a printed page** takes the
+    plain head cut over the joined text, with one note at its end.
+  A row under the cap is every filing's pages joined under its header, as
+  before; a group of one selected filing keeps the plain head cut. Each
+  combined kind's `kind_description` gains a sentence saying how its row is
+  cut, and that a truncated row with no note was cut in docket order; the
+  descriptions are not a digest input, and the digests above are unchanged
+  with it.
+
+  **The executed check.** `scotus/73279966` (25-828), the docket a codex cell
+  flagged on `evt-brief-sg-disposition`. The stored opposition row, read from
+  the production content store on 2026-10-28 (the row fetched 2026-08-08), is
+  150,000 characters, `truncated: true`, its first brief's block 112,790
+  characters and its second's 37,034, cut part-way through the second brief's
+  argument. The case's latest stored snapshot (2026-10-28) selects the same
+  two briefs; re-fetching both from the Court on 2026-10-28 and combining them
+  at this commit gives a 148,698-character row: the first brief's own text whole
+  (90 pages, appendix from PDF page 52) with 30,458 characters of its
+  appendix omitted under one note, and the second brief whole through its
+  signature (66,015 characters, no note).
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut: the pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after.
+  - **The registry row** is `combined-row-per-filing-cut`: every predictor,
+    reach `all`, **gradual**, since a combined row is re-fetched only when its
+    set of links changes: a row stored before the carrying merge keeps its
+    docket-order cut, and a cell after the boundary may still read it. It is
+    registered **pending** in the change's own PR (`fedcourts
+    register-boundary`). Its `merge` and `at` stay null until the promotion
+    merge that carries it to `main` stamps them (`promotion-record`); until
+    then it is left out of `process_version.HARNESS_BOUNDARIES`, so no cell
+    has a side of it.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side, and its number is listed.
+  - **Evaluate cells are dated by this entry, not partitioned**: the boundary
+    registry splits predictor cells only, and an evaluate cell provisioned
+    after the carrying merge reads the re-cut row under the same evaluator
+    digests.
+  - **Exposure is an upper bound and is not sized.** Which combined rows run
+    past the cap with more than one filing, and which of those are stored
+    after the carrying merge, was not counted for this entry.
+
+  **What a post-change cell reads.** On an affected row, every filing's own
+  text before any appendix, each cut stated where it falls; on a row stored
+  before, the docket-order cut as before. Predict cells, evaluate cells and
+  the case-summary lane read the same from the carrying promotion on; cells
+  already run and summaries already written stay as they are. No skill
+  movement is predicted, and a movement in either direction across this
+  boundary may not be read as a model effect. No base rate re-prices, no
+  membership rule moves, no scored figure moves, and no stored row is
+  rewritten by this change.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_combined_cut.py` is green; the next combined opposition stored
+  over the cap with two or more briefs carries each brief's own text through
+  its end or a `[pipeline note:` line inside its block; and `uv run fedcourts
+  process-digest --all` prints the same label and six digests at the carrying
+  merge as at its first parent.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
