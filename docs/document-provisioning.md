@@ -51,6 +51,7 @@ transcript, which only a post-argument cell is given.
 | `merits-brief-petitioner`, `merits-brief-respondent` | Each side's brief on the merits | Granted |
 | `merits-reply-petitioner`, `merits-reply-respondent` | Each side's reply on the merits | Granted |
 | `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
+| `merits-brief-appointed-amicus` | The merits brief of a Court-appointed amicus defending the judgment, filed after the grant; stored, staged for no cell yet | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
@@ -61,15 +62,16 @@ cell reads is part of its information set, and the process digest does not see
 it ([process-version.md](process-version.md)), so a kind is staged only in the
 re-bless whose prompt tells cells about it. Until then
 `provision.WITHHELD_KINDS` keeps it from every cell at every moment, and the
-case-summary plan leaves it out of the record it reads. No kind is held there
-now. One record input that is not a document is held back on the same rule:
+case-summary plan leaves it out of the record it reads. One kind is held there
+now: `merits-brief-appointed-amicus`. One record input that is not a document is held back on the same rule:
 the post-argument merits cell's `record/authorship-tally.json`, the Term's
 tally of who has written from each argument sitting
 (`provision.AUTHORSHIP_TALLY_WITHHELD`).
 
-Amicus briefs other than the United States' are never selected: the Solicitor
-General's invited brief at the cert stage, and the United States' brief on the
-merits after the grant. A cell with retrieval rights can still reach the others
+Amicus briefs other than the United States' and a Court-appointed amicus's are
+never selected: the Solicitor General's invited brief at the cert stage, the
+United States' brief on the merits after the grant, and the brief of an amicus
+the Court appointed to defend the judgment below. A cell with retrieval rights can still reach the others
 upstream.
 
 ## The settings that bound it

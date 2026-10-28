@@ -55,7 +55,8 @@ fields that mean the same thing at every stage:
   on a post-argument cell `argument-features.json`) sit beside every event of the case rather than under the event being
   predicted. The staged `documents/` hold the kinds provisioning gives cells,
   never one the corpus stores but withholds from every cell until a re-bless
-  (`provision.WITHHELD_KINDS`, which holds none now;
+  (`provision.WITHHELD_KINDS`, which holds the Court-appointed amicus's merits
+  brief now;
   [document-provisioning.md](document-provisioning.md)); the post-argument
   merits cell's `authorship-tally.json` is held back on the same rule
   (`provision.AUTHORSHIP_TALLY_WITHHELD`). `argument-features.json` is the
