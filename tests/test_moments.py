@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from fedcourtsai import corpus
+from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline.claims import (
     CLAIM_AMICUS_INCREMENT,
@@ -20,16 +21,19 @@ from fedcourtsai.pipeline.claims import (
 from fedcourtsai.pipeline.ingest import CorpusRow, default_event
 from fedcourtsai.pipeline.outcome import (
     MERITS_EVENT_ID,
+    Resolution,
     arrival_event_for,
     briefed_merits_event_for,
     call_for_response_event_for,
     cvsg_event_for,
     forward_leakage,
     interim_response_events_for,
+    mint_moment_events,
     relist_event_for,
     sg_brief_event_for,
 )
-from fedcourtsai.schemas import Disposition, EventKind, Moment, Stage
+from fedcourtsai.schemas import Disposition, EventKind, Moment, PredictableEvent, Stage
+from fedcourtsai.serialize import read_model
 from fedcourtsai.store import normalized_moment
 
 
@@ -272,6 +276,68 @@ def test_the_briefed_moment_mints_only_while_the_grant_moment_is_open() -> None:
     # No brief parsed yet.
     unbriefed = row.model_copy(update={"merits_brief_filed": None})
     assert briefed_merits_event_for(unbriefed, [MERITS_EVENT_ID]) is None
+
+
+def test_a_consolidated_member_opens_its_briefed_moment_on_the_lead_filed_brief() -> None:
+    """A member's respondent files on the lead docket, so the member's own column stays empty."""
+    member = CorpusRow(
+        case_id="scotus/1",
+        court="scotus",
+        docket_id=1,
+        source="live",
+        docket_number="25-501",
+        disposition=Disposition.granted,
+        date_cert_granted=date(2026, 1, 9),
+    )
+    on_lead = date(2026, 7, 13)
+    minted = briefed_merits_event_for(member, [MERITS_EVENT_ID], on_lead)
+    assert minted is not None
+    assert (minted.event_id, minted.opened_at) == ("evt-brief-judgment", on_lead)
+    # The member's own brief, where it has one, wins.
+    own = member.model_copy(update={"merits_brief_filed": date(2026, 7, 1)})
+    own_minted = briefed_merits_event_for(own, [MERITS_EVENT_ID], on_lead)
+    assert own_minted is not None and own_minted.opened_at == date(2026, 7, 1)
+    # The same guards hold: a closed grant moment or a judgment mints nothing.
+    assert briefed_merits_event_for(member, [], on_lead) is None
+    decided = member.model_copy(update={"merits_judgment": "affirmed"})
+    assert briefed_merits_event_for(decided, [MERITS_EVENT_ID], on_lead) is None
+
+
+def test_the_member_briefed_moment_mints_off_the_stored_row(tmp_path: Path) -> None:
+    """The poll's own row carries no lead-filed brief; the stored one the latch dated does."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    row = CorpusRow(
+        case_id="scotus/9025000501",
+        court="scotus",
+        docket_id=9025000501,
+        source="live",
+        docket_number="25-501",
+        disposition=Disposition.granted,
+        date_cert_granted=date(2026, 1, 9),
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=row.case_id,
+                    court="scotus",
+                    docket_number="25-501",
+                    disposition=Disposition.granted,
+                    date_cert_granted=date(2026, 1, 9),
+                )
+            ],
+        )
+    args = (db, tmp_path, "scotus", 9025000501, row, Resolution(), [MERITS_EVENT_ID])
+    assert "evt-brief-judgment" not in mint_moment_events(*args)
+    with corpus.connect(db) as conn:
+        corpus.latch_merits_brief_on_lead(conn, row.case_id, date(2026, 7, 13))
+    assert "evt-brief-judgment" in mint_moment_events(*args)
+    event = read_model(
+        CasePaths(tmp_path, "scotus", 9025000501).event("evt-brief-judgment").event_file,
+        PredictableEvent,
+    )
+    assert (event.moment, event.opened_at) == (Moment.briefed, date(2026, 7, 13))
 
 
 def test_a_granted_application_mints_no_briefed_moment_either() -> None:
