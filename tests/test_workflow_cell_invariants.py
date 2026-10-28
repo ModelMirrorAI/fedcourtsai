@@ -2114,7 +2114,6 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Converge stored docket markings", ()),
     ("repair", "Backfill the dated response signals", ()),
     ("repair", "Backfill missing primary documents", ("apply did not converge",)),
-    ("repair", "Re-cut head-cut filings", ("apply did not converge",)),
     ("repair", "Backfill the interim arrival stamps", ()),
     ("repair", "Remove ungranted merits phantoms", ()),
     ("repair", "Converge disposition labels", ()),
@@ -2123,6 +2122,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("regrade", "Re-grade named cells", ()),
     ("handoff-projection", "Write the application back-fill projection", ()),
     ("handoff-projection", "Write the OCR worklist", ()),
+    ("handoff-projection", "Write the re-cut worklist", ()),
     ("handoff-parse", "Read the vote records", ()),
     ("handoff-parse", "Walk the application back-fill", ()),
     ("votes", "Stamp the planned vote records", ()),
@@ -2137,6 +2137,16 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         "documents",
         "Write the recovered filings",
         ("ocr-recover-petitions wrote nothing", "apply did not converge"),
+    ),
+    (
+        "documents-dry-run",
+        "Read the re-cut plan against the stored filings",
+        ("recut-documents read nothing",),
+    ),
+    (
+        "documents",
+        "Write the re-cut filings",
+        ("recut-documents wrote nothing", "apply did not converge"),
     ),
 )
 
@@ -4447,6 +4457,7 @@ SPLIT_PASSES = (
     "application-backfill",
     "opinion-record",
     "ocr-recovery",
+    "recut",
 )
 
 
@@ -4486,6 +4497,7 @@ def test_the_parse_job_holds_no_credential_of_any_kind() -> None:
         "Walk the application back-fill",
         "Read the opinion record",
         "Read the scanned filings",
+        "Re-cut the head-cut filings",
     ):
         assert names.index(name) > names.index("Assert no credential reaches the parse"), name
     setup = next(s for s in steps if s.get("uses") == "./.github/actions/setup-python-env")
@@ -4521,11 +4533,14 @@ def test_the_split_passes_run_projection_then_parse_then_an_apply_only_writer() 
             for line in run.splitlines():
                 if "fedcourts stamp-" in line or "fedcourts backfill-" in line:
                     assert "--from-plan" in _norm(run), f"{writer}: {line.strip()}"
-            # The OCR writer's one other invocation is the witness, which
-            # fetches nothing (`--probe=0`).
+            # The documents writer's one other invocation per pass is its
+            # witness, which fetches nothing (`--probe=0`, `--max-cases 0`).
             for argv in command_argv(run, ("uv", "run", "fedcourts")):
                 if argv[0] == "ocr-recover-petitions":
                     assert "--from-plan" in argv or "--probe=0" in argv, f"{writer}: {argv}"
+                if argv[0] == "recut-documents":
+                    witness = argv[argv.index("--max-cases") + 1] == "0"
+                    assert "--from-plan" in argv or witness, f"{writer}: {argv}"
         token = names.index("Mint app token")
         assert token > download, f"{writer}: the App token is minted before the plan lands"
         token_steps = [
@@ -4611,7 +4626,7 @@ def test_the_commit_steps_hold_no_aws_session() -> None:
         ("applications", "Commit the back-filled corpus"),
         ("decision-record", "Commit the decision-record corpus pointer"),
         ("opinion-record", "Commit the opinion-record corpus pointer"),
-        ("documents", "Commit the recovered-filings pointer"),
+        ("documents", "Commit the documents pointer"),
     ):
         step = _named_step("run-repair.yml", job, name)
         env = step.get("env", {})
@@ -4772,7 +4787,10 @@ def test_the_application_plan_crosses_only_as_its_one_day_run_artifact() -> None
     assert "Hold the application plan" not in names
     upload = steps[names.index("Upload the plan")]
     gate = _norm(str(upload["if"]))
-    assert gate.startswith("${{ inputs.repair_mode == 'apply' && (")
+    # On an apply only, but for the re-cut, whose dry-run reader judges the
+    # plan too (its carve-out names both modes).
+    assert gate.startswith("${{ (inputs.repair_mode == 'apply' && (")
+    assert gate.endswith(") || inputs.repair == 'recut' }}")
     for name in SPLIT_PASSES:
         assert f"inputs.repair == '{name}'" in gate, name
     assert upload["with"]["name"] == "repair-plan-${{ github.run_id }}"
@@ -4883,32 +4901,95 @@ def test_the_ocr_plan_text_is_only_ever_a_cli_argument() -> None:
     )
     for job, name in (
         ("handoff-parse", "Read the scanned filings"),
+        ("handoff-parse", "Re-cut the head-cut filings"),
         ("documents", "Check the downloaded plan"),
         ("documents", "Write the recovered filings"),
+        ("documents", "Write the re-cut filings"),
+        ("documents-dry-run", "Check the downloaded plan"),
+        ("documents-dry-run", "Read the re-cut plan against the stored filings"),
     ):
         run = str(_named_step("run-repair.yml", job, name)["run"])
         for token in allowed:
             run = run.replace(token, "")
         assert "HANDOFF_PLAN" not in run and "plan.json" not in run, (job, name)
-    land = str(_named_step("run-repair.yml", "documents", "Write the recovered filings")["run"])
-    invocation = land.index("--from-plan")
-    assert land.index('echo "::stop-commands::${stop_token}"') < invocation
-    resume = land.index('echo "::${stop_token}::"')
-    assert resume > land.index("summarize /tmp/ocr-apply.txt") > invocation
+    for job, name, printed in (
+        ("documents", "Write the recovered filings", "summarize /tmp/ocr-apply.txt"),
+        ("documents", "Write the re-cut filings", "summarize /tmp/recut-apply.txt"),
+        (
+            "documents-dry-run",
+            "Read the re-cut plan against the stored filings",
+            'head -c 300000 /tmp/recut-dry.txt >> "$GITHUB_STEP_SUMMARY"',
+        ),
+        (
+            "handoff-parse",
+            "Re-cut the head-cut filings",
+            'head -c 300000 /tmp/recut-parse.txt >> "$GITHUB_STEP_SUMMARY"',
+        ),
+    ):
+        land = str(_named_step("run-repair.yml", job, name)["run"])
+        invocation = land.index("uv run fedcourts")
+        assert land.index('echo "::stop-commands::${stop_token}"') < invocation, name
+        resume = land.index('echo "::${stop_token}::"')
+        assert resume > land.index(printed) > invocation, name
 
 
-def test_the_ocr_writer_mints_its_app_token_only_after_the_push() -> None:
+def test_the_documents_writer_mints_its_app_token_only_after_the_push() -> None:
     """No GitHub write credential exists while the plan is being landed."""
     steps = _repair_steps("documents")
     names = _step_names(steps)
-    land = names.index("Write the recovered filings")
-    assert "uv run fedcourts corpus-push" in str(steps[land]["run"])
-    assert names.index("Mint app token") > land
+    for landing in ("Write the recovered filings", "Write the re-cut filings"):
+        land = names.index(landing)
+        assert "uv run fedcourts corpus-push" in str(steps[land]["run"]), landing
+        assert names.index("Mint app token") > land, landing
     assert "app-token" not in yaml.safe_dump(steps[: names.index("Mint app token")])
     roles = [
         n for n, s in zip(names, steps, strict=True) if "AWS_ROLE_TO_ASSUME" in yaml.safe_dump(s)
     ]
     assert roles == ["Configure AWS credentials (corpus S3 remote, read-write)"]
+
+
+def test_the_recut_dry_run_reader_holds_the_read_only_role_alone() -> None:
+    """The re-cut's dry run reads the stored text after the parse, and writes nothing.
+
+    The read-only role and nothing else: no `corpus-write` lock (it pushes
+    nothing, and holding the group for a read would queue the scheduled writer
+    windows behind it), no remote-writes switch, no App token, no read-write
+    role. Both files by artifact id, checked before anything reads them, and
+    the one CLI call is the reader without `--apply`.
+    """
+    job = _repair_job("documents-dry-run")
+    assert own_needs(job) == ["validate", "handoff-projection", "handoff-parse"]
+    assert own_condition(job) == (
+        "inputs.repair == 'recut' && inputs.repair_mode != 'apply' "
+        "&& needs.handoff-parse.outputs.plan-artifact != '' "
+        "&& needs.handoff-projection.outputs.projection-artifact != ''"
+    )
+    assert job["environment"] == "prod"
+    assert job["permissions"] == {"contents": "read", "id-token": "write"}
+    assert "concurrency" not in job
+    text = yaml.safe_dump(job)
+    for forbidden in (
+        "FEDCOURTS_REMOTE_WRITES",
+        "app-token",
+        "secrets.",
+        "AWS_ROLE_TO_ASSUME }}",
+        "configure-aws-credentials",
+        "corpus-push",
+        "git commit",
+    ):
+        assert forbidden not in text, f"the dry-run reader reaches {forbidden!r}"
+    assert "corpus-readonly" in text
+    names = _step_names(job["steps"])
+    assert names.index("Check the downloaded plan") < names.index(
+        "Read the re-cut plan against the stored filings"
+    )
+    argvs = [
+        argv
+        for step in job["steps"]
+        for argv in command_argv(str(step.get("run", "")), ("uv", "run", "fedcourts"))
+    ]
+    assert len(argvs) == 1 and argvs[0][0] == "recut-documents"
+    assert "--from-plan" in argvs[0] and "--apply" not in argvs[0]
 
 
 def test_the_evaluate_cell_provisions_its_snapshot_before_its_opinion() -> None:

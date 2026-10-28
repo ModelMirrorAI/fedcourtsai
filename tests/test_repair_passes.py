@@ -333,13 +333,13 @@ def test_every_corpus_pass_is_persisted_once() -> None:
     corpus = {name for name, p in PASSES.items() if p.jobs == ("repair",)}
     # The split passes whose writer commits from the pass table's record.
     recorded = {name for name, p in PASSES.items() if "documents" in p.jobs}
-    assert recorded == {"ocr-recovery"}
+    assert recorded == {"ocr-recovery", "recut"}
     assert set(repair_passes.PERSIST).isdisjoint(repair_passes.SELF_PERSISTING)
     assert set(repair_passes.PERSIST) | repair_passes.SELF_PERSISTING == corpus | recorded
     commit = next(
         s
         for s in _workflow()["jobs"]["documents"]["steps"]
-        if s.get("name") == "Commit the recovered-filings pointer"
+        if s.get("name") == "Commit the documents pointer"
     )
     assert "python3 -I -S src/fedcourtsai/repair_passes.py persist" in commit["run"]
     for name in corpus:
@@ -380,7 +380,7 @@ def test_the_persist_step_follows_every_pass_and_precedes_the_verdict() -> None:
                 "No lost outcomes left to record; nothing to persist.",
             ],
         ),
-        ("recut", 0, []),
+        ("document-backfill", 0, []),
         ("regrade-stale", 1, ["::error::repair=regrade-stale has no persist record"]),
     ],
 )

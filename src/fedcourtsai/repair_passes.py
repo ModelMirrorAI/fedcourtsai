@@ -205,7 +205,13 @@ PASSES: Mapping[str, RepairPass] = {
         _bounded("response-backfill", "--max-fills"),
         _bounded("ocr-recovery", "--max-cases", (*_HANDOFF, "documents")),
         _bounded("document-backfill", "--max-cases", bound_read_on_dry_run=True),
-        _bounded("recut", "--max-cases", bound_read_on_dry_run=True, options=("all-live",)),
+        _bounded(
+            "recut",
+            "--max-cases",
+            (*_HANDOFF, "documents-dry-run", "documents"),
+            bound_read_on_dry_run=True,
+            options=("all-live",),
+        ),
         _bounded("arrival-backfill", "--max-fills"),
         _bounded("merits-phantom-removal", "--max-removals", options=(INCLUDE_FAILED_ATTEMPTS,)),
         _bounded("disposition-convergence", "--max-relabels", options=(INCLUDE_SCORED,)),
@@ -247,10 +253,10 @@ class Persist:
     stages_data: bool = False
 
 
-#: The corpus passes that commit their own write inside the pass step, because
+#: The corpus pass that commits its own write inside the pass step, because
 #: the step's slice deadline is computed against its own cap with the push and
 #: the commit charged to it.
-SELF_PERSISTING = frozenset({"document-backfill", "recut"})
+SELF_PERSISTING = frozenset({"document-backfill"})
 
 #: Every other corpus pass's commit. A pass whose durable write is the content
 #: store's (the questions-presented back-fill) can leave the blob
@@ -288,6 +294,11 @@ PERSIST: Mapping[str, Persist] = {
         message="repair: recover scanned filings (OCR)",
         label="OCR recovery pointer",
         unchanged="Recovered text is in the content store; the index pointer is unchanged.",
+    ),
+    "recut": Persist(
+        message="repair: re-cut head-cut filings",
+        label="document re-cut pointer",
+        unchanged="Re-cut text is in the content store; the index pointer is unchanged.",
     ),
     "arrival-backfill": Persist(
         message="repair: converge corpus (interim arrival stamps)",

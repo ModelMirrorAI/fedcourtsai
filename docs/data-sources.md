@@ -660,8 +660,9 @@ court-record identifiers, the same footing as the Court identifiers the
 `run-repair` handoffs carry. `run-repair`'s one-day handoff artifacts ride
 the same channel with public Court identifiers and supremecourt.gov content
 only, never a corpus row, snapshot or stored document; the application back-fill's plan, whose served
-docket JSON carries counsel blocks, crosses under the one carve-out recorded in
-*PII stance* below. Prediction reasoning may quote or summarize
+docket JSON carries counsel blocks, and the OCR and re-cut plans, whose filing
+text can carry a self-represented filer's contact details, cross under the
+carve-outs recorded in *PII stance* below. Prediction reasoning may quote or summarize
 public-record docket facts in the course of explaining a prediction, and may
 characterize what a provisioned filing argues — a petition, its separately
 linked appendix, a brief in opposition, the petitioner's cert-stage reply, the
@@ -809,7 +810,7 @@ material**:
   explaining a prediction. Apart from what the contact scrubs miss (named at
   the end of the second carve-out), the only places a self-represented
   filer's contact detail travels unscrubbed are the transient run artifacts
-  in the two carve-outs below, which hold no stored copy and never reach git.
+  in the carve-outs below, which hold no stored copy and never reach git.
 - **One carve-out: the application back-fill's plan artifact** (maintainer
   decision, 2026-10-01; extended to OT2016's legacy docket pages, 2026-10-27).
   Every byte it admits is the Court's own public docket
@@ -893,6 +894,41 @@ material**:
     value-only scrub ran over) is not checked at all
     ([live-sources.md](live-sources.md), the contact-detail scrub;
     [case-summaries.md](case-summaries.md)).
+- **A third carve-out: the re-cut's plan artifact** (proposed; promoting the
+  split of run-repair's `recut` pass to `main` decides it). Every byte it
+  admits is a filing the Court serves openly at supremecourt.gov, read off its
+  text layer, and none of it comes from our private stores.
+  - *What:* for each item of one dispatch's worklist that the parse re-cut,
+    the text the fetching lanes' extractor cut from the filing at the item's
+    Court URL, with its page count and `truncated` flag; for every other item,
+    one of the pass's own outcome strings (a failed fetch and its reason
+    class, unparseable bytes, another page count, an empty re-cut). A
+    self-represented filer's petition or application carries a home address,
+    telephone or prisoner register number in that text. Nothing read from the
+    corpus, the content store or any stored snapshot: the job that writes the
+    plan holds no corpus credential, and the worklist it reads carries case
+    ids, kinds, Court URLs and stored page counts only.
+  - *Where:* one workflow artifact, `repair-plan-<run_id>`, kept one day and
+    consumed in the same run — on an apply by the `documents` writer, on a dry
+    run by the read-only `documents-dry-run` reader, because the rest of each
+    outcome reads the stored text, which never crosses, and a dry run that
+    reads as its apply needs it judged. It is the one plan that crosses on a
+    dry run too. It is never committed to git and never printed to a log or
+    step summary; the summary carries each item's identifiers, page count,
+    character count and flags, and its outcome. Both readers refuse a plan
+    whole if it is off its shape, names anything not on the projection's own
+    worklist (downloaded by artifact id), does not account for every
+    worklist item exactly once, or carries a row of another URL or page count
+    than its item's or a text above the document cap; the writer then writes
+    a row only into a stored document still in the re-cut class at that URL
+    and page count. Its worklist is at most `repair_bound` items, or on an
+    unbounded dry run the class in scope, of which the parse's slice deadline
+    reaches what its step can read; each text is under the document cap.
+  - *Who can read it:* as above, any signed-in GitHub user, for a day, on
+    each `recut` dispatch.
+  - *Unchanged:* the corpus and the content store stay access-gated, nothing
+    under this carve-out reaches `data/`, and the contact scrubs below run
+    over a re-cut text as over any other stored text.
 - **A filing made in person is scrubbed before a cell reads it.** Where the
   provisioned snapshot serves a counsel block on either party side — petitioner
   or respondent — naming nobody but the party to write to — no attorney, the

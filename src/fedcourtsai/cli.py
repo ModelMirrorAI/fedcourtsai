@@ -326,7 +326,14 @@ from .pipeline.document_recut import (
 from .pipeline.document_recut import (
     SCOPE_PREDICT_RELEVANT as RECUT_SCOPE_PREDICT_RELEVANT,
 )
-from .pipeline.document_recut import recut_documents
+from .pipeline.document_recut import DocumentRecutResult, recut_documents
+from .pipeline.document_recut_split import (
+    RecutPlan,
+    RecutWorklist,
+    apply_recut_plan,
+    plan_recut_worklist,
+    recut_worklist,
+)
 from .pipeline.documents import (
     FETCH_LOSS_BIO_EMPTY,
     FETCH_LOSS_BIO_PARTIAL,
@@ -3448,7 +3455,7 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; opt
 
 
 @app.command("recut-documents")
-def recut_documents_cmd(
+def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     apply: Annotated[
         bool,
         typer.Option(
@@ -3485,6 +3492,44 @@ def recut_documents_cmd(
             "(queued for prediction or selected by the salience gate).",
         ),
     ] = False,
+    emit_worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--emit-worklist",
+            help="The split's projection: walk the class, print its ledger and write the "
+            "slice the parse reads (the first --max-cases candidates, or the whole class "
+            "without it) to this file. Fetches nothing.",
+        ),
+    ] = None,
+    worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--worklist",
+            help="The split's parse: re-fetch and re-cut each item of this worklist with "
+            "no corpus, and write the plan to --plan-out. Takes --deadline-seconds.",
+        ),
+    ] = None,
+    plan_out: Annotated[
+        Path | None,
+        typer.Option("--plan-out", help="Where the parse writes its plan (with --worklist)."),
+    ] = None,
+    from_plan: Annotated[
+        Path | None,
+        typer.Option(
+            "--from-plan",
+            help="The split's reader: judge this plan against the stored text and print "
+            "the pass's ledger; with --apply, write the re-cuts. Takes --bind-worklist "
+            "and the --max-cases the worklist was cut for.",
+        ),
+    ] = None,
+    bind_worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--bind-worklist",
+            help="The projection's own worklist, which the reader checks the plan against "
+            "(with --from-plan).",
+        ),
+    ] = None,
 ) -> None:
     """Re-cut the petitions, applications and appendices stored under the plain head cut.
 
@@ -3515,8 +3560,44 @@ def recut_documents_cmd(
     once a candidate's estimate will not fit, reported unreached. The lane
     invocation is run-repair's `recut` pass. Fails loud if the corpus is absent
     or the walk reads no stored document of the three kinds.
+
+    run-repair runs the pass split at the credential boundary, in three jobs:
+    `--emit-worklist` (the projection, read-only), `--worklist --plan-out` (the
+    parse, which fetches and re-cuts with no corpus and no credential) and
+    `--from-plan --bind-worklist` (the reader, which judges each re-cut against
+    the stored text; with `--apply`, the writer). The plain mode with
+    `--max-cases 0` is the writer's witness re-read.
     """
     started = time.monotonic()
+    command = "recut-documents"
+    if worklist is not None or plan_out is not None:
+        if worklist is None or plan_out is None:
+            _recut_refuse("the parse takes --worklist and --plan-out together.")
+        if (
+            apply
+            or max_cases is not None
+            or all_live
+            or emit_worklist
+            or from_plan
+            or bind_worklist
+        ):
+            _recut_refuse(
+                "the parse takes --worklist, --plan-out and --deadline-seconds only; it "
+                "opens no corpus and writes none."
+            )
+        _recut_parse(started, worklist, plan_out, deadline_seconds=deadline_seconds)
+        return
+    if emit_worklist is not None or from_plan is not None or bind_worklist is not None:
+        _recut_split(
+            apply=apply,
+            max_cases=_slice_bound(max_cases, command=command),
+            all_live=all_live,
+            deadline_seconds=deadline_seconds,
+            emit_worklist=emit_worklist,
+            from_plan=from_plan,
+            bind_worklist=bind_worklist,
+        )
+        return
     settings = get_settings()
     if apply and max_cases is None:
         typer.echo(
@@ -3555,6 +3636,12 @@ def recut_documents_cmd(
             scope=scope,
             deadline=deadline,
         )
+    _echo_recut(result, db_path, apply=apply)
+
+
+def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> None:
+    """The pass's ledger, as the pass in one job and the split's reader both print it."""
+    scope = result.scope
     if not result.documents_seen:
         typer.echo(
             f"recut-documents: no stored documents of an appendix-bearing kind in {db_path} "
@@ -3601,6 +3688,163 @@ def recut_documents_cmd(
     if apply:
         _ensure_corpus_layout(db_path)
     typer.echo(result.model_dump_json())
+
+
+def _recut_refuse(message: str) -> NoReturn:
+    typer.echo(f"recut-documents: {message}", err=True)
+    raise typer.Exit(code=2)
+
+
+def _recut_parse(
+    started: float, worklist_path: Path, plan_out: Path, *, deadline_seconds: float | None
+) -> None:
+    """The credential-free parse: the worklist in, the plan out, no corpus."""
+    command = "recut-documents"
+    deadline = _slice_deadline(started, deadline_seconds, command=command)
+    cfg = load_historical_config(get_settings().config_root)
+    handed = _read_handoff_or_exit(command, worklist_path, RecutWorklist)
+    try:
+        with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
+            plan = plan_recut_worklist(
+                client, handed, char_cap=cfg.document_text_cap, deadline=deadline
+            )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    # Counts and identifiers only: the plan's text is the filings' own, and a
+    # self-represented filer's contact details are in it. The stored text the
+    # rest of the outcome turns on is the reader's to judge against.
+    typer.echo(
+        f"recut parse ({handed.scope}): {len(handed.items)} item(s) "
+        f"(bound {'none' if handed.bound is None else handed.bound}); "
+        f"re-cut {len(plan.rows)} for the reader to judge; "
+        f"settled by the served PDF {len(plan.skips)}; unreached {len(plan.unreached)}"
+    )
+    for row in plan.rows:
+        typer.echo(
+            f"  {row.key}: pages={row.pages} chars={len(row.text)} "
+            f"truncated={str(row.truncated).lower()}"
+        )
+    for key, detail in plan.skips.items():
+        typer.echo(f"  {key}: SKIPPED ({detail})")
+    _echo_unreached(plan.unreached)
+    write_handoff(plan_out, plan)
+
+
+def _recut_split(  # noqa: PLR0912, PLR0915 - keyword-only; one refusal per split mode
+    *,
+    apply: bool,
+    max_cases: int | None,
+    all_live: bool,
+    deadline_seconds: float | None,
+    emit_worklist: Path | None,
+    from_plan: Path | None,
+    bind_worklist: Path | None,
+) -> None:
+    """The split's projection and reader, run-repair's credential split for the re-cut.
+
+    The projection (``--emit-worklist``) prints the class ledger and writes the
+    worklist; the reader (``--from-plan --bind-worklist``) judges the plan
+    against the stored text and prints the pass's ledger, writing on an apply.
+    Neither fetches: the parse between them is the ``--worklist`` mode.
+    """
+    command = "recut-documents"
+    if emit_worklist is not None and from_plan is not None:
+        _recut_refuse(
+            "--emit-worklist (the projection) and --from-plan (the reader) are separate "
+            "jobs; pass one."
+        )
+    if (from_plan is None) != (bind_worklist is None):
+        _recut_refuse("--from-plan and --bind-worklist go together (the reader).")
+    if deadline_seconds is not None:
+        _recut_refuse("--deadline-seconds bounds the parse (--worklist) only.")
+    if max_cases == 0:
+        _recut_refuse(
+            "a split slice of 0 hands the parse nothing; the walk-only reading is the "
+            "plain mode's --max-cases 0."
+        )
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the re-cut.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if emit_worklist is not None:
+        scope = RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+        if apply:
+            _recut_refuse("the projection writes nothing; the apply is the reader's (--from-plan).")
+        try:
+            with corpus.connect_maintenance(db_path, apply=False) as conn:
+                handed, reading = recut_worklist(conn, scope=scope, bound=max_cases)
+        except HandoffRefused as exc:
+            typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        _echo_recut_class(reading, db_path)
+        what = "the apply's slice" if max_cases is not None else "the whole class"
+        typer.echo(f"  worklist: {len(handed.items)} item(s), {what}")
+        typer.echo(reading.model_dump_json())
+        write_handoff(emit_worklist, handed)
+        return
+    assert from_plan is not None and bind_worklist is not None  # narrowed above
+    if all_live:
+        _recut_refuse(
+            "the reader walks the scope the worklist was cut for; it takes no --all-live."
+        )
+    if apply and max_cases is None:
+        _recut_refuse(
+            "--apply requires an explicit --max-cases, the bound the worklist was cut for."
+        )
+    plan = _read_handoff_or_exit(command, from_plan, RecutPlan)
+    bound = _read_handoff_or_exit(command, bind_worklist, RecutWorklist)
+    if bound.bound != max_cases:
+        typer.echo(
+            f"{command}: refusing the worklist — it was cut for a bound of "
+            f"{'none' if bound.bound is None else bound.bound}, not this dispatch's "
+            f"{'none' if max_cases is None else max_cases}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if apply:
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    cfg = load_historical_config(settings.config_root)
+    try:
+        with corpus.connect_maintenance(db_path, apply=apply) as conn:
+            result = apply_recut_plan(
+                conn,
+                plan,
+                bound,
+                char_cap=cfg.document_text_cap,
+                today=date.today(),
+                apply=apply,
+            )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the plan — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_recut(result, db_path, apply=apply)
+
+
+def _echo_recut_class(result: DocumentRecutResult, db_path: Path) -> None:
+    """The projection's class ledger: the walk-only reading, which fetches nothing."""
+    if not result.documents_seen:
+        typer.echo(
+            f"recut-documents: no stored documents of an appendix-bearing kind in {db_path} "
+            f"({result.scope}, {result.cases_seen} row(s)) — wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(
+        f"recut-documents (projection, {result.scope}): {result.candidates} head-cut "
+        f"filing(s) in the class of {result.documents_seen} stored document(s) over "
+        f"{result.cases_seen} row(s)"
+    )
+    _echo_by_kind("class", result.candidates_by_kind)
+    if result.excluded:
+        _echo_by_kind("truncated but left out", result.excluded)
 
 
 @app.command("enrich-opinions")

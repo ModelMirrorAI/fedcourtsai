@@ -1680,9 +1680,9 @@ the table, the dispatch form and the jobs' gates are pinned to name the same
 passes (`tests/test_repair_passes.py`). The table also holds how each corpus
 pass's apply is committed (what it stages, its commit message, what it says
 when nothing moved), which one step after the pass steps reads, so a pass step
-ends at its write; the OCR recovery's writer job commits from the same record.
-The two fetching passes left in the corpus job, the document back-fill and the
-re-cut, commit inside their own step instead, because each one's slice deadline
+ends at its write; the OCR recovery's and the re-cut's writer job commits from
+the same record. The one fetching pass left in the corpus job, the document
+back-fill, commits inside its own step instead, because its slice deadline
 charges the push and the commit to that step's cap.
 
 **What each pass accepts.**
@@ -1696,7 +1696,7 @@ charges the push and the commit to that step's cap.
 | `response-backfill` | `backfill-response-fields` | `--max-fills` | — | — |
 | `ocr-recovery` | `ocr-recover-petitions` (the name is this lane's invocation string; the population is every fetched document kind, not petitions alone; split: `--emit-worklist`, `--worklist --plan-out` or `--probe-only`, `--from-plan --bind-worklist`) | `--max-cases` (a slice, not a ceiling — the parse adds its own `--deadline-seconds` — and it counts candidates, so a case holding two scanned filings spends two of it; at most 200, the most one worklist carries); the class is cut per kind in the ledger | — | — |
 | `document-backfill` | `backfill-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too; the class has two arms, a form-keyed opening document and, on a granted row whose respondent has filed on the merits, each side's merits brief, and the ledger's `merits_candidates` says how the **class** splits between them, which is not the mix a bounded slice takes — the class is in `case_id` order and the arms are not separated in it; an apply **stamps** each candidate it reads at a floor, and the class holds a stamped candidate out until its docket is polled again, so a floor costs one paced docket GET per docket version rather than one per dispatch and a bounded slice reaches the tail of the class — `standing_floors` on the ledger is that held-out balance, and `candidates + standing_floors` is the whole gap class this route can address. A floor the modern-docket alarm fired on is never stamped, so a selector regression cannot bank its own exclusions. Because the stamps are index columns, an applied slice that read any floor moves the pointer) | — | — |
-| `recut` | `recut-documents` | `--max-cases` (a slice, not a ceiling — the step adds its own `--deadline-seconds`, and honours the bound on `dry-run` too, since both modes re-fetch and re-cut each candidate; the class is the stored `petition`, `application` and `appendix` rows still under the plain head cut, and the ledger cuts it and each outcome by kind) | — | `all-live` (walk the whole live slice rather than the predict-relevant rows) |
+| `recut` | `recut-documents` (split: `--emit-worklist`, `--worklist --plan-out`, `--from-plan --bind-worklist`, with `--apply` in the writer and without it in the dry-run reader) | `--max-cases` (a slice, not a ceiling — the parse adds its own `--deadline-seconds`, and the bound is honoured on `dry-run` too, since both modes re-fetch and re-cut each candidate; without it a dry run's worklist is the whole class, which the parse's deadline bounds; the class is the stored `petition`, `application` and `appendix` rows still under the plain head cut, and the ledger cuts it and each outcome by kind) | — | `all-live` (walk the whole live slice rather than the predict-relevant rows; read by the projection, which writes the scope into the worklist the later jobs walk) |
 | `arrival-backfill` | `backfill-arrival-stamps` | `--max-fills` | — | — |
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
@@ -1877,25 +1877,26 @@ the runner image rolls, and would fail the pass for a reason that has nothing to
 do with the corpus, so what a recovered text was read by is recorded by the run
 instead of promised by the workflow. An apply refuses where the binaries are
 absent, which is what keeps a failed install from reading as a converged class.
-**Least privilege per pass.** Fourteen of the corpus passes run in the corpus job, holding the
+**Least privilege per pass.** Thirteen of the corpus passes run in the corpus job, holding the
 read-write corpus role, the data App token and the content-store env pair.
 `regrade-stale` runs in a separate job with none of those: it recomputes graded
 fields out of committed artifacts and writes `evaluation.json`, touching no
 corpus row, so it holds only the App token that pushes its `data/` commit.
-Five of the passes that fetch and parse third-party content — `opinion-votes`,
-`order-votes`, `application-backfill`, `opinion-record` and `ocr-recovery` —
-run as a **credential split**, because a parser fed the Court's PDFs and docket
-JSON is the step most likely to run code nobody wrote. (`document-backfill` and
-`recut` also parse fetched PDFs, inside the corpus job and under its full
-credential set; they are not split yet.) The application back-fill's
+Six of the passes that fetch and parse third-party content — `opinion-votes`,
+`order-votes`, `application-backfill`, `opinion-record`, `ocr-recovery` and
+`recut` — run as a **credential split**, because a parser fed the Court's PDFs
+and docket JSON is the step most likely to run code nobody wrote.
+(`document-backfill` also parses fetched PDFs, inside the corpus job and under
+its full credential set; it is not split yet.) The application back-fill's
 plan carries served docket JSON with party contact details, and crosses under
 the narrow carve-out recorded in [data-sources.md](data-sources.md) (*PII
 stance*): that one artifact, one day, never committed or printed, and refused
 on both sides of the artifact if it is not shaped as the served records and the
 fields parsed from them ([security.md](security.md), *S3 / the private stores*).
-The OCR recovery's plan carries the text read off the filings, which for a
-self-represented filer holds contact details, and crosses under the OCR plan's
-own carve-out there on the same terms.
+The OCR recovery's and the re-cut's plans carry the text read off the filings,
+which for a self-represented filer holds contact details, and each crosses
+under its own carve-out there on the same terms — the re-cut's in both modes,
+because its dry run is judged against the stored text in a reader job.
 
 - `handoff-projection` holds the read-only role, pulls the corpus and writes
   the few public facts the parse needs (versioned models beside each pass, read and written through `src/fedcourtsai/handoff.py`): for the
@@ -1906,7 +1907,10 @@ own carve-out there on the same terms.
   each document it holds without a text row; for the OCR recovery, the class
   ledger the dry run is read off and the worklist (each item's case id, kind,
   Court URL and page count — on an apply the first `repair_bound` candidates in
-  class order, on a dry run a spread sample to probe). It fetches nothing.
+  class order, on a dry run a spread sample to probe); for the re-cut, the
+  class ledger and a worklist of the same four facts — the first
+  `repair_bound` candidates in class order in either mode, or on an unbounded
+  dry run the whole class — with the scope it was cut over. It fetches nothing.
 - `handoff-parse` holds **no credential**: no environment, no `id-token`, no
   secret, and a step asserts the AWS and OIDC variables are absent before
   anything is fetched. It fetches and parses, prints the dry-run ledger to the
@@ -1915,10 +1919,16 @@ own carve-out there on the same terms.
   writing's text, or each scanned filing's recovered text — as a run artifact.
   It restores the uv cache but never saves one. For the OCR recovery it also
   installs the two OCR binaries, and on a dry run it probes the worklist's URLs
-  instead, reading nothing out of the bodies.
+  instead, reading nothing out of the bodies. For the re-cut it writes the plan
+  in both modes: each item's re-cut text, or the outcome the served PDF alone
+  settles (a failed fetch, unparseable bytes, another page count, an empty
+  re-cut), under a slice deadline sized beside the invocation, and ends the
+  slice the same way before its rows would outgrow the hand-off cap.
 - On an apply only, a writer job downloads the plan and treats it as untrusted
   input: every row is re-validated against the reader's own invariants and the
-  ledger or corpus it is about to write, and the whole plan is refused on any
+  ledger or corpus it is about to write, as far as those reach without the
+  parse's own inputs (a re-cut's text is checked against the stored filing by
+  the head check alone), and the whole plan is refused on any
   departure, before anything is written. The vote writer needs no corpus and
   holds only the App token; it re-runs the ledger's own vote check on each
   record and stamps `outcome.json`. The application back-fill and
@@ -1933,7 +1943,14 @@ own carve-out there on the same terms.
   failure and unreached item must be one of its items, each exactly once, and
   each row is written only into a stored document still empty at the item's
   URL. It walks the class before it writes and re-reads it after, and requires
-  the re-read to find exactly what its ledger left. None fetches.
+  the re-read to find exactly what its ledger left. It lands the re-cut's plan
+  the same way, judging each row against the stored text as the pass in one
+  job does (another filing of the same page count, an unchanged text, a petition's
+  re-derived questions) and skipping one whose stored row has left the class
+  at the item's URL and page count since the projection. The re-cut's dry run
+  runs that same judgement in a reader job of its own (`documents-dry-run`),
+  which holds the read-only role alone, takes no lock and writes nothing.
+  None fetches.
 
 Both files cross as one-day run artifacts (`repair-projection-<run_id>`,
 `repair-plan-<run_id>`), and because the repository is public they carry public
@@ -2162,10 +2179,12 @@ gh workflow run run-repair.yml --ref main \
 # The re-cut's bound is a slice that its `dry-run` takes too: both modes
 # re-fetch each candidate's PDF and re-cut it, which is what tells a re-cut from
 # a link now serving another filing (`pages-changed`). Read the dry run's
-# per-kind outcome lines before applying, and add `-f repair_options=all-live`
-# to both dispatches to walk the whole live slice rather than the
-# predict-relevant rows. The apply's ledger of `<case_id> <kind>` re-cuts is the
-# record of which stored rows it replaced.
+# per-kind outcome lines — in the `documents-dry-run` job's summary, which
+# judges the parse's plan against the stored text — before applying, and add
+# `-f repair_options=all-live` to both dispatches to walk the whole live slice
+# rather than the predict-relevant rows. The apply's ledger of `<case_id>
+# <kind>` re-cuts, in the `documents` job's summary, is the record of which
+# stored rows it replaced.
 gh workflow run run-repair.yml --ref main \
   -f repair=recut -f repair_mode=dry-run -f repair_bound=20
 gh workflow run run-repair.yml --ref main \
