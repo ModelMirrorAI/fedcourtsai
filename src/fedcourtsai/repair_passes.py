@@ -18,6 +18,11 @@ placeholder (``${REPAIR}``, ``${option}``), so
 mistake never produces two differently worded refusals depending on where it
 was caught.
 
+:data:`PERSIST` is how the corpus job commits each pass's apply: the job's
+persist step runs this file with the argument ``persist`` and stages, commits
+and pushes what the selected pass's record names, so a pass step ends at its
+write.
+
 **This file imports only the standard library, and the validate job runs it
 by path** (``python3 -I -S src/fedcourtsai/repair_passes.py``) from a sparse
 checkout holding this file alone, with the runner's own Python and no project
@@ -31,7 +36,7 @@ from __future__ import annotations
 import os
 import re
 import sys
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 #: The mode that writes; anything else is a dry run.
@@ -224,6 +229,104 @@ PASSES: Mapping[str, RepairPass] = {
 
 
 @dataclass(frozen=True)
+class Persist:
+    """How the corpus job commits one pass's apply, once the pass step exits.
+
+    The blob is pushed before the pointer is committed, as everywhere: an apply
+    that pushed the blob but failed before the commit publishes nothing,
+    because readers resolve the committed pointer. ``message`` is the commit
+    message, ``label`` names the push in the retry log, and ``unchanged`` is
+    what the step says when nothing moved. ``stages_data`` adds ``data/`` to
+    the commit, for a pass that also writes the committed ledger.
+    """
+
+    message: str
+    label: str
+    unchanged: str
+    stages_data: bool = False
+
+
+#: The corpus passes that commit their own write inside the pass step, because
+#: the step's slice deadline is computed against its own cap with the push and
+#: the commit charged to it.
+SELF_PERSISTING = frozenset({"ocr-recovery", "document-backfill", "recut"})
+
+#: Every other corpus pass's commit. A pass whose durable write is the content
+#: store's (the questions-presented back-fill) can leave the blob
+#: byte-identical, so an unmoved pointer there is the converged outcome its own
+#: step verified, not a missing write.
+PERSIST: Mapping[str, Persist] = {
+    "unlatch-overselected": Persist(
+        message="repair: clear pre-resize salience overhang",
+        label="unlatch-overselected pointer",
+        unchanged="No overhang to clear; nothing to persist.",
+    ),
+    "qp-backfill": Persist(
+        message="repair: converge corpus (questions presented)",
+        label="questions-presented pointer",
+        unchanged=(
+            "pointer unmoved — the durable write is the content store's, verified converged above."
+        ),
+    ),
+    "rederive-distribution-parse": Persist(
+        message="repair: converge corpus (distribution counts)",
+        label="distribution-count pointer",
+        unchanged="Distribution counts already re-derived under this parse; nothing to persist.",
+    ),
+    "normalize-docket-markings": Persist(
+        message="repair: converge corpus (docket markings)",
+        label="docket-marking pointer",
+        unchanged="Docket markings already converged; nothing to persist.",
+    ),
+    "response-backfill": Persist(
+        message="repair: converge corpus (dated response signals)",
+        label="response-signal pointer",
+        unchanged="Response signals already filled; nothing to persist.",
+    ),
+    "arrival-backfill": Persist(
+        message="repair: converge corpus (interim arrival stamps)",
+        label="arrival-stamp pointer",
+        unchanged="Arrival stamps already converged; nothing to persist.",
+    ),
+    "merits-phantom-removal": Persist(
+        message="repair: converge corpus (ungranted merits phantoms)",
+        label="merits-phantom pointer",
+        unchanged="No ungranted merits phantoms to remove; nothing to persist.",
+        stages_data=True,
+    ),
+    "disposition-convergence": Persist(
+        message="repair: converge corpus (disposition labels)",
+        label="disposition-label pointer",
+        unchanged="Disposition labels already converged; nothing to persist.",
+        stages_data=True,
+    ),
+    "lost-outcomes": Persist(
+        message="repair: record lost ledger outcomes",
+        label="lost-outcome pointer",
+        unchanged="No lost outcomes left to record; nothing to persist.",
+        stages_data=True,
+    ),
+    "event-definition-backfill": Persist(
+        message="repair: back-fill committed event definitions from the corpus",
+        label="event-definition pointer",
+        unchanged="Event definitions already back-filled; nothing to persist.",
+        stages_data=True,
+    ),
+    "amicus-rederive": Persist(
+        message="repair: re-derive amicus counts and re-freeze interim outcomes",
+        label="amicus-rederive pointer",
+        unchanged="Amicus counts already re-derived and outcomes re-frozen; nothing to persist.",
+        stages_data=True,
+    ),
+    "cert-amicus-rederive": Persist(
+        message="repair: back-fill cert amicus counts",
+        label="cert-amicus-rederive pointer",
+        unchanged="Cert amicus counts already filled; nothing to persist.",
+    ),
+}
+
+
+@dataclass(frozen=True)
 class Verdict:
     """The gate's answer: the lines it prints, and whether the dispatch stands."""
 
@@ -338,16 +441,47 @@ def validate(
     return Verdict(accepted=True, notices=tuple(notices))
 
 
-def main(environ: Mapping[str, str] | None = None) -> int:
+def persist_record(repair: str) -> tuple[str, ...]:
+    """The four lines the corpus job's persist step reads, or none.
+
+    Stage (``pointer`` or ``pointer+data``), commit message, push label, and
+    the line printed when nothing moved. A self-persisting pass has no record:
+    its own step committed its write.
+    """
+    if repair in SELF_PERSISTING:
+        return ()
+    record = PERSIST[repair]
+    stage = "pointer+data" if record.stages_data else "pointer"
+    return (stage, record.message, record.label, record.unchanged)
+
+
+def main(environ: Mapping[str, str] | None = None, argv: Sequence[str] | None = None) -> int:
     """Validate the dispatch named by the five ``REPAIR*`` variables.
 
     The inputs are maintainer-typed free text, so they arrive through the
     environment, never through a command line the workflow interpolates. Exit
-    0 to proceed, 1 to refuse.
+    0 to proceed, 1 to refuse. With the one argument ``persist``, print the
+    selected pass's :func:`persist_record` instead, one field per line.
     """
     env = os.environ if environ is None else environ
+    args = list(sys.argv[1:] if argv is None else argv)
+    repair = env.get("REPAIR", "")
+    if args == ["persist"]:
+        if repair not in PERSIST and repair not in SELF_PERSISTING:
+            # stderr: the workflow redirects stdout into the record file.
+            print(
+                f"::error::repair={repair} is not a corpus-job pass; it has no persist record.",
+                file=sys.stderr,
+            )
+            return 1
+        for line in persist_record(repair):
+            print(line)
+        return 0
+    if args:
+        print(f"::error::unknown arguments {args!r}; the only one is 'persist'.")
+        return 2
     verdict = validate(
-        env.get("REPAIR", ""),
+        repair,
         mode=env.get("REPAIR_MODE", ""),
         bound=env.get("REPAIR_BOUND", ""),
         target=env.get("REPAIR_TARGET", ""),

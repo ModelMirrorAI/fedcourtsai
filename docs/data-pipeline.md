@@ -1669,7 +1669,12 @@ neither) are the gate's only, since a step that never reads a field is safe
 when it is set. The table holds each refusal in
 the step's own words, so a mistake reads the same wherever it is caught, and
 the table, the dispatch form and the jobs' gates are pinned to name the same
-passes (`tests/test_repair_passes.py`).
+passes (`tests/test_repair_passes.py`). The table also holds how each corpus
+pass's apply is committed (what it stages, its commit message, what it says
+when nothing moved), which one step after the pass steps reads, so a pass step
+ends at its write. The three fetching passes, the OCR recovery, the document
+back-fill and the re-cut, commit inside their own step instead, because each
+one's slice deadline charges the push and the commit to that step's cap.
 
 **What each pass accepts.**
 
