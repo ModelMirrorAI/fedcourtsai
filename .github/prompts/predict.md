@@ -104,7 +104,12 @@ the output directory you will write to.
    petition that extracts nothing produces **no QP file at all** (the
    petition's own `empty_text` flag says why), while an *empty* QP file means
    the petition had text but its questions-presented section could not be
-   usably cut. Otherwise their absence just means
+   usably cut. Where `record/context.json` carries `paper_only_filings: true`,
+   the docket's party filings are on paper only (the Court's Rule 34.6
+   entry), the Court posts nothing behind them, and an empty or missing
+   `record/documents/` is expected: it is not a provisioning failure and not a
+   `flags.json` matter, so forecast from the docket and the base rates and say
+   so in `reasoning.md`. Otherwise their absence just means
    the pipeline had nothing to fetch — predict from the snapshot as before.
    A long filing is cut to a cap: where the cut is made around an appendix, a
    `[pipeline note: …]` line in the text marks it and says how much was left
@@ -179,7 +184,11 @@ the output directory you will write to.
 
 **Retrieval — the leakage doctrine: timing is the control.** Your cell is
 configured with the official **CourtListener MCP server** (search, endpoint
-access, citation tools). Every tool call you make is logged harness-side from
+access, citation tools). It is for lower-court records and opinions: its
+Supreme Court docket coverage is thin, and a SCOTUS docket query there often
+returns nothing. This docket's own state comes from your provisioned snapshot,
+and in `forward` mode also from the Court's own docket page on
+supremecourt.gov. Every tool call you make is logged harness-side from
 the engine transcript to `retrieval_log.json` — you don't write it, the
 cross-evaluator reads it, and credential-shaped runs in it are redacted at
 capture.
@@ -196,14 +205,17 @@ capture.
   helps: this case's own docket and filings, related litigation, precedent,
   circuit-split signals. One etiquette caveat, because a web search is not
   time-bounded the way `--decided-before` corpus retrieval is: if a search
-  nonetheless surfaces **this case's own disposition** — the petition or
-  application you are predicting turns out already decided — treat the cell as
-  mis-provisioned,
-  **disclose it in `flags.json`** (`data-quality`), and do not fold that outcome
-  into the forecast. Public information that *predates* your snapshot — a
-  companion or lead case's ruling, news or market context — is legitimate forward
-  signal, not leakage: use it, and a one-line `flags.json` note when it is
-  decisive is good hygiene, not a violation.
+  nonetheless claims **this case's own disposition** — the petition or
+  application you are predicting is said to be already decided — check the
+  claim against the docket entries (your snapshot, then the Court's live
+  docket) before acting on it. Where the docket confirms it, treat the cell as
+  mis-provisioned and **disclose it in `flags.json`** (`data-quality`); where
+  it does not, flag the claim as unverified (`data-quality`, `info`), saying
+  where you saw it, not as leakage. Either way, do not fold that outcome into
+  the forecast. Public information that *predates* your snapshot — a companion
+  or lead case's ruling, news or market context — is legitimate forward
+  signal, not leakage: use it, and say in `reasoning.md` where it was
+  decisive. It needs no `flags.json` note.
 - **`replay` mode** (a decided case replayed as of a past moment): the **same
   tools**, with etiquette instead of walls. Your snapshot carries this docket as
   it stood at your boundary — before `context.cutoff` under a `date` cut, and at
@@ -213,14 +225,16 @@ capture.
   real posture it is, not as a docket that never moved. Where the proceedings are
   absent entirely, no moment could be identified and you are seeing no trajectory
   at all; say so rather than reading the silence as a quiet docket. Do not
-  seek information about *this case* postdating your boundary — the event
-  date (the `DECIDED_BEFORE` clock) under a `date` cut; under an
+  seek information about *this case* postdating your boundary — your
+  `context.cutoff` under a `date` cut (`DECIDED_BEFORE`, below, is coarser: it
+  is your docket's October Term, the corpus mask's year); under an
   `arrival-position` cut, the entry that opened your event, whose day's own
   later entries are off-limits even where the date clock would admit them.
   Corpus priors and base rates are always fair game. If outcome-revealing material
-  surfaces anyway, **disclose it in `flags.json`** (what you saw, where, and
-  whether it shaped your prediction) rather than pretending to un-see it — an
-  honest flag keeps the cell usable as iteration signal.
+  surfaces anyway, **disclose it in `flags.json` under `leakage-disclosure`**
+  (what you saw, where, and whether it shaped your prediction) rather than
+  pretending to un-see it — an honest flag keeps the cell usable as iteration
+  signal, and the category is how the back-test finds it.
 - **If the MCP server is unavailable, degrade gracefully — there is no REST
   fallback.** The MCP server is the cell's only sanctioned live CourtListener
   path. Your shell env carries no CourtListener token — neither does any
@@ -238,14 +252,19 @@ capture.
 **Corpus tooling you may use (read-only, live against the corpus).** These pull
 historical *context* — priors and base rates (in `replay` mode they are your
 main retrieval surface beside the provisioned inputs). The corpus blob is not
-on your cell's disk: `fedcourts query` (a handful of similar resolved priors,
+on your cell's disk: `uv run fedcourts query` (a handful of similar resolved priors,
 ranked; its returned population screens out the non-cert SCOTUS letter forms —
 time-extension and unread-ask applications, original-jurisdiction and
 miscellaneous dockets —
 unless `--include-applications`, while a substantive stay or injunction
 application returns either way, being the interim predict scope) and
-`fedcourts open-events` read it through your cell's local corpus service, which
+`uv run fedcourts open-events` read it through your cell's local corpus service, which
 holds the ranged remote connection — your shell holds no cloud credentials.
+Spell both with `uv run`: a bare `fedcourts` is not on your shell's `PATH`.
+The surface is structured filters only, with no free-text search, so read
+`uv run fedcourts query --help` before your first query; a usage error names
+the flag it wanted, so re-issue the query with flags rather than giving up on
+it. Make at least one query that filters on the fields below.
 Each `query` reports its transfer as a `ranged corpus reads: N GET(s), M byte(s)`
 line on stderr — record those lines in `retrieval.md` (below); a warm service
 cache can honestly report `0 GET(s)`, so record the line either way
@@ -275,7 +294,7 @@ describes), so they estimate the true petition population rather than raw
 ingested rows.
 If the `DECIDED_BEFORE` environment variable is set, you are replaying a decided
 case as of a past moment (a back-test): pass `--decided-before "$DECIDED_BEFORE"`
-on every `fedcourts query` call so retrieval surfaces only priors that provably
+on every `uv run fedcourts query` call so retrieval surfaces only priors that provably
 precede this case — and in the statpack, anchor **only on Term rows strictly
 preceding your clock** (the per-Term table exists for exactly this
 self-selection; later Terms post-date what you are allowed to know). Under the
@@ -345,8 +364,14 @@ cert-stage cell.
 **Five cert cells, five moments.** `event.yaml`'s `moment` says which you are:
 
 - `moment: distribution` — event `evt-petition-disposition`, opened when the
-  petition was filed and forecast once it is first distributed for conference.
-  The ordinary cert cell, and the great majority of them.
+  petition was filed and dispatched once it is first distributed for
+  conference. The ordinary cert cell, and the great majority of them. It is
+  the one cert moment placed at no cut: `context.json` carries `cutoff: null`,
+  and your snapshot is the docket as last stored before the cell ran, which
+  can already show a CVSG, the brief in opposition, a relist or several
+  distributions. Forecast from the docket as it stands, not as it stood at
+  the first distribution; your `band` and `distribution_count` are read from
+  the same snapshot.
 - `moment: cvsg` — event `evt-order-cvsg-disposition`, opened on the day the
   Court called for the Solicitor General's views. A CVSG is the Court's own
   signal that a petition is worth a closer look, and the base rate conditional
@@ -652,14 +677,14 @@ or the argument, was worth.
 - **The vote block is mandatory.** A merits prediction must carry a non-empty
   `votes` list; the schema refuses a `judgment` without one, and `validate`
   refuses a merits-stage cell whose latest prediction carries no judgment. It
-  is scored by `vote_accuracy` alone and **intersection-only** — over the
-  Justices the outcome record actually names — so a Justice whose vote never
-  becomes public costs you nothing, and there is no reason to trim the list to
-  the ones you are sure of. Today the outcome writer records **no** votes at
-  all (a terminal docket entry names an author at most, never the participating
-  count an honest provenance block needs), so the block is elicited and banked
-  ahead of its observation channel rather than scored. Use the **vote**
-  vocabulary (majority / dissent / …), never a disposition.
+  is scored by `vote_accuracy` alone, and only against a **complete** vote
+  record: one holding every participating Justice's vote, which the outcome
+  gains from the Court's opinions once the decision issues. Until it has one,
+  the score is null, never a zero. The leaderboard scores the block over the
+  whole bench that record shows sitting: a sitting Justice your list omits is a
+  miss, and a call on a Justice who took no part scores nothing, so trimming the
+  list to the ones you are sure of can only cost. Use the **vote** vocabulary
+  (majority / dissent / …), never a disposition.
 - **The statpack's per-Justice votes section is the vote block's reference point.**
   Where `metrics/statpack.md` carries a **"Per-Justice merits votes (complete
   lineups)"** section, it counts each Justice's votes per Term on the signed
@@ -704,7 +729,7 @@ or the argument, was worth.
   a **null** `cutoff` means nothing was cut and the directory is the case's
   latest whatever your moment. So a merits brief on a
   `moment: grant` cell's disk is a provisioning anomaly and not evidence you
-  are owed: **disclose it in `flags.json`** (`data-quality`) and do not fold it
+  are owed: **disclose it in `flags.json`** (`provisioning`) and do not fold it
   into the forecast, or the merits moments collapse into the one the later
   of them was declared to be. Otherwise the QPs are real evidence, a
   provisioned merits brief is real evidence and the parties' own words rather
@@ -895,7 +920,7 @@ or the argument, was worth.
   mechanical claim there is no baseline to subtract, so the whole of the grade
   would be retrieved rather than predicted. Forecast the ground and its breadth
   from the pre-decision record; if the opinion or its reasoning surfaces anyway,
-  disclose it in `flags.json` rather than folding it in.
+  disclose it in `flags.json` (`leakage-disclosure`) rather than folding it in.
 
 ## Outputs (your three files, `retrieval.md` + a brief `tooling.json`, plus `flags.json` if you have something to flag)
 
@@ -908,13 +933,14 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
   - `engine` — `claude-code`, `codex`, or `gemini` (whichever you are).
   - `model` = `$MODEL_ID` — the model that produced this prediction; copy the
     cell-identifier value verbatim, never guess.
-  - `created_at` — current UTC timestamp.
+  - `created_at` — any UTC timestamp: the stamp overwrites it with its own
+    time, so it is the harness's word, not yours.
   - `input_snapshot` — which provisioned snapshot you read. Write the
     **basename** of the file you opened under
     `data/cases/$COURT_ID/$DOCKET_ID/record/snapshots/` — `YYYY-MM-DD.json`,
     the dated file `context.json`'s `snapshot_date` names — or, where you found
     no snapshot at all, the literal `missing` with the reason in `flags.json`
-    (`category` `data-quality` or `blocked`). That case-level `record/` is the
+    (`category` `provisioning`). That case-level `record/` is the
     one named under *Inputs* above, a sibling of `events/` rather than a child
     of it, so a snapshot you cannot find under your event is a path error
     before it is a gap. The harness compares your string against the snapshot
@@ -1197,10 +1223,24 @@ willing to be scored on, not a hedge.
   your note outlives the run and a maintainer sees it without
   reading every `reasoning.md`. Set `case_id` = `$COURT_ID/$DOCKET_ID`,
   `run_id` = `$RUN_ID`, `role` = `predictor`, `actor_id` = `$PREDICTOR_ID`, and
-  `flags` = a non-empty list of `{category, severity, message, event_id?}` — where
-  `category` is one of `data-quality`/`scope`/`ambiguous-event`/`blocked`/`other`
-  and `severity` is `info`/`warning`/`blocker`. Don't write it when you have nothing
-  to flag.
+  `flags` = a non-empty list of `{category, severity, message, event_id?, issue?}`.
+  `category` is one of:
+  - `data-quality` — a fact in your inputs looks wrong;
+  - `provisioning` — your record lacks something the pipeline should have staged;
+  - `capture-gap` — the docket or outcome record cannot show what your forecast
+    needs;
+  - `leakage-disclosure` — material about this case postdating your boundary
+    surfaced (replay);
+  - `scope` — whether this cell should exist at all;
+  - `ambiguous-event` — what the event asks is unclear;
+  - `other` — none of these.
+
+  `severity` is `warning` where the note could change a score or grade or needs
+  a maintainer's action, `blocker` where you could not finish, and `info`
+  otherwise. `issue` is the repository issue number that already tracks the
+  problem, where you know one; cite it rather than re-describing the problem.
+  Never write `source` or `normalised`: the harness sets both. Don't write it
+  when you have nothing to flag.
 - **`tooling.json`** *(write a brief one every run)* — must validate against
   `schemas/agent_tooling.schema.json` (the `AgentToolingFeedback` model). A short
   self-report on the **tooling** you were given, so maintainers can see across runs
@@ -1222,16 +1262,16 @@ willing to be scored on, not a hedge.
   encounter it inadvertently (a stray search result), say so explicitly in
   `reasoning.md` and add a `flags.json` note so the evaluation can discount the
   cell — then still reason from the pre-decision record only. Use `category`
-  `data-quality` when the discovery is that a **forward** cell's case is actually
-  already decided (a mis-provisioned cell — see the forward-mode caveat under
-  *Retrieval* above); use `other` when you simply carry the outcome from training
-  on a well-known case.
+  `data-quality` when the docket confirms that a **forward** cell's case is
+  actually already decided (a mis-provisioned cell — see the forward-mode caveat
+  under *Retrieval* above), and `leakage-disclosure` when a replay cell met its
+  outcome or you carry it from training on a well-known case.
 - **Never read anything under `data/qp-topics/`.** Those are labeling-measurement
   artifacts whose case membership encodes cert outcomes; they carry nothing a
   prediction may use, and a read of that path in your logged tool calls is graded
   as retrieved outcome material by the evaluation. The cell removes that
   directory before you start, on purpose, so do not restore it. If you have
-  already read it, say so in `flags.json` (`category` `other`) and disregard
+  already read it, say so in `flags.json` (`category` `leakage-disclosure`) and disregard
   what you saw.
 - **Never read another cell's committed output.** The cell removes every
   committed `predictions/` and `evaluations/` tree before you start, on
@@ -1239,20 +1279,20 @@ willing to be scored on, not a hedge.
   case, is not an input to yours. Do not restore them or read them through
   git (`git show`, `git log -p` and the like). Your own output directory is
   the one exception. If you have already read one, say so in `flags.json`
-  (`category` `other`) and disregard what you saw.
+  (`category` `leakage-disclosure`) and disregard what you saw.
 - Stay in your lane: write **only** under your own
   `predictions/$PREDICTOR_ID/$RUN_ID/` path (the `flags.json` / `tooling.json` above
   live here too). Never edit the snapshot, the event, another predictor's output, or
   any other file.
 - **You run headless** (in CI, no interactive input). If the snapshot is missing or
   the event is malformed, do not stall waiting for input — always explain the
-  problem in `reasoning.md` and record a `flags.json` note (`category` `blocked` or
-  `data-quality`) so it reaches a maintainer durably, then finish. A running cell
+  problem in `reasoning.md` and record a `flags.json` note (`provisioning` or
+  `data-quality`, severity `blocker`) so it reaches a maintainer durably, then finish. A running cell
   always has a landed record: provisioning that wrote nothing, or wrote
   incompletely, refuses the cell and no agent starts. So a snapshot you cannot
   find is a path error before it is a gap — look under the case-level `record/`
   named in *Inputs* above, not under your event. If it truly is not there, note
-  the gap in `flags.json` and predict from priors and base rates only, treating
+  the gap in `flags.json` (`provisioning`) and predict from priors and base rates only, treating
   the case per the first rule above — do not retrieve its
   current docket state or outcome. Make the most
   conservative reasonable call rather than guessing widely. `flags.json` is the

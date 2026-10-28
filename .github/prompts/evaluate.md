@@ -184,7 +184,8 @@ fails the cell.
   - `case_id` = `$COURT_ID/$DOCKET_ID`, `event_id` = `$EVENT_ID`,
     `predictor_id` = **the alias you were given** (`candidate-a`, …), matching the
     directory you are writing into, `evaluator_id` = `$EVALUATOR_ID`,
-    `run_id` = `$RUN_ID`, `created_at` = current UTC timestamp.
+    `run_id` = `$RUN_ID`, `created_at` = any UTC timestamp (the stamp overwrites it
+    with its own time).
   - `engine` — `claude-code`, `codex`, or `gemini` (the engine you are running as).
   - `model` = `$MODEL_ID` — the model that produced this evaluation; copy the
     cell-identifier value verbatim, never guess.
@@ -209,9 +210,11 @@ fails the cell.
   - `brier_score` — `(probability - actual_granted)**2`, 0–1 (`actual_granted` is 1
     for a `gvr` outcome — a GVR is a grant; on a merits outcome the same field
     carries the disturbed binary, so one formula serves every stage).
-  - `vote_accuracy` — **merits-stage cells only**: fraction of predicted
+  - `vote_accuracy` — **merits-stage cells only**, and only where
+    `outcome.vote_provenance` says `complete: true`: fraction of predicted
     per-Justice votes that matched, over the Justices the prediction and the
-    outcome both name (or omit if no votes were predicted). **Omit it on every
+    outcome both name (or omit if no votes were predicted). Against an outcome
+    with no complete vote record, leave it null. **Omit it on every
     other stage, whatever votes the prediction carries.** A cert or interim
     cell's noted votes are elicited and never scored: an individual cert vote
     becomes public only when a Justice chooses to note it, so observation is
@@ -300,12 +303,14 @@ fails the cell.
     `brier_score` is unchanged: the prediction's `probability` is P(disturbed)
     and `outcome.actual_granted` carries the disturbed binary as recorded, so
     you read it rather than re-deriving it from the judgment label.
-    `vote_accuracy` scores the prediction's mandatory vote block
-    intersection-only, over the Justices the outcome actually names — this is
-    the one stage where it is scored at all — and the
-    merits outcome writer records **no** votes today, so a null there is the
-    record's silence, never the predictor's failure, and must not be scored as
-    a zero. Then:
+    `vote_accuracy` scores the prediction's mandatory vote block over the
+    Justices both lists name — this is the one stage where it is scored at
+    all — and only against a complete vote record (`vote_provenance.complete`),
+    which a merits outcome gains from the Court's opinions after it is written.
+    The leaderboard recomputes its own figure over the whole bench, so yours is
+    the cell's record, not the board's. An outcome with no complete record is
+    the record's silence, never the predictor's failure: leave the field null,
+    never a zero. Then:
     - **Write neither `segment_base_rate` nor `brier_skill_score`.** The merits
       baseline is a Term-keyed ratio of published integer counts with no band
       choice to make, so it is the harness's: `stamp-cell` pools the committed
@@ -647,7 +652,10 @@ candidate:
    Information that merely predates the event's *resolution* — a companion or
    lead case's ruling, news context, and this docket's own entries dated after
    the prediction's `context.cutoff` — is legitimate forward signal, not
-   leakage. A forward cell's `cutoff`, non-null wherever its event's declared
+   leakage. A forward cell with `cutoff: null` — every `moment: distribution`
+   cert cell — was handed the docket as last stored before it ran, so its own
+   later entries (a CVSG, the brief in opposition, a relist) are provisioned
+   input there, not retrieval. A forward cell's `cutoff`, non-null wherever its event's declared
    moment fixed one, is not a retrieval clock: a placed cell's snapshot stops
    at its own boundary — the cutoff, or the opening entry inside it where
    `cut_kind` says `arrival-position` — so the cutoff bounds only the
@@ -735,8 +743,10 @@ the forward stratum is). The reading rules are `metrics/README.md`, *The
 leakage exclusion*.
 
 You may consult the corpus for context while scoring (never for new case facts):
-`fedcourts query` / `fedcourts open-events` read the corpus through your cell's
-local corpus service, which holds the ranged remote connection (the blob is not
+`uv run fedcourts query` / `uv run fedcourts open-events` (spelled with `uv
+run`: a bare `fedcourts` is not on your shell's `PATH`; the surface is
+structured filters only, so read `--help` first and re-issue a query a usage
+error refused) read the corpus through your cell's local corpus service, which holds the ranged remote connection (the blob is not
 on your cell's disk, and your shell holds no cloud credentials); each `query`
 reports its transfer as a `ranged corpus reads: …` line on stderr — a warm
 service cache can honestly report `0 GET(s)`, so record the line either way
@@ -771,8 +781,18 @@ reason you were blocked: the `collect` job rolls every cell's flags into the run
 and the Actions summary, so the note survives the trigger issue's closure. Set
 `case_id` = `$COURT_ID/$DOCKET_ID`, `run_id` = `$RUN_ID`, `role` = `evaluator`,
 `actor_id` = `$EVALUATOR_ID`, and `flags` = a non-empty list of
-`{category, severity, message, event_id?}`. Write it only when you have something
-to flag.
+`{category, severity, message, event_id?, issue?}`. `category` is one of
+`data-quality` (a fact in the inputs looks wrong), `provisioning` (your record or
+a candidate's staging lacks something the pipeline should have provided),
+`capture-gap` (the outcome or docket record cannot show what a grade needed),
+`leakage-disclosure` (outcome material reached a candidate or you), `scope`,
+`ambiguous-event` or `other`. `severity` is exactly one of `info`, `warning` or
+`blocker`: `warning` where the note could change a score or grade or needs a
+maintainer's action, `blocker` where you could not finish, `info` otherwise; no
+other word validates. `issue` is the repository issue number that already
+tracks the problem, where you know one; cite it rather than re-describing the
+problem. Never write `source` or `normalised`: the harness sets both. Write it
+only when you have something to flag.
 
 Also write **one** brief `tooling.json` for this cell every run, at
 `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/evaluations/$EVALUATOR_ID/$RUN_ID/tooling.json`
