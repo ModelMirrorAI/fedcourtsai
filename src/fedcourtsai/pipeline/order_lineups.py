@@ -1052,15 +1052,47 @@ class OrderFetcher:
         return FetchedDocument(url, ref, extracted.text, truncated=extracted.truncated)
 
 
+def listing_terms(day: date) -> tuple[int, ...]:
+    """The two-digit Terms whose listings may carry ``day``'s documents.
+
+    The October Term ``day`` falls in, and for a day in October the outgoing
+    Term as well: the Court's listing pages roll over on the first Monday in
+    October, not on the first of the month, so an order dated in the first days
+    of October (the long-conference grants among them) is listed on the
+    outgoing Term's page.
+    """
+    term = october_term_year(day)
+    if day.month == 10:
+        return (term % 100, (term - 1) % 100)
+    return (term % 100,)
+
+
+def refs_for_day(
+    day: date, listings: Mapping[int, Sequence[OrderDocumentRef]]
+) -> list[OrderDocumentRef]:
+    """The documents ``listings`` (by two-digit Term) carry for ``day``, each once.
+
+    Read across every Term :func:`listing_terms` names, in that order, and
+    de-duplicated by URL.
+    """
+    seen: set[str] = set()
+    refs: list[OrderDocumentRef] = []
+    for term in listing_terms(day):
+        for ref in listings.get(term, ()):
+            if ref.day == day and ref.url not in seen:
+                seen.add(ref.url)
+                refs.append(ref)
+    return refs
+
+
 def read_day(day: date, fetcher: OrderFetcher) -> OrderDayReading:
     """Read every order and opinion relating to orders the Court lists for ``day``.
 
-    The listings are the October Term's that ``day`` falls in. A listing that
-    cannot be fetched raises (``httpx.HTTPError``); a document that cannot be
-    read is recorded on its reading and leaves the day uncovered.
+    The listings are those of the Terms :func:`listing_terms` names for ``day``.
+    A listing that cannot be fetched raises (``httpx.HTTPError``); a document
+    that cannot be read is recorded on its reading and leaves the day uncovered.
     """
-    term = october_term_year(day) % 100
-    refs = [ref for ref in fetcher.listed(term) if ref.day == day]
+    refs = refs_for_day(day, {term: fetcher.listed(term) for term in listing_terms(day)})
     documents = [fetcher.document(ref.url, ref) for ref in refs]
     covers = bool(documents) and all(d.text is not None and not d.truncated for d in documents)
     return read_documents(documents, day=day, covers_the_day=covers)

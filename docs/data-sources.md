@@ -442,7 +442,17 @@ record:
   phrasing in a new Term shows as a held-back count rather than a wrong
   record. What that guard cannot see is a notation that does not name a
   Justice's act at all, which reads as no notation. A docket with no noted
-  vote and writings not complete has nothing to stamp.
+  vote and writings not complete has nothing to stamp. An outcome's
+  documents are those listed for its `resolved_at`, read from that day's
+  October Term listing and, for a day in October, the outgoing Term's as
+  well, since the Court's listing pages roll over on the first Monday in
+  October. Where no document for the date names the docket (and every
+  document was read whole), three dispositions are reported apart as having
+  no order text by design, a heuristic read off the outcome's disposition: a
+  petition dismissed (most are the Clerk's Rule 46 dismissals, entered with
+  no order), an application withdrawn, and one its Circuit Justice decided
+  alone (not referred to the full Court). The rest of that skip is the
+  unexplained part.
 
 An outcome already carrying the same record is left alone, so a re-run is a
 no-op; one carrying a different record is held back unless the dispatch
