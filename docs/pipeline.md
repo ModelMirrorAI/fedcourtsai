@@ -1086,27 +1086,33 @@ multi-respondent opposition, stored as a single row whose URL is the canonical
 join of every brief fetched into it — a set key, not a link to re-fetch. Its
 per-brief headings are themselves text, so such a row is not empty by the
 coverage report's per-kind test either: it reads as covered there while
-carrying no argument, so the report sizes it on a line of its own. It is the
-only pass here that installs a binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
-from the runner image's own archive), and one of the three whose bound is a
-**slice size** rather than a refusal threshold: each case costs a re-fetch and a
-page-by-page recognition, and runner minutes are the whole cost. That makes the
-bound a *spend* cap, so the step hands the pass a wall-clock deadline as well —
-sized under the step's own cap by everything that must still fit there once the
-pass stops taking work — and the pass stops taking new candidates once what is
-left will not hold the next one's estimated cost, which it reads off the stored
-page count. The ledger cuts the class, and what an apply wrote, by document
+carrying no argument, so the report sizes it on a line of its own. It runs as
+the credential split below: the projection walks the class and writes the
+worklist, the credential-free parse re-fetches and recognizes each item, and a
+writer job of its own (`documents`) lands the plan. It is the only pass here
+that installs a binary dependency, in a gated step of the parse job alone
+(`tesseract` and poppler's `pdftoppm`, from the runner image's own archive),
+and one of the three whose bound is a **slice size** rather than a refusal
+threshold: each case costs a re-fetch and a page-by-page recognition, and runner
+minutes are the whole cost. On an apply the projection takes the first
+`repair_bound` candidates in class order as the worklist. That makes the bound
+a *spend* cap, so the parse step is handed a wall-clock deadline as well —
+sized under its own cap by everything that must still fit there once the pass
+stops taking work — and the parse stops taking new candidates once what is left
+will not hold the next one's estimated cost, which it reads off the stored page
+count. The ledger cuts the class, and what an apply wrote, by document
 kind, so a slice's blast radius is legible before it is spent and after. A
 recovered row leaves the class, so successive dispatches drain it — but only the
 recovered ones leave, and what a slice could not recover, or never started,
 stays at its head to be retried first, which the ledger names one by one. Its `dry-run`
-carries a second reading beside the class count — a small sample of the
-population re-fetched through the writer's own fetch path, reporting what
-supremecourt.gov serves a *writer* rather than what a cell's retrieval reported.
-The apply writes documents, which under the corpus split live in the content
-store rather than the blob, so the pointer cannot witness it: the step re-reads
-the class afterwards and requires exactly what the apply's ledger said it would
-leave behind.
+carries a second reading beside the projection's class count — a small spread
+sample of the population re-fetched by the parse through the fetching lanes'
+own client, reporting what supremecourt.gov serves the pass rather than what a
+cell's retrieval reported. The apply writes documents, which under the corpus
+split live in the content store rather than the blob, so the pointer cannot
+witness it: the writer walks the class before it writes, re-reads it after, and
+requires exactly what its ledger said it would leave behind. It commits from
+the pass table's record, as the corpus job's persist step does.
 
 `document-backfill` provisions the queued cases that hold a document gap.
 A case reaches prediction with the filing that opens it — the petition on a
@@ -1312,18 +1318,21 @@ file carries the docketing date. The summary carries the ledger: the counts,
 each fill shape with its count, every `opened_at` rewrite and every held field.
 The per-file list is in the step log. Its bound is the dry run's file count.
 
-Four of the passes that fetch and parse the Court's content — `opinion-votes`,
-`order-votes`, `application-backfill` and `opinion-record` — run as a
-**credential split** of three jobs (`ocr-recovery`, `document-backfill` and
-`recut` also parse fetched PDFs, inside the corpus job, and are not split here;
-run-seed's OCR sweep is the split, scheduled route to the same recovery). `handoff-projection` holds the read-only
+Five of the passes that fetch and parse the Court's content — `opinion-votes`,
+`order-votes`, `application-backfill`, `opinion-record` and `ocr-recovery` —
+run as a **credential split** of three jobs (`document-backfill` and `recut`
+also parse fetched PDFs, inside the corpus job, and are not split yet;
+run-seed's OCR sweep is the split, scheduled route to the OCR recovery). `handoff-projection` holds the read-only
 role, pulls the corpus and writes the few public facts the parse needs;
 `handoff-parse` holds no credential at all (no environment, no `id-token`, no
 secret), fetches and parses, prints the dry-run ledger, and on an apply writes
 the plan; and on an apply only, a writer job takes `corpus-write`, re-validates
-the plan whole as untrusted input and applies it, fetching nothing. The two
-files cross as one-day run artifacts carrying public Court data only
-([security.md](security.md), *S3 / the private stores*). A job boundary is
+the plan whole as untrusted input and applies it, fetching nothing. The OCR
+recovery's writer also binds the plan to the projection's own worklist, which it
+downloads by artifact id. The two files cross as one-day run artifacts carrying
+public Court data only ([security.md](security.md), *S3 / the private stores*);
+the application and OCR plans each cross under their own PII carve-out
+([data-sources.md](data-sources.md), *PII stance*). A job boundary is
 what does the separating: in a job holding `id-token: write` the runner hands
 every step the OIDC request pair after the step's own `env:`, so no step there
 can be put out of reach of minting a token.

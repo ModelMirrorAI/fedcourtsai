@@ -364,7 +364,17 @@ from .pipeline.missed import (
     scan_predictionless_resolutions,
 )
 from .pipeline.ocr_recovery import DEFAULT_PROBE_SAMPLE as DEFAULT_OCR_PROBE_SAMPLE
-from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_documents
+from .pipeline.ocr_recovery import (
+    EMPTY_AFTER_OCR,
+    OcrFetchProbe,
+    OcrRecoveryResult,
+    OcrToolsMissing,
+    class_reading,
+    probe_documents,
+    recover_scanned_documents,
+    scanned_documents,
+)
+from .pipeline.ocr_recovery import RECOVERABLE_KINDS as OCR_RECOVERABLE_KINDS
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
 from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
@@ -2683,38 +2693,74 @@ def _ocr_sweep_refuse(message: str) -> NoReturn:
     raise typer.Exit(code=2)
 
 
-def _ocr_sweep(  # noqa: PLR0912, PLR0913 - keyword-only; one flag per sweep mode
+def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per split mode
     started: float,
     *,
     apply: bool,
     sweep: bool,
     max_cases: int | None,
+    probe: int | None,
     deadline_seconds: float | None,
     emit_worklist: Path | None,
     worklist: Path | None,
     plan_out: Path | None,
+    probe_only: bool,
     from_plan: Path | None,
     bind_worklist: Path | None,
 ) -> None:
-    """The standing sweep's four modes: list, project, parse, write.
+    """The credential split's modes: the standing sweep's list, project, parse
+    and write, and the dispatched pass's project, parse and write.
 
-    Each job of the split runs exactly one, so the flags that select them are
+    Each job of a split runs exactly one, so the flags that select them are
     exclusive, and the one that reads fetched bytes (the parse) opens no corpus.
+    The parse is the same for both splits; ``--sweep`` picks which projection
+    and which writer.
     """
     command = "ocr-recover-petitions"
-    _refuse_bound_with_sweep(command, "--max-cases", max_cases)
-    if worklist is not None or plan_out is not None:
-        if worklist is None or plan_out is None:
-            _ocr_sweep_refuse("--worklist and --plan-out go together (the parse).")
-        if sweep or apply or emit_worklist or from_plan or bind_worklist:
+    if worklist is not None or plan_out is not None or probe_only:
+        if worklist is None or (plan_out is None) == (not probe_only):
             _ocr_sweep_refuse(
-                "the parse takes --worklist, --plan-out and --deadline-seconds only; "
-                "it opens no corpus and writes none."
+                "the parse takes --worklist with exactly one of --plan-out (read the "
+                "items) and --probe-only (probe their URLs)."
             )
+        if (
+            sweep
+            or apply
+            or max_cases is not None
+            or probe is not None
+            or emit_worklist
+            or from_plan
+            or bind_worklist
+        ):
+            _ocr_sweep_refuse(
+                "the parse takes --worklist, --plan-out or --probe-only, and "
+                "--deadline-seconds only; it opens no corpus and writes none."
+            )
+        if probe_only:
+            if deadline_seconds is not None:
+                _ocr_sweep_refuse(
+                    "--deadline-seconds bounds the reading parse (--plan-out); the "
+                    "probe re-fetches a sample and reads nothing."
+                )
+            _ocr_probe_parse(worklist)
+            return
+        assert plan_out is not None  # narrowed by the refusal above
         _ocr_sweep_parse(started, worklist, plan_out, deadline_seconds=deadline_seconds)
         return
     if not sweep:
-        _ocr_sweep_refuse("--emit-worklist and --from-plan run in --sweep mode.")
+        _ocr_dispatched_split(
+            apply=apply,
+            max_cases=max_cases,
+            probe=probe,
+            deadline_seconds=deadline_seconds,
+            emit_worklist=emit_worklist,
+            from_plan=from_plan,
+            bind_worklist=bind_worklist,
+        )
+        return
+    if probe is not None:
+        _ocr_sweep_refuse("--probe is the dispatched dry run's; the sweep probes nothing.")
+    _refuse_bound_with_sweep(command, "--max-cases", max_cases)
     if emit_worklist is not None and from_plan is not None:
         _ocr_sweep_refuse(
             "--emit-worklist (the projection) and --from-plan (the writer) are "
@@ -2820,6 +2866,198 @@ def _ocr_sweep_parse(
     write_handoff(plan_out, plan)
 
 
+def _ocr_probe_parse(worklist_path: Path) -> None:
+    """The dispatched dry run's parse: probe each worklist item's URL, read nothing."""
+    command = "ocr-recover-petitions"
+    settings = get_settings()
+    cfg = load_historical_config(settings.config_root)
+    handed = _read_handoff_or_exit(command, worklist_path, ocr_sweep.OcrWorklist)
+    try:
+        ocr_sweep.check_worklist(handed)
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
+        probes = probe_documents(client, handed.items)
+    typer.echo(
+        f"probe parse — {command}: {len(probes)} of a class of {handed.class_size} "
+        "re-fetched through the fetching lanes' own client"
+    )
+    for entry in probes:
+        _echo_ocr_probe(entry)
+
+
+def _ocr_dispatched_split(
+    *,
+    apply: bool,
+    max_cases: int | None,
+    probe: int | None,
+    deadline_seconds: float | None,
+    emit_worklist: Path | None,
+    from_plan: Path | None,
+    bind_worklist: Path | None,
+) -> None:
+    """The dispatched pass's projection and writer, run-repair's credential split.
+
+    The projection (``--emit-worklist``) prints the dry run's class ledger and
+    writes the worklist; the writer (``--from-plan --bind-worklist``) lands the
+    plan and prints the apply's ledger, the one its witness reads. Neither
+    fetches: the parse between them is the shared ``--worklist`` mode.
+    """
+    if emit_worklist is not None and from_plan is not None:
+        _ocr_sweep_refuse(
+            "--emit-worklist (the projection) and --from-plan (the writer) are "
+            "separate jobs; pass one."
+        )
+    if (from_plan is None) != (bind_worklist is None):
+        _ocr_sweep_refuse("--from-plan and --bind-worklist go together (the writer).")
+    if deadline_seconds is not None:
+        _ocr_sweep_refuse("--deadline-seconds bounds the parse (--worklist) only.")
+    if max_cases is not None and not 1 <= max_cases <= ocr_sweep.MAX_SWEEP_ITEMS:
+        _ocr_sweep_refuse(
+            f"--max-cases must be a slice of 1 to {ocr_sweep.MAX_SWEEP_ITEMS} candidates, "
+            f"the most one worklist may carry (got {max_cases}); dispatch a larger "
+            "backlog in slices."
+        )
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the OCR recovery.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if from_plan is not None and bind_worklist is not None:
+        if probe is not None:
+            _ocr_sweep_refuse("--probe is the dry run's; the writer probes nothing.")
+        if max_cases is None:
+            _ocr_sweep_refuse(
+                "the writer takes the dispatch's --max-cases, the bound the worklist was cut for."
+            )
+        cfg = load_historical_config(settings.config_root)
+        _ocr_dispatched_write(
+            db_path,
+            from_plan,
+            bind_worklist,
+            apply=apply,
+            max_cases=max_cases,
+            char_cap=cfg.document_text_cap,
+        )
+        return
+    if emit_worklist is None:
+        _ocr_sweep_refuse(
+            "without --sweep, the split modes are --emit-worklist (the projection), "
+            "--worklist (the parse) and --from-plan (the writer)."
+        )
+    if apply:
+        _ocr_sweep_refuse("the projection writes nothing; the apply is the writer's (--from-plan).")
+    if max_cases is not None and probe is not None:
+        _ocr_sweep_refuse(
+            "--max-cases cuts an apply's slice and --probe a dry run's sample; pass one."
+        )
+    with corpus.connect_maintenance(db_path, apply=False) as conn:
+        scan = scanned_documents(conn)
+        handed = ocr_sweep.dispatched_worklist(
+            conn,
+            scan.candidates,
+            max_cases=max_cases,
+            probe=DEFAULT_OCR_PROBE_SAMPLE if probe is None else probe,
+        )
+    result = class_reading(scan)
+    _echo_ocr_recovery(result, db_path, apply=False)
+    what = "slice" if max_cases is not None else "probe sample"
+    typer.echo(f"  worklist: {len(handed.items)} item(s), the apply's {what}")
+    typer.echo(result.model_dump_json())
+    write_handoff(emit_worklist, handed)
+
+
+def _ocr_dispatched_write(
+    db_path: Path,
+    plan_path: Path,
+    worklist_path: Path,
+    *,
+    apply: bool,
+    max_cases: int,
+    char_cap: int,
+) -> None:
+    """The dispatched pass's writer: land the plan, and state the class it leaves.
+
+    The class is walked before the write, and only a row still in it is
+    written, so ``remaining`` is that class less what this write recovered —
+    the number the workflow's re-read must then find. A row the write skips
+    (the corpus moved since the projection) is named on its own line, apart
+    from the parse's fetch failures. What it prints of the plan is counts and
+    validated identifiers, as on the sweep's writer.
+    """
+    command = "ocr-recover-petitions"
+    plan = _read_handoff_or_exit(command, plan_path, ocr_sweep.OcrPlan)
+    bound = _read_handoff_or_exit(command, worklist_path, ocr_sweep.OcrWorklist)
+    if bound.cap != max_cases:
+        typer.echo(
+            f"{command}: refusing the worklist — it was cut for a bound of {bound.cap}, "
+            f"not this dispatch's {max_cases}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if apply:
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    try:
+        with corpus.connect_maintenance(db_path, apply=apply) as conn:
+            scan = scanned_documents(conn)
+            landed = ocr_sweep.apply_ocr_plan(
+                conn,
+                plan,
+                bound,
+                cap=max_cases,
+                char_cap=char_cap,
+                today=date.today(),
+                apply=apply,
+                dispatched=True,
+                within=frozenset(candidate.key for candidate in scan.candidates),
+            )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the plan — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    failures = dict(plan.failures)
+    unfetched: dict[str, int] = {}
+    for reason in failures.values():
+        if reason != EMPTY_AFTER_OCR:
+            unfetched[reason] = unfetched.get(reason, 0) + 1
+    kinds = {key.split(" ", 1)[1] for key in landed.written}
+    result = OcrRecoveryResult(
+        applied=apply,
+        documents_seen=scan.documents_seen,
+        candidates=len(scan.candidates),
+        candidates_by_kind=class_reading(scan).candidates_by_kind,
+        set_keyed=scan.set_keyed,
+        bound=max_cases,
+        attempted=len(plan.rows) + len(plan.failures),
+        unreached=list(plan.unreached),
+        recovered=len(landed.written),
+        recovered_by_kind={
+            kind: sum(1 for key in landed.written if key.split(" ", 1)[1] == kind)
+            for kind in OCR_RECOVERABLE_KINDS
+            if kind in kinds
+        },
+        empty_after_ocr=sum(1 for reason in failures.values() if reason == EMPTY_AFTER_OCR),
+        unfetched=dict(sorted(unfetched.items())),
+        remaining=len(scan.candidates) - len(landed.written),
+        questions_rederived=landed.questions_rederived,
+        recoveries=landed.written,
+        failures=dict(sorted(failures.items())),
+    )
+    _echo_ocr_recovery(result, db_path, apply=apply)
+    typer.echo(f"skipped at the write: {len(landed.skipped)}")
+    for key, reason in landed.skipped.items():
+        typer.echo(f"  skipped {key}: {reason}")
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
+
+
 def _ocr_sweep_write(
     db_path: Path,
     plan_path: Path,
@@ -2872,8 +3110,71 @@ def _ocr_sweep_write(
         _ensure_corpus_layout(db_path)
 
 
+def _echo_ocr_recovery(result: OcrRecoveryResult, db_path: Path, *, apply: bool) -> None:
+    """The dispatched pass's ledger, as every mode of it prints it.
+
+    The dispatched dry run and apply, the credential split's projection and its
+    writer: one reading, so a dry run read off the split reads as one read off
+    the single job did.
+    """
+    if not result.documents_seen:
+        # Zero candidates has two causes and they are not the same run: a
+        # converged class, and a blob whose documents this process cannot read —
+        # a split-mode index with no content store configured serves every case
+        # an empty document list, which would otherwise report as a clean pass
+        # over an empty class. The denominator is what tells them apart.
+        typer.echo(
+            f"ocr-recover-petitions: no stored documents in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "recovered" if apply else "would attempt"
+    # A dry run states the whole class, since it takes no slice; the number a
+    # maintainer carries into `--max-cases` is that count, or as much of it as
+    # one dispatch should spend.
+    counted = result.recovered if apply else result.candidates
+    typer.echo(
+        f"ocr-recover-petitions ({'applied' if apply else 'dry-run'}): "
+        f"{result.candidates} scanned filing(s) in the class of "
+        f"{result.documents_seen} stored document(s) — "
+        f"{verb} {counted}, {result.remaining} left for the next slice"
+    )
+    # The class cut by kind, which is what a bound is drawn against: a slice of
+    # 10 over a class that is nine oppositions and one petition touches a very
+    # different set from one over the reverse, and the total alone hides it.
+    _echo_by_kind("class", result.candidates_by_kind)
+    if result.set_keyed:
+        _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
+    if apply:
+        _echo_by_kind("recovered", result.recovered_by_kind)
+        typer.echo(
+            f"  attempted {result.attempted} (bound {result.bound}); "
+            f"{result.empty_after_ocr} still empty after OCR; "
+            f"{result.questions_rederived} questions-presented row(s) re-derived"
+        )
+        losses = ", ".join(f"{reason}: {count}" for reason, count in result.unfetched.items())
+        typer.echo(f"  unfetched: {losses or 'none'}")
+    for key, detail in result.recoveries.items():
+        typer.echo(f"  {key}: {detail}")
+    for key, reason in result.failures.items():
+        typer.echo(f"  {key}: NOT RECOVERED ({reason})")
+    _echo_unreached(result.unreached)
+    for entry in result.probes:
+        _echo_ocr_probe(entry)
+
+
+def _echo_ocr_probe(entry: OcrFetchProbe) -> None:
+    """The dry run's second reading: one stored URL's status, before a slice is spent."""
+    typer.echo(
+        f"  probe {entry.case_id} {entry.kind}: {entry.outcome} "
+        f"(status {entry.status if entry.status is not None else 'none'}, "
+        f"{entry.bytes_fetched} bytes) {entry.url}"
+    )
+
+
 @app.command("ocr-recover-petitions")
-def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     apply: Annotated[
         bool,
         typer.Option(
@@ -2926,8 +3227,11 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
         Path | None,
         typer.Option(
             "--emit-worklist",
-            help="With --sweep: write the window's slice (case id, kind, Court URL, page "
-            "count) to this file for the credential-free parse, and nothing else.",
+            help="The projection: write the worklist (case id, kind, Court URL, page "
+            "count) to this file for the credential-free parse, fetching nothing. With "
+            "--sweep, the window's slice; without, the dispatched pass's: the first "
+            "--max-cases candidates in class order, or with no --max-cases the dry "
+            "run's --probe sample, beside the dry run's own ledger.",
         ),
     ] = None,
     worklist: Annotated[
@@ -2942,13 +3246,23 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
         Path | None,
         typer.Option("--plan-out", help="With --worklist: where the plan is written."),
     ] = None,
+    probe_only: Annotated[
+        bool,
+        typer.Option(
+            "--probe-only",
+            help="With --worklist, in place of --plan-out: the dispatched dry run's "
+            "parse. Re-fetch each item's URL and report its status, reading nothing "
+            "out of the body and writing no plan.",
+        ),
+    ] = False,
     from_plan: Annotated[
         Path | None,
         typer.Option(
             "--from-plan",
-            help="With --sweep: the writer. Re-check each plan row against "
-            "--bind-worklist and the corpus, and write it with --apply; without, "
-            "report what it would write.",
+            help="The writer. Re-check each plan row against --bind-worklist and the "
+            "corpus, and write it with --apply; without, report what it would write. "
+            "With --sweep, the standing sweep's; without, the dispatched pass's, "
+            "which takes the dispatch's --max-cases.",
         ),
     ] = None,
     bind_worklist: Annotated[
@@ -2956,7 +3270,7 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
         typer.Option(
             "--bind-worklist",
             help="With --from-plan, required: the projection's own worklist for this "
-            "window. Every plan row, failure and unreached key must be one of its items.",
+            "run. Every plan row, failure and unreached key must be one of its items.",
         ),
     ] = None,
 ) -> None:
@@ -3055,18 +3369,18 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
     # is charged to the budget the caller sized: it happens inside the caller's
     # cap whether or not a candidate is ever started.
     started = time.monotonic()
-    if sweep or emit_worklist or worklist or plan_out or from_plan or bind_worklist:
-        if probe is not None:
-            _ocr_sweep_refuse("--probe is the dispatched dry run's; the sweep probes nothing.")
+    if sweep or emit_worklist or worklist or plan_out or probe_only or from_plan or bind_worklist:
         _ocr_sweep(
             started,
             apply=apply,
             sweep=sweep,
             max_cases=max_cases,
+            probe=probe,
             deadline_seconds=deadline_seconds,
             emit_worklist=emit_worklist,
             worklist=worklist,
             plan_out=plan_out,
+            probe_only=probe_only,
             from_plan=from_plan,
             bind_worklist=bind_worklist,
         )
@@ -3117,57 +3431,7 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
     except OcrToolsMissing as exc:
         typer.echo(f"ocr-recover-petitions: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    if not result.documents_seen:
-        # Zero candidates has two causes and they are not the same run: a
-        # converged class, and a blob whose documents this process cannot read —
-        # a split-mode index with no content store configured serves every case
-        # an empty document list, which would otherwise report as a clean pass
-        # over an empty class. The denominator is what tells them apart.
-        typer.echo(
-            f"ocr-recover-petitions: no stored documents in {db_path} "
-            "— wrong blob for this command?",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    verb = "recovered" if apply else "would attempt"
-    # A dry run states the whole class, since it takes no slice; the number a
-    # maintainer carries into `--max-cases` is that count, or as much of it as
-    # one dispatch should spend.
-    counted = result.recovered if apply else result.candidates
-    typer.echo(
-        f"ocr-recover-petitions ({'applied' if apply else 'dry-run'}): "
-        f"{result.candidates} scanned filing(s) in the class of "
-        f"{result.documents_seen} stored document(s) — "
-        f"{verb} {counted}, {result.remaining} left for the next slice"
-    )
-    # The class cut by kind, which is what a bound is drawn against: a slice of
-    # 10 over a class that is nine oppositions and one petition touches a very
-    # different set from one over the reverse, and the total alone hides it.
-    _echo_by_kind("class", result.candidates_by_kind)
-    if result.set_keyed:
-        _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
-    if apply:
-        _echo_by_kind("recovered", result.recovered_by_kind)
-        typer.echo(
-            f"  attempted {result.attempted} (bound {result.bound}); "
-            f"{result.empty_after_ocr} still empty after OCR; "
-            f"{result.questions_rederived} questions-presented row(s) re-derived"
-        )
-        losses = ", ".join(f"{reason}: {count}" for reason, count in result.unfetched.items())
-        typer.echo(f"  unfetched: {losses or 'none'}")
-    for key, detail in result.recoveries.items():
-        typer.echo(f"  {key}: {detail}")
-    for key, reason in result.failures.items():
-        typer.echo(f"  {key}: NOT RECOVERED ({reason})")
-    _echo_unreached(result.unreached)
-    for entry in result.probes:
-        # The dry run's second reading: what the writer's own fetch path gets
-        # back from supremecourt.gov, before a slice is spent finding out.
-        typer.echo(
-            f"  probe {entry.case_id} {entry.kind}: {entry.outcome} "
-            f"(status {entry.status if entry.status is not None else 'none'}, "
-            f"{entry.bytes_fetched} bytes) {entry.url}"
-        )
+    _echo_ocr_recovery(result, db_path, apply=apply)
     if apply:
         _ensure_corpus_layout(db_path)
     typer.echo(result.model_dump_json())
