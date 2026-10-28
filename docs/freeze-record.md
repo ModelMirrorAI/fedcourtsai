@@ -14345,3 +14345,53 @@ freeze commit is recorded here.
   tests/test_outcome.py -k "re_fired_mint or re_mint_over"` is green, and `uv
   run python scripts/checks/redocketed_numbers.py` reports the same refusal
   counts at the carrying merge as at its first parent.
+
+- **A merits event on a proceeding that ended with nothing decided closes
+  without an outcome, `merits-terminated`; recorded 2026-10-28.** A
+  **membership** entry: it states the terminal state of a forecast that can
+  never be graded, and moves no scored figure. It moves no digest: no prompt
+  template, neither agent config and not `src/fedcourtsai/process_version.py`
+  changes, and `uv run fedcourts process-digest --all` at this commit prints
+  `proc-v13` and the six digests the entries above list.
+
+  **What changes.** `pipeline.judgment.backfill_merits_judgments`, the
+  run-seed step that stamps `merits_terminated`, now also closes every open
+  merits-stage event on a row whose termination says the proceeding ended
+  with nothing decided (a Rule 46 dismissal, a dismissal as moot, an
+  abatement, a grant the Court vacated). Each is marked
+  `resolved_without_outcome` with the new reason `merits-terminated`. No
+  outcome is written, and the termination is never read as an undisturbed
+  judgment. A row whose only terminal entry is the bare mandate notation
+  (`judgment-issued`) is a decided docket the parser missed, and its events
+  stay open. The outcome passes leave a `merits-terminated` event alone while
+  its row stays terminated; if a judgment later parses, the parse clears the
+  termination and the convergence records the outcome over the mark.
+
+  **What a closed event owes.** Nothing. The evaluate backlog
+  (`pipeline.pull.derive_evaluate_backlog`) and `store.resolved_events` leave
+  out a `merits-terminated` event: with no `outcome.json` there is no ground
+  truth to grade, and a cell minted on one could only fail at model cost. The missed-forecast scan leaves out a
+  `merits-terminated` event, which was never decided: it is neither a missed
+  forecast nor a missing outcome record.
+
+  **What moves**, read 2026-10-28 from the production corpus under
+  `origin/main`'s pointer (`5e42eb35…`, latest pull 2026-10-28) and the
+  ledger at `origin/main`. Twelve open merits events on nine dockets carry a
+  termination other than the mandate notation: 19-825 (`grant-vacated`) and
+  20-429, 20-454, 20-539, 20-794, 20-1374, 20-1541, 24-413 and 25-886
+  (`voluntary-dismissal`). Only 25-886 (`scotus/73280386`,
+  `evt-order-judgment`) carries committed predictions: three forward cells
+  of run `20260816T111104Z`, one per predictor. They were never graded and
+  now never will be, and no evaluate cell is minted on them. The other cells
+  on these events are failed attempts.
+  **0 scored outcomes move**, and no base rate re-prices: a terminated row
+  was already outside the merits pool's `parsed` slice.
+
+  The runnable effect check once it is live: run-seed's merits backfill step
+  (its daily scheduled window, or a dispatch) prints `closed 12 open merits
+  event(s) without an outcome` on its first run after the carrying promotion
+  and `closed 0` after; `uv run fedcourts backfill-merits-judgments` (a dry
+  run, where the corpus is pulled) prints `would close 12` before it; and `uv
+  run pytest tests/test_judgment.py tests/test_outcome.py
+  tests/test_evaluate_backlog.py tests/test_missed_forecasts.py -k
+  "terminat or without_an_outcome"` is green.

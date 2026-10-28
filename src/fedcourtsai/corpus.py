@@ -5593,7 +5593,12 @@ def _event_from_record(record: RecordRow) -> CorpusEvent:
 #: order text from, no decision date for the stage, a moment that opened after
 #: the decision, a moment whose caption names another petition than the docket
 #: now does (a re-docketed number), or a disposition detection declined.
+#: ``merits-terminated`` is the merits backfill's
+#: (:func:`fedcourtsai.pipeline.judgment.backfill_merits_judgments`): a merits
+#: moment on a row whose proceeding ended with nothing decided
+#: (``merits_terminated``), which has no outcome to record.
 NO_OUTCOME_INGESTED_DECIDED = "ingested-decided"
+NO_OUTCOME_MERITS_TERMINATED = "merits-terminated"
 NO_OUTCOME_REASONS: tuple[str, ...] = (
     NO_OUTCOME_INGESTED_DECIDED,
     "no-snapshot",
@@ -5601,6 +5606,7 @@ NO_OUTCOME_REASONS: tuple[str, ...] = (
     "opened-after-decision",
     "redocketed",
     "declined",
+    NO_OUTCOME_MERITS_TERMINATED,
 )
 
 

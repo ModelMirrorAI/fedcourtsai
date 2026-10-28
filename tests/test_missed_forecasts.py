@@ -461,6 +461,23 @@ def test_an_event_dated_only_by_observation_is_placed_and_one_undatable_is_named
     assert [u["case_id"] for u in detail["undated_on_selected_row"]] == ["scotus/2"]
 
 
+def test_a_merits_event_closed_by_its_termination_is_out_of_the_scan(tmp_path: Path) -> None:
+    """A proceeding that ended with nothing decided was never decided: its
+    closed merits event is neither a miss nor a missing outcome record."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _resolved_case(db, data, 1, outcome=False, polled_on=RESOLVED)
+    with corpus.connect(db) as conn:
+        corpus.mark_resolved_without_outcome(
+            conn, "scotus/1", CERT_EVENT, corpus.NO_OUTCOME_MERITS_TERMINATED
+        )
+
+    report = _scan(db, data)
+
+    assert report.events == ()
+    assert report.no_outcome_record == ()
+
+
 def test_a_never_scored_in_scope_event_is_a_miss_not_a_decline(tmp_path: Path) -> None:
     """A case the salience pass never scored had no funding decision at all — a
     pipeline failure, reported as a miss with its own reason and count."""

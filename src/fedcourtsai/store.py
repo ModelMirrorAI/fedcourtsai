@@ -832,9 +832,10 @@ def resolved_events(
 
     The mirror of :func:`open_events`: an event whose ``outcome.json`` has been
     recorded is flipped resolved in the corpus, making it ready for
-    ``run-evaluate``. Empty (not created) if the local corpus does not exist
-    yet; ``backend`` selects the read backend (see
-    :func:`corpus.connect_readonly`).
+    ``run-evaluate``. A merits event closed because its proceeding ended with
+    nothing decided (``merits-terminated``) has nothing to grade against and
+    is left out. Empty (not created) if the local corpus does not exist yet;
+    ``backend`` selects the read backend (see :func:`corpus.connect_readonly`).
     """
     choice = corpus.resolve_backend(backend)
     if choice == "local" and not corpus_db_path.exists():
@@ -842,7 +843,12 @@ def resolved_events(
     case_id = ids.case_id(court_id, docket_id)
     with corpus.connect_readonly(corpus_db_path, backend=choice) as conn:
         events = corpus.events_for_case(conn, case_id)
-    return [event.event_id for event in events if event.resolved]
+    return [
+        event.event_id
+        for event in events
+        if event.resolved
+        and event.resolved_without_outcome_reason != corpus.NO_OUTCOME_MERITS_TERMINATED
+    ]
 
 
 def unforecastable_listed_events(

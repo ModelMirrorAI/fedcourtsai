@@ -79,6 +79,7 @@ from ..schemas import (
     InterimResolutionSignals,
     Judgment,
     MeritsDecisionMethod,
+    MeritsTermination,
     Moment,
     Outcome,
     PredictableEvent,
@@ -2417,6 +2418,26 @@ def _gap_events(
     return gaps
 
 
+def _closed_by_termination(event: corpus.CorpusEvent, row: corpus.CorpusRow) -> bool:
+    """Whether a merits moment is closed because its proceeding ended undecided.
+
+    The merits backfill closes an open merits moment on a terminated row
+    without an outcome (``merits-terminated``). It is no gap while the row
+    stays terminated: there is no decision to attribute and no date to window
+    it by, and filing it with the undated residue would overwrite its reason.
+    Once a judgment parses on the row, the termination is cleared and the
+    moment is an ordinary dated gap again, recorded over the mark. A row
+    re-read as the bare mandate notation (a decided docket) is a gap again
+    too, as the backfill would have left it open.
+    """
+    return (
+        event.resolved_without_outcome_reason == corpus.NO_OUTCOME_MERITS_TERMINATED
+        and row.merits_terminated is not None
+        and row.merits_terminated != MeritsTermination.judgment_issued.value
+        and row.merits_judgment is None
+    )
+
+
 def _due_cases(
     conn: sqlite3.Connection,
     data_root: Path,
@@ -2430,12 +2451,14 @@ def _due_cases(
     whose stage the row records decided, with no complete ledger pair: either
     the corpus records it resolved (a closure with no ground truth), or it is
     still open (detection declined it on the poll that saw the decision, and
-    re-extraction never closes it). It is due when its stage was decided on or
-    after ``floor``, or at any age when the case holds a committed prediction
-    at that stage; ``floor=None`` takes every gap at any age. A gap whose stage
-    the row carries no decision date for is appended to ``undated_out`` rather
-    than dropped: there is no date to window it by and none for
-    ``resolved_at``, so it cannot be recorded, but it must not vanish either.
+    re-extraction never closes it). A merits moment the backfill closed on a
+    terminated row is no gap (:func:`_closed_by_termination`). It is due when
+    its stage was decided on or after ``floor``, or at any age when the case
+    holds a committed prediction at that stage; ``floor=None`` takes every gap
+    at any age. A gap whose stage the row carries no decision date for is
+    appended to ``undated_out`` rather than dropped: there is no date to
+    window it by and none for ``resolved_at``, so it cannot be recorded, but
+    it must not vanish either.
     """
     due: list[_DueCase] = []
     for case_id, gap_events in _gap_events(conn, data_root).items():
@@ -2449,8 +2472,12 @@ def _due_cases(
         newest: date | None = None
         undated: list[str] = []
         for event, stage in gap_events:
-            if not event.resolved and not _stage_shows_decided(row, stage):
-                continue  # an open moment of an undecided stage is simply pending
+            if (not event.resolved and not _stage_shows_decided(row, stage)) or (
+                _closed_by_termination(event, row)
+            ):
+                # An open moment of an undecided stage is simply pending; one
+                # closed by its termination has nothing decided to record.
+                continue
             decided = _stage_decided(row, stage)
             if decided is None:
                 undated.append(event.event_id)

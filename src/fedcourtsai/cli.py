@@ -2461,7 +2461,9 @@ def backfill_merits_judgments_cmd(
     without a disposition (a post-grant Rule 46 dismissal, a dismissal as moot,
     an abatement on the petitioner's death, a grant the Court vacated, a bare
     mandate notation) — and stamps `merits_terminated` instead, which closes
-    the row's pendency without entering the parsed slice. Idempotent; a row
+    the row's pendency without entering the parsed slice, and closes the row's
+    open merits events without an outcome (`merits-terminated`) unless the
+    termination is the bare mandate notation. Idempotent; a row
     whose snapshot is unreachable is counted `no_snapshot` and left as it is.
     Dry-run by default; `--apply` writes (run where the corpus is pulled,
     `corpus-push` after). Prints a `MeritsBackfillResult`. Fails loud if the
@@ -2488,7 +2490,9 @@ def backfill_merits_judgments_cmd(
         f"({result.unchanged} already stored, {verb} {result.updated}), "
         f"{result.no_snapshot} without a reachable snapshot, "
         f"{result.terminated} terminated without a disposition "
-        f"({verb} {result.terminations_written}), "
+        f"({verb} {result.terminations_written}, "
+        f"{'closed' if apply else 'would close'} {result.terminated_events_closed} "
+        "open merits event(s) without an outcome), "
         f"{result.no_match} with no judgment-shaped entry"
     )
     if result.stale:
