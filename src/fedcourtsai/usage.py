@@ -154,23 +154,43 @@ def parse_codex_usage(sessions_dir: Path) -> TokenCounts | None:
     Reads each of the cell's sessions (:func:`codex_cell_rollouts`: the parent
     and every subagent session it spawned) for its last ``token_count`` event's
     cumulative ``total_token_usage`` and sums them, since a subagent bills
-    beside its parent rather than inside it. Normalizes to the Claude
+    beside its parent rather than inside it. A subagent forked with its
+    parent's history copies the parent's ``token_count`` events into its own
+    rollout and continues the parent's running total, so its leading totals
+    that repeat an earlier session's are inherited, and only what it adds
+    past the last of them is its own. Normalizes to the Claude
     convention: Codex's ``input_tokens`` counts the cached portion, so the
     cached tokens are split out into ``cache_read_input_tokens`` and subtracted
     from fresh input. Returns ``None`` when no rollout or usage event is found.
     """
-    totals = [
-        usage
-        for rollout in codex_cell_rollouts(sessions_dir)
-        if (usage := _last_codex_token_usage(rollout)) is not None
-    ]
-    if not totals:
+    seen: set[str] = set()
+    found = False
+    total_input = cached = output = 0
+    for rollout in codex_cell_rollouts(sessions_dir):
+        history = _codex_token_usages(rollout)
+        if not history:
+            continue
+        found = True
+        keys = [json.dumps(usage, sort_keys=True, default=str) for usage in history]
+        inherited: dict[str, Any] = {}
+        for key, usage in zip(keys, history, strict=True):
+            if key not in seen:
+                break
+            inherited = usage
+        last = history[-1]
+
+        def own(field: str, last: dict[str, Any] = last, base: dict[str, Any] = inherited) -> int:
+            return max(0, _as_int(last.get(field)) - _as_int(base.get(field)))
+
+        total_input += own("input_tokens")
+        cached += own("cached_input_tokens")
+        output += own("output_tokens")
+        seen.update(keys)
+    if not found:
         return None
-    cached = sum(_as_int(usage.get("cached_input_tokens")) for usage in totals)
-    total_input = sum(_as_int(usage.get("input_tokens")) for usage in totals)
     return TokenCounts(
         input_tokens=max(0, total_input - cached),
-        output_tokens=sum(_as_int(usage.get("output_tokens")) for usage in totals),
+        output_tokens=output,
         cache_read_input_tokens=cached,
         cache_creation_input_tokens=0,
     )
@@ -195,9 +215,9 @@ def codex_cell_rollouts(sessions_dir: Path) -> list[Path]:
     retrieved through a helper it spawned is what it retrieved, for leakage
     grading as for spend. Parent first, then subagents in file order.
 
-    A tree with no ``session_meta`` anywhere — a rollout written before Codex
-    logged one — falls back to the newest rollout alone; an empty
-    or missing directory yields no rollouts.
+    A tree with no top-level ``session_meta`` — a rollout written before Codex
+    logged one, or a directory holding only subagent sessions — falls back to
+    the newest rollout alone; an empty or missing directory yields no rollouts.
     """
     if not sessions_dir.is_dir():
         return []
@@ -375,7 +395,13 @@ def parse_gemini_served_models(telemetry_file: Path) -> list[str] | None:
 
 def _last_codex_token_usage(rollout: Path) -> dict[str, Any] | None:
     """The cumulative ``total_token_usage`` from the last ``token_count`` event."""
-    found: dict[str, Any] | None = None
+    history = _codex_token_usages(rollout)
+    return history[-1] if history else None
+
+
+def _codex_token_usages(rollout: Path) -> list[dict[str, Any]]:
+    """Every ``token_count`` event's cumulative ``total_token_usage``, in file order."""
+    found: list[dict[str, Any]] = []
     for raw in rollout.read_text().splitlines():
         line = raw.strip()
         if not line:
@@ -386,7 +412,7 @@ def _last_codex_token_usage(rollout: Path) -> dict[str, Any] | None:
             continue
         usage = _extract_total_token_usage(record)
         if usage is not None:
-            found = usage
+            found.append(usage)
     return found
 
 

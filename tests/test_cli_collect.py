@@ -1573,11 +1573,16 @@ def test_collect_plan_reads_a_numeric_release_suffix_as_the_requested_model(
     )
     _write_usage(tmp_path, "cell-a", "gemini-baseline", model="g-4", served=["g-4-001"])
     _write_usage(tmp_path, "cell-a", "codex-baseline", model="g-4", served=["g-4-lite"])
+    # A point release is another model, though its suffix is a number too.
+    _write_usage(tmp_path, "cell-a", "claude-baseline", model="c-5", served=["c-5-1"])
+    _write_usage(tmp_path, "cell-a", "other-baseline", model="c-5", served=["c-5-20251001"])
     result = runner.invoke(
         app,
         ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
     )
     plan = json.loads(result.stdout)
-    assert "1 of 2 cell(s)" in plan["served_models"]
+    assert "2 of 4 cell(s)" in plan["served_models"]
     assert "g-4-lite" in plan["served_models"]
+    assert "c-5-1" in plan["served_models"]
     assert "g-4-001" not in plan["served_models"]
+    assert "c-5-20251001" not in plan["served_models"]

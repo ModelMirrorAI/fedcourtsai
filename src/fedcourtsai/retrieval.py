@@ -107,6 +107,7 @@ from .usage import (
     _last_codex_token_usage,
     _load_json,
     _load_json_objects,
+    _otel_value,
     codex_cell_rollouts,
 )
 
@@ -514,7 +515,9 @@ def parse_codex_retrieval(
     The cell's rollouts are its parent session and every subagent session it
     spawned (:func:`~fedcourtsai.usage.codex_cell_rollouts`): a call a subagent
     made is retrieval the cell did, so its rows join the parent's, merged into
-    timestamp order.
+    timestamp order. A subagent forked with its parent's history copies the
+    parent's messages and events into its own rollout but not its tool calls,
+    so no call is read twice.
 
     ``offered`` is the cell's offered manifest set in the ``<server>.<tool>``
     spelling the log's own ``mcp_tools`` snapshot carries; it is what lets a
@@ -522,14 +525,12 @@ def parse_codex_retrieval(
     builtin (:func:`_resolve_codex_bare_name`). Empty means offered-unknown,
     and every bare name then stays as logged.
     """
-    calls = [
-        call
-        for rollout in codex_cell_rollouts(sessions_dir)
-        for call in _parse_codex_rollout(rollout, offered)
-    ]
-    # Stable, so a code-mode program's lifted rows keep their place beside the
-    # wrapping call whose timestamp they share.
-    calls.sort(key=lambda call: call.timestamp or "")
+    rollouts = codex_cell_rollouts(sessions_dir)
+    calls = [call for rollout in rollouts for call in _parse_codex_rollout(rollout, offered)]
+    if len(rollouts) > 1:
+        # Stable, so a code-mode program's lifted rows keep their place beside
+        # the wrapping call whose timestamp they share.
+        calls.sort(key=lambda call: call.timestamp or "")
     return calls[:RETRIEVAL_CALL_CAP]
 
 
@@ -1107,13 +1108,33 @@ def _gemini_outcome(tool: str, attrs: dict[str, Any]) -> RetrievalResultStatus:
     """
     message = str(attrs.get("error.message") or attrs.get("error") or "")
     failed = not _truthy(attrs.get("success"), default=True) or bool(message)
-    metadata = _maybe_json(attrs.get("metadata"))
+    metadata = _otel_kvlist(_maybe_json(attrs.get("metadata")))
     if isinstance(metadata, dict) and _truthy(metadata.get("isError"), default=False):
         failed = True
     if not failed:
         return "ok"
     _, marked, tail = message.rpartition(_GEMINI_MCP_RESPONSE_MARK)
     return _result_status(tool, tail if marked else message, captured=True, engine_error=True)
+
+
+def _otel_kvlist(value: Any) -> Any:
+    """A map attribute as a plain dict, whether logged plain or in OTLP's typed form.
+
+    OTLP spells a map ``{"kvlistValue": {"values": [{"key": k, "value": {...}}]}}``
+    with each value typed again; an exporter that writes attributes plain leaves
+    the map as it was. Anything else is returned unchanged.
+    """
+    if not isinstance(value, dict) or "kvlistValue" not in value:
+        return value
+    kvlist = value["kvlistValue"]
+    entries = kvlist.get("values") if isinstance(kvlist, dict) else None
+    if not isinstance(entries, list):
+        return {}
+    return {
+        str(entry.get("key")): _otel_value(entry.get("value"))
+        for entry in entries
+        if isinstance(entry, dict) and "key" in entry
+    }
 
 
 def _truthy(value: Any, *, default: bool) -> bool:

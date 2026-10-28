@@ -24775,10 +24775,11 @@ def _load_stakes_reads(status_dir: Path, run_id: str) -> StakesReadRollup:
     return rollup
 
 
-# A served id that is the requested one plus a numeric release suffix
-# (`-001`, `-05-06`): the spelling a provider reports a pinned version of the
-# model under, not another model.
-_VERSION_SUFFIX = re.compile(r"-[0-9][0-9-]*")
+# A served id that is the requested one plus a dated or numbered release
+# suffix (`-001`, `-05-06`, `-20251001`, `-2025-10-01`): the spelling a provider
+# reports a pinned version of the model under, not another model. A short
+# number (`-1`) is a point release, so it is not one of these.
+_VERSION_SUFFIX = re.compile(r"-(?:[0-9]{3}|[0-9]{8}|[0-9]{2}-[0-9]{2}|[0-9]{4}-[0-9]{2}-[0-9]{2})")
 
 
 def _same_model(requested: str, served: str) -> bool:

@@ -2084,6 +2084,26 @@ def test_a_gemini_shell_command_that_exited_non_zero_is_an_error(tmp_path: Path)
     assert (call.result_capture, call.result_status) == ("outcome_only", "error")
 
 
+def test_a_gemini_metadata_map_in_otlp_typed_form_is_read(tmp_path: Path) -> None:
+    # An OTLP exporter types a map attribute as a kvlist of typed values.
+    metadata = {
+        "kvlistValue": {
+            "values": [
+                {"key": "exitCode", "value": {"intValue": "2"}},
+                {"key": "isError", "value": {"boolValue": True}},
+            ]
+        }
+    }
+    call = _gemini_tool_call(
+        tmp_path,
+        function_name="run_shell_command",
+        function_args={"command": "uv run fedcourts query --docket 1"},
+        success=True,
+        metadata=metadata,
+    )
+    assert (call.result_capture, call.result_status) == ("outcome_only", "error")
+
+
 def test_a_gemini_manifest_tool_error_carrying_a_429_is_throttled(tmp_path: Path) -> None:
     # The pinned server raises an upstream 429 as a tool error; the CLI wraps it
     # with the call's arguments and the server's response parts.

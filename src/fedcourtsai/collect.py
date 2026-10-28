@@ -1628,8 +1628,9 @@ class ServedModelRollup:
     no model (``served_models`` null: unknown, not a match), and ``substituted``
     each cell whose log named anything other than exactly the requested model, as
     ``(cell, requested, served)`` with the served models comma-joined. A served
-    id that is the requested one plus a numeric release suffix (``-001``) is
-    read as a match, since a provider reports a pinned version that way.
+    id that is the requested one plus a dated or numbered release suffix
+    (``-001``, ``-20251001``) is read as a match, since a provider reports a
+    pinned version that way; a point release (``-1``) is another model.
     """
 
     cells: int = 0
@@ -1653,6 +1654,11 @@ def render_served_model_note(rollup: ServedModelRollup | None) -> str:
     )
     rest = len(rollup.substituted) - _NAMED_CELL_CAP
     more = f"; and {rest} more" if rest > 0 else ""
+    unread = (
+        f" A further {rollup.unknown} cell(s)' logs named no model, so they are unchecked."
+        if rollup.unknown
+        else ""
+    )
     return (
         f"⚠️ **{len(rollup.substituted)} of {rollup.cells} cell(s) ran on a model other "
         f"than the one requested**, by the engine's own log (`usage.json` "
@@ -1660,8 +1666,9 @@ def render_served_model_note(rollup: ServedModelRollup | None) -> str:
         f"registered one's; the cost estimate stays priced at the requested model. "
         f"Each engine's value sits at its own distance from the provider: claude's is the "
         f"model the API response named; gemini's is the response's own version string "
-        f"(a numeric release suffix on the requested id is read as a match); codex's is "
-        f"the model the CLI addressed, so a provider-side reroute there never lands here."
+        f"(a dated or numbered release suffix on the requested id is read as a match); "
+        f"codex's is the model the CLI addressed, so a provider-side reroute there never "
+        f"lands here.{unread}"
     )
 
 

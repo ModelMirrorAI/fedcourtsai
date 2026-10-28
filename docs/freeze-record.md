@@ -14346,8 +14346,11 @@ freeze commit is recorded here.
   rollout whose `session_meta` names no parent thread and no subagent source),
   every subagent session descending from it, and any subagent session in the
   cell's directory that names no parent: calls merge in timestamp order, and
-  token counts sum. A tree with no `session_meta` reads the newest
-  rollout alone.
+  token counts sum. A subagent forked with its parent's history copies the
+  parent's token events and continues its running total, so only what it adds
+  past the inherited total counts; the fork copies no tool call, so no row
+  repeats. A tree with no top-level `session_meta` reads the newest rollout
+  alone.
   - **What it reaches.** A codex candidate's staged log can gain rows a
     subagent made, which is retrieval the cell did and which the judge
     previously could not see. A codex cell's `usage.json` tokens and estimated

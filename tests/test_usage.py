@@ -312,6 +312,40 @@ def test_a_subagent_rollout_newer_than_its_parent_is_not_taken_for_the_cell(
     assert counts == TokenCounts(input_tokens=640, output_tokens=105, cache_read_input_tokens=410)
 
 
+def test_a_forked_subagent_bills_only_past_the_history_it_inherited(tmp_path: Path) -> None:
+    day = tmp_path / "sessions" / "2026" / "10" / "16"
+    parent = day / "rollout-2026-10-16T09-00-00-parent.jsonl"
+    child = day / "rollout-2026-10-16T09-05-00-child.jsonl"
+    first = {"input_tokens": 600, "cached_input_tokens": 200, "output_tokens": 60}
+    at_fork = {"input_tokens": 1_000, "cached_input_tokens": 400, "output_tokens": 100}
+    _codex_session(parent, {"id": "p", "source": "exec"}, first)
+    with parent.open("a") as handle:
+        handle.write("\n" + _codex_event(at_fork))
+    # A full-history fork: the child's rollout opens with its own meta, copies
+    # the parent's meta and token events, then continues the running total.
+    _codex_session(
+        child,
+        {
+            "id": "c",
+            "forked_from_id": "p",
+            "source": {"subagent": {"thread_spawn": {"parent_thread_id": "p", "depth": 1}}},
+        },
+        first,
+    )
+    with child.open("a") as handle:
+        handle.write("\n" + _codex_event(at_fork))
+        handle.write(
+            "\n"
+            + _codex_event(
+                {"input_tokens": 1_050, "cached_input_tokens": 410, "output_tokens": 105}
+            )
+        )
+    counts = parse_codex_usage(tmp_path / "sessions")
+    # The child adds 50 input (10 cached) and 5 output past the fork, not the
+    # parent's 1,000 again.
+    assert counts == TokenCounts(input_tokens=640, output_tokens=105, cache_read_input_tokens=410)
+
+
 def test_cell_rollouts_follow_the_parent_chain_and_skip_another_top_level_session(
     tmp_path: Path,
 ) -> None:
