@@ -1656,6 +1656,21 @@ pass, and an unrecognized switch is refused loudly rather than dropped: a
 silently ignored switch would have the maintainer read a ledger for one
 population and apply against another.
 
+Every refusal a step can reach is made twice. The workflow's first job after
+the run gate,
+`validate`, holds no credential and reaches no network; it runs the pass table
+in `src/fedcourtsai/repair_passes.py` (standard library only, run by path from
+a sparse checkout of that one file) over the five inputs, and every writer job
+needs it, so a malformed dispatch is refused before an App token is minted, a
+role assumed or the corpus-write lock taken. The step that acts on a field
+refuses it again, and is the check of record; the refusals about the form alone
+(`none`, an unknown pass, a bound or target offered to a pass that reads
+neither) are the gate's only, since a step that never reads a field is safe
+when it is set. The table holds each refusal in
+the step's own words, so a mistake reads the same wherever it is caught, and
+the table, the dispatch form and the jobs' gates are pinned to name the same
+passes (`tests/test_repair_passes.py`).
+
 **What each pass accepts.**
 
 | `repair` | Command | `repair_bound` → | `repair_target` | `repair_options` |
