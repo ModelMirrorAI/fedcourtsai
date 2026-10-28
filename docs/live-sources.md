@@ -486,9 +486,25 @@ the docket form, so one function serves both lanes:
   the grant, so it stays `sg-invited-brief` and is never this kind. It follows
   every party arm, and the two arms after it read only the pending petition,
   so an entry any other arm reads is never offered to it and no other kind's
-  selection moves; every other merits-stage amicus brief
-  stays unselected. A merits cell whose cutoff it falls before is given it
-  beside the parties' merits briefs.
+  selection moves; every other merits-stage amicus brief but a
+  Court-appointed amicus's (below) stays unselected. A merits cell whose cutoff it falls
+  before is given it beside the parties' merits briefs.
+- **`merits-brief-appointed-amicus`** — the **merits brief of a Court-appointed
+  amicus**, which the Court appoints where no party will defend the judgment
+  below, usually because the respondent has confessed error; it is then the
+  only brief on the judgment's side. Read by the anchor that dates the briefed
+  moment from the same filing ("Brief of Court-appointed amicus curiae in
+  support of the judgment below filed.", "Brief amicus curiae of
+  Court-appointed amicus curiae … filed."): the first such entry filed **after
+  the cert grant** whose entry posts a `Main Document` link, from that link
+  alone. An appointed amicus arguing the petitioner's side is refused, as the
+  moment's anchor refuses it, and a spelling naming the lawyer before the
+  appointment ("Brief of Jane Doe, Court-appointed amicus curiae, …") is not
+  read. It follows the United States' arm and no earlier arm reads it, so no
+  other kind's selection moves. On a consolidated group it is borrowed off the
+  lead as the United States' brief is, unless the Clerk marks it "(as to No.)"
+  for other dockets only. It is stored and **staged for no cell**
+  (`provision.WITHHELD_KINDS`) until the re-bless whose prompt names it.
 - **`supplemental-brief`** / **`party-letter`** — every party's **Rule
   15.8 supplemental brief** ("Supplemental brief of petitioner … filed.",
   "Second supplemental brief of respondent … filed.", and a "letter brief",
@@ -573,7 +589,9 @@ docket does not yield is taken from the lead's selection. The rules:
   nothing, and the run log says so. A self-filing amicus on the lead's `Other`
   list does not block it: the only amicus briefs selected are the United
   States' (`sg-invited-brief`, `merits-amicus-united-states`), which its own
-  counsel files.
+  counsel files, and a Court-appointed amicus's
+  (`merits-brief-appointed-amicus`), filed by the member of the bar the Court
+  appointed.
 - **A lead that does not serve** is warned into the run log and read as no lead:
   the member's own documents are stored without it.
 - **The briefed date.** The member's own docket never carries its respondent's
@@ -843,6 +861,35 @@ appendix-aware cut reads every page, which on a scan means recognizing every
 page, and a long scan would spend its whole document budget and be discarded on
 every pass.
 
+**The combined-row cut.** A combined row of more than one selected filing (the
+opposition, the supplemental briefs, the party letters) shares one cap, and a
+cut over the joined text in docket order would spend it first-come: the first
+respondent's bound appendix kept, the second respondent's argument never
+reached. Each filing is read as the appendix-aware cut reads it, every page up
+to ten times the cap, and the row is cut filing by filing:
+
+- **under the cap nothing is cut**: every filing's pages joined under its
+  `=== <docket entry> ===` header;
+- **every filing's own text comes before any appendix**: each filing is split
+  where its bound appendix starts, read as above. Where the filings' own texts
+  fit together, each is kept whole and the appendices share what is left; where
+  they do not, every appendix is left out and the filings share the cap;
+- **a share is even, not first-come**: a filing shorter than its even share
+  keeps all of it and passes the rest on, so a short letter is never cut for a
+  long brief filed before it;
+- **every cut is stated inside the filing it falls in**, in the same
+  `[pipeline note: …]` form, including an appendix left out whole and the pages
+  never read past the ceiling.
+
+A cap too small to give every filing about a printed page takes the plain head
+cut over the joined text instead, with one note at its end. A group of one
+selected filing is stored raw under the plain head cut, which already keeps its
+own text ahead of its appendix; a group of two or more of which one was fetched
+is cut by the rule above, as one filing under its header. Each combined kind's
+`kind_description` says how its row is cut. Like the appendix-aware cut, this one applies to
+rows stored under it: a combined row is re-fetched only when its set of links
+changes, so a row stored before keeps its docket-order cut until then.
+
 That staged copy is where the **contact-detail scrub** applies, and it applies
 to the copy alone: the source PDF and the stored row keep the filing as filed.
 A cell's prose lands in the public ledger, so the text it reads is a
@@ -885,7 +932,7 @@ register number (none on that blob): it would stay as served, where a
 party-side one is withheld whatever its `Attorney` says. A docket whose only
 qualifying block is an amicus's gets the **value pass alone** (below): no
 amicus's own brief is staged — the only amicus kinds selected are the United
-States' briefs, filed by its counsel — so what is staged there is counsel's
+States' briefs and a Court-appointed amicus's, each filed by counsel — so what is staged there is counsel's
 filings, and the shape pass would cost their text its misreads of legal prose —
 a case name led by a street number, a regulation number in telephone shape —
 where the staged filers are represented. The premise is about amici, whose
@@ -910,7 +957,13 @@ or the blank-separated spelling after a telephone label on the same line,
 anywhere in the text; a post-office box with a comma or dash for a dot, a zero
 for the `O`, the words spelled out, or a bare `Box` and number, the box always
 carrying a digit; and a street address with a letter glued to its house number
-or with the lower-case connectors (`de`, `la`, `del`) a street name carries.
+or with the lower-case connectors (`de`, `la`, `del`) a street name carries. A
+street line ending on `Dr`, `Ct` or `Pl` is read as an address only where a
+"City, State ZIP" line sits directly below it, since on their own those words
+are far more often a doctor, the court and a plaintiff; and the "City, State
+ZIP" line directly below any withheld street address or box, the docket's own
+address value included, is withheld with it, as a placeholder of its own — a
+court or clerk street address takes its city line with it too.
 Two shapes are read on the document's **opening** alone (its first 6,000
 characters, which hold the cover page a self-represented caption sets its
 details on), because further in the same shape is mostly something else: a
@@ -925,15 +978,18 @@ qualifying blocks' alone, since amici are not co-parties), however the scan spac
 line-broke them, and puts back every line break it consumed; it runs only
 where the docket serves a value specific enough to key on (an email with its
 `@`, a telephone number of ten or more digits, an address with a digit and
-eight or more significant characters). Both passes are matched against the
+eight or more significant characters). An address value's street type is read
+in either spelling (`Drive` or `Dr`, `Avenue` or `Ave`), since the docket and
+the filing it copies need not abbreviate alike. Both passes are matched against the
 original text and overlapping matches are withheld as one span, so adding a
 pass can only widen what is withheld. Where the shape pass ran, the scrubbed
 text is then read once more by a **residual detector**: looser shapes over the
 document's opening (its first 6,000 characters) and its closing (as many at
 the end, where the signature block and a bundled proof of service sit) — a
 telephone number in any 3-3-4 grouping of blanks, dots, hyphens or a slash, a
-street address opening its line with lower-case name words, `box` and a number
-in any case, and an `@` set hard against letters. It withholds nothing, since
+street address opening its line with lower-case name words, a street line
+ending on `Dr`, `Ct` or `Pl` with a "City, State ZIP" line directly below it,
+`box` and a number in any case, and an `@` set hard against letters. It withholds nothing, since
 its shapes would cost legal text, but a document it finds anything on is
 recorded as **not** scrubbed. A clean reading is a claim about those two
 stretches alone, where the shape pass ran: the middle of a document is not
@@ -994,15 +1050,18 @@ can be self-represented, and the interim, replay and evaluate lanes sit outside
 that gate entirely.
 
 **What the scrub does not reach**, named so the section is not read as a covered
-surface. No pattern spans a newline — that is what makes the structural claim
+surface. No pattern's match spans a newline (the `Dr`/`Ct`/`Pl` street shape
+looks past one to the city line, but stops at it) — that is what makes the structural claim
 above true rather than aspirational, and it costs a detail the extractor broke
 across two lines. The blank-separated telephone spelling (`202 555 0147`) is
 deliberately not read at all: an appendix index and an OCR'd column emit exactly
 that shape, and the scrubbed population is disproportionately the scanned one,
 so reading it would delete legal text from the cells the scrub exists for. Nor
 are a box spelled out in full, a number written with a slash or with no
-separators, a bare city/state/ZIP line — that shape is also how the Court's own
-address line is set — or an incarcerated filer's register number beside an
+separators, a street line ending on `Dr`, `Ct` or `Pl` with no "City, State
+ZIP" line directly below it, a city/state/ZIP line under anything but a withheld
+street address or box (or under one on a docket the value pass alone scrubs) —
+that shape is also how the Court's own address line is set — or an incarcerated filer's register number beside an
 institution name, which has no shape at all.
 
 **The staged snapshot gets the same withholding, by key rather than by shape.**

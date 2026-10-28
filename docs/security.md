@@ -13,7 +13,7 @@ App installation token** (`actions/create-github-app-token`), never the default
 `GITHUB_TOKEN`: events created with `GITHUB_TOKEN` do not trigger other
 workflows (GitHub's loop-prevention), so an agent PR opened with it would never
 start CI. The inverse is the rule for every issue write in this repository —
-the run-log and data-validation alarms, the digests, flag latching — which must
+the run-log and data-validation alarms, the daily digest, flag latching — which must
 trigger nothing and so rides the ambient token instead.
 
 The token comes from one of **three Apps in use, matched to the lane's
@@ -384,7 +384,15 @@ this policy.
     is not a same-repo `staging` or non-feature lane, so a feature PR
     cannot ride around the promotion path by mistake. Those lanes are all
     reviewed except the big-case board's and the weekly update history's, which
-    merge unattended behind the `paths` jail below. Rulesets cannot constrain
+    merge unattended behind the `paths` jail below. One reviewed lane is not a
+    bot's: a `record-fill/*` PR, which the `paths` jail holds to filling, in
+    place, freeze-record placeholders the base already carries (the tested
+    `fedcourts assert-record-fill`), so the one route into `main` an
+    interactive session opens cannot carry code, config, a new entry or a
+    registration row. What a fill's one-line value says, and whether it is
+    the right value, the jail cannot judge, and like every jail here it runs
+    the PR's own `ci.yml`, so it deters mistakes; the maintainer's approval
+    below is what holds the value and catches the rest. Rulesets cannot constrain
     a PR's source branch, which is why it is a check rather than a rule. Its
     job definition lives in `main`'s own `ci.yml`, so the context reports on
     every lane into `main`; adding a context like it goes through the *Adding
@@ -429,7 +437,9 @@ this policy.
     job opens its PR on the `metrics/public-updates` branch, and there `paths`
     runs `fedcourts assert-update-paths`, which admits added
     `metrics/updates/<YYYY-Www>.md` files and nothing else — one bounded diff per
-    lane, so no unattended merge can carry a change a human never read. It is a no-op that
+    lane, so no unattended merge can carry a change a human never read. It
+    carries one reviewed lane's jail as well: on a `record-fill/*` branch it
+    runs `fedcourts assert-record-fill` (below). It is a no-op that
     passes on every other branch, so requiring it never blocks an ordinary PR. The
     same jail runs producer-side in each collect job; requiring it here enforces
     the guarantee independently of the workflow that produced the branch. Two
@@ -608,7 +618,8 @@ this policy.
   holding the maintainer's credentials, for which the rule is discipline
   again. The sync PR is not held by it in practice: its diff
   against `staging` is the `main` commits `staging` lacks, which are writer
-  data commits, since code reaches `main` only from `staging`; a commit to an
+  data commits and record fills to `docs/freeze-record.md`, an unowned path,
+  since code reaches `main` only from `staging`; a commit to an
   owned path reaching `main` any other way would stall the sync's auto-merge
   until the maintainer approves it or lands the sync through the bypass.
   **Bypass: the repository
@@ -700,7 +711,10 @@ the approval requirement. A bounded diff is what makes merging unattended safe, 
 check carries one per lane: the append-only `data/` jail for agent output, and
 `assert-board-paths` — the board's two files, written, nothing else — for the
 big-case board, and `assert-update-paths` — added week files under
-`metrics/updates/`, nothing else — for the weekly update history.
+`metrics/updates/`, nothing else — for the weekly update history. The
+reviewed record-fill lane gets the same treatment from `assert-record-fill`:
+in-place fills of the freeze-record placeholders the base already holds,
+nothing else.
 
 The predict/evaluate `collect` job latches each run's rolled-up agent flags onto
 one long-lived `agent-feedback` tracking issue — the durable, centralized home for
@@ -711,8 +725,8 @@ in this repository keys on `issues: labeled` at all, so labeling triggers
 nothing), which is the only reason a workflow here ever reaches for the App
 token — so issue-write deliberately stays **off** the App token that
 carries `contents: write` and opens and merges the run PR. This mirrors `run-ops`,
-which posts its `data-validation` / `daily-digest` /
-`weekly-digest` issues with the same ambient token — each of those labels
+which posts its `data-validation` / `daily-digest` issues with the same
+ambient token — each of those labels
 non-triggering, so a reporting job opening an issue can never start a spending
 run — and `run-pull`, whose failure-only
 run-log issues ride the ambient token for the same reason (its App token is
@@ -1594,7 +1608,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
-| `run-analytics` — order-scan              | none          | reads CourtListener's REST API only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its scan step |
+| `run-analytics` — order-scan              | none          | reads CourtListener's REST API only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its scan step. Its runtime token adds `actions: read`, to fetch the previous run's report artifact the scan resumes |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
 | `summarize` — generate, publish           | none          | generate holds the environment's Anthropic API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |
@@ -1929,7 +1943,11 @@ noncitizen in an immigration suit, say), no entry text and no CourtListener
 value-add field such as nature of suit; what it adds to records CourtListener
 serves to anyone is the compilation (which dockets the configured queries
 select), re-derivable on a re-dispatch at the cost of its CourtListener spend.
-Its job holds the CourtListener token and nothing else. But it
+Its job holds the CourtListener token and, on the runtime token, `actions:
+read`, used only to fetch the previous run's report so the scan resumes: the
+fetch takes the newest unexpired `order-scan` artifact from the same ref,
+checks that its run is a dispatch of `run-analytics`, and extracts the one
+report file by name. But it
 widens
 discovery, not reach: the role can already `GetObject` that content by key, and
 the no-republication posture is license/content-based (see

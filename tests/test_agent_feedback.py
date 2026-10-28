@@ -307,7 +307,7 @@ def test_the_posting_entry_points_inherit_the_bound(monkeypatch: pytest.MonkeyPa
     ]
 
 
-# --- open_issue_once: the run-ops digests' per-issue reading surfaces --------
+# --- open_issue_once: the run-ops daily digest's per-issue reading surface ----
 
 _DIGEST_MARKER = "<!-- daily-digest-event: scotus/1/evt-petition-disposition -->"
 _DIGEST_BODY = f"{_DIGEST_MARKER}\n# Some case\n"

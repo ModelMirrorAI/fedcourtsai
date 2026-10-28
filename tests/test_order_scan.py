@@ -221,14 +221,16 @@ def test_scan_stops_before_the_request_past_the_run_cap() -> None:
     assert report.requests == 1
     assert report.stopped == "run cap of 1 requests reached"
     assert report.deferred == ["pi/w2"]
-    assert [s.search for s in report.searches] == ["pi/w1"]
+    assert [(s.search, s.done) for s in report.searches] == [("pi/w1", True), ("pi/w2", False)]
+    assert report.attempted == ["pi/w1"]
+    assert not report.complete
 
 
 def test_a_refused_credential_stops_the_scan() -> None:
     report = scan(_client(lambda request: httpx.Response(401)), _config(), max_requests=50)
     assert report.stopped is not None and "401" in report.stopped
     assert report.deferred == ["pi/w1", "pi/w2"]
-    assert report.searches == []
+    assert [(s.pages, s.resume_link) for s in report.searches] == [(0, None)]
 
 
 def test_a_failed_search_is_recorded_and_the_scan_goes_on() -> None:
@@ -266,8 +268,10 @@ def test_an_off_endpoint_next_link_fails_only_its_search() -> None:
 
 def test_the_committed_config_loads_and_fits_its_cap() -> None:
     config = load_order_scan_config(_ROOT / "config" / "order-scan.yaml")
-    worst = config.worst_case_requests()
-    assert worst <= config.max_requests_per_run
+    # A scan spans runs, but few enough to finish inside the one-day window
+    # its report artifact is carried forward in.
+    runs = -(-config.worst_case_requests() // config.max_requests_per_run)
+    assert runs <= 6
     assert len({g.docket_id for g in config.gold}) == len(config.gold)
     assert config.max_requests_per_run <= 150
 
@@ -415,3 +419,100 @@ def test_summary_keeps_an_error_on_one_fenced_line() -> None:
     )
     line = order_scan.summary_lines(report)[1]
     assert "`" not in line and "\n" not in line and len(line) < 300
+
+
+def _paged(pages: int) -> _Handler:
+    """Answers every search with ``pages`` pages, each one district docket."""
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        params = dict(parse_qsl(request.url.query.decode()))
+        page = int(params.get("cursor", "1"))
+        window = params.get("entry_date_filed_after", "")
+        docket = int(window[:4]) * 100 + page
+        link = f"{_BASE}search/?type=r&entry_date_filed_after={window}&cursor={page + 1}"
+        nxt = link if page < pages else None
+        return httpx.Response(200, json=_page([_result(docket)], nxt))
+
+    return answer
+
+
+def test_a_scan_resumes_across_runs_and_completes() -> None:
+    config = _config()
+    first = scan(_client(_paged(3)), config, max_requests=4)
+    assert first.stopped == "run cap of 4 requests reached"
+    w2 = first.searches[1]
+    assert (w2.pages, w2.done) == (1, False)
+    assert w2.resume_link is not None and "cursor=2" in w2.resume_link
+
+    second = scan(_client(_paged(3)), config, max_requests=4, prior=first)
+    assert second.run == 2
+    assert second.attempted == ["pi/w2"]
+    assert second.complete and second.deferred == []
+    assert second.requests == 2 and second.requests_total == 6
+    assert [s.pages for s in second.searches] == [3, 3]
+    assert [h.docket_id for h in second.hits] == [201701, 201702, 201703, 202101, 202102, 202103]
+
+    third = scan(_client(_paged(3)), config, max_requests=2, prior=second)
+    assert third.run == 1 and third.requests_total == 2
+
+
+def test_a_prior_under_another_config_is_not_resumed() -> None:
+    first = scan(_client(_paged(3)), _config(), max_requests=2)
+    other = _config(queries=[{"name": "pi", "params": {"description": "other"}}])
+    second = scan(_client(_paged(3)), other, max_requests=50, prior=first)
+    assert second.run == 1
+    assert second.attempted == ["pi/w1", "pi/w2"]
+
+
+def test_a_failed_search_restarts_on_the_next_run() -> None:
+    def broken(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400)
+
+    first = scan(_client(broken), _config(), max_requests=50)
+    assert all(s.error and not s.done for s in first.searches)
+    second = scan(_client(_paged(1)), _config(), max_requests=50, prior=first)
+    assert second.complete
+    assert all(s.error is None for s in second.searches)
+
+
+def test_a_search_that_fails_twice_is_settled_with_its_error() -> None:
+    def broken(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400)
+
+    first = scan(_client(broken), _config(), max_requests=50)
+    second = scan(_client(broken), _config(), max_requests=50, prior=first)
+    assert all(s.error and s.done and s.failures == 2 for s in second.searches)
+    assert second.complete and second.deferred == []
+    third = scan(_client(_paged(1)), _config(), max_requests=50, prior=second)
+    assert third.run == 1
+
+
+def test_a_wall_on_a_resumed_link_keeps_the_link() -> None:
+    config = _config()
+    first = scan(_client(_paged(3)), config, max_requests=4)
+    link = first.searches[1].resume_link
+    second = scan(_client(_paged(3)), config, max_requests=0, prior=first)
+    assert second.stopped is not None and second.requests == 0
+    assert second.searches[1].resume_link == link
+    assert second.searches[0].done and second.attempted == []
+    assert [h.docket_id for h in second.hits] == [h.docket_id for h in first.hits]
+    assert second.gold_found == first.gold_found
+
+
+def test_cli_resumes_from_a_report_file(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("FEDCOURTS_COURTLISTENER_API_TOKEN", "test-token")
+    config = load_order_scan_config(_ROOT / "config" / "order-scan.yaml")
+    prior = order_scan.OrderScanReport(
+        generated_at="2026-10-28T00:00:00+00:00",
+        max_requests=1,
+        config_digest=config.digest(),
+        run=4,
+    )
+    path = tmp_path / "prior.json"
+    path.write_text(prior.model_dump_json())
+    monkeypatch.setattr("fedcourtsai.cli._client", lambda: _client(_paged(1)))
+    result = CliRunner().invoke(app, ["order-scan", "--max-requests", "1", "--resume", str(path)])
+    assert result.exit_code == 0, result.output
+    assert '"run": 5' in result.output
+    bad = CliRunner().invoke(app, ["order-scan", "--resume", str(tmp_path / "missing.json")])
+    assert bad.exit_code == 2

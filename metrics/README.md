@@ -3571,12 +3571,18 @@ vintage travels with it. Eight more are specific to it.
   from any Term, the federal-party rows it reads out of scope. They agreed on
   146 of 154 (kappa 0.94), 76 of 77 on the rows both judged in scope (kappa
   0.98; their scope calls are hand codes, not committed), and the authoring
-  session adjudicated the other 8, not blind. A label names a row's subject
-  whatever its scope, so an out-of-scope row can carry any area.
-  `policy_uncertain` marks the 100 of the 269 labels where the subject is in
-  doubt: 26 of the first 115, where a rater was unsure (13 of them in scope),
-  and 74 of the second 154, where a rater was unsure or the raters' areas
-  differed. A quoted per-area pair names its uncertain count. An
+  session adjudicated the other 8, not blind. A third round labeled the 13
+  OT2016 rows filed from 2017-01-20 that the rule reads in scope, or that
+  name a federal party and ask for more than an extension of time: the two
+  travel-ban stays in scope and 11 individuals' cases out. The raters agreed
+  on all 13 sides and scope calls (hand codes, not committed) and on 12 of 13
+  areas, and the authoring session put the one split to `other`, not blind.
+  A label names a row's subject whatever its scope, so an out-of-scope row
+  can carry any area. `policy_uncertain` marks the 103 of the 282 labels
+  where the subject is in doubt: 26 of the first 115, where a rater was
+  unsure (13 of them in scope), and 77 of the later 167, where a rater was
+  unsure or the raters' areas differed. A quoted per-area pair names its
+  uncertain count. An
   application added after the labels is `policy_unlabeled`, outside every
   cell, and a quoted per-area figure names that count. Most cells hold a few
   rows: quote the pair.

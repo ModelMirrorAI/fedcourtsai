@@ -5,10 +5,13 @@
 # and writes nothing but its report.
 #
 # Spend. Every search below runs once per window; a search is at most
-# `max_pages_per_search` pages (one for a `count_only` control), one request each,
-# and a run stops before the request that would pass `max_requests_per_run`.
-# The searches below ask for at most 123 pages, so the cap is a ceiling for a
-# grown config, not the expected spend. The cap sits under the Tier 4 hourly
+# `max_pages_per_search` pages over the whole scan (one for a `count_only`
+# control), one request each, and a run stops before the request that would
+# pass `max_requests_per_run`. A scan is larger than one run, so each run
+# carries the previous run's report forward and resumes where it stopped
+# (`fedcourts order-scan --resume`); `--plan` prints the scan's worst case. A
+# search that reaches its page cap is reported truncated, which says to narrow
+# its query or split its window. The run cap sits under the Tier 4 hourly
 # ceiling (300) with room for a pull window's ~90 requests and a live window's
 # enrichment step in the same hour, since the governor counts per process and
 # the account does not (docs/data-sources.md). The cap counts pages; a page the
@@ -16,7 +19,7 @@
 # the run-analytics job bounds by running the scan under an hourly governor
 # ceiling equal to this cap.
 max_requests_per_run: 150
-max_pages_per_search: 10
+max_pages_per_search: 60
 
 # Windows on the entry date (when an order was entered), one per
 # administration, so per-window counts compare. `end` is exclusive; the request
@@ -38,7 +41,12 @@ windows:
 # officer), `nature_of_suit` the civil cover sheet's code and title. The
 # party-name queries reach immigration-policy suits filed as APA (899), other
 # statutory (890) or civil-rights (440) cases; the 465 query reaches the
-# immigration code itself, whatever the parties are named.
+# immigration code itself, whatever the parties are named. The agency queries
+# leave out habeas petitions (`q`, on the nature-of-suit field): individual
+# detention petitions name the same agencies and outnumber the policy suits by
+# far, and an order in one is relief for one person, not against a policy.
+# A habeas docket in the gold set is therefore reachable only through the 465
+# query, which the recall line will show.
 queries:
   - name: pi-agency
     params:
@@ -47,6 +55,7 @@ queries:
         "Homeland Security" OR "Immigration and Customs" OR "Citizenship and Immigration"
         OR "Customs and Border" OR "Executive Office for Immigration Review"
         OR "Refugee Resettlement"
+      q: 'NOT suitNature:"Habeas Corpus"'
   - name: tro-agency
     params:
       description: '"temporary restraining order"'
@@ -54,6 +63,7 @@ queries:
         "Homeland Security" OR "Immigration and Customs" OR "Citizenship and Immigration"
         OR "Customs and Border" OR "Executive Office for Immigration Review"
         OR "Refugee Resettlement"
+      q: 'NOT suitNature:"Habeas Corpus"'
   - name: vacatur-agency
     params:
       description: >-
@@ -63,17 +73,19 @@ queries:
         "Homeland Security" OR "Immigration and Customs" OR "Citizenship and Immigration"
         OR "Customs and Border" OR "Executive Office for Immigration Review"
         OR "Refugee Resettlement"
+      q: 'NOT suitNature:"Habeas Corpus"'
   - name: pi-tro-465
     params:
       description: '"preliminary injunction" OR "temporary restraining order"'
       nature_of_suit: "465"
   # A control, read for its upstream `count` alone (one page a window, its
-  # results not kept): the pi-agency phrase with no party filter. A pi-agency
-  # count close to this one says the party filter was ignored, not applied.
+  # results not kept): pi-agency with no party filter. A pi-agency count close
+  # to this one says the party filter was ignored, not applied.
   - name: pi-control
     count_only: true
     params:
       description: '"preliminary injunction"'
+      q: 'NOT suitNature:"Habeas Corpus"'
 
 # The recall reference: the district dockets the corpus's immigration
 # applications (policy area `immigration`) trace back to, through the circuit

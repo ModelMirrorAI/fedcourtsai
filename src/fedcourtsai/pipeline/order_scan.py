@@ -60,10 +60,19 @@ transient fault the client retries costs up to three requests more, which the
 client's rate governor counts and this cap does not. Reaching the cap, a 429 the
 client's retries could not clear, the governor's own budget, or a 401 stops the
 scan cleanly, with the searches it did not finish reported deferred.
+
+**One scan, several runs.** A scan's searches outrun one run's cap, so a run
+takes the previous run's report and carries it forward: finished searches are
+kept unread, the search a wall stopped resumes at the page it could not read
+(upstream's cursor link), a failed search restarts, and the hits accumulate.
+The report therefore always describes the whole scan so far. A complete report,
+or one made under another config digest, starts a fresh scan, so a retuned
+query never resumes another query's pages.
 """
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
@@ -207,6 +216,15 @@ class OrderScanConfig(BaseModel):
                 raise ValueError(f"duplicate {label} names: {names}")
         return self
 
+    def digest(self) -> str:
+        """The searches' identity: the windows, queries and page cap, not the run cap or gold set.
+
+        A resumed scan carries a prior report forward only under the same
+        digest, so a retuned query never resumes another query's pages.
+        """
+        payload = self.model_dump_json(include={"windows", "queries", "max_pages_per_search"})
+        return hashlib.sha256(payload.encode()).hexdigest()
+
     def worst_case_requests(self) -> int:
         """Every search at its page cap: the most a run of this config can ask for."""
         return sum(query.page_cap(self.max_pages_per_search) for query, _window in self.searches())
@@ -265,6 +283,15 @@ class SearchOutcome(BaseModel):
     unparsed: int = 0
     truncated: bool = False
     error: str | None = None
+    #: Read to its end, or to its page cap; a later run skips it.
+    done: bool = False
+    #: The next page's link when a run stopped mid-search, so the next run
+    #: resumes there rather than from the first page.
+    resume_link: str | None = None
+    #: The runs this search failed in. It restarts once; a second failure
+    #: settles it as done with its error, so one bad search cannot hold the
+    #: scan open.
+    failures: int = 0
 
 
 class GoldOutcome(BaseModel):
@@ -287,7 +314,17 @@ class OrderScanReport(BaseModel):
 
     generated_at: str
     max_requests: int
+    #: The config's search digest (:meth:`OrderScanConfig.digest`).
+    config_digest: str = ""
     requests: int = 0
+    #: Which run of a resumed scan this is (1 for a fresh scan), and the
+    #: requests every run of it has spent.
+    run: int = 1
+    requests_total: int = 0
+    #: Every configured search is done: the next run starts a fresh scan.
+    complete: bool = False
+    #: The searches this run sent a request for.
+    attempted: list[str] = Field(default_factory=list)
     stopped: str | None = None
     deferred: list[str] = Field(default_factory=list)
     searches: list[SearchOutcome] = Field(default_factory=list)
@@ -441,59 +478,111 @@ def _read_page(
     return next_url if isinstance(next_url, str) and next_url else None
 
 
+#: The runs a search may fail in before it is settled as done with its error.
+MAX_SEARCH_FAILURES = 2
+
+
+def _run_search(
+    client: CourtListenerClient,
+    report: OrderScanReport,
+    outcome: SearchOutcome,
+    params: Mapping[str, str],
+    page_cap: int,
+    kept: dict[int, ScanHit],
+) -> str | None:
+    """Read one search from its resume link (or first page); the stop reason, if any."""
+    link = outcome.resume_link
+    outcome.resume_link = None
+    try:
+        page = _fetch(client, report, outcome, params, link)
+        while True:
+            next_url = _read_page(page, outcome, kept)
+            if next_url is None:
+                outcome.done = True
+                return None
+            if outcome.pages >= page_cap:
+                outcome.truncated = not outcome.count_only
+                outcome.done = True
+                return None
+            link = next_url
+            page = _fetch(client, report, outcome, params, link)
+    except (_RunCapReached, RateBudgetExceeded, httpx.HTTPError, ValueError) as exc:
+        stop = _stop_reason(exc)
+        if stop is None:
+            # A failed search restarts from its first page on the next run,
+            # once; the pages read before the fault stay merged.
+            outcome.error = f"{type(exc).__name__}: {exc}"
+            outcome.truncated = outcome.pages > 0
+            outcome.failures += 1
+            outcome.done = outcome.failures >= MAX_SEARCH_FAILURES
+            return None
+        # A wall: the next run resumes at the page this one could not read.
+        outcome.resume_link = link
+        return stop
+
+
 def scan(
     client: CourtListenerClient,
     config: OrderScanConfig,
     *,
     max_requests: int,
+    prior: OrderScanReport | None = None,
     now: datetime | None = None,
 ) -> OrderScanReport:
-    """Run every search in turn, stopping cleanly at a run-level wall."""
+    """Run every search not yet done, stopping cleanly at a run-level wall.
+
+    ``prior`` is the previous run's report. Its finished searches are carried
+    over unread, a search it stopped in resumes at the page it could not read,
+    a failed one restarts (once: a second failure settles it), and its hits
+    are kept and added to. A complete prior report (every search done) starts a
+    fresh scan, as no prior does, and so does one made under another config
+    digest.
+    """
+    digest = config.digest()
+    if prior is not None and (prior.complete or prior.config_digest != digest):
+        prior = None
     report = OrderScanReport(
         generated_at=(now or datetime.now(UTC)).isoformat(timespec="seconds"),
         max_requests=max_requests,
+        config_digest=digest,
+        run=prior.run + 1 if prior is not None else 1,
     )
-    hits: dict[int, ScanHit] = {}
-    searches = config.searches()
-    for index, (query, window) in enumerate(searches):
+    before = {o.search: o for o in prior.searches} if prior is not None else {}
+    hits = {hit.docket_id: hit.model_copy(deep=True) for hit in (prior.hits if prior else [])}
+    for query, window in config.searches():
         name = f"{query.name}/{window.name}"
-        outcome = SearchOutcome(
-            search=name, query=query.name, window=window.name, count_only=query.count_only
-        )
+        carried = before.get(name)
+        if carried is not None and (carried.done or report.stopped is not None):
+            report.searches.append(carried.model_copy(deep=True))
+            continue
+        if report.stopped is not None:
+            continue
+        if carried is not None and carried.error is None and carried.resume_link:
+            outcome = carried.model_copy(deep=True)
+        else:
+            outcome = SearchOutcome(
+                search=name,
+                query=query.name,
+                window=window.name,
+                count_only=query.count_only,
+                failures=carried.failures if carried is not None else 0,
+            )
+        params = {**query.params, "type": "r", **window.params()}
+        sent = report.requests
         # A control's results are read for the counts and then dropped.
-        kept = {} if query.count_only else hits
-        params = {
-            **query.params,
-            "type": "r",
-            **window.params(),
-        }
-        stop: str | None = None
-        try:
-            page = _fetch(client, report, outcome, params, None)
-            while True:
-                next_url = _read_page(page, outcome, kept)
-                if next_url is None:
-                    break
-                if outcome.pages >= query.page_cap(config.max_pages_per_search):
-                    outcome.truncated = not query.count_only
-                    break
-                page = _fetch(client, report, outcome, params, next_url)
-        except (_RunCapReached, RateBudgetExceeded, httpx.HTTPError, ValueError) as exc:
-            stop = _stop_reason(exc)
-            if stop is None:
-                outcome.error = f"{type(exc).__name__}: {exc}"
-                # Pages read before the fault stay merged, so say they are partial.
-                outcome.truncated = outcome.pages > 0
-        if stop is not None:
-            # The search that hit the wall is deferred with the rest, though the
-            # pages it already read stay counted and merged.
-            report.stopped = stop
-            report.deferred = [f"{q.name}/{w.name}" for q, w in searches[index:]]
-            if outcome.pages:
-                outcome.truncated = True
-                report.searches.append(outcome)
-            break
+        kept: dict[int, ScanHit] = {} if query.count_only else hits
+        stop = _run_search(
+            client, report, outcome, params, query.page_cap(config.max_pages_per_search), kept
+        )
+        if report.requests > sent:
+            report.attempted.append(name)
         report.searches.append(outcome)
+        report.stopped = stop
+    done = {o.search for o in report.searches if o.done}
+    names = [f"{q.name}/{w.name}" for q, w in config.searches()]
+    report.deferred = [name for name in names if name not in done]
+    report.complete = not report.deferred
+    report.requests_total = (prior.requests_total if prior is not None else 0) + report.requests
     report.hits = sorted(hits.values(), key=lambda hit: hit.docket_id)
     report.hits_by_window = {
         window.name: sum(
@@ -526,7 +615,8 @@ def plan_lines(config: OrderScanConfig, *, max_requests: int) -> list[str]:
         f"order-scan plan: {len(searches)} searches "
         + f"({len(config.queries)} queries x {len(config.windows)} windows), "
         + f"up to {config.max_pages_per_search} pages each (one for a count-only control); "
-        + f"worst case {config.worst_case_requests()} requests, run cap {max_requests}",
+        + f"worst case {config.worst_case_requests()} requests, run cap {max_requests} "
+        + f"(at most {-(-config.worst_case_requests() // max_requests)} runs)",
     ]
     for query, window in searches:
         filters = ", ".join(f"{key}={value!r}" for key, value in sorted(query.params.items()))
@@ -549,34 +639,45 @@ def _printable(text: str, limit: int = 160) -> str:
 def failure(report: OrderScanReport) -> str | None:
     """Why the run should fail its job, though the report stands; None when it should not.
 
-    A refused credential, or a run in which every search that ran failed,
-    yields a report with no hits that would otherwise read as a quiet result.
+    A refused credential, or a run in which every search it sent a request
+    for failed, yields a report with nothing new that would otherwise read as
+    a quiet result.
     """
     if report.stopped is not None and "HTTP 401" in report.stopped:
         return report.stopped
-    if report.searches and all(outcome.error for outcome in report.searches):
+    ran = [o for o in report.searches if o.search in report.attempted]
+    if ran and all(outcome.error for outcome in ran):
         return "every search failed"
     return None
 
 
 def summary_lines(report: OrderScanReport) -> list[str]:
     """A short plain-text reading of a report, for the run log and summary."""
+    finished = sum(o.done for o in report.searches)
+    total = finished + len(report.deferred)
+    state = "complete" if report.complete else f"{len(report.deferred)} searches to go"
     lines = [
-        f"order-scan: {len(report.hits)} district dockets from {len(report.searches)} searches, "
-        + f"{report.requests} of {report.max_requests} requests",
+        f"order-scan run {report.run}: {len(report.hits)} district dockets, "
+        + f"{finished} of {total} searches done ({state}); "
+        + f"{report.requests} of {report.max_requests} requests this run, "
+        + f"{report.requests_total} over the scan",
     ]
     if report.stopped:
-        lines.append(f"stopped: {report.stopped}; {len(report.deferred)} searches deferred")
+        lines.append(f"stopped: {_printable(report.stopped)}")
     for outcome in report.searches:
         flag = (
             " (truncated)" if outcome.truncated else " (count only)" if outcome.count_only else ""
         )
+        progress = "" if outcome.done else " (resumes next run)"
+        here = " *" if outcome.search in report.attempted else ""
         error = f" error: {_printable(outcome.error)}" if outcome.error else ""
         lines.append(
-            f"  {outcome.search}: count {outcome.count}, {outcome.pages} pages, "
+            f"  {outcome.search}{here}: count {outcome.count}, {outcome.pages} pages, "
             + f"{outcome.district} district / {outcome.other_courts} other / "
-            + f"{outcome.unparsed} unparsed{flag}{error}"
+            + f"{outcome.unparsed} unparsed{flag}{progress}{error}"
         )
+    if report.attempted:
+        lines.append("  (* read this run)")
     for window, count in sorted(report.hits_by_window.items()):
         lines.append(f"  window {window}: {count} dockets")
     if report.gold:

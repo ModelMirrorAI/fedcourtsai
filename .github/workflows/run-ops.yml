@@ -27,13 +27,14 @@ name: run-ops
 # workflow's declared schedule, production, coverage, back-test headlines): the
 # public site reads it from that branch at its daily build, after this job's tick.
 #
-# The reading surfaces are digests a maintainer closes, not a standing body this
-# job edits in place: an unread digest is an open issue, so the backlog is
-# visible without a reading-state store. The Monday schedule opens the **weekly
-# performance digest** as its own `weekly-digest` issue — the cells and measured
-# spend produced over the week, the trailing month and the Term to date, and the
-# back-test results, every metrics figure carrying its artifact's vintage. A
-# second job on the daily tick opens the **daily prediction-reading digest**:
+# Every run also appends the **weekly performance digest** to its run summary —
+# the cells and measured spend produced over the week, the trailing month and
+# the Term to date, and the back-test results, every metrics figure carrying its
+# artifact's vintage. Its public counterpart is the status page, which carries
+# the same windows without spend. A second job opens the reading surface, a
+# digest the maintainer closes rather than a standing body this job edits in
+# place: an unread digest is an open issue, so the backlog is visible without a
+# reading-state store. That job opens the **daily prediction-reading digest**:
 # one predicted event with every predictor side by side, on its own
 # `daily-digest` issue — unless the maintainer's standing pause variable parks
 # it (see the job). That job shares nothing with the `ops` job but the
@@ -51,12 +52,6 @@ name: run-ops
 on:
   schedule:
     - cron: "0 8 * * *" # after run-pull (06:47 live, 07:17 pull) so the day's runs are visible
-    # The weekly tick: the same daily job, plus the weekly performance digest
-    # issue. The posting step's `if` is gated on this exact schedule string,
-    # and a shape test pins it to a cron this block actually declares. Offset
-    # from the daily 08:00 so the two runs never race on the `ops-metrics`
-    # branch.
-    - cron: "30 8 * * 1"
   workflow_dispatch:
 
 permissions: {}
@@ -70,9 +65,8 @@ jobs:
     runs-on: ubuntu-26.04
     # Setup + report is a couple of minutes; the cap is sized for the degraded
     # API this job's retries exist to survive. Seven retryable shell calls
-    # across its three retried steps, plus the three the weekly digest's poster
-    # can make at its Python seam, each worth up to 105s when every attempt
-    # times out (3 × `timeout 30` plus 5s + 10s of backoff): ~18 min of retry
+    # across its three retried steps, each worth up to 105s when every attempt
+    # times out (3 × `timeout 30` plus 5s + 10s of backoff): ~12 min of retry
     # alone. Under a 15 min cap the job would be killed mid-recovery, after the
     # ops-metrics snapshot but before the data-validation escalation. This job
     # holds no corpus lock, so a wider cap costs only runner minutes on a day
@@ -81,7 +75,7 @@ jobs:
     permissions:
       contents: write # read the ledger + push the snapshot to the ops-metrics branch
       actions: read # read the workflow run history for the health section
-      issues: write # the data-validation escalation + the weekly digest
+      issues: write # the data-validation escalation
     steps:
       # Persist the built-in token so git can fetch/push the ops-metrics branch.
       # This job uploads no artifacts, so credential leakage is not a concern.
@@ -163,11 +157,10 @@ jobs:
               prev_args+=(--previous prev-ops.json)
             fi
           fi
-          # The weekly performance digest is rendered every run — it is cheap,
-          # and this step stays read-only, so nothing here can fail the run
-          # before the snapshot and the data-validation escalation have landed.
-          # Opening it as an issue is the last step of the job, on the Monday
-          # tick only.
+          # The weekly performance digest is rendered every run and appended to
+          # this run's summary — it is cheap, and this step stays read-only, so
+          # nothing here can fail the run before the snapshot and the
+          # data-validation escalation have landed.
           # ops-report runs the git-only `validate` over data/ itself for the data-health
           # section, catching anything that reached the default branch without the gate.
           # `--status-out` is the public status page's snapshot (`PublicStatus`),
@@ -176,6 +169,9 @@ jobs:
             "${prev_args[@]}" --json new-ops.json --data-health-out data-health.md \
             --digest-out digest.md --status-out status.json > ops.md
           cat ops.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -f digest.md ]; then
+            cat digest.md >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Append the snapshot to the ops-metrics branch
         env:
@@ -245,31 +241,6 @@ jobs:
             gh_retry gh issue close "$num" --repo "$REPO" --reason completed
           fi
 
-      # The weekly performance digest, on its own issue the maintainer closes
-      # once read — the open `weekly-digest` issues are the unread backlog.
-      # LAST in the job, deliberately: this is a non-idempotent network write,
-      # and everything the run must not lose to a degraded API — the
-      # ops-metrics snapshot and the data-validation escalation — has already
-      # landed by the time it is attempted, so a blip here costs the week's
-      # digest and nothing else.
-      #
-      # `weekly-digest` is a NON-triggering label by design (no run:* workflow
-      # keys on it, and it must never become one — an issue opened under a
-      # trigger label would start a spending run from a reporting job). The
-      # command creates it idempotently and keys the once-a-week create on the
-      # body's own ISO-week marker, so a re-dispatch of this tick adds no second
-      # issue. Rendering, that idempotency, and the bounded gh retry all live in
-      # tested Python, so this step keeps no `gh` of its own.
-      - name: Post the weekly performance digest
-        if: github.event_name == 'schedule' && github.event.schedule == '30 8 * * 1'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          uv run fedcourts post-weekly-digest --repo "$REPO" --body-file digest.md
-          cat digest.md >> "$GITHUB_STEP_SUMMARY"
-
   # The prediction-reading habit: one predicted event with every predictor side
   # by side, opened as a fresh `daily-digest` issue the maintainer reads and
   # closes — so the open issues under that label ARE the unread backlog and no
@@ -281,10 +252,9 @@ jobs:
     # Gated on one thing only: the maintainer's standing pause. The repository
     # variable DAILY_DIGEST_PAUSED set to `true` parks this job — the code, the
     # command and the label all stay, and clearing the variable resumes it on
-    # the next tick — while the `ops` job and the weekly digest, which share
-    # only this workflow's schedule, keep running. Unset or any other value
-    # runs the job, so an absent variable is the live state, never a silent
-    # pause. The website's per-case board carries the same reading, which is
+    # the next tick — while the `ops` job, which shares only this workflow's
+    # schedule, keeps running. Unset or any other value runs the job, so an
+    # absent variable is the live state, never a silent pause. The website's per-case board carries the same reading, which is
     # what makes a daily issue optional. A manual dispatch does not bypass the
     # pause: a dispatch is the recovery handle for the ops report, and it must
     # not post a digest the maintainer parked — to force one, clear the
@@ -294,11 +264,8 @@ jobs:
     # Not gated on the schedule: it runs on every trigger this workflow has,
     # and the command's own DAY marker makes it once-a-day rather than
     # once-a-run. A schedule filter here would be fail-open (true for every
-    # cron string it does not name) and would also lose Monday's digest
-    # outright — the workflow-level `cancel-in-progress` lets the 08:30 weekly
-    # tick cancel an 08:00 run still retrying against a degraded API, and a
-    # filtered-out job cannot make that up. Running on the 08:30 tick too
-    # recovers it, and posts nothing on a day already digested.
+    # cron string it does not name), and a dispatch after a failed or missed
+    # run makes up the day while posting nothing on a day already digested.
     if: ${{ vars.DAILY_DIGEST_PAUSED != 'true' }}
     runs-on: ubuntu-26.04
     # Setup plus a read of `data/`; the headroom is for the four bounded `gh`

@@ -39,8 +39,8 @@ on:
     # plan, wait however long the hold takes, run up to its 330-minute cap (the
     # pinned ten petitions' cells come to ~40-60 minutes at the measured serial
     # rates, not yet measured as lanes), and then land a
-    # **reviewed** PR before the Monday 08:30 digest tick reads the report —
-    # roughly 50 hours, which no weekday slot leaves. It opens after
+    # **reviewed** PR while the weekend is still running — roughly 50 hours
+    # before the working week, which no weekday slot leaves. It opens after
     # run-pull's 04:47 live window (40-minute cap) has committed and before the
     # 06:47 live window; the replay only ever reads the corpus
     # and takes no `corpus-write` lock, so an overlap would cost a staler read

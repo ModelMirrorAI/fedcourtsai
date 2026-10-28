@@ -2476,7 +2476,9 @@ class _CasePlan:
     no_snapshot: bool = False
 
 
-def _plan_case(corpus_db_path: Path, data_root: Path, due: _DueCase) -> _CasePlan:
+def _plan_case(
+    corpus_db_path: Path, data_root: Path, due: _DueCase, *, apply: bool = True
+) -> _CasePlan:
     """Re-run detection for one due case, writing nothing.
 
     The gap's moments are counted as claimants beside the case's open events,
@@ -2487,7 +2489,7 @@ def _plan_case(corpus_db_path: Path, data_root: Path, due: _DueCase) -> _CasePla
     """
     row, gap_ids = due.row, due.gap_ids
     docket_id = int(row.case_id.rsplit("/", 1)[-1])
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_maintenance(corpus_db_path, apply=apply) as conn:
         events = corpus.events_for_case(conn, row.case_id)
         snapshot = corpus.latest_snapshot(conn, row.case_id)
     if snapshot is None:
@@ -2786,11 +2788,11 @@ def record_lost_outcomes(
         return result
     day = today if today is not None else date.today()
     undated: list[_UndatedGap] = []
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_maintenance(corpus_db_path, apply=apply) as conn:
         due = _due_cases(conn, data_root, None, undated_out=undated)
     result.population = sum(len(d.gap_ids) for d in due) + sum(len(g.event_ids) for g in undated)
 
-    plans = _plan_all(corpus_db_path, data_root, result, due, undated, day)
+    plans = _plan_all(corpus_db_path, data_root, result, due, undated, day, apply=apply)
 
     if not apply:
         return result
@@ -2813,6 +2815,8 @@ def _plan_all(
     due: list[_DueCase],
     undated: list[_UndatedGap],
     day: date,
+    *,
+    apply: bool,
 ) -> dict[str, tuple[_DueCase, _CasePlan]]:
     """Plan every due case and file the classification on ``result``; return the plans."""
     # The undated arm is screened first, so a case held on it is held whole:
@@ -2820,7 +2824,7 @@ def _plan_all(
     held: set[str] = set()
     for gap in undated:
         try:
-            if _gap_stage_predicted(corpus_db_path, data_root, gap.row, gap.event_ids):
+            if _gap_stage_predicted(corpus_db_path, data_root, gap.row, gap.event_ids, apply=apply):
                 held.add(gap.row.case_id)
         except Exception as exc:  # one case's failure must not end the pass
             result.failed[gap.row.case_id] = type(exc).__name__
@@ -2829,7 +2833,7 @@ def _plan_all(
         if case.row.case_id in held or case.row.case_id in result.failed:
             continue
         try:
-            plan = _plan_unless_predicted(corpus_db_path, data_root, case)
+            plan = _plan_unless_predicted(corpus_db_path, data_root, case, apply=apply)
         except Exception as exc:  # one case's failure must not end the pass
             result.failed[case.row.case_id] = type(exc).__name__
             continue
@@ -2846,23 +2850,28 @@ def _plan_all(
 
 
 def _gap_stage_predicted(
-    corpus_db_path: Path, data_root: Path, row: corpus.CorpusRow, gap_ids: list[str]
+    corpus_db_path: Path,
+    data_root: Path,
+    row: corpus.CorpusRow,
+    gap_ids: list[str],
+    *,
+    apply: bool,
 ) -> bool:
     """Whether any gap's stage carries a committed prediction on the case."""
     docket_id = int(row.case_id.rsplit("/", 1)[-1])
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_maintenance(corpus_db_path, apply=apply) as conn:
         events = corpus.events_for_case(conn, row.case_id)
     gap_stages = {str(e.stage) for e in events if e.event_id in gap_ids and e.stage is not None}
     return bool(gap_stages & _predicted_stages(data_root, docket_id, events))
 
 
 def _plan_unless_predicted(
-    corpus_db_path: Path, data_root: Path, case: _DueCase
+    corpus_db_path: Path, data_root: Path, case: _DueCase, *, apply: bool
 ) -> _CasePlan | None:
     """Plan one case, or ``None`` when a gap's stage carries a committed prediction."""
-    if _gap_stage_predicted(corpus_db_path, data_root, case.row, case.gap_ids):
+    if _gap_stage_predicted(corpus_db_path, data_root, case.row, case.gap_ids, apply=apply):
         return None
-    return _plan_case(corpus_db_path, data_root, case)
+    return _plan_case(corpus_db_path, data_root, case, apply=apply)
 
 
 def _bump(counts: dict[str, int], label: str, by: int) -> None:

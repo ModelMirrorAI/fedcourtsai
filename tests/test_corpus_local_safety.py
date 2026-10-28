@@ -230,6 +230,93 @@ def test_corpus_validation_and_analytics_leave_an_older_blob_byte_identical(
     assert _sha256(db) == before
 
 
+# The maintenance commands' default dry runs, each with the arguments it needs to
+# reach its corpus read on the fixture blob, and the exit it ends on there. A
+# nonzero exit is a command whose population the fixture does not hold (it reads
+# the corpus to find that out): the blob is opened either way.
+_MAINTENANCE_DRY_RUNS: tuple[tuple[list[str], int], ...] = (
+    (["reconcile-scope"], 0),
+    (["converge-decision-dates"], 0),
+    (["scrub-bulk-cluster-fields"], 0),
+    (["rederive-distribution-counts", "--parse", "dist-v2"], 0),
+    (["rederive-amicus-briefs"], 0),
+    (["rederive-cert-amicus-briefs"], 0),
+    (["reconcile-salience-selection"], 0),
+    (["unlatch-overselected"], 0),
+    (["dedupe-live-rows"], 0),
+    (["backfill-merits-judgments"], 0),
+    (["backfill-questions-presented"], 1),
+    (["ocr-recover-petitions"], 1),
+    (["recut-documents"], 1),
+    (["enrich-opinions"], 0),
+    (["backfill-merits-events"], 0),
+    (["backfill-event-moments"], 0),
+    (["converge-event-slugs"], 0),
+    (["relabel-application-events"], 0),
+    (["reopen-misattributed-outcomes"], 0),
+    (["converge-disposition-labels"], 0),
+    (["remove-unmintable-events"], 0),
+    (["remove-ungranted-merits-events"], 0),
+    (["normalize-docket-markings"], 0),
+    (["normalize-docket-markings", "--sweep"], 0),
+    (["backfill-response-fields"], 0),
+    (["backfill-decision-record"], 0),
+    (["backfill-arrival-stamps"], 0),
+    (["backfill-documents"], 1),
+    (["refresh-historical"], 0),
+    (["refresh-dockets", "--docket", "25-1"], 0),
+    (["record-lost-outcomes"], 0),
+    (["interim-reading-census"], 0),
+)
+
+
+@pytest.mark.parametrize(
+    ("argv", "exit_code"),
+    [pytest.param(argv, code, id=" ".join(argv)) for argv, code in _MAINTENANCE_DRY_RUNS],
+)
+def test_maintenance_dry_runs_leave_an_older_blob_byte_identical(
+    aged_corpus: FixtureCorpus, argv: list[str], exit_code: int
+) -> None:
+    """A maintenance command writes the corpus only on --apply: its dry run reads
+    an older blob through the migrated copy and leaves the file's sha256 alone."""
+    db = aged_corpus.db_path
+    before = _sha256(db)
+    result = runner.invoke(app, argv)
+    assert result.exit_code == exit_code, result.output
+    assert _sha256(db) == before
+
+
+@pytest.mark.parametrize(
+    ("argv", "exit_code"),
+    [pytest.param(argv, code, id=" ".join(argv)) for argv, code in _MAINTENANCE_DRY_RUNS],
+)
+def test_maintenance_dry_runs_write_nothing_on_a_current_blob(
+    fixture_corpus: FixtureCorpus, argv: list[str], exit_code: int
+) -> None:
+    """On a blob at this code's schema the dry run's connection is SQLite
+    ``mode=ro``, so a dry-run path that wrote would fail here rather than write
+    a migrated copy nobody reads."""
+    db = fixture_corpus.db_path
+    before = _sha256(db)
+    result = runner.invoke(app, argv)
+    assert result.exit_code == exit_code, result.output
+    assert "readonly" not in result.output
+    assert _sha256(db) == before
+
+
+def test_a_maintenance_apply_still_migrates_and_writes_in_place(
+    aged_corpus: FixtureCorpus,
+) -> None:
+    """The apply half is unchanged: it opens the blob writable and migrates it."""
+    db = aged_corpus.db_path
+    before = _sha256(db)
+    result = runner.invoke(app, ["dedupe-live-rows", "--apply"])
+    assert result.exit_code == 0, result.output
+    assert _sha256(db) != before
+    with corpus.connect_local_unmigrated(db) as ro:
+        assert set(_AGED_COLUMNS) <= _columns(ro, "cases")
+
+
 # --- remote mirroring: writer jobs only, configured corpus only ------------------
 
 

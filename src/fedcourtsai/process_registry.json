@@ -618,6 +618,22 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "scrub-abbreviated-street-mailing-block",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "self-represented dockets",
+      "gradual": false
+    },
+    {
+      "name": "combined-row-per-filing-cut",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

@@ -107,6 +107,7 @@ import pytest
 import yaml
 from pydantic import AliasChoices
 
+from fedcourtsai import repair_passes
 from fedcourtsai.agent_feedback import (
     _GH_ATTEMPTS,
     _GH_BACKOFF_SECONDS,
@@ -122,7 +123,7 @@ from fedcourtsai.collect import (
 )
 from fedcourtsai.config import Settings
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
-from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
+from fedcourtsai.ops import DAILY_DIGEST_LABEL
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest, _cell_env
@@ -2135,29 +2136,26 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 
 
 def test_run_repairs_selector_gate_duplicates_every_pass_refusal_verbatim() -> None:
-    """`Validate the repair selector` is a fail-fast copy, not a second opinion.
+    """The selector gate's pass table is a fail-fast copy, not a second opinion.
 
     run-repair refuses a malformed dispatch twice: once in a credential-free
-    job every writer job depends on, so a typo is refused before an App token is
-    minted or the corpus-write lock is taken, and again inside the pass that
-    acts on the field, which is the check of record because a step has to be
-    safe on whatever reaches it. The pair only earns that arrangement while it
-    is one refusal in two places — the same grammar, the same splitting, the
-    same `::error::` text. Let one copy drift and the same mistake reports
-    differently depending on where it was caught, which is worse than having
-    caught it once.
+    job every writer job depends on, which runs the pass table in
+    `src/fedcourtsai/repair_passes.py`, so a typo is refused before an App
+    token is minted or the corpus-write lock is taken, and again inside the
+    pass that acts on the field, which is the check of record because a step
+    has to be safe on whatever reaches it. The pair only earns that arrangement
+    while it is one refusal in two places — the same grammar, the same
+    splitting, the same `::error::` text. Let one copy drift and the same
+    mistake reports differently depending on where it was caught, which is
+    worse than having caught it once. The table holds each refusal in the
+    step's own shell words, placeholders included, so the texts compare
+    directly.
 
     A step's **run-time** failures are held apart (`REPAIR_PASS_STEPS`): they
     report what a write did, which the up-front gate cannot know and must not
     claim to.
     """
-    (early,) = [
-        s
-        for s in _load("run-repair.yml")["jobs"]["validate"]["steps"]
-        if s.get("name") == "Validate the repair selector"
-    ]
-    early_errors = _error_lines(str(early["run"]))
-    assert early_errors, "the up-front selector gate refuses nothing"
+    early_errors = {f'echo "::error::{text}"' for text in repair_passes.REFUSALS}
     for job, owner, runtime in REPAIR_PASS_STEPS:
         late_errors = _error_lines(str(_named_step("run-repair.yml", job, owner)["run"]))
         assert late_errors, f"{owner}: refuses nothing, so the pairing is vacuous"
@@ -2174,8 +2172,9 @@ def test_run_repairs_selector_gate_duplicates_every_pass_refusal_verbatim() -> N
         )
         drifted = late_errors - early_errors
         assert not drifted, (
-            f"{owner}: refusal text absent from `Validate the repair selector` — "
-            f"the two copies must stay word-for-word identical: {sorted(drifted)}"
+            f"{owner}: refusal text absent from the selector gate's pass table "
+            f"(`repair_passes.REFUSALS`) — the two copies must stay word-for-word "
+            f"identical: {sorted(drifted)}"
         )
 
 
@@ -3839,8 +3838,7 @@ def test_the_daily_digest_job_is_parked_by_the_pause_variable_and_nothing_else()
     code and the label stay, and clearing the variable resumes it. The gate
     must fail open — an absent variable runs the job, so a pause is always an
     explicit act — and must not key on the schedule string, which would be
-    true for every cron it does not name and would drop Monday's digest when
-    the weekly tick cancels the daily one.
+    true for every cron it does not name.
     """
     job = _load("run-ops.yml")["jobs"]["daily-digest"]
     # The whole expression, not substrings: a second disjunct — a dispatch
@@ -3863,7 +3861,7 @@ def test_no_workflow_triggers_on_a_digest_label() -> None:
         workflow = _load(path.name)
         # `on` parses to the truthy bool key in YAML; tolerate either spelling.
         triggers = workflow.get("on") or workflow.get(True) or {}
-        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL):
+        for label in (DAILY_DIGEST_LABEL,):
             assert label not in yaml.safe_dump(triggers), (
                 f"{path.name} triggers on the non-triggering {label} label"
             )
@@ -3874,33 +3872,6 @@ def test_no_workflow_triggers_on_a_digest_label() -> None:
                     assert label not in condition, (
                         f"{path.name}:{name} gates on the non-triggering {label} label"
                     )
-
-
-def test_every_schedule_gate_names_a_cron_run_ops_declares() -> None:
-    """A cron literal in a gate must be one the workflow actually declares.
-
-    Change the schedule and forget the gate, and the weekly digest silently stops
-    posting — fail-closed, but silently, on a surface whose whole point is being
-    read once a week, so "silently" costs weeks. Scoped by *what a gate compares
-    against* rather than by the step's name, because a gate can live in an `if:`
-    or in an `env:` value the shell then tests, and keying on the name would stop
-    covering the gate the moment it moved.
-    """
-    workflow = _load("run-ops.yml")
-    triggers = workflow.get("on") or workflow.get(True) or {}
-    declared = {str(entry["cron"]) for entry in triggers["schedule"]}
-    gates = [
-        expression
-        for job in workflow["jobs"].values()
-        for step in job.get("steps", [])
-        for expression in [str(step.get("if", "")), *map(str, (step.get("env") or {}).values())]
-        if "github.event.schedule" in expression
-    ]
-    assert gates, "run-ops gates nothing on its schedule"
-    for gate in gates:
-        assert any(cron in gate for cron in declared), (
-            f"the gate {gate!r} names no cron run-ops declares: {sorted(declared)}"
-        )
 
 
 def _schedule(name: str) -> list[str]:
@@ -3915,9 +3886,9 @@ def test_the_back_test_cron_is_one_weekend_slot_off_every_other_workflows() -> N
 
     A released fortnight derives a plan, waits an unbounded human interval on
     the hold, runs up to its 330-minute cap and then lands a **reviewed** PR —
-    all before the Monday digest tick reads the report. Only a weekend slot
-    leaves that much room, so the day is pinned here rather than left to a later
-    edit that would quietly cost the digest a fresh report. The minute is pinned
+    all before the working week starts. Only a weekend slot leaves that much
+    room, so the day is pinned here rather than left to a later edit that would
+    quietly shorten the runway. The minute is pinned
     clear of every other workflow's for the reason the whole grid exists: GitHub
     queues a repository's crons together, so slots that share a minute contend.
     """
@@ -3929,7 +3900,7 @@ def test_the_back_test_cron_is_one_weekend_slot_off_every_other_workflows() -> N
         "a day-of-month stride resets every month and is not a fortnight; the "
         "parity guard is what halves this cron"
     )
-    # Ahead of run-ops' Monday digest tick with the weekend in between.
+    # Early on Saturday, so the runway spans the weekend.
     assert int(hour) < 12
     others = [
         cron

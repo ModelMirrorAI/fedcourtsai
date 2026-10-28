@@ -576,7 +576,7 @@ def backfill_applications(  # noqa: PLR0913 - the pass's knobs, each a documente
         raise ValueError("a cached record is not a host-scoped fetch; an apply reads upstream")
     result = ApplicationBackfillResult()
     walk = _Walk(client, end_misses, limit, cache, deadline, time_fn)
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_maintenance(corpus_db_path, apply=apply) as conn:
         for term in dict.fromkeys(terms):
             stored, owned = _stored_serials(conn, term)
             result.terms.append(
@@ -932,7 +932,7 @@ def apply_application_plan(
         served.setdefault(docket.term, []).append((docket.serial, payload))
     result = ApplicationBackfillResult()
     payloads: dict[str, tuple[dict[str, Any], int]] = {}
-    with corpus.connect(corpus_db_path) as conn:
+    with corpus.connect_maintenance(corpus_db_path, apply=apply) as conn:
         for read in plan.terms:
             _, owned = _stored_serials(conn, read.term)
             ledger = read.model_copy(update={"candidates": [], "held": list(read.held)}, deep=True)

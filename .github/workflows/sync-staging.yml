@@ -5,7 +5,8 @@ name: sync-staging
 #
 # `main` receives two kinds of commit that never ride staging: the deterministic
 # writers' data commits and the bot lanes (collect run branches, the cleanup
-# sweep, metrics refresh, cert back-test). staging carries code and config only.
+# sweep, metrics refresh, cert back-test), and the record-fill lane's
+# freeze-record fills. staging carries code and config only.
 # So staging falls behind main daily, and `promote`'s sync gate refuses a batch
 # until it catches up.
 #

@@ -1118,6 +1118,49 @@ def promotion_record_diff_problems(
     return problems
 
 
+#: The branch prefix of the record-fill lane: a PR into ``main`` from a
+#: ``record-fill/<name>`` head may only fill placeholders the freeze record on
+#: ``main`` already holds. Three surfaces must agree on it — ``main-base``'s
+#: routing allowlist, the ``paths`` jail's selector, and this module — and the
+#: jail's non-match path is a pass, so a test pins the literal in all three.
+RECORD_FILL_PREFIX = "record-fill/"
+
+
+def record_fill_problems(
+    changes: list[tuple[str, str]], before: str | None, after: str | None
+) -> list[str]:
+    """Why a record-fill change exceeds an in-place fill of landed placeholders.
+
+    ``changes`` is the change set as ``(status, path)`` pairs, ``before`` and
+    ``after`` the freeze record at the change's base and head. The change must
+    modify :data:`FREEZE_RECORD_PATH` and nothing else, and change only
+    placeholders the base already holds, each kept or replaced by a one-line
+    value holding no ``<``, ``>`` or backtick — the form
+    :func:`landed_placeholder_problems` lets a later promotion carry. So the
+    lane cannot add an entry, a placeholder or a registration, which only a
+    promotion merge stamps, and cannot reword the record around a fill.
+    """
+    problems = [
+        f"{path!r} has status {status!r}; a record fill only modifies {FREEZE_RECORD_PATH}"
+        for status, path in changes
+        if path != FREEZE_RECORD_PATH or status != "M"
+    ]
+    if not changes:
+        problems.append(f"the change carries nothing; a record fill modifies {FREEZE_RECORD_PATH}")
+    if problems:
+        return problems
+    if before is None or after is None:
+        return [f"{FREEZE_RECORD_PATH}: missing at the base or the head"]
+    if before == after:
+        return [f"{FREEZE_RECORD_PATH}: fills nothing"]
+    if not _fills_only(before, after):
+        return [
+            f"{FREEZE_RECORD_PATH}: changes something other than the placeholders it already "
+            "holds, each filled in place with a one-line value"
+        ]
+    return []
+
+
 def _registry_problems(old: str | None, new: str | None) -> list[str]:
     if old is None or new is None:
         return [f"{REGISTRY_PATH}: created or deleted"]

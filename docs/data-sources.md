@@ -745,10 +745,13 @@ The automated consumer stays within CourtListener's published API limits by desi
   searches `config/order-scan.yaml` configures — district dockets whose
   entries match an order phrase in a window of entry dates, one request a
   page — through the same client, and stops before the request that would
-  pass the config's run cap (150). Its requests count against the same
-  account limits but not against the pull governor's per-process tally, since
-  each process counts only its own; the workflow runs it with the cap as its
-  governor's hourly limit, so a retried request counts too. It is dispatched
+  pass the config's run cap (150); a larger scan spans several dispatches,
+  each resuming the last. Its requests count against the same account limits
+  but not against the pull governor's per-process tally, since each process
+  counts only its own; the workflow runs it with the cap as its governor's
+  hourly limit, so a retried request counts too, and at 8 requests a minute,
+  since CourtListener throttles its search endpoint below the tier's
+  per-minute rate. It is dispatched
   as `run-analytics`'s `order-scan` mode, never scheduled, so its spend is a
   maintainer's choice of hour. It reads only what CourtListener already holds
   (no RECAP Fetch, no PACER charge), its report carries court-record

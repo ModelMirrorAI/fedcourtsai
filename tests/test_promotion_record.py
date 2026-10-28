@@ -52,6 +52,7 @@ from fedcourtsai.promotion_record import (
     placeholders,
     plan_promotion_record,
     promotion_record_diff_problems,
+    record_fill_problems,
     render_promotion_record,
 )
 from fedcourtsai.schemas import FrozenProcessRecord
@@ -1394,3 +1395,118 @@ def test_the_declaring_promotion_fills_its_entry_and_stamps_nothing(tmp_path: Pa
     assert filled["merge hash"] == merge
     assert filled["census predictions digest=aaaaaaaa"] == "1"
     assert plan.free_text == []
+
+
+# --- the record-fill lane ------------------------------------------------------
+
+_LANDED = (
+    "# Freeze record\n\n"
+    "- **2026-10-27 — back-fill entry.** Applied at `<FILL: apply commit>`, carried by\n"
+    "  promotion <FILL: promotion tag>, a lane whose pool held <FILL: pool\n"
+    "  count> rows.\n"
+)
+
+
+def _fill(text: str, **values: str) -> str:
+    for placeholder, value in values.items():
+        text = text.replace(placeholder, value)
+    return text
+
+
+@pytest.mark.parametrize(
+    "after",
+    [
+        _fill(_LANDED, **{"<FILL: promotion tag>": "promotion/2026-10-28"}),
+        _fill(_LANDED, **{"<FILL: apply commit>": "f0e48a4e3"}),
+        # A wrapped placeholder loses its line break when it is filled.
+        _fill(_LANDED, **{"<FILL: pool\n  count>": "1,253"}),
+    ],
+    ids=["closed-key", "inside-backticks", "wrapped"],
+)
+def test_a_record_fill_may_fill_landed_placeholders_in_place(after: str) -> None:
+    assert record_fill_problems([("M", FREEZE_RECORD_PATH)], _LANDED, after) == []
+
+
+@pytest.mark.parametrize(
+    "after",
+    [
+        # The prose around a fill rewrapped, as a hand fill can.
+        _LANDED.replace("<FILL: promotion tag>, a lane", "promotion/2026-10-28,\n  a lane"),
+        # A new entry, and with it a placeholder only a promotion stamps.
+        _LANDED + "- **2026-10-28 — new entry.** Carried by <FILL: merge hash>.\n",
+        # A value no fill writes.
+        _fill(_LANDED, **{"<FILL: promotion tag>": "`promotion/2026-10-28`"}),
+        _fill(_LANDED, **{"<FILL: promotion tag>": "<promotion/2026-10-28>"}),
+        # A placeholder deleted rather than filled.
+        _LANDED.replace(" <FILL: promotion tag>", ""),
+        # The fill unchanged: nothing to carry.
+        _LANDED,
+    ],
+    ids=["rewrapped", "new-entry", "backtick-value", "angle-value", "deleted", "no-op"],
+)
+def test_a_record_fill_refuses_anything_but_an_in_place_fill(after: str) -> None:
+    assert record_fill_problems([("M", FREEZE_RECORD_PATH)], _LANDED, after)
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        [],
+        [("A", FREEZE_RECORD_PATH)],
+        [("D", FREEZE_RECORD_PATH)],
+        [("T", FREEZE_RECORD_PATH)],
+        [("M", FREEZE_RECORD_PATH), ("M", REGISTRY_PATH)],
+        [("M", FREEZE_RECORD_PATH), ("M", ".github/workflows/ci.yml")],
+        [("M", "docs/pipeline.md")],
+    ],
+    ids=["empty", "added", "deleted", "type-change", "registry", "workflow", "other-doc"],
+)
+def test_a_record_fill_touches_the_freeze_record_alone(changes: list[tuple[str, str]]) -> None:
+    filled = _fill(_LANDED, **{"<FILL: promotion tag>": "promotion/2026-10-28"})
+    assert record_fill_problems(changes, _LANDED, filled)
+
+
+def test_a_record_fill_with_the_record_missing_at_either_end_refuses() -> None:
+    changes = [("M", FREEZE_RECORD_PATH)]
+    assert record_fill_problems(changes, None, _LANDED)
+    assert record_fill_problems(changes, _LANDED, None)
+
+
+def test_assert_record_fill_exits_on_the_jail(tmp_path: Path) -> None:
+    changes = tmp_path / "changes.txt"
+    before = tmp_path / "before.md"
+    after = tmp_path / "after.md"
+    before.write_text(_LANDED)
+    args = [
+        "assert-record-fill",
+        "--name-status-file",
+        str(changes),
+        "--before",
+        str(before),
+        "--after",
+        str(after),
+    ]
+    changes.write_text(f"M\t{FREEZE_RECORD_PATH}\n")
+    after.write_text(_fill(_LANDED, **{"<FILL: promotion tag>": "promotion/2026-10-28"}))
+    passed = CliRunner().invoke(app, args)
+    assert passed.exit_code == 0, passed.output
+    assert "record-fill jail OK" in passed.output
+    changes.write_text(f"M\t{FREEZE_RECORD_PATH}\nM\tsrc/fedcourtsai/cli.py\n")
+    refused = CliRunner().invoke(app, args)
+    assert refused.exit_code == 1
+    assert "src/fedcourtsai/cli.py" in refused.output
+    changes.write_text(f"M\t{FREEZE_RECORD_PATH}\n")
+    after.unlink()
+    assert CliRunner().invoke(app, args).exit_code == 1
+
+
+def test_a_record_fill_reads_crlf_and_abutting_placeholders_byte_exact() -> None:
+    crlf = _LANDED.replace("\n", "\r\n")
+    filled = crlf.replace("<FILL: pool\r\n  count>", "1,253")
+    assert record_fill_problems([("M", FREEZE_RECORD_PATH)], crlf, filled) == []
+    abutting = "- **2026-10-28 — entry.** At <FILL: one><FILL: two>.\n"
+    second = abutting.replace("<FILL: two>", "x")
+    both = abutting.replace("<FILL: one><FILL: two>", "xy")
+    assert record_fill_problems([("M", FREEZE_RECORD_PATH)], abutting, second) == []
+    # No literal marks where the first value ends, so filling both refuses.
+    assert record_fill_problems([("M", FREEZE_RECORD_PATH)], abutting, both)

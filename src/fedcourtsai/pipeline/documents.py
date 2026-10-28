@@ -11,7 +11,8 @@ posts under its own link, every non-amicus brief in opposition, the
 petitioner's cert-stage reply, the Solicitor General's invited brief, each
 side's brief on the merits once the petition is granted, and each party's
 supplemental briefs and letters to the Clerk while the petition is pending,
-and the United States' amicus brief on the merits. Everything here
+the United States' amicus brief on the merits, and a Court-appointed amicus's
+brief on the merits. Everything here
 is **pipeline-side** —
 documents are fetched and text-extracted at ingest time (the live poller, on
 the same distribution transition that queues prediction), stored in the
@@ -191,7 +192,7 @@ logger = logging.getLogger(__name__)
 #   takes, because it is the Court's own request and the filing that most often decides an
 #   invited petition; every other cert-stage amicus brief stays unselected.
 #
-# One merits-stage amicus kind sits beside the merits filings:
+# Two merits-stage amicus kinds sit beside the merits filings:
 #
 # - `merits-amicus-united-states` is the **United States' amicus brief on the
 #   merits**: the first brief for the United States as amicus curiae filed
@@ -199,6 +200,13 @@ logger = logging.getLogger(__name__)
 #   (:func:`cert_signals.is_sg_invited_brief_entry`) on the other side of the
 #   grant. It states the federal government's position on the judgment, which
 #   no party brief does where the United States is not a party.
+# - `merits-brief-appointed-amicus` is the **merits brief of a Court-appointed
+#   amicus**: the first one filed after the grant, read by the anchor that
+#   dates the briefed moment from it (:func:`merits_signals.is_appointed_amicus_merits_brief`).
+#   The Court appoints an amicus where no party will defend the judgment below,
+#   usually because the respondent has confessed error, so this brief is the
+#   only one on the judgment's side; without it a cell reads two briefs for
+#   vacatur and none against.
 #
 # Two interim kinds sit beside the application, one row at one URL each:
 #
@@ -239,6 +247,7 @@ KIND_MERITS_BRIEF_RESPONDENT = "merits-brief-respondent"
 KIND_MERITS_REPLY_PETITIONER = "merits-reply-petitioner"
 KIND_MERITS_REPLY_RESPONDENT = "merits-reply-respondent"
 KIND_MERITS_AMICUS_UNITED_STATES = "merits-amicus-united-states"
+KIND_MERITS_BRIEF_APPOINTED_AMICUS = "merits-brief-appointed-amicus"
 KIND_SUPPLEMENTAL_BRIEF = "supplemental-brief"
 KIND_PARTY_LETTER = "party-letter"
 KIND_QUESTIONS_PRESENTED = "questions-presented"
@@ -922,8 +931,8 @@ def select_documents(
     **lead**, its merits kinds prefer the filings made for the lead over a
     member's (:func:`_select_lead_own`).
 
-    Fifteen arms, all entry-keyed rather than form-keyed — the payload says which
-    filings it carries, and nothing here needs to be told the docket's form. Ten
+    Sixteen arms, all entry-keyed rather than form-keyed — the payload says which
+    filings it carries, and nothing here needs to be told the docket's form. Eleven
     of them are additionally **stage**-keyed, on the grant date read off the same
     payload (:func:`cert_signals.cert_grant_date`), because the cert stage and the
     merits stage spell a party's brief and a party's reply identically and only
@@ -1028,8 +1037,17 @@ def select_documents(
       post-grant bound is what keeps the invited brief, filed before the grant,
       under its own kind. It follows every party arm, and the two arms after it
       read only pre-grant entries, so an entry any other arm reads is never
-      offered to it and no other kind's selection moves. Every other
-      merits-stage amicus brief stays unselected.
+      offered to it and no other kind's selection moves.
+    - The **Court-appointed amicus's brief on the merits**
+      (:func:`merits_signals.is_appointed_amicus_merits_brief`, after the
+      grant), stored as ``merits-brief-appointed-amicus``: the first such entry
+      in docket order after the grant whose entry posts a ``Main Document``
+      link, from that link alone — the merits arms' own terms, read by the
+      anchor that dates the briefed moment from the same entry. An appointed
+      amicus arguing the petitioner's side is refused, as that anchor refuses
+      it. It follows the United States' arm, and no earlier arm reads an
+      appointed amicus's brief, so no other kind's selection moves. Every
+      other merits-stage amicus brief stays unselected.
     - **Every** party's **supplemental brief** filed while the petition is
       pending (:func:`_is_supplemental_brief_entry`), and **every** party's
       **letter** to the Clerk that bears on the case rather than on its
@@ -1073,6 +1091,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
     reply_petitioner: DocumentRef | None = None
     reply_respondent: DocumentRef | None = None
     amicus_united_states: DocumentRef | None = None
+    appointed_amicus: DocumentRef | None = None
     application_response: DocumentRef | None = None
     application_reply: DocumentRef | None = None
     bios: list[DocumentRef] = []
@@ -1176,6 +1195,14 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             amicus_united_states = _merits_filing_ref(
                 entry, KIND_MERITS_AMICUS_UNITED_STATES, entry_date
             )
+        elif (
+            appointed_amicus is None
+            and _is_post_grant(filed, granted_on)
+            and is_appointed_amicus_merits_brief(text)
+        ):
+            appointed_amicus = _merits_filing_ref(
+                entry, KIND_MERITS_BRIEF_APPOINTED_AMICUS, entry_date
+            )
         # The two combined cert-stage arms come last in the chain, so an entry
         # any arm above takes never reaches them and they cannot change what
         # those arms select. Bounded to the pending petition on both readings
@@ -1211,6 +1238,7 @@ def _select_own(payload: Mapping[str, Any]) -> list[DocumentRef]:  # noqa: PLR09
             reply_petitioner,
             reply_respondent,
             amicus_united_states,
+            appointed_amicus,
             *supplemental_briefs,
             *party_letters,
         )
@@ -1276,13 +1304,20 @@ MERITS_KINDS: tuple[str, ...] = (
     KIND_MERITS_REPLY_RESPONDENT,
 )
 
+# The merits amicus kinds: the United States' brief and a Court-appointed
+# amicus's, in selection order.
+MERITS_AMICUS_KINDS: tuple[str, ...] = (
+    KIND_MERITS_AMICUS_UNITED_STATES,
+    KIND_MERITS_BRIEF_APPOINTED_AMICUS,
+)
+
 # What a consolidated member borrows off its lead: the merits filings, and the
-# United States' merits amicus brief, which consolidation moves to the lead with
-# them. The amicus brief names no party, so the side attribution that cuts the
-# party filings to the member's own (:func:`_filed_for_member`) does not reach
-# it; it is borrowed as the group's unless the Clerk marks it "(as to No.)" for
-# other dockets only (:func:`_without_amicus_marked_for_others`).
-LEAD_BORROWED_KINDS: tuple[str, ...] = (*MERITS_KINDS, KIND_MERITS_AMICUS_UNITED_STATES)
+# merits amicus briefs, which consolidation moves to the lead with them. An
+# amicus brief names no party, so the side attribution that cuts the party
+# filings to the member's own (:func:`_filed_for_member`) does not reach it; it
+# is borrowed as the group's unless the Clerk marks it "(as to No.)" for other
+# dockets only (:func:`_without_amicus_marked_for_others`).
+LEAD_BORROWED_KINDS: tuple[str, ...] = (*MERITS_KINDS, *MERITS_AMICUS_KINDS)
 
 # The Court's consolidation entry, entered on every docket of the group, the
 # lead's own included:
@@ -1635,9 +1670,9 @@ def _select_lead_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
       never the lead's.
 
     Every non-merits kind is the plain selection's: the cert-stage filings on a
-    lead are its own, entered before the consolidation. The United States'
-    merits amicus brief is the plain selection's too, over the lead's entries
-    less the ones the Clerk marked for other dockets only
+    lead are its own, entered before the consolidation. The two merits amicus
+    kinds (:data:`MERITS_AMICUS_KINDS`) are the plain selection's too, over the
+    lead's entries less the ones the Clerk marked for other dockets only
     (:func:`_without_amicus_marked_for_others`).
     """
     plain = _select_own(payload)
@@ -1670,7 +1705,7 @@ def _select_lead_own(payload: Mapping[str, Any]) -> list[DocumentRef]:
 def _without_amicus_marked_for_others(
     docket: Mapping[str, Any], number: tuple[int, int]
 ) -> dict[str, Any]:
-    """``docket`` without the United States' amicus entries marked for other dockets only.
+    """``docket`` without the merits amicus entries marked for other dockets only.
 
     The amicus counterpart of the side attribution: a brief the Clerk marks
     "(as to No.)" for other members of the group argues their case, not this
@@ -1684,7 +1719,10 @@ def _without_amicus_marked_for_others(
             for entry in docket.get("ProceedingsandOrder") or []
             if not (
                 isinstance(entry, Mapping)
-                and is_sg_invited_brief_entry(text := str(entry.get("Text") or ""))
+                and (
+                    is_sg_invited_brief_entry(text := str(entry.get("Text") or ""))
+                    or is_appointed_amicus_merits_brief(text)
+                )
                 and _marked_for_others(text, number)
             )
         ],
@@ -1692,16 +1730,16 @@ def _without_amicus_marked_for_others(
 
 
 def _amicus_refs(docket: Mapping[str, Any], number: tuple[int, int]) -> list[DocumentRef]:
-    """The United States' merits amicus brief a group docket reads as ``number``'s, if any.
+    """The merits amicus briefs a group docket reads as ``number``'s, if any.
 
     The selection over the docket less the amicus entries marked for other
-    dockets only, kept to that one kind, so the cut cannot move any other kind's
-    selection — the invited brief's position among them.
+    dockets only, kept to the merits amicus kinds, so the cut cannot move any
+    other kind's selection — the invited brief's position among them.
     """
     return [
         ref
         for ref in _select_own(_without_amicus_marked_for_others(docket, number))
-        if ref.kind == KIND_MERITS_AMICUS_UNITED_STATES
+        if ref.kind in MERITS_AMICUS_KINDS
     ]
 
 
@@ -1718,8 +1756,8 @@ def _lead_merits_refs(lead: Mapping[str, Any], *, member: Mapping[str, Any]) -> 
     """The merits filings a consolidated member reads off its lead docket.
 
     The lead's own selection (:func:`_select_own`) over the lead's entries **cut
-    to the member's own filings** (:func:`_filed_for_member`, and for the United
-    States' amicus brief :func:`_without_amicus_marked_for_others`), and then to
+    to the member's own filings** (:func:`_filed_for_member`, and for the merits
+    amicus kinds :func:`_without_amicus_marked_for_others`), and then to
     :data:`LEAD_BORROWED_KINDS`: the same anchors, the lead's own post-grant bound, the
     ``Main Document`` link alone. Each ref keeps the lead's link and the lead's
     entry date, so the stored row records the URL it actually came from, and a
@@ -1742,7 +1780,7 @@ def _lead_merits_refs(lead: Mapping[str, Any], *, member: Mapping[str, Any]) -> 
       filer's own address and telephone in a brief the member's scrub would
       not key on. Such a lead lends nothing, and the run log says so. The
       ``Other`` list does not trigger it: the only amicus briefs selected are
-      the United States', which its own counsel files.
+      the United States' and a Court-appointed amicus's, each filed by counsel.
     """
     if any(side in COUNSEL_SIDES for side in unrepresented_sides(lead)):
         logger.warning(
@@ -2542,6 +2580,146 @@ def extract_filing_text(data: bytes, *, kind: str, char_cap: int) -> ExtractedTe
         return ExtractedText(text="", pages=0, truncated=False)
 
 
+# --- Combined-row cut ---------------------------------------------------------
+#
+# A combined row (:data:`COMBINED_KINDS`) of two or more filings shares one cap,
+# and a cut over the joined text spends it in docket order: the first
+# respondent's appendix is kept before the second respondent's argument is
+# reached. The rule, per row:
+#
+# 1. **Under the cap, nothing changes**: every filing's pages joined under its
+#    header, as the plain extractor joins them.
+# 2. **Every filing's own body is kept before any appendix.** Each filing is
+#    split where its bound appendix starts (:func:`_appendix_start`). Where the
+#    bodies fit together, each is kept whole and the appendices share what is
+#    left; where they do not, every appendix is left out and the bodies share the
+#    cap.
+# 3. **A share is fair, not first-come**: the budget is split evenly, and a
+#    filing shorter than its even share keeps all of it and passes the rest on
+#    (:func:`_fair_shares`), so a short letter is never cut for a long brief
+#    filed before it.
+# 4. **Every cut is stated in the text** inside the filing it falls in, on its
+#    own line, as the appendix-aware cut states its own.
+#
+# A cap too small to give every filing about a printed page takes the plain head
+# cut over the joined text instead, with one note at the end. A group of one
+# selected filing is stored raw under the plain head cut, which keeps its body
+# ahead of its appendix already; a group of two or more of which one was fetched
+# is cut by the rule above, as one filing under its header.
+
+#: What one filing of a combined row is read as: its header line, the page
+#: texts read, and its page count (more than the pages read where reading stopped
+#: at the ceiling).
+CombinedFiling = tuple[str, Sequence[str], int]
+
+
+def read_filing_pages(data: bytes, *, char_cap: int) -> tuple[list[str], int, bool]:
+    """A filing's page texts, its page count, and whether OCR contributed.
+
+    Read as the appendix-aware cut reads (:func:`extract_filing_text`): every
+    page up to :data:`_READ_CEILING_CAPS` times the cap, a page that fails to
+    extract read as blank, and the cut note's opener defused wherever the filing
+    prints it. A PDF that will not open reads as no pages.
+    """
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        parts, _, ocr_derived = _read_pages(
+            reader, ocr_page=None, stop_at=char_cap * _READ_CEILING_CAPS, page_tolerant=True
+        )
+        parts = [part.replace(_CUT_NOTE_OPENER, "[pipeline-note-in-filing:") for part in parts]
+        return parts, len(reader.pages), ocr_derived
+    except (PyPdfError, ValueError, TypeError):
+        return [], 0, False
+
+
+def _fair_shares(lengths: Sequence[int], budget: int) -> list[int]:
+    """Split ``budget`` over ``lengths`` evenly, a shorter one passing on what it leaves."""
+    shares = [0] * len(lengths)
+    remaining = max(budget, 0)
+    order = sorted(range(len(lengths)), key=lambda index: lengths[index])
+    for position, index in enumerate(order):
+        share = min(lengths[index], remaining // (len(order) - position))
+        shares[index] = share
+        remaining -= share
+    return shares
+
+
+def cut_combined_text(filings: Sequence[CombinedFiling], *, char_cap: int) -> tuple[str, bool]:
+    """A combined row's text over ``filings``, cut to ``char_cap`` filing by filing.
+
+    Each filing is its header line, its page texts and its page count
+    (:data:`CombinedFiling`). Returns the text and whether anything was cut. The
+    rule, and why, is stated above :data:`CombinedFiling`.
+    """
+    whole = "\n\n".join(f"{header}\n" + "\n".join(pages) for header, pages, _ in filings)
+    if len(whole) <= char_cap:
+        return whole, False
+    count = len(filings)
+    # The headers, their line breaks and the blank line between two filings,
+    # then room for up to three notes a filing: its body's cut, its appendix's,
+    # and the pages never read.
+    fixed = sum(len(header) + 1 for header, _, _ in filings) + 2 * (count - 1)
+    usable = char_cap - fixed - count * 3 * (_CUT_NOTE_RESERVE + 2)
+    if usable < count * _ITEM_OPENING:
+        # Too many filings for the cap to give each a printed page: the plain
+        # head cut over the joined text, its cut stated at the end.
+        cut = _clean_cut(whole, max(char_cap - 1 - _CUT_NOTE_RESERVE, 0))
+        note = (
+            f"{_CUT_NOTE_OPENER} {len(whole) - cut:,} characters of these filings omitted"
+            f" here, to the end of the last, to fit the {char_cap:,}-character text cap]"
+        )
+        return f"{whole[:cut]}\n{note}"[:char_cap], True
+    splits = [_appendix_start(pages) for _, pages, _ in filings]
+    ends = [
+        len(pages) if start is None else start
+        for (_, pages, _), start in zip(filings, splits, strict=True)
+    ]
+    bodies = [len("\n".join(pages[:end])) for (_, pages, _), end in zip(filings, ends, strict=True)]
+    appendices = [
+        len("\n".join(pages[end:])) if end < len(pages) else 0
+        for (_, pages, _), end in zip(filings, ends, strict=True)
+    ]
+    if sum(bodies) <= usable:
+        body_shares = bodies
+        appendix_shares = _fair_shares(appendices, usable - sum(bodies))
+    else:
+        body_shares = _fair_shares(bodies, usable)
+        appendix_shares = [0] * count
+    blocks: list[str] = []
+    for (header, pages, total), end, body_share, appendix_share, appendix in zip(
+        filings, ends, body_shares, appendix_shares, appendices, strict=True
+    ):
+        pieces = [_cut_span(pages, 0, end, body_share, cap=char_cap, what="this filing")]
+        if end < len(pages):
+            if appendix_share > 0:
+                pieces.append(
+                    _cut_span(
+                        pages,
+                        end,
+                        len(pages),
+                        appendix_share,
+                        cap=char_cap,
+                        what="this filing's appendix",
+                    )
+                )
+            else:
+                pieces.append(
+                    f"{_CUT_NOTE_OPENER} this filing's appendix, PDF pages {end + 1} to"
+                    f" {len(pages)} ({appendix:,} characters), omitted here so every filing's"
+                    f" own text fits the {char_cap:,}-character text cap]"
+                )
+        if len(pages) < total:
+            pieces.append(
+                f"{_CUT_NOTE_OPENER} PDF pages {len(pages) + 1} to {total} of this filing were"
+                f" not read; the pages before them already exceed the {char_cap:,}-character"
+                f" text cap {_READ_CEILING_CAPS} times over]"
+            )
+        blocks.append(f"{header}\n" + "\n".join(pieces))
+    # The reserve above leaves room for every note, so this slice never bites; it
+    # is the safety net that keeps a row at the cap whatever a future note says.
+    return "\n\n".join(blocks)[:char_cap], True
+
+
 # --- Contact-detail scrub ---------------------------------------------------
 #
 # A cell's prose lands in the public git ledger, so the text staged for it is a
@@ -2738,9 +2916,12 @@ _PO_BOX_RE = re.compile(
 # not naming a street at all: `Ct.` is the institution every filing is addressed
 # to, `Pl.` is the standard short form of "Plaintiff", and `Dr.` is a doctor —
 # which a medical or disability petition names on every page. Their absence
-# costs a street address spelled with one of them and buys immunity from three
-# words this corpus is made of. `Drive` spelled out stays, since nothing else
-# spells it that way.
+# costs a street address spelled with one of them on a line of its own, and buys
+# immunity from three words this corpus is made of. `Drive` spelled out stays,
+# since nothing else spells it that way. The three are read only as the first
+# line of a mailing block, where a "City, State ZIP" line follows directly
+# (`_SHORT_SUFFIX_STREET_RE`): neither the title nor the court opens a line on a
+# house number with a ZIP code on the next.
 # Each is read as written everywhere, and in capitals on the document's
 # opening alone (`OPENING_WINDOW_CHARS`): a caption sets its lines in capitals
 # (`1234 MAPLE STREET`), but further in a heading set in capitals reads the
@@ -2801,22 +2982,70 @@ _OHIO_REPORTER = (
 )
 
 
-def _street_pattern(suffixes: str) -> re.Pattern[str]:
-    """The street-address shape ending on one of ``suffixes``."""
+# A "City, State ZIP" line, the whole of its line: up to four city words, an
+# optional comma, the state as a two-letter code, as initials (`D.C.`) or
+# spelled out by name, and a five-digit ZIP with an optional `+4`.
+# On its own the line is left alone, since the Court's own address line is set
+# the same way; it is withheld only as the line directly below a line ending on
+# a withheld street address or box (`_city_line_spans`), and it is what makes a
+# street line ending on `Dr`, `Ct` or `Pl` an address (`_SHORT_SUFFIX_STREET_RE`).
+# Every gap is `[ \t]`, so the line never reaches past its own line break.
+_STATE_NAMES = (
+    "Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|"
+    "District of Columbia|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|"
+    "Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|"
+    "Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|"
+    "North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Puerto Rico|"
+    "Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|"
+    "Washington|West Virginia|Wisconsin|Wyoming"
+)
+# Every blank run is possessive, so a line of blanks that is not a city line
+# fails in one pass rather than retrying each way of splitting the run.
+_CITY_LINE = (
+    r"[ \t]*+[A-Z][A-Za-z'.-]{0,30}+(?:[ \t]++[A-Za-z][A-Za-z'.-]{0,30}+){0,3}"
+    r"[ \t]*+,?[ \t]*+"
+    rf"(?:[A-Z]{{2}}|[A-Z]\.[ \t]?[A-Z]\.|(?i:{_STATE_NAMES.replace(' ', r'[ \t]+')}))\.?"
+    r"[ \t]++\d{5}(?:-\d{4})?[ \t]*+\r?$"
+)
+_CITY_LINE_RE = re.compile(rf"^{_CITY_LINE}", re.MULTILINE)
+
+# What may sit on a street line after the withheld street address before its
+# line ends, for the line below to count as the same mailing block: punctuation
+# and a compass quadrant (`1 First Street, N.E.`).
+_STREET_LINE_TAIL_RE = re.compile(r"[ \t.,]*(?:[NS]\.?[ \t]?[EW]\.?|[NSEW]\.?)?[ \t.,]*\r?\Z")
+
+
+def _street_pattern(
+    suffixes: str, tail: str = "", name: str = r"[A-Z][\w'.-]{0,40}"
+) -> re.Pattern[str]:
+    """The street-address shape ending on ``name`` and one of ``suffixes``, then ``tail``.
+
+    The unit's blank runs are possessive, so a ``tail`` that fails does not
+    send the match back through every split of a long run of blanks.
+    """
     return re.compile(
         r"(?:(?<![\w.-])|(?<=^[.-]))\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
         rf"(?:(?:[A-Z0-9][\w'.-]{{0,40}}|{_STREET_CONNECTORS})[ \t]+){{0,4}}"
-        rf"{_OHIO_REPORTER}(?:[A-Z][\w'.-]{{0,40}}|\d{{1,3}}(?:st|nd|rd|th))[ \t]+"
+        rf"{_OHIO_REPORTER}(?:{name}|\d{{1,3}}(?:st|nd|rd|th))[ \t]+"
         rf"(?:{suffixes})\b\.?"
-        r"(?:[ \t]*,?[ \t]*(?:Apt|Apartment|Suite|Ste|Unit|Floor|Fl|Rm|Room|No|APT|UNIT)"
-        r"\.?[ \t]*[\w-]+"
-        r"|[ \t]*#[ \t]*[\w-]+)?",
+        r"(?:[ \t]*+,?[ \t]*+(?:Apt|Apartment|Suite|Ste|Unit|Floor|Fl|Rm|Room|No|APT|UNIT)"
+        r"\.?[ \t]*+[\w-]+"
+        rf"|[ \t]*+#[ \t]*+[\w-]+)?{tail}",
         re.MULTILINE,
     )
 
 
 _STREET_RE = _street_pattern(_STREET_SUFFIXES)
 _CAPITAL_STREET_RE = _street_pattern(_STREET_CAPITAL_SUFFIXES)
+# The three abbreviations the street types leave out, read only as the first
+# line of a mailing block: a "City, State ZIP" line must follow directly. The
+# street's name before them is a word of two letters or more, so a reporter
+# cite broken before its page (`141 S. Ct`) is not read as one.
+_SHORT_SUFFIX_STREET_RE = _street_pattern(
+    "Dr|Ct|Pl|DR|CT|PL",
+    rf"(?=[ \t.,]*+\r?\n{_CITY_LINE})",
+    name=r"[A-Z][A-Za-z][\w'.-]{0,39}",
+)
 
 # Every pattern here, and every value pattern below, is matched against the
 # **original** text, and overlapping matches are merged into one withheld span
@@ -2837,6 +3066,12 @@ _CONTACT_PATTERNS: tuple[re.Pattern[str], ...] = (
     _PO_BOX_RE,
     _STREET_RE,
     _CAPITAL_STREET_RE,
+    _SHORT_SUFFIX_STREET_RE,
+)
+
+# The shapes a "City, State ZIP" line is withheld below (`_city_line_spans`).
+_ADDRESS_PATTERNS: frozenset[re.Pattern[str]] = frozenset(
+    {_PO_BOX_RE, _STREET_RE, _CAPITAL_STREET_RE, _SHORT_SUFFIX_STREET_RE}
 )
 
 # The telephone shapes whose letter-for-digit readings are kept honest by a
@@ -2951,6 +3186,50 @@ def party_contact_values(payload: Mapping[str, Any], sides: Sequence[str]) -> tu
     return tuple(values)
 
 
+# The street-type and unit words a docket's `Address` value and the filing it
+# copies may spell differently — the docket "Drive", the cover page "Dr" — each with the
+# spellings that name the same type. An address value's street-type word is
+# matched as any of its spellings, so the value pass reads the filing's line
+# whichever one it chose; a trailing period sits in the gap after it like any
+# other punctuation. A spelling here never widens the shape pass: it applies
+# to the docket's own value alone, which is specific to the filer by its
+# house number and name.
+_STREET_TYPE_SPELLINGS: tuple[tuple[str, ...], ...] = (
+    ("street", "st"),
+    ("avenue", "ave", "av"),
+    ("road", "rd"),
+    ("boulevard", "blvd"),
+    ("lane", "ln"),
+    ("drive", "dr"),
+    ("court", "ct"),
+    ("place", "pl"),
+    ("circle", "cir"),
+    ("parkway", "pkwy"),
+    ("highway", "hwy"),
+    ("square", "sq"),
+    ("trail", "trl"),
+    ("terrace", "ter"),
+    ("plaza", "plz"),
+    ("apartment", "apt"),
+    ("suite", "ste"),
+)
+_STREET_TYPE_VARIANTS: dict[str, tuple[str, ...]] = {
+    spelling: spellings for spellings in _STREET_TYPE_SPELLINGS for spelling in spellings
+}
+# A run of an address value's significant characters (letters and digits).
+_ADDRESS_TOKEN_RE = re.compile(r"[^\W_]+")
+
+
+def _address_token_pattern(token: str) -> str:
+    """One token of an address value, as the fragment-tolerant run of its characters.
+
+    A street-type word (`_STREET_TYPE_SPELLINGS`) matches any of its spellings.
+    """
+    spellings = _STREET_TYPE_VARIANTS.get(token.lower(), (token,))
+    runs = [_VALUE_GAP.join(re.escape(ch) for ch in spelling) for spelling in spellings]
+    return runs[0] if len(runs) == 1 else "(?:" + "|".join(runs) + ")"
+
+
 def _value_pattern(value: str) -> re.Pattern[str] | None:
     """The fragment-tolerant pattern for one contact value, or None below its floor."""
     if "@" in value:
@@ -2965,7 +3244,10 @@ def _value_pattern(value: str) -> re.Pattern[str] | None:
                 return None
         elif not digits or len(significant) < _MIN_ADDRESS_CHARS:
             return None
-    body = _VALUE_GAP.join(re.escape(ch) for ch in significant)
+    if "@" in value or all(ch.isdigit() for ch in significant):
+        body = _VALUE_GAP.join(re.escape(ch) for ch in significant)
+    else:
+        body = _VALUE_GAP.join(_address_token_pattern(t) for t in _ADDRESS_TOKEN_RE.findall(value))
     if all(ch.isdigit() for ch in significant):
         # A telephone number's parenthesized area code or `+` opens on
         # punctuation the significant characters leave out; take it with the
@@ -3022,7 +3304,10 @@ class ScrubbedText:
 # how a reporter citation's pin cite and year read; a street address opening its
 # line whose name tokens are lower case (opening the line, because mid-line a
 # citation such as "… v. Lane" or "Fla. St." takes the same shape, and without
-# the abbreviation `Cir`, which is a circuit);
+# the abbreviation `Cir`, which is a circuit), and one ending on `Dr`, `Ct` or
+# `Pl` with a "City, State ZIP" line directly below it, which is the only
+# reading of a city line it counts, since the Court's own address line is set
+# that way on its own;
 # `box` and a number in any case; and an `@` with two letters or digits on
 # one side of it and two letters on the other, a blank allowed on one side
 # only (OCR noise sets a lone `@` between single characters), or opening a
@@ -3047,6 +3332,18 @@ _RESIDUAL_STREET_RE = re.compile(
     rf"(?:{_RESIDUAL_STREET_SUFFIX_WORDS}|{_RESIDUAL_STREET_SUFFIX_WORDS.upper()})\b",
     re.MULTILINE,
 )
+# A street line ending on one of the abbreviations the street types leave out
+# (`Dr`, `Ct`, `Pl`), with a "City, State ZIP" line directly below it: the
+# mailing block the scrub withholds as `_SHORT_SUFFIX_STREET_RE`, with its name
+# words in any case.
+_RESIDUAL_SHORT_SUFFIX_STREET_RE = re.compile(
+    r"^[^\w\n]{0,3}\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
+    r"(?:[A-Za-z][\w'.-]{0,40}[ \t]+){0,4}"
+    r"(?:[A-Za-z][A-Za-z][\w'.-]{0,39}|\d{1,3}(?:st|nd|rd|th))[ \t]+"
+    r"(?:Dr|Ct|Pl|DR|CT|PL)\b[^\n]{0,40}+\n"
+    rf"{_CITY_LINE}",
+    re.MULTILINE,
+)
 _RESIDUAL_BOX_RE = re.compile(r"\bbox[ \t]*#?[ \t]*\d+", re.IGNORECASE)
 _RESIDUAL_EMAIL_RE = re.compile(
     r"[A-Za-z0-9]{2}[ \t]?@[A-Za-z]{2}|[A-Za-z0-9]{2}@[ \t]?[A-Za-z]{2}"
@@ -3056,6 +3353,7 @@ _RESIDUAL_EMAIL_RE = re.compile(
 RESIDUAL_SHAPES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("phone", _RESIDUAL_PHONE_RE),
     ("street", _RESIDUAL_STREET_RE),
+    ("street", _RESIDUAL_SHORT_SUFFIX_STREET_RE),
     ("box", _RESIDUAL_BOX_RE),
     ("email", _RESIDUAL_EMAIL_RE),
 )
@@ -3120,6 +3418,36 @@ def _merged_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
+def _city_line_spans(text: str, spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """The "City, State ZIP" lines directly below a line ending on one of ``spans``.
+
+    ``spans`` are the withheld street addresses and boxes. A mailing block's
+    second line carries the filer's city and ZIP code, and is withheld with the
+    line above it where that line ends on one of them (punctuation or a compass
+    quadrant may follow it). Each is withheld as a span of its
+    own, so the block's lines each keep a placeholder rather than one spanning
+    the line break. A city line under anything else is left alone, since the
+    Court's own address line is set the same way with no street line above it;
+    under a court or clerk street address it is withheld like any other.
+    """
+    found: list[tuple[int, int]] = []
+    for match in _CITY_LINE_RE.finditer(text):
+        line_start = match.start()
+        if line_start == 0:
+            continue
+        above_end = line_start - 1
+        above_start = text.rfind("\n", 0, above_end) + 1
+        if any(
+            above_start < end <= above_end and _STREET_LINE_TAIL_RE.match(text, end, above_end)
+            for _, end in spans
+        ):
+            # The line's leading and trailing blanks stay, as a shape match's do.
+            line = match.group()
+            lead = len(line) - len(line.lstrip(" \t"))
+            found.append((line_start + lead, line_start + len(line.rstrip(" \t\r"))))
+    return found
+
+
 def scrub_contact_details(
     text: str, values: tuple[str, ...] = (), *, shape: bool = True
 ) -> ScrubbedText:
@@ -3134,9 +3462,10 @@ def scrub_contact_details(
     did. ``shape=False`` runs the value pass alone — the caller's choice on a
     docket read as self-represented on its ``Other`` list alone, whose amici's
     own briefs are not staged (the only amicus kinds selected are the United
-    States', filed by its counsel): there the staged filings are counsel's, and
-    the shape pass would cost their text its misreads of legal prose (a case
-    name led by a street number, a regulation number in telephone shape).
+    States' and a Court-appointed amicus's, each filed by counsel): there the
+    staged filings are counsel's, and the shape pass would cost their text its
+    misreads of legal prose (a case name led by a street number, a regulation
+    number in telephone shape).
     ``passes`` is then ``("value",)``, or empty where no value cleared its floor
     and nothing ran.
 
@@ -3147,11 +3476,15 @@ def scrub_contact_details(
     telephone number (with the parenthesis, separator and letter-for-digit
     readings a scan makes, and the blank-separated spelling where a label or a
     line of its own says what it is), a post-office box, and a street address
-    (house number, name, street type, and any unit after it). Nothing else is a target — a
+    (house number, name, street type, and any unit after it), with the "City,
+    State ZIP" line directly below a line ending on a withheld street address or
+    box — withheld as a span of its own, so each line keeps its placeholder.
+    Nothing else is a target — a
     docket number, a date, a pin cite and a reporter citation all lack the
     shapes above, which is why the patterns are anchored on what a contact
     detail has and legal prose does not rather than on where in the document it
-    sits. No shape pattern spans a newline.
+    sits. No shape pattern's match spans a newline (the `Dr`/`Ct`/`Pl` street
+    shape looks past one to the city line below, but stops at it).
 
     Overlapping matches from either pass are merged, and each merged span is
     replaced once, by the placeholder followed by every line boundary the span
@@ -3172,10 +3505,14 @@ def scrub_contact_details(
     surface: under the shape pass alone, a detail the extractor broke across two
     lines and an email whose local part the scan split mid-word; a telephone
     number written with a slash, with no separators at all, or blank-separated
-    with no label beside it; a street name in lower case; a bare city/state/ZIP line, which is left
-    alone because the two-letter state and five-digit ZIP shape is also how the
-    Court's own address line is set; and an incarcerated filer's register number
-    beside an institution name, which has no shape at all. The value-keyed pass
+    with no label beside it; a street name in lower case; a street line ending
+    on `Dr`, `Ct` or `Pl` with no "City, State ZIP" line directly below it,
+    since those words are a doctor, the court and a plaintiff far more often
+    than a street type; a city/state/ZIP line under anything but a withheld
+    street address or box, which is left alone because the two-letter state
+    and five-digit ZIP shape is also how the Court's own address line is set;
+    and an incarcerated filer's register number beside an institution name,
+    which has no shape at all. The value-keyed pass
     closes the first two for the values the docket serves, and only those: a
     spelling that drops or substitutes a character of a value is still missed,
     as is a detail the docket does not carry. The scrub narrows what reaches the
@@ -3188,23 +3525,33 @@ def scrub_contact_details(
     (:attr:`ScrubbedText.clean`). A clean result says nothing about the
     middle of the document, and nothing at all where the value pass ran alone.
     """
-    patterns = [p for p in (_value_pattern(v) for v in values) if p is not None]
+    keyed = [(v, p) for v, p in ((v, _value_pattern(v)) for v in values) if p is not None]
+    patterns = [p for _, p in keyed]
+    # The patterns whose match is a street line a city line can sit below: the
+    # street and box shapes, and every value that is neither an email nor a
+    # run of telephone digits (a number with a lettered extension counts, which
+    # can only widen what is withheld).
+    addresses = set(_ADDRESS_PATTERNS) | {
+        p for v, p in keyed if "@" not in v and not all(ch.isdigit() for ch in v if ch.isalnum())
+    }
     passes = ((SCRUB_PASS_VALUE,) if patterns else ()) + ((SCRUB_PASS_SHAPE,) if shape else ())
     if shape:
         anchored = _EMAIL_ANCHOR_RE.search(text) is not None
         patterns += [p for p in _CONTACT_PATTERNS if anchored or p not in _ANCHORED_EMAIL_PATTERNS]
-    spans = _merged_spans(
-        [
-            _withheld_span(m)
-            for p in patterns
-            for m in p.finditer(text)
-            # An opening-only shape keeps the matches that start on the opening,
-            # read over the whole text so a line straddling the window's edge is
-            # matched as the line it is, not as its cut.
-            if (p not in _OPENING_ONLY or m.start() < OPENING_WINDOW_CHARS)
-            and (p not in _DIGIT_COUNTED or _phone_digits_ok(m))
-        ]
-    )
+    matched = [
+        (p, _withheld_span(m))
+        for p in patterns
+        for m in p.finditer(text)
+        # An opening-only shape keeps the matches that start on the opening,
+        # read over the whole text so a line straddling the window's edge is
+        # matched as the line it is, not as its cut.
+        if (p not in _OPENING_ONLY or m.start() < OPENING_WINDOW_CHARS)
+        and (p not in _DIGIT_COUNTED or _phone_digits_ok(m))
+    ]
+    withheld = [span for _, span in matched]
+    if shape:
+        withheld += _city_line_spans(text, [span for p, span in matched if p in addresses])
+    spans = _merged_spans(withheld)
     parts: list[str] = []
     cursor = 0
     for start, end in spans:
@@ -4148,7 +4495,10 @@ def _combine_documents(
     written from here on, and an already-stored row keeps the date it was
     written with until its set of briefs changes. The combined text is capped at
     ``char_cap`` total, in docket order (the lead respondent's brief first,
-    typically).
+    typically). Over the cap it is cut filing by filing
+    (:func:`cut_combined_text`): every brief's own argument is kept before any
+    brief's appendix, and the cap is shared evenly rather than spent
+    first-come.
 
     The row is **dated by the earliest brief it carries**
     (:func:`_earliest_entry_date`) — the date a moment cutoff then places the
@@ -4199,6 +4549,7 @@ def _combine_documents(
     single = len(refs) == 1
     fetched_refs: list[DocumentRef] = []
     blocks: list[str] = []
+    filings: list[CombinedFiling] = []
     pages = 0
     truncated = False
     ocr_derived = False
@@ -4216,28 +4567,32 @@ def _combine_documents(
         if data is None:
             _record_fetch_loss(FETCH_LOSS_UNAVAILABLE, case_id, ref.kind, ref.url)
             continue
-        extracted = extract_pdf_text(data, char_cap=char_cap)
         fetched_refs.append(ref)
         if single:
+            extracted = extract_pdf_text(data, char_cap=char_cap)
             blocks.append(extracted.text)  # a lone BIO stays raw (no header)
+            page_count, truncated, read_by_ocr = (
+                extracted.pages,
+                extracted.truncated,
+                extracted.ocr_derived,
+            )
         else:
             heading = ref.description or _COMBINED_HEADINGS[kind]
             if ref.entry_date:
                 heading = f"{heading} ({ref.entry_date})"
-            blocks.append(f"=== {heading} ===\n{extracted.text}")
-        pages += extracted.pages
-        truncated = truncated or extracted.truncated
+            read, page_count, read_by_ocr = read_filing_pages(data, char_cap=char_cap)
+            filings.append((f"=== {heading} ===", read, page_count))
+        pages += page_count
         # Any OCR-derived brief marks the whole combined row: the reader holds one
         # document, so the weaker provenance is the one that has to survive.
-        ocr_derived = ocr_derived or extracted.ocr_derived
+        ocr_derived = ocr_derived or read_by_ocr
     if kind == KIND_BRIEF_IN_OPPOSITION:
         _record_opposition_shortfall(case_id, selected=len(refs), fetched=len(fetched_refs))
     if not fetched_refs:
         return None
-    text = "\n\n".join(blocks)
-    if len(text) > char_cap:
-        text = text[:char_cap]
-        truncated = True
+    text, truncated = (
+        (blocks[0], truncated) if single else cut_combined_text(filings, char_cap=char_cap)
+    )
     return corpus.CaseDocument(
         case_id=case_id,
         kind=kind,
@@ -4722,6 +5077,7 @@ FETCHED_DOCUMENT_KINDS: tuple[str, ...] = (
     KIND_MERITS_REPLY_PETITIONER,
     KIND_MERITS_REPLY_RESPONDENT,
     KIND_MERITS_AMICUS_UNITED_STATES,
+    KIND_MERITS_BRIEF_APPOINTED_AMICUS,
     KIND_SUPPLEMENTAL_BRIEF,
     KIND_PARTY_LETTER,
 )
@@ -4782,6 +5138,12 @@ _CUT_NOTE_DESCRIPTION = (
     "'[pipeline note: ...]' line; a truncated row with no such line was cut at "
     "the cap from the end."
 )
+_COMBINED_CUT_DESCRIPTION = (
+    "Over the text cap, each filing's own text is kept before any appendix and the "
+    "cap is shared between the filings, each cut marked inside its filing by a "
+    "'[pipeline note: ...]' line; a truncated row with no such line was cut at the "
+    "cap from the end, in docket order."
+)
 KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_PETITION: (
         "The filing that opened the case (a petition for certiorari, an extraordinary "
@@ -4812,7 +5174,7 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_BRIEF_IN_OPPOSITION: (
         "Every non-amicus cert-stage brief in opposition or response to the petition, "
         "combined in docket order, each under a '=== <docket entry> ===' header where "
-        "there is more than one."
+        "there is more than one. " + _COMBINED_CUT_DESCRIPTION
     ),
     KIND_CERT_REPLY: (
         "The petitioner's reply at the cert stage: its answer to the brief in opposition."
@@ -4829,15 +5191,19 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
         "The brief of the United States as amicus curiae on the merits, filed after the "
         "grant: the federal government's position on the judgment."
     ),
+    KIND_MERITS_BRIEF_APPOINTED_AMICUS: (
+        "The merits brief of the amicus curiae the Court appointed to defend the judgment "
+        "below, filed where no party defends it."
+    ),
     KIND_SUPPLEMENTAL_BRIEF: (
         "Every party's supplemental brief filed while the petition was pending, "
         "combined in docket order, each under a '=== <docket entry> ===' header where "
-        "there is more than one."
+        "there is more than one. " + _COMBINED_CUT_DESCRIPTION
     ),
     KIND_PARTY_LETTER: (
         "Every party's letter to the Clerk bearing on the case filed while the "
         "petition was pending, combined in docket order, each under a "
-        "'=== <docket entry> ===' header where there is more than one."
+        "'=== <docket entry> ===' header where there is more than one. " + _COMBINED_CUT_DESCRIPTION
     ),
     KIND_QUESTIONS_PRESENTED: (
         "The questions-presented section cut out of the petition's own text."

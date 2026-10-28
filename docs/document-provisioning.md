@@ -23,7 +23,7 @@ documents: `provision-opinion` stages a majority opinion in its own slot
 | Transcripts | The argument transcript is linked by no docket entry, so each live cycle reads the Court's per-Term transcript lists and stores the transcripts a corpus case lacks, dated by the argument day. | `supremecourt.py`: `parse_transcript_listing`; `pipeline/live.py`: `fetch_argument_transcripts` | live-sources.md, *Argument transcripts* |
 | Argument features | Not a document: a deterministic parse of the transcript a post-argument cell is staged counts each Justice's turns and words by the side of the advocate whose time it was, read from the segment headers, and reports what it could not attribute. Written beside the documents as `record/argument-features.json`, from the staged copy, so the counts describe the text the cell reads; a parse whose totals do not reconcile writes no file. | `pipeline/argument_features.py`: `parse_argument_features`; `provision.py`: `staged_argument_features`; `fedcourts argument-features` | live-sources.md, *Argument transcripts* |
 | Back-fill | A dispatched pass fetches the selection for predict-relevant cases whose stored set is missing kinds. | `pipeline/document_backfill.py`; `fedcourts backfill-documents` | live-sources.md, *Contract for the document back-fill pass* |
-| Extract | pypdf text, cut at the cap. Petitions, applications and appendices are cut around the appendix so the argument survives; each cut leaves a `[pipeline note: …]` line. The questions presented are cut from the petition text, from the QUESTION(S) PRESENTED heading (or a "Questions to/for Review" heading) to the next front-matter heading, at most 4,000 characters; a section cut at that cap is stored `truncated`, and `backfill-questions-presented` re-derives stored rows when the cutter changes. An argument transcript is cleaned of its line numbers, headers and word index before the plain cut. | `extract_pdf_text`, `extract_filing_text`, `extract_questions_presented`, `extract_transcript_text` | live-sources.md, *The appendix-aware cut* |
+| Extract | pypdf text, cut at the cap. Petitions, applications and appendices are cut around the appendix so the argument survives. A combined row of several filings is cut filing by filing, every filing's own text before any appendix, the cap shared between them. Each cut leaves a `[pipeline note: …]` line. The questions presented are cut from the petition text, from the QUESTION(S) PRESENTED heading (or a "Questions to/for Review" heading) to the next front-matter heading, at most 4,000 characters; a section cut at that cap is stored `truncated`, and `backfill-questions-presented` re-derives stored rows when the cutter changes. An argument transcript is cleaned of its line numbers, headers and word index before the plain cut. | `extract_pdf_text`, `extract_filing_text`, `extract_questions_presented`, `extract_transcript_text` | live-sources.md, *The appendix-aware cut* |
 | Re-cut | A stored petition, application or appendix still under the plain head cut (truncated, not OCR-derived, no `[pipeline note:` line) is re-fetched by its stored URL and re-cut by the appendix-aware rule. run-repair's `recut` pass applies it a slice at a time. | `pipeline/document_recut.py`; `fedcourts recut-documents` | live-sources.md, *Contract for the re-cut pass* |
 | Recover | A stored document whose text is empty though its PDF has pages is OCR'd locally (pdftoppm + tesseract) and marked `ocr_derived`. A standing sweep on run-seed's walker windows catches new scans, and run-repair's `ocr-recovery` pass clears a backlog. | `pipeline/ocr_recovery.py`, `pipeline/ocr_sweep.py`; `fedcourts ocr-recover-petitions` | live-sources.md, *Contract for the recovery pass*; data-pipeline.md, *Historical — the Term walker* |
 | Cut at the moment | A document is kept only if its proceedings entry is dated before the cell's moment cutoff, so a grant-moment cell never reads the merits briefs. The argument transcript is kept only for a post-argument cell, and a stored-not-staged kind for no cell. | `provision.py`: `moment_cutoff`, `documents_for_moment`, `documents_before` | data-pipeline.md, *Provisioning: how a cell gets its record* |
@@ -51,6 +51,7 @@ transcript, which only a post-argument cell is given.
 | `merits-brief-petitioner`, `merits-brief-respondent` | Each side's brief on the merits | Granted |
 | `merits-reply-petitioner`, `merits-reply-respondent` | Each side's reply on the merits | Granted |
 | `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
+| `merits-brief-appointed-amicus` | The merits brief of a Court-appointed amicus defending the judgment, filed after the grant; stored, staged for no cell yet | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
@@ -61,15 +62,16 @@ cell reads is part of its information set, and the process digest does not see
 it ([process-version.md](process-version.md)), so a kind is staged only in the
 re-bless whose prompt tells cells about it. Until then
 `provision.WITHHELD_KINDS` keeps it from every cell at every moment, and the
-case-summary plan leaves it out of the record it reads. No kind is held there
-now. One record input that is not a document is held back on the same rule:
+case-summary plan leaves it out of the record it reads. One kind is held there
+now: `merits-brief-appointed-amicus`. One record input that is not a document is held back on the same rule:
 the post-argument merits cell's `record/authorship-tally.json`, the Term's
 tally of who has written from each argument sitting
 (`provision.AUTHORSHIP_TALLY_WITHHELD`).
 
-Amicus briefs other than the United States' are never selected: the Solicitor
-General's invited brief at the cert stage, and the United States' brief on the
-merits after the grant. A cell with retrieval rights can still reach the others
+Amicus briefs other than the United States' and a Court-appointed amicus's are
+never selected: the Solicitor General's invited brief at the cert stage, the
+United States' brief on the merits after the grant, and the brief of an amicus
+the Court appointed to defend the judgment below. A cell with retrieval rights can still reach the others
 upstream.
 
 ## The settings that bound it

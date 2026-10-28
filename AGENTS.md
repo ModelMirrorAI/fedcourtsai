@@ -104,9 +104,14 @@ before the first command rather than mid-task:
   itself (*Promotion* in `docs/pipeline.md`) — except
   the `promotion-record` writer's one-parent record commit, jailed byte-equal
   to its plan, touching only `src/fedcourtsai/process_registry.json` and
-  `docs/freeze-record.md` — while data commits — the deterministic writers
-  and the data-run collect PRs — land on `main` directly and never ride
-  staging. (For a predict / evaluate cell
+  `docs/freeze-record.md`, and a **record fill**: a PR into `main` from a
+  `record-fill/<name>` branch cut from `origin/main`, which the `paths` check
+  holds to filling in place placeholders `main`'s freeze record already holds
+  (*Pending registrations* in `docs/process-version.md`) — the route for a
+  fill of a landed placeholder, never for a new entry; you open it, and the
+  maintainer approves and merges it — while data commits — the deterministic
+  writers and the data-run collect PRs — land on `main` directly and never
+  ride staging. (For a predict / evaluate cell
   the *workflow* commits and opens the PR — you only write files; the task
   prompt says which mode you are in.)
 - **You merge to `staging`; only the maintainer approves what reaches `main`.**
@@ -125,7 +130,8 @@ before the first command rather than mid-task:
   Into `main`, never: `main` is the pre-registration record and reaches it only
   through a promotion the maintainer approved — the promotion train executes
   that merge with the dev App once the maintainer has approved its frozen
-  head, or the maintainer merges it by hand. (The data-run
+  head, or the maintainer merges it by hand. A record fill is the one PR
+  into `main` you open yourself, and its merge is the maintainer's too. (The data-run
   `collect` jobs are the standing exception, opening their per-run PR to `main`
   and merging it themselves once the same required checks pass.)
   Your own changes travel by PR on both branches — "you merge" never means
@@ -154,7 +160,8 @@ before the first command rather than mid-task:
   because a green gate is weakest evidence exactly where they are strongest
   risk: anything under `.github/workflows/`, `.github/actions/` or
   `.github/engines/` (the permission surface, and the engine CLIs every agent
-  cell executes), `SECURITY.md` or the security posture it describes, the
+  cell executes, with run-repair's selector gate those workflows run by path,
+  `src/fedcourtsai/repair_passes.py` and its test), `SECURITY.md` or the security posture it describes, the
   promotion gate itself (`scripts/promotion-gate.sh`, `promote.yml`,
   `sync-staging.yml`, ci.yml's gate jobs, and the lane machinery that decides
   which of the gate's checks a change gets: `scripts/gate.sh`,
