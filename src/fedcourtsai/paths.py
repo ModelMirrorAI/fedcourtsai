@@ -192,6 +192,10 @@ class EventPaths:
     def evaluation_usage(self, evaluator_id: str, run_id: str) -> Path:
         return self.evaluation_cell_dir(evaluator_id, run_id) / "usage.json"
 
+    def evaluation_blinding(self, evaluator_id: str, run_id: str) -> Path:
+        # The harness's record of what un-aliasing replaced, keyed like its usage.
+        return self.evaluation_cell_dir(evaluator_id, run_id) / "blinding.json"
+
     def evaluation_retrieval_log(self, evaluator_id: str, run_id: str) -> Path:
         # The harness-captured tool-call transcript, keyed like its usage.
         return self.evaluation_cell_dir(evaluator_id, run_id) / "retrieval_log.json"

@@ -462,6 +462,7 @@ from .schemas import (
     AgentToolingFeedback,
     AuthorshipTally,
     Backtest,
+    BlindingRecord,
     CellFailure,
     CellMode,
     CertBacktest,
@@ -10503,8 +10504,72 @@ def _tidy_cell_self_reports(event_paths: EventPaths, where: CellCoordinates, eve
     _normalise_cell_flags(event_paths, where)
     _normalise_cell_tooling(event_paths, where)
     _flag_judge_level_outputs(event_paths, where, event_id, settled)
+    if where.role == UsageRole.evaluator:
+        _flag_names_the_judge_wrote(event_paths, where, event_id)
     if where.role == UsageRole.predictor:
         _flag_cell_access(event_paths, where, event_id)
+
+
+_BLINDING_PREFIX = "Harness check: before un-aliasing, the judge's own output named"
+# How many (term, file) rows the note quotes before it summarizes the rest.
+_BLINDING_EXAMPLES = 6
+
+
+def _flag_names_the_judge_wrote(
+    event_paths: EventPaths, where: CellCoordinates, event_id: str
+) -> None:
+    """Note in the cell's ``flags.json`` any identity term the judge wrote itself.
+
+    Reads the ``blinding.json`` un-aliasing wrote for this cell
+    (:class:`~fedcourtsai.schemas.BlindingRecord`); its ``names_present`` rows
+    are names that were already in the judge's text before the harness put any
+    there, which the committed prose can no longer tell apart from a
+    substitution. A ``warning`` in the channel the collect job rolls into the
+    run PR and the agent-feedback issue, because a judge that names a candidate
+    is the one way a blinded grade stops being blind, and the ledger alone
+    would never show it. Silent when the record is absent, unreadable or
+    empty: the record's own file is the durable copy either way.
+    """
+    path = event_paths.evaluation_blinding(where.actor_id, where.run_id)
+    try:
+        record = BlindingRecord.model_validate_json(path.read_text())
+    except (OSError, ValueError):
+        return
+    if not record.names_present:
+        return
+    rows = [
+        f"`{_one_line(row.term)[:60]}` x{row.count} in `{_one_line(row.file)[:120]}`"
+        for row in record.names_present
+    ]
+    rest = len(rows) - _BLINDING_EXAMPLES
+    shown = "; ".join(rows[:_BLINDING_EXAMPLES]) + (f"; and {rest} more" if rest > 0 else "")
+    total = sum(row.count for row in record.names_present)
+    typer.echo(
+        f"::warning::stamp: {where.actor_id} {_one_line(where.case_id)} wrote {total} "
+        + "identity term(s) of its own before un-aliasing; see its blinding.json.",
+        err=True,
+    )
+    message = (
+        f"{_BLINDING_PREFIX} {total} identity term(s) itself: {shown}. The staged "
+        + "candidates had every such name redacted, so these were not put there by the "
+        + "harness: read each as the judge recognising a candidate, a route around the "
+        + "blind, or a family word in its ordinary sense. Counts are in this cell's "
+        + "blinding.json."
+    )
+    _append_harness_notes(
+        event_paths.evaluation_flags(where.actor_id, where.run_id),
+        where,
+        [
+            AgentFlag(
+                category=FlagCategory.other,
+                severity=FlagSeverity.warning,
+                message=message[:_FLAG_MESSAGE_LIMIT],
+                event_id=event_id,
+                source=FlagSource.harness,
+            )
+        ],
+        what="blinding note",
+    )
 
 
 _JUDGE_PAIR_PREFIX = "Harness check: the judge-level"
@@ -17605,6 +17670,7 @@ def unblind_evaluations_cmd(
     try:
         moved = blinding.unblind_evaluations(
             data_root=settings.data_root,
+            config_root=settings.config_root,
             court=court,
             docket=docket,
             event_id=event,

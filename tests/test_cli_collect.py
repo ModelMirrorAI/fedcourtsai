@@ -1537,7 +1537,12 @@ def test_collect_plan_is_silent_when_every_log_names_the_requested_model(
 ) -> None:
     base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
     _write_cell(
-        tmp_path, "cell-a", actor="gemini-baseline", produced=True, validated=True, agent_ok=True,
+        tmp_path,
+        "cell-a",
+        actor="gemini-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
         **base,
     )
     _write_usage(tmp_path, "cell-a", "gemini-baseline", model="g", served=["g"])

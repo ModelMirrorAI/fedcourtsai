@@ -906,7 +906,11 @@ harness stages each predictor's latest prediction under an opaque alias with its
 identity masked (`fedcourtsai.blinding`), the evaluator reads those and keys its
 output on the alias, and a post-run step renames the directories onto the real
 predictor ids before the stamp. The committed layout above is what un-aliasing
-produces. What a blinded grade may be read as is in
+produces, plus the cell's `blinding.json`: per file, how many aliases the
+harness rewrote to which predictor id, and which identity terms the judge's own
+text already named before it did. The judge was staged text with every such
+name redacted, so a non-empty `names_present` is a name the judge wrote itself,
+and the stamp says so in the cell's `flags.json`. What a blinded grade may be read as is in
 [outcome-decomposition.md](outcome-decomposition.md); which files are staged and
 which are dropped is in [cli.md](cli.md), under
 `provision-blinded-predictions`. Briefly: a candidate's

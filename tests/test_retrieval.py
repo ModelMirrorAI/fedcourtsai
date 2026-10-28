@@ -2093,9 +2093,7 @@ def test_a_gemini_manifest_tool_error_carrying_a_429_is_throttled(tmp_path: Path
         + '[{"functionResponse":{"response":{"isError":true,"content":[{"type":"text",'
         + '"text":"Rate limit exceeded: HTTP 429: daily quota"}]}}}]'
     )
-    call = _gemini_tool_call(
-        tmp_path, success=False, error=message, **{"error.message": message}
-    )
+    call = _gemini_tool_call(tmp_path, success=False, error=message, **{"error.message": message})
     assert call.result_status == "throttled"
 
 

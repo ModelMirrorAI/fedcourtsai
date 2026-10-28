@@ -309,9 +309,7 @@ def test_a_subagent_rollout_newer_than_its_parent_is_not_taken_for_the_cell(
     assert codex_cell_rollouts(tmp_path / "sessions") == [parent, child]
     counts = parse_codex_usage(tmp_path / "sessions")
     # Parent and subagent bill side by side, so both sum into the cell.
-    assert counts == TokenCounts(
-        input_tokens=640, output_tokens=105, cache_read_input_tokens=410
-    )
+    assert counts == TokenCounts(input_tokens=640, output_tokens=105, cache_read_input_tokens=410)
 
 
 def test_cell_rollouts_follow_the_parent_chain_and_skip_another_top_level_session(

@@ -2844,6 +2844,62 @@ class ModelUsage(_Strict):
     )
 
 
+class BlindingCount(_Strict):
+    """One term's occurrences in one file of an evaluate cell's output."""
+
+    file: str = Field(
+        description="The file, relative to the evaluator's own directory for the event "
+        "(`<predictor_id>/<run_id>/evaluation.md`, `<run_id>/flags.json`)"
+    )
+    term: str = Field(
+        description="What was counted, lowercase: the predictor id an alias resolved to "
+        "(`replaced`), or the identity text as the judge wrote it (`names_present`)"
+    )
+    count: int = Field(ge=1)
+
+
+class BlindingRecord(_Strict):
+    """``blinding.json`` — what un-aliasing did to one evaluate cell's output.
+
+    Written by the harness beside the cell's ``usage.json`` when it renames the
+    judge's alias-keyed output onto the real predictor ids
+    (:func:`fedcourtsai.blinding.unblind_evaluations`). The rewrite resolves
+    every alias the judge wrote to a predictor id, so the committed text names
+    predictors; this record is what tells a name the harness substituted from
+    one the judge wrote itself.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    case_id: str
+    event_id: str
+    run_id: str
+    evaluator_id: str
+    scanned_files: list[str] = Field(
+        description="Every file of the judge's own output the counts were taken over, "
+        "relative to the evaluator's directory: the renamed per-candidate directories and "
+        "the cell's own run-keyed directory, less the harness-written files "
+        "(`usage.json`, `retrieval_log.json`, `blinding.json`), which carry the "
+        "evaluator's own id and engine by construction. A file not listed was not read"
+    )
+    replaced: list[BlindingCount] = Field(
+        description="Alias occurrences the harness rewrote, per file, keyed by the "
+        "predictor id each resolved to — counted over every file it rewrites, the "
+        "harness-written retrieval log included"
+    )
+    names_present: list[BlindingCount] = Field(
+        description="Identity terms already in the judge's own text BEFORE un-aliasing: "
+        "predictor and evaluator ids, engine names, model ids and the bare family words "
+        "the staging scrub masks (`fedcourtsai.blinding.identity_terms`), less the "
+        "evaluator's own id, engine and model, which its `evaluation.json` carries about "
+        "itself. The judge was staged text with every such term redacted, so "
+        "one here is a name the judge wrote itself — recognising a candidate's style, or "
+        "breaking the blind through a route the scrub cannot close. Empty is the expected "
+        "case. A count is a match of the same case-insensitive pattern the scrub uses, so "
+        "a family word used in its ordinary sense (`codex` for a manuscript) counts too: "
+        "read the term and file before reading it as a broken blind"
+    )
+
+
 class AgentFlag(_Strict):
     """One structured note a headless agent surfaces for maintainer triage.
 
@@ -3111,9 +3167,9 @@ class RetrievalCall(_Strict):
         "so `result_status` is legible on such a row while `result_digest` and "
         "`retrieved_doc_date` are null by construction — grade the call on its query, "
         "as for an unobserved one, but a `result_status` of `error` there is the engine "
-        "saying the call failed. `unobserved` "
-        "means no result reached the log: the call ran provider-side and echoed nothing back (a Codex hosted "
-        "`web_search_call`), or capture found no result to pair with the call — "
+        "saying the call failed. `unobserved` means no result reached the log: the call "
+        "ran provider-side and echoed nothing back (a Codex hosted `web_search_call`), "
+        "or capture found no result to pair with the call — "
         "the parsers derive the marker from a pairing rule, so a call the engine "
         "logged without a pairing id, and one whose result sits past a truncated "
         "transcript, both land here for a capture-side reason. A row lifted out of a "
@@ -13887,6 +13943,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "tooling.json": AgentToolingFeedback,
     "attempt.json": CellFailure,
     "retrieval_log.json": RetrievalLog,
+    "blinding.json": BlindingRecord,
     "scope.json": ScopeManifest,
     "schedule.json": Schedule,
     "qp-topic-reference.json": QpTopicReference,
@@ -13929,6 +13986,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "cell_failure": CellFailure,
     "mcp_server_config": McpServerConfig,
     "retrieval_log": RetrievalLog,
+    "blinding_record": BlindingRecord,
     "qp_topic_reference": QpTopicReference,
     "qp_topic_application_reference": QpTopicApplicationReference,
     "qp_topics": QpTopicLabels,

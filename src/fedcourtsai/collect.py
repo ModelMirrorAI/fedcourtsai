@@ -906,8 +906,9 @@ class ThrottleRollup:
     ``cells`` therefore counts only the logs that could have shown one;
     ``blind_cells`` counts the rest — a cell that called no manifest tool, or
     one whose log carries no result condition (a Gemini log captured before its
-    rows carried the call's logged outcome) — separately rather than as clean cells, because a cell that
-    could not be observed is not evidence that nothing happened to it.
+    rows carried the call's logged outcome) — separately rather than as clean
+    cells, because a cell that could not be observed is not evidence that
+    nothing happened to it.
     """
 
     cells: int = 0

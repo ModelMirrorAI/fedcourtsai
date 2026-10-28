@@ -136,8 +136,14 @@ from .paths import CasePaths, EventPaths
 from .pricing import DEFAULT_MODELS, MODEL_RATES
 from .process_version import resolvable_runs
 from .registry import load_evaluators, load_predictors
-from .schemas import EvaluatorConfig, PredictorConfig, ProcessVersion
-from .serialize import write_raw_json, write_text
+from .schemas import (
+    BlindingCount,
+    BlindingRecord,
+    EvaluatorConfig,
+    PredictorConfig,
+    ProcessVersion,
+)
+from .serialize import write_json, write_raw_json, write_text
 
 #: Alias directories are opaque and ordinal-free in meaning: ``candidate-a`` is
 #: not "the first predictor" under any ordering a reader could invert.
@@ -1142,6 +1148,7 @@ def _resolve_aliases_in_tree(root: Path, aliases: Mapping[str, str]) -> None:
 def unblind_evaluations(
     *,
     data_root: Path,
+    config_root: Path,
     court: str,
     docket: int,
     event_id: str,
@@ -1157,6 +1164,16 @@ def unblind_evaluations(
     into its prose, flags, tooling report, and captured log
     (:func:`_resolve_aliases_in_tree`). Returns the ``(alias, predictor_id)``
     pairs it moved, in alias order.
+
+    **It records what it did.** The rewrite leaves the committed text naming
+    predictors with no trace of which names it put there, so before resolving
+    anything it counts, per file, the aliases it is about to replace and the
+    identity terms (:func:`identity_terms`, ``config_root``'s registries) the
+    judge's own text *already* carries, and writes both to the cell's
+    ``blinding.json`` (:class:`~fedcourtsai.schemas.BlindingRecord`). The judge
+    was staged text with every such term redacted, so the second count is the
+    audit signal: a name the judge wrote itself. Written only when something
+    moved, so the idempotent re-run leaves the first run's record in place.
 
     **Runs before ``stamp-cell --role evaluator``.** The stamp joins an
     evaluation to its prediction on the ``predictor_id`` field and returns
@@ -1204,6 +1221,23 @@ def unblind_evaluations(
             raise BlindingError(f"refusing to un-alias {source} outside {base}: {dest}")
         planned.append((alias, predictor_id, source, dest))
 
+    # Counted before anything moves or is rewritten — the `predictor_id` field
+    # below is the harness's own substitution, and so is every resolved alias —
+    # over the same files the rewrite reaches, each named where it will land.
+    cell_dir = event_paths.evaluation_cell_dir(evaluator_id, run_id)
+    evaluator_dir = event_paths.evaluator_dir(evaluator_id)
+    record = (
+        _unaliasing_record(
+            [(source, dest) for _, _, source, dest in planned] + [(cell_dir, cell_dir)],
+            evaluator_dir=evaluator_dir,
+            aliases=aliases,
+            terms=identity_terms(config_root, extra=aliases.values()),
+            own=_own_identity(config_root, evaluator_id),
+        )
+        if planned
+        else None
+    )
+
     for _, predictor_id, source, dest in planned:
         dest.parent.mkdir(parents=True, exist_ok=True)
         source.rename(dest)
@@ -1222,11 +1256,108 @@ def unblind_evaluations(
     # for an agent: the evaluator directory also holds every earlier committed
     # run for this event, and the harness has no more business rewriting those
     # than a cell has writing outside its lane.
-    for _, _, _, dest in planned:
-        _resolve_aliases_in_tree(dest, aliases)
-    _resolve_aliases_in_tree(event_paths.evaluation_cell_dir(evaluator_id, run_id), aliases)
-    _assert_no_alias_survives(event_paths.evaluator_dir(evaluator_id))
+    roots = [dest for _, _, _, dest in planned]
+    roots.append(cell_dir)
+    for root in roots:
+        _resolve_aliases_in_tree(root, aliases)
+    _assert_no_alias_survives(evaluator_dir)
+    if record is not None:
+        scanned, replaced, present = record
+        write_json(
+            event_paths.evaluation_blinding(evaluator_id, run_id),
+            BlindingRecord(
+                case_id=ids.case_id(court, docket),
+                event_id=event_id,
+                run_id=run_id,
+                evaluator_id=evaluator_id,
+                scanned_files=scanned,
+                replaced=replaced,
+                names_present=present,
+            ),
+        )
     return tuple((alias, predictor_id) for alias, predictor_id, _, _ in planned)
+
+
+#: The files in an evaluate cell's output the harness writes, not the judge.
+#: They carry the evaluator's own id, engine and model by construction, so the
+#: names-present count leaves them out; an alias in one is still counted as
+#: replaced, since the rewrite reaches them too.
+HARNESS_CELL_FILES: Final[frozenset[str]] = frozenset(
+    {"usage.json", "retrieval_log.json", "blinding.json"}
+)
+
+
+def _own_identity(config_root: Path, evaluator_id: str) -> frozenset[str]:
+    """The evaluator's own id, engine and model, lowercase.
+
+    The judge writes these about itself as a matter of course — its
+    ``evaluation.json`` carries ``evaluator_id``, ``engine`` and ``model`` — so
+    they are not names of a candidate, and the names-present count leaves them
+    out. Everything else in the identity set stays in, the engine family words
+    included: the record is per term, so a reader can discount a judge's
+    self-reference, and cannot recover a count that was never taken.
+    """
+    terms = {evaluator_id}
+    for entry in load_evaluators(config_root / "evaluators.yaml"):
+        if entry.id == evaluator_id:
+            engine = str(entry.engine)
+            terms.update({engine, entry.model or DEFAULT_MODELS.get(engine, "")})
+    return frozenset(term.lower() for term in terms if term)
+
+
+def _unaliasing_record(
+    roots: Sequence[tuple[Path, Path]],
+    *,
+    evaluator_dir: Path,
+    aliases: Mapping[str, str],
+    terms: Sequence[str],
+    own: frozenset[str],
+) -> tuple[list[str], list[BlindingCount], list[BlindingCount]]:
+    """What un-aliasing is about to replace, and what the judge's text already names.
+
+    ``roots`` pairs each directory as it stands now with where it will land;
+    files are named by the second, relative to ``evaluator_dir``. Returns the
+    judge-written files scanned, the alias occurrences per file keyed by the
+    predictor each resolves to, and the identity terms per file in the judge's
+    own text. A match of the whole identity set is skipped when it is the
+    judge's own name (``own``) rather than taken out of the set, so
+    ``claude-code`` is passed over whole instead of leaving ``claude`` behind to
+    match. Every list is in file then term order, so the record is a function of
+    the output alone.
+    """
+    resolver = _alias_resolver(aliases)
+    pattern = scrub_pattern(terms)
+    lowered = {alias.lower(): predictor for alias, predictor in aliases.items()}
+    scanned: list[str] = []
+    replaced: list[BlindingCount] = []
+    present: list[BlindingCount] = []
+    for root, landing in roots:
+        if not root.is_dir():
+            continue
+        for path in sorted(p for p in root.rglob("*") if p.is_file()):
+            try:
+                text = path.read_text()
+            except (OSError, UnicodeDecodeError):
+                continue
+            name = (landing / path.relative_to(root)).relative_to(evaluator_dir).as_posix()
+            resolved = (lowered[match.group(0).lower()] for match in resolver.finditer(text))
+            replaced.extend(_term_counts(name, resolved))
+            if path.name in HARNESS_CELL_FILES:
+                continue
+            scanned.append(name)
+            written = (match.group(0).lower() for match in pattern.finditer(text))
+            present.extend(_term_counts(name, (term for term in written if term not in own)))
+    return scanned, replaced, present
+
+
+def _term_counts(file: str, terms: Iterable[str]) -> list[BlindingCount]:
+    """One :class:`~fedcourtsai.schemas.BlindingCount` per distinct term, in term order."""
+    counts: dict[str, int] = {}
+    for term in terms:
+        counts[term] = counts.get(term, 0) + 1
+    return [
+        BlindingCount(file=file, term=term, count=count) for term, count in sorted(counts.items())
+    ]
 
 
 def _assert_no_alias_survives(evaluator_dir: Path) -> None:

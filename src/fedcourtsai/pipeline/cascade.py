@@ -663,6 +663,7 @@ def _evaluate_event(  # noqa: PLR0913 - the cell coordinates, one arg each
         )
         unblind_evaluations(
             data_root=data_root,
+            config_root=config_root,
             court=court,
             docket=docket,
             event_id=event_id,
