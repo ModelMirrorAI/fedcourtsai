@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73278510",
+  "gaps": [
+    "No pack build date or corpus freshness stamp in the committed Markdown statpack.",
+    "No provisioned sitting-assignment inventory for authorship forecasting."
+  ],
+  "helpful": [
+    "Complete argument transcript with attribution-coverage counts.",
+    "Both merits briefs and petitioner's merits reply, with extraction metadata.",
+    "Exclusion-guarded prior-Term merits counts and complete-lineup reference tables."
+  ],
+  "notes": "No live corpus or CourtListener lookup was needed. General statutory text was checked on the official House Code site. The default uv cache was read-only; a temporary writable cache allowed path resolution and validation.",
+  "role": "predictor",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Local provisioned-file reads",
+    "Read-only brief and baseline analysis subagents",
+    "Committed metrics/statpack.md",
+    "Official United States Code web lookup",
+    "fedcourts paths",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

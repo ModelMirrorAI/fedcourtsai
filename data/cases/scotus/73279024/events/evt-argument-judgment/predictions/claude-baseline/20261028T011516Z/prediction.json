@@ -1,0 +1,143 @@
+{
+  "big_case_rationale": "A recurring administrative-law question (finality of a federal agency's own permit application to a non-federal regulator) plus NEPA/RCRA displacement, with state coalitions on both sides; significant for federal facility permitting but technical rather than headline.",
+  "big_case_score": 0.5,
+  "case_id": "scotus/73279024",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.08,
+        "Barrett": 0.15,
+        "Gorsuch": 0.09,
+        "Jackson": 0.12,
+        "Kagan": 0.1,
+        "Kavanaugh": 0.13,
+        "Roberts": 0.12,
+        "Sotomayor": 0.03,
+        "Thomas": 0.16,
+        "per-curiam": 0.02
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.15,
+        "Barrett": 0.12,
+        "Gorsuch": 0.35,
+        "Jackson": 0.25,
+        "Kagan": 0.15,
+        "Kavanaugh": 0.35,
+        "Roberts": 0.05,
+        "Sotomayor": 0.55,
+        "Thomas": 0.25
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.87
+    }
+  ],
+  "confidence": 0.7,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-08",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-08",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-28T01:28:25Z",
+  "engine": "claude-code",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-08.json",
+  "judgment": "reversed",
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.87,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
+    "label": "proc-v13",
+    "pipeline_sha": "e8becdd9c4b50f65c5334cf1037209962db0fd29",
+    "stamped_at": "2026-10-28T01:29:41.250288Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority resolves the case on QP1 alone: the Air Force's submission of a RCRA permit-renewal application to Guam EPA is not 'final agency action' under 5 U.S.C. 704 because it fails Bennett v. Spear. The application is a request to a separate regulator that opens, rather than consummates, a back-and-forth permitting process whose terms the regulator may rewrite, and the automatic extension of the old permit is a consequence of the regulator's inaction and the existing permit, not a legal consequence flowing from the application. The Court does not decide whether RCRA displaces NEPA (QP2)."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is narrow: it is confined to a federal agency's application for a permit from another (non-federal) regulator, where the agency stands in the shoes of an ordinary applicant, and the opinion expressly reserves whether the Air Force's underlying operational decision, or its conduct once a permit issues, could be challenged as final agency action. It does not adopt a categorical rule that agency decisions contingent on outside regulatory approval are never final."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

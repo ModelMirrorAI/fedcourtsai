@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73278510",
+  "run_id": "20261028T011516Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": ["provisioned snapshot", "argument-transcript.txt", "argument-features.json", "metrics/statpack.md merits section"],
+  "helpful": ["Argument transcript was complete and cleanly segmented; argument-features coverage block made attribution checkable", "Merits section's per-Term disturbed rates with excluded counts made the anchor arithmetic direct"],
+  "gaps": ["No per-sitting opinion-assignment tally for the current Term to inform majority-author"],
+  "notes": "Forecast rests mainly on the transcript; no live retrieval was needed for a forward argued-moment cell."
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279865",
+  "run_id": "20261028T011516Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell reads of provisioned snapshot and filings",
+    "argument-features.json",
+    "committed metrics/statpack.md and metrics/statpack.json",
+    "fedcourts paths",
+    "fedcourts corpus-info (unsuccessful)",
+    "web search and open for general primary legal authorities",
+    "read-only Python aggregation of prior-Term statistics",
+    "fedcourts validate data"
+  ],
+  "helpful": [
+    "Complete argument transcript with coverage-audited per-Justice questioning counts",
+    "Both merits briefs and petitioner's reply provisioned at the argued moment",
+    "Guarded prior-Term merits base rate with explicit exclusion and coverage counts"
+  ],
+  "gaps": [
+    "corpus-info cannot report corpus vintage through the configured service backend",
+    "A statpack build timestamp and source-corpus vintage would clarify static calibration freshness"
+  ],
+  "notes": "The default uv cache was read-only; setting UV_CACHE_DIR=/tmp/uv-cache allowed CLI use. No live case docket or outcome retrieval was needed. No case-specific corpus query or CourtListener MCP call was made. Bench questions inform tentative leans, never deterministic votes."
+}

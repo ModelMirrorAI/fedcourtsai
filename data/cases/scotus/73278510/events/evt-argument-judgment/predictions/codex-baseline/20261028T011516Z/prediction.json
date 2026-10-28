@@ -1,0 +1,143 @@
+{
+  "big_case_rationale": "The consumer definition affects nationwide video-privacy and tracking-pixel litigation, advertising practices, and potentially substantial statutory damages, but the question is a bounded statutory issue and does not settle provider coverage or qualifying personal information.",
+  "big_case_score": 0.62,
+  "case_id": "scotus/73278510",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.035,
+        "Barrett": 0.11,
+        "Gorsuch": 0.2,
+        "Jackson": 0.07,
+        "Kagan": 0.25,
+        "Kavanaugh": 0.14,
+        "Roberts": 0.09,
+        "Sotomayor": 0.06,
+        "Thomas": 0.04,
+        "per-curiam": 0.005
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.52,
+        "Barrett": 0.24,
+        "Gorsuch": 0.18,
+        "Jackson": 0.11,
+        "Kagan": 0.07,
+        "Kavanaugh": 0.12,
+        "Roberts": 0.05,
+        "Sotomayor": 0.08,
+        "Thomas": 0.29
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.78
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "elevated",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-15",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 2,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-15",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-28T01:20:29Z",
+  "engine": "codex",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-15.json",
+  "judgment": "vacated",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.78,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+    "label": "proc-v13",
+    "pipeline_sha": "e8becdd9c4b50f65c5334cf1037209962db0fd29",
+    "stamped_at": "2026-10-28T01:23:26.509400Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that Section 2710(a)(1)'s goods or services need not be audiovisual: Congress expressly imposed a video-specific limitation in the separate definition of personally identifiable information but omitted it from the consumer definition, and the provider-source clause does not supply that missing limitation."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will announce a categorical rule that a qualifying consumer relationship may concern non-audiovisual goods or services, rather than an exception limited to this sports newsletter's connection to videos, while leaving provider status and qualifying personally identifiable information for further proceedings."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

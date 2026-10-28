@@ -1,0 +1,143 @@
+{
+  "big_case_rationale": "The availability of state climate-damages litigation against fossil-fuel producers has nationwide financial and federalism consequences, although the Court can decide a narrower preemption question without resolving climate policy generally.",
+  "big_case_score": 0.89,
+  "case_id": "scotus/73274859",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.0,
+        "Barrett": 0.18,
+        "Gorsuch": 0.12,
+        "Jackson": 0.02,
+        "Kagan": 0.12,
+        "Kavanaugh": 0.21,
+        "Roberts": 0.19,
+        "Sotomayor": 0.03,
+        "Thomas": 0.1,
+        "per-curiam": 0.03
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.0,
+        "Barrett": 0.16,
+        "Gorsuch": 0.32,
+        "Jackson": 0.3,
+        "Kagan": 0.3,
+        "Kavanaugh": 0.07,
+        "Roberts": 0.06,
+        "Sotomayor": 0.35,
+        "Thomas": 0.3
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.77
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-06",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 6,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-06",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-28T01:23:42.971190Z",
+  "engine": "codex",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-06.json",
+  "judgment": "reversed",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.77,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+    "label": "proc-v13",
+    "pipeline_sha": "e8becdd9c4b50f65c5334cf1037209962db0fd29",
+    "stamped_at": "2026-10-28T01:24:24.592939Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority holds that the Clean Air Act preempts Boulder's application of Colorado tort law to obtain damages for worldwide greenhouse-gas emissions because that liability interferes with the Act's allocation of emissions regulation to EPA and source States, applying the affected-state/source-state distinction drawn in Ouellette."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The holding is categorical for injured-state tort claims seeking compensation for aggregate interstate and international greenhouse-gas emissions, rather than immunity for fossil-fuel producers from all state tort law; it leaves ordinary deception claims not dependent on global emissions damages and source-state claims outside that categorical bar."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "recused",
+      "writing": "none"
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "dissent",
+      "writing": "dissent"
+    },
+    {
+      "justice": "Kagan",
+      "vote": "dissent",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "dissent",
+      "writing": null
+    }
+  ]
+}

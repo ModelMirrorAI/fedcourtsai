@@ -1,0 +1,1 @@
+No retrieval beyond the provisioned inputs (snapshot, context.json, documents/, argument-features.json) and the committed metrics/statpack.md merits and per-Justice votes sections. No fedcourts query, CourtListener MCP, or web calls were made.

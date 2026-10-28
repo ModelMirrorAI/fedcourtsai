@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279024",
+  "run_id": "20261028T011516Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "metrics/statpack.md",
+    "record/argument-features.json",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document"
+  ],
+  "helpful": [
+    "record/documents/argument-transcript.txt",
+    "record/argument-features.json",
+    "record/documents/merits-brief-petitioner.txt",
+    "record/documents/merits-brief-respondent.txt",
+    "record/documents/merits-reply-petitioner.txt",
+    "metrics/statpack.md",
+    "mcp_courtlistener_read_document"
+  ],
+  "gaps": [],
+  "notes": "Provisioned merits briefs, oral argument transcript, deterministic argument-features.json counts, statpack merits/justice-votes tables, and CourtListener MCP access to the Ninth Circuit opinion below (128 F.4th 1089) provided complete context."
+}
