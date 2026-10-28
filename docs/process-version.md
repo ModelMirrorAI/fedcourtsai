@@ -644,7 +644,12 @@ rides `staging` would meet the same lines twice, so a landed placeholder is
 filled on one route only. The jail cannot tell a free-text placeholder from
 one of the writer's closed keys, so a closed-key placeholder a promotion merge
 just added is filled by hand only once that merge's `promotion-record` run has
-concluded without filling it; before then the writer owns it.
+concluded without filling it; before then the writer owns it. A fill on the
+last lines of the record's final entry sits next to any entry `staging` has
+appended since, and git reads the two as one conflicting change: the sync PR
+then cannot auto-merge and waits for the maintainer to resolve it, and a
+`promote/` candidate cut before the fill landed is re-cut after the sync. A
+record-fill PR says in its description whether it touches those lines.
 
 The plan refuses a merge committed
 before either parent, in the future, or before an instant the registry

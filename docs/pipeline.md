@@ -1904,7 +1904,9 @@ on promotion: the deterministic writers (pull, seed, live) and the data-run
 collect PRs land on `main` directly. The one non-data change that skips a
 promotion is a record fill, a reviewed `record-fill/…` PR that fills
 freeze-record placeholders `main` already holds; like a promotion's record
-commit, it makes the next cut wait for the sync.
+commit, it makes the next cut wait for the sync, and a candidate already cut
+may conflict with it (*Pending registrations* in
+[process-version.md](process-version.md)).
 
 Why the indirection: two classes of bug are invisible to per-PR CI but caught
 by an integration pass over real infrastructure — a workflow that is never
