@@ -148,12 +148,15 @@ jobs:
           --triggering-actor "$TRIGGERING_ACTOR" --run-attempt "$RUN_ATTEMPT"
           --github-output "$GITHUB_OUTPUT"
 
-  # The selector gate. It holds no credential, takes no lock, checks out
-  # nothing, and reaches no network: it reads the five dispatch inputs out of
-  # the environment and refuses anything the selected pass cannot legally run.
-  # Every writer job below `needs:` it, so a malformed dispatch is refused
-  # before an App token is minted, before a role is assumed, and before the
-  # corpus-write lock is taken.
+  # The selector gate. It holds no credential, takes no lock and reaches no
+  # network: it reads the five dispatch inputs out of the environment and
+  # refuses anything the selected pass cannot legally run, against the pass
+  # table in src/fedcourtsai/repair_passes.py. Every writer job below `needs:`
+  # it, so a malformed dispatch is refused before an App token is minted,
+  # before a role is assumed, and before the corpus-write lock is taken. The
+  # table is stdlib-only Python run by path from a sparse checkout of that one
+  # file, under the runner's own interpreter: no install, no lockfile, no
+  # package code.
   #
   # Every refusal here that a step can reach is ALSO enforced in the step that
   # acts on the input — those are the checks of record, because a step has to be
@@ -162,10 +165,9 @@ jobs:
   # refusals with no late twin (`none`, an unknown pass, a bound or target
   # offered to a pass that reads neither) are hygiene about the dispatch form,
   # and a step that never reads a field is already safe when it is set.
-  # The two copies are kept word-for-word identical (the same grammar, the same
-  # splitting, the same all-or-nothing refusal, the same `::error::` text), so
-  # one mistake can never produce two differently worded refusals depending on
-  # where it was caught. A test pins the pairing.
+  # The table holds each refusal in the step's own shell words, so one mistake
+  # can never produce two differently worded refusals depending on where it
+  # was caught. A test pins the pairing.
   validate:
     needs: [authorize]
     if: >-
@@ -173,221 +175,27 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    # Seconds of bash over five environment variables.
+    # Seconds of Python over five environment variables.
     timeout-minutes: 5
-    permissions: {}
+    permissions:
+      contents: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            src/fedcourtsai/repair_passes.py
+          sparse-checkout-cone-mode: false
       - name: Validate the repair selector
-        # The inputs are maintainer-typed free text entering a shell, so they
-        # are handled as data here exactly as they are downstream: expanded
-        # from the environment, never interpolated into this script.
+        # The inputs are maintainer-typed free text, so they reach the gate
+        # through the environment, never interpolated into a command line.
         env:
           REPAIR: ${{ inputs.repair }}
           REPAIR_MODE: ${{ inputs.repair_mode }}
           REPAIR_BOUND: ${{ inputs.repair_bound }}
           REPAIR_TARGET: ${{ inputs.repair_target }}
           REPAIR_OPTIONS: ${{ inputs.repair_options }}
-        run: |
-          set -euo pipefail
-          # A dispatch that names no pass asked for nothing. Refusing it is
-          # what makes `none` a safe default on the choice: the form's initial
-          # state cannot start a corpus write, and a mis-click costs a red run
-          # in seconds rather than a pass nobody chose.
-          if [ "${REPAIR}" = "none" ]; then
-            echo "::error::repair names no pass — pick one from the list. A dispatch left on the default asked for nothing."
-            exit 1
-          fi
-          # What each pass accepts. `bound`/`target` name the field the pass
-          # reads and when it is required; `options` is its closed vocabulary.
-          # A field the pass does not take is refused rather than ignored: a
-          # number left over from the previous dispatch is exactly how a bound
-          # meant for one pass silently reaches another.
-          bound_flag=""
-          bound_required_on_apply=0
-          bound_read_on_dry_run=0
-          target_kind=""
-          accepted_options=""
-          case "${REPAIR}" in
-            unlatch-overselected) ;;
-            qp-backfill) ;;
-            rederive-distribution-parse)
-              target_kind="parse" ;;
-            normalize-docket-markings)
-              bound_flag="--max-rewrites"; bound_required_on_apply=1 ;;
-            response-backfill)
-              bound_flag="--max-fills"; bound_required_on_apply=1 ;;
-            ocr-recovery)
-              bound_flag="--max-cases"; bound_required_on_apply=1 ;;
-            document-backfill)
-              bound_flag="--max-cases"; bound_required_on_apply=1
-              bound_read_on_dry_run=1 ;;
-            recut)
-              bound_flag="--max-cases"; bound_required_on_apply=1
-              bound_read_on_dry_run=1
-              accepted_options="all-live" ;;
-            arrival-backfill)
-              bound_flag="--max-fills"; bound_required_on_apply=1 ;;
-            merits-phantom-removal)
-              bound_flag="--max-removals"; bound_required_on_apply=1
-              accepted_options="include-failed-attempts" ;;
-            disposition-convergence)
-              bound_flag="--max-relabels"; bound_required_on_apply=1
-              accepted_options="include-scored" ;;
-            lost-outcomes)
-              bound_flag="--max-cases"; bound_required_on_apply=1 ;;
-            event-definition-backfill)
-              bound_flag="--max-rewrites"; bound_required_on_apply=1 ;;
-            amicus-rederive)
-              bound_flag="--max-changes"; bound_required_on_apply=1 ;;
-            cert-amicus-rederive)
-              bound_flag="--max-changes"; bound_required_on_apply=1 ;;
-            regrade-stale)
-              target_kind="cells" ;;
-            opinion-votes|order-votes)
-              bound_flag="--max-stamps"; bound_required_on_apply=1
-              accepted_options="replace-differing" ;;
-            application-backfill)
-              bound_flag="--max-rows"; bound_required_on_apply=1
-              target_kind="term" ;;
-            decision-record)
-              bound_flag="--max-fills"; bound_required_on_apply=1 ;;
-            opinion-record)
-              bound_flag="--max-rows"; bound_required_on_apply=1 ;;
-            *)
-              echo "::error::unknown repair pass '${REPAIR}' — the selector and this validation have drifted apart; correct the workflow."
-              exit 1 ;;
-          esac
-          # Parse the option list against the selected pass's closed
-          # vocabulary, all-or-nothing: every unknown token is named, then the
-          # whole list is refused. A silently ignored switch is the failure
-          # this exists to prevent — the maintainer would read a ledger for one
-          # population and apply against another.
-          include_scored=0
-          include_failed_attempts=0
-          option_malformed=0
-          # `printf '%s\n'`, not '%s': `read` returns non-zero on a final line
-          # with no terminator, so an unterminated last token would be dropped
-          # by the loop — silently, and past the all-or-nothing check below.
-          while IFS= read -r option; do
-            [ -n "$option" ] || continue
-            case " ${accepted_options} " in
-              *" ${option} "*) ;;
-              *)
-                echo "::error::repair=${REPAIR} does not accept the option '${option}' — it accepts: ${accepted_options:-none}."
-                option_malformed=1
-                continue ;;
-            esac
-            case "$option" in
-              include-scored) include_scored=1 ;;
-              include-failed-attempts) include_failed_attempts=1 ;;
-            esac
-          done < <(printf '%s\n' "${REPAIR_OPTIONS}" | tr -s ', \t\r' '\n')
-          if [ "$option_malformed" -ne 0 ]; then
-            echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
-            exit 1
-          fi
-          # A bound offered to a pass that takes none is refused, not dropped.
-          if [ -z "${bound_flag}" ] && [ -n "${REPAIR_BOUND}" ]; then
-            echo "::error::repair=${REPAIR} takes no repair_bound — its blast radius is fixed in code, or it has none. Clear the field and re-dispatch."
-            exit 1
-          fi
-          # Same for a target: only the three passes that name a subject read it.
-          if [ -z "${target_kind}" ] && [ -n "${REPAIR_TARGET}" ]; then
-            echo "::error::repair=${REPAIR} takes no repair_target — only the distribution re-derivation (a parse label), the re-grade (a cell list) and the application back-fill (a Term) name a subject. Clear the field and re-dispatch."
-            exit 1
-          fi
-          if [ "$bound_required_on_apply" -eq 1 ] && [ "${REPAIR_MODE}" = "apply" ] \
-            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
-            exit 1
-          fi
-          # The passes whose DRY RUN also consumes the bound, because their dry
-          # runs fetch per candidate (a docket, or the filing itself) and the
-          # number is load-bearing in both modes. A field a pass reads must satisfy the grammar wherever it
-          # is set, not only on an apply: the CLI's own parse takes a negative
-          # integer, and a slice of `candidates[:-5]` means "every candidate but
-          # the last five" — a near-unbounded fetch campaign wearing a bound.
-          # Refused here so a typo dies before an App token is minted and before
-          # the dedupe prerequisite writes anything.
-          if [ "$bound_read_on_dry_run" -eq 1 ] && [ -n "${REPAIR_BOUND}" ] \
-            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::repair=${REPAIR} reads repair_bound in BOTH modes, so it must be a positive integer wherever it is set — a bound its dry run would also spend. Clear the field or correct the number."
-            exit 1
-          fi
-          # `include-scored` widens the disposition sweep onto events already
-          # carrying predict/evaluate output and owes a re-grade for each
-          # relabel, so it must carry the bound in EVERY mode — not the
-          # apply-only rule above. A dry run that widens the ledger is where
-          # the decision to take on that backlog is actually made, so the
-          # number is stated there too; what the apply is checked against is
-          # the widened dry-run's own relabel count, not the plain run's
-          # held-back lines, which bound the population rather than count the
-          # rewrites.
-          if [ "$include_scored" -eq 1 ] \
-            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::the include-scored option needs repair_bound set to a positive integer — relabelling a graded cell takes on a re-grade backlog, so its size is stated up front in dry-run as much as in apply. Read the held-back lines off a plain dry-run dispatch's ledger."
-            exit 1
-          fi
-          # `include-failed-attempts` deliberately does NOT inherit that
-          # every-mode rule: that number states a decision to take on a
-          # re-grade backlog, and this widening takes on none — what it grows
-          # is the removal set, which the apply's own bound already sizes.
-          if [ "$include_failed_attempts" -eq 1 ]; then
-            echo "include-failed-attempts: the removal will include phantoms whose only committed output is attempt.json cell-failure records."
-          fi
-          # The parse label is required in BOTH running modes, not just apply:
-          # the dry run's whole product is a plan attributable to one reading,
-          # so a re-derivation with no reading named is not a cheaper dry run,
-          # it is an unanswerable one. Whether the label is *registered* is the
-          # command's refusal, not this one's — the registry lives in Python.
-          if [ "${target_kind}" = "parse" ] \
-            && ! [[ "${REPAIR_TARGET}" =~ ^[a-z][a-z0-9-]*$ ]]; then
-            echo "::error::repair=rederive-distribution-parse needs repair_target set to a distribution parse label — lowercase, e.g. dist-v2. A re-derivation names its reading rather than inheriting the ingest default, so there is no default to fall back on. Re-dispatch with the label."
-            exit 1
-          fi
-          # The back-fill's Term, required in both modes for the parse label's
-          # reason: the ledger is a reading of one named Term, and the bound an
-          # apply carries was read off that Term's ledger.
-          if [ "${target_kind}" = "term" ] \
-            && ! [[ "${REPAIR_TARGET}" =~ ^[0-9]{2}$ ]]; then
-            echo "::error::repair=${REPAIR} needs repair_target set to a two-digit October Term, e.g. 24 — the back-fill reads one named Term per dispatch, so its ledger and the bound an apply carries answer for the same Term. Re-dispatch with the Term."
-            exit 1
-          fi
-          if [ "${target_kind}" = "cells" ]; then
-            # The grammar excludes `.` deliberately — with no dots no field can
-            # be a `..` path segment, whatever the command does with it.
-            pattern='^[a-z0-9-]+/[0-9]+/evt-[a-z0-9-]+/[0-9]{8}T[0-9]{6}Z/[a-z0-9-]+$'
-            malformed=0
-            cells=()
-            # `printf '%s\n'`, not '%s': `read` returns non-zero on a final line
-            # with no terminator, so an unterminated last cell would be dropped
-            # by the loop — silently, and past the all-or-nothing check below.
-            # The blank line this adds is absorbed by the emptiness guard.
-            while IFS= read -r line; do
-              [ -n "$line" ] || continue
-              if [[ "$line" =~ $pattern ]]; then
-                cells+=("$line")
-              else
-                echo "::error::malformed regrade cell (want court/docket/event/run_id/actor, e.g. scotus/1119228/evt-petition-certiorari/20260624T103000Z/claude-judge): ${line}"
-                malformed=1
-              fi
-            done < <(printf '%s\n' "${REPAIR_TARGET}" | tr -s ' \t\r' '\n')
-            if [ "$malformed" -ne 0 ]; then
-              echo "::error::refusing the whole list — correct the lines above and re-dispatch."
-              exit 1
-            fi
-            if [ "${#cells[@]}" -eq 0 ]; then
-              echo "::error::repair=regrade-stale names no cells — set repair_target."
-              exit 1
-            fi
-          fi
-          # No separate "target is required" refusal: each target grammar above
-          # already rejects the empty string — the parse label against its
-          # regex, the Term against its two-digit grammar, the cell list
-          # against the emptiness guard — so a missing
-          # target is refused in the words of the pass that wanted it rather
-          # than a generic second message that could never be reached.
-          echo "repair=${REPAIR} mode=${REPAIR_MODE} accepted; the step of record re-checks every refusal above."
+        run: python3 -I -S src/fedcourtsai/repair_passes.py
 
   # The corpus passes: every pass that pulls the blob, mutates it and pushes.
   # Structured like run-seed's writer job without the walk — on an apply, the
@@ -841,7 +649,7 @@ jobs:
           set -euo pipefail
           # Validate the label before anything else, including the corpus
           # guard: a dispatch that cannot legally run should say so in seconds,
-          # not after a full-population read. `Validate the repair selector`
+          # not after a full-population read. `repair_passes.py`
           # duplicates this word for word so a bad dispatch dies before any
           # credential is minted; this copy is the one of record, because the
           # step has to be safe on whatever reaches it.
@@ -915,7 +723,7 @@ jobs:
           # guard: a dispatch that cannot legally apply should say so in
           # seconds, not after a full scan. The command refuses an unbounded
           # apply on its own too; this refusal is the one with the maintainer's
-          # procedure in it. `Validate the repair selector` duplicates it word
+          # procedure in it. `repair_passes.py` duplicates it word
           # for word so a bad dispatch dies before any credential is minted;
           # this copy is the one of record, because the step has to be safe on
           # whatever reaches it. The refusal names the pass through `${REPAIR}`
@@ -994,7 +802,7 @@ jobs:
           # Validate the bound before anything else, including the corpus
           # guard: a dispatch that cannot legally apply should say so in
           # seconds, not after a full-population read of the content store.
-          # `Validate the repair selector` duplicates it word for word so a bad
+          # `repair_passes.py` duplicates it word for word so a bad
           # dispatch dies before any credential is minted; this copy is the one
           # of record, because the step has to be safe on whatever reaches it.
           # The refusal names the pass through `${REPAIR}` rather than a literal
@@ -1398,7 +1206,7 @@ jobs:
           # And the every-mode half, because this pass's dry run spends the bound
           # too — a field it reads must satisfy the grammar wherever it is set,
           # or a negative integer reaches the slice as "every candidate but the
-          # last five". Copied word for word from `Validate the repair selector`
+          # last five". Its words are held in the selector gate's `repair_passes.py`
           # like the refusal above it; this copy is the one of record.
           if [ -n "${REPAIR_BOUND}" ] \
             && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
@@ -1620,7 +1428,7 @@ jobs:
         run: |
           set -euo pipefail
           # Validate the bound and the option vocabulary before anything else,
-          # including the corpus guard. `Validate the repair selector`
+          # including the corpus guard. `repair_passes.py`
           # duplicates each refusal word for word so a bad dispatch dies before
           # any credential is minted; this copy is the one of record, because
           # the step has to be safe on whatever reaches it.
@@ -1802,7 +1610,7 @@ jobs:
           # Validate the bound before anything else, including the corpus
           # guard: a dispatch that cannot legally apply should say so in
           # seconds, not after a full-population read of the content store.
-          # `Validate the repair selector` duplicates it word for word so a bad
+          # `repair_passes.py` duplicates it word for word so a bad
           # dispatch dies before any credential is minted; this copy is the one
           # of record, because the step has to be safe on whatever reaches it.
           # The refusal names the pass through `${REPAIR}` rather than a literal
@@ -2353,7 +2161,7 @@ jobs:
           # a dispatch that cannot legally apply should say so in seconds, not
           # after a full scan. The command refuses an unbounded apply on its own
           # too; this refusal is the one with the maintainer's procedure in it.
-          # `Validate the repair selector` duplicates it word for word so a bad
+          # `repair_passes.py` duplicates it word for word so a bad
           # dispatch dies before any credential is minted; this copy is the one
           # of record, because the step has to be safe on whatever reaches it.
           # The refusal names the pass through `${REPAIR}` rather than a literal
@@ -2986,7 +2794,7 @@ jobs:
         run: |
           set -euo pipefail
           # The steps of record for the bound and the option vocabulary;
-          # `Validate the repair selector` duplicates both word for word.
+          # `repair_passes.py` duplicates both word for word.
           if [ "${REPAIR_MODE}" = "apply" ] \
             && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
             echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
@@ -3427,7 +3235,7 @@ jobs:
           REPAIR_BOUND: ${{ inputs.repair_bound }}
         run: |
           set -euo pipefail
-          # The step of record for the bound; `Validate the repair selector`
+          # The step of record for the bound; `repair_passes.py`
           # duplicates it word for word.
           if [ "${REPAIR_MODE}" = "apply" ] \
             && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
@@ -3606,7 +3414,7 @@ jobs:
           HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
         run: |
           set -euo pipefail
-          # The step of record for the bound; `Validate the repair selector`
+          # The step of record for the bound; `repair_passes.py`
           # duplicates it word for word.
           if [ "${REPAIR_MODE}" = "apply" ] \
             && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
@@ -3769,7 +3577,7 @@ jobs:
           # every line matched against the id grammar before a command sees
           # it. The grammar excludes `.` deliberately — with no dots no field
           # can be a `..` path segment, whatever the command does with it.
-          # `Validate the repair selector` duplicates this whole block word for
+          # `repair_passes.py` duplicates this block's grammar and refusals word for
           # word so a bad list dies before any credential is minted; this copy
           # is the one of record, because the step has to be safe on whatever
           # reaches it.

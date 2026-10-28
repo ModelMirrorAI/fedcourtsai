@@ -107,6 +107,7 @@ import pytest
 import yaml
 from pydantic import AliasChoices
 
+from fedcourtsai import repair_passes
 from fedcourtsai.agent_feedback import (
     _GH_ATTEMPTS,
     _GH_BACKOFF_SECONDS,
@@ -2135,29 +2136,26 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 
 
 def test_run_repairs_selector_gate_duplicates_every_pass_refusal_verbatim() -> None:
-    """`Validate the repair selector` is a fail-fast copy, not a second opinion.
+    """The selector gate's pass table is a fail-fast copy, not a second opinion.
 
     run-repair refuses a malformed dispatch twice: once in a credential-free
-    job every writer job depends on, so a typo is refused before an App token is
-    minted or the corpus-write lock is taken, and again inside the pass that
-    acts on the field, which is the check of record because a step has to be
-    safe on whatever reaches it. The pair only earns that arrangement while it
-    is one refusal in two places — the same grammar, the same splitting, the
-    same `::error::` text. Let one copy drift and the same mistake reports
-    differently depending on where it was caught, which is worse than having
-    caught it once.
+    job every writer job depends on, which runs the pass table in
+    `src/fedcourtsai/repair_passes.py`, so a typo is refused before an App
+    token is minted or the corpus-write lock is taken, and again inside the
+    pass that acts on the field, which is the check of record because a step
+    has to be safe on whatever reaches it. The pair only earns that arrangement
+    while it is one refusal in two places — the same grammar, the same
+    splitting, the same `::error::` text. Let one copy drift and the same
+    mistake reports differently depending on where it was caught, which is
+    worse than having caught it once. The table holds each refusal in the
+    step's own shell words, placeholders included, so the texts compare
+    directly.
 
     A step's **run-time** failures are held apart (`REPAIR_PASS_STEPS`): they
     report what a write did, which the up-front gate cannot know and must not
     claim to.
     """
-    (early,) = [
-        s
-        for s in _load("run-repair.yml")["jobs"]["validate"]["steps"]
-        if s.get("name") == "Validate the repair selector"
-    ]
-    early_errors = _error_lines(str(early["run"]))
-    assert early_errors, "the up-front selector gate refuses nothing"
+    early_errors = {f'echo "::error::{text}"' for text in repair_passes.REFUSALS}
     for job, owner, runtime in REPAIR_PASS_STEPS:
         late_errors = _error_lines(str(_named_step("run-repair.yml", job, owner)["run"]))
         assert late_errors, f"{owner}: refuses nothing, so the pairing is vacuous"
@@ -2174,8 +2172,9 @@ def test_run_repairs_selector_gate_duplicates_every_pass_refusal_verbatim() -> N
         )
         drifted = late_errors - early_errors
         assert not drifted, (
-            f"{owner}: refusal text absent from `Validate the repair selector` — "
-            f"the two copies must stay word-for-word identical: {sorted(drifted)}"
+            f"{owner}: refusal text absent from the selector gate's pass table "
+            f"(`repair_passes.REFUSALS`) — the two copies must stay word-for-word "
+            f"identical: {sorted(drifted)}"
         )
 
 
