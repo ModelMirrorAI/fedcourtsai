@@ -241,8 +241,13 @@ jobs:
     # an apply's App token and read-write session, a dry run's read-only
     # session) and the pass (45m), leaving the setup, the corpus pull and the
     # trailing verdict inside the remainder. A hit here cancels the run,
-    # which no failure handling absorbs. Every pass but the OCR one still runs
-    # entirely inside the opening credentials' 1h lives; the OCR pass alone
+    # which no failure handling absorbs. Every pass but the OCR one is meant
+    # to run inside the opening credentials' 1h lives: the longest such chain
+    # of caps is dedupe (10m), a 30-minute pass and the persist step (15m),
+    # and the pass caps still carry the push they hand the persist step, so a
+    # run that reaches the persist step has spent less than its caps. Should a
+    # credential lapse anyway, the push it guards fails before the pointer is
+    # published, a red run rather than a half-written corpus. The OCR pass alone
     # sits too deep in the chain for that, so a fresh App token and AWS session
     # are minted right before it and the arithmetic here answers to this cap
     # only — the OCR slice deadline is derived from that 45-minute step cap,
@@ -507,8 +512,8 @@ jobs:
         if: ${{ inputs.repair == 'unlatch-overselected' && steps.dedupe-live-rows.outcome == 'success' && steps.reconcile-scope.outcome == 'success' }}
         # Sized for an apply, which recomputes twice — the dry run that lands
         # the cleared-id ledger in the summary, then the write — over a
-        # recompute the sibling scope reconcile does in ~8 min, plus the ~1GB
-        # push. Generous so the write completes and commits its pointer rather
+        # recompute the sibling scope reconcile does in ~8 min; the ~1GB push
+        # is the persist step's. Generous so the write completes rather
         # than being cancelled mid-flight (below that cost a cap leaves nothing
         # applied). Still bounded, so the step's worst case stays under the
         # job's own cap: a job-cap hit is a cancellation, which no failure
@@ -616,8 +621,8 @@ jobs:
         # Network-bound like the questions-presented backfill rather than the
         # local passes: under the corpus split the pass reads one content-store
         # object per live-slice SCOTUS row (tens of thousands), pooled by the
-        # shared prefetch, then pays the blob push. The first `dry-run`
-        # dispatch is what re-sizes it.
+        # shared prefetch; the blob push is the persist step's. The first
+        # `dry-run` dispatch is what re-sizes it.
         timeout-minutes: 30
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -678,7 +683,7 @@ jobs:
       - name: Converge stored docket markings
         if: ${{ inputs.repair == 'normalize-docket-markings' && steps.dedupe-live-rows.outcome == 'success' }}
         # Local: one scan of the cases table and a bounded UPDATE against the
-        # pulled blob, plus the blob push.
+        # pulled blob.
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -1661,7 +1666,7 @@ jobs:
         # deletion that follows it, must be made on the merged row.
         if: ${{ inputs.repair == 'merits-phantom-removal' && steps.dedupe-live-rows.outcome == 'success' }}
         # Local: both scans are committed ledger artifacts against corpus rows,
-        # with no external-service loop, plus the blob push.
+        # with no external-service loop.
         timeout-minutes: 8
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -2089,10 +2094,9 @@ jobs:
         if: ${{ inputs.repair == 'cert-amicus-rederive' && steps.dedupe-live-rows.outcome == 'success' }}
         # Network-bound like the distribution re-derivation: under the corpus
         # split the pass reads one content-store object per cert-form live-slice
-        # row (well over ten thousand), pooled by the shared prefetch, then pays
-        # the blob push. The distribution re-derivation reads a larger
-        # population inside the same cap. With the dedupe prerequisite (10m) ahead of it the chain stays
-        # inside the job's cap and the opening credentials' 1h lives.
+        # row (well over ten thousand), pooled by the shared prefetch; the blob
+        # push is the persist step's. The distribution re-derivation reads a
+        # larger population inside the same cap.
         timeout-minutes: 30
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -2139,9 +2143,12 @@ jobs:
       # commit to their own step and so keep them there. Blob before pointer
       # commit, as everywhere. What it stages, its commit message and what it
       # says when nothing moved are the pass's entry in the pass table
-      # (src/fedcourtsai/repair_passes.py), read off by path so no package
-      # code decides what this step commits. A pass step that failed or was
-      # cut short stops the job before this step, so nothing it half-wrote is
+      # (src/fedcourtsai/repair_passes.py), run by path without importing the
+      # package. That file is read from the working tree the sync step moved
+      # to the default branch's tip, like every `uv run fedcourts` here, so a
+      # pass's record and the workflow that ran it come from one commit only
+      # while no commit lands mid-run. A pass step that failed or was cut
+      # short stops the job before this step, so nothing it half-wrote is
       # committed.
       - name: Persist the pass's write
         if: ${{ inputs.repair_mode == 'apply' }}
@@ -2214,8 +2221,9 @@ jobs:
       # replace the last real reading with a blank one and leave the next run
       # no baseline.
       #
-      # One case the gates do NOT cover, and deliberately: a pass that pushed
-      # the blob and then failed before its pointer commit holds rows no commit
+      # One case the gates do NOT cover, and deliberately: an apply that pushed
+      # the blob and then failed before its pointer commit (in the persist
+      # step, or in a fetching pass's own) holds rows no commit
       # covers, and this step still publishes a verdict over them. That is more
       # reachable here than on run-seed, precisely because these passes fail
       # hard rather than absorbing — so read a verdict published by a red run

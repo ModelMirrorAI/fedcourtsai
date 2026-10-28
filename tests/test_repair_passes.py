@@ -352,6 +352,10 @@ def test_the_persist_step_follows_every_pass_and_precedes_the_verdict() -> None:
     step = _repair_steps()[persist]
     assert step["if"] == "${{ inputs.repair_mode == 'apply' }}"
     assert "python3 -I -S src/fedcourtsai/repair_passes.py persist" in step["run"]
+    assert step["timeout-minutes"] == 15
+    assert step["env"]["GH_TOKEN"] == (
+        "${{ steps.app-token-ocr.outputs.token || steps.app-token.outputs.token }}"
+    )
 
 
 @pytest.mark.parametrize(
