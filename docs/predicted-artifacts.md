@@ -47,7 +47,9 @@ fields that mean the same thing at every stage:
 
 - **Identity** — `case_id` (`<court_id>/<docket_id>`), `event_id`,
   `predictor_id`, `run_id`, `created_at`, and `engine` / `model`: which engine
-  ran and which resolved model produced the answer.
+  ran and which resolved model produced the answer. `stamp-cell` overwrites
+  `created_at` with its own stamp time (the `process_version.stamped_at`), so
+  the dataset export never publishes a time an agent invented.
 - **`input_snapshot`** — the provisioned snapshot the cell read, which lives at
   `data/cases/<court_id>/<docket_id>/record/snapshots/<YYYY-MM-DD>.json`. That
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so

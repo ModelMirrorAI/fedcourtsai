@@ -52,7 +52,7 @@ from pydantic import BaseModel
 
 from . import corpus
 from .blinding import latest_prediction_dirs
-from .integrity import FORWARD_CLAIM_POLICY, forward_claim_breach
+from .integrity import FORWARD_CLAIM_POLICY, cell_clock, forward_claim_breach
 from .leaderboard import SKILL_COHERENCE_TOLERANCE
 from .paths import CasePaths
 from .process_version import frozen_process_record, graded_in_window, window_of
@@ -372,7 +372,7 @@ def build_tables(
                 engine=prediction.engine,
                 model=prediction.model,
                 run_id=entry.run_id,
-                created_at=_utc(prediction.created_at),
+                created_at=_utc(cell_clock(prediction)),
                 probability=prediction.probability,
                 granted=prediction.granted,
                 predicted_disposition=prediction.predicted_disposition,
