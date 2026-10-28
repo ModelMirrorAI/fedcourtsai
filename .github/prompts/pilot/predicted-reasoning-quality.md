@@ -22,11 +22,23 @@ document only. It is not a grade of the prediction's probability, its claims
 block, its votes or its rationale, which have their own scores.
 
 **Grade the thrust, not the margins.** Decide for yourself which claims are
-central to the document: the disposition and its route, the vote and who
-writes, the ground, the procedural path, whatever the document leads with and
-gives weight to. Grade those. A minor detail wrong in a forecast whose central
-claims held costs little. A confident central call that failed costs most of
-the grade. Do not hunt for a detail to dock.
+central to the document: the disposition and its route, the ground, the
+procedural path, whatever the document leads with and gives weight to. Grade
+those. A minor detail wrong in a forecast whose central claims held costs
+little. A confident central call that failed costs most of the grade. Do not
+hunt for a detail to dock.
+
+**The vote weighs less than the disposition and the ground.** A forecast of
+the line-up and of who writes is a real claim, but it is never what decides
+the grade, even where the document leads with it: grade it as a secondary
+claim in the anchors below. A missed line-up costs more than a minor detail
+and less than a failed call on what the Court decided or why, so a document
+that got the disposition and the ground right and the line-up wrong belongs
+between 0.5 and 0.75, by how specific the rest of it was. Calling the line-up
+right does not lift a document whose ground failed. Where the line-up is part
+of what the decision holds, as when Justices join only part of an opinion and
+that changes what the Court holds, it bears on the ground, and how much it
+weighs is yours to judge.
 
 **What you check against is the staged record, and only that.** That is the
 committed outcome, the docket record and the order text, and on a merits cell

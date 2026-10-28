@@ -22,7 +22,8 @@ ingestion channels (**pull**, **live**, **historical**, **enrich** —
   the storage projection keys on
   ([data-pipeline.md](data-pipeline.md)). The CourtListener terms below cover
   both channels.
-- **supremecourt.gov's per-docket JSON and filed-document PDFs**, served by the
+- **supremecourt.gov's per-docket JSON and filed-document PDFs**, and its
+  legacy HTML docket pages for the dockets the JSON does not serve, served by the
   Court itself — the live SCOTUS channel that owns SCOTUS freshness and loads
   the historical Term set. These are public records with no third-party license
   attached (the CourtListener terms below cover Free Law Project's curation,
@@ -617,9 +618,9 @@ what governs is the content, not where it happens to sit.
 
 What does go to **public git** under `data/` is only our **own work product**: the
 model-generated predictions, outcomes, and evaluations, keyed by case id, plus the
-reasoning text that explains them — and the three qp-topic artifacts
+reasoning text that explains them — and the four qp-topic artifacts
 (`docs/qp-topic.md`), the hand-labeled reference set, its application block
-and the accrued per-case labels: subject-matter judgments keyed by case id and public-record
+and the two accrued per-case labels files: subject-matter judgments keyed by case id and public-record
 docket number, republishing no source text — and the plain-language case
 summaries (`docs/case-summaries.md`), model-written restatements of a case's
 record. Those are written only from records whose snapshot is the Court's own
@@ -627,18 +628,26 @@ supremecourt.gov docket JSON and whose documents are supremecourt.gov filings,
 so what they restate is public-record Court content outside the CC BY-ND term,
 and the prompt asks for a summary in the model's own words rather than
 quotation. There is also a **non-git** public
-channel that carries corpus-derived text: `run-analytics`' five one-day
+channel that carries corpus-derived text: `run-analytics`' one-day
 GitHub Actions artifacts, which on a public repository any logged-in user can
 download for their retention window. What each one
 discloses is inventoried once, in *S3 / the private stores* in
-[security.md](security.md), and not re-enumerated here; two of the five
+[security.md](security.md), and not re-enumerated here; two of the six
 carry stored questions-presented text and are argued in `docs/qp-topic.md`.
 That text is derived from petition PDFs fetched from supremecourt.gov — public
 records, outside the CC BY-ND term above — and that channel is accepted for the
 labeling run and, on the same footing, the case-summary lane's staged records
 (supremecourt.gov docket JSON and filings only; the lane refuses a
 CourtListener REST snapshot), not as a route for corpus content generally. The other
-three republish no document text. `run-repair`'s one-day handoff artifacts ride
+four republish no document text. One of those four is not corpus-derived at all:
+the `order-scan` report names district dockets the corpus does not hold, read
+from CourtListener's RECAP search, and carries only court identifiers, docket
+numbers, filing dates and the matched entries' numbers and dates with the
+order kinds read from them. It copies no caption (a district caption can name
+an individual party, such as a noncitizen in an immigration suit) and no
+CourtListener value-add field such as nature of suit, so what it republishes is
+court-record identifiers, the same footing as the Court identifiers the
+`run-repair` handoffs carry. `run-repair`'s one-day handoff artifacts ride
 the same channel with public Court identifiers and supremecourt.gov content
 only, never a corpus row, snapshot or stored document; the application back-fill's plan, whose served
 docket JSON carries counsel blocks, crosses under the one carve-out recorded in
@@ -732,6 +741,19 @@ The automated consumer stays within CourtListener's published API limits by desi
   own. It is a maintainer's measurement, not a lane, and it reads only what
   CourtListener already holds — no RECAP Fetch request, so no PACER charge
   ([cli.md](cli.md)).
+- **The adverse-order scan shares it too.** `order-scan` runs the RECAP
+  searches `config/order-scan.yaml` configures — district dockets whose
+  entries match an order phrase in a window of entry dates, one request a
+  page — through the same client, and stops before the request that would
+  pass the config's run cap (150). Its requests count against the same
+  account limits but not against the pull governor's per-process tally, since
+  each process counts only its own; the workflow runs it with the cap as its
+  governor's hourly limit, so a retried request counts too. It is dispatched
+  as `run-analytics`'s `order-scan` mode, never scheduled, so its spend is a
+  maintainer's choice of hour. It reads only what CourtListener already holds
+  (no RECAP Fetch, no PACER charge), its report carries court-record
+  identifiers without caption, entry text or nature of suit, and the dockets
+  it names are not admitted to the corpus.
 
 The pilot holds a paid Free Law Project **membership tier** — **Tier 4**, at 25
 requests a minute, 300 an hour and 1,400 a day, for $1,000 a year. It is the top
@@ -775,19 +797,22 @@ material**:
   filer's contact detail travels unscrubbed are the transient run artifacts
   in the two carve-outs below, which hold no stored copy and never reach git.
 - **One carve-out: the application back-fill's plan artifact** (maintainer
-  decision, 2026-10-01). Every byte it admits is the Court's own public docket
+  decision, 2026-10-01; extended to OT2016's legacy docket pages, 2026-10-27).
+  Every byte it admits is the Court's own public docket
   record, served openly at supremecourt.gov, and none of it comes from our
   private stores; it lets that record transit one short-lived workflow
   artifact between two jobs of the same run.
   - *What:* the docket JSON exactly as supremecourt.gov serves it for the
-    dockets in one `application-backfill` run's plan — counsel blocks
+    dockets in one `application-backfill` run's plan — and, for a serial of
+    a Term in `LEGACY_HTML_TERMS` (OT2016) that serves no JSON, the Court's
+    legacy HTML docket page exactly as served — counsel blocks
     included, which for a self-represented filer carry a home address,
     telephone, email or prisoner register number — plus the structured fields
     parsed from it. Nothing read from the corpus, the content store or any
     snapshot we stored — which rests on the job that writes the plan holding
     no corpus credential at all. Both that job and the applications writer
-    refuse a plan not shaped as served docket JSON plus the fields parsed
-    from it.
+    refuse a plan not shaped as served docket JSON or a served docket page
+    plus the fields parsed from it.
   - *Where:* one workflow artifact, `repair-plan-<run_id>`, kept one day and
     consumed by the applications writer in the same run. It is never committed
     to git and never printed to a log or step summary; the step summary

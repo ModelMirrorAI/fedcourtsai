@@ -65,15 +65,18 @@ import hashlib
 import json
 import re
 from collections import Counter
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, NamedTuple
+from typing import Final, Literal, NamedTuple, Protocol, cast, get_args
 
-from ..corpus import scotus_term_year, strip_docket_annotation
+from ..corpus import scotus_application_term_year, scotus_term_year, strip_docket_annotation
 from ..schemas import (
     QP_TOPIC_LABELS,
     QpTopicAgreement,
+    QpTopicApplicationLabels,
+    QpTopicApplicationPublishedEntry,
+    QpTopicApplicationReference,
     QpTopicBatchEntry,
     QpTopicLabel,
     QpTopicLabelAgreement,
@@ -159,6 +162,10 @@ LABEL_ROW_CEILING: Final = 1200
 # here needs a diff review rather than a version bump.
 BATCH_ORDER_SEED: Final = "qp-topic-v0:batch-order"
 
+# The application frame's draw seed, on the same terms. Its own string, so the
+# application frame's order is not a re-use of the petition frame's.
+APPLICATION_BATCH_ORDER_SEED: Final = "qp-topic-v1:application-batch-order"
+
 # The stratum an unparsable docket number falls into. Empty over the labeling
 # frame by construction — it is modern-cert-scoped, so every number parses — and
 # kept so a frame that ever widens buckets those rows visibly rather than
@@ -219,6 +226,30 @@ class QpTopicError(ValueError):
     """A labeler's output cannot be reconciled with the vocabulary or the reference set."""
 
 
+class _ReferenceEntry(Protocol):
+    """What a measurement reads off one hand-labeled row, in either reference file."""
+
+    @property
+    def case_id(self) -> str: ...
+
+    @property
+    def docket_number(self) -> str: ...
+
+    @property
+    def label(self) -> QpTopicLabel: ...
+
+
+class _Reference(Protocol):
+    """A hand reference set: the petition set or the application block."""
+
+    @property
+    def entries(self) -> Sequence[_ReferenceEntry]: ...
+
+
+#: The application extract's two row shapes, as its ``input_kind`` names them.
+InputKind = Literal["application-text", "docket-only"]
+
+
 def reference_path(data_root: Path) -> Path:
     """Where the hand reference set lives under a data root."""
     return data_root / "qp-topics" / "qp-topic-reference.json"
@@ -242,6 +273,16 @@ def labels_path(data_root: Path) -> Path:
     wrote would omit the topic cut and report it as an absent labels artifact.
     """
     return data_root / "qp-topics" / "qp-topics.json"
+
+
+def application_labels_path(data_root: Path) -> Path:
+    """Where the application frame's labels artifact lives under a data root.
+
+    A file of its own beside the petition artifact, for the reason the
+    application reference block is one: the petition file and every reader of
+    it stay as they are, and the application gate binds apart.
+    """
+    return data_root / "qp-topics" / "qp-topics-applications.json"
 
 
 @dataclass(frozen=True)
@@ -283,18 +324,18 @@ class QpTopicBatch:
         return self.reference_rows / self.reference_total if self.reference_total else 0.0
 
 
-def _batch_order_key(case_id: str) -> tuple[bytes, str]:
+def _batch_order_key(case_id: str, seed: str = BATCH_ORDER_SEED) -> tuple[bytes, str]:
     """The seeded hash a stratum's rows are ordered by, ties broken on the id itself.
 
     ``blake2b`` rather than :func:`hash`, which is salted per process: a batch
     that changed with ``PYTHONHASHSEED`` would not be a function of committed
     state at all.
     """
-    digest = hashlib.blake2b(f"{BATCH_ORDER_SEED}\x00{case_id}".encode(), digest_size=16).digest()
+    digest = hashlib.blake2b(f"{seed}\x00{case_id}".encode(), digest_size=16).digest()
     return (digest, case_id)
 
 
-def _stratum_key(docket_number: str) -> str:
+def petition_stratum_key(docket_number: str) -> str:
     """The ``<Term>/<fee class>`` cell a docket number belongs to.
 
     Both halves ride in the number itself — the Term prefix and the serial, which
@@ -318,6 +359,17 @@ def _stratum_key(docket_number: str) -> str:
     if year is None or parsed is None:
         return UNPARSED_STRATUM
     return f"{year}/{'ifp' if parsed[1] >= IFP_SERIAL_BASE else 'paid'}"
+
+
+def application_stratum_key(docket_number: str) -> str:
+    """The ``<Term>/application`` cell an application docket number belongs to.
+
+    An application carries no fee class, so the application frame stratifies on
+    Term alone, read from the ``A`` docket number the way the extract's
+    coverage tally reads it.
+    """
+    year = scotus_application_term_year(strip_docket_annotation(docket_number))
+    return UNPARSED_STRATUM if year is None else f"{year}/application"
 
 
 def _apportion(sizes: Mapping[str, int], quota: int) -> dict[str, int]:
@@ -345,9 +397,11 @@ def _apportion(sizes: Mapping[str, int], quota: int) -> dict[str, int]:
 def derive_label_batch(
     *,
     frame: Sequence[tuple[str, str]],
-    reference: QpTopicReference,
+    reference: _Reference,
     labeled: Collection[str],
     ceiling: int | None = None,
+    stratum: Callable[[str], str] = petition_stratum_key,
+    seed: str = BATCH_ORDER_SEED,
 ) -> QpTopicBatch:
     """Choose the rows one labeling dispatch labels, from committed state alone.
 
@@ -385,6 +439,10 @@ def derive_label_batch(
     Repeat dispatches clear the frame batch by batch. When the unlabeled pool
     empties the batch is ``converged``: everything outside the reference set is
     labeled, and another run would re-grade the reference and publish nothing.
+
+    The application frame cuts its batches by the same rule against the
+    application reference block, with ``stratum`` set to
+    :func:`application_stratum_key` and its own ``seed``.
     """
     # Resolved here rather than as a default argument, which would bind the
     # module value once at import and ignore any later reading of it.
@@ -412,9 +470,9 @@ def derive_label_batch(
     pool = [case_id for case_id in numbers if case_id not in members and case_id not in published]
     buckets: dict[str, list[str]] = {}
     for case_id in pool:
-        buckets.setdefault(_stratum_key(numbers[case_id]), []).append(case_id)
+        buckets.setdefault(stratum(numbers[case_id]), []).append(case_id)
     for rows in buckets.values():
-        rows.sort(key=_batch_order_key)
+        rows.sort(key=lambda case_id: _batch_order_key(case_id, seed))
     allocation = _apportion(
         {key: len(rows) for key, rows in buckets.items()}, budget - len(in_reference)
     )
@@ -436,7 +494,9 @@ def derive_label_batch(
     )
 
 
-def batch_metadata(batch: QpTopicBatch, *, ceiling: int | None = None) -> dict[str, object]:
+def batch_metadata(
+    batch: QpTopicBatch, *, ceiling: int | None = None, seed: str = BATCH_ORDER_SEED
+) -> dict[str, object]:
     """The batch's arithmetic as JSON, for the record beside the extract.
 
     Deliberately **not** written into the extract itself. The extract is the
@@ -455,7 +515,7 @@ def batch_metadata(batch: QpTopicBatch, *, ceiling: int | None = None) -> dict[s
     shape of claim the rest of this repository refuses.
     """
     return {
-        "seed": BATCH_ORDER_SEED,
+        "seed": seed,
         "ceiling": LABEL_ROW_CEILING if ceiling is None else ceiling,
         "frame": batch.frame,
         "labeled": batch.labeled,
@@ -519,7 +579,7 @@ def shadow_label(text: str) -> QpTopicLabel | None:
     return fired[0] if len(fired) == 1 else None
 
 
-def measure_agreement(labels: Mapping[str, str], reference: QpTopicReference) -> QpTopicAgreement:
+def measure_agreement(labels: Mapping[str, str], reference: _Reference) -> QpTopicAgreement:
     """Measure a labeler's primaries against the hand reference set.
 
     ``labels`` maps ``case_id`` to the labeler's primary. Only reference entries
@@ -646,9 +706,26 @@ def read_texts(path: Path) -> dict[str, QpText]:
     return texts
 
 
-def _check_reference_join(
-    entries: Sequence[QpTopicLabelEntry], reference: QpTopicReference
-) -> None:
+def read_input_kinds(path: Path) -> dict[str, InputKind]:
+    """Read each application extract row's ``input_kind``, keyed by ``case_id``.
+
+    The application labels artifact stamps every row with the shape its label
+    was read from, and the extract is where that shape is recorded.
+    """
+    payload = json.loads(path.read_text())
+    if not isinstance(payload, list):
+        raise QpTopicError(f"{path}: expected a JSON list of qp-corpus rows")
+    kinds: dict[str, InputKind] = {}
+    for row in payload:
+        kind = row.get("input_kind") if isinstance(row, dict) else None
+        if kind in get_args(InputKind):
+            kinds[str(row["case_id"])] = cast(InputKind, kind)
+            continue
+        raise QpTopicError(f"{path}: row is not an application extract row (input_kind {kind!r})")
+    return kinds
+
+
+def _check_reference_join(entries: Sequence[QpTopicLabelEntry], reference: _Reference) -> None:
     """Fail loudly when a labeled case and a reference entry half-match.
 
     The two sets are joined on ``case_id`` *and* ``docket_number``. A pair that
@@ -769,6 +846,109 @@ def build_labels(
     label was assigned from — supersedes by rewriting the artifact under its own
     reviewed diff, not by a labeler quietly disagreeing with an earlier one.
     """
+    accrued = _accrue(
+        entries=entries,
+        texts=texts,
+        reference=reference,
+        labeler=labeler,
+        prior_entries=prior.entries if prior is not None else (),
+        prior_batches=prior.batches if prior is not None else (),
+        frame_rows=frame_rows,
+        publish=lambda row: QpTopicPublishedEntry(**row),
+    )
+    return QpTopicLabels(
+        labeler=labeler,
+        cases=len(accrued.entries),
+        agreement=accrued.agreement,
+        shadow=accrued.shadow,
+        batches=accrued.batches,
+        entries=accrued.entries,
+    )
+
+
+def build_application_labels(
+    *,
+    entries: Sequence[QpTopicLabelEntry],
+    texts: Mapping[str, QpText],
+    input_kinds: Mapping[str, InputKind],
+    reference: QpTopicApplicationReference,
+    labeler: str,
+    prior: QpTopicApplicationLabels | None = None,
+    frame_rows: int | None = None,
+) -> QpTopicApplicationLabels:
+    """Assemble the application labels artifact, by :func:`build_labels`'s rules.
+
+    The same two publication rules, measured against the application reference
+    block. Each published row is stamped with the shape its label was read from:
+    a labeler row with the ``input_kind`` of this batch's extract row, and a
+    reference row with the block's own ``input_kind``, since the adjudicated
+    label is what that row publishes and the block records what it was read
+    from. So a reference row's stamp moves only with a reviewed edit of the
+    block, never with the corpus. ``texts`` carries each row's stored
+    application text, empty on a ``docket-only`` row, so the shadow rules fire on
+    the application's own words or not at all.
+    """
+    missing = sorted(set(texts) - set(input_kinds))
+    if missing:
+        raise QpTopicError(f"extract rows carry no input_kind: {missing[:3]}")
+    block = {entry.case_id: entry.input_kind for entry in reference.entries}
+
+    def publish(row: dict[str, object]) -> QpTopicApplicationPublishedEntry:
+        case_id = str(row["case_id"])
+        kind = block[case_id] if row["source"] == "reference" else input_kinds[case_id]
+        return QpTopicApplicationPublishedEntry(**row, input_kind=kind)
+
+    accrued = _accrue(
+        entries=entries,
+        texts=texts,
+        reference=reference,
+        labeler=labeler,
+        prior_entries=prior.entries if prior is not None else (),
+        prior_batches=prior.batches if prior is not None else (),
+        frame_rows=frame_rows,
+        publish=publish,
+    )
+    rows: list[QpTopicApplicationPublishedEntry] = []
+    for entry in accrued.entries:
+        if not isinstance(entry, QpTopicApplicationPublishedEntry):
+            raise QpTopicError(f"{entry.case_id} is not an application row")
+        rows.append(entry)
+    return QpTopicApplicationLabels(
+        labeler=labeler,
+        cases=len(rows),
+        agreement=accrued.agreement,
+        shadow=accrued.shadow,
+        batches=accrued.batches,
+        entries=rows,
+    )
+
+
+@dataclass(frozen=True)
+class _Accrued:
+    """One batch measured and accrued onto its artifact's standing rows."""
+
+    agreement: QpTopicAgreement
+    shadow: QpTopicShadow
+    batches: list[QpTopicBatchEntry]
+    entries: list[QpTopicPublishedEntry]
+
+
+def _accrue(
+    *,
+    entries: Sequence[QpTopicLabelEntry],
+    texts: Mapping[str, QpText],
+    reference: _Reference,
+    labeler: str,
+    prior_entries: Sequence[QpTopicPublishedEntry],
+    prior_batches: Sequence[QpTopicBatchEntry],
+    frame_rows: int | None,
+    publish: Callable[[dict[str, object]], QpTopicPublishedEntry],
+) -> _Accrued:
+    """The measurement and accrual both labels artifacts share (see :func:`build_labels`).
+
+    ``publish`` builds a published row from its fields, so each artifact stamps
+    its own row type.
+    """
     if frame_rows is not None and frame_rows < len(entries):
         # The batch is a subset of the frame it was cut from, so this is not a
         # thin frame but a count taken against some other scope or blob — and a
@@ -795,8 +975,8 @@ def build_labels(
 
     agreement = measure_agreement({e.case_id: e.label for e in entries}, reference)
     hand = {entry.case_id: entry for entry in reference.entries}
-    carried = list(prior.entries) if prior is not None else []
-    batch = max((row.batch for row in prior.batches), default=0) + 1 if prior is not None else 1
+    carried = list(prior_entries)
+    batch = max((row.batch for row in prior_batches), default=0) + 1
 
     published = {entry.case_id: entry for entry in carried}
     for entry in entries:
@@ -809,8 +989,8 @@ def build_labels(
                     f"{standing.batch}: a non-reference row is labeled once, and the batch "
                     "this extract was derived from should have excluded it"
                 )
-            published[entry.case_id] = QpTopicPublishedEntry(
-                **entry.model_dump(), source="labeler", batch=batch
+            published[entry.case_id] = publish(
+                {**entry.model_dump(), "source": "labeler", "batch": batch}
             )
         else:
             # The facets go with the label they belong to: the reference set
@@ -819,12 +999,14 @@ def build_labels(
             # The docket number is the extract's spelling, not the reference
             # set's: the artifact stays keyed to the stored docket, which may
             # lack a capital-case marking the hand set was recorded with.
-            published[entry.case_id] = QpTopicPublishedEntry(
-                case_id=entry.case_id,
-                docket_number=entry.docket_number,
-                label=adjudicated.label,
-                source="reference",
-                batch=standing.batch if standing is not None else batch,
+            published[entry.case_id] = publish(
+                {
+                    "case_id": entry.case_id,
+                    "docket_number": entry.docket_number,
+                    "label": adjudicated.label,
+                    "source": "reference",
+                    "batch": standing.batch if standing is not None else batch,
+                }
             )
 
     superseded = 0
@@ -841,7 +1023,7 @@ def build_labels(
         superseded += 1
 
     fresh = [row for row in published.values() if row.batch == batch]
-    ledger = [*(prior.batches if prior is not None else [])]
+    ledger = list(prior_batches)
     ledger.append(
         QpTopicBatchEntry(
             batch=batch,
@@ -861,9 +1043,7 @@ def build_labels(
             frame_rows=frame_rows,
         )
     )
-    return QpTopicLabels(
-        labeler=labeler,
-        cases=len(published),
+    return _Accrued(
         agreement=agreement,
         shadow=QpTopicShadow(texts=len(entries), fired=fired, disagreements=disagreements),
         batches=ledger,
@@ -871,7 +1051,35 @@ def build_labels(
     )
 
 
-def render_agreement(agreement: QpTopicAgreement) -> str:
+def render_input_kind_split(
+    labels: Mapping[str, str], reference: QpTopicApplicationReference
+) -> str:
+    """The application measurement split by ``input_kind``, beside the pooled block.
+
+    The block over-weights ``application-text`` rows against the frame, so the
+    pooled rate is neither a per-kind figure nor a frame estimate, and a weak
+    reading on one kind can hide under a strong one on the other. Each kind is
+    printed with its own ``n`` and the rate a constant labeler scores on it. The
+    gate stays pooled: the ``application-text`` block is too small to carry a
+    floor of its own.
+    """
+    lines = ["  by input_kind (agreement with the application reference block):"]
+    for kind in get_args(InputKind):
+        subset = [entry for entry in reference.entries if entry.input_kind == kind]
+        part = measure_agreement(
+            labels, QpTopicApplicationReference(cases=len(subset), entries=subset)
+        )
+        rate = "n/a" if part.overall_rate is None else f"{part.overall_rate:.1%}"
+        floor = "n/a" if part.floor is None else f"{part.floor:.1%}"
+        lines.append(
+            f"    {kind:17s} {part.overall_agree}/{part.overall_n} ({rate}), floor {floor}"
+        )
+    return "\n".join(lines)
+
+
+def render_agreement(
+    agreement: QpTopicAgreement, *, against: str = "the v0 reference rater"
+) -> str:
     """Render the measured agreement block a labeler run reports.
 
     The rate is always printed beside its ``n`` and never alone: an agreement
@@ -882,7 +1090,7 @@ def render_agreement(agreement: QpTopicAgreement) -> str:
     floor = "n/a" if agreement.floor is None else f"{agreement.floor:.1%}"
     lines = [
         f"  overall:   {agreement.overall_agree}/{agreement.overall_n} ({rate}) "
-        f"vs the v0 reference rater — agreement, not accuracy",
+        f"vs {against} — agreement, not accuracy",
         f"  floor:     {floor} — what a constant labeler scores on the same entries",
         f"  uncovered: {agreement.uncovered} reference entr(ies) the labeler did not cover",
     ]

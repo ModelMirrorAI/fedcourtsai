@@ -22,7 +22,10 @@ name: run-ops
 # renders the current view onto its own Actions run summary and appends the JSON
 # snapshot to a dedicated `ops-metrics` branch (an orphan time-series, never
 # merged to main — a week-old snapshot backs the substance section's deltas). So
-# `main` stays clean and the corpus-write path is untouched.
+# `main` stays clean and the corpus-write path is untouched. The same push carries
+# `status.json`, the public status page's daily snapshot (lane health against each
+# workflow's declared schedule, production, coverage, back-test headlines): the
+# public site reads it from that branch at its daily build, after this job's tick.
 #
 # The reading surfaces are digests a maintainer closes, not a standing body this
 # job edits in place: an unread digest is an open issue, so the backlog is
@@ -64,7 +67,7 @@ concurrency:
 
 jobs:
   ops:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup + report is a couple of minutes; the cap is sized for the degraded
     # API this job's retries exist to survive. Seven retryable shell calls
     # across its three retried steps, plus the three the weekly digest's poster
@@ -110,8 +113,10 @@ jobs:
           # pipelines — plus a day of each polling one (`ops.window_runs`).
           # The listing is wider than that window because corpus-check polls
           # every 30 minutes and would otherwise fill it in days.
+          # `headBranch` lets the status snapshot judge the production lanes on
+          # `main` runs alone, so a staging rehearsal never reads as one.
           gh_retry gh run list --repo "$REPO" --limit 1200 \
-            --json workflowName,status,conclusion,createdAt,startedAt,updatedAt \
+            --json workflowName,status,conclusion,createdAt,startedAt,updatedAt,headBranch \
             > runs.json
 
       - name: Collect issues wearing a stale fan-out label
@@ -165,12 +170,16 @@ jobs:
           # tick only.
           # ops-report runs the git-only `validate` over data/ itself for the data-health
           # section, catching anything that reached the default branch without the gate.
+          # `--status-out` is the public status page's snapshot (`PublicStatus`),
+          # published beside the ops snapshot below for the site to read.
           uv run fedcourts ops-report --runs runs.json --trigger-issues trigger-issues.json \
             "${prev_args[@]}" --json new-ops.json --data-health-out data-health.md \
-            --digest-out digest.md > ops.md
+            --digest-out digest.md --status-out status.json > ops.md
           cat ops.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Append the snapshot to the ops-metrics branch
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           git config user.name "fedcourts-bot"
@@ -189,6 +198,11 @@ jobs:
           fi
           cp new-ops.json "$tree/ops-${day}.json" # dated history (last write of the day wins)
           cp new-ops.json "$tree/latest.json"     # the fallback prior snapshot for the deltas
+          # The public status page reads status.json, so only a run on `main` (the
+          # promoted tree and its data) writes it, and only when it was rendered.
+          if [ "$REF_NAME" = "main" ] && [ -f status.json ]; then
+            cp status.json "$tree/status.json"
+          fi
           git -C "$tree" add -A
           if git -C "$tree" diff --cached --quiet; then
             echo "No ops change to persist."
@@ -286,7 +300,7 @@ jobs:
     # filtered-out job cannot make that up. Running on the 08:30 tick too
     # recovers it, and posts nothing on a day already digested.
     if: ${{ vars.DAILY_DIGEST_PAUSED != 'true' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Setup plus a read of `data/`; the headroom is for the four bounded `gh`
     # calls the command can make (two listings, the label, the create), each
     # worth up to 105s against a degraded API.

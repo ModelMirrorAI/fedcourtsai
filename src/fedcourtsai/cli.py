@@ -77,6 +77,7 @@ from . import (
     schedule,
     scope_manifest,
     secretscan,
+    site_status,
     summaries,
     tool_usage,
     window_records,
@@ -178,6 +179,7 @@ from .dataset_export import (
 from .dispatch_chain import ChainMode, chain_step, forecast_relevance
 from .disposition_convergence import converge_disposition_labels
 from .docket_marking_migration import normalize_docket_markings
+from .event_definition_backfill import HOLD_REASONS, backfill_event_definitions
 from .finalize import (
     FinalizeRole,
     JudgeFileOutcome,
@@ -280,6 +282,7 @@ from .pipeline import (
     opinion_lineups,
     opinion_record,
     order_lineups,
+    order_scan,
     pre_mint,
     qp_topics,
     same_question,
@@ -288,7 +291,11 @@ from .pipeline import (
     vote_sources,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
-from .pipeline.application_topics import APPLICATION_EXTRACT_RULE, application_extract
+from .pipeline.application_topics import (
+    APPLICATION_EXTRACT_RULE,
+    ApplicationExtractRow,
+    application_extract,
+)
 from .pipeline.arrival_backfill import backfill_arrival_stamps
 from .pipeline.arrival_cut import arrival_cut_ledger
 from .pipeline.asof import CutoffPolicy
@@ -347,6 +354,7 @@ from .pipeline.documents import (
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
 from .pipeline.exec_action import EXEC_ACTION_RULES
 from .pipeline.executive_success import DEFAULT_SCOPE_RULE, READINGS, executive_success
+from .pipeline.filing_simulation import filing_simulation
 from .pipeline.interim_reading_census import interim_reading_census
 from .pipeline.judgment import backfill_merits_judgments
 from .pipeline.lineup import WritingKind
@@ -485,6 +493,7 @@ from .schemas import (
     LeaderboardStageEntry,
     LeakageExclusionRecord,
     LiveFrontier,
+    MeritsBacktest,
     MeritsBacktestDispatch,
     ModelUsage,
     Moment,
@@ -495,6 +504,8 @@ from .schemas import (
     PredictionContext,
     PredictorConfig,
     ProcessVersion,
+    QpTopicApplicationLabels,
+    QpTopicApplicationReference,
     QpTopicLabels,
     QpTopicReference,
     RetrievalCall,
@@ -2096,6 +2107,71 @@ def executive_success_cmd(
             err=True,
         )
     typer.echo(result.model_dump_json())
+
+
+def _fmt(value: float | None, spec: str = ".3f") -> str:
+    return "-" if value is None else format(value, spec)
+
+
+@app.command("filing-simulation")
+def filing_simulation_cmd(
+    seed: int = typer.Option(
+        0, "--seed", help="Seed for the whole study; the same seed gives the same report."
+    ),
+    runs: int = typer.Option(200, "--runs", help="Simulated datasets per scenario."),
+    bootstrap_draws: int = typer.Option(
+        100,
+        "--bootstrap-draws",
+        help=(
+            "Controversy-level bootstrap draws per run for the Imbens-Manski interval; 0 skips it."
+        ),
+    ),
+    level: float = typer.Option(
+        0.95, "--level", help="Nominal coverage of the Imbens-Manski interval."
+    ),
+) -> None:
+    """Simulate strategic filing and check the selection bounds against a known truth.
+
+    Computed by `pipeline.filing_simulation`, over the estimators in
+    `pipeline.selection_bounds`. Reads no corpus and writes nothing: each
+    scenario draws pools of adverse orders for two administrations, files them
+    by a payoff rule, and records the true comparable-case gap, the naive gap
+    in observed win rates, and the tier 1-3 bounds. Prints a
+    `FilingSimulationReport`; the coverage table and the attenuation series go
+    to stderr. Fails on a non-positive `--runs`, a negative
+    `--bootstrap-draws` or a `--level` outside (0, 1) (exit 2).
+    """
+    if runs < 1 or bootstrap_draws < 0 or not 0.0 < level < 1.0:
+        typer.echo(
+            "--runs must be at least 1, --bootstrap-draws non-negative, and --level in (0, 1)",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    report = filing_simulation(seed=seed, runs=runs, bootstrap_draws=bootstrap_draws, level=level)
+    typer.echo(
+        f"filing simulation (seed {report.seed}, {report.runs} run(s) a scenario, "
+        f"{report.bootstrap_draws} bootstrap draw(s), level {report.level}); "
+        "gaps are rate(A) - rate(B)",
+        err=True,
+    )
+    for item in report.scenarios:
+        typer.echo(
+            f"{item.name}: true gap {_fmt(item.true_gap)}, naive {_fmt(item.mean_naive_gap)}, "
+            f"tier 3 [{_fmt(item.mean_tier3_lower)}, {_fmt(item.mean_tier3_upper)}] "
+            f"width {_fmt(item.mean_tier3_width)}, covers {_fmt(item.tier3_coverage, '.0%')} "
+            f"of {item.tier3_defined_runs}, interval covers {_fmt(item.ci_coverage, '.0%')} "
+            f"of {item.ci_defined_runs}; filing share A {item.mean_filing_share_a:.2f} "
+            f"B {item.mean_filing_share_b:.2f}; breakdown rho {_fmt(item.mean_breakdown_rho)}; "
+            f"prediction-trimmed error {_fmt(item.mean_prediction_trimmed_error)}",
+            err=True,
+        )
+    for point in report.attenuation:
+        typer.echo(
+            f"attenuation: A perceives {point.perceived_effect_a:+.1f}: true gap "
+            f"{_fmt(point.true_gap)}, naive {_fmt(point.mean_naive_gap)}",
+            err=True,
+        )
+    typer.echo(report.model_dump_json())
 
 
 @app.command("distribution-census")
@@ -3984,6 +4060,110 @@ def converge_disposition_labels_cmd(
         )
     for ref, reason in result.skipped:
         typer.echo(f"  skipped {ref}: {reason}")
+
+
+@app.command("backfill-event-definitions")
+def backfill_event_definitions_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Rewrite the committed files; omit for a dry-run report."),
+    ] = False,
+    max_rewrites: Annotated[
+        int | None,
+        typer.Option(
+            "--max-rewrites",
+            help="Blast-radius bound, required with --apply: refuse to rewrite more "
+            "event.yaml files than this.",
+        ),
+    ] = None,
+    corpus_backend: CorpusBackendOption = "",
+) -> None:
+    """Back-fill `stage`, `moment` and `opened_at` onto committed event.yaml from the corpus.
+
+    The migration `materialize-event`'s drift warning names: a cell never
+    rewrites a committed definition, so a file written before the moment axis
+    existed keeps no `stage` and no `moment`, and an interim arrival definition
+    committed before the submission-entry rule keeps its docketing date, on
+    every round that touches it. This compares each committed `event.yaml` under
+    the ledger with its corpus event row and carries the row's values across:
+    `stage` and `moment` **fill-only** (a recorded value that differs is a
+    conflict, reported), held back where the fill would move a graded cell
+    between board blocks; `opened_at` on **resolved** events of cases with **no
+    committed evaluation** only — an open event's definition is rewritten from
+    the corpus by the outcome writer at resolution, and its cut is computed from
+    the corpus row, not this file. A field the corpus records nothing for keeps
+    its committed value. The corpus is only read.
+
+    Dry-run by default. stdout is the ledger: the counts, each fill shape with
+    its count, every `opened_at` rewrite and every held-back field. stderr lists
+    every file the pass rewrites, with its fields. `--apply` writes and
+    **requires** `--max-rewrites`, the dry run's file count; it refuses above
+    it, since the population is finite and non-growing, so a larger count means
+    the predicate widened. Run where the corpus is pulled (or `--corpus-backend
+    ranged`), over the committed ledger at the default branch's tip.
+    """
+    settings = get_settings()
+    if apply and max_rewrites is None:
+        typer.echo(
+            "backfill-event-definitions: --apply requires an explicit --max-rewrites. "
+            "Read the dry run first and pass the count you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    backend = corpus.resolve_backend(_corpus_backend(corpus_backend))
+    if backend == "local" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the event-definition back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        vintage = corpus.latest_pull_date(conn)
+        result = backfill_event_definitions(
+            conn, settings.data_root, apply=apply, max_rewrites=max_rewrites
+        )
+    if result.refused:
+        typer.echo(
+            f"backfill-event-definitions: refusing to rewrite {len(result.rewrites)} "
+            f"event.yaml file(s) (--max-rewrites {max_rewrites}). The population this "
+            "pass converges is finite and non-growing; a count this size means the "
+            "predicate widened — triage before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "rewrote" if result.applied else "would rewrite"
+    fields = result.field_counts()
+    held = result.held_counts()
+    typer.echo(
+        f"backfill-event-definitions ({'applied' if result.applied else 'dry-run'}, "
+        f"corpus vintage {vintage.isoformat() if vintage else 'unknown'}): "
+        f"{result.committed} committed event.yaml; {len(result.no_corpus_row)} with no "
+        f"corpus row; {len(result.unreadable)} unreadable; {verb} {len(result.rewrites)} "
+        f"file(s): {fields['stage']} stage fill(s), {fields['moment']} moment fill(s), "
+        f"{fields['opened_at']} opened_at rewrite(s); {len(result.held)} drifted "
+        f"field(s) held back"
+    )
+    for (kind, stage, moment, state), count in sorted(result.fill_populations().items()):
+        typer.echo(f"  fill shape kind={kind} stage={stage} moment={moment} [{state}]: {count}")
+    for rewrite in result.rewrites:
+        for change in rewrite.changes:
+            if change.name == "opened_at":
+                typer.echo(f"  {verb} {rewrite.ref}: {change.render()} [resolved]")
+    for reason, count in sorted(held.items()):
+        typer.echo(f"  held {reason}: {count} — {HOLD_REASONS[reason]}")
+    for entry in result.held:
+        typer.echo(f"  held {entry.ref}: {entry.change.render()} [{entry.reason}]")
+    for ref in result.no_corpus_row:
+        typer.echo(f"  no corpus row: {ref}")
+    for path in result.unreadable:
+        typer.echo(f"  unreadable: {path}")
+    for rewrite in result.rewrites:
+        typer.echo(
+            f"{verb} {rewrite.ref}: {', '.join(c.render() for c in rewrite.changes)}",
+            err=True,
+        )
 
 
 @app.command("record-lost-outcomes")
@@ -6498,9 +6678,14 @@ def _work_tree_root() -> Path | None:
     return None
 
 
-def _labeling_batch(
-    frame: Sequence[QpExtractRow], *, data_root: Path, out: Path, scope: str
-) -> list[QpExtractRow]:
+def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
+    frame: Sequence[Row],
+    *,
+    data_root: Path,
+    out: Path,
+    scope: str,
+    applications: bool = False,
+) -> list[Row]:
     """The rows this dispatch labels, cut from the scoped frame by committed state.
 
     Reads the committed reference set and, where one exists, the committed labels
@@ -6514,8 +6699,16 @@ def _labeling_batch(
     to stderr, and exits non-zero on the two states where a dispatch would spend
     a labeling run for nothing: a converged frame, and a frame holding too few of
     the reference set for the run to clear the publication gate's coverage floor.
+
+    ``applications`` cuts the application frame's batch by the same rule, from
+    the application reference block and the application labels artifact,
+    stratified on Term alone.
     """
-    reference_file = qp_topics.reference_path(data_root)
+    reference_file = (
+        qp_topics.application_reference_path(data_root)
+        if applications
+        else qp_topics.reference_path(data_root)
+    )
     if not reference_file.is_file():
         typer.echo(
             f"qp-corpus: no reference set at {reference_file} — the batch is derived from "
@@ -6525,14 +6718,27 @@ def _labeling_batch(
             err=True,
         )
         raise typer.Exit(code=1)
-    reference = read_model(reference_file, QpTopicReference)
-    labels_file = qp_topics.labels_path(data_root)
-    prior = read_model(labels_file, QpTopicLabels) if labels_file.is_file() else None
+    reference: QpTopicReference | QpTopicApplicationReference
+    labeled: set[str] = set()
+    if applications:
+        reference = read_model(reference_file, QpTopicApplicationReference)
+        labels_file = qp_topics.application_labels_path(data_root)
+        if labels_file.is_file():
+            labeled = {e.case_id for e in read_model(labels_file, QpTopicApplicationLabels).entries}
+        stratum, seed = qp_topics.application_stratum_key, qp_topics.APPLICATION_BATCH_ORDER_SEED
+    else:
+        reference = read_model(reference_file, QpTopicReference)
+        labels_file = qp_topics.labels_path(data_root)
+        if labels_file.is_file():
+            labeled = {e.case_id for e in read_model(labels_file, QpTopicLabels).entries}
+        stratum, seed = qp_topics.petition_stratum_key, qp_topics.BATCH_ORDER_SEED
     try:
         batch = qp_topics.derive_label_batch(
             frame=[(row.case_id, row.docket_number) for row in frame],
             reference=reference,
-            labeled={entry.case_id for entry in prior.entries} if prior is not None else (),
+            labeled=labeled,
+            stratum=stratum,
+            seed=seed,
         )
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-corpus: {exc}", err=True)
@@ -6547,6 +6753,17 @@ def _labeling_batch(
     # document, and the fix is upstream in the corpus; a case that has left the
     # labeling scope needs a different one, so the message names the common cause
     # rather than asserting the only one.
+    if batch.reference_covered < qp_topics.COVERAGE_FLOOR and applications:
+        typer.echo(
+            f"qp-corpus: only {batch.reference_rows} of {batch.reference_total} application "
+            f"reference case(s) are in the frame ({batch.reference_covered:.1%}), under the "
+            f"{qp_topics.COVERAGE_FLOOR:.0%} coverage floor `fedcourts qp-topics` enforces — "
+            "a labeling run over this frame would be refused at the gate whatever it "
+            "labeled. Nothing was written. A reference application leaves the frame when "
+            "the live slice drops it or its ask is re-read as an extension.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
     if batch.reference_covered < qp_topics.COVERAGE_FLOOR:
         typer.echo(
             f"qp-corpus: only {batch.reference_rows} of {batch.reference_total} reference "
@@ -6593,7 +6810,9 @@ def _labeling_batch(
     # its Term x fee-class counts stay out of the file the labeler reads. The run
     # mode uploads the extract by name, so this file does not travel to the
     # labeling job either.
-    write_raw_json(out.with_name(out.stem + ".batch.json"), qp_topics.batch_metadata(batch))
+    write_raw_json(
+        out.with_name(out.stem + ".batch.json"), qp_topics.batch_metadata(batch, seed=seed)
+    )
     typer.echo(f"qp-corpus: batch derived from committed state ({scope})", err=True)
     typer.echo(qp_topics.render_batch(batch), err=True)
     selected = set(batch.case_ids)
@@ -6712,9 +6931,9 @@ def qp_corpus(
     frame: Annotated[
         Literal["petitions", "applications"],
         typer.Option(
-            help="`petitions`: the questions-presented frame (qp-topic-v0), batched. "
+            help="`petitions`: the questions-presented frame (qp-topic-v0). "
             "`applications`: the live slice's non-extension application dockets "
-            "(qp-topic-v1), pre-disposition text only, unbatched.",
+            "(qp-topic-v1), pre-disposition text only. Both are batched.",
         ),
     ] = "petitions",
 ) -> None:
@@ -6781,9 +7000,10 @@ def qp_corpus(
     each row carries the caption, the court below, the docket entries dated
     before the disposition with the Court's own acts removed, and the stored
     application text where there is one, plus an ``input_kind`` saying which.
-    It is unbatched, keeps the labeling ceiling as a flat refusal, and prints
-    its coverage by Term, ask and input kind to stderr. ``--all`` does not
-    combine with it.
+    It is batched by the same rule against the application reference block and
+    the application labels artifact, stratified on Term alone, refuses the same
+    two states, and prints its coverage by Term, ask and input kind to stderr.
+    ``--all`` does not combine with it.
 
     The extract is a working file for one labeler run, **never a committed
     artifact**: it enumerates the ingested corpus and republishes stored
@@ -6879,7 +7099,7 @@ def qp_corpus(
 def _qp_corpus_applications(
     settings: Settings, corpus_db: Path | None, out: Path, *, all_texts: bool
 ) -> None:
-    """``qp-corpus --frame applications``: the unbatched application extract."""
+    """``qp-corpus --frame applications``: the application extract, batched like the petitions'."""
     if all_texts:
         typer.echo("qp-corpus: --all is the petition frame's measurement form", err=True)
         raise typer.Exit(code=2)
@@ -6898,18 +7118,9 @@ def _qp_corpus_applications(
         # transport failure surfaces as whatever the client raises.
         typer.echo(f"qp-corpus: cannot read stored payloads for {db_path}: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    rows = extract.rows
-    if not rows:
+    if not extract.rows:
         typer.echo(f"qp-corpus: no application dockets in {db_path}", err=True)
         raise typer.Exit(code=1)
-    if len(rows) > qp_topics.LABEL_ROW_CEILING:
-        typer.echo(
-            f"qp-corpus: refusing to write {len(rows)} application row(s) — over the "
-            f"{qp_topics.LABEL_ROW_CEILING}-row labeling ceiling",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    write_raw_json(out, [row.as_json() for row in rows])
     typer.echo(
         f"qp-corpus: {APPLICATION_EXTRACT_RULE}; {extract.duplicate_rows} duplicate row(s) and "
         f"{extract.extension_rows} extension(s) left out; {extract.decided_unread} decided "
@@ -6920,6 +7131,14 @@ def _qp_corpus_applications(
         extract.coverage.items(), key=lambda item: (item[0][0] or 0, item[0][1], item[0][2])
     ):
         typer.echo(f"  OT{term if term is not None else '?'} {ask} {input_kind}: {count}", err=True)
+    rows = _labeling_batch(
+        extract.rows,
+        data_root=settings.data_root,
+        out=out,
+        scope="live-slice non-extension application dockets",
+        applications=True,
+    )
+    write_raw_json(out, [row.as_json() for row in rows])
     typer.echo(f"qp-corpus: {len(rows)} application(s) -> {out}")
 
 
@@ -6938,7 +7157,10 @@ def qp_topics_cmd(
     ],
     out: Annotated[
         Path | None,
-        typer.Option(help="JSON output path (default: <data_root>/qp-topics/qp-topics.json)."),
+        typer.Option(
+            help="JSON output path (default: <data_root>/qp-topics/qp-topics.json, or "
+            "qp-topics-applications.json under --frame applications)."
+        ),
     ] = None,
     frame_rows: Annotated[
         int | None,
@@ -6949,6 +7171,14 @@ def qp_topics_cmd(
             "cut from; recorded on the batch's ledger entry.",
         ),
     ] = None,
+    frame: Annotated[
+        Literal["petitions", "applications"],
+        typer.Option(
+            help="Which frame the extract labels: `petitions` measures against the "
+            "reference set and accrues qp-topics.json; `applications` measures against "
+            "the application reference block and accrues qp-topics-applications.json.",
+        ),
+    ] = "petitions",
 ) -> None:
     """Measure a topic labeler against the reference set and accrue its labels artifact.
 
@@ -6992,8 +7222,17 @@ def qp_topics_cmd(
     and the cut falls back to its bound. A count under the rows this batch labeled
     is refused — the batch is drawn from the frame, so a smaller frame is a count
     of something else.
+
+    ``--frame applications`` measures an application batch (``qp-corpus --frame
+    applications``) against the application reference block, under the same
+    gate and floors, and accrues the application labels artifact
+    (``data/qp-topics/qp-topics-applications.json``), each row stamped with the
+    extract's ``input_kind``. ``--frame-rows`` there counts the application frame.
     """
     settings = get_settings()
+    if frame == "applications":
+        _qp_topics_applications(settings, labels, texts, labeler, out, frame_rows)
+        return
     reference_path = qp_topics.reference_path(settings.data_root)
     if not reference_path.is_file():
         typer.echo(f"qp-topics: no reference set at {reference_path}", err=True)
@@ -7015,11 +7254,58 @@ def qp_topics_cmd(
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+    _report_labels_run(artifact, reference_name="the reference set")
+    destination = out if out is not None else qp_topics.labels_path(settings.data_root)
+    write_json(destination, artifact)
+    typer.echo(f"qp-topics: gate passed -> {destination}")
+
+
+def _qp_topics_applications(
+    settings: Settings,
+    labels: Path,
+    texts: Path,
+    labeler: str,
+    out: Path | None,
+    frame_rows: int | None,
+) -> None:
+    """``qp-topics --frame applications``: measure an application batch and accrue its artifact."""
+    reference_path = qp_topics.application_reference_path(settings.data_root)
+    if not reference_path.is_file():
+        typer.echo(f"qp-topics: no application reference block at {reference_path}", err=True)
+        raise typer.Exit(code=1)
+    prior_path = qp_topics.application_labels_path(settings.data_root)
+    prior = read_model(prior_path, QpTopicApplicationLabels) if prior_path.is_file() else None
+    try:
+        artifact = qp_topics.build_application_labels(
+            entries=qp_topics.read_label_lines(labels),
+            texts=qp_topics.read_texts(texts),
+            input_kinds=qp_topics.read_input_kinds(texts),
+            reference=read_model(reference_path, QpTopicApplicationReference),
+            labeler=labeler,
+            prior=prior,
+            frame_rows=frame_rows,
+        )
+    except qp_topics.QpTopicError as exc:
+        typer.echo(f"qp-topics: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    reference = read_model(reference_path, QpTopicApplicationReference)
+    lines = {entry.case_id: entry.label for entry in qp_topics.read_label_lines(labels)}
+    typer.echo(qp_topics.render_input_kind_split(lines, reference))
+    _report_labels_run(artifact, reference_name="the application reference block")
+    destination = out if out is not None else prior_path
+    write_json(destination, artifact)
+    typer.echo(f"qp-topics: gate passed -> {destination}")
+
+
+def _report_labels_run(
+    artifact: QpTopicLabels | QpTopicApplicationLabels, *, reference_name: str
+) -> None:
+    """Print one labeling run's measured block, and exit non-zero below the gate."""
     batch = artifact.batches[-1]
     typer.echo(
         f"qp-topics: batch {batch.batch} — {batch.measured} row(s) read by {artifact.labeler}, "
         f"{batch.labeler_rows} newly published from its own calls and "
-        f"{batch.published - batch.labeler_rows} from the reference set's hand labels; "
+        f"{batch.published - batch.labeler_rows} from {reference_name}'s hand labels; "
         f"{artifact.cases} labeled case(s) in the artifact across {len(artifact.batches)} batch(es)"
     )
     if batch.superseded:
@@ -7027,7 +7313,14 @@ def qp_topics_cmd(
             f"qp-topics: {batch.superseded} standing row(s) re-published from a changed "
             "hand reference label"
         )
-    typer.echo(qp_topics.render_agreement(artifact.agreement))
+    typer.echo(
+        qp_topics.render_agreement(
+            artifact.agreement,
+            against="the v0 reference rater"
+            if isinstance(artifact, QpTopicLabels)
+            else "the application reference block",
+        )
+    )
     typer.echo(
         f"  shadow:    {artifact.shadow.disagreements} disagreement(s) on "
         f"{artifact.shadow.fired} rule firing(s) over {artifact.shadow.texts} text(s) — "
@@ -7043,14 +7336,11 @@ def qp_topics_cmd(
         typer.echo(
             f"qp-topics: refusing to write — agreement {measured} of n={agreement.overall_n} "
             f"against the {qp_topics.AGREEMENT_GATE:.0%} publication gate, over "
-            f"{covered:.1%} of the reference set against a {qp_topics.COVERAGE_FLOOR:.0%} "
+            f"{covered:.1%} of {reference_name} against a {qp_topics.COVERAGE_FLOOR:.0%} "
             "coverage floor",
             err=True,
         )
         raise typer.Exit(code=1)
-    destination = out if out is not None else qp_topics.labels_path(settings.data_root)
-    write_json(destination, artifact)
-    typer.echo(f"qp-topics: gate passed -> {destination}")
 
 
 @app.command("corpus-status")
@@ -12314,6 +12604,18 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
             "for the stale-fan-out-labels section; omit to skip it."
         ),
     ] = None,
+    status_out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Write the public status page's snapshot (`PublicStatus` JSON) here: "
+            "lane health judged against each workflow's declared schedule, the "
+            "production windows, coverage and the back-test headlines."
+        ),
+    ] = None,
+    workflows_root: Annotated[
+        Path,
+        typer.Option(help="Where the workflow files whose schedules `--status-out` reads live."),
+    ] = Path(".github/workflows"),
     all_versions: Annotated[
         bool,
         typer.Option(
@@ -12425,17 +12727,35 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     if data_health_out is not None:
         data_health_out.parent.mkdir(parents=True, exist_ok=True)
         data_health_out.write_text(render_data_health(data_health))
+    analytics = _weekly_analytics(settings.metrics_root)
+    production = _weekly_production(settings.data_root, settings.config_root, _parse_when(when))
     if digest_out is not None:
         write_text(
             digest_out,
-            render_weekly_digest(
-                report,
-                analytics=_weekly_analytics(settings.metrics_root),
-                production=_weekly_production(
-                    settings.data_root, settings.config_root, _parse_when(when)
-                ),
-            ),
+            render_weekly_digest(report, analytics=analytics, production=production),
         )
+    if status_out is not None:
+        # Best-effort: the status snapshot is a page, and a lane it cannot judge
+        # (a renamed workflow file, a cron shape the reader does not model) must
+        # not fail the run before the ops snapshot and the data-validation
+        # escalation have landed. Nothing is written, so no stale page is
+        # published under today's date, and the warning names why.
+        try:
+            status = site_status.build_status(
+                report=report,
+                runs=run_rows,
+                workflows_root=workflows_root,
+                production=production,
+                analytics=analytics,
+                merits=_vintaged(settings.metrics_root / "merits-backtest.json", MeritsBacktest),
+                frontier=frontier,
+                public_cases=len(scope_manifest.public_case_ids(settings.data_root)),
+                source_sha=_git("rev-parse", "HEAD"),
+            )
+        except (OSError, ValueError) as error:
+            typer.echo(f"::warning::status snapshot not written: {error}", err=True)
+        else:
+            write_json(status_out, status)
     typer.echo(render_markdown(report), nl=False)
 
 
@@ -13529,6 +13849,83 @@ def decision_below_command(
         )
 
 
+@app.command("order-scan")
+def order_scan_command(
+    config: Annotated[
+        Path | None,
+        typer.Option(help="The scan config; defaults to config/order-scan.yaml."),
+    ] = None,
+    max_requests: Annotated[
+        int | None,
+        typer.Option(
+            help="Requests this run may spend; defaults to the config's "
+            "max_requests_per_run, and may only lower it.",
+        ),
+    ] = None,
+    plan: Annotated[
+        bool,
+        typer.Option(
+            "--plan",
+            help="Print the searches and the worst-case spend, sending no request.",
+        ),
+    ] = False,
+) -> None:
+    """Search CourtListener's RECAP index for district orders against federal executive action.
+
+    Runs every configured query over every entry-date window as a RECAP search
+    (dockets whose entries match an order phrase), keeps the district dockets
+    each returns, reads each matched entry's description for the order kind
+    (TRO, preliminary or permanent injunction, vacatur, a 705 stay) and whether
+    it grants or denies, and checks the config's gold set — the district
+    dockets the corpus's immigration applications trace back to — for recall.
+    Prints the
+    report as JSON on stdout and a summary on stderr.
+
+    Strictly **read-only**: writes no corpus, content store or ledger, and
+    copies no caption or entry text into the report, only identifiers, dates
+    and the readings. Exits 1 after printing the report when the credential
+    was refused or every search failed. It spends CourtListener REST requests
+    through the shared client and rate governor, one per search page, stopping
+    before the request that would pass the run cap; `--plan` shows the spend
+    first and needs no token.
+    """
+    settings = get_settings()
+    path = config if config is not None else settings.config_root / "order-scan.yaml"
+    try:
+        scan_config = order_scan.load_order_scan_config(path)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"order-scan: cannot read {path}: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    cap = scan_config.max_requests_per_run
+    if max_requests is not None:
+        if not 0 < max_requests <= cap:
+            typer.echo(
+                f"order-scan: --max-requests must be between 1 and the config's {cap}",
+                err=True,
+            )
+            raise typer.Exit(code=2)
+        cap = max_requests
+    if plan:
+        for line in order_scan.plan_lines(scan_config, max_requests=cap):
+            typer.echo(line)
+        return
+    if not settings.courtlistener_api_token:
+        # Every v4 request answers 401 without one, so the run could only fail
+        # search by search; it is refused before anything is read.
+        typer.echo("order-scan: no CourtListener API token is configured", err=True)
+        raise typer.Exit(code=2)
+    with _client() as client:
+        report = order_scan.scan(client, scan_config, max_requests=cap)
+    typer.echo(report.model_dump_json(indent=2))
+    for line in order_scan.summary_lines(report):
+        typer.echo(line, err=True)
+    failed = order_scan.failure(report)
+    if failed is not None:
+        # The report is printed first, so a failing run still leaves it to read.
+        typer.echo(f"order-scan: failed: {failed}", err=True)
+        raise typer.Exit(code=1)
+
+
 @app.command("order-notations")
 def order_notations_command(
     on: Annotated[
@@ -14543,7 +14940,8 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     cache_dir: Annotated[
         Path | None,
         typer.Option(
-            help="Dry run only: keep fetched docket JSON here and re-read it from here (a "
+            help="Dry run only: keep fetched docket JSON and legacy pages here and re-read "
+            "them from here (a "
             "dev cache read without host scoping, refused with --apply)."
         ),
     ] = None,
@@ -14591,8 +14989,11 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     corpus write and moves the interim base-rate population, so the apply runs
     on run-repair's `application-backfill` pass; a dev checkout over a pulled
     corpus produces the dry run. Terms at or after the current docket Term are
-    refused: that stream is frontier discovery's. An apply is refused for a
-    Term outside `REGISTERED_APPLY_TERMS` (OT2017 to OT2024): each Term's apply
+    refused: that stream is frontier discovery's. Below the live floor only the
+    Terms in `LEGACY_HTML_TERMS` (OT2016) are read: a serial the docket JSON
+    does not serve is read from the Court's legacy HTML docket page instead, and
+    its stored snapshot names that page and its digest. An apply is refused for a
+    Term outside `REGISTERED_APPLY_TERMS` (OT2016 to OT2024): each Term's apply
     moves the interim base rate by its own amount, so each needs a
     freeze-record entry first.
 
@@ -14639,13 +15040,19 @@ def backfill_applications_cmd(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915 - a C
     today = datetime.now(UTC).date()
     current = current_docket_term(today)
     floor = live_cfg.term_floor_year % 100
-    unreachable = [t for t in terms if not floor <= t < current]
+    unreachable = [
+        t
+        for t in terms
+        if not (floor <= t or t in application_backfill.LEGACY_HTML_TERMS) or t >= current
+    ]
     if unreachable:
+        legacy = ", ".join(f"OT20{t:02d}" for t in sorted(application_backfill.LEGACY_HTML_TERMS))
         typer.echo(
             f"backfill-applications: Term(s) {unreachable} out of reach — the pass reads "
             f"closed Terms from the live floor (OT{live_cfg.term_floor_year}) to the one "
             f"before the current docket Term ({current:02d}), whose stream is frontier "
-            "discovery's.",
+            f"discovery's, and below the floor only {legacy}, through the legacy docket "
+            "pages.",
             err=True,
         )
         raise typer.Exit(code=2)
@@ -17695,8 +18102,10 @@ def materialize_event(
     run PR as a jailed modification. When the corpus projection differs from
     the committed file the drift is warned, field by field; the warning is the
     accepted steady state (the deterministic outcome writer refreshes the
-    definition at resolution on its own lane), and a wholesale ledger backfill
-    would be a one-time migration, not a cell command. ``--out`` still writes
+    definition at resolution on its own lane), and the back-fill of the
+    ``stage``, ``moment`` and ``opened_at`` drift resolution does not reach is
+    a maintainer's migration (``backfill-event-definitions``, run-repair's
+    ``event-definition-backfill`` pass), not a cell command. ``--out`` still writes
     wherever it points, unconditionally.
     """
     settings = get_settings()
@@ -17767,7 +18176,8 @@ def materialize_event(
             typer.echo(
                 f"::warning::{case} event {event}: the corpus projection drifted from "
                 f"the committed event.yaml on {', '.join(loud)}; leaving the "
-                f"committed file untouched (a backfill is a migration, not a cell step)",
+                f"committed file untouched (a backfill is a migration, not a cell step: "
+                f"backfill-event-definitions)",
                 err=True,
             )
         if quiet:

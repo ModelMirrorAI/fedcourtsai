@@ -102,20 +102,35 @@ _MAX_SAMPLE = 10
 # unbounded verdict; `CorpusCheck.failures` still carries the true total.
 _MAX_PROBLEMS = 20
 
-# Accepted floor for `case_dates_ordered`: a stable handful of CourtListener rows
-# carry `date_decided < date_filed` (faithful upstream data, not rewritten — the
-# check below monitors the count). The observed steady-state is ~30; this floor leaves headroom
-# so noise passes while a material climb fails. Raise it deliberately if the steady
-# count grows (e.g. after a large historical backfill), never to silence a regression.
+# Accepted floors for `case_dates_ordered`, one per population, because the two
+# have different causes and grow differently. Both are faithful upstream data,
+# not rewritten — the check below monitors each count. Each floor leaves headroom
+# so noise passes while a material climb fails. Raise one deliberately if its
+# steady count grows (e.g. after a large historical backfill), never to silence a
+# regression.
 #
-# Part of that count reaches the comparison through a derived column: on a denied
-# SCOTUS petition `date_decided` takes the row's own `date_cert_denied`
+# Docket rows (everything but a SCOTUS application): a stable handful of
+# CourtListener rows carry `date_decided < date_filed`, 21 on the 2026-10-27
+# blob, several of them circuit dockets carrying the originating case's decision
+# date. Part of that count can reach the comparison through a derived column: on
+# a denied SCOTUS petition `date_decided` takes the row's own `date_cert_denied`
 # (`corpus.converge_denial_termination_dates`), so a docket whose upstream
 # `date_filed` postdates its denial entry lands here. The *pair* is still
 # upstream's — nothing is rewritten — but a future climb has two possible causes
 # rather than one, and telling them apart means asking whether the new rows are
 # denials.
-_CASE_DATE_ORDER_BASELINE = 50
+_CASE_DATE_ORDER_BASELINE = 30
+
+# SCOTUS application rows (`application_kind` set): `date_filed` is the Court's
+# `DocketedDate`, and an extension of time is often decided in chambers before
+# the Clerk dockets it, so its grant entry predates the docketing date by days.
+# A handful more carry the Clerk's turn-of-the-year slip, a January grant entry
+# dated the previous year. 38 rows on the 2026-10-27 blob, all but one an
+# extension; the one substantive row's decision date is right and its upstream
+# docketing date is not, and the interim moments open at the submission entry
+# rather than at `date_filed`, so no cut reads either date. The count grows with
+# each application Term the walker back-fills, which is why it has its own floor.
+_CASE_DATE_ORDER_APPLICATION_BASELINE = 50
 
 # Stable check identifiers (the `name` field of each emitted CorpusCheck).
 CHECK_CORPUS_OPENS = "corpus_opens"
@@ -669,9 +684,12 @@ def check_case_dates(conn: sqlite3.Connection, today: date) -> CorpusCheck:
     - **Future-dated** (``date_filed`` or ``date_decided`` after the as-of date) is
       a clock or ingestion bug and **always fails** — there is no benign cause.
     - **Decided-before-filed** (``date_filed > date_decided``) is, for a stable
-      floor of rows, a faithful copy of upstream CourtListener data we deliberately
-      do not rewrite (this check is the standing monitor). It fails only when the count climbs
-      **above** that accepted baseline — the "material climb → investigate" signal —
+      floor of rows, a faithful copy of upstream data we deliberately do not
+      rewrite (this check is the standing monitor). It is counted in two
+      populations, each against its own accepted baseline: SCOTUS application rows,
+      whose ``date_filed`` is a docketing date that often trails an in-chambers
+      decision, and every other docket row. It fails only when either count climbs
+      **above** its baseline — the "material climb → investigate" signal —
       so the steady-state condition does not hold the data-health verdict
       permanently red.
 
@@ -692,9 +710,16 @@ def check_case_dates(conn: sqlite3.Connection, today: date) -> CorpusCheck:
             f"SELECT COUNT(*) AS n FROM cases WHERE {future_where}", (cutoff, cutoff)
         ).fetchone()["n"]
     )
+    application_out_of_order = int(
+        conn.execute(
+            f"SELECT COUNT(*) AS n FROM cases WHERE {order_where} "
+            "AND court = 'scotus' AND application_kind IS NOT NULL"
+        ).fetchone()["n"]
+    )
     out_of_order = int(
         conn.execute(f"SELECT COUNT(*) AS n FROM cases WHERE {order_where}").fetchone()["n"]
     )
+    docket_out_of_order = out_of_order - application_out_of_order
     problems = [
         f"case {r['case_id']!r} is future-dated "
         f"(filed {r['date_filed']}, decided {r['date_decided']}, as of {cutoff})"
@@ -705,21 +730,29 @@ def check_case_dates(conn: sqlite3.Connection, today: date) -> CorpusCheck:
         )
     ] + [
         f"case {r['case_id']!r} is decided before filed "
-        f"(filed {r['date_filed']}, decided {r['date_decided']})"
+        f"(filed {r['date_filed']}, decided {r['date_decided']}; "
+        f"{'application' if r['application_row'] else 'docket'} row)"
         for r in conn.execute(
-            f"SELECT case_id, date_filed, date_decided FROM cases WHERE {order_where} "
-            "ORDER BY case_id LIMIT ?",
+            "SELECT case_id, date_filed, date_decided, "
+            "(court = 'scotus' AND application_kind IS NOT NULL) AS application_row "
+            f"FROM cases WHERE {order_where} ORDER BY case_id LIMIT ?",
             (_MAX_PROBLEMS,),
         )
     ]
     return CorpusCheck(
         name=CHECK_CASE_DATES,
-        passed=future == 0 and out_of_order <= _CASE_DATE_ORDER_BASELINE,
+        passed=(
+            future == 0
+            and docket_out_of_order <= _CASE_DATE_ORDER_BASELINE
+            and application_out_of_order <= _CASE_DATE_ORDER_APPLICATION_BASELINE
+        ),
         checked=checked,
         failures=future + out_of_order,
-        detail=f"{future} future-dated, {out_of_order} decided-before-filed vs accepted "
-        f"baseline {_CASE_DATE_ORDER_BASELINE} (as of {cutoff}); faithful upstream data — "
-        "investigate the climb upstream before raising the baseline",
+        detail=f"{future} future-dated, {out_of_order} decided-before-filed "
+        f"({docket_out_of_order} docket rows vs accepted baseline {_CASE_DATE_ORDER_BASELINE}, "
+        f"{application_out_of_order} SCOTUS application rows vs accepted baseline "
+        f"{_CASE_DATE_ORDER_APPLICATION_BASELINE}; as of {cutoff}); faithful upstream data — "
+        "investigate the climb upstream before raising a baseline",
         problems=sorted(problems)[:_MAX_PROBLEMS],
     )
 

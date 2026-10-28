@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` mode runs one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` and `qp-topic-label-applications` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -137,6 +137,37 @@ renders them as the **data-health** section and the substance section's
 watchlist view, escalating a failing verdict to one
 long-lived issue — so the report surfaces run-health, data-health, and
 substance while staying a read-only presenter that never touches the corpus.
+
+### The public status snapshot
+
+The same job writes `status.json` (`ops-report --status-out`, a `PublicStatus`)
+and pushes it to the `ops-metrics` branch beside the ops snapshot. The public
+site reads it at its daily build and renders the status page from it as it
+stands. Four sections:
+
+- **Lanes**: one row per scheduled pipeline lane (`site_status.LANES`), judged
+  against the crons that workflow file declares, so a schedule change moves the
+  judgement with it. A lane is **late** when no run of it on `main` started
+  since its most recent schedule tick, taken two hours before the snapshot
+  because GitHub starts scheduled runs late. It is **failing** when its newest
+  conclusive run failed, timed out or failed to start. A cancelled run is not
+  conclusive, because the corpus writers share one concurrency group and a
+  superseded queued run ends cancelled with nothing wrong. Late wins over
+  failing. **No runs** means the listing the job reads (the newest 1,200 runs
+  across every workflow, a few days) holds none of the lane. A dispatch counts
+  as a start, so one made just before a tick with nothing after it reads late.
+- **Production**: the cell census over the trailing 7 days, 30 days and Term to
+  date, the same windows as the weekly digest, without its spend.
+- **Coverage**: the public ledger's size and the live watchlist's document
+  readiness, from the published live-frontier snapshot.
+- **Back-tests**: each landed back-test's headline table with its artifact, its
+  vintage and the reading rule that travels with it.
+
+It carries counts, dates and committed headlines only: no spend figure and no
+agent-written text, because the page is public. Only a run on `main` publishes
+it, and a snapshot that cannot be built is skipped with a warning rather than
+failing the job, so the ops snapshot and the data-validation escalation still
+land.
 
 ### The weekly performance digest
 
@@ -399,6 +430,31 @@ queues behind the production run of the same mode. The modes:
   8100`, a 110-minute step cap inside a 125-minute job, and its own
   never-cancelled concurrency group so a sibling dispatch cannot take the
   artifact with it.
+- **`order-scan`** (dispatch) runs `fedcourts order-scan`: a bounded RECAP
+  search for district orders against federal executive action, the candidate
+  generation the adverse-order pool is hand-coded from
+  (`config/order-scan.yaml` holds the queries, the entry-date windows, one per
+  administration, the run's request cap and the gold set its recall is
+  measured against). It is the one analysis mode that reads CourtListener
+  rather than the corpus, so it holds the CourtListener token, scoped to its
+  scan step, and no cloud role. The token's rate limits are the account's,
+  shared with `run-pull`, and each process's governor counts only its own
+  requests, so the config's cap (150) is sized to fit beside a pull window and
+  a live window's enrichment step inside the hourly ceiling; the step runs the
+  governor with that cap as its hourly limit, so retries count against it too.
+  Dispatch it in the quiet odd hours `run-pull`'s enrich job names. The report
+  (court-record identifiers and order readings; no caption, entry text or
+  nature of suit) is uploaded on the same one-day retention as the census,
+  failed runs included, and the step summary carries the per-search counts,
+  the spend and the gold recall. The run fails when the credential is refused
+  or every search fails, so neither reads as an empty result. Its own
+  never-cancelled, ref-suffixed concurrency group keeps two scans of one ref
+  from overlapping but not from sharing an hour (a second dispatch starts when
+  the first ends), and nothing keeps a staging scan off a production one,
+  though both spend the same account: space dispatches an hour apart. The
+  staging environment holds no CourtListener token today, so a staging
+  dispatch stops at the scan's no-token refusal; the first scan that reads
+  upstream is a production one.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
@@ -521,8 +577,8 @@ queues behind the production run of the same mode. The modes:
   (`fedcourts qp-corpus`, under `$RUNNER_TEMP` — the command refuses an `--out`
   inside the checkout) to a one-day Actions artifact; `qp-topic-label` assumes
   no role at all, downloads that artifact, and runs the labeler with no cloud
-  credential in its environment and no MCP config (the vocabulary is text-only,
-  so the extract is the agent's entire evidentiary input). Exactly three things
+  credential in its environment and no MCP config (on either frame the extract
+  is the agent's entire evidentiary input). Exactly three things
   cross the split: that artifact, and two job outputs, each one integer. The
   size of the QP-bearing frame the extract cut the batch from goes to the
   post-label measure step's `qp-topics --frame-rows`, so the labels artifact
@@ -561,10 +617,20 @@ queues behind the production run of the same mode. The modes:
   tested `fedcourts qp-topics` measures the labels against the hand reference
   set and enforces the agreement/coverage gate — below it, nothing is written,
   the measured block still reaches the step summary, and the job fails. The
-  `label_model` dispatch input picks the labeler's model; a ceiling-sized run
-  overrides the default for `claude-fable-5`, the one tier measured to finish.
-  `claude-opus-5-5` is offered too, with no measured pace or cost yet.
+  `label_model` dispatch input picks the labeler's model. The default is
+  `claude-opus-5-5`, priced at two-fifths of `claude-fable-5`'s token rates,
+  with no measured pace or cost yet; `claude-fable-5` is the one tier measured
+  to finish a ceiling-sized run, and stays offered for one.
   See [qp-topic.md](qp-topic.md).
+- **`qp-topic-label-applications`** (dispatch) is the same three jobs over the
+  emergency-application frame under `qp-topic-v1`: the extract is `qp-corpus
+  --frame applications`, the measurement is against the application reference
+  block, and the PR lands `data/qp-topics/qp-topics-applications.json` on its
+  own fixed branch, `qp-topics/applications-refresh`. The jobs read the frame
+  and the labels file's name off the mode (`QP_FRAME`, `LABELS_NAME`), so every
+  fence above holds unchanged. A mode value rather than a dispatch input,
+  because the inputs are near GitHub's cap. Its first run belongs on a
+  `staging` ref, where the publish job is fenced as for the petition mode.
 
 ## `summarize` — plain-language case summaries
 
@@ -1206,6 +1272,28 @@ evaluate, so the pass moves no grade. Its bound is the dry run's
 `cases_written`. *Ledger-outcome coverage* in
 [data-pipeline.md](data-pipeline.md) states what the ledger then holds.
 
+`event-definition-backfill` carries the corpus event row's `stage`, `moment` and
+`opened_at` onto committed `event.yaml` files, the migration `materialize-event`'s
+drift warning names: a cell never rewrites a committed definition, so a file
+written before the moment axis existed keeps no `stage` or `moment` until the
+outcome writer rewrites it at resolution, and one resolved by a lane that never
+rewrote it keeps none for good. It reads the corpus and writes only `event.yaml`
+under `data/`, staged with the pointer in the step's one commit. What it moves is
+bounded so that nothing scored and no cut moves. `stage` and `moment` are
+fill-only, a recorded value that differs is reported as a conflict, and a fill
+that would change the stage and moment the scored joins already read for a
+missing value (a petition baseline with neither reads as `cert@distribution`) is
+held back on any case carrying a committed evaluation. `opened_at` moves only on
+resolved events of cases with no committed evaluation. An open event is held,
+because its cut is computed from the corpus row, never from this file, and the
+outcome writer rewrites the definition at resolution. A scored case is held,
+because the claim set-aside reads a committed `opened_at`. Where the two sides
+differ on an interim arrival, the corpus is the right one: it carries the
+submission-entry date the arrival moment is registered on, where the committed
+file carries the docketing date. The summary carries the ledger: the counts,
+each fill shape with its count, every `opened_at` rewrite and every held field.
+The per-file list is in the step log. Its bound is the dry run's file count.
+
 Four of the passes that fetch and parse the Court's content — `opinion-votes`,
 `order-votes`, `application-backfill` and `opinion-record` — run as a
 **credential split** of three jobs (`ocr-recovery`, `document-backfill` and
@@ -1251,12 +1339,13 @@ writer's, against the corpus it pulls under the lock: the dry run's count
 (`unresolved=N` in its ledger) is an upper bound on what the apply lands. Each
 run fetches from supremecourt.gov, so an apply does not lead with a dry run,
 and a re-dispatched dry run after the apply is the control. Its plan carries
-the served dockets' party contact details to the writer under the narrow
+the served dockets' party contact details (for OT2016, the served legacy
+pages of the serials that serve no JSON) to the writer under the narrow
 carve-out in [data-sources.md](data-sources.md) (*PII stance*): one artifact,
 one day, never committed or printed. **Each Term's apply is pre-registered**:
 it moves that Term's unparsed rows into the population the pooled interim base
 rate is computed over, so it has its own entry in
-[freeze-record.md](freeze-record.md). OT2017 to OT2024 are registered: an
+[freeze-record.md](freeze-record.md). OT2016 to OT2024 are registered: an
 apply for any other Term is refused until a freeze-record entry projects its
 move and it has a place in `REGISTERED_APPLY_TERMS`.
 
@@ -1549,7 +1638,7 @@ forward on any corpus job (the invariants are pinned in
 `tests/test_workflow_cell_invariants.py`), so the mode's first run can be a
 staging rehearsal rather than its production run.
 
-**Every job runs on the pinned runner image, `ubuntu-24.04`, never a moving alias
+**Every job runs on the pinned runner image, `ubuntu-26.04`, never a moving alias
 such as `ubuntu-latest`.** The image sits under every cell, writer and gate but is
 no input to the process digest, so a label GitHub re-points changes the harness
 under unchanged digests, and during a phased migration two runs of one workflow
@@ -1557,6 +1646,9 @@ can land on different images. Moving to a new image is a deliberate change: ever
 job and `PINNED_RUNNER` in `tests/test_workflow_cell_invariants.py` together, an
 `integration-test` run on `staging` on the new image, and a freeze-record note.
 `test_every_workflow_job_runs_on_the_pinned_runner_image` pins it repo-wide.
+Where the pinned actionlint does not yet know the image's label,
+`.github/actionlint.yaml` declares that one label, so the linter's runner-label
+rule still refuses any other.
 
 **A new job on a workflow that binds an environment waits on the run gate.**
 It lists `authorize` in its own `needs` and ends its `if:` with the gate's
@@ -1826,7 +1918,8 @@ The mechanics:
   candidate (`promote/…`), or a reviewed non-feature
   lane (the collect run branches, the maintainer's cleanup sweep, the
   metrics-refresh, cert-backtest, merits-backtest and salience-replay PRs,
-  the qp-topic labeling run's `qp-topics/refresh` PR, the case-summary lane's
+  the qp-topic labeling runs' `qp-topics/refresh` and
+  `qp-topics/applications-refresh` PRs, the case-summary lane's
   `summaries/refresh` PR, the big-case board's
   `metrics/big-cases` PR and the update history's `metrics/public-updates`
   PR); on those

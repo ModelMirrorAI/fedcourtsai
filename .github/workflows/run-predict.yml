@@ -89,7 +89,7 @@ jobs:
   # the attempt it judged, because re-running some jobs does not re-run this
   # one; `run-gate` below fails the run when that check refused.
   authorize:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -123,7 +123,7 @@ jobs:
       ${{ needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The job pulls the whole corpus and then walks every open SCOTUS event
     # TWICE — once to mint the matrix and once for the plan report the hold is
     # judged on — unattended, holding the serializing group throughout. So a
@@ -559,7 +559,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     environment: ${{ needs.plan.outputs.auto_release == 'true' && 'review-auto' || 'review' }}
     permissions: {}
@@ -588,7 +588,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Nothing here but the summary write; the cap is the runner's own setup
     # with room.
     timeout-minutes: 5
@@ -617,7 +617,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The engine deadline below plus the setup ahead of the engine step and the
     # capture tail behind it, with room: measured since 2026-08-01, the engine
     # step starts at most ~5.5 minutes into a cell and the tail runs under 1.5,
@@ -1948,7 +1948,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The collect action downloads cell artifacts per artifact with bounded
     # parallelism (4 workers; each download is its own degradation boundary —
     # see the download step's comment), with up to 3 attempts and backoff per
@@ -2211,7 +2211,7 @@ jobs:
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The wait below is 40 minutes; the cap leaves the dispatch inside the App
     # token's one-hour life, which is minted after the checkout and setup.
     timeout-minutes: 55
@@ -2302,7 +2302,7 @@ jobs:
   run-gate:
     needs: [authorize, plan, approval, rejected, predict, collect, chain]
     if: always()
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     permissions: {}
     steps:

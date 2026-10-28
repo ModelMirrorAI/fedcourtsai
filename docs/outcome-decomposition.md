@@ -2084,10 +2084,18 @@ a rubric chosen after reading the grades is a rubric fitted to them.
   every grade measures.
 - **Holistic, on the thrust.** The grader reads the whole document and judges
   how well its forecast held up. It chooses for itself which claims are central
-  — the disposition and route, the vote and who writes, the ground, the
-  procedural path, whatever the document leads with — and it grades the thrust,
-  not the margins. A minor detail wrong in an otherwise borne-out forecast
-  costs little; a confident central call that failed costs most of the grade.
+  — the disposition and route, the ground, the procedural path, whatever the
+  document leads with — and it grades the thrust, not the margins. A minor
+  detail wrong in an otherwise borne-out forecast costs little; a confident
+  central call that failed costs most of the grade. The vote and who writes
+  are never what decides the grade, even where the document leads with them:
+  the grader treats the line-up as a secondary claim, so a document right on
+  the disposition and the ground and wrong on the line-up sits between 0.5
+  and 0.75, except where the line-up is part of what the decision holds (a
+  partial join that changes the holding), which the grader weighs by
+  judgment. The disposition and the ground are what a forecast of the Court's
+  reasoning is for, and on the merits moments the vote is scored on its own,
+  where a grade that turned on it would count the same miss twice.
 
 ### The scale and the rubric
 

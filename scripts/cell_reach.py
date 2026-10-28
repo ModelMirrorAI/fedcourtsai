@@ -117,6 +117,7 @@ INERT_SOURCE = frozenset(
         "release_sensitivity",
         "required_checks",
         "ruleset_checks",
+        "site_status",
     }
 )
 SOURCE_DIR = "src/fedcourtsai/"

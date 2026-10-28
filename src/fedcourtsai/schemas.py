@@ -8845,7 +8845,6 @@ class QpTopicApplicationReference(_Strict):
     The measurement baseline for a ``qp-topic-v1`` labeler on application rows,
     kept apart from the petition reference set so that set stays byte-identical
     and an application gate's floors can bind apart from the petition gate's.
-    Not committed until ``docs/qp-topic.md`` argues its disclosure exception.
     Its sample is stratified on disposition, among other things, so membership
     is outcome-conditioned in the same way the petition set's is, which is why
     the cell prompts forbid predict/evaluate cells from reading anything under
@@ -9037,7 +9036,7 @@ class QpTopicBatchEntry(_Strict):
 
 
 class QpTopicLabelAgreement(_Strict):
-    """One label's agreement between a labeler and the v0 reference rater.
+    """One label's agreement between a labeler and the frame's reference rater.
 
     Counted over the reference entries carrying this label, so ``n`` is the
     *reference* support, not the labeler's. ``rate`` is withheld below the
@@ -9052,7 +9051,7 @@ class QpTopicLabelAgreement(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="agree / n — agreement with the v0 reference rater, not accuracy. Null "
+        description="agree / n — agreement with the frame's reference rater, not accuracy. Null "
         "below the support floor, where the label is unmeasured in v0",
     )
 
@@ -9101,7 +9100,7 @@ class QpTopicAgreement(_Strict):
         default=None,
         ge=0.0,
         le=1.0,
-        description="overall_agree / overall_n — agreement with the v0 reference rater, not "
+        description="overall_agree / overall_n — agreement with the frame's reference rater, not "
         "accuracy. Null when nothing was compared",
     )
     uncovered: int = Field(
@@ -9215,19 +9214,98 @@ class QpTopicLabels(_Strict):
 
     @model_validator(mode="after")
     def _canonical(self) -> QpTopicLabels:
-        if self.cases != len(self.entries):
-            raise ValueError("cases must equal len(entries)")
-        ids = [entry.case_id for entry in self.entries]
-        if ids != sorted(ids) or len(set(ids)) != len(ids):
-            raise ValueError("entries must be sorted by case_id and unique")
-        numbers = [row.batch for row in self.batches]
-        if numbers != list(range(1, len(numbers) + 1)):
-            raise ValueError("batches must be numbered 1..n in order")
-        if sum(row.published for row in self.batches) != self.cases:
-            raise ValueError("the batch ledger's published counts must sum to cases")
-        unknown = sorted({entry.batch for entry in self.entries} - set(numbers))
-        if unknown:
-            raise ValueError(f"entries cite batches with no ledger row: {unknown}")
+        _check_labels_accrual(self.cases, self.entries, self.batches)
+        return self
+
+
+def _check_labels_accrual(
+    cases: int, entries: Sequence[QpTopicPublishedEntry], batches: Sequence[QpTopicBatchEntry]
+) -> None:
+    """The accrual invariants every labels artifact holds, whichever frame it labels."""
+    if cases != len(entries):
+        raise ValueError("cases must equal len(entries)")
+    ids = [entry.case_id for entry in entries]
+    if ids != sorted(ids) or len(set(ids)) != len(ids):
+        raise ValueError("entries must be sorted by case_id and unique")
+    numbers = [row.batch for row in batches]
+    if numbers != list(range(1, len(numbers) + 1)):
+        raise ValueError("batches must be numbered 1..n in order")
+    if sum(row.published for row in batches) != cases:
+        raise ValueError("the batch ledger's published counts must sum to cases")
+    unknown = sorted({entry.batch for entry in entries} - set(numbers))
+    if unknown:
+        raise ValueError(f"entries cite batches with no ledger row: {unknown}")
+
+
+class QpTopicApplicationPublishedEntry(QpTopicPublishedEntry):
+    """One row of the accumulating application labels artifact.
+
+    A published label plus the extract shape it was read from, stamped by the
+    builder from the extract row and never by the labeler: a label read from a
+    caption and a stay request is weaker than one read from the application's
+    own text, and a cut reports the two apart (``docs/qp-topic.md``,
+    *Applications*).
+    """
+
+    input_kind: Literal["application-text", "docket-only"] = Field(
+        description="Which extract shape the label was read from: with the stored "
+        "application text, or from the caption, court below and docket entries alone"
+    )
+
+
+class QpTopicApplicationLabels(_Strict):
+    """``data/qp-topics/qp-topics-applications.json`` — the ``qp-topic-v1`` application labels.
+
+    The application frame's counterpart to :class:`QpTopicLabels`, kept in a file
+    of its own so the petition artifact and every reader of it are untouched and
+    the application gate binds apart from the petition gate. It accrues the same
+    way, batch by batch, and a reference member publishes the application
+    reference block's adjudicated label rather than the labeler's. ``agreement``
+    and ``shadow`` describe the most recent run only, measured against the
+    application reference block; ``batches`` keeps every run's figures, and each
+    ledger row's ``frame_rows`` counts the application frame.
+
+    Written only when the application gate passes. Agreement here is with the
+    block's adjudicated labels, not accuracy, and the block's raters and fitted
+    rules are disclosed in ``docs/qp-topic.md``. Labels here are a corpus
+    description, not a prediction claim, and nothing frozen reads them.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    vocabulary: Literal["qp-topic-v1"] = Field(
+        default="qp-topic-v1",
+        description="The label vocabulary every entry draws from",
+    )
+    extract_rule: Literal["application-extract-v1"] = Field(
+        default="application-extract-v1",
+        description="The extract rule whose rows every label was read from",
+    )
+    labeler: str = Field(
+        min_length=1,
+        description="Who assigned the most recent batch's labels — engine and model. Earlier "
+        "batches carry their own labeler in `batches`",
+    )
+    cases: int = Field(
+        default=0, ge=0, description="Labeled applications across every batch (== len(entries))"
+    )
+    agreement: QpTopicAgreement = Field(
+        description="The most recent run's measured agreement with the application reference block"
+    )
+    shadow: QpTopicShadow = Field(
+        description="The most recent run's shadow-rule counts over the stored application text"
+    )
+    batches: list[QpTopicBatchEntry] = Field(
+        default_factory=list,
+        description="One row per labeling run that contributed, in batch order",
+    )
+    entries: list[QpTopicApplicationPublishedEntry] = Field(
+        default_factory=list,
+        description="One entry per labeled application, in case_id order, across every batch",
+    )
+
+    @model_validator(mode="after")
+    def _canonical(self) -> QpTopicApplicationLabels:
+        _check_labels_accrual(self.cases, self.entries, self.batches)
         return self
 
 
@@ -11985,7 +12063,11 @@ class ExecutiveSuccessRow(_Strict):
         default=None, description="The row's policy area; null where it is unlabeled"
     )
     policy_uncertain: bool = Field(
-        default=False, description="Whether the label's raters were unsure of the subject"
+        default=False,
+        description=(
+            "Whether the label's subject is in doubt: a rater was unsure of it "
+            "or the raters differed"
+        ),
     )
 
 
@@ -13037,6 +13119,154 @@ class OpsReport(_Strict):
     )
 
 
+LaneState = Literal["up", "late", "failing", "no-runs"]
+
+
+class StatusLane(_Strict):
+    """One scheduled pipeline lane on the public status page.
+
+    ``state`` answers "is this lane running" from two separate signals. A lane is
+    **late** when no run of it started on the default branch since the most recent
+    tick its schedule declares (taken a grace period before the snapshot, because
+    GitHub starts scheduled runs late), and **failing** when its most recent
+    conclusive run ended in failure. Late wins over failing: a lane that has
+    stopped starting is the stronger signal. **no-runs** means the run history
+    the snapshot read holds no run of the lane at all.
+    """
+
+    lane: str = Field(description="The workflow's file stem, e.g. `run-predict`")
+    label: str = Field(description="The lane's public name")
+    what: str = Field(description="One sentence on what the lane does")
+    schedule: str = Field(description="The lane's declared schedule, in words (UTC)")
+    state: LaneState
+    last_started_at: datetime | None = Field(
+        default=None,
+        description="When the newest run of the lane on the default branch was created, "
+        "whatever it concluded",
+    )
+    last_conclusion: str | None = Field(
+        default=None,
+        description="How the newest conclusive run ended (`success`, `failure`, "
+        "`timed_out` or `startup_failure`); a skipped or superseded run is not one",
+    )
+    last_concluded_at: datetime | None = Field(
+        default=None, description="When that conclusive run was created"
+    )
+    expected_since: datetime | None = Field(
+        default=None,
+        description="The schedule tick a run should have started after for the lane to "
+        "count as on time; null when the lane declares no schedule",
+    )
+    runs_7d: int = Field(
+        ge=0, default=0, description="Conclusive runs created in the 7 days before the snapshot"
+    )
+    successes_7d: int = Field(ge=0, default=0, description="Of `runs_7d`, those that succeeded")
+
+
+class StatusStageCells(_Strict):
+    """One (role, stage) row of a production window's cell census."""
+
+    role: str
+    stage: str
+    cells: int = Field(ge=0)
+
+
+class StatusProduction(_Strict):
+    """What the ledger recorded over one trailing window: the cells that ran.
+
+    Counted over the committed ``usage.json`` ledger, which lags: a cell's usage
+    reaches ``data/`` only when its run's collect PR merges, so each count is a
+    floor on what ran, not a real-time figure.
+    """
+
+    window: Literal["7d", "30d", "term"]
+    start: date
+    end: date
+    days: int = Field(ge=0)
+    term: int | None = Field(
+        default=None, description="The October Term the window covers, on the term window"
+    )
+    cells: int = Field(ge=0)
+    events: int = Field(ge=0, description="Distinct events those cells covered")
+    by_stage: list[StatusStageCells] = Field(default_factory=list)
+
+
+class StatusCoverage(_Strict):
+    """How much of the docket the pipeline is following, and with what documents.
+
+    Ledger figures are read from the committed tree at the snapshot's commit; the
+    watchlist figures from the newest published live-frontier snapshot, whose own
+    date is ``frontier_as_of`` (null fields when none was published).
+    """
+
+    public_cases: int = Field(ge=0, description="Dockets with a committed case directory")
+    events_predicted: int = Field(ge=0, description="Events holding at least one prediction")
+    predicted_resolved: int = Field(ge=0, description="Of those, events whose outcome is recorded")
+    predictions: int = Field(ge=0, description="Committed prediction cells")
+    evaluations_forward: int = Field(ge=0, description="Committed forward gradings")
+    frontier_as_of: date | None = None
+    watchlist: int | None = Field(
+        default=None, ge=0, description="Pending petitions distributed for a conference"
+    )
+    documents_provisioned: int | None = Field(
+        default=None, ge=0, description="Watchlist petitions with at least one stored filing"
+    )
+    next_conference: date | None = None
+    next_conference_petitions: int | None = Field(default=None, ge=0)
+    corpus_dockets: int | None = Field(
+        default=None, ge=0, description="Dockets in the corpus, from its newest validation"
+    )
+
+
+class StatusTable(_Strict):
+    """A table already formatted for display: the page renders it as it stands."""
+
+    columns: list[str]
+    rows: list[list[str]]
+
+
+class StatusBacktest(_Strict):
+    """One back-test's committed headline, with the artifact and vintage behind it."""
+
+    key: Literal["historical-replay", "cert", "merits", "salience-replay"]
+    name: str
+    artifact: str = Field(description="Repository path of the committed artifact")
+    vintage: date | None = Field(
+        default=None,
+        description="The date of the commit that last wrote the artifact; null when unknown",
+    )
+    summary: str = Field(description="What was replayed, in one or two sentences")
+    table: StatusTable | None = None
+    reading: str = Field(description="How to read the figures, and what they are not")
+
+
+class PublicStatus(_Strict):
+    """``status.json`` — the public status page's daily snapshot.
+
+    Rendered by ``fedcourts ops-report --status-out`` on the run-ops schedule and
+    published to the ``ops-metrics`` branch, where the public site reads it. A
+    point-in-time view, like :class:`OpsReport`: it carries ``generated_at`` and so
+    is never committed to the default branch. It carries no spend figure and no
+    agent prose; every figure is a count, a date, or a committed artifact's
+    headline.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    generated_at: datetime
+    source_sha: str | None = Field(
+        default=None, description="The default-branch commit the snapshot read"
+    )
+    data_ok: bool | None = Field(
+        default=None,
+        description="The data-validation verdict (ledger schema and corpus checks); "
+        "null when it could not be read",
+    )
+    lanes: list[StatusLane] = Field(default_factory=list)
+    production: list[StatusProduction] = Field(default_factory=list)
+    coverage: StatusCoverage
+    backtests: list[StatusBacktest] = Field(default_factory=list)
+
+
 # A registry model override must be a bare model id: it is interpolated into the
 # whitespace-split `claude_args` of the engine step, so rejecting whitespace (and
 # anything else outside a model id's alphabet) here makes argument smuggling via a
@@ -13625,6 +13855,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "qp-topic-reference.json": QpTopicReference,
     "qp-topic-reference-applications.json": QpTopicApplicationReference,
     "qp-topics.json": QpTopicLabels,
+    "qp-topics-applications.json": QpTopicApplicationLabels,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -13644,6 +13875,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "salience_replay": SalienceReplay,
     "usage": ModelUsage,
     "ops_report": OpsReport,
+    "public_status": PublicStatus,
     "corpus_validation": CorpusValidation,
     "corpus_scope_audit": CorpusScopeAudit,
     "scope_manifest": ScopeManifest,
@@ -13663,6 +13895,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "qp_topic_reference": QpTopicReference,
     "qp_topic_application_reference": QpTopicApplicationReference,
     "qp_topics": QpTopicLabels,
+    "qp_topics_applications": QpTopicApplicationLabels,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "summary_plan": SummaryPlan,
     "export_prediction_row": ExportPredictionRow,

@@ -3532,8 +3532,8 @@ vintage travels with it. Eight more are specific to it.
 - **Coverage bounds the comparison.** On the blob below the earliest in-scope
   application was filed 2023-07-10, so `biden-46` cells under `--as-of filed`
   hold 2023-07-10 to 2025-01-19 only, and `trump-45` holds none. No
-  cross-administration comparison reads from this corpus until the earlier
-  Terms are back-filled.
+  cross-administration comparison reads from that blob; one needs a blob that
+  holds the back-filled earlier Terms.
 - **A controversy rate is beside the application rate, not instead of it.**
   `controversy_cells` group the in-scope applications under `controversy-v1`
   (`pipeline.controversy`): two applications are one controversy where they
@@ -3566,9 +3566,17 @@ vintage travels with it. Eight more are specific to it.
   were the first rater's notes describing another row's case within four
   consecutive rows, which the notes show, so on the subject itself the raters
   disagreed on two (113 of 115). `other` is also the label of a subject the
-  raters could not determine. `policy_uncertain` marks the 26 of the 115 (13
-  in scope) where a rater was unsure of the subject; a quoted per-area pair
-  names its uncertain count. An
+  raters could not determine. A second round labeled 154 more rows the same
+  way: the OT2017–OT2022 applications the rule reads in scope or unknown and,
+  from any Term, the federal-party rows it reads out of scope. They agreed on
+  146 of 154 (kappa 0.94), 76 of 77 on the rows both judged in scope (kappa
+  0.98; their scope calls are hand codes, not committed), and the authoring
+  session adjudicated the other 8, not blind. A label names a row's subject
+  whatever its scope, so an out-of-scope row can carry any area.
+  `policy_uncertain` marks the 100 of the 269 labels where the subject is in
+  doubt: 26 of the first 115, where a rater was unsure (13 of them in scope),
+  and 74 of the second 154, where a rater was unsure or the raters' areas
+  differed. A quoted per-area pair names its uncertain count. An
   application added after the labels is `policy_unlabeled`, outside every
   cell, and a quoted per-area figure names that count. Most cells hold a few
   rows: quote the pair.
@@ -3620,7 +3628,13 @@ raters split on it, so that figure rests on the adjudication) and add
 cut's convention, or 8/9 reading `26A274`, an intervenor's stay that helped an
 FCC action, in substance, the same direction flip as above. The
 `exec-action-v1` reading is unchanged by this check; a narrower rule is a new
-version.
+version. Five of the rows this check codes in scope (`23A55`, `23A300`,
+`23A712`, `24A754`, `25A327`) are only requests to file over the word or page
+limit. None has a filing date, so under `--as-of filed` they sit among the
+unattributed rows and in no administration's pair. The second policy-label
+round's hand codes, not committed either, put such a request out of scope as
+procedural, since its grant is no ruling on the executive action; the counts
+of this check hold the five in scope.
 
 **Replication against the published tally.** Adam Feldman's SCOTUSblog
 column of 2026-10-19 ("Where the Supreme Court favors Trump on the emergency

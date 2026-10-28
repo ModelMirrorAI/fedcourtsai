@@ -1,0 +1,12 @@
+# actionlint configuration, read from this path by the `actionlint` job in
+# lint-actions.yml (and by a local `actionlint` run from the repository root).
+#
+# `ubuntu-26.04` is the GitHub-hosted image every job is pinned to
+# (`PINNED_RUNNER` in tests/test_workflow_cell_invariants.py). The pinned
+# actionlint's built-in list of hosted labels does not include it, so its
+# runner-label rule would reject every job. Declaring the label here accepts
+# that one label and nothing else: any other unknown label still fails, and
+# the pin test still refuses every job that does not name the pinned image.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

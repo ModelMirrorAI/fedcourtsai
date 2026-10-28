@@ -474,7 +474,7 @@ disclosure properties differ. The **scope manifest** (`fedcourts
 scope-manifest`) is enumerated from the committed `data/cases` tree alone,
 never a corpus scan, so it discloses only the already-public set and cannot
 enumerate the wider ingested corpus. The `data/qp-topics/` artifacts are
-**not** roll-ups, and all three carry the deliberate disclosure exception argued in
+**not** roll-ups, and all four carry the deliberate disclosure exception argued in
 `docs/qp-topic.md`. `qp-topic-reference.json` is hand-authored judgment (the
 `qp-topic-v0` measurement baseline), and so is
 `qp-topic-reference-applications.json` (the `qp-topic-v1` application block);
@@ -490,7 +490,10 @@ batch, carrying a per-batch ledger and, on each row, the batch that first
 published it (`docs/qp-topic.md`). The write is still a whole-file replacement:
 the accrual happens in `fedcourts qp-topics`, from the committed copy in the
 run's own checkout, which is why that mode must be dispatched from the ref
-carrying the newest artifact. The **docket
+carrying the newest artifact. `qp-topics-applications.json` is its
+`qp-topic-v1` counterpart over the application frame, written the same way by
+the `qp-topic-label-applications` mode and landed on its own fixed
+`qp-topics/applications-refresh` branch; nothing else reads it yet. The **docket
 pack** (`fedcourts
 docket`) aggregates the whole corpus — it publishes counts and rates over every
 ingested row, never a row itself — so it moves whenever the corpus does, and the
@@ -1663,6 +1666,7 @@ population and apply against another.
 | `merits-phantom-removal` | `remove-ungranted-merits-events` | `--max-removals` | — | `include-failed-attempts` |
 | `disposition-convergence` | `converge-disposition-labels` | `--max-relabels` | — | `include-scored` |
 | `lost-outcomes` | `record-lost-outcomes` | `--max-cases` (cases written, recorded and marked together: the dry run's `cases_written`) | — | — |
+| `event-definition-backfill` | `backfill-event-definitions` | `--max-rewrites` (`event.yaml` files rewritten: the dry run's "would rewrite N file(s)", not the field counts) | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `cert-amicus-rederive` | `rederive-cert-amicus-briefs` | `--max-changes` (rows written: the dry run's `total_changes`, fills plus raises) | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
@@ -2023,10 +2027,33 @@ lookback sits in the pool, and each earlier Term holds a thousand or more
 unparsed stubs, so each Term's apply moves the rate by its own amount. The
 command therefore refuses an apply for any Term outside
 `REGISTERED_APPLY_TERMS` (`pipeline/application_backfill.py`), which holds
-OT2017 to OT2024, each pre-registered in `docs/freeze-record.md`. A further
+OT2016 to OT2024, each pre-registered in `docs/freeze-record.md`. A further
 Term joins that set in the same change that appends a freeze-record entry
 projecting its move, read off its dry run. Its dry run needs no
 registration, since reading moves nothing.
+
+**OT2016 reads the legacy pages.** The pass reaches closed Terms from the
+live floor (`live.term_floor_year`, OT2017), and below it only the Terms in
+`LEGACY_HTML_TERMS`, which holds OT2016. supremecourt.gov serves OT2016's
+application JSON for some serials, mostly from `16A1051` on; for most of the
+rest it still serves the Clerk's record as its legacy HTML docket page
+(`docketfiles/16a<n>.htm`); a sample found no serial served in both forms.
+The walk opens each Term on the page and reads first the form that served the
+serial before, then the other on a miss, so it stays near one fetch a serial.
+`pipeline/legacy_docket.py` parses a page into the docket JSON's own keys, so
+the same live mapping and resolution read it, and nothing maps a field twice. The
+page carries the caption, the docketed date, the court below, a linked-case
+line, the dated proceedings and the counsel blocks; the parse keeps each
+block's attorney, counsel-of-record marker and party name and reads none of
+its address or phone columns. It carries no capital marker, related-case list,
+lower-court decision date or document links, so those stay unset on the rows
+it lands. Its stored snapshot carries a
+`LegacyDocketSource` key naming the page and the SHA-256 of the page without
+its script elements, which change per request,
+so no reader mistakes it for the Court's JSON. The plan carries the page
+verbatim, and the writer parses it again, under the same whole-plan check.
+The live floor itself does not move: the rotations still skip OT2016, so no
+live poll re-reads a JSON the Court does not serve.
 
 **Dispatching.** Dispatch on `main`, in a quiet slot between the scheduled
 windows: `run-pull`'s live windows open at `:47` every even hour and usually

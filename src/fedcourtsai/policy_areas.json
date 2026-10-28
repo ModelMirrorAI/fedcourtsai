@@ -1,6 +1,751 @@
 {
  "rule_version": "policy-area-v1",
  "labels": {
+  "17A126": {
+   "area": "foreign-affairs",
+   "note": "extradition bail; custody matter",
+   "uncertain": true
+  },
+  "17A132": {
+   "area": "immigration",
+   "note": "travel ban executive order; word limit",
+   "uncertain": false
+  },
+  "17A204": {
+   "area": "other",
+   "note": "NLRB order against employer",
+   "uncertain": true
+  },
+  "17A212": {
+   "area": "other",
+   "note": "state guard employment; page limit",
+   "uncertain": true
+  },
+  "17A275": {
+   "area": "immigration",
+   "note": "travel ban refugee provisions",
+   "uncertain": false
+  },
+  "17A445": {
+   "area": "foreign-affairs",
+   "note": "individual extradition habeas",
+   "uncertain": false
+  },
+  "17A522": {
+   "area": "other",
+   "note": "EEOC enforcement judgment",
+   "uncertain": true
+  },
+  "17A550": {
+   "area": "immigration",
+   "note": "travel ban proclamation",
+   "uncertain": false
+  },
+  "17A560": {
+   "area": "immigration",
+   "note": "travel ban proclamation",
+   "uncertain": false
+  },
+  "17A570": {
+   "area": "immigration",
+   "note": "mandamus at district court over DACA administrative record",
+   "uncertain": true
+  },
+  "17A635": {
+   "area": "other",
+   "note": "private suit; rehearing word limit",
+   "uncertain": true
+  },
+  "17A649": {
+   "area": "other",
+   "note": "FEMA aid exclusion of churches",
+   "uncertain": false
+  },
+  "17A655": {
+   "area": "health",
+   "note": "ORR policy on abortion for unaccompanied minor",
+   "uncertain": true
+  },
+  "17A719": {
+   "area": "other",
+   "note": "NLRB order against employer",
+   "uncertain": true
+  },
+  "17A824": {
+   "area": "immigration",
+   "note": "travel ban proclamation; word limit",
+   "uncertain": false
+  },
+  "17A845": {
+   "area": "other",
+   "note": "individual vs FTC; subject not shown",
+   "uncertain": true
+  },
+  "17A924": {
+   "area": "other",
+   "note": "individual MSPB employment case",
+   "uncertain": true
+  },
+  "17A1379": {
+   "area": "immigration",
+   "note": "sanctuary grant conditions; could be other",
+   "uncertain": true
+  },
+  "18A65": {
+   "area": "environment-energy",
+   "note": "mandamus in climate suit",
+   "uncertain": true
+  },
+  "18A199": {
+   "area": "other",
+   "note": "individual vs credit union; word limit",
+   "uncertain": true
+  },
+  "18A274": {
+   "area": "elections-census",
+   "note": "FEC donor-disclosure regulation",
+   "uncertain": true
+  },
+  "18A276": {
+   "area": "personnel-removal",
+   "note": "mandamus at district court; transgender military service case discovery",
+   "uncertain": true
+  },
+  "18A350": {
+   "area": "elections-census",
+   "note": "mandamus on census deposition",
+   "uncertain": true
+  },
+  "18A375": {
+   "area": "elections-census",
+   "note": "mandamus stay of discovery in census citizenship question case",
+   "uncertain": true
+  },
+  "18A410": {
+   "area": "environment-energy",
+   "note": "mandamus stay of Juliana climate trial",
+   "uncertain": true
+  },
+  "18A454": {
+   "area": "immigration",
+   "note": "family stay of removal",
+   "uncertain": true
+  },
+  "18A455": {
+   "area": "elections-census",
+   "note": "mandamus stay of census citizenship question trial",
+   "uncertain": true
+  },
+  "18A615": {
+   "area": "immigration",
+   "note": "asylum eligibility rule for border crossers",
+   "uncertain": false
+  },
+  "18A625": {
+   "area": "personnel-removal",
+   "note": "transgender military service policy",
+   "uncertain": false
+  },
+  "18A626": {
+   "area": "personnel-removal",
+   "note": "transgender military service policy",
+   "uncertain": false
+  },
+  "18A627": {
+   "area": "personnel-removal",
+   "note": "transgender military service policy",
+   "uncertain": false
+  },
+  "18A655": {
+   "area": "other",
+   "note": "grand jury subpoena contempt",
+   "uncertain": false
+  },
+  "18A669": {
+   "area": "other",
+   "note": "grand jury subpoena contempt",
+   "uncertain": true
+  },
+  "18A692": {
+   "area": "other",
+   "note": "individual mandamus vs HUD secretary",
+   "uncertain": true
+  },
+  "18A740": {
+   "area": "other",
+   "note": "habeas petition page limit",
+   "uncertain": false
+  },
+  "18A963": {
+   "area": "firearms",
+   "note": "bump stock rule challenge",
+   "uncertain": false
+  },
+  "18A964": {
+   "area": "firearms",
+   "note": "bump stock rule",
+   "uncertain": false
+  },
+  "18A1019": {
+   "area": "firearms",
+   "note": "bump stock rule",
+   "uncertain": false
+  },
+  "19A60": {
+   "area": "immigration",
+   "note": "border wall funding transfer",
+   "uncertain": false
+  },
+  "19A230": {
+   "area": "immigration",
+   "note": "asylum third-country transit rule",
+   "uncertain": false
+  },
+  "19A545": {
+   "area": "other",
+   "note": "House subpoena of Mazars",
+   "uncertain": false
+  },
+  "19A615": {
+   "area": "federal-executions",
+   "note": "execution protocol injunction",
+   "uncertain": false
+  },
+  "19A640": {
+   "area": "other",
+   "note": "House subpoena of Trump bank records; no exec party",
+   "uncertain": false
+  },
+  "19A773": {
+   "area": "other",
+   "note": "Mazars word limit; no exec party",
+   "uncertain": false
+  },
+  "19A785": {
+   "area": "immigration",
+   "note": "public charge rule",
+   "uncertain": false
+  },
+  "19A793": {
+   "area": "other",
+   "note": "individual vs FCC chairman; word limit",
+   "uncertain": true
+  },
+  "19A822": {
+   "area": "other",
+   "note": "mandamus petition page limit",
+   "uncertain": false
+  },
+  "19A862": {
+   "area": "other",
+   "note": "Mazars word limit; no exec party",
+   "uncertain": false
+  },
+  "19A905": {
+   "area": "immigration",
+   "note": "public charge rule",
+   "uncertain": false
+  },
+  "19A960": {
+   "area": "immigration",
+   "note": "Remain in Mexico (MPP)",
+   "uncertain": false
+  },
+  "19A1035": {
+   "area": "other",
+   "note": "DOJ resists release of Mueller grand jury material to House",
+   "uncertain": true
+  },
+  "19A1037": {
+   "area": "other",
+   "note": "individual vs FTC; subject not shown",
+   "uncertain": true
+  },
+  "19A1041": {
+   "area": "health",
+   "note": "prison COVID habeas v warden",
+   "uncertain": true
+  },
+  "19A1047": {
+   "area": "health",
+   "note": "prison COVID habeas vs warden",
+   "uncertain": true
+  },
+  "19A1050": {
+   "area": "federal-executions",
+   "note": "federal execution protocol",
+   "uncertain": false
+  },
+  "19A1053": {
+   "area": "environment-energy",
+   "note": "Army Corps nationwide permit 12 pipelines",
+   "uncertain": false
+  },
+  "19A1067": {
+   "area": "other",
+   "note": "individual tax matter",
+   "uncertain": false
+  },
+  "20A4": {
+   "area": "federal-executions",
+   "note": "individual habeas stay of execution",
+   "uncertain": true
+  },
+  "20A5": {
+   "area": "federal-executions",
+   "note": "victims' family suit delaying one federal execution",
+   "uncertain": true
+  },
+  "20A6": {
+   "area": "federal-executions",
+   "note": "victims' family on execution timing",
+   "uncertain": true
+  },
+  "20A8": {
+   "area": "federal-executions",
+   "note": "execution protocol injunction",
+   "uncertain": false
+  },
+  "20A9": {
+   "area": "federal-executions",
+   "note": "one inmate's federal execution stay",
+   "uncertain": true
+  },
+  "20A10": {
+   "area": "federal-executions",
+   "note": "individual competency injunction",
+   "uncertain": true
+  },
+  "20A11": {
+   "area": "federal-executions",
+   "note": "execution scheduling, spiritual advisers",
+   "uncertain": true
+  },
+  "20A15": {
+   "area": "other",
+   "note": "House committees v Trump personal records",
+   "uncertain": false
+  },
+  "20A16": {
+   "area": "other",
+   "note": "House subpoena of Trump's personal records; no federal executive party",
+   "uncertain": true
+  },
+  "20A17": {
+   "area": "other",
+   "note": "state grand jury subpoena of Trump",
+   "uncertain": false
+  },
+  "20A34": {
+   "area": "health",
+   "note": "FDA mifepristone in-person requirement",
+   "uncertain": false
+  },
+  "20A35": {
+   "area": "immigration",
+   "note": "individual removal stay",
+   "uncertain": false
+  },
+  "20A42": {
+   "area": "health",
+   "note": "business v HHS action; subject not shown",
+   "uncertain": true
+  },
+  "20A48": {
+   "area": "other",
+   "note": "individual vs SEC; subject not shown",
+   "uncertain": true
+  },
+  "20A62": {
+   "area": "elections-census",
+   "note": "2020 census schedule",
+   "uncertain": false
+  },
+  "20A63": {
+   "area": "other",
+   "note": "state grand jury subpoena of Trump's records",
+   "uncertain": false
+  },
+  "20A98": {
+   "area": "elections-census",
+   "note": "Pennsylvania mail voting; no federal party",
+   "uncertain": false
+  },
+  "20A99": {
+   "area": "federal-executions",
+   "note": "several inmates' stay of federal executions; protocol unclear",
+   "uncertain": true
+  },
+  "20A102": {
+   "area": "federal-executions",
+   "note": "execution protocol injunction",
+   "uncertain": false
+  },
+  "20A103": {
+   "area": "other",
+   "note": "FTC section 13(b) monetary relief; word limit",
+   "uncertain": true
+  },
+  "20A107": {
+   "area": "other",
+   "note": "state board challenges FTC administrative proceeding",
+   "uncertain": true
+  },
+  "20A115": {
+   "area": "elections-census",
+   "note": "electoral count challenge vs Vice President",
+   "uncertain": true
+  },
+  "20A122": {
+   "area": "federal-executions",
+   "note": "one inmate's federal execution date",
+   "uncertain": true
+  },
+  "20A125": {
+   "area": "federal-executions",
+   "note": "individual stay of execution",
+   "uncertain": true
+  },
+  "20A131": {
+   "area": "federal-executions",
+   "note": "several inmates' stay of federal execution; protocol unclear",
+   "uncertain": true
+  },
+  "20A133": {
+   "area": "other",
+   "note": "individual v HUD; subject not shown",
+   "uncertain": true
+  },
+  "20A134": {
+   "area": "federal-executions",
+   "note": "individual execution stay, sentencing issue",
+   "uncertain": true
+  },
+  "20A141": {
+   "area": "other",
+   "note": "detainees' custody vs sheriff, COVID",
+   "uncertain": true
+  },
+  "20A148": {
+   "area": "other",
+   "note": "state donor disclosure; word limit",
+   "uncertain": false
+  },
+  "20A150": {
+   "area": "immigration",
+   "note": "states seek to defend public charge rule after vacatur",
+   "uncertain": true
+  },
+  "20A169": {
+   "area": "health",
+   "note": "CDC eviction moratorium",
+   "uncertain": false
+  },
+  "21A2": {
+   "area": "health",
+   "note": "CDC transportation mask mandate",
+   "uncertain": false
+  },
+  "21A5": {
+   "area": "health",
+   "note": "state v CDC cruise ship order",
+   "uncertain": false
+  },
+  "21A11": {
+   "area": "other",
+   "note": "individual vs Commerce secretary; subject not shown",
+   "uncertain": true
+  },
+  "21A13": {
+   "area": "immigration",
+   "note": "individual vs Attorney General, likely removal",
+   "uncertain": true
+  },
+  "21A21": {
+   "area": "immigration",
+   "note": "Remain in Mexico termination",
+   "uncertain": false
+  },
+  "21A22": {
+   "area": "environment-energy",
+   "note": "federal review of park project",
+   "uncertain": true
+  },
+  "21A23": {
+   "area": "health",
+   "note": "CDC eviction moratorium",
+   "uncertain": false
+  },
+  "21A27": {
+   "area": "foreign-affairs",
+   "note": "word limit; FBI surveillance and state secrets",
+   "uncertain": true
+  },
+  "21A75": {
+   "area": "other",
+   "note": "individual NLRB matter; word limit",
+   "uncertain": true
+  },
+  "21A85": {
+   "area": "health",
+   "note": "US suit against Texas abortion law",
+   "uncertain": true
+  },
+  "21A132": {
+   "area": "immigration",
+   "note": "individual stay of removal",
+   "uncertain": false
+  },
+  "21A176": {
+   "area": "health",
+   "note": "FDA denial of vape marketing",
+   "uncertain": false
+  },
+  "21A189": {
+   "area": "environment-energy",
+   "note": "lobster fishing closure rule",
+   "uncertain": true
+  },
+  "21A190": {
+   "area": "other",
+   "note": "individual v AG; subject not shown",
+   "uncertain": true
+  },
+  "21A198": {
+   "area": "health",
+   "note": "TSA transport mask mandate",
+   "uncertain": false
+  },
+  "21A240": {
+   "area": "health",
+   "note": "CMS health-worker vaccine rule",
+   "uncertain": false
+  },
+  "21A241": {
+   "area": "health",
+   "note": "CMS vaccine rule",
+   "uncertain": false
+  },
+  "21A243": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A244": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A245": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A246": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A247": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A248": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A249": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A250": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A251": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A252": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A258": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A259": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A260": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A267": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A268": {
+   "area": "other",
+   "note": "adoption agency v State Dept accreditation action",
+   "uncertain": true
+  },
+  "21A272": {
+   "area": "other",
+   "note": "presidential records release, privilege waiver",
+   "uncertain": true
+  },
+  "21A293": {
+   "area": "health",
+   "note": "OSHA vaccine-or-test standard",
+   "uncertain": false
+  },
+  "21A327": {
+   "area": "immigration",
+   "note": "individual removal stay",
+   "uncertain": true
+  },
+  "21A406": {
+   "area": "other",
+   "note": "individual federal employment appeal vs MSPB",
+   "uncertain": true
+  },
+  "21A451": {
+   "area": "other",
+   "note": "likely individual removal stay",
+   "uncertain": true
+  },
+  "21A477": {
+   "area": "health",
+   "note": "Navy vaccine mandate; could be personnel",
+   "uncertain": true
+  },
+  "21A490": {
+   "area": "elections-census",
+   "note": "Wisconsin redistricting; no federal party",
+   "uncertain": false
+  },
+  "21A539": {
+   "area": "environment-energy",
+   "note": "Clean Water Act 401 certification rule vacatur",
+   "uncertain": false
+  },
+  "21A555": {
+   "area": "other",
+   "note": "ICWA statute defense; word limit",
+   "uncertain": true
+  },
+  "21A599": {
+   "area": "health",
+   "note": "military vaccine mandate; could be personnel",
+   "uncertain": true
+  },
+  "21A658": {
+   "area": "environment-energy",
+   "note": "social cost of greenhouse gases",
+   "uncertain": false
+  },
+  "21A756": {
+   "area": "elections-census",
+   "note": "legislators resist discovery in Texas redistricting VRA suit",
+   "uncertain": true
+  },
+  "22A17": {
+   "area": "immigration",
+   "note": "DHS enforcement priorities",
+   "uncertain": false
+  },
+  "22A230": {
+   "area": "other",
+   "note": "individual in re injunction; subject unknown",
+   "uncertain": true
+  },
+  "22A255": {
+   "area": "other",
+   "note": "FDIC enforcement and proceeding structure vs banker",
+   "uncertain": true
+  },
+  "22A331": {
+   "area": "education",
+   "note": "student loan forgiveness challenge",
+   "uncertain": false
+  },
+  "22A337": {
+   "area": "other",
+   "note": "senator vs state grand jury on 2020 election probe",
+   "uncertain": true
+  },
+  "22A345": {
+   "area": "immigration",
+   "note": "individual stay of removal",
+   "uncertain": false
+  },
+  "22A350": {
+   "area": "other",
+   "note": "House committee subpoena; no exec party",
+   "uncertain": false
+  },
+  "22A362": {
+   "area": "other",
+   "note": "Trump vs release of his tax returns to House",
+   "uncertain": true
+  },
+  "22A373": {
+   "area": "education",
+   "note": "student loan forgiveness challenge",
+   "uncertain": false
+  },
+  "22A444": {
+   "area": "education",
+   "note": "student loan forgiveness program",
+   "uncertain": false
+  },
+  "22A489": {
+   "area": "education",
+   "note": "student loan forgiveness",
+   "uncertain": false
+  },
+  "22A544": {
+   "area": "immigration",
+   "note": "Title 42 termination",
+   "uncertain": false
+  },
+  "22A702": {
+   "area": "other",
+   "note": "qui tam False Claims Act vs pharmacy; word limit",
+   "uncertain": true
+  },
+  "22A848": {
+   "area": "immigration",
+   "note": "individual stay of removal",
+   "uncertain": false
+  },
+  "22A867": {
+   "area": "education",
+   "note": "borrower defense class settlement",
+   "uncertain": false
+  },
+  "22A884": {
+   "area": "other",
+   "note": "individual v AG; subject not shown",
+   "uncertain": true
+  },
+  "22A902": {
+   "area": "health",
+   "note": "FDA mifepristone approval",
+   "uncertain": false
+  },
   "23A35": {
    "area": "environment-energy",
    "note": "Mountain Valley Pipeline approval",
@@ -251,6 +996,11 @@
    "note": "EPA oil and gas methane rule",
    "uncertain": false
   },
+  "24A255": {
+   "area": "other",
+   "note": "individual vs Trump as private party; subject unknown",
+   "uncertain": true
+  },
   "24A287": {
    "area": "other",
    "note": "horseracing safety authority regulation",
@@ -289,6 +1039,11 @@
   "24A653": {
    "area": "other",
    "note": "Corporate Transparency Act reporting",
+   "uncertain": false
+  },
+  "24A666": {
+   "area": "other",
+   "note": "state criminal sentencing of Trump",
    "uncertain": false
   },
   "24A724": {
@@ -481,6 +1236,11 @@
    "note": "SNAP benefits funding during shutdown",
    "uncertain": false
   },
+  "25A561": {
+   "area": "environment-energy",
+   "note": "California climate disclosure laws; no federal party",
+   "uncertain": true
+  },
   "25A662": {
    "area": "personnel-removal",
    "note": "EOIR policy on immigration judges, federal workforce",
@@ -574,6 +1334,16 @@
   "26A476": {
    "area": "elections-census",
    "note": "FCC broadcast rule in election dispute with candidates",
+   "uncertain": true
+  },
+  "26A528": {
+   "area": "other",
+   "note": "Westfall substitution, single tort case",
+   "uncertain": true
+  },
+  "26A560": {
+   "area": "immigration",
+   "note": "border barrier construction challenged by church and environmental group",
    "uncertain": true
   }
  }
