@@ -14346,6 +14346,86 @@ freeze commit is recorded here.
   run python scripts/checks/redocketed_numbers.py` reports the same refusal
   counts at the carrying merge as at its first parent.
 
+- **Gemini rows carry the call's logged outcome, and codex logs gain the
+  cell's subagent sessions, 2026-10-28.** Two **capture** changes of the
+  masking-surface class, in one PR. No digest, constant, window, boundary or
+  membership rule moves, and `uv run fedcourts process-digest --all` prints the
+  same `proc-v13` digests at the change as at its base.
+
+  **Gemini.** Gemini CLI 0.49's `gemini_cli.tool_call` record carries the
+  call's `success` bit, a failed call's message, and, with prompt logging on
+  as the cell workflows set it, a shell command's non-zero exit in `metadata`.
+  Capture now reads them. Every gemini row is `result_capture` `outcome_only`
+  where it was `unobserved`, with `result_status` `error` where the CLI marked
+  the call failed (its `success` false, an error message logged, or a shell
+  command's non-zero exit), `throttled` where a manifest call's failure message
+  carries the 429 shape (read after the CLI's `with response:` wrapper where it
+  quotes the call's own arguments, else the whole message), and `ok` otherwise. Digests and
+  document dates stay null, because the payload is still not logged.
+  - **What it reaches through the blinded log.** The mask passes both markers
+    through, so every evaluator now sees, on a gemini candidate, which calls
+    the engine marked failed. That is the point: a judge reading a
+    `fedcourts query` row against a `retrieval.md` that reports no retrieval
+    can tell a failed attempt from an undisclosed one. The evaluate prompt
+    describes `captured` and `unobserved` only; it is not edited here, so an
+    `outcome_only` row reaches a judge described by its own name and the
+    field's schema description until a re-bless adds a line for it. A judge
+    applying the prompt literally may read an `outcome_only` row's null digest
+    as "returned nothing", so blinded leakage grades of gemini candidates sit
+    on a capture seam across the merge. An all-`outcome_only` log identifies
+    the gemini candidate as surely as an all-`unobserved` one did.
+  - **What it moves on published surfaces.** Gemini manifest calls enter the
+    throttle denominator for the first time: the log's `throttled_calls`, the
+    run PR's throttle note, and the tool-usage report's per-engine throttle
+    cut. Gemini's figure sees a 429 the server raised as a tool error and never
+    the citation tools' note on a successful result, so it is a narrower floor
+    than claude's or codex's. Gemini logs captured before the carrying merge
+    stay `unobserved` and add nothing to it, so a gemini throttle figure is
+    scoped to logs captured after the merge, and a move across it is a capture
+    change. `result_capture_coverage` does not move: it counts `captured` rows
+    only.
+
+  **Codex.** Capture read the newest `rollout-*.jsonl` under the cell's
+  sessions directory, and a subagent session started after the parent's last
+  write is the newest file. It now reads the parent session (the newest
+  rollout whose `session_meta` names no parent thread and no subagent source),
+  every subagent session descending from it, and any subagent session in the
+  cell's directory that names no parent: calls merge in timestamp order, and
+  token counts sum. A subagent forked with its parent's history copies the
+  parent's token events and continues its running total, so only what it adds
+  past the inherited total counts; the fork copies no tool call, so no row
+  repeats. A tree with no top-level `session_meta` reads the newest rollout
+  alone.
+  - **What it reaches.** A codex candidate's staged log can gain rows a
+    subagent made, which is retrieval the cell did and which the judge
+    previously could not see. A codex cell's `usage.json` tokens and estimated
+    cost rise by the subagent's use, so measured spend moves with them, under
+    the same process version: a codex $/cell measured across the carrying
+    merge pools two capture regimes that no digest separates, and earlier
+    codex measurements leave subagent spend out, so a re-anchor of codex's
+    planning rate reads cells after the merge only. Subagent tokens are priced
+    at the parent's requested model, and `served_models` reads the parent
+    session alone, so a subagent on another model is priced as the parent.
+  - **What it does not repair.** The 10 of 675 committed codex logs (counted
+    2026-10-16) that looked like a subagent's session keep what they carry,
+    and so do the same cells' `usage.json`, which count the subagent's tokens
+    rather than the parent's: capture runs once, and those rollouts are gone.
+
+  The parsers were built against the Gemini CLI 0.49 and Codex 0.144.1 sources
+  and exercised on fixtures shaped from them; no real engine log was read for
+  this entry, so both readings are unverified until the first round after the
+  carrying merge. The runnable effect check once it is live, on the first
+  predict round after the carrying merge: across its gemini
+  `retrieval_log.json` files, `jq '[.calls[].result_status] | unique'` prints
+  more than `["ok"]` on at least one cell (a status read from a real
+  `success` or error field, not the residual), and across its `usage.json`
+  files `jq .served_models` is non-null on each engine's cells; on the first
+  evaluate round, each cell directory carries a `blinding.json`; and `uv run
+  fedcourts process-digest --all` prints the same label and six digests at
+  the carrying merge as at its first parent.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
 - **A merits event on a proceeding that ended with nothing decided closes
   without an outcome, `merits-terminated`; recorded 2026-10-28.** A
   **membership** entry: it states the terminal state of a forecast that can

@@ -6,10 +6,15 @@ from pathlib import Path
 
 import pytest
 
+from fedcourtsai.pricing import TokenCounts
 from fedcourtsai.usage import (
+    codex_cell_rollouts,
     engine_version_from_output,
+    parse_claude_served_models,
     parse_claude_usage,
+    parse_codex_served_models,
     parse_codex_usage,
+    parse_gemini_served_models,
     parse_gemini_usage,
     resolve_engine_version,
     resolve_pipeline_sha,
@@ -272,3 +277,175 @@ def test_pipeline_sha_unresolvable_is_none(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(subprocess, "run", boom)
     assert resolve_pipeline_sha() is None
+
+
+def _codex_session(path: Path, meta: dict[str, object], usage: dict[str, int]) -> None:
+    """One rollout: its ``session_meta`` line, then a cumulative token event."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"type": "session_meta", "payload": meta}) + "\n" + _codex_event(usage)
+    )
+
+
+def test_a_subagent_rollout_newer_than_its_parent_is_not_taken_for_the_cell(
+    tmp_path: Path,
+) -> None:
+    day = tmp_path / "sessions" / "2026" / "10" / "16"
+    parent = day / "rollout-2026-10-16T09-00-00-parent.jsonl"
+    child = day / "rollout-2026-10-16T09-05-00-child.jsonl"
+    _codex_session(
+        parent,
+        {"id": "p", "source": "exec"},
+        {"input_tokens": 1_000, "cached_input_tokens": 400, "output_tokens": 100},
+    )
+    _codex_session(
+        child,
+        {
+            "id": "c",
+            "source": {"subagent": {"thread_spawn": {"parent_thread_id": "p", "depth": 1}}},
+        },
+        {"input_tokens": 50, "cached_input_tokens": 10, "output_tokens": 5},
+    )
+    assert codex_cell_rollouts(tmp_path / "sessions") == [parent, child]
+    counts = parse_codex_usage(tmp_path / "sessions")
+    # Parent and subagent bill side by side, so both sum into the cell.
+    assert counts == TokenCounts(input_tokens=640, output_tokens=105, cache_read_input_tokens=410)
+
+
+def test_a_forked_subagent_bills_only_past_the_history_it_inherited(tmp_path: Path) -> None:
+    day = tmp_path / "sessions" / "2026" / "10" / "16"
+    parent = day / "rollout-2026-10-16T09-00-00-parent.jsonl"
+    child = day / "rollout-2026-10-16T09-05-00-child.jsonl"
+    first = {"input_tokens": 600, "cached_input_tokens": 200, "output_tokens": 60}
+    at_fork = {"input_tokens": 1_000, "cached_input_tokens": 400, "output_tokens": 100}
+    _codex_session(parent, {"id": "p", "source": "exec"}, first)
+    with parent.open("a") as handle:
+        handle.write("\n" + _codex_event(at_fork))
+    # A full-history fork: the child's rollout opens with its own meta, copies
+    # the parent's meta and token events, then continues the running total.
+    _codex_session(
+        child,
+        {
+            "id": "c",
+            "forked_from_id": "p",
+            "source": {"subagent": {"thread_spawn": {"parent_thread_id": "p", "depth": 1}}},
+        },
+        first,
+    )
+    with child.open("a") as handle:
+        handle.write("\n" + _codex_event(at_fork))
+        handle.write(
+            "\n"
+            + _codex_event(
+                {"input_tokens": 1_050, "cached_input_tokens": 410, "output_tokens": 105}
+            )
+        )
+    counts = parse_codex_usage(tmp_path / "sessions")
+    # The child adds 50 input (10 cached) and 5 output past the fork, not the
+    # parent's 1,000 again.
+    assert counts == TokenCounts(input_tokens=640, output_tokens=105, cache_read_input_tokens=410)
+
+
+def test_cell_rollouts_follow_the_parent_chain_and_skip_another_top_level_session(
+    tmp_path: Path,
+) -> None:
+    day = tmp_path / "sessions" / "2026" / "10" / "16"
+    usage = {"input_tokens": 1, "cached_input_tokens": 0, "output_tokens": 1}
+    earlier = day / "rollout-2026-10-16T08-00-00-earlier.jsonl"
+    parent = day / "rollout-2026-10-16T09-00-00-parent.jsonl"
+    grandchild = day / "rollout-2026-10-16T09-01-00-grandchild.jsonl"
+    child = day / "rollout-2026-10-16T09-02-00-child.jsonl"
+    orphan = day / "rollout-2026-10-16T09-03-00-compact.jsonl"
+    _codex_session(earlier, {"id": "e", "source": "exec"}, usage)
+    _codex_session(parent, {"id": "p", "source": "exec"}, usage)
+    _codex_session(grandchild, {"id": "g", "parent_thread_id": "c", "source": "exec"}, usage)
+    _codex_session(child, {"id": "c", "parent_thread_id": "p", "source": "exec"}, usage)
+    _codex_session(orphan, {"id": "o", "source": {"subagent": "compact"}}, usage)
+    assert codex_cell_rollouts(tmp_path / "sessions") == [parent, grandchild, child, orphan]
+
+
+def test_claude_served_models_read_the_main_threads_responses(tmp_path: Path) -> None:
+    transcript = _write_claude(
+        tmp_path / "execution.json",
+        [
+            {"type": "system", "subtype": "init", "model": "claude-opus-5-5"},
+            {"type": "assistant", "message": {"model": "claude-opus-5-5"}},
+            # A subagent runs on its own model by design.
+            {
+                "type": "assistant",
+                "parent_tool_use_id": "toolu_1",
+                "message": {"model": "claude-haiku-5-5"},
+            },
+            # Claude Code's own placeholder turn, which no model served.
+            {"type": "assistant", "message": {"model": "<synthetic>"}},
+            {"type": "assistant", "message": {"model": "claude-sonnet-5-5"}},
+            {"type": "assistant", "message": {"model": "claude-opus-5-5"}},
+        ],
+    )
+    assert parse_claude_served_models(transcript) == ["claude-opus-5-5", "claude-sonnet-5-5"]
+    assert parse_claude_served_models(tmp_path / "missing.json") is None
+
+
+def test_codex_served_models_read_the_parent_sessions_turn_contexts(tmp_path: Path) -> None:
+    day = tmp_path / "sessions" / "2026" / "10" / "16"
+    day.mkdir(parents=True)
+    (day / "rollout-2026-10-16T09-00-00-p.jsonl").write_text(
+        "\n".join(
+            json.dumps(record)
+            for record in (
+                {"type": "session_meta", "payload": {"id": "p", "source": "exec"}},
+                {"type": "turn_context", "payload": {"model": "gpt-6.1-sol"}},
+                {"type": "turn_context", "payload": {"model": "gpt-6.1-sol"}},
+            )
+        )
+    )
+    (day / "rollout-2026-10-16T09-01-00-c.jsonl").write_text(
+        "\n".join(
+            json.dumps(record)
+            for record in (
+                {"type": "session_meta", "payload": {"id": "c", "parent_thread_id": "p"}},
+                {"type": "turn_context", "payload": {"model": "gpt-6.1-mini"}},
+            )
+        )
+    )
+    assert parse_codex_served_models(tmp_path / "sessions") == ["gpt-6.1-sol"]
+    assert parse_codex_served_models(tmp_path / "none") is None
+
+
+def test_gemini_served_models_read_main_role_responses(tmp_path: Path) -> None:
+    log = tmp_path / "telemetry.log"
+    records = [
+        {
+            "attributes": {
+                "event.name": "gemini_cli.api_response",
+                "model": "gemini-4-argon",
+                "role": "main",
+                "input_token_count": 10,
+            }
+        },
+        # Utility calls run on helper models by design.
+        {
+            "attributes": {
+                "event.name": "gemini_cli.api_response",
+                "model": "gemini-4-flash-lite",
+                "role": "utility_loop_detector",
+                "input_token_count": 3,
+            }
+        },
+        # The CLI fell back mid-run.
+        {
+            "attributes": [
+                {"key": "event.name", "value": {"stringValue": "gemini_cli.api_response"}},
+                {"key": "model", "value": {"stringValue": "gemini-4-flash"}},
+                {"key": "input_token_count", "value": {"intValue": "4"}},
+            ]
+        },
+        # A record of another event is not a response.
+        {"attributes": {"event.name": "gemini_cli.api_request", "model": "x"}},
+    ]
+    log.write_text("\n".join(json.dumps(record) for record in records))
+    assert parse_gemini_served_models(log) == ["gemini-4-argon", "gemini-4-flash"]
+    # The usage fixture's flat shape names its model on the record itself.
+    flat = tmp_path / "flat.log"
+    flat.write_text(json.dumps(_gemini_event(1, 0, 1, 0)))
+    assert parse_gemini_served_models(flat) == ["gemini-3.1-pro-preview"]

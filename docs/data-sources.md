@@ -748,9 +748,10 @@ The automated consumer stays within CourtListener's published API limits by desi
   and configured ceilings: four requests for a typical circuit case, sixteen at
   worst. Its requests count against the same account limits but not against
   the pull governor's per-process tally, since each process counts only its
-  own. It is a maintainer's measurement, not a lane, and it reads only what
-  CourtListener already holds — no RECAP Fetch request, so no PACER charge
-  ([cli.md](cli.md)).
+  own. It is a maintainer's measurement, not a lane, dispatched as
+  `run-analytics`'s `decision-below` mode over 35 petitions with its governor
+  capped at order-scan's 150 requests, and it reads only what CourtListener already holds — no RECAP
+  Fetch request, so no PACER charge ([cli.md](cli.md)).
 - **The adverse-order scan shares it too.** `order-scan` runs the RECAP
   searches `config/order-scan.yaml` configures — district dockets whose
   entries match an order phrase in a window of entry dates, one request a
@@ -858,10 +859,24 @@ material**:
     The writer refuses a plan whole above the window's cap, off its shape, or
     naming anything not on the window's worklist, and writes a row only into
     a stored document still empty at the same URL.
+  - *The dispatched pass* (proposed; promoting the split of run-repair's
+    `ocr-recovery` pass to `main` decides it). The same text, of the same shape, read
+    the same way, crosses run-repair's credential split as
+    `repair-plan-<run_id>`, on an applied dispatch only, kept one day and
+    consumed by that run's OCR recovery writer. Every term above holds for
+    it: nothing from our stores, never committed or printed, and refused
+    whole by its writer on the same checks against the projection's own
+    worklist — less two the dispatched pass never applied (a reading need
+    not be `ocr_derived`, and one of another page count is written with the
+    count read), plus one: the plan must account for every worklist item
+    exactly once. Its worklist is at most `repair_bound` items and at most
+    200, so a plan is at most that many filings, each under the document
+    cap.
   - *Who can read it:* the repository is public, so while the artifact
     exists any signed-in GitHub user can download it from the run page —
     for a day, on each of run-seed's four windows a day that recovered
-    anything. The same is true of the application back-fill's artifact above.
+    anything, and on each applied `ocr-recovery` dispatch. The same is true of
+    the application back-fill's artifact above.
     Deleting the artifact as soon as the writer has consumed it would shorten
     that to minutes, at the price of `actions: write` on the writer job; that
     trade is the maintainer's to make, and is not made here.

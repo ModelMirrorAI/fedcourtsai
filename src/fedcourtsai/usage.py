@@ -149,45 +149,259 @@ def _find_claude_usage(doc: Any) -> dict[str, Any] | None:
 
 
 def parse_codex_usage(sessions_dir: Path) -> TokenCounts | None:
-    """Token counts from the newest Codex rollout JSONL under ``sessions_dir``.
+    """Token counts from the cell's Codex rollouts under ``sessions_dir``.
 
-    Reads the last ``token_count`` event's cumulative ``total_token_usage`` and
-    normalizes it to the Claude convention: Codex's ``input_tokens`` counts the
-    cached portion, so the cached tokens are split out into
-    ``cache_read_input_tokens`` and subtracted from fresh input. Returns ``None``
-    when no rollout file or usage event is found.
+    Reads each of the cell's sessions (:func:`codex_cell_rollouts`: the parent
+    and every subagent session it spawned) for its last ``token_count`` event's
+    cumulative ``total_token_usage`` and sums them, since a subagent bills
+    beside its parent rather than inside it. A subagent forked with its
+    parent's history copies the parent's ``token_count`` events into its own
+    rollout and continues the parent's running total, so its leading totals
+    that repeat an earlier session's are inherited, and only what it adds
+    past the last of them is its own. Normalizes to the Claude
+    convention: Codex's ``input_tokens`` counts the cached portion, so the
+    cached tokens are split out into ``cache_read_input_tokens`` and subtracted
+    from fresh input. Returns ``None`` when no rollout or usage event is found.
     """
-    rollout = _newest_rollout(sessions_dir)
-    if rollout is None:
+    seen: set[str] = set()
+    found = False
+    total_input = cached = output = 0
+    for rollout in codex_cell_rollouts(sessions_dir):
+        history = _codex_token_usages(rollout)
+        if not history:
+            continue
+        found = True
+        keys = [json.dumps(usage, sort_keys=True, default=str) for usage in history]
+        inherited: dict[str, Any] = {}
+        for key, usage in zip(keys, history, strict=True):
+            if key not in seen:
+                break
+            inherited = usage
+        last = history[-1]
+
+        def own(field: str, last: dict[str, Any] = last, base: dict[str, Any] = inherited) -> int:
+            return max(0, _as_int(last.get(field)) - _as_int(base.get(field)))
+
+        total_input += own("input_tokens")
+        cached += own("cached_input_tokens")
+        output += own("output_tokens")
+        seen.update(keys)
+    if not found:
         return None
-    usage = _last_codex_token_usage(rollout)
-    if usage is None:
-        return None
-    cached = _as_int(usage.get("cached_input_tokens"))
-    total_input = _as_int(usage.get("input_tokens"))
     return TokenCounts(
         input_tokens=max(0, total_input - cached),
-        output_tokens=_as_int(usage.get("output_tokens")),
+        output_tokens=output,
         cache_read_input_tokens=cached,
         cache_creation_input_tokens=0,
     )
 
 
-def _newest_rollout(sessions_dir: Path) -> Path | None:
-    """The lexically-latest ``rollout-*.jsonl`` under ``sessions_dir``.
+def codex_cell_rollouts(sessions_dir: Path) -> list[Path]:
+    """The cell's own Codex sessions: its parent rollout, then each subagent's.
 
-    Codex names rollout files with a leading UTC timestamp, so lexical order is
-    chronological — no clock or ``mtime`` read needed for a deterministic pick.
+    A Codex session that spawns a subagent writes the subagent's session to a
+    rollout of its own, and a subagent started after the parent's last write
+    is the **newest** file — so "the newest rollout" can be a subagent's,
+    leaving the parent's calls and tokens out of the cell's record. Each
+    rollout opens with a ``session_meta`` record naming its thread ``id`` and,
+    for a subagent, its ``parent_thread_id`` and a ``source`` of
+    ``{"subagent": …}``, which is what this reads.
+
+    The **parent** is the newest rollout whose ``session_meta`` names no
+    parent and no subagent source. Its subagents are every rollout whose
+    parent chain reaches it, and every subagent rollout naming no parent at
+    all (the sessions directory is the cell's own, so an orphaned subagent is
+    still this cell's work). A subagent's calls are the cell's: what a cell
+    retrieved through a helper it spawned is what it retrieved, for leakage
+    grading as for spend. Parent first, then subagents in file order.
+
+    A tree with no top-level ``session_meta`` — a rollout written before Codex
+    logged one, or a directory holding only subagent sessions — falls back to
+    the newest rollout alone; an empty or missing directory yields no rollouts.
     """
     if not sessions_dir.is_dir():
-        return None
+        return []
     rollouts = sorted(sessions_dir.rglob("rollout-*.jsonl"))
-    return rollouts[-1] if rollouts else None
+    metas = {rollout: _codex_session_meta(rollout) for rollout in rollouts}
+    parents = [
+        rollout
+        for rollout, meta in metas.items()
+        if meta is not None and _codex_parent_id(meta) is None and not _codex_is_subagent(meta)
+    ]
+    if not parents:
+        return rollouts[-1:]
+    parent = parents[-1]
+    included = {str((metas[parent] or {}).get("id") or "")}
+    children: list[Path] = []
+    pending = [rollout for rollout in rollouts if rollout not in parents]
+    progressed = True
+    while progressed:
+        progressed = False
+        for rollout in list(pending):
+            meta = metas[rollout]
+            if meta is None:
+                continue
+            parent_id = _codex_parent_id(meta)
+            orphan = parent_id is None and _codex_is_subagent(meta)
+            if orphan or (parent_id is not None and parent_id in included):
+                children.append(rollout)
+                included.add(str(meta.get("id") or ""))
+                pending.remove(rollout)
+                progressed = True
+    return [parent, *sorted(children)]
+
+
+def _codex_session_meta(rollout: Path) -> dict[str, Any] | None:
+    """The payload of a rollout's first ``session_meta`` record, if it has one."""
+    try:
+        with rollout.open() as handle:
+            for raw in handle:
+                line = raw.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(record, dict) and record.get("type") == "session_meta":
+                    payload = record.get("payload")
+                    return payload if isinstance(payload, dict) else None
+    except OSError:
+        return None
+    return None
+
+
+def _codex_subagent_source(meta: dict[str, Any]) -> Any:
+    """The ``subagent`` half of a session's ``source``, or ``None`` for a top-level one."""
+    source = meta.get("source")
+    return source.get("subagent") if isinstance(source, dict) else None
+
+
+def _codex_is_subagent(meta: dict[str, Any]) -> bool:
+    return _codex_subagent_source(meta) is not None
+
+
+def _codex_parent_id(meta: dict[str, Any]) -> str | None:
+    """The thread a session was spawned from, wherever its release records it."""
+    parent = meta.get("parent_thread_id")
+    if not parent:
+        subagent = _codex_subagent_source(meta)
+        spawn = subagent.get("thread_spawn") if isinstance(subagent, dict) else None
+        parent = spawn.get("parent_thread_id") if isinstance(spawn, dict) else None
+    return str(parent) if parent else None
+
+
+# --- Served model ------------------------------------------------------------
+#
+# The model each engine's own log names for the cell's main-agent calls, kept
+# beside the requested ``model`` a cell is priced at. Each engine logs it at a
+# different distance from the provider, and the distance is the reading:
+#
+# - **Claude Code**: each main-thread ``assistant`` event's ``message.model`` is
+#   the model the API response named, so a provider-side substitution shows.
+# - **Gemini**: each ``gemini_cli.api_response`` record's ``model`` is the
+#   response's own ``modelVersion`` where the API sent one, else the model the
+#   CLI requested — so it shows a provider substitution and the CLI's own
+#   fallback alike, in the provider's spelling of the version.
+# - **Codex**: each ``turn_context`` record's ``model`` is the model the CLI
+#   addressed for that turn. A server-side reroute Codex reports only as a
+#   transient event its rollout does not persist, so on this engine the value
+#   shows a client-side switch and never a provider substitution.
+
+# Claude Code's placeholder for a message it composed itself (an API error
+# rendered as a turn), which no model served.
+_CLAUDE_SYNTHETIC_MODEL = "<synthetic>"
+# Gemini's main-agent role; its utility calls (routing, loop detection,
+# compression, summaries) carry roles of their own and run on helper models by
+# design, so they are not the cell's model. A record with no role predates the
+# attribute and is read as the main agent's.
+_GEMINI_MAIN_ROLES = frozenset({"", "main"})
+
+
+def _first_seen(models: list[str]) -> list[str] | None:
+    """Distinct non-empty model ids in first-seen order; ``None`` when there are none."""
+    distinct = list(dict.fromkeys(model for model in models if model))
+    return distinct or None
+
+
+def parse_claude_served_models(execution_file: Path) -> list[str] | None:
+    """The models a Claude Code transcript's main-thread responses name.
+
+    Main thread only: a subagent the session spawned (``parent_tool_use_id``
+    set) runs on whatever model its definition names, by design.
+    """
+    doc = _load_json(execution_file)
+    events = doc if isinstance(doc, list) else [doc]
+    models: list[str] = []
+    for event in events:
+        if not isinstance(event, dict) or event.get("type") != "assistant":
+            continue
+        if event.get("parent_tool_use_id"):
+            continue
+        message = event.get("message")
+        model = message.get("model") if isinstance(message, dict) else None
+        if isinstance(model, str) and model != _CLAUDE_SYNTHETIC_MODEL:
+            models.append(model)
+    return _first_seen(models)
+
+
+def parse_codex_served_models(sessions_dir: Path) -> list[str] | None:
+    """The models the cell's parent Codex session addressed, one per turn context."""
+    rollouts = codex_cell_rollouts(sessions_dir)
+    if not rollouts:
+        return None
+    models: list[str] = []
+    try:
+        lines = rollouts[0].read_text().splitlines()
+    except OSError:
+        return None
+    for raw in lines:
+        try:
+            record = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(record, dict) or record.get("type") != "turn_context":
+            continue
+        payload = record.get("payload")
+        model = payload.get("model") if isinstance(payload, dict) else None
+        if isinstance(model, str):
+            models.append(model)
+    return _first_seen(models)
+
+
+def parse_gemini_served_models(telemetry_file: Path) -> list[str] | None:
+    """The models a Gemini CLI telemetry log's main-agent responses name."""
+    models: list[str] = []
+    # The token walk pops its stack from the end, so it visits a run of
+    # top-level records last-first; reversing restores log order, and the
+    # timestamp (where the record carries one) settles the rest.
+    events = sorted(
+        reversed(_find_gemini_token_events(_load_json_objects(telemetry_file))),
+        key=lambda attrs: str(attrs.get("event.timestamp") or ""),
+    )
+    for attrs in events:
+        # Token counts are what usage reads a response by, so a record naming
+        # no event is still one; a record naming another event is not.
+        name = str(attrs.get("event.name") or "")
+        if name and not name.endswith("api_response"):
+            continue
+        if str(attrs.get("role") or "") not in _GEMINI_MAIN_ROLES:
+            continue
+        model = attrs.get("model")
+        if isinstance(model, str):
+            models.append(model)
+    return _first_seen(models)
 
 
 def _last_codex_token_usage(rollout: Path) -> dict[str, Any] | None:
     """The cumulative ``total_token_usage`` from the last ``token_count`` event."""
-    found: dict[str, Any] | None = None
+    history = _codex_token_usages(rollout)
+    return history[-1] if history else None
+
+
+def _codex_token_usages(rollout: Path) -> list[dict[str, Any]]:
+    """Every ``token_count`` event's cumulative ``total_token_usage``, in file order."""
+    found: list[dict[str, Any]] = []
     for raw in rollout.read_text().splitlines():
         line = raw.strip()
         if not line:
@@ -198,7 +412,7 @@ def _last_codex_token_usage(rollout: Path) -> dict[str, Any] | None:
             continue
         usage = _extract_total_token_usage(record)
         if usage is not None:
-            found = usage
+            found.append(usage)
     return found
 
 
@@ -228,6 +442,12 @@ _GEMINI_TOKEN_FIELDS: tuple[str, ...] = (
     "cached_content_token_count",
     "thoughts_token_count",
 )
+
+
+# The response attributes the served-model read keys on, flattened from the
+# record itself where an exporter left them there rather than under
+# ``attributes``, exactly as the token counts are.
+_GEMINI_RESPONSE_FIELDS: tuple[str, ...] = ("model", "role")
 
 
 def parse_gemini_usage(telemetry_file: Path) -> TokenCounts | None:
@@ -294,7 +514,7 @@ def _gemini_attrs(node: dict[str, Any]) -> dict[str, Any]:
         for item in raw:
             if isinstance(item, dict) and "key" in item:
                 attrs[item["key"]] = _otel_value(item.get("value"))
-    for field in _GEMINI_TOKEN_FIELDS:
+    for field in (*_GEMINI_TOKEN_FIELDS, *_GEMINI_RESPONSE_FIELDS):
         if field in node:
             attrs.setdefault(field, node[field])
     return attrs
@@ -303,7 +523,7 @@ def _gemini_attrs(node: dict[str, Any]) -> dict[str, Any]:
 def _otel_value(value: Any) -> Any:
     """Unwrap an OTLP typed attribute value (``{"intValue": "12"}`` -> ``"12"``)."""
     if isinstance(value, dict):
-        for key in ("intValue", "doubleValue", "stringValue", "value"):
+        for key in ("intValue", "doubleValue", "boolValue", "stringValue", "value"):
             if key in value:
                 return value[key]
     return value

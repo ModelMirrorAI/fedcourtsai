@@ -115,7 +115,7 @@
     },
     "ToolUsageEngine": {
       "additionalProperties": false,
-      "description": "One engine's retrieval profile: what it called, what came back, what it cost.\n\nThe result-side fields exist because a rollup that counts only calls cannot\nsee the difference between an engine whose retrieval is observable and one\nwhose transcript records the request and drops the answer \u2014 and the second\nsilently removes that engine's cells from every result-derived reading,\nincluding the evaluator's leakage grading.\n\nThe throttle fields sit here for the same reason and inherit the same limit:\na call the upstream quota turned away retrieved nothing, so a run starved of\nit is not comparable with a well-fed one \u2014 but only an engine whose results\nreach the transcript can be seen being starved, which is why the rate\ndenominates on observed conditions rather than on calls. They are cut per\nengine because that is the grain the ledger has, not because throttling is\nan engine trait: the quota is one bucket every cell of a run draws from, so\nthe cut says which cells met the wall, never which engine causes walls.",
+      "description": "One engine's retrieval profile: what it called, what came back, what it cost.\n\nThe result-side fields exist because a rollup that counts only calls cannot\nsee the difference between an engine whose retrieval is observable and one\nwhose transcript records the request and drops the answer \u2014 and the second\nsilently removes that engine's cells from every result-derived reading,\nincluding the evaluator's leakage grading.\n\nThe throttle fields sit here for the same reason and inherit the same limit:\na call the upstream quota turned away retrieved nothing, so a run starved of\nit is not comparable with a well-fed one \u2014 but only an engine whose results\nor call outcomes reach its log can be seen being starved, which is why the rate\ndenominates on observed conditions rather than on calls. They are cut per\nengine because that is the grain the ledger has, not because throttling is\nan engine trait: the quota is one bucket every cell of a run draws from, so\nthe cut says which cells met the wall, never which engine causes walls.",
       "properties": {
         "calls": {
           "default": 0,
@@ -172,7 +172,7 @@
         },
         "mcp_calls_with_status": {
           "default": 0,
-          "description": "MCP calls whose per-call `result_status` records an observed condition \u2014 captured, and so legible as throttled or not. The throttle rate's denominator, and NOT `calls`: an engine whose transcript drops every result scores 0 here, which is what keeps its throttle count from reading as a throttle-free engine. 0 also on every log written before the field existed",
+          "description": "MCP calls whose per-call `result_status` records an observed condition \u2014 a captured result or a logged outcome, and so legible as throttled or not. The throttle rate's denominator, and NOT `calls`: an engine whose log carries neither scores 0 here, which is what keeps its throttle count from reading as a throttle-free engine. 0 also on every log written before the field existed",
           "minimum": 0,
           "title": "Mcp Calls With Status",
           "type": "integer"

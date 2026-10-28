@@ -406,3 +406,35 @@ def test_usage_summary_aggregates(_data_root: Path) -> None:
     assert actor["runs"] == 2
     assert actor["role"] == "predictor"
     assert actor["mean_cost_usd_per_run"] == pytest.approx(actor["estimated_cost_usd"] / 2)
+
+
+def test_record_usage_stamps_the_models_the_engine_log_names(
+    _data_root: Path, tmp_path: Path
+) -> None:
+    transcript = tmp_path / "execution.json"
+    transcript.write_text(
+        json.dumps(
+            [
+                {"type": "assistant", "message": {"model": "claude-sonnet-5-5"}},
+                {
+                    "type": "result",
+                    "usage": {"input_tokens": 100, "output_tokens": 10},
+                },
+            ]
+        )
+    )
+    # Every option but the explicit token pair, which a log replaces.
+    args = [*_record(None)[:-4], "--claude-execution-file", str(transcript)]
+    result = runner.invoke(app, args)
+    assert result.exit_code == 0, result.output
+    path = (
+        CasePaths(_data_root, "ca9", 123)
+        .event("evt-motion-stay")
+        .prediction_usage("claude-baseline", "20260624T103000Z")
+    )
+    usage = read_model(path, ModelUsage)
+    # Requested and served side by side; pricing stays on the requested model.
+    assert (usage.model, usage.served_models) == ("claude-opus-5-5", ["claude-sonnet-5-5"])
+    # Explicit token overrides name no log, so no model is claimed.
+    runner.invoke(app, _record(None))
+    assert read_model(path, ModelUsage).served_models is None

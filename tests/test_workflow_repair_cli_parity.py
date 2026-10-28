@@ -113,13 +113,16 @@ REMOTE_COMMANDS = frozenset({"corpus-push", "corpus-pull"})
 #: the *fixture* corpus lacks rather than to anything about the argv. The
 #: fixture stores no petition text, so the questions-presented backfill refuses
 #: the blob outright — after parsing every flag it was handed.
-BENIGN_REFUSALS = {
+BENIGN_REFUSALS: dict[str, str | tuple[str, ...]] = {
     "backfill-questions-presented": "no stored petition text",
     # Same fixture, same reason from the other side: the OCR recovery reads the
     # stored *rows* of every fetched kind, and a corpus holding none is the wrong
     # blob rather than a converged class — the refusal that tells a misconfigured
-    # content store apart from a corpus with nothing left to repair.
-    "ocr-recover-petitions": "no stored documents",
+    # content store apart from a corpus with nothing left to repair. Its
+    # projection refuses on that before writing the worklist, so the parse and
+    # the writer after it find no file to read, and refuse it — having parsed
+    # every flag first.
+    "ocr-recover-petitions": ("no stored documents", "refusing the handoff file"),
     # The same refusal a third time, on the population rather than the
     # documents: the fixture holds no row queued for prediction or selected by
     # the salience gate, so the document back-fill has no denominator to walk.
@@ -227,6 +230,9 @@ def _values(pass_name: str | None = None, handoff: Path | None = None) -> dict[s
     return {
         "HANDOFF_PROJECTION": str(handoff / "projection.json"),
         "HANDOFF_PLAN": str(handoff / "plan.json"),
+        # The writer that binds its plan to the projection reads it back
+        # under this name, from its own download directory.
+        "HANDOFF_WORKLIST": str(handoff / "projection.json"),
         "REPAIR_BOUND": REPAIR_BOUND,
         # The re-derivation and the back-fill splice `REPAIR_TARGET` into argv
         # directly; the re-grade reads its own target through the five fields
@@ -315,7 +321,8 @@ def _run(argv: list[str], tmp_path: Path) -> None:
     if result.exit_code == 0:
         return
     expected = BENIGN_REFUSALS.get(argv[0])
-    assert expected is not None and expected in result.output, (
+    allowed = (expected,) if isinstance(expected, str) else expected or ()
+    assert any(refusal in result.output for refusal in allowed), (
         f"`fedcourts {rendered}` failed with no declared benign refusal\n{result.output}"
     )
 
@@ -441,12 +448,12 @@ def test_the_regrade_cell_grammar_admits_this_tests_subject() -> None:
     )
 
 
-#: What the OCR step holds back between the slice deadline it passes and its own
-#: `timeout-minutes`: the witness re-read, the blob push, the pointer commit, and
-#: the work a started candidate can run past the deadline. The arithmetic is
-#: stated beside the invocation; this number is the same one, here so the two
-#: halves of it cannot move apart.
-OCR_DEADLINE_RESERVE_SECONDS = 660
+#: What the OCR parse step holds back between the slice deadline it passes and
+#: its own `timeout-minutes`: the work a started candidate can run past the
+#: deadline, and the plan write. The class walk, the witness, the push and the
+#: commit are the writer job's. The arithmetic is stated beside the invocation;
+#: this number is the same one, here so the two halves of it cannot move apart.
+OCR_DEADLINE_RESERVE_SECONDS = 300
 
 
 def test_the_ocr_slice_deadline_keeps_its_reserve_under_the_steps_own_cap() -> None:
