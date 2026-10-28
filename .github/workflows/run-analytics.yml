@@ -78,9 +78,9 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      than the corpus: it holds the CourtListener token and
 #                      no cloud role, spends a capped slice of the account's
 #                      REST budget, and leaves its report as a run artifact.
-#   - decision-below:  measure how many of the newest 50 cert petitions from a
+#   - decision-below:  measure how many of the newest 35 cert petitions from a
 #                      federal court of appeals have their decision below on
-#                      CourtListener (`fedcourts decision-below --sample 50`),
+#                      CourtListener (`fedcourts decision-below --sample 35`),
 #                      the match rate the decision-below cell input waits on.
 #                      It reads both the corpus (the sample, via a full pull)
 #                      and CourtListener (the read-only role and the token),
@@ -2755,21 +2755,24 @@ jobs:
 
   decision-below:
     needs: [authorize]
-    # The decision-below match rate: for the newest 50 cert petitions whose
+    # The decision-below match rate: for the newest 35 cert petitions whose
     # lower court is a federal court of appeals, whether CourtListener holds
     # the lower court's docket and the opinion on the judgment date, and what
     # its entries say about rehearing en banc (`fedcourts decision-below`,
     # `pipeline/decision_below.py`). A measurement, not a store: nothing is
     # written to the corpus, the content store, `data/` or git, nothing reaches
     # a cell, and no request buys anything (no RECAP Fetch, so no PACER
-    # charge). The sample is chosen from the pulled index, so the job holds
+    # charge). The sample is chosen from the pulled index and each sampled
+    # case's newest snapshot is read from the content store, so the job holds
     # the read-only role; the token rides the measuring step alone.
     #
     # Its spend is the account's, shared with run-pull's windows: about four
     # REST requests a case, sixteen at worst. The run's governor is capped
-    # below (a request past the cap stops the walk with the rest reported
-    # deferred, which the summary says), and a dispatch belongs in the quiet
-    # odd hours run-pull's enrich job names. A staging rehearsal spends on the
+    # below at order-scan's 150, the run cap that fits beside a pull window and
+    # a live window's enrichment inside the account's hourly ceiling
+    # (`config/order-scan.yaml`); a request past it stops the walk with the
+    # rest reported deferred, which the summary says. A dispatch belongs in the
+    # quiet odd hours run-pull's enrich job names. A staging rehearsal spends on the
     # same account, and without a token the command refuses before any request.
     if: >-
       ${{ inputs.mode == 'decision-below'
@@ -2777,7 +2780,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    # The pull, then at most 250 requests at 10 a minute (25 minutes), with
+    # The pull, then at most 150 requests at 10 a minute (15 minutes), with
     # room; the cap frees the runner if a request hangs.
     timeout-minutes: 45
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
@@ -2815,10 +2818,10 @@ jobs:
           # The per-day window is the account's tier, as run-pull reads it.
           # The hourly window is this run's cap: the governor counts every
           # request this process sends, retries included, and the job ends
-          # inside the hour, so that window bounds the whole run. Fifty
-          # typical cases spend about 200.
+          # inside the hour, so that window bounds the whole run. The sample
+          # is sized to it: 35 typical cases spend about 140.
           FEDCOURTS_COURTLISTENER_RPM: "10"
-          FEDCOURTS_COURTLISTENER_RPH: "250"
+          FEDCOURTS_COURTLISTENER_RPH: "150"
           FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
         run: |
@@ -2827,7 +2830,7 @@ jobs:
           summary="$RUNNER_TEMP/decision-below-summary.txt"
           # The report JSON to the artifact file, the match rate (and why a
           # walk stopped early) to stderr, which goes on the page.
-          uv run fedcourts decision-below --sample 50 > "$out" 2> "$summary" || status=$?
+          uv run fedcourts decision-below --sample 35 > "$out" 2> "$summary" || status=$?
           if [ ! -s "$out" ]; then
             rm -f "$out"
           fi
@@ -2844,6 +2847,12 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           cat "$summary"
+          # A refused credential stops the walk at its first request and the
+          # command still exits 0, reporting it; the run must not read green.
+          if [ -s "$out" ] && jq -e '(.stopped // "") | test("HTTP 401")' "$out" > /dev/null; then
+            echo "::error::CourtListener refused the credential; nothing was measured."
+            exit 1
+          fi
           exit "${status:-0}"
 
       - name: Upload the report

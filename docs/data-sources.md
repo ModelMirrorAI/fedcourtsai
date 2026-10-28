@@ -739,8 +739,8 @@ The automated consumer stays within CourtListener's published API limits by desi
   worst. Its requests count against the same account limits but not against
   the pull governor's per-process tally, since each process counts only its
   own. It is a maintainer's measurement, not a lane, dispatched as
-  `run-analytics`'s `decision-below` mode with its governor capped at 250
-  requests, and it reads only what CourtListener already holds — no RECAP
+  `run-analytics`'s `decision-below` mode over 35 petitions with its governor
+  capped at order-scan's 150 requests, and it reads only what CourtListener already holds — no RECAP
   Fetch request, so no PACER charge ([cli.md](cli.md)).
 - **The adverse-order scan shares it too.** `order-scan` runs the RECAP
   searches `config/order-scan.yaml` configures — district dockets whose

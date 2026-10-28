@@ -1611,7 +1611,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — order-scan              | none          | reads CourtListener's REST API only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its scan step. Its runtime token adds `actions: read`, to fetch the previous run's report artifact the scan resumes |
-| `run-analytics` — decision-below          | read-only     | the sample (full `corpus-pull`), then CourtListener's REST API. It binds the branch-resolved environment for the CourtListener token, scoped to its measuring step, and mints no App token |
+| `run-analytics` — decision-below          | read-only     | the sample (full `corpus-pull`, then each sampled case's newest snapshot from the content store), then CourtListener's REST API. It binds the branch-resolved environment for the CourtListener token, scoped to its measuring step, and mints no App token |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
 | `summarize` — generate, publish           | none          | generate holds the environment's Anthropic API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |
@@ -1951,7 +1951,10 @@ read`, used only to fetch the previous run's report so the scan resumes: the
 fetch takes the newest unexpired `order-scan` artifact from the same ref,
 checks that its run is a dispatch of `run-analytics`, and extracts the one
 report file by name. A seventh rides it too: the `decision-below` report,
-which names, for each sampled cert petition, the lower court's CourtListener
+which names, for each sampled cert petition, the identifiers and dates its
+stored supremecourt.gov docket carries (the SCOTUS number, the lower court's
+name and case numbers, the judgment and rehearing-denied dates), the lower
+court's CourtListener
 docket (id, number and caption, the court of appeals' public caption for the
 case), its opinion clusters with their panels and authors, and the numbers
 and dates of the docket entries the rehearing reading rests on, with no opinion
