@@ -2489,6 +2489,17 @@ out of frozen scope is the second's, and an event carrying both — what a
 quota-failed engine leaves behind — is re-owed on both, so a run can never
 mint one blessed cell beside de-counted rivals.
 
+On predict, `plan` also builds the round's **same-question lists**
+(`fedcourts same-question-lists`), one per cert-stage cell of the minted matrix,
+and keeps them as the run's `same-question-lists` artifact, which each cell job
+fetches and hands `provision-snapshot`. The match weighs every petition's
+questions presented, so it is one read of the whole QP frame per round, which
+the plan job's pulled index serves and a cell's ranged read could not. A failed
+build starts the round anyway, each cell provisioned without its list.
+Provisioning holds every list back from its cell until a re-bless
+(`provision.SAME_QUESTION_WITHHELD`); until then the step's log is where the
+lists' size and cost are read.
+
 The first arm takes the same conference bound. A distribution-moment event is
 forecastable (`store.forecastable_event_ids`) from the petition's first
 distribution until the conference it is distributed for has considered it, and

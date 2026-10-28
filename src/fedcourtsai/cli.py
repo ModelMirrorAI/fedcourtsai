@@ -507,6 +507,8 @@ from .schemas import (
     RetrievalCall,
     RetrievalLog,
     SalienceReplay,
+    SameQuestionList,
+    SameQuestionLists,
     Stage,
     StagedOpinion,
     StatPack,
@@ -6815,6 +6817,81 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
     return [row for row in frame if row.case_id in selected]
 
 
+@app.command("same-question-lists")
+def same_question_lists_cmd(
+    matrix_file: Annotated[
+        Path,
+        typer.Option("--matrix-file", help='The round\'s predict matrix (`{"include": [...]}`).'),
+    ],
+    out: Annotated[Path, typer.Option("--out", help="Where to write the round's lists (JSON).")],
+    today: Annotated[
+        str | None,
+        typer.Option(
+            "--today",
+            help="The plan's day (YYYY-MM-DD), which an uncut cell's list is read through. "
+            "Default: today (UTC).",
+        ),
+    ] = None,
+) -> None:
+    """Build a round's same-question lists, one per cert-stage cell. Read-only on the corpus.
+
+    For each distinct `(case, event)` of the matrix whose moment is on the cert
+    stage (`provision.carries_same_question`), the list is cut where the cell
+    will be: at its moment's cutoff (`provision.moment_cutoff`) where it
+    declares one, else at the day after `--today`. One read of the QP frame
+    serves every cell (`pipeline/same_question.py`). Writes the lists file
+    `provision-snapshot --same-question-file` stages from, and echoes counts
+    only. A matrix that cannot be read exits 2, a missing corpus 1.
+    """
+    try:
+        day = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    except ValueError:
+        typer.echo(f"same-question-lists: --today {today!r} is not a YYYY-MM-DD date.", err=True)
+        raise typer.Exit(code=2) from None
+    try:
+        entries = json.loads(matrix_file.read_text())["include"]
+        wanted = sorted(
+            {
+                (ids.case_id(str(cell["court"]), int(cell["docket"])), str(cell["event_id"]))
+                for cell in entries
+                if provision.carries_same_question(str(cell["event_id"]))
+            }
+        )
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        typer.echo(f"same-question-lists: cannot read {matrix_file}: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before building the lists.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cells: list[same_question.CellCutoff] = []
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        for case_id, event_id in wanted:
+            cutoff = provision.moment_cutoff(event_id, corpus.events_for_case(conn, case_id))
+            cells.append(
+                same_question.CellCutoff(
+                    case_id=case_id,
+                    event_id=event_id,
+                    cutoff=cutoff if cutoff is not None else day + timedelta(days=1),
+                )
+            )
+        petitions = same_question.read_petitions(conn) if cells else []
+    lists = same_question.cell_lists(same_question.QuestionFrame(petitions), cells)
+    write_raw_json(out, lists.model_dump(mode="json"))
+    listed = [item for item in lists.lists if item.petitions is not None]
+    typer.echo(
+        f"same-question-lists: {len(lists.lists)} cert cell(s), {len(listed)} with stored "
+        f"questions presented, {sum(len(item.petitions or []) for item in listed)} "
+        f"match(es) listed, {len(petitions)} petition(s) in the frame -> {out}",
+        err=True,
+    )
+
+
 @app.command("same-question")
 def same_question_cmd(
     docket: Annotated[
@@ -6852,10 +6929,12 @@ def same_question_cmd(
     missing corpus 1.
     """
     try:
-        cutoff = date.fromisoformat(as_of) if as_of else datetime.now(UTC).date()
+        day = date.fromisoformat(as_of) if as_of else datetime.now(UTC).date()
     except ValueError:
         typer.echo(f"same-question: --as-of {as_of!r} is not a YYYY-MM-DD date.", err=True)
         raise typer.Exit(code=2) from None
+    # `--as-of` is inclusive; the lists' cutoff, like a cell's, is exclusive.
+    cutoff = day + timedelta(days=1)
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if settings.corpus_backend != "ranged" and not db_path.exists():
@@ -6867,7 +6946,7 @@ def same_question_cmd(
         raise typer.Exit(code=1)
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         petitions = same_question.read_petitions(conn)
-        index = same_question.QuestionIndex(petitions)
+        frame = same_question.QuestionFrame(petitions)
         links = (
             same_question.read_vide_links(conn, [p.case_id for p in petitions])
             if vide_check
@@ -6877,13 +6956,17 @@ def same_question_cmd(
         corpus.normalize_docket_number(p.docket_number) or p.docket_number: p.case_id
         for p in petitions
     }
+    index = frame.index(cutoff)
     lists: dict[str, list[dict[str, object]] | None] = {}
     for number in docket or []:
         normalized = corpus.normalize_docket_number(number) or number
         case_id = by_number.get(normalized)
-        if case_id is None:
+        if case_id is None or case_id not in index.vectors:
             lists[normalized] = None
-            typer.echo(f"{normalized}: no stored questions presented in the frame", err=True)
+            typer.echo(
+                f"{normalized}: no stored questions presented in the frame by {day.isoformat()}",
+                err=True,
+            )
             continue
         entries = same_question.same_question_petitions(index, case_id, cutoff, threshold=threshold)
         lists[normalized] = [entry.model_dump(mode="json") for entry in entries]
@@ -6892,8 +6975,14 @@ def same_question_cmd(
             f"(at most {same_question.DEFAULT_LIMIT})",
             err=True,
         )
-    agreement = same_question.vide_agreement(index, links) if vide_check else None
-    typer.echo(f"same-question: {len(index.vectors)} petition(s) indexed", err=True)
+    # The Vide check reads every petition's links as stored now, so it measures
+    # the match over the whole frame rather than as of a day.
+    whole = same_question.QuestionIndex(petitions, counts=frame.counts) if vide_check else None
+    agreement = same_question.vide_agreement(whole, links) if whole is not None else None
+    typer.echo(
+        f"same-question: {len(index.vectors)} petition(s) indexed by {day.isoformat()}",
+        err=True,
+    )
     if agreement is not None:
         typer.echo(
             f"vide-check: {agreement.top1_linked} of {agreement.linked} linked petition(s) "
@@ -16484,6 +16573,67 @@ def _read_authorship_tally(
     return tally
 
 
+def _echo_staged_lists(case: str, written: provision.RecordWrite, paths: CasePaths) -> None:
+    """Echo the authorship tally and same-question list a record was given, as counts."""
+    if written.authorship_tally is not None:
+        # Counts only: the cases are public, and the file holds them.
+        tallied = written.authorship_tally
+        typer.echo(
+            f"{case} authorship tally OT{tallied.term} as of {tallied.as_of.isoformat()} "
+            f"({len(tallied.sittings)} sitting(s), "
+            f"{sum(len(s.cases) for s in tallied.sittings)} case(s)) -> {paths.authorship_tally}"
+        )
+    if written.same_question is not None:
+        # Counts only: the list's dockets are public, and the file holds them.
+        listed = written.same_question.petitions
+        typer.echo(
+            f"{case} same-question petitions before {written.same_question.cutoff.isoformat()}: "
+            f"{'no stored questions presented' if listed is None else len(listed)} "
+            f"-> {paths.same_question}"
+        )
+
+
+def _read_same_question(
+    lists_file: Path, case: str, event: str, *, cutoff: date | None, mode: str
+) -> SameQuestionList | None:
+    """A cert cell's own same-question list, out of the round's lists file.
+
+    Nothing is read while the list is held back
+    (:data:`provision.SAME_QUESTION_WITHHELD`), for a moment that carries none,
+    or for a replay cell: the plan job builds the lists for the forward cells
+    it mints, and cuts an uncut cell's list at the day after the plan rather
+    than at a replay cell's Term clock. A cell placed at its moment takes its
+    list only where the list was cut at the same day. A file that cannot be
+    read, or holds no list for this cell, leaves the cell without one, and the
+    log says so.
+    """
+    if (
+        provision.SAME_QUESTION_WITHHELD
+        or not provision.carries_same_question(event)
+        or mode != "forward"
+    ):
+        return None
+    try:
+        lists = SameQuestionLists.model_validate_json(lists_file.read_bytes())
+    except (OSError, ValidationError) as exc:
+        typer.echo(f"::warning::no same-question list: {lists_file} unreadable ({exc})", err=True)
+        return None
+    found = next(
+        (item for item in lists.lists if item.case_id == case and item.event_id == event), None
+    )
+    if found is None:
+        typer.echo(f"::warning::no same-question list for {case} {event}", err=True)
+        return None
+    if cutoff is not None and found.cutoff != cutoff:
+        typer.echo(
+            f"::warning::no same-question list: {case} {event} is cut at "
+            f"{cutoff.isoformat()}, its list at {found.cutoff.isoformat()}",
+            err=True,
+        )
+        return None
+    return found
+
+
 def _place_at_moment(
     case: str,
     event: str,
@@ -16678,6 +16828,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "provenance, not cell input.",
         ),
     ] = None,
+    same_question_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="The round's same-question lists (`fedcourts same-question-lists`); a "
+            "forward cert cell's own list is staged as record/same-question.json once "
+            "the list is no longer held back.",
+        ),
+    ] = None,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's corpus snapshot (and documents) for an agent run.
@@ -16863,6 +17021,11 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         if event and out is None
         else None
     )
+    listed = (
+        _read_same_question(same_question_file, case, event, cutoff=cutoff, mode=mode)
+        if event and out is None and same_question_file is not None
+        else None
+    )
     # The whole record — snapshot, context.json, documents and manifest, each
     # staged copy through the contact-detail scrubs — goes through the one
     # writer the local cascade shares (`provision.write_cell_record`), so the
@@ -16878,6 +17041,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             snapshot_dest=out,
             related=related,
             authorship_tally=tally,
+            same_question=listed,
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)
@@ -16908,14 +17072,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             for item in written.related
         )
         typer.echo(f"{case} related ({linked}) -> {paths.related_dir}")
-    if written.authorship_tally is not None:
-        # Counts only: the cases are public, and the file holds them.
-        tallied = written.authorship_tally
-        typer.echo(
-            f"{case} authorship tally OT{tallied.term} as of {tallied.as_of.isoformat()} "
-            f"({len(tallied.sittings)} sitting(s), "
-            f"{sum(len(s.cases) for s in tallied.sittings)} case(s)) -> {paths.authorship_tally}"
-        )
+    _echo_staged_lists(case, written, paths)
     if written.staged:
         kinds = ", ".join(doc.kind for doc, _ in written.staged)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")

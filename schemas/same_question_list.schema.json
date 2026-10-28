@@ -1,0 +1,109 @@
+{
+  "$defs": {
+    "SameQuestionEntry": {
+      "additionalProperties": false,
+      "description": "One petition on a same-question list: identifiers and status, no text.",
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "docket_number": {
+          "title": "Docket Number",
+          "type": "string"
+        },
+        "docketed": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Docketed"
+        },
+        "score": {
+          "description": "The TF-IDF cosine with the listing petition",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "status": {
+          "description": "`pending` as of the cutoff, or the disposition once resolved before it",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "docket_number",
+        "case_id",
+        "score",
+        "docketed",
+        "status"
+      ],
+      "title": "SameQuestionEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One cell's same-question petitions, staged as its ``record/same-question.json``.",
+  "properties": {
+    "case_id": {
+      "description": "The listing petition's case id",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "cutoff": {
+      "description": "Exclusive: only petitions docketed before this day are listed or weighted, and a status reads resolved only where its date falls before it",
+      "format": "date",
+      "title": "Cutoff",
+      "type": "string"
+    },
+    "event_id": {
+      "description": "The cell's event, whose moment set the cutoff",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "indexed": {
+      "description": "Petitions docketed before the cutoff with a stored questions presented",
+      "minimum": 0,
+      "title": "Indexed",
+      "type": "integer"
+    },
+    "petitions": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/SameQuestionEntry"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Best first, at most ten; `null` where the listing petition has no stored questions presented docketed before the cutoff to match on",
+      "title": "Petitions"
+    },
+    "threshold": {
+      "description": "The least score a petition had to reach to be listed",
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Threshold",
+      "type": "number"
+    }
+  },
+  "required": [
+    "case_id",
+    "event_id",
+    "cutoff",
+    "threshold",
+    "indexed",
+    "petitions"
+  ],
+  "title": "SameQuestionList",
+  "type": "object"
+}

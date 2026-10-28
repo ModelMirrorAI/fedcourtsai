@@ -324,6 +324,13 @@ class CasePaths:
         return self.record / "authorship-tally.json"
 
     @property
+    def same_question(self) -> Path:
+        # A cert cell's list of other petitions raising the same question, cut
+        # to its moment (`pipeline.same_question.cell_lists`). Gitignored with
+        # the rest of record/.
+        return self.record / "same-question.json"
+
+    @property
     def argument_features(self) -> Path:
         # A post-argument cell's per-Justice questioning counts, parsed from the
         # transcript it was staged (`provision.staged_argument_features`).

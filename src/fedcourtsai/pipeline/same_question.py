@@ -21,12 +21,17 @@ cosine in [0, 1]. Nothing is learned and nothing is stored: the index is
 rebuilt from the texts on every read.
 
 **The cut.** :func:`same_question_petitions` lists, for one petition and a
-cutoff date, the other petitions docketed on or before the cutoff whose score
-is at least the threshold, each with its status as of the cutoff (pending until
-its resolution date, its disposition from then on). A petition resolved after
-the cutoff reads as pending, so the list never carries an outcome the cell's
-moment could not have seen. Counts and identifiers only: the entries carry no
-filing text.
+cutoff date, the other petitions docketed strictly before the cutoff whose
+score is at least the threshold, each with its status as of the cutoff
+(pending until its resolution date, its disposition once that date falls
+before the cutoff). The cutoff is exclusive, the date rule every cell's
+snapshot, documents and companions are cut by
+(:func:`fedcourtsai.provision.moment_cutoff`), so a petition resolved on the
+cutoff day itself reads as pending, and the list never carries an outcome the
+cell's moment could not have seen. The index a list is read from is built
+over the same set (:meth:`QuestionFrame.index`): a term's weight counts only
+the texts docketed before the cutoff, so a score does not move with what was
+filed later. Counts and identifiers only: the entries carry no filing text.
 
 **How well it matches.** :func:`vide_agreement` measures the match against the
 docket's own ``Vide`` links, which are a weak yardstick both ways: the Court
@@ -35,13 +40,12 @@ and most same-question petitions carry no link. The default threshold of 0.5 is
 chosen from an informal, unblinded single-grader reading of best-match pairs,
 not from a precision estimate.
 
-**Before a cell reads it**, two timing choices are open: whether a petition
-resolved on the cutoff day itself reads as resolved (:func:`status_on` says
-yes), and the index's term weights, which are computed over every text in the
-frame, including petitions docketed after the cutoff. Neither carries an
-outcome, but both make a score depend on what was filed later.
-
-Nothing a cell sees reads it yet; staging it is a re-bless step.
+**What a cell reads.** :func:`cell_lists` builds one :class:`SameQuestionList`
+per cert-stage cell of a round from one read of the frame, which is what the
+predict plan job runs (``fedcourts same-question-lists``); provisioning stages a
+cell's own list as ``record/same-question.json``. The list is held back from
+every cell (:data:`fedcourtsai.provision.SAME_QUESTION_WITHHELD`) until the
+re-bless whose prompt tells cells about it.
 """
 
 from __future__ import annotations
@@ -58,6 +62,7 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus
+from ..schemas import SameQuestionEntry, SameQuestionList, SameQuestionLists
 from .documents import questions_presented_extract
 from .prefetch import prefetch_by_case
 from .vide_links import vide_docket_numbers
@@ -228,9 +233,18 @@ def read_vide_links(
 class QuestionIndex:
     """TF-IDF vectors over a set of questions-presented texts, with an inverted index."""
 
-    def __init__(self, petitions: Sequence[Petition], *, max_df_share: float = MAX_DF_SHARE):
+    def __init__(
+        self,
+        petitions: Sequence[Petition],
+        *,
+        max_df_share: float = MAX_DF_SHARE,
+        counts: Mapping[str, Counter[str]] | None = None,
+    ):
         self.petitions: dict[str, Petition] = {p.case_id: p for p in petitions}
-        counts = {p.case_id: Counter(terms(p.text)) for p in petitions}
+        counts = {
+            p.case_id: counts[p.case_id] if counts is not None else Counter(terms(p.text))
+            for p in petitions
+        }
         df: Counter[str] = Counter()
         for bag in counts.values():
             df.update(bag.keys())
@@ -263,23 +277,41 @@ class QuestionIndex:
         return dict(out)
 
 
-class SameQuestionEntry(BaseModel):
-    """One petition on a same-question list: identifiers and status, no text."""
+class QuestionFrame:
+    """The frame's texts, split into terms once, from which an index is built per cutoff.
 
-    model_config = ConfigDict(extra="forbid")
+    A round's cells sit at many cutoffs; reading the terms of every text once and
+    weighting them per cutoff keeps the term split, the costly half, off the
+    per-cutoff path.
+    """
 
-    docket_number: str
-    case_id: str
-    score: float = Field(ge=0, le=1, description="The TF-IDF cosine with the listing petition")
-    docketed: date | None
-    status: str = Field(
-        description="`pending` as of the cutoff, or the disposition once resolved by it"
-    )
+    def __init__(self, petitions: Sequence[Petition], *, max_df_share: float = MAX_DF_SHARE):
+        self.petitions: dict[str, Petition] = {p.case_id: p for p in petitions}
+        self.max_df_share = max_df_share
+        self.counts: dict[str, Counter[str]] = {
+            p.case_id: Counter(terms(p.text)) for p in petitions
+        }
+        self._indexes: dict[date, QuestionIndex] = {}
+
+    def index(self, cutoff: date) -> QuestionIndex:
+        """The index over the petitions docketed strictly before ``cutoff``.
+
+        A petition with no docketing date is left out, since it cannot be placed
+        before the cutoff.
+        """
+        if cutoff not in self._indexes:
+            before = [
+                p for p in self.petitions.values() if p.docketed is not None and p.docketed < cutoff
+            ]
+            self._indexes[cutoff] = QuestionIndex(
+                before, max_df_share=self.max_df_share, counts=self.counts
+            )
+        return self._indexes[cutoff]
 
 
 def status_on(petition: Petition, cutoff: date) -> str:
-    """The petition's status as of ``cutoff``: pending until it was resolved."""
-    if petition.resolved is None or petition.resolved > cutoff or petition.disposition is None:
+    """The petition's status as of ``cutoff``, exclusive: pending until it was resolved."""
+    if petition.resolved is None or petition.resolved >= cutoff or petition.disposition is None:
         return "pending"
     return petition.disposition
 
@@ -292,15 +324,15 @@ def same_question_petitions(
     threshold: float = DEFAULT_THRESHOLD,
     limit: int = DEFAULT_LIMIT,
 ) -> list[SameQuestionEntry]:
-    """The petitions docketed by ``cutoff`` that score at least ``threshold``, best first.
+    """The petitions docketed before ``cutoff`` that score at least ``threshold``, best first.
 
-    A petition with no docketing date is left out, since it cannot be placed
-    before the cutoff.
+    The cutoff is exclusive. A petition with no docketing date is left out,
+    since it cannot be placed before the cutoff.
     """
     scored = []
     for other, score in index.scores(case_id).items():
         petition = index.petitions[other]
-        if score < threshold or petition.docketed is None or petition.docketed > cutoff:
+        if score < threshold or petition.docketed is None or petition.docketed >= cutoff:
             continue
         scored.append((score, petition))
     scored.sort(key=lambda pair: (-pair[0], pair[1].docket_number))
@@ -314,6 +346,46 @@ def same_question_petitions(
         )
         for score, p in scored[:limit]
     ]
+
+
+@dataclass(frozen=True)
+class CellCutoff:
+    """One cell a list is built for: its case, its event, and its exclusive cutoff."""
+
+    case_id: str
+    event_id: str
+    cutoff: date
+
+
+def cell_lists(
+    frame: QuestionFrame,
+    cells: Iterable[CellCutoff],
+    *,
+    threshold: float = DEFAULT_THRESHOLD,
+    limit: int = DEFAULT_LIMIT,
+) -> SameQuestionLists:
+    """Each cell's list, read from the index as of its own cutoff."""
+    out = []
+    for cell in cells:
+        index = frame.index(cell.cutoff)
+        petitions = (
+            same_question_petitions(
+                index, cell.case_id, cell.cutoff, threshold=threshold, limit=limit
+            )
+            if cell.case_id in index.vectors
+            else None
+        )
+        out.append(
+            SameQuestionList(
+                case_id=cell.case_id,
+                event_id=cell.event_id,
+                cutoff=cell.cutoff,
+                threshold=threshold,
+                indexed=len(index.vectors),
+                petitions=petitions,
+            )
+        )
+    return SameQuestionLists(lists=out)
 
 
 class VideAgreement(BaseModel):

@@ -436,6 +436,39 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      # The round's same-question lists: for each cert-stage cell the matrix
+      # minted, the other petitions raising the same question, cut where the
+      # cell will be placed (`fedcourts same-question-lists`). Built here
+      # because the match weighs every petition's questions presented, one read
+      # of the whole QP frame that this job's pulled index and content-store
+      # address serve once for the round, where a cell's ranged read could not.
+      # Never the reason a round does not start: a failed build leaves no file,
+      # and each cell then provisions without its list, which its log says.
+      # Provisioning holds every list back from its cell until the re-bless
+      # that tells cells about it (`provision.SAME_QUESTION_WITHHELD`); until
+      # then this step builds the lists the cells would get, so their size and
+      # cost are on record before any cell reads one.
+      - name: Build the same-question lists
+        if: ${{ steps.plan.outputs.has_jobs == 'true' }}
+        continue-on-error: true
+        # One frame read (minutes) and a cosine per cell; the cap names a
+        # wedged read rather than letting it run to the job's.
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          uv run fedcourts same-question-lists --matrix-file matrix.json \
+            --out "$RUNNER_TEMP/same-question-lists.json"
+
+      # Read by every cell job; plan-built, so no agent ever wrote it.
+      - name: Keep the same-question lists for the cells
+        if: ${{ steps.plan.outputs.has_jobs == 'true' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: same-question-lists
+          path: ${{ runner.temp }}/same-question-lists.json
+          if-no-files-found: ignore
+          retention-days: 1
+
       # The plan report the approval below is judged on: the tested plan
       # command re-derives the same fan-out the matrix step just minted (same
       # helpers, zero spend) and renders per-step counts, the would-mint cell
@@ -689,6 +722,16 @@ jobs:
           # other read stayed green.
           corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
 
+      # The round's same-question lists, which the plan job built; a cell
+      # whose round has none (the build failed, or no list was kept) is
+      # provisioned without one.
+      - name: Fetch the round's same-question lists
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: same-question-lists
+          path: ${{ runner.temp }}/same-question
+
       # Point-in-time snapshots are raw facts in the access-gated corpus, not git:
       # materialize this case's latest snapshot (a ranged point lookup, KB-scale)
       # to the gitignored record/ path the predictor reads (never committed).
@@ -748,7 +791,11 @@ jobs:
           set -euo pipefail
           status=0
           poll="$RUNNER_TEMP/pre-mint-poll.json"
-          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 --pre-mint-poll --pre-mint-poll-out "$poll" || status=$?
+          lists=()
+          if [ -f "$RUNNER_TEMP/same-question/same-question-lists.json" ]; then
+            lists=(--same-question-file "$RUNNER_TEMP/same-question/same-question-lists.json")
+          fi
+          uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 --pre-mint-poll --pre-mint-poll-out "$poll" "${lists[@]}" || status=$?
           # The pre-mint poll's result travels as a step output, fixed before
           # any agent runs: a file would sit where the agent, running as the
           # same user, could rewrite it before the usage step reads it.

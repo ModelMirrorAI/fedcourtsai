@@ -42,7 +42,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Literal
 
@@ -60,12 +60,13 @@ from ..schemas import (
     Outcome,
     PredictableEvent,
     PredictorConfig,
+    SameQuestionList,
     Stage,
     UsageRole,
 )
 from ..serialize import write_json, write_yaml
 from ..validate import run_ledger_referential_checks, validate_ledger
-from . import vide_links
+from . import same_question, vide_links
 from .documents import BIO_URL_JOIN, COMBINED_KINDS, select_documents, unheld_document_kinds
 from .outcome import (
     NO_ORDER_MARKERS,
@@ -251,14 +252,15 @@ def _provision_record(  # noqa: PLR0913
     related: Sequence[provision.RelatedRead] = (),
     *,
     authorship_tally: AuthorshipTally | None = None,
+    same_question: SameQuestionList | None = None,
 ) -> _Record:
     """Write one cell's ``record/`` exactly as the workflow's provisioning step does.
 
     The snapshot placed at the cell's moment, the ``context.json`` that freezes its
     mode and conditioning, and the documents cut with the snapshot — through the
     same placement and writer ``provision-snapshot`` uses, contact scrubs,
-    the ``Vide``-linked companions under ``record/related/`` and a merits cell's
-    authorship tally included. A
+    the ``Vide``-linked companions under ``record/related/``, a merits cell's
+    authorship tally and a cert cell's same-question list included. A
     cascade that wrote only the snapshot would hand the agent no frozen mode,
     band or cutoff, and the cell would have to guess the posture that
     provisioning exists to settle.
@@ -281,6 +283,7 @@ def _provision_record(  # noqa: PLR0913
                 for item in related
             ],
             authorship_tally=authorship_tally,
+            same_question=same_question,
         )
     except provision.ProvisionError as exc:
         raise CascadeError(str(exc)) from exc
@@ -400,6 +403,39 @@ def _read_authorship_tallies(
             if tally is not None:
                 found[event_id] = tally
     return found
+
+
+def _read_same_question_lists(
+    db_path: Path,
+    backend: corpus.CorpusBackend,
+    case_id: str,
+    placed: Mapping[str, provision.Placement | None],
+    reads: Mapping[str, provision.CellRead],
+    modes: Mapping[str, str],
+) -> dict[str, SameQuestionList]:
+    """Each placed forward cert target's same-question list, as the plan job builds it.
+
+    Read only where the list is not held back and some target carries one. An
+    uncut cell's list is cut at the day after its snapshot, where the plan job
+    cuts at the day after the plan: the cascade's fixture corpus has no today.
+    """
+    wanted = [
+        same_question.CellCutoff(
+            case_id=case_id,
+            event_id=event_id,
+            cutoff=reads[event_id].cutoff or placement.snapshot_date + timedelta(days=1),
+        )
+        for event_id, placement in placed.items()
+        if placement is not None
+        and modes[event_id] == "forward"
+        and provision.carries_same_question(event_id)
+    ]
+    if provision.SAME_QUESTION_WITHHELD or not wanted:
+        return {}
+    with corpus.connect_readonly(db_path, backend=backend) as conn:
+        petitions = same_question.read_petitions(conn)
+    lists = same_question.cell_lists(same_question.QuestionFrame(petitions), wanted)
+    return {item.event_id: item for item in lists.lists}
 
 
 def _cell_mode(event: corpus.CorpusEvent, row: corpus.CorpusRow) -> str:
@@ -782,6 +818,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
             placement,
             related.get(event_id, ()),
             authorship_tally=tallies.get(event_id),
+            same_question=same_question_lists.get(event_id),
         )
         placements.append(record.placement)
 
@@ -789,12 +826,10 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     # nothing (see `_place_cell`).
     placed = {ev.event_id: _place_cell(case_id, ev.event_id, reads[ev.event_id]) for ev in targets}
     related = _read_related(corpus_db_path, chosen_backend, case_id, placed)
-    tallies = _read_authorship_tallies(
-        corpus_db_path,
-        chosen_backend,
-        placed,
-        reads,
-        {ev.event_id: _cell_mode(ev, row) for ev in targets},
+    modes = {ev.event_id: _cell_mode(ev, row) for ev in targets}
+    tallies = _read_authorship_tallies(corpus_db_path, chosen_backend, placed, reads, modes)
+    same_question_lists = _read_same_question_lists(
+        corpus_db_path, chosen_backend, case_id, placed, reads, modes
     )
 
     outcomes = _materialize_targets(case_paths, row, targets, found)
