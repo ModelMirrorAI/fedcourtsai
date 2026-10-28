@@ -21,7 +21,8 @@ was caught.
 :data:`PERSIST` is how the corpus job commits each pass's apply: the job's
 persist step runs this file with the argument ``persist`` and stages, commits
 and pushes what the selected pass's record names, so a pass step ends at its
-write.
+write. The credential split's document writer commits the OCR recovery's apply
+from the same record.
 
 **This file imports only the standard library, and the validate job runs it
 by path** (``python3 -I -S src/fedcourtsai/repair_passes.py``) from a sparse
@@ -202,7 +203,7 @@ PASSES: Mapping[str, RepairPass] = {
         RepairPass("rederive-distribution-parse", _CORPUS, target_kind="parse"),
         _bounded("normalize-docket-markings", "--max-rewrites"),
         _bounded("response-backfill", "--max-fills"),
-        _bounded("ocr-recovery", "--max-cases"),
+        _bounded("ocr-recovery", "--max-cases", (*_HANDOFF, "documents")),
         _bounded("document-backfill", "--max-cases", bound_read_on_dry_run=True),
         _bounded("recut", "--max-cases", bound_read_on_dry_run=True, options=("all-live",)),
         _bounded("arrival-backfill", "--max-fills"),
@@ -249,7 +250,7 @@ class Persist:
 #: The corpus passes that commit their own write inside the pass step, because
 #: the step's slice deadline is computed against its own cap with the push and
 #: the commit charged to it.
-SELF_PERSISTING = frozenset({"ocr-recovery", "document-backfill", "recut"})
+SELF_PERSISTING = frozenset({"document-backfill", "recut"})
 
 #: Every other corpus pass's commit. A pass whose durable write is the content
 #: store's (the questions-presented back-fill) can leave the blob
@@ -282,6 +283,11 @@ PERSIST: Mapping[str, Persist] = {
         message="repair: converge corpus (dated response signals)",
         label="response-signal pointer",
         unchanged="Response signals already filled; nothing to persist.",
+    ),
+    "ocr-recovery": Persist(
+        message="repair: recover scanned filings (OCR)",
+        label="OCR recovery pointer",
+        unchanged="Recovered text is in the content store; the index pointer is unchanged.",
     ),
     "arrival-backfill": Persist(
         message="repair: converge corpus (interim arrival stamps)",
@@ -442,7 +448,7 @@ def validate(
 
 
 def persist_record(repair: str) -> tuple[str, ...]:
-    """The four lines the corpus job's persist step reads, or none.
+    """The four lines a pass's persist step reads, or none.
 
     Stage (``pointer`` or ``pointer+data``), commit message, push label, and
     the line printed when nothing moved. A self-persisting pass has no record:
@@ -470,7 +476,7 @@ def main(environ: Mapping[str, str] | None = None, argv: Sequence[str] | None = 
         if repair not in PERSIST and repair not in SELF_PERSISTING:
             # stderr: the workflow redirects stdout into the record file.
             print(
-                f"::error::repair={repair} is not a corpus-job pass; it has no persist record.",
+                f"::error::repair={repair} has no persist record in the pass table.",
                 file=sys.stderr,
             )
             return 1

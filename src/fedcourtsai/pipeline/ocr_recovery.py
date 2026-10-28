@@ -710,7 +710,7 @@ def _count_by_kind(candidates: Sequence[ScannedDocument]) -> dict[str, int]:
     return _in_kind_order(counts)
 
 
-def _probe_sample(candidates: Sequence[ScannedDocument], size: int) -> list[ScannedDocument]:
+def spread_sample(candidates: Sequence[ScannedDocument], size: int) -> list[ScannedDocument]:
     """``size`` candidates spread evenly across the class, in class order.
 
     Spread rather than the head, because the head is the same three cases every
@@ -730,14 +730,28 @@ def probe_document_fetch(
 ) -> list[OcrFetchProbe]:
     """Re-fetch a spread sample of the class and report what came back.
 
+    The sample is :func:`spread_sample`'s, and the fetches
+    :func:`probe_documents`'.
+    """
+    return probe_documents(
+        client, [candidate.document for candidate in spread_sample(candidates, sample)]
+    )
+
+
+def probe_documents(
+    client: SupremeCourtClient, documents: Sequence[DocumentRef]
+) -> list[OcrFetchProbe]:
+    """Re-fetch each document by its stored URL and report what came back.
+
     Reads nothing out of the bodies and writes nothing anywhere: the point is the
     status, not the PDF. Every failure class is *reported* rather than raised —
     a probe that aborted the dry run on the first 403 would answer the question
-    with one data point.
+    with one data point. Takes a stored row or a worklist item alike, so the
+    dispatched pass's credential-free parse probes the sample its projection
+    drew.
     """
     probes: list[OcrFetchProbe] = []
-    for candidate in _probe_sample(candidates, sample):
-        document = candidate.document
+    for document in documents:
         if not fetchable_document_url(document.url):
             probes.append(
                 OcrFetchProbe(
@@ -940,6 +954,34 @@ def _rederived_questions(
     return [_derived_questions_document(recovered, questions, fetched_at=today)]
 
 
+def class_reading(
+    scan: ScannedDocumentScan, *, probes: Sequence[OcrFetchProbe] = ()
+) -> OcrRecoveryResult:
+    """The dry run's ledger over one walk: the class, cut by kind, and no work.
+
+    Shared by the dispatched dry run, which probes in the same process, and the
+    credential split's projection, which fetches nothing and leaves the probe
+    to the parse.
+    """
+    return OcrRecoveryResult(
+        applied=False,
+        documents_seen=scan.documents_seen,
+        candidates=len(scan.candidates),
+        candidates_by_kind=_count_by_kind(scan.candidates),
+        set_keyed=scan.set_keyed,
+        # A dry run is unbounded whatever it was handed: it writes nothing,
+        # and reporting a bound it did not spend would read as a slice that
+        # attempted none of it.
+        bound=None,
+        attempted=0,
+        recovered=0,
+        empty_after_ocr=0,
+        remaining=len(scan.candidates),
+        questions_rederived=0,
+        probes=list(probes),
+    )
+
+
 def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline + injected clock over the pass's args
     conn: sqlite3.Connection,
     *,
@@ -1046,22 +1088,8 @@ def recover_scanned_documents(  # noqa: PLR0913 - keyword-only; slice deadline +
     candidates = scan.candidates
     by_kind = _count_by_kind(candidates)
     if not apply:
-        return OcrRecoveryResult(
-            applied=False,
-            documents_seen=scan.documents_seen,
-            candidates=len(candidates),
-            candidates_by_kind=by_kind,
-            set_keyed=scan.set_keyed,
-            # A dry run is unbounded whatever it was handed: it writes nothing,
-            # and reporting a bound it did not spend would read as a slice that
-            # attempted none of it.
-            bound=None,
-            attempted=0,
-            recovered=0,
-            empty_after_ocr=0,
-            remaining=len(candidates),
-            questions_rederived=0,
-            probes=probe_document_fetch(client, candidates, sample=probe_sample),
+        return class_reading(
+            scan, probes=probe_document_fetch(client, candidates, sample=probe_sample)
         )
 
     assert max_cases is not None  # narrowed by the refusal above

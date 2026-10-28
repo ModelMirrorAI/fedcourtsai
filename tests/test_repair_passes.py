@@ -331,8 +331,17 @@ def _pass_step(name: str) -> dict[str, Any]:
 
 def test_every_corpus_pass_is_persisted_once() -> None:
     corpus = {name for name, p in PASSES.items() if p.jobs == ("repair",)}
+    # The split passes whose writer commits from the pass table's record.
+    recorded = {name for name, p in PASSES.items() if "documents" in p.jobs}
+    assert recorded == {"ocr-recovery"}
     assert set(repair_passes.PERSIST).isdisjoint(repair_passes.SELF_PERSISTING)
-    assert set(repair_passes.PERSIST) | repair_passes.SELF_PERSISTING == corpus
+    assert set(repair_passes.PERSIST) | repair_passes.SELF_PERSISTING == corpus | recorded
+    commit = next(
+        s
+        for s in _workflow()["jobs"]["documents"]["steps"]
+        if s.get("name") == "Commit the recovered-filings pointer"
+    )
+    assert "python3 -I -S src/fedcourtsai/repair_passes.py persist" in commit["run"]
     for name in corpus:
         run = str(_pass_step(name)["run"])
         commits = "push_with_retry.sh" in run or "corpus-push" in run
@@ -348,14 +357,14 @@ def test_the_persist_step_follows_every_pass_and_precedes_the_verdict() -> None:
     verdict = names.index("Produce + publish the corpus validation verdict")
     assert persist < verdict
     for name in repair_passes.PERSIST:
+        if PASSES[name].jobs != ("repair",):
+            continue
         assert names.index(str(_pass_step(name)["name"])) < persist, name
     step = _repair_steps()[persist]
     assert step["if"] == "${{ inputs.repair_mode == 'apply' }}"
     assert "python3 -I -S src/fedcourtsai/repair_passes.py persist" in step["run"]
     assert step["timeout-minutes"] == 15
-    assert step["env"]["GH_TOKEN"] == (
-        "${{ steps.app-token-ocr.outputs.token || steps.app-token.outputs.token }}"
-    )
+    assert step["env"]["GH_TOKEN"] == "${{ steps.app-token.outputs.token }}"
 
 
 @pytest.mark.parametrize(
@@ -372,7 +381,7 @@ def test_the_persist_step_follows_every_pass_and_precedes_the_verdict() -> None:
             ],
         ),
         ("recut", 0, []),
-        ("regrade-stale", 1, ["::error::repair=regrade-stale is not a corpus-job pass"]),
+        ("regrade-stale", 1, ["::error::repair=regrade-stale has no persist record"]),
     ],
 )
 def test_the_persist_record_is_read_by_path(repair: str, code: int, lines: list[str]) -> None:

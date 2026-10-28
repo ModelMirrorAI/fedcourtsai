@@ -1340,9 +1340,10 @@ dispatched pass stays the route for a maintainer-read slice of the whole class.
 ### Contract for the recovery pass
 
 What the pass holds to. It is `fedcourts ocr-recover-petitions`, dispatched as
-`run-repair`'s `ocr-recovery` selector value, whose step installs its two
-binaries: tesseract, and poppler's `pdftoppm` for the page raster it reads —
-shelled to the same way, so the pass adds no Python dependency on either side.
+`run-repair`'s `ocr-recovery` selector value, whose credential-free parse job
+installs its two binaries: tesseract, and poppler's `pdftoppm` for the page
+raster it reads — shelled to the same way, so the pass adds no Python
+dependency on either side.
 
 - **Where it runs.** As a pass on `run-repair` — a `repair` selector value, not
   a workflow of its own. The writer jobs are the only place a production corpus
@@ -1354,17 +1355,18 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   for. It is one of the three passes there that fetch — the document back-fill
   and the re-cut below are the others — and the fetch is what keeps them in that lane rather than
   the pullers': supremecourt.gov is free and politeness-capped, so no budget is
-  governed and no window's schedule is implicated. Both binaries are installed by that step and by
-  the OCR sweep's credential-free parse job only, so no *scheduled* job
-  holding a credential has them. This dispatched step does: it installs and
-  runs them inside the job that holds the read-write corpus role and the data
-  App token. Dry run by
+  governed and no window's schedule is implicated. Both binaries are installed
+  by the two credential-free parse jobs only, this pass's and the OCR sweep's,
+  so no job holding a credential has them: the fetch and the recognition run
+  in a job holding none, and the writer that lands what they read fetches
+  nothing (*Maintenance passes* in [data-pipeline.md](data-pipeline.md)). Dry run by
   default, and bounded through `repair_bound` so a backlog clears in slices
   rather than in one long job; runner minutes are the whole cost. That bound is
-  the *spend* cap. What keeps a slice inside the step's own wall clock is a
-  **slice deadline** the step passes with it, sized from everything that must
-  still fit inside that cap once the pass stops taking work — the writes it has
-  in flight, the witness re-read, the blob push and the pointer commit. Before
+  the *spend* cap. What keeps a slice inside the parse step's own wall clock
+  is a **slice deadline** the step passes with it, sized from everything that
+  must still fit inside that cap once the pass stops taking work — a started
+  candidate's overshoot and the plan write; the witness re-read, the blob push
+  and the pointer commit are the writer's. Before
   each candidate the pass estimates its cost from the stored page count and
   stops taking new ones once what is left will not hold it. Page counts across
   the class vary several-fold, so a fixed bound cannot do that job — a slice

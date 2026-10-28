@@ -37,6 +37,7 @@ from fedcourtsai.pipeline.ocr_recovery import (
     OcrPageFactory,
     OcrRun,
     ScannedDocument,
+    scanned_documents,
 )
 from fedcourtsai.pipeline.ocr_sweep import (
     FRESH_DAYS,
@@ -48,6 +49,7 @@ from fedcourtsai.pipeline.ocr_sweep import (
     SweepCandidate,
     apply_ocr_plan,
     check_plan,
+    dispatched_worklist,
     forward_case_ids,
     order_sweep_class,
     plan_worklist,
@@ -813,8 +815,15 @@ def test_the_cli_writer_prints_only_counts_of_the_parses_failures(
     [
         (["--sweep", "--max-cases", "5"], "takes no --max-cases"),
         (["--sweep", "--apply"], "applies only --from-plan"),
-        (["--emit-worklist", "w.json"], "run in --sweep mode"),
-        (["--worklist", "w.json"], "go together"),
+        (["--emit-worklist", "w.json", "--apply"], "the projection writes nothing"),
+        (["--emit-worklist", "w.json", "--max-cases", "201"], "a slice of 1 to 200"),
+        (["--emit-worklist", "w.json", "--max-cases", "0"], "a slice of 1 to 200"),
+        (["--emit-worklist", "w.json", "--max-cases", "2", "--probe", "1"], "pass one"),
+        (["--from-plan", "p.json", "--bind-worklist", "w.json"], "takes the dispatch's"),
+        (["--from-plan", "p.json"], "--bind-worklist go together"),
+        (["--worklist", "w.json"], "exactly one of"),
+        (["--worklist", "w.json", "--plan-out", "p.json", "--probe-only"], "exactly one of"),
+        (["--worklist", "w.json", "--probe-only", "--max-cases", "1"], "opens no corpus"),
         (["--worklist", "w.json", "--plan-out", "p.json", "--sweep"], "opens no corpus"),
         (["--sweep", "--emit-worklist", "w.json", "--from-plan", "p.json"], "pass one"),
         (["--sweep", "--deadline-seconds", "60"], "bounds the parse"),
@@ -914,3 +923,185 @@ def test_the_writer_skips_a_reading_of_another_length(tmp_path: Path) -> None:
     result = _apply(db, OcrPlan(rows=[_row(stored).model_copy(update={"pages": 30})]))
     assert result.written == {}
     assert result.skipped == {"scotus/1 petition": "pages-changed"}
+
+
+# --- the dispatched pass's split (run-repair's ocr-recovery) ---------------
+
+
+def _dispatched_apply(db: Path, plan: OcrPlan, bound: OcrWorklist) -> OcrSweepApplyResult:
+    with corpus.connect(db) as conn:
+        return apply_ocr_plan(
+            conn,
+            plan,
+            bound,
+            cap=bound.cap,
+            char_cap=150_000,
+            today=_TODAY,
+            apply=True,
+            dispatched=True,
+        )
+
+
+def test_the_dispatched_worklist_is_the_head_of_the_class_or_a_spread_sample(
+    tmp_path: Path,
+) -> None:
+    """An apply's worklist is the slice in class order; a dry run's is the probe sample."""
+    documents = [_document(f"scotus/{n}") for n in range(1, 7)]
+    db = _seed(tmp_path / "corpus", documents, events=[_open_event("scotus/2")])
+    with corpus.connect(db) as conn:
+        scan = scanned_documents(conn)
+        sliced = dispatched_worklist(conn, scan.candidates, max_cases=2, probe=3)
+        sampled = dispatched_worklist(conn, scan.candidates, max_cases=None, probe=3)
+    assert [item.key for item in sliced.items] == ["scotus/1 petition", "scotus/2 petition"]
+    assert sliced.cap == 2 and sliced.class_size == 6 and sliced.forward_size == 1
+    assert [item.forward for item in sliced.items] == [False, True]
+    assert [item.key for item in sampled.items] == [
+        "scotus/1 petition",
+        "scotus/3 petition",
+        "scotus/5 petition",
+    ]
+
+
+def test_the_dispatched_writer_stores_what_the_dispatched_pass_stored(tmp_path: Path) -> None:
+    """A text-layer reading and a filing of another length are written, as before the split.
+
+    The sweep's writer refuses the first and skips the second; the dispatched
+    pass always stored whatever the re-served filing read as.
+    """
+    first, second = _document("scotus/1"), _document("scotus/2")
+    db = _seed(tmp_path / "corpus", [first, second])
+    plan = OcrPlan(
+        rows=[
+            _row(first).model_copy(update={"ocr_derived": False}),
+            _row(second).model_copy(update={"pages": 30}),
+        ]
+    )
+    result = _dispatched_apply(db, plan, _bound(plan, cap=2))
+    assert sorted(result.written) == ["scotus/1 petition", "scotus/2 petition"]
+    assert _documents(db, "scotus/1")[KIND_PETITION].ocr_derived is False
+    assert _documents(db, "scotus/2")[KIND_PETITION].pages == 30
+
+
+def test_the_dispatched_writer_refuses_a_plan_that_drops_an_item(tmp_path: Path) -> None:
+    """Every item read, not recovered or unreached, exactly once: the ledger is built on it."""
+    first, second = _document("scotus/1"), _document("scotus/2")
+    db = _seed(tmp_path / "corpus", [first, second])
+    plan = OcrPlan(rows=[_row(first)])
+    bound = _bound(OcrPlan(rows=[_row(first), _row(second)]), cap=2)
+    with pytest.raises(HandoffRefused, match="accounts for 1 of the worklist's 2 items"):
+        _dispatched_apply(db, plan, bound)
+    twice = OcrPlan(rows=[_row(first)], failures={"scotus/1 petition": "not-served"})
+    with pytest.raises(HandoffRefused, match="names scotus/1 petition twice"):
+        _dispatched_apply(db, twice, _bound(OcrPlan(rows=[_row(first)]), cap=2))
+
+
+def test_the_cli_dispatched_split_round_trips_and_states_the_class_it_leaves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Projection, parse and writer as run-repair's three jobs run them.
+
+    The projection prints the dry run's class ledger and fetches nothing; the
+    writer's JSON ledger carries the `remaining` the workflow's re-read must
+    then find as `candidates`.
+    """
+    db = _seed(tmp_path / "corpus", [_document("scotus/1"), _document("scotus/2")])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    worklist = tmp_path / "handoff" / "projection.json"
+    plan = tmp_path / "handoff" / "plan.json"
+
+    def no_fetch(*_args: object, **_kwargs: object) -> SupremeCourtClient:
+        raise AssertionError("the projection fetches nothing")
+
+    monkeypatch.setattr("fedcourtsai.cli.SupremeCourtClient", no_fetch)
+    emitted = runner.invoke(
+        app,
+        ["ocr-recover-petitions", "--emit-worklist", str(worklist), "--max-cases", "1"],
+    )
+    assert emitted.exit_code == 0, emitted.output
+    assert "ocr-recover-petitions (dry-run): 2 scanned filing(s)" in emitted.output
+    assert "worklist: 1 item(s), the apply's slice" in emitted.output
+    assert [i.key for i in read_handoff(worklist, OcrWorklist).items] == ["scotus/1 petition"]
+
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    _fake_binary(binaries, "pdftoppm", "printf PNG")
+    _fake_binary(binaries, "tesseract", "printf 'Recovered page text.'")
+    monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
+    pdf = _blank_pdf(12)
+
+    class _Served(SupremeCourtClient):
+        def __init__(self, **_kwargs: object) -> None:
+            super().__init__(
+                throttle_seconds=1.0,
+                client=httpx.Client(
+                    transport=httpx.MockTransport(lambda _r: httpx.Response(200, content=pdf)),
+                    headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
+                ),
+                sleep=lambda _s: None,
+            )
+
+    monkeypatch.setattr("fedcourtsai.cli.SupremeCourtClient", _Served)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "absent"))
+    parsed = runner.invoke(
+        app,
+        ["ocr-recover-petitions", "--worklist", str(worklist), "--plan-out", str(plan)],
+    )
+    assert parsed.exit_code == 0, parsed.output
+
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    refused = runner.invoke(
+        app,
+        [
+            "ocr-recover-petitions",
+            *("--from-plan", str(plan), "--bind-worklist", str(worklist)),
+            *("--max-cases", "2", "--apply"),
+        ],
+    )
+    assert refused.exit_code == 1
+    assert "cut for a bound of 1, not this dispatch's 2" in refused.output
+    written = runner.invoke(
+        app,
+        [
+            "ocr-recover-petitions",
+            *("--from-plan", str(plan), "--bind-worklist", str(worklist)),
+            *("--max-cases", "1", "--apply"),
+        ],
+    )
+    assert written.exit_code == 0, written.output
+    assert "Recovered page text" not in written.output
+    ledger = json.loads(written.output.strip().splitlines()[-1])
+    assert ledger["applied"] is True
+    assert (ledger["candidates"], ledger["attempted"], ledger["remaining"]) == (2, 1, 1)
+    assert "Recovered page text." in _documents(db, "scotus/1")[KIND_PETITION].text
+
+    reread = runner.invoke(app, ["ocr-recover-petitions", "--probe=0"])
+    assert reread.exit_code == 0, reread.output
+    assert json.loads(reread.output.strip().splitlines()[-1])["candidates"] == 1
+
+
+def test_the_cli_probe_parse_reports_each_items_status_and_writes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    item = _item("scotus/1")
+    worklist = tmp_path / "worklist.json"
+    write_handoff(worklist, _worklist(item, cap=3))
+
+    class _Served(SupremeCourtClient):
+        def __init__(self, **_kwargs: object) -> None:
+            super().__init__(
+                throttle_seconds=1.0,
+                client=httpx.Client(
+                    transport=httpx.MockTransport(lambda _r: httpx.Response(403)),
+                    headers={"User-Agent": supremecourt.BROWSER_USER_AGENT},
+                ),
+                sleep=lambda _s: None,
+            )
+
+    monkeypatch.setattr("fedcourtsai.cli.SupremeCourtClient", _Served)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "absent"))
+    result = runner.invoke(
+        app, ["ocr-recover-petitions", "--worklist", str(worklist), "--probe-only"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "probe scotus/1 petition: http-error (status 403, 0 bytes)" in result.output
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["worklist.json"]

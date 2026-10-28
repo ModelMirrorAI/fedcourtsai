@@ -20,8 +20,8 @@ runbook, [docs/security.md](docs/security.md).
   `config/predictors.yaml` / `config/evaluators.yaml`, and the workflow linters.
   A third class is pinned by neither: the OS packages four steps install with
   `apt-get` — the labeler's sandbox on `run-analytics`, the same sandbox on
-  `integration-test`'s labeler smoke, and the OCR recovery's two binaries on
-  `run-repair` and in `run-seed`'s credential-free OCR sweep parse job. They come from the runner image's own Ubuntu
+  `integration-test`'s labeler smoke, and the OCR recovery's two binaries in
+  the credential-free parse jobs of `run-repair` and of `run-seed`'s OCR sweep. They come from the runner image's own Ubuntu
   archive, with no third-party repository and no added signing key, so the trust
   is the runner's rather than ours; an exact version pin would only add a
   failure the week the image rolls, so each OCR step echoes the versions it

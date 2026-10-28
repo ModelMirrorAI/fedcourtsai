@@ -27,6 +27,14 @@ it fetches and parses third-party PDFs:
   it writes exactly what the dispatched pass would: the text, the
   ``ocr_derived`` marker, and a petition's re-derived questions-presented row.
 
+The dispatched pass (run-repair's ``ocr-recovery``) runs on the same split
+and the same two files, in class order rather than sweep order: its
+projection takes the first ``--max-cases`` candidates of the class as the
+apply's worklist (:func:`dispatched_worklist`), or a spread sample of it as
+the dry run's probe list, and its writer checks the plan against that worklist
+on the dispatched pass's own terms (``dispatched=True`` on :func:`check_plan`
+and :func:`apply_ocr_plan`).
+
 Both files are untrusted on the receiving side. Every identifier in them is
 pattern-checked (a SCOTUS case id, a recoverable kind, a Court URL, a reason
 from a closed set), and a file that fails is refused with only the error type
@@ -86,6 +94,7 @@ from .ocr_recovery import (
     read_scanned_document,
     require_ocr_binaries,
     scanned_documents,
+    spread_sample,
 )
 
 #: The largest slice a worklist or plan may carry. Above any configured cap
@@ -357,6 +366,47 @@ def sweep_worklist(selection: SweepSelection, *, cap: int) -> OcrWorklist:
     )
 
 
+def dispatched_worklist(
+    conn: corpus.ReadConnection,
+    candidates: Sequence[ScannedDocument],
+    *,
+    max_cases: int | None,
+    probe: int,
+) -> OcrWorklist:
+    """The dispatched pass's worklist over one walk of the class.
+
+    An apply's is its slice: the first ``max_cases`` candidates in class order,
+    the order the dispatched pass has always taken them in, so a recovered row
+    leaving the class still advances the next dispatch. A dry run's is the
+    spread sample its probe re-fetches (``probe`` of them,
+    :func:`~fedcourtsai.pipeline.ocr_recovery.spread_sample`), since the dry
+    run reads statuses and OCRs nothing. ``cap`` is the bound itself on an
+    apply, so the writer can hold the plan to the number the dispatch carried.
+    """
+    if max_cases is not None:
+        picked = list(candidates[:max_cases])
+        cap = max_cases
+    else:
+        picked = spread_sample(candidates, probe)
+        cap = max(probe, 1)
+    forward_ids = forward_case_ids(conn)
+    return OcrWorklist(
+        class_size=len(candidates),
+        forward_size=sum(1 for c in candidates if c.document.case_id in forward_ids),
+        cap=cap,
+        items=[
+            OcrWorkItem(
+                case_id=c.document.case_id,
+                kind=c.document.kind,
+                url=c.document.url,
+                pages=c.document.pages,
+                forward=c.document.case_id in forward_ids,
+            )
+            for c in picked
+        ],
+    )
+
+
 def _check_unique(keys: Sequence[str], what: str) -> None:
     seen: set[str] = set()
     for key in keys:
@@ -442,7 +492,9 @@ class OcrSweepApplyResult(BaseModel):
     questions_rederived: int = Field(ge=0, default=0)
 
 
-def check_plan(plan: OcrPlan, worklist: OcrWorklist, *, cap: int, char_cap: int) -> None:
+def check_plan(
+    plan: OcrPlan, worklist: OcrWorklist, *, cap: int, char_cap: int, dispatched: bool = False
+) -> None:
     """Refuse a plan the parse could not have written for this window, whole.
 
     The read already refused any malformed identifier, URL or reason. Beyond
@@ -453,6 +505,13 @@ def check_plan(plan: OcrPlan, worklist: OcrWorklist, *, cap: int, char_cap: int)
     stored extraction read empty, so a reading of it that OCR did not contribute
     to is not one this sweep produces); a text longer than the configured
     document cap; or a text that is whitespace only.
+
+    ``dispatched`` holds the plan to the dispatched pass's terms instead. It
+    must account for every worklist item exactly once — read, not recovered or
+    unreached — because the writer's ledger is built from the plan's own count
+    and an item the plan dropped would vanish from it. And a row need not be
+    marked ``ocr_derived``: the dispatched pass stores whatever the re-served
+    filing reads as, a text layer included, with the extractor's own flag.
     """
     check_worklist(worklist)
     if len(plan.rows) > cap:
@@ -462,12 +521,19 @@ def check_plan(plan: OcrPlan, worklist: OcrWorklist, *, cap: int, char_cap: int)
     for key in [*plan.failures, *plan.unreached]:
         if key not in urls:
             raise HandoffRefused(f"the plan reports {key}, which is not on this window's worklist")
+    if dispatched:
+        _check_unique([row.key for row in plan.rows] + [*plan.failures, *plan.unreached], "plan")
+        accounted = len(plan.rows) + len(plan.failures) + len(plan.unreached)
+        if accounted != len(worklist.items):
+            raise HandoffRefused(
+                f"the plan accounts for {accounted} of the worklist's {len(worklist.items)} items"
+            )
     for row in plan.rows:
         if urls.get(row.key) != row.url:
             raise HandoffRefused(
                 f"the plan's row {row.key} is not an item of this window's worklist at its URL"
             )
-        if not row.ocr_derived:
+        if not row.ocr_derived and not dispatched:
             raise HandoffRefused(f"the plan's row {row.key} is not marked ocr_derived")
         if len(row.text) > char_cap:
             raise HandoffRefused(
@@ -487,6 +553,7 @@ def apply_ocr_plan(
     char_cap: int,
     today: date,
     apply: bool,
+    dispatched: bool = False,
 ) -> OcrSweepApplyResult:
     """Write each plan row whose stored row is still the scan the projection saw.
 
@@ -500,8 +567,13 @@ def apply_ocr_plan(
     held none, with the extractor's ``ocr_derived`` reading, and a recovered
     petition re-derives its questions-presented row against the question
     stored now. Without ``apply`` it reports what it would write and writes nothing.
+
+    ``dispatched`` is the dispatched pass's writer (:func:`check_plan`). It
+    writes a row whose link now serves a filing of another length, as that pass
+    always has, storing the page count the parse read: it reads the filing
+    whole, so the reading is of the filing served now.
     """
-    check_plan(plan, worklist, cap=cap, char_cap=char_cap)
+    check_plan(plan, worklist, cap=cap, char_cap=char_cap, dispatched=dispatched)
     written: dict[str, str] = {}
     skipped: dict[str, str] = {}
     rederived = 0
@@ -520,7 +592,7 @@ def apply_ocr_plan(
         if document.url != row.url:
             skipped[row.key] = "url-changed"
             continue
-        if document.pages != row.pages:
+        if document.pages != row.pages and not dispatched:
             # The link now serves a filing of another length than the one the
             # projection counted: a different document, which the dispatched
             # pass, reading it whole, is the route for.
