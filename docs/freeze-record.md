@@ -14312,8 +14312,10 @@ freeze commit is recorded here.
   as the cell workflows set it, a shell command's non-zero exit in `metadata`.
   Capture now reads them. Every gemini row is `result_capture` `outcome_only`
   where it was `unobserved`, with `result_status` `error` where the CLI marked
-  the call failed, `throttled` where a manifest call's failure message carries
-  the 429 shape in the server's part of it, and `ok` otherwise. Digests and
+  the call failed (its `success` false, an error message logged, or a shell
+  command's non-zero exit), `throttled` where a manifest call's failure message
+  carries the 429 shape (read after the CLI's `with response:` wrapper where it
+  quotes the call's own arguments, else the whole message), and `ok` otherwise. Digests and
   document dates stay null, because the payload is still not logged.
   - **What it reaches through the blinded log.** The mask passes both markers
     through, so every evaluator now sees, on a gemini candidate, which calls
@@ -14322,9 +14324,11 @@ freeze commit is recorded here.
     can tell a failed attempt from an undisclosed one. The evaluate prompt
     describes `captured` and `unobserved` only; it is not edited here, so an
     `outcome_only` row reaches a judge described by its own name and the
-    field's schema description until a re-bless adds a line for it. An
-    all-`outcome_only` log identifies the gemini candidate as surely as an
-    all-`unobserved` one did.
+    field's schema description until a re-bless adds a line for it. A judge
+    applying the prompt literally may read an `outcome_only` row's null digest
+    as "returned nothing", so blinded leakage grades of gemini candidates sit
+    on a capture seam across the merge. An all-`outcome_only` log identifies
+    the gemini candidate as surely as an all-`unobserved` one did.
   - **What it moves on published surfaces.** Gemini manifest calls enter the
     throttle denominator for the first time: the log's `throttled_calls`, the
     run PR's throttle note, and the tool-usage report's per-engine throttle
@@ -14339,23 +14343,37 @@ freeze commit is recorded here.
   **Codex.** Capture read the newest `rollout-*.jsonl` under the cell's
   sessions directory, and a subagent session started after the parent's last
   write is the newest file. It now reads the parent session (the newest
-  rollout whose `session_meta` names no parent thread and no subagent source)
-  and every subagent session descending from it: calls merge in timestamp
-  order, and token counts sum. A tree with no `session_meta` reads the newest
+  rollout whose `session_meta` names no parent thread and no subagent source),
+  every subagent session descending from it, and any subagent session in the
+  cell's directory that names no parent: calls merge in timestamp order, and
+  token counts sum. A tree with no `session_meta` reads the newest
   rollout alone.
   - **What it reaches.** A codex candidate's staged log can gain rows a
     subagent made, which is retrieval the cell did and which the judge
     previously could not see. A codex cell's `usage.json` tokens and estimated
-    cost rise by the subagent's use, so measured spend moves with them.
-  - **What it does not repair.** The 10 of 675 committed codex logs flagged on
-    the agent-observability tracker as looking like a subagent's session keep
-    what they carry: capture runs once, and those rollouts are gone.
+    cost rise by the subagent's use, so measured spend moves with them, under
+    the same process version: a codex $/cell measured across the carrying
+    merge pools two capture regimes that no digest separates, and earlier
+    codex measurements leave subagent spend out, so a re-anchor of codex's
+    planning rate reads cells after the merge only. Subagent tokens are priced
+    at the parent's requested model, and `served_models` reads the parent
+    session alone, so a subagent on another model is priced as the parent.
+  - **What it does not repair.** The 10 of 675 committed codex logs (counted
+    2026-10-16) that looked like a subagent's session keep what they carry,
+    and so do the same cells' `usage.json`, which count the subagent's tokens
+    rather than the parent's: capture runs once, and those rollouts are gone.
 
-  The runnable effect check once it is live: the first predict round after
-  the carrying merge with a gemini cell commits a gemini `retrieval_log.json`
-  whose rows read `"result_capture": "outcome_only"`
-  (`jq '[.calls[].result_capture] | unique'` prints `["outcome_only"]`), and
-  `uv run fedcourts process-digest --all` prints the same label and six
-  digests at the carrying merge as at its first parent.
+  The parsers were built against the Gemini CLI 0.49 and Codex 0.144.1 sources
+  and exercised on fixtures shaped from them; no real engine log was read for
+  this entry, so both readings are unverified until the first round after the
+  carrying merge. The runnable effect check once it is live, on the first
+  predict round after the carrying merge: across its gemini
+  `retrieval_log.json` files, `jq '[.calls[].result_status] | unique'` prints
+  more than `["ok"]` on at least one cell (a status read from a real
+  `success` or error field, not the residual), and across its `usage.json`
+  files `jq .served_models` is non-null on each engine's cells; on the first
+  evaluate round, each cell directory carries a `blinding.json`; and `uv run
+  fedcourts process-digest --all` prints the same label and six digests at
+  the carrying merge as at its first parent.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).

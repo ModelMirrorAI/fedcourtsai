@@ -1556,3 +1556,28 @@ def test_collect_plan_is_silent_when_every_log_names_the_requested_model(
     plan = json.loads(result.stdout)
     assert plan["served_models"] == ""
     assert "ran on a model other" not in plan["ready"]["body"]
+
+
+def test_collect_plan_reads_a_numeric_release_suffix_as_the_requested_model(
+    tmp_path: Path,
+) -> None:
+    base = dict(court="scotus", docket=1, event_id="evt-x", run_id="R")
+    _write_cell(
+        tmp_path,
+        "cell-a",
+        actor="gemini-baseline",
+        produced=True,
+        validated=True,
+        agent_ok=True,
+        **base,
+    )
+    _write_usage(tmp_path, "cell-a", "gemini-baseline", model="g-4", served=["g-4-001"])
+    _write_usage(tmp_path, "cell-a", "codex-baseline", model="g-4", served=["g-4-lite"])
+    result = runner.invoke(
+        app,
+        ["collect-plan", "--role", "predict", "--run-id", "R", "--status-dir", str(tmp_path)],
+    )
+    plan = json.loads(result.stdout)
+    assert "1 of 2 cell(s)" in plan["served_models"]
+    assert "g-4-lite" in plan["served_models"]
+    assert "g-4-001" not in plan["served_models"]

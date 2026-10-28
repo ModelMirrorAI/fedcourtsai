@@ -3341,8 +3341,9 @@ def _throttled_calls(calls: Sequence[RetrievalCall]) -> int | None:
 
     ``None`` when :func:`observed_mcp_conditions` is empty — an empty log, one
     written before the field existed, one whose every result was ``unobserved``
-    (a whole Gemini cell), or one that called no manifest tool at all. A
-    throttle is only countable where a manifest result reached the transcript,
+    (a Gemini cell captured before its rows carried the logged outcome), or one
+    that called no manifest tool at all. A throttle is only countable where a
+    manifest result or outcome reached the log,
     so a ``0`` from such a log would assert a clean run out of a blind one; the
     null says the question could not be asked instead.
     """
@@ -6928,7 +6929,7 @@ class ToolUsageEngine(_Strict):
     The throttle fields sit here for the same reason and inherit the same limit:
     a call the upstream quota turned away retrieved nothing, so a run starved of
     it is not comparable with a well-fed one — but only an engine whose results
-    reach the transcript can be seen being starved, which is why the rate
+    or call outcomes reach its log can be seen being starved, which is why the rate
     denominates on observed conditions rather than on calls. They are cut per
     engine because that is the grain the ledger has, not because throttling is
     an engine trait: the quota is one bucket every cell of a run draws from, so
@@ -6986,10 +6987,11 @@ class ToolUsageEngine(_Strict):
         default=0,
         ge=0,
         description="MCP calls whose per-call `result_status` records an observed "
-        "condition — captured, and so legible as throttled or not. The throttle rate's "
-        "denominator, and NOT `calls`: an engine whose transcript drops every result "
-        "scores 0 here, which is what keeps its throttle count from reading as a "
-        "throttle-free engine. 0 also on every log written before the field existed",
+        "condition — a captured result or a logged outcome, and so legible as throttled "
+        "or not. The throttle rate's denominator, and NOT `calls`: an engine whose log "
+        "carries neither scores 0 here, which is what keeps its throttle count from "
+        "reading as a throttle-free engine. 0 also on every log written before the field "
+        "existed",
     )
     mcp_throttled_calls: int | None = Field(
         default=None,

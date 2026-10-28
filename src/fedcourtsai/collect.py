@@ -901,7 +901,7 @@ class ThrottleRollup:
     denominator each log's own ``throttled_calls`` and the corpus rollup's
     per-engine rate use. Both of its exclusions drop calls that could never have
     shown a throttle: a builtin, which does not talk to the upstream this quota
-    belongs to, and a result no transcript captured.
+    belongs to, and a call whose result and outcome no log captured.
 
     ``cells`` therefore counts only the logs that could have shown one;
     ``blind_cells`` counts the rest — a cell that called no manifest tool, or
@@ -964,9 +964,10 @@ def render_throttle_note(rollup: ThrottleRollup | None) -> str:
         f"legible.{blind} Those cells retrieved less than an unthrottled cell would have "
         f"— the shared daily quota, not the agent — so read their coverage, and any "
         f"comparison that puts them beside a well-fed cell, with that in mind. The count "
-        f"is a floor: a call whose result never reached the transcript cannot be counted, "
-        f"a builtin's result is not read for this at all, and a cell that gave up on a "
-        f"call leaves no row."
+        f"is a floor: a call whose result and outcome never reached the log cannot be "
+        f"counted, a gemini call is read from its logged outcome alone and so shows only "
+        f"a 429 the server raised as an error, a builtin's result is not read for this at "
+        f"all, and a cell that gave up on a call leaves no row."
     )
 
 
@@ -1626,7 +1627,9 @@ class ServedModelRollup:
     ``cells`` counts the records read, ``unknown`` the ones whose engine log named
     no model (``served_models`` null: unknown, not a match), and ``substituted``
     each cell whose log named anything other than exactly the requested model, as
-    ``(cell, requested, served)`` with the served models comma-joined.
+    ``(cell, requested, served)`` with the served models comma-joined. A served
+    id that is the requested one plus a numeric release suffix (``-001``) is
+    read as a match, since a provider reports a pinned version that way.
     """
 
     cells: int = 0
@@ -1656,9 +1659,9 @@ def render_served_model_note(rollup: ServedModelRollup | None) -> str:
         f"`served_models`): {shown}{more}. Read their output as that model's, not the "
         f"registered one's; the cost estimate stays priced at the requested model. "
         f"Each engine's value sits at its own distance from the provider: claude's is the "
-        f"model the API response named; gemini's is the response's own version string, "
-        f"so a version suffix alone lands here too; codex's is the model the CLI "
-        f"addressed, so a provider-side reroute there never does."
+        f"model the API response named; gemini's is the response's own version string "
+        f"(a numeric release suffix on the requested id is read as a match); codex's is "
+        f"the model the CLI addressed, so a provider-side reroute there never lands here."
     )
 
 

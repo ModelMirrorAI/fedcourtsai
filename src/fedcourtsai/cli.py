@@ -13,6 +13,7 @@ import json
 import logging
 import math
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -24774,6 +24775,21 @@ def _load_stakes_reads(status_dir: Path, run_id: str) -> StakesReadRollup:
     return rollup
 
 
+# A served id that is the requested one plus a numeric release suffix
+# (`-001`, `-05-06`): the spelling a provider reports a pinned version of the
+# model under, not another model.
+_VERSION_SUFFIX = re.compile(r"-[0-9][0-9-]*")
+
+
+def _same_model(requested: str, served: str) -> bool:
+    """Whether a logged model id names the requested model, release suffix aside."""
+    if served == requested:
+        return True
+    return served.startswith(requested) and bool(
+        _VERSION_SUFFIX.fullmatch(served[len(requested) :])
+    )
+
+
 def _load_served_models(status_dir: Path, run_id: str) -> ServedModelRollup:
     """Census this run's ``usage.json`` records for the model each cell ran on.
 
@@ -24800,7 +24816,7 @@ def _load_served_models(status_dir: Path, run_id: str) -> ServedModelRollup:
         rollup = replace(rollup, cells=rollup.cells + 1)
         if record.served_models is None:
             rollup = replace(rollup, unknown=rollup.unknown + 1)
-        elif record.served_models != [record.model]:
+        elif any(not _same_model(record.model, served) for served in record.served_models):
             cell = f"{record.case_id}/{record.event_id}/{record.actor_id}"
             rollup = replace(
                 rollup,

@@ -3796,7 +3796,7 @@ is countable while a throttle note appended to a *successful* result can never
 be seen — a **narrower floor** than a paired engine's, structurally. That
 engine's logs captured before its rows carried the outcome read `unobserved`
 and supply no denominator at all, so its figure is scoped to the later logs and
-a move across that change is a capture change. The third case is a **code-mode** engine, whose
+a move across that change is a capture change (`docs/freeze-record.md` dates it). The third case is a **code-mode** engine, whose
 lifted rows carry `RetrievalCall.call_source: code_mode_source`: it invokes its tools —
 manifest and builtin alike — from inside a freeform builtin call, and only that
 call's *combined*
@@ -3824,8 +3824,12 @@ denominator. Codex's throttle figure is therefore capture-blind until logs
 captured after the resolution arrive. Its call counts are those earlier
 lifted rows plus the later resolved ones, two capture regimes. A move in
 either figure across the resolution is a capture change, not a behavioural
-one (`docs/freeze-record.md` dates it). Read a per-engine throttle number as scoped to the logs that could
-express one.
+one (`docs/freeze-record.md` dates it). A third codex seam is the session one:
+capture reads the cell's parent session and every subagent session it spawned,
+so from the carrying merge a codex log gains the rows its subagents made, and its
+call counts and manifest denominator with them; earlier logs read one rollout,
+which on some cells was a subagent's (`docs/freeze-record.md` dates this too).
+Read a per-engine throttle number as scoped to the logs that could express one.
 
 **What may be claimed from `self_provisioned_fetches`: a described share and a
 common-record comparison on the leaderboard, never a rank, a headline figure or

@@ -610,7 +610,7 @@ directory without knowing which part is which invites trusting the wrong half.
   cell's main-agent calls, so a cell that ran on something else shows, and the
   run PR names each one. The engines differ in how close that value sits to
   the provider: claude's is the model each API response named, gemini's the
-  response's own version string (so a version suffix alone differs too), and
+  response's own version string (else the model the CLI asked for), and
   codex's the model the CLI addressed, which never shows a provider-side reroute.
   Null means the log named no model: unknown, not a match. On a forward predict
   cell it also carries the docket bracket: `pre_mint_poll`, taken just before the
@@ -680,7 +680,7 @@ directory without knowing which part is which invites trusting the wrong half.
   read, so those rows count as builtins and their results were never checked
   for a throttle. `throttled_calls` is the log-level count over
   that same gated set, null where no manifest result was legible, because a
-  throttle is only countable where one reached the transcript. Both are floors
+  throttle is only countable where a result or outcome reached the log. Both are floors
   — the predicate is anchored on the server's own rate-limit phrasing, biased
   to miss rather than invent, and baked at parse time, since the raw 429 text is
   digested away one line after it is read and can never be re-examined.
@@ -910,7 +910,10 @@ produces, plus the cell's `blinding.json`: per file, how many aliases the
 harness rewrote to which predictor id, and which identity terms the judge's own
 text already named before it did. The judge was staged text with every such
 name redacted, so a non-empty `names_present` is a name the judge wrote itself,
-and the stamp says so in the cell's `flags.json`. What a blinded grade may be read as is in
+and the stamp says so in the cell's `flags.json`. Read the term and file before
+reading it as a broken blind: a family word in its ordinary sense (`codex` for a
+manuscript) counts too, and so does the judge's own family word, since only its
+id, engine and model are left out. What a blinded grade may be read as is in
 [outcome-decomposition.md](outcome-decomposition.md); which files are staged and
 which are dropped is in [cli.md](cli.md), under
 `provision-blinded-predictions`. Briefly: a candidate's
