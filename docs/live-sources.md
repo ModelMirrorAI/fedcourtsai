@@ -486,9 +486,25 @@ the docket form, so one function serves both lanes:
   the grant, so it stays `sg-invited-brief` and is never this kind. It follows
   every party arm, and the two arms after it read only the pending petition,
   so an entry any other arm reads is never offered to it and no other kind's
-  selection moves; every other merits-stage amicus brief
-  stays unselected. A merits cell whose cutoff it falls before is given it
-  beside the parties' merits briefs.
+  selection moves; every other merits-stage amicus brief but a
+  Court-appointed amicus's (below) stays unselected. A merits cell whose cutoff it falls
+  before is given it beside the parties' merits briefs.
+- **`merits-brief-appointed-amicus`** — the **merits brief of a Court-appointed
+  amicus**, which the Court appoints where no party will defend the judgment
+  below, usually because the respondent has confessed error; it is then the
+  only brief on the judgment's side. Read by the anchor that dates the briefed
+  moment from the same filing ("Brief of Court-appointed amicus curiae in
+  support of the judgment below filed.", "Brief amicus curiae of
+  Court-appointed amicus curiae … filed."): the first such entry filed **after
+  the cert grant** whose entry posts a `Main Document` link, from that link
+  alone. An appointed amicus arguing the petitioner's side is refused, as the
+  moment's anchor refuses it, and a spelling naming the lawyer before the
+  appointment ("Brief of Jane Doe, Court-appointed amicus curiae, …") is not
+  read. It follows the United States' arm and no earlier arm reads it, so no
+  other kind's selection moves. On a consolidated group it is borrowed off the
+  lead as the United States' brief is, unless the Clerk marks it "(as to No.)"
+  for other dockets only. It is stored and **staged for no cell**
+  (`provision.WITHHELD_KINDS`) until the re-bless whose prompt names it.
 - **`supplemental-brief`** / **`party-letter`** — every party's **Rule
   15.8 supplemental brief** ("Supplemental brief of petitioner … filed.",
   "Second supplemental brief of respondent … filed.", and a "letter brief",
@@ -573,7 +589,9 @@ docket does not yield is taken from the lead's selection. The rules:
   nothing, and the run log says so. A self-filing amicus on the lead's `Other`
   list does not block it: the only amicus briefs selected are the United
   States' (`sg-invited-brief`, `merits-amicus-united-states`), which its own
-  counsel files.
+  counsel files, and a Court-appointed amicus's
+  (`merits-brief-appointed-amicus`), filed by the member of the bar the Court
+  appointed.
 - **A lead that does not serve** is warned into the run log and read as no lead:
   the member's own documents are stored without it.
 - **The briefed date.** The member's own docket never carries its respondent's
@@ -885,7 +903,7 @@ register number (none on that blob): it would stay as served, where a
 party-side one is withheld whatever its `Attorney` says. A docket whose only
 qualifying block is an amicus's gets the **value pass alone** (below): no
 amicus's own brief is staged — the only amicus kinds selected are the United
-States' briefs, filed by its counsel — so what is staged there is counsel's
+States' briefs and a Court-appointed amicus's, each filed by counsel — so what is staged there is counsel's
 filings, and the shape pass would cost their text its misreads of legal prose —
 a case name led by a street number, a regulation number in telephone shape —
 where the staged filers are represented. The premise is about amici, whose

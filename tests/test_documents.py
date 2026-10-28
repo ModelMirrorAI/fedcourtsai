@@ -4013,14 +4013,15 @@ def test_corpus_info_text_coverage_is_opt_in(
     )
     assert "a reach count, not a failure rate" in measured.stdout
     # The kind column is sized from the data, so the widest kind sets the padding.
-    assert "scored petition                    n=3 empty=2 (66.67%)" in measured.stdout
-    assert "rest   brief-in-opposition         n=1 empty=1 (100.00%)" in measured.stdout
-    assert "rest   questions-presented         n=0 empty=0 (-)" in measured.stdout
+    assert "scored petition                      n=3 empty=2 (66.67%)" in measured.stdout
+    assert "rest   brief-in-opposition           n=1 empty=1 (100.00%)" in measured.stdout
+    assert "rest   questions-presented           n=0 empty=0 (-)" in measured.stdout
     # A granted case's merits briefs are counted like every other fetched kind,
     # and read as an empty cut rather than a measured zero where none is stored.
-    assert "scored merits-brief-petitioner     n=0 empty=0 (-)" in measured.stdout
-    assert "rest   merits-brief-respondent     n=0 empty=0 (-)" in measured.stdout
-    assert "scored merits-amicus-united-states n=0 empty=0 (-)" in measured.stdout
+    assert "scored merits-brief-petitioner       n=0 empty=0 (-)" in measured.stdout
+    assert "rest   merits-brief-respondent       n=0 empty=0 (-)" in measured.stdout
+    assert "scored merits-amicus-united-states   n=0 empty=0 (-)" in measured.stdout
+    assert "scored merits-brief-appointed-amicus n=0 empty=0 (-)" in measured.stdout
     # The questions-presented zero is structural, and the report says so.
     assert "structurally unable to carry a scan" in measured.stdout
     assert "empty text (3 case(s)):" in measured.stdout
