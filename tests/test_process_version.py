@@ -189,9 +189,8 @@ def test_the_frozen_map_and_the_freeze_instant_move_together() -> None:
     # carries it stamps them, while the previous label's instant still stands:
     # the one legitimate empty map beside an instant, and it holds only while
     # every registered digest is pending.
-    every_digest_pending = bool(process_version.REGISTERED_PROCESS_DIGESTS) and not (
-        process_version.REGISTERED_PROCESS_DIGESTS & digests.keys()
-    )
+    blessings = process_version._REGISTRY.blessings
+    every_digest_pending = bool(blessings) and all(b.blessed.at is None for b in blessings)
     assert (len(digests) > 0 or every_digest_pending) == (since is not None), (
         "FROZEN_PROCESS_DIGESTS and FROZEN_SINCE must be set in the same commit"
     )
@@ -327,8 +326,11 @@ def test_every_enabled_actor_runs_a_blessed_process() -> None:
     label bump beside it), never ride an unrelated edit; this pins that
     coupling. Skipped while nothing is blessed — arms at the freeze commit.
     """
-    if not process_version.FROZEN_PROCESS_DIGESTS:
-        pytest.skip("no digests blessed yet — the tripwire arms at the freeze commit")
+    # Armed by the registered set, not the carried one: a label that moves
+    # every digest carries none until its merge, and the tree must still
+    # compute exactly what it registered.
+    if not process_version.REGISTERED_PROCESS_DIGESTS:
+        pytest.skip("no digests registered yet — the tripwire arms at the freeze commit")
     actors = [("predictor", p) for p in enabled_predictors(CONFIG / "predictors.yaml")] + [
         ("evaluator", e) for e in enabled_evaluators(CONFIG / "evaluators.yaml")
     ]
@@ -355,8 +357,11 @@ def test_the_blessed_set_holds_nothing_beyond_the_live_fleet() -> None:
     and this entry does instead. Neither failure is visible on any board.
     Skipped while nothing is blessed, exactly as its twin is.
     """
-    if not process_version.FROZEN_PROCESS_DIGESTS:
-        pytest.skip("no digests blessed yet — the tripwire arms at the freeze commit")
+    # Armed by the registered set, not the carried one: a label that moves
+    # every digest carries none until its merge, and the tree must still
+    # compute exactly what it registered.
+    if not process_version.REGISTERED_PROCESS_DIGESTS:
+        pytest.skip("no digests registered yet — the tripwire arms at the freeze commit")
     actors = [("predictor", p) for p in enabled_predictors(CONFIG / "predictors.yaml")] + [
         ("evaluator", e) for e in enabled_evaluators(CONFIG / "evaluators.yaml")
     ]

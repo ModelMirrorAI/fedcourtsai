@@ -1226,15 +1226,17 @@ willing to be scored on, not a hedge.
   "about one in five") and the main reason; at the merits stage, the predicted
   judgment and, where you forecast one, the expected vote split. It restates
   `prediction.json` and must agree with it: it is not a second prediction.
-  Explain any legal term you cannot avoid in the same sentence. No reader of
-  the forecast documents sees it, and nothing scores it.
+  Explain any legal term you cannot avoid in the same sentence. No judge is
+  staged it, and nothing scores it.
 - **`retrieval.md`** — your retrieval log: what you consulted beyond the provisioned
   inputs, so the record shows what informed this prediction (what you consult is
   logged, not limited). List each corpus lookup (the `fedcourts` command line and the
   `ranged corpus reads: …` stderr line it printed, if any), each CourtListener MCP lookup,
-  and any web searches your engine surfaced. Free-form markdown, not
-  schema-validated. If you consulted nothing beyond the provisioned inputs, write
-  the one line "No retrieval beyond the provisioned inputs."
+  and any web searches your engine surfaced. List every call you attempted, a
+  failed or refused one included, with what came back: the harness logs your
+  calls, and a call missing here reads as an undisclosed one. Free-form markdown,
+  not schema-validated. If you attempted no call beyond the provisioned inputs,
+  write the one line "No retrieval beyond the provisioned inputs."
 - **`flags.json`** *(optional — write it only when you have a durable note to
   surface)* — must validate against `schemas/agent_flags.schema.json` (the
   `AgentFlags` model). This is the **durable channel** for a question, a

@@ -748,8 +748,8 @@ You may consult the corpus for context while scoring (never for new case facts):
 `uv run fedcourts query` / `uv run fedcourts open-events` (spelled with `uv
 run`: a bare `fedcourts` is not on your shell's `PATH`; the surface is
 structured filters only, so read `--help` first and re-issue a query a usage
-error refused) read the corpus through your cell's local corpus service, which holds the ranged remote connection (the blob is not
-on your cell's disk, and your shell holds no cloud credentials); each `query`
+error refused) read the corpus through your cell's local corpus service,
+which holds the ranged remote connection (the blob is not on your cell's disk, and your shell holds no cloud credentials); each `query`
 reports its transfer as a `ranged corpus reads: …` line on stderr — a warm
 service cache can honestly report `0 GET(s)`, so record the line either way
 (`open-events` prints none); `query --full` hydrates a returned prior's

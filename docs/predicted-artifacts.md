@@ -478,7 +478,7 @@ capture in `retrieval_log.json`.
 
 Written **only** when the cell has something durable to surface — a
 data-quality problem, a scope question, an ambiguous event, or the reason it
-was blocked. It validates against the `AgentFlags` model, and the `collect` job
+could not finish. It validates against the `AgentFlags` model, and the `collect` job
 rolls every cell's flags into the run PR body, the Actions summary, and one
 long-lived agent-feedback tracking issue, so the note survives the trigger
 issue's closure and a maintainer sees it without reading every `reasoning.md`.
@@ -487,8 +487,9 @@ issue's closure and a maintainer sees it without reading every `reasoning.md`.
 one of `info` / `warning` / `blocker`. `provisioning` is a record missing
 something the pipeline should have staged, `capture-gap` an outcome or docket
 record that cannot show what the forecast or grading needed, and
-`leakage-disclosure` a replay cell's note that it surfaced material about its
-own case postdating its event date; the cert back-test marks every note filed
+`leakage-disclosure` a note that outcome material about the case reached the
+cell or a candidate it grades (on a replay cell, material postdating its
+`context.cutoff`); the cert back-test marks every note filed
 there as an exposure candidate, whatever its wording. `blocked` also
 validates; `severity: blocker` is what says a cell could not finish. An
 optional `issue` names the repository issue that already tracks the problem,

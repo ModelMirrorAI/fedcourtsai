@@ -10760,14 +10760,15 @@ def _warn_on_summary_shape(event_paths: EventPaths, record: Prediction, actor: s
     """
     path = event_paths.prediction_summary(actor, record.run_id)
     where = f"{_one_line(record.case_id)} {_one_line(record.event_id)} {actor}"
-    if not path.is_file() or not path.read_text(encoding="utf-8").strip():
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    if not text.strip():
         typer.echo(
             f"::warning::stamp: {where} wrote no prediction_summary.md; the prompt "
             + "contracts a plain-language paragraph beside every prediction.",
             err=True,
         )
         return
-    words = len(path.read_text(encoding="utf-8").split())
+    words = len(text.split())
     if words > SUMMARY_WORD_LIMIT:
         typer.echo(
             f"::warning::stamp: {where} wrote a prediction_summary.md of {words} words; "

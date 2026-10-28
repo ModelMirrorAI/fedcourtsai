@@ -14389,12 +14389,14 @@ freeze commit is recorded here.
   - *The vote block* is scored only against a complete record over the whole
     bench.
   - *`created_at`* may be any timestamp: the stamp overwrites it.
+  - *`retrieval.md`* lists every call the cell attempted, a failed or refused
+    one included, since the harness log records them all.
   - *Paper-only filings* in the context are named.
   - *`prediction_summary.md`*: every predict cell writes a plain-language
-    summary of at most 160 words beside its other files. It is display
-    material, read by no scorer and staged to no judge (the blinded staging
-    copies only allowlisted files); the stamp warns on a missing or overlong
-    one and refuses nothing.
+    summary of about 80 words beside its other files (the stamp warns past
+    160). It is display material, read by no scorer and staged to no judge
+    (the blinded staging copies only allowlisted files); the stamp warns on a
+    missing or overlong one and refuses nothing.
   - *The cert call-for-response moment* (`moment: response-requested`, event
     `evt-order-call-for-response-disposition`) is named, so a cell placed on
     it knows what it is.
@@ -14407,13 +14409,15 @@ freeze commit is recorded here.
 
   **What the harness releases with this label.**
   - *The cert call-for-response moment is forecastable.* It was declared,
-    parsed and minted (91 committed definitions at the parent) but filed no
+    parsed and minted (92 committed definitions at `origin/main` `a0a526439`) but filed no
     cell. A cell on it is admitted only until a conference the petition was
     distributed for on or after the call has sat
     (`store._CONFERENCE_BOUNDED_MOMENTS`, the bound the relist and sg-brief
     moments already carry), so the events minted for petitions called on long
-    before the switch-on are never filed: a conference has already sat on
-    them. The moment is not in `REPREDICT_MOMENTS`. It is scored separately
+    before the switch-on should never be filed: a conference has already sat
+    on them. That is read from the code and the store tests, not from a
+    dry-run over the corpus; the `predict-plan` effect check below settles
+    it. The moment is not in `REPREDICT_MOMENTS`. It is scored separately
     and never pooled with another cert moment. No committed table conditions
     on a called-for response, so the prompt anchors the cell on its band and
     asks it to say how far the call moves it.
@@ -14432,11 +14436,21 @@ freeze commit is recorded here.
 
   **What scored figures move.** None in the headline: no baseline, rate or
   membership rule moves, and the call-for-response cells are a new
-  population with no prior cell to compare against. One diagnostic moves in
-  definition: the cert back-test's `outcome_exposure_candidate` is set on any
+  population with no prior cell to compare against, whose own block's skill
+  is not claimable until a floor conditioned on the call is registered
+  ([metrics/README.md](../metrics/README.md)). Headline *membership* can
+  still move through the judges: the leakage exclusion drops a grading with
+  `leakage_suspected` from every scored figure, the ranked
+  `cert@distribution` arm included, and the evaluate prompt now reads a
+  distribution cell's later docket entries as provisioned input (the
+  evaluator half below). At `a0a526439`, 23 committed gradings carry
+  `leakage_suspected: true`, 18 of them on `evt-petition-disposition`, so an
+  exclusion count on that arm reads per rubric. One diagnostic moves in
+  definition: the back-tests' `outcome_exposure_candidate` bit is set on any
   flag written under `leakage-disclosure` as well as on the message
-  heuristic, so a candidate count read across this boundary compares two
-  rules ([metrics/README.md](../metrics/README.md)).
+  heuristic, so a candidate count read across this boundary, the cert
+  back-test's and the merits back-test's `exposure_candidates` alike,
+  compares two rules ([metrics/README.md](../metrics/README.md)).
 
   **The retiring evaluator digests, and what was graded under them.**
   `sha256:167b7d71…` (`claude-judge`), `sha256:a8610eec…` (`codex-judge`) and
@@ -14461,12 +14475,12 @@ freeze commit is recorded here.
 
   | Actor | Before | `proc-v14` |
   | --- | --- | --- |
-  | `claude-baseline` | `sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d` (`proc-v13`) | `sha256:24f837fde794d1adc0af2c373c9ab6ac5becd0e47dcc4cd0660d5cbd69065f56` (new) |
-  | `codex-baseline` | `sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354` (`proc-v13`) | `sha256:4537ce97f75e99d7993f8aeda93081172dacb6d8017d96ca30a189add25c13ba` (new) |
-  | `gemini-baseline` | `sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745` (`proc-v13`) | `sha256:543d0439959a4ece38f1e741b5841d6171de23407038a8aec18c1061a2f8df15` (new) |
-  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | `sha256:d49940aa59545ae61ff1c7616dd728f88b92876dd07685360b026942d9e689ad` (new) |
-  | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | `sha256:63369e6cd3c723179ec731eaf64d7c72ea6f94b019ed903b42ef802fdbec09b1` (new) |
-  | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | `sha256:c81e77e1c3f1c46a310a1914a457fb5fc35b57c54a52e2135ef90ac3569d4714` (new) |
+  | `claude-baseline` | `sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d` (`proc-v13`) | `sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf` (new) |
+  | `codex-baseline` | `sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354` (`proc-v13`) | `sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6` (new) |
+  | `gemini-baseline` | `sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745` (`proc-v13`) | `sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583` (new) |
+  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | `sha256:e5778ad8476ee03e1966f338cd3ebc6a94f9130a822fdf16c83ddaebb1d6084d` (new) |
+  | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | `sha256:dc766d90dcd66a3b702486fd02e2d6b80950f37ba638a66743865d303dd5a990` (new) |
+  | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | `sha256:4a70cd5870d165cc41b878164ab15fc67e7792a17bb2dcffc9097e15445a9a1c` (new) |
 
   **Step 0.** At `origin/main` `a0a526439` (`2026-10-28T21:01:15Z`), `git grep
   -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
@@ -14480,9 +14494,9 @@ freeze commit is recorded here.
   | `claude-baseline` (`6a176c28…`) | `proc-v13` | `2026-10-26T19:00:50Z` | this label's instant (was open) |
   | `codex-baseline` (`2827480e…`) | `proc-v13` | `2026-10-26T19:00:50Z` | this label's instant (was open) |
   | `gemini-baseline` (`b69b2b3a…`) | `proc-v13` | `2026-10-26T19:00:50Z` | this label's instant (was open) |
-  | `claude-baseline` (`24f837fd…`) | `proc-v14` | this label's instant | open (new) |
-  | `codex-baseline` (`4537ce97…`) | `proc-v14` | this label's instant | open (new) |
-  | `gemini-baseline` (`543d0439…`) | `proc-v14` | this label's instant | open (new) |
+  | `claude-baseline` (`641ede79…`) | `proc-v14` | this label's instant | open (new) |
+  | `codex-baseline` (`231b2fd0…`) | `proc-v14` | this label's instant | open (new) |
+  | `gemini-baseline` (`725538ea…`) | `proc-v14` | this label's instant | open (new) |
 
   Earlier windows keep the closes earlier labels gave them.
 

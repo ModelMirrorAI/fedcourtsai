@@ -2253,12 +2253,36 @@ _RELISTED = [
         ),
         # The first conference after the brief has sat: closed.
         ("evt-brief-sg-disposition", EventKind.brief, _RELISTED, date(2026, 10, 19), False),
+        # A call for a response takes the petition off the conference it was
+        # distributed for before the call, which never counts: open.
+        (
+            "evt-order-call-for-response-disposition",
+            EventKind.order,
+            [
+                {"Date": "Sep 15 2026", "Text": "DISTRIBUTED for Conference of 10/16/2026."},
+                {"Date": "Oct 05 2026", "Text": "Response Requested. (Due November 4, 2026)"},
+            ],
+            date(2026, 10, 19),
+            True,
+        ),
+        # Redistributed after the call, for a conference that has since sat: closed.
+        (
+            "evt-order-call-for-response-disposition",
+            EventKind.order,
+            [
+                {"Date": "Sep 15 2026", "Text": "DISTRIBUTED for Conference of 10/2/2026."},
+                {"Date": "Oct 05 2026", "Text": "Response Requested. (Due October 9, 2026)"},
+                {"Date": "Oct 06 2026", "Text": "DISTRIBUTED for Conference of 10/16/2026."},
+            ],
+            date(2026, 10, 19),
+            False,
+        ),
         # A relist whose own distribution entry does not parse: the docket was not
         # read as the trigger was, so the cell waits.
         ("evt-order-relist-disposition", EventKind.order, _RELISTED[:1], date(2026, 10, 12), False),
     ],
 )
-def test_a_relist_or_sg_brief_cell_closes_once_the_next_conference_sits(
+def test_a_conference_bounded_cert_cell_closes_once_the_next_conference_sits(
     tmp_path: Path,
     event_id: str,
     kind: EventKind,
