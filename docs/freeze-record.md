@@ -14210,7 +14210,7 @@ freeze commit is recorded here.
   process-digest --all` prints the same label and six digests at the carrying
   merge as at its first parent.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by `promotion/2026-10-28-2` (merge commit `62581773890b273861da9a6ce22f24d2183b6b3c`, merged `2026-10-28T20:36:01Z`).
 
 - **A combined row of several filings is cut filing by filing, every filing's
   own text before any appendix; recorded 2026-10-28.** A **conditioning**
@@ -14299,4 +14299,4 @@ freeze commit is recorded here.
   process-digest --all` prints the same label and six digests at the carrying
   merge as at its first parent.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by `promotion/2026-10-28-2` (merge commit `62581773890b273861da9a6ce22f24d2183b6b3c`, merged `2026-10-28T20:36:01Z`).
