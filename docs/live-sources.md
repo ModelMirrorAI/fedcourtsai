@@ -1646,7 +1646,14 @@ the same link.
   host before the request and across every redirect, and a body past the
   recovery's size ceiling refused as not-a-filing. Dry run by default, bounded
   through `repair_bound` on an apply and on a dry run that sets it, and bounded
-  again by a **slice deadline** the step passes.
+  again by a **slice deadline** the parse step passes. It runs on the bench's
+  credential split: the fetch and the re-cut happen in the parse job, which
+  holds no credential, and settles what the served PDF alone shows (a failed
+  fetch, unparseable bytes, another page count, an empty re-cut); the rest of
+  each outcome reads the stored text, which never crosses into a public
+  artifact, so it is judged on the corpus side — in the writer on an apply, in
+  a read-only reader job on a dry run — in the same order as in one job, so
+  the ledger reads the same.
 - **What it reads.** Stored rows of the three appendix-bearing kinds that are
   `truncated`, not `ocr_derived`, carry no `[pipeline note:` line, and whose
   stored URL is one Court link, over the **predict-relevant** live-slice rows
@@ -1686,13 +1693,15 @@ the same link.
   back-fill has converged, and is left to `backfill-questions-presented`.
 - **The ledger.** The class and each outcome — `recut`, `unchanged`,
   `pages-changed`, `head-changed`, `unreadable`, `empty-after-recut`,
-  `fetch-failed`, `unreached` — cut by
-  kind, then one `<case_id> <kind>` line per candidate the slice reached. An
+  `fetch-failed`, `left-the-class` (the writer or reader found the stored row
+  out of the class, or holding another filing, since the projection read it),
+  `unreached` — cut by kind, then one `<case_id> <kind>` line per candidate
+  the slice reached. An
   apply's re-cut lines are the record of which stored rows it replaced. A
   re-cut row carries a cut note or fits under the cap, and either way leaves
   the class, so successive dispatches drain it; the skipped outcomes stay at
   its head, and a bounded slice that re-cuts nothing warns that it is reading
-  only that residue. The step re-walks the class
+  only that residue. The writer re-walks the class
   on an **empty slice** afterwards and requires exactly what the apply's ledger
   said it would leave behind.
 - **Terms.** Unchanged, as for the two passes above.

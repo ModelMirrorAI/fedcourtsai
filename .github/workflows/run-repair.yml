@@ -210,7 +210,7 @@ jobs:
     # future selector value the full writer credential set by default, which is
     # the wrong direction for a list that is expected to grow.
     if: >-
-      ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","document-backfill","recut","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","event-definition-backfill","amicus-rederive","cert-amicus-rederive"]'), inputs.repair)
+      ${{ contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","event-definition-backfill","amicus-rederive","cert-amicus-rederive"]'), inputs.repair)
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
@@ -232,12 +232,12 @@ jobs:
     # overlap a writer's push; the blob is content-addressed, so it reads one
     # consistent version either way.
     concurrency:
-      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","document-backfill","recut","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","event-definition-backfill","amicus-rederive","cert-amicus-rederive"]'), inputs.repair) && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && contains(fromJSON('["unlatch-overselected","qp-backfill","rederive-distribution-parse","normalize-docket-markings","response-backfill","document-backfill","arrival-backfill","merits-phantom-removal","disposition-convergence","lost-outcomes","event-definition-backfill","amicus-rederive","cert-amicus-rederive"]'), inputs.repair) && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-26.04
     # Headroom over the longest chain of capped steps a dispatch can run: the
-    # dedupe prerequisite (10m), a 30-minute pass (the document back-fill's
-    # or the re-cut's) and the persist step (15m), leaving the setup, the
+    # dedupe prerequisite (10m), a 30-minute pass (the document back-fill's)
+    # and the persist step (15m), leaving the setup, the
     # corpus pull and the trailing verdict inside the remainder. A hit here
     # cancels the run, which no failure handling absorbs. Every pass is meant
     # to run inside the opening credentials' 1h lives, and the pass caps still
@@ -253,8 +253,8 @@ jobs:
     # every pass below reads or writes the corpus — and the passes that read
     # stored snapshots or documents out of the content store (the
     # questions-presented backfill, the distribution re-derivation, the
-    # response-signal backfill, the document back-fill and the re-cut) answer
-    # empty without it.
+    # response-signal backfill and the document back-fill) answer empty
+    # without it.
     env:
       FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
       # The one switch that lets this job write the remote corpus estate at
@@ -1050,175 +1050,6 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "document backfill pointer"
 
-      # Re-cut the petitions, applications and appendices stored under the
-      # plain head cut. Those kinds are cut the appendix-aware way at ingest,
-      # with a `[pipeline note: …]` line at every cut, but fetching is
-      # idempotent per kind and URL, so a row stored before that cut keeps a
-      # head cut — the cap landing inside the appendix, with nothing in the text
-      # to say so — for as long as its link is unchanged. The class is every
-      # such row that is truncated, not OCR-derived (an OCR-recovered row is
-      # head-cut by design), carries no cut note and has one Court URL, over the
-      # predict-relevant live-slice rows, or the whole live slice with the
-      # `all-live` option. Each candidate is re-fetched by its stored URL on
-      # supremecourt.gov and re-cut by the fetching lanes' own extractor; a
-      # link now serving a PDF of another page count is skipped as another
-      # filing, and an empty re-cut is never written.
-      #
-      # Both modes fetch, because what a candidate comes to is only known from
-      # the served PDF, so the bound is honoured on a dry run as on an apply and
-      # both are deadlined. The writes are documents, which under the corpus
-      # split land in the content store, so the pointer commit cannot witness
-      # them: the walk-only re-read below does, and must find exactly the class
-      # the apply's ledger said it would leave.
-      - name: Re-cut head-cut filings
-        if: ${{ inputs.repair == 'recut' && steps.dedupe-live-rows.outcome == 'success' }}
-        # The slice is the expensive half: a throttled GET of a filing that runs
-        # to a few megabytes and a text-layer read of every page. What sizes it
-        # is the slice deadline below; this cap is the backstop behind it, and
-        # stays inside the job's so one App token covers the run.
-        timeout-minutes: 30
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          REPAIR: ${{ inputs.repair }}
-          REPAIR_MODE: ${{ inputs.repair_mode }}
-          REPAIR_BOUND: ${{ inputs.repair_bound }}
-          REPAIR_OPTIONS: ${{ inputs.repair_options }}
-        run: |
-          set -euo pipefail
-          # Validate the bound and the option vocabulary before anything else,
-          # including the corpus guard. `repair_passes.py`
-          # duplicates each refusal word for word so a bad dispatch dies before
-          # any credential is minted; this copy is the one of record, because
-          # the step has to be safe on whatever reaches it.
-          if [ "${REPAIR_MODE}" = "apply" ] \
-            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
-            exit 1
-          fi
-          if [ -n "${REPAIR_BOUND}" ] \
-            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::repair=${REPAIR} reads repair_bound in BOTH modes, so it must be a positive integer wherever it is set — a bound its dry run would also spend. Clear the field or correct the number."
-            exit 1
-          fi
-          accepted_options="all-live"
-          all_live=0
-          option_malformed=0
-          while IFS= read -r option; do
-            [ -n "$option" ] || continue
-            case " ${accepted_options} " in
-              *" ${option} "*) ;;
-              *)
-                echo "::error::repair=${REPAIR} does not accept the option '${option}' — it accepts: ${accepted_options:-none}."
-                option_malformed=1
-                continue ;;
-            esac
-            case "$option" in
-              all-live) all_live=1 ;;
-            esac
-          done < <(printf '%s\n' "${REPAIR_OPTIONS}" | tr -s ', \t\r' '\n')
-          if [ "$option_malformed" -ne 0 ]; then
-            echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
-            exit 1
-          fi
-          # No committed pointer means no corpus — nothing to re-cut.
-          if [ ! -f corpus/corpus.db.ref ]; then
-            echo "no corpus pointer yet; skipping the re-cut"; exit 0
-          fi
-          if [ "${REPAIR_MODE}" = "apply" ]; then
-            gh auth setup-git # persist-credentials is false on checkout
-          fi
-          # Read off the machine-readable ledger each run prints last, rather
-          # than off the prose above it: the field name is passed as an argument
-          # so nothing from a file is interpolated into the program.
-          # Bounded into the summary rather than tee'd whole: GitHub discards a
-          # step summary above 1 MiB entirely, and an unbounded `all-live` dry
-          # run prints a line per reached candidate before its JSON ledger. The
-          # full output stays in the step log either way.
-          summarize() {
-            head -c 300000 "$1" >> "$GITHUB_STEP_SUMMARY"
-            cat "$1"
-          }
-          ledger_field() {
-            grep -h '^{"applied"' "$1" | tail -n 1 \
-              | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
-          }
-          # The scope every invocation below walks, the witness's included: a
-          # re-read over another scope would compare two different classes.
-          scope_args=()
-          if [ "$all_live" -eq 1 ]; then
-            scope_args+=(--all-live)
-          fi
-          dry_args=()
-          if [ -n "${REPAIR_BOUND}" ]; then
-            dry_args+=(--max-cases "${REPAIR_BOUND}")
-          fi
-          if [ "${REPAIR_MODE}" != "apply" ]; then
-            # 1800 s of step budget, of which the dry run pushes nothing and
-            # commits nothing: the reserve is the overshoot of a candidate
-            # already started (one GET and the client's one retry, then the
-            # page read) rather than a write tail. Its stdout goes to a file
-            # because the ledger's last line is JSON read back as data.
-            uv run fedcourts recut-documents "${scope_args[@]}" "${dry_args[@]}" \
-              --deadline-seconds 1680 > /tmp/recut-dry.txt
-            summarize /tmp/recut-dry.txt
-            echo "dry-run only; nothing written."
-            exit 0
-          fi
-          # The slice's wall clock, measured from the moment the command starts
-          # so its own population walk is charged to it. The step has 30 minutes
-          # (1800 s) and everything below still has to land inside them:
-          #
-          #   witness re-walk     300 s  one walk of the scope's stored
-          #                              documents: the predict-relevant walk is
-          #                              a subset of the OCR recovery's
-          #                              whole-live-slice walk, which measures
-          #                              133-162 s; `all-live` is that walk,
-          #                              reserved at about twice it
-          #   corpus-push         120 s  the re-cut text lands in the content
-          #                              store; reserved for an index that moved
-          #   commit + push        60 s  the pointer commit and its retrying
-          #                              push, reached only where the index moved
-          #   overshoot           120 s  the deadline is the last moment work may
-          #                              BEGIN: a started candidate's GET can time
-          #                              out and take the client's one retry
-          #   ------------------------
-          #   reserve             600 s  →  1800 - 600 = 1200
-          #
-          # Candidates the deadline declines are reported unreached — untouched,
-          # still in the class, and first next dispatch.
-          uv run fedcourts recut-documents --apply "${scope_args[@]}" \
-            --max-cases "${REPAIR_BOUND}" \
-            --deadline-seconds 1200 > /tmp/recut-apply.txt
-          summarize /tmp/recut-apply.txt
-          # The witness. `--max-cases 0` takes an empty slice, so it fetches
-          # nothing, and what it reports is the class as the corpus now holds
-          # it: a content-store write that failed would leave a re-cut row in
-          # the class, which nothing in the pointer commit would notice.
-          uv run fedcourts recut-documents "${scope_args[@]}" --max-cases 0 > /tmp/recut-verify.txt
-          summarize /tmp/recut-verify.txt
-          expected="$(ledger_field /tmp/recut-apply.txt remaining)"
-          found="$(ledger_field /tmp/recut-verify.txt candidates)"
-          if [ "$(ledger_field /tmp/recut-apply.txt attempted)" = "0" ] \
-            && [ "${expected}" != "0" ]; then
-            echo "::warning::the slice deadline started no candidate at all — ${expected} left in the class and nothing re-cut. The population walk now takes most of the slice's budget; re-read the deadline arithmetic beside the invocation rather than re-dispatching."
-          fi
-          if [ "${found}" != "${expected}" ]; then
-            echo "::error::apply did not converge — the re-read finds ${found} head-cut filing(s) where the apply's ledger left ${expected} (a content-store write may have failed; see the warnings above)"
-            exit 1
-          fi
-          # Blob before pointer commit, as everywhere. Under the corpus split
-          # the re-cut text is in the content store, so an unchanged pointer is
-          # reported rather than failed.
-          uv run fedcourts corpus-push
-          git add corpus/corpus.db.ref
-          if git diff --cached --quiet; then
-            echo "Re-cut text is in the content store; the index pointer is unchanged."
-            exit 0
-          fi
-          git commit -m "repair: re-cut head-cut filings"
-          bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
-            "document re-cut pointer"
-
       # Re-derive the interim baseline's arrival stamp. An interim event's
       # `opened_at` is the moment it declares — the day the application was
       # submitted to a Justice — and it is where provisioning cuts, so what is
@@ -1945,13 +1776,14 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-  # The credential split. Five of the passes fetch and parse third-party
+  # The credential split. Six of the passes fetch and parse third-party
   # content — the Court's opinion and order PDFs, a Term's docket JSON, the
-  # scanned filings OCR reads — and a parser fed attacker-shaped bytes is the
-  # step most likely to run code nobody wrote. (Two more do too and are not
-  # split yet: `document-backfill` and `recut` fetch and parse filed PDFs
-  # inside the corpus job above, under its full credential set.) So for these
-  # five the parse runs in a job of its own that holds NO credential,
+  # scanned filings OCR reads, the filings the re-cut re-reads — and a parser
+  # fed attacker-shaped bytes is the step most likely to run code nobody
+  # wrote. (One more does too and is not split yet: `document-backfill`
+  # fetches and parses filed PDFs inside the corpus job above, under its full
+  # credential set.) So for these six the parse runs in a job of its own that
+  # holds NO credential,
   # and the jobs on either side talk to it only through two small JSON files
   # with versioned, validated schemas:
   #
@@ -1964,6 +1796,9 @@ jobs:
   #                       on an apply only: the writer, which takes the lock,
   #                       re-validates the plan whole as untrusted input and
   #                       applies it, fetching nothing
+  #   documents-dry-run   the re-cut's dry run only: the read-only reader that
+  #                       judges the plan against the stored text, writing
+  #                       nothing
   #
   # Why a job boundary and not a blanked step env: in a job holding
   # `id-token: write` the runner hands every step the OIDC request pair at
@@ -1976,31 +1811,32 @@ jobs:
   # data only — case ids, docket numbers, listing keys, docket JSON as the
   # Court serves it, facts read off the Court's own documents — never a corpus
   # row, a snapshot or a stored document; each model's docstring says why its
-  # fields are public. One day of retention, and named per run. Two plans
+  # fields are public. One day of retention, and named per run. Three plans
   # carry what a self-represented filer's contact details sit in: the
-  # application plan's served docket JSON, and the OCR plan's text read off the
-  # filings themselves. Each crosses under its own PII carve-out in
-  # docs/data-sources.md (*PII stance*).
+  # application plan's served docket JSON, and the OCR and re-cut plans' text
+  # read off the filings themselves. Each crosses under its own PII carve-out
+  # in docs/data-sources.md (*PII stance*).
   handoff-projection:
     needs: [authorize, validate]
     if: >-
-      ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' || inputs.repair == 'ocr-recovery')
+      ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' || inputs.repair == 'ocr-recovery' || inputs.repair == 'recut')
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
     # Setup and the read-only corpus pull (about a gigabyte); each projection
-    # is one local query, but the OCR recovery's, which walks every live-slice
-    # case's documents in the content store (its step's own cap).
+    # is one local query, but the OCR recovery's and the re-cut's, which walk
+    # the live slice's documents in the content store (their steps' own caps).
     timeout-minutes: 30
     environment: prod
     permissions:
       contents: read
       id-token: write # assume the read-only AWS role to pull the corpus
     outputs:
-      # A writer that reads the projection back (the OCR recovery's binds its
-      # plan to it) downloads this exact artifact by id: the parse can replace
-      # an artifact by name, but cannot forge another job's outputs.
+      # A writer that reads the projection back (the OCR recovery's and the
+      # re-cut's bind their plans to it) downloads this exact artifact by id:
+      # the parse can replace an artifact by name, but cannot forge another
+      # job's outputs.
       projection-artifact: ${{ steps.upload-projection.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -2110,6 +1946,89 @@ jobs:
           cat /tmp/ocr-projection.txt
           head -n 60 /tmp/ocr-projection.txt >> "$GITHUB_STEP_SUMMARY"
 
+      # The re-cut class in scope and the slice the parse re-cuts: the first
+      # `repair_bound` candidates in class order, in either mode — the dry run
+      # spends the bound too, because what a candidate comes to is only known
+      # from the served PDF — or, on a dry run with no bound, the whole class,
+      # which the parse's deadline then bounds. The class is every stored
+      # petition, application or appendix that is truncated, not OCR-derived
+      # (an OCR-recovered row is head-cut by design), carries no `[pipeline
+      # note:` line and has one Court URL, over the predict-relevant live-slice
+      # rows, or the whole live slice with the `all-live` option. It fetches
+      # nothing; the ledger it prints is the class reading.
+      #
+      # No dedupe prerequisite, unlike the corpus job's passes: that one exists
+      # for the passes that read a row's columns, and this pass reads and
+      # writes stored documents alone, each re-checked by case and kind. The
+      # scope's predict-relevance does read a row's columns, but a live-minted
+      # twin can only move which half of a pair a filing is walked under until
+      # the dedupe merges it, and the merge fills documents in on the survivor,
+      # so a re-cut written to either half is the row that survives or one the
+      # merge drops — never a wrong text.
+      - name: Write the re-cut worklist
+        if: ${{ inputs.repair == 'recut' }}
+        # The scope's walk reads its cases' stored documents from the content
+        # store: the predict-relevant walk is a subset of the OCR recovery's
+        # whole-live-slice walk (133-162 s), and `all-live` is that walk.
+        timeout-minutes: 15
+        env:
+          # The class walk reads each case's documents from the content store.
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          REPAIR_OPTIONS: ${{ inputs.repair_options }}
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+        run: |
+          set -euo pipefail
+          # Validate the bound and the option vocabulary before anything else.
+          # `repair_passes.py` duplicates each refusal word for word so a bad
+          # dispatch dies before any credential is minted; this copy is the one
+          # of record, because the step has to be safe on whatever reaches it.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          if [ -n "${REPAIR_BOUND}" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} reads repair_bound in BOTH modes, so it must be a positive integer wherever it is set — a bound its dry run would also spend. Clear the field or correct the number."
+            exit 1
+          fi
+          accepted_options="all-live"
+          scope_args=()
+          option_malformed=0
+          while IFS= read -r option; do
+            [ -n "$option" ] || continue
+            case " ${accepted_options} " in
+              *" ${option} "*) ;;
+              *)
+                echo "::error::repair=${REPAIR} does not accept the option '${option}' — it accepts: ${accepted_options:-none}."
+                option_malformed=1
+                continue ;;
+            esac
+            case "$option" in
+              all-live) scope_args=(--all-live) ;;
+            esac
+          done < <(printf '%s\n' "${REPAIR_OPTIONS}" | tr -s ', \t\r' '\n')
+          if [ "$option_malformed" -ne 0 ]; then
+            echo "::error::refusing the whole option list — correct the switches above and re-dispatch."
+            exit 1
+          fi
+          # The scope rides in the worklist from here on: the reader and the
+          # writer read it off the projection's own file, and the witness off
+          # the writer's ledger, so no later job re-reads the option.
+          slice_args=()
+          if [ -n "${REPAIR_BOUND}" ]; then
+            slice_args+=(--max-cases "${REPAIR_BOUND}")
+          fi
+          # The summary is capped: GitHub errors the file command past 1 MiB.
+          # The head reaches the summary; the full ledger is in the step log.
+          uv run fedcourts recut-documents --emit-worklist "${HANDOFF_PROJECTION}" \
+            "${scope_args[@]}" "${slice_args[@]}" > /tmp/recut-projection.txt
+          cat /tmp/recut-projection.txt
+          head -n 60 /tmp/recut-projection.txt >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload the projection
         id: upload-projection
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -2138,19 +2057,21 @@ jobs:
   handoff-parse:
     needs: [authorize, validate, handoff-projection]
     if: >-
-      ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' || inputs.repair == 'ocr-recovery')
+      ${{ (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' || inputs.repair == 'ocr-recovery' || inputs.repair == 'recut')
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
     # The longest pass step's 60-minute cap plus setup; the OCR recovery's
-    # chain (its binaries' 5 minutes and its 45-minute read) is shorter.
+    # chain (its binaries' 5 minutes and its 45-minute read) and the re-cut's
+    # 30-minute read are shorter.
     timeout-minutes: 80
     permissions:
       contents: read
     outputs:
       # Read by a writer that downloads the plan by this id rather than by
-      # name (the OCR recovery's), so no other job's upload can stand in for it.
+      # name (the OCR recovery's and the re-cut's, and the re-cut's dry-run
+      # reader), so no other job's upload can stand in for it.
       plan-artifact: ${{ steps.upload-plan.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -2437,9 +2358,76 @@ jobs:
           echo "::${stop_token}::"
           exit "${status}"
 
+      # Re-cut the head-cut filings. Each worklist item is re-fetched by its
+      # stored URL on supremecourt.gov — free and politeness-capped, so the
+      # pass spends none of the CourtListener budget — and re-cut by the
+      # fetching lanes' own extractor at the configured cap. What the served
+      # PDF alone shows is settled here: a fetch that failed, bytes that do
+      # not parse (`unreadable`), a page count other than the stored row's
+      # (`pages-changed`, another filing at that link), an empty re-cut. Every
+      # other item's re-cut crosses in the plan, in both modes, because the
+      # rest of its outcome — another filing of the same length
+      # (`head-changed`), the same text (`unchanged`), a petition's
+      # re-derived questions — reads the stored text, which never leaves the
+      # jobs holding the corpus. The contract: *Contract for the re-cut pass*
+      # in docs/live-sources.md.
+      - name: Re-cut the head-cut filings
+        if: ${{ inputs.repair == 'recut' }}
+        # The slice is the expensive half: a throttled GET of a filing that runs
+        # to a few megabytes and a text-layer read of every page. What sizes it
+        # is the slice deadline below; this cap is the backstop behind it.
+        timeout-minutes: 30
+        env:
+          HANDOFF_PROJECTION: ${{ runner.temp }}/handoff/projection.json
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
+        run: |
+          set -euo pipefail
+          # The slice's wall clock, measured from the moment the command
+          # starts, the same in both modes: the dry run and the apply read the
+          # same slice. The step has 30 minutes (1800 s), and the class walks,
+          # the write, the witness and the push are the reader's and the
+          # writer's, so all this step still owes once the parse stops taking
+          # work is a started candidate's overshoot and the plan write:
+          #
+          #   overshoot           120 s  the deadline is the last moment work may
+          #                              BEGIN: a started candidate's GET can time
+          #                              out and take the client's one retry,
+          #                              then its pages are read
+          #   plan write           60 s  serializing the reached items' texts,
+          #                              each under the document cap: seconds,
+          #                              reserved at a minute
+          #   ------------------------
+          #   reserve             180 s  →  1800 - 180 = 1620
+          #
+          # Candidates the deadline declines are reported unreached — untouched,
+          # still in the class, and first next dispatch.
+          #
+          # The extractor's warnings can quote a filing's own text, so stderr
+          # stays in the log, under suspended workflow commands, and only the
+          # command's ledger (counts and identifiers) reaches the summary.
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
+          uv run fedcourts recut-documents --worklist "${HANDOFF_PROJECTION}" \
+            --plan-out "${HANDOFF_PLAN}" --deadline-seconds 1620 > /tmp/recut-parse.txt \
+            || status=$?
+          cat /tmp/recut-parse.txt
+          # Bounded into the summary: GitHub discards a step summary above
+          # 1 MiB, and an unbounded dry run prints a line per reached item.
+          head -c 300000 /tmp/recut-parse.txt >> "$GITHUB_STEP_SUMMARY"
+          echo "::${stop_token}::"
+          exit "${status}"
+
       - name: Note the dry run
         if: ${{ inputs.repair_mode != 'apply' }}
-        run: echo "dry-run only; nothing written." | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          REPAIR: ${{ inputs.repair }}
+        run: |
+          if [ "$REPAIR" = recut ]; then
+            echo "dry-run only; nothing written. The plan is read against the stored text by documents-dry-run." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "dry-run only; nothing written." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
 
       # The plan crosses to the writer only on an apply; a dry run's ledger is
       # its whole product. The application back-fill's plan carries each served
@@ -2454,9 +2442,14 @@ jobs:
       # The OCR plan carries the text read off each filing, which for a
       # self-represented filer holds contact details, and crosses under the
       # OCR plan's own carve-out in docs/data-sources.md on the same terms.
+      # The re-cut's plan carries the same kind of text and crosses in BOTH
+      # modes, the one exception to "an apply only": its dry run's ledger is
+      # judged against the stored text by the read-only reader, which is the
+      # only way the dry run reads as the apply it bounds. Its carve-out in
+      # docs/data-sources.md names both.
       - name: Upload the plan
         id: upload-plan
-        if: ${{ inputs.repair_mode == 'apply' && (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' || inputs.repair == 'ocr-recovery') }}
+        if: ${{ (inputs.repair_mode == 'apply' && (inputs.repair == 'opinion-votes' || inputs.repair == 'order-votes' || inputs.repair == 'application-backfill' || inputs.repair == 'opinion-record' || inputs.repair == 'ocr-recovery')) || inputs.repair == 'recut' }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: repair-plan-${{ github.run_id }}
@@ -3255,19 +3248,149 @@ jobs:
           bash "${GITHUB_WORKSPACE}/.github/actions/commit-corpus-to-main/push_with_retry.sh" \
             "opinion-record pointer"
 
-  # The OCR recovery's writer (`fedcourts ocr-recover-petitions --from-plan`),
-  # on an apply only. It takes the lock for the whole job and pulls the corpus
-  # FRESH under it with the read-write role, so the class it re-checks the plan
-  # against is the one it pushes onto. It fetches and parses no PDF: the
-  # readings are the plan's, checked whole first against the projection's own
-  # worklist (downloaded by artifact id, so the parse cannot stand another in
-  # for it), and each row again against the stored document it would fill —
-  # still a scan whose text is empty, at the URL the projection read. It
-  # writes what the pass in one job wrote: the text, the extractor's
-  # `ocr_derived` and `truncated` readings, the re-served page count, and a
-  # recovered petition's re-derived questions-presented row. The App token is
-  # minted only after the push, and the commit is the pass table's record
-  # (`repair_passes.PERSIST`), the one the corpus job's persist step reads.
+  # The re-cut's dry-run reader (`fedcourts recut-documents --from-plan`
+  # without `--apply`). The rest of a re-cut's outcome reads the stored text —
+  # another filing of the same length, the same text, a petition's re-derived
+  # questions — which never crosses into a public artifact, so a dry run that
+  # reads as the apply it bounds needs a job holding the corpus after the
+  # parse. This one holds the read-only role alone: no lock (it pushes
+  # nothing, and holding `corpus-write` for a read would queue the scheduled
+  # writer windows behind it), no remote-writes switch, no App token. It
+  # fetches and parses no PDF; it checks the plan whole against the
+  # projection's own worklist, both downloaded by artifact id, walks the
+  # class, and prints the pass's ledger, writing nothing.
+  documents-dry-run:
+    needs: [authorize, validate, handoff-projection, handoff-parse]
+    if: >-
+      ${{ inputs.repair == 'recut' && inputs.repair_mode != 'apply'
+      && needs.handoff-parse.outputs.plan-artifact != ''
+      && needs.handoff-projection.outputs.projection-artifact != ''
+      && needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    # Setup, the read-only corpus pull (about a gigabyte) and the reading
+    # step's 15 minutes (one class walk over the scope, no fetch).
+    timeout-minutes: 30
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write # assume the read-only AWS role to pull the corpus
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Sync the working tree to the current tip of the default branch
+        # The repo is public, so this read-only fetch needs no credentials.
+        run: |
+          set -euo pipefail
+          git fetch origin "${GITHUB_REF_NAME}"
+          git reset --hard FETCH_HEAD
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      # Both files by artifact id, as on the writer below.
+      - name: Download the plan
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.handoff-parse.outputs.plan-artifact }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/handoff/plan
+
+      - name: Download the worklist
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.handoff-projection.outputs.projection-artifact }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/handoff/worklist
+
+      - name: Check the downloaded plan
+        run: |
+          set -euo pipefail
+          found="$(find "${RUNNER_TEMP}/handoff" -mindepth 1 -printf '%y %P\n' | sort)"
+          expected="$(printf '%s\n' 'd plan' 'd worklist' 'f plan/plan.json' 'f worklist/projection.json')"
+          if [ "${found}" != "${expected}" ]; then
+            echo "::error::the downloaded artifacts hold something other than one plan.json and one projection.json"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::the plan artifact changed the checkout"
+            exit 1
+          fi
+
+      - uses: ./.github/actions/corpus-readonly
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
+
+      - name: Read the re-cut plan against the stored filings
+        # One walk of the scope's stored documents (the predict-relevant walk is
+        # a subset of the OCR recovery's 133-162 s whole-live-slice walk), and
+        # no fetch: the slice was spent in the parse.
+        timeout-minutes: 15
+        env:
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan/plan.json
+          HANDOFF_WORKLIST: ${{ runner.temp }}/handoff/worklist/projection.json
+        run: |
+          set -euo pipefail
+          # The step of record for the bound in this job; `repair_passes.py`
+          # duplicates it word for word.
+          if [ -n "${REPAIR_BOUND}" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} reads repair_bound in BOTH modes, so it must be a positive integer wherever it is set — a bound its dry run would also spend. Clear the field or correct the number."
+            exit 1
+          fi
+          slice_args=()
+          if [ -n "${REPAIR_BOUND}" ]; then
+            slice_args+=(--max-cases "${REPAIR_BOUND}")
+          fi
+          # The ledger echoes the identifiers the plan carries, so workflow
+          # commands are suspended under a token nothing in the plan can know
+          # until it has been printed; a refusal is announced after the resume.
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
+          uv run fedcourts recut-documents --from-plan "${HANDOFF_PLAN}" \
+            --bind-worklist "${HANDOFF_WORKLIST}" "${slice_args[@]}" > /tmp/recut-dry.txt \
+            || status=$?
+          cat /tmp/recut-dry.txt
+          # Bounded into the summary: GitHub discards a step summary above
+          # 1 MiB, and an unbounded dry run prints a line per reached item.
+          head -c 300000 /tmp/recut-dry.txt >> "$GITHUB_STEP_SUMMARY"
+          echo "::${stop_token}::"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::recut-documents read nothing (exit ${status}): a refused plan — the step log has the reason."
+            exit "$status"
+          fi
+          echo "dry-run only; nothing written."
+
+  # The writer of the split passes that land stored documents, on an apply
+  # only: the OCR recovery's (`fedcourts ocr-recover-petitions --from-plan`)
+  # and the re-cut's (`fedcourts recut-documents --from-plan --apply`). It
+  # takes the lock for the whole job and pulls the corpus FRESH under it with
+  # the read-write role, so the class it re-checks the plan against is the
+  # one it pushes onto. It fetches and parses no PDF: the readings are the
+  # plan's, checked whole first against the projection's own worklist
+  # (downloaded by artifact id, so the parse cannot stand another in for it),
+  # and each row again against the stored document it would replace — for
+  # the OCR recovery, still a scan whose text is empty at the URL the
+  # projection read; for the re-cut, still in the class at that URL and page
+  # count, then judged against the stored text as the pass in one job judged
+  # it. Each writes what its pass in one job wrote: the OCR recovery the
+  # text, the extractor's `ocr_derived` and `truncated` readings and the
+  # re-served page count; the re-cut the re-cut text, page count and
+  # truncation flag; both a petition's re-derived questions-presented row.
+  # The App token is minted only after the push, and the commit is the pass
+  # table's record (`repair_passes.PERSIST`), the one the corpus job's
+  # persist step reads.
   #
   # Every step here can still request an OIDC token for either corpus role
   # `corpus-write` is trusted by — the job needs `id-token: write` for its own
@@ -3277,23 +3400,25 @@ jobs:
   #
   # No dedupe prerequisite, unlike the corpus job: that prerequisite exists for
   # the passes that read a row's columns — a disposition, a grant, a latch —
-  # and this one reads and writes stored documents alone, each re-checked by
-  # case and kind, as on run-seed's OCR sweep writer.
+  # and these read and write stored documents alone, each re-checked by case
+  # and kind, as on run-seed's OCR sweep writer (the re-cut's projection says
+  # why its scope does not change that).
   documents:
     needs: [authorize, validate, handoff-projection, handoff-parse]
     if: >-
-      ${{ inputs.repair == 'ocr-recovery' && inputs.repair_mode == 'apply'
+      ${{ (inputs.repair == 'ocr-recovery' || inputs.repair == 'recut') && inputs.repair_mode == 'apply'
       && needs.handoff-parse.outputs.plan-artifact != ''
       && needs.handoff-projection.outputs.projection-artifact != ''
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     concurrency:
-      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && inputs.repair == 'ocr-recovery' && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
+      group: ${{ (needs.authorize.result == 'success' && (needs.authorize.outputs.attempt == github.run_attempt || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor)))) && (inputs.repair == 'ocr-recovery' || inputs.repair == 'recut') && inputs.repair_mode == 'apply' && 'corpus-write' || format('corpus-write-skip-{0}', github.run_id) }}
       cancel-in-progress: false
     runs-on: ubuntu-26.04
     # Setup, the corpus pull (about a gigabyte), the landing step's 20 minutes
-    # (two class walks, the write and the blob push) and the commit.
+    # (two class walks, the write and the blob push) and the commit; one
+    # landing step runs per dispatch.
     timeout-minutes: 45
     environment: corpus-write
     env:
@@ -3390,6 +3515,7 @@ jobs:
       # count, because what it catches is a content-store write that failed,
       # which only a read of the store can see.
       - name: Write the recovered filings
+        if: ${{ inputs.repair == 'ocr-recovery' }}
         # Two full-population content-store walks — the writer's own and the
         # witness re-read, each measured at 133-162 s — the write, and the blob
         # push. No fetch and no recognition: the slice was spent in the parse.
@@ -3475,6 +3601,83 @@ jobs:
           # committed pointer, so a push without its commit publishes nothing.
           uv run fedcourts corpus-push
 
+      # Land the re-cut plan, witness the write and push the blob, as above:
+      # the writer walks the class over the worklist's own scope before it
+      # writes, so its ledger's `remaining` is that class less the re-cuts
+      # that left it, and the re-read must find exactly that many.
+      - name: Write the re-cut filings
+        if: ${{ inputs.repair == 'recut' }}
+        # Two walks of the scope's stored documents — the writer's own and the
+        # witness re-read; the predict-relevant walk is a subset of the OCR
+        # recovery's 133-162 s whole-live-slice walk, and `all-live` is that
+        # walk — the write, and the blob push.
+        timeout-minutes: 20
+        env:
+          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
+          REPAIR: ${{ inputs.repair }}
+          REPAIR_MODE: ${{ inputs.repair_mode }}
+          REPAIR_BOUND: ${{ inputs.repair_bound }}
+          HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan/plan.json
+          HANDOFF_WORKLIST: ${{ runner.temp }}/handoff/worklist/projection.json
+        run: |
+          set -euo pipefail
+          # The step of record for the bound in this job; `repair_passes.py`
+          # duplicates it word for word.
+          if [ "${REPAIR_MODE}" = "apply" ] \
+            && ! [[ "${REPAIR_BOUND}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::repair=${REPAIR} with repair_mode=apply needs repair_bound set to a positive integer — the count read off a previous dry-run dispatch's ledger. Re-dispatch with that number."
+            exit 1
+          fi
+          ledger_field() {
+            grep -h '^{"applied"' "$1" | tail -n 1 \
+              | uv run python -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]])' "$2"
+          }
+          # Bounded into the summary rather than tee'd whole: GitHub discards a
+          # step summary above 1 MiB entirely. The full output stays in the
+          # step log.
+          summarize() {
+            cat "$1"
+            head -c 300000 "$1" >> "$GITHUB_STEP_SUMMARY"
+          }
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
+          status=0
+          uv run fedcourts recut-documents --from-plan "${HANDOFF_PLAN}" \
+            --bind-worklist "${HANDOFF_WORKLIST}" --max-cases "${REPAIR_BOUND}" \
+            --apply > /tmp/recut-apply.txt || status=$?
+          if [ "$status" -eq 0 ]; then
+            summarize /tmp/recut-apply.txt
+          fi
+          echo "::${stop_token}::"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::recut-documents wrote nothing (exit ${status}): a refused plan — the step log has the reason."
+            exit "$status"
+          fi
+          # The witness walks the scope the writer's ledger names, which it read
+          # off the projection's own worklist: a re-read over another scope
+          # would compare two different classes.
+          scope_args=()
+          if [ "$(ledger_field /tmp/recut-apply.txt scope)" = "all-live" ]; then
+            scope_args+=(--all-live)
+          fi
+          # `--max-cases 0` takes an empty slice, so it fetches nothing, and
+          # what it reports is the class as the corpus now holds it: a
+          # content-store write that failed would leave a re-cut row in the
+          # class, which nothing in the pointer commit would notice.
+          uv run fedcourts recut-documents "${scope_args[@]}" --max-cases 0 > /tmp/recut-verify.txt
+          summarize /tmp/recut-verify.txt
+          expected="$(ledger_field /tmp/recut-apply.txt remaining)"
+          found="$(ledger_field /tmp/recut-verify.txt candidates)"
+          if [ "$(ledger_field /tmp/recut-apply.txt attempted)" = "0" ] \
+            && [ "${expected}" != "0" ]; then
+            echo "::warning::the parse started no candidate of the slice — ${expected} left in the class and nothing re-cut. Read the parse's step log rather than re-dispatching."
+          fi
+          if [ "${found}" != "${expected}" ]; then
+            echo "::error::apply did not converge — the re-read finds ${found} head-cut filing(s) where the apply's ledger left ${expected} (a content-store write may have failed; see the warnings above)"
+            exit 1
+          fi
+          uv run fedcourts corpus-push
+
       - name: Mint app token
         id: app-token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
@@ -3490,14 +3693,14 @@ jobs:
           app-slug: ${{ steps.app-token.outputs.app-slug }}
 
       # The pointer alone, under the pass table's commit record: the pass
-      # writes no `data/` path. Under the corpus split the recovered text lands
+      # writes no `data/` path. Under the corpus split the written text lands
       # in the content store and the blob may come back byte-identical, which
       # is why the pointer is not the witness and an unchanged one is reported
       # rather than failed. The step holding the App token needs no AWS
       # session, so the read-write session's variables are blanked: a step's
       # `env:` does override what the credentials action exported, which is
       # not true of the OIDC request pair.
-      - name: Commit the recovered-filings pointer
+      - name: Commit the documents pointer
         env:
           AWS_ACCESS_KEY_ID: ""
           AWS_SECRET_ACCESS_KEY: ""
@@ -3507,7 +3710,7 @@ jobs:
         run: |
           set -euo pipefail
           if env | grep -E '^AWS_' | grep -E '=.+' | grep -vE '^AWS_(REGION|DEFAULT_REGION)=' > /dev/null; then
-            echo "::error::AWS credential variables reached the recovered-filings commit"
+            echo "::error::AWS credential variables reached the documents commit"
             exit 1
           fi
           python3 -I -S src/fedcourtsai/repair_passes.py persist \
@@ -3704,7 +3907,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, validate, repair, handoff-projection, handoff-parse, votes, applications, decision-record, opinion-record, documents, regrade]
+    needs: [authorize, validate, repair, handoff-projection, handoff-parse, votes, applications, decision-record, opinion-record, documents-dry-run, documents, regrade]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5

@@ -65,7 +65,7 @@ from .documents import (
     extract_filing_text,
     extract_questions_presented,
 )
-from .ocr_recovery import _refetch_document, fetchable_document_url
+from .ocr_recovery import DocumentRef, _refetch_document, fetchable_document_url
 from .prefetch import prefetch_by_case
 
 logger = logging.getLogger(__name__)
@@ -102,6 +102,10 @@ UNREADABLE = "unreadable"
 EMPTY_AFTER_RECUT = "empty-after-recut"
 FETCH_FAILED = "fetch-failed"
 UNREACHED = "unreached"
+#: Only the split pass's writer reaches this one: the stored row it re-checks a
+#: plan row against has left the class, or holds another filing, since the
+#: projection read it.
+LEFT_THE_CLASS = "left-the-class"
 OUTCOMES: tuple[str, ...] = (
     RECUT,
     UNCHANGED,
@@ -110,6 +114,7 @@ OUTCOMES: tuple[str, ...] = (
     UNREADABLE,
     EMPTY_AFTER_RECUT,
     FETCH_FAILED,
+    LEFT_THE_CLASS,
     UNREACHED,
 )
 
@@ -166,12 +171,14 @@ class RecutCandidate:
         return f"{self.document.case_id} {self.document.kind}"
 
 
+def estimated_seconds_for_pages(pages: int) -> float:
+    """The wall clock the slice deadline admits one candidate of ``pages`` stored pages on."""
+    return ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + max(pages, 0) * ESTIMATED_SECONDS_PER_PAGE
+
+
 def estimated_candidate_seconds(candidate: RecutCandidate) -> float:
     """The wall clock the slice deadline admits one candidate on."""
-    return (
-        ESTIMATED_CANDIDATE_OVERHEAD_SECONDS
-        + max(candidate.document.pages, 0) * ESTIMATED_SECONDS_PER_PAGE
-    )
+    return estimated_seconds_for_pages(candidate.document.pages)
 
 
 @dataclass(frozen=True)
@@ -299,7 +306,9 @@ class DocumentRecutResult(BaseModel):
         "it; a dry run would), `unchanged`, `pages-changed` (the link now serves a PDF "
         "of another page count — another filing), `head-changed` (same page count, but "
         "the text opens differently — another filing), `unreadable` (the served bytes "
-        "did not parse as a PDF), `empty-after-recut`, `fetch-failed` and `unreached`",
+        "did not parse as a PDF), `empty-after-recut`, `fetch-failed`, `left-the-class` "
+        "(the split pass's writer found the stored row out of the class, or holding another "
+        "filing, since the projection read it) and `unreached`",
     )
     recut: int = Field(ge=0, description="Rows re-cut (written on an apply)")
     unchanged: int = Field(ge=0, description="Rows whose re-cut equals the stored text")
@@ -411,45 +420,59 @@ class _CandidateOutcome:
     fetch_reason: str | None = None
 
 
-def _skip_reason(
-    document: corpus.CaseDocument, extracted: ExtractedText
-) -> _CandidateOutcome | None:
-    """Why a served, parsed filing is not written as a re-cut; ``None`` to write it."""
+def served_reading(
+    client: SupremeCourtClient, document: DocumentRef, *, stored_pages: int, char_cap: int
+) -> tuple[ExtractedText | None, str, str | None]:
+    """Re-fetch and re-cut one filing, judged on what the served PDF alone shows.
+
+    The half of a candidate's outcome that needs no stored text: the fetch, the
+    parse, the page count against the stored row's, and an empty re-cut. Returns
+    the extraction to judge against the stored text, or ``None`` with the
+    outcome's ledger detail and, for a fetch that failed, its reason class. The
+    split pass's parse runs exactly this, holding only the public page count.
+    """
+    data, refused = _refetch_document(client, document)
+    if data is None:
+        reason = refused or "not-served"
+        return None, f"{FETCH_FAILED} ({reason})", reason
+    try:
+        extracted = extract_filing_text(data, kind=document.kind, char_cap=char_cap)
+    except Exception as exc:  # one bad PDF must not cost the slice its ledger
+        return None, f"{UNREADABLE} ({type(exc).__name__})", None
     if extracted.pages == 0:
         # The extractor's answer to bytes it could not parse: an error page or
         # a truncated body served as a PDF, not another filing.
-        return _CandidateOutcome(UNREADABLE, UNREADABLE)
-    if extracted.pages != document.pages:
+        return None, UNREADABLE, None
+    if extracted.pages != stored_pages:
         # The stored row's pages are the whole PDF's under either cut, so a
         # different count is a different filing at the same link — the fetching
         # lanes' business, not a re-cut.
-        return _CandidateOutcome(
-            PAGES_CHANGED, f"{PAGES_CHANGED} (stored {document.pages}, served {extracted.pages})"
-        )
+        return None, f"{PAGES_CHANGED} (stored {stored_pages}, served {extracted.pages})", None
     if not extracted.text.strip():
-        return _CandidateOutcome(EMPTY_AFTER_RECUT, EMPTY_AFTER_RECUT)
+        return None, EMPTY_AFTER_RECUT, None
+    return extracted, RECUT, None
+
+
+def outcome_of(detail: str) -> str:
+    """The ledger outcome a skip's detail line names: its first word."""
+    return detail.split(" ", 1)[0]
+
+
+def stored_judgement(
+    candidate: RecutCandidate, extracted: ExtractedText, *, today: date
+) -> _CandidateOutcome:
+    """The half of a candidate's outcome that reads the stored text: what to write.
+
+    A re-cut that does not open with the stored text is another filing
+    (``head-changed``); one equal to it, truncation flag included, is
+    ``unchanged``; anything else is the re-cut, with a petition's re-derived
+    questions-presented row where the re-cut moves it.
+    """
+    document = candidate.document
     if not _same_head(extracted.text, document.text):
         return _CandidateOutcome(HEAD_CHANGED, HEAD_CHANGED)
     if extracted.text == document.text and extracted.truncated == document.truncated:
         return _CandidateOutcome(UNCHANGED, UNCHANGED)
-    return None
-
-
-def _recut_one(
-    client: SupremeCourtClient, candidate: RecutCandidate, *, char_cap: int, today: date
-) -> _CandidateOutcome:
-    """Re-fetch and re-cut one candidate; what to write, or why nothing."""
-    document = candidate.document
-    data, refused = _refetch_document(client, document)
-    if data is None:
-        reason = refused or "not-served"
-        return _CandidateOutcome(FETCH_FAILED, f"{FETCH_FAILED} ({reason})", fetch_reason=reason)
-    try:
-        extracted = extract_filing_text(data, kind=document.kind, char_cap=char_cap)
-    except Exception as exc:  # one bad PDF must not cost the slice its ledger
-        return _CandidateOutcome(UNREADABLE, f"{UNREADABLE} ({type(exc).__name__})")
-    if (skip := _skip_reason(document, extracted)) is not None:
-        return skip
     recut = document.model_copy(
         update={
             "text": extracted.text,
@@ -468,6 +491,19 @@ def _recut_one(
         + (" questions-presented=rederived" if questions else "")
     )
     return _CandidateOutcome(RECUT, detail, recut=recut, questions=questions)
+
+
+def _recut_one(
+    client: SupremeCourtClient, candidate: RecutCandidate, *, char_cap: int, today: date
+) -> _CandidateOutcome:
+    """Re-fetch and re-cut one candidate; what to write, or why nothing."""
+    document = candidate.document
+    extracted, detail, fetch_reason = served_reading(
+        client, document, stored_pages=document.pages, char_cap=char_cap
+    )
+    if extracted is None:
+        return _CandidateOutcome(outcome_of(detail), detail, fetch_reason=fetch_reason)
+    return stored_judgement(candidate, extracted, today=today)
 
 
 def recut_documents(  # noqa: PLR0913 - keyword-only; slice deadline + injected clock over the pass's args
@@ -509,79 +545,114 @@ def recut_documents(  # noqa: PLR0913 - keyword-only; slice deadline + injected 
     scan = recut_candidates(conn, scope=scope)
     candidates = scan.candidates
     slice_ = candidates if max_cases is None else candidates[:max_cases]
-
-    outcomes: dict[str, dict[str, int]] = {}
-    recuts: dict[str, str] = {}
-    skipped: dict[str, str] = {}
-    fetch_failed: dict[str, int] = {}
-    counts = dict.fromkeys(OUTCOMES, 0)
-    questions_rederived = 0
-    left_class = 0
-
-    def record(candidate: RecutCandidate, outcome: str) -> None:
-        kind = outcomes.setdefault(candidate.document.kind, {})
-        kind[outcome] = kind.get(outcome, 0) + 1
-        counts[outcome] += 1
-
-    unreached: list[str] = []
+    ledger = RecutLedger(conn, apply=apply)
     for index, candidate in enumerate(slice_):
         if deadline is not None:
             estimate = estimated_candidate_seconds(candidate)
             left = deadline - monotonic()
             if estimate > left:
                 tail = slice_[index:]
-                unreached = [c.key for c in tail]
                 for c in tail:
-                    record(c, UNREACHED)
+                    ledger.unreach(c.key, c.document.kind)
                 logger.warning(
                     "recut: slice deadline reached with %.0fs left; %d candidate(s) not "
                     "started, first %s (%d pages, ~%.0fs)",
                     left,
-                    len(unreached),
+                    len(tail),
                     candidate.key,
                     candidate.document.pages,
                     estimate,
                 )
                 break
-        outcome = _recut_one(client, candidate, char_cap=char_cap, today=today)
-        record(candidate, outcome.outcome)
+        ledger.reach(
+            candidate.key,
+            candidate.document.kind,
+            _recut_one(client, candidate, char_cap=char_cap, today=today),
+        )
+    return ledger.result(scan, scope=scope, bound=max_cases, sliced=len(slice_))
+
+
+class RecutLedger:
+    """The pass's ledger, kept candidate by candidate, writing each re-cut as it is made.
+
+    One accumulator for the pass in one job and for the split pass's writer, so
+    the two ledgers cannot drift: the writer reaches a candidate with the
+    outcome its plan row and the stored text come to, the in-job pass with the
+    one its own fetch does.
+    """
+
+    def __init__(self, conn: sqlite3.Connection | None, *, apply: bool) -> None:
+        if apply and conn is None:
+            raise ValueError("an applying ledger writes through a connection")
+        self._conn = conn
+        self._apply = apply
+        self._outcomes: dict[str, dict[str, int]] = {}
+        self._counts = dict.fromkeys(OUTCOMES, 0)
+        self._recuts: dict[str, str] = {}
+        self._skipped: dict[str, str] = {}
+        self._fetch_failed: dict[str, int] = {}
+        self._unreached: list[str] = []
+        self._questions_rederived = 0
+        self._left_class = 0
+
+    def _record(self, kind: str, outcome: str) -> None:
+        by_kind = self._outcomes.setdefault(kind, {})
+        by_kind[outcome] = by_kind.get(outcome, 0) + 1
+        self._counts[outcome] += 1
+
+    def unreach(self, key: str, kind: str) -> None:
+        """A candidate inside the bound the slice deadline declined to start."""
+        self._unreached.append(key)
+        self._record(kind, UNREACHED)
+
+    def reach(self, key: str, kind: str, outcome: _CandidateOutcome) -> None:
+        """A started candidate's outcome, written on an apply where it is a re-cut."""
+        self._record(kind, outcome.outcome)
         if outcome.fetch_reason is not None:
-            fetch_failed[outcome.fetch_reason] = fetch_failed.get(outcome.fetch_reason, 0) + 1
+            reason = outcome.fetch_reason
+            self._fetch_failed[reason] = self._fetch_failed.get(reason, 0) + 1
         if outcome.recut is None:
-            skipped[candidate.key] = outcome.detail
-            continue
-        questions_rederived += len(outcome.questions)
-        if apply:
-            corpus.upsert_documents(conn, [outcome.recut, *outcome.questions])
+            self._skipped[key] = outcome.detail
+            return
+        self._questions_rederived += len(outcome.questions)
+        if self._apply:
+            assert self._conn is not None  # refused at construction otherwise
+            corpus.upsert_documents(self._conn, [outcome.recut, *outcome.questions])
             # Counted off the written row rather than assumed: a re-cut leaves
             # the class by carrying a cut note or fitting under the cap, and
             # the step's witness compares `remaining` with a re-walk exactly.
-            left_class += exclusion_reason(outcome.recut) is not None
-        recuts[candidate.key] = outcome.detail
-    return DocumentRecutResult(
-        applied=apply,
-        scope=scope,
-        cases_seen=scan.cases_seen,
-        documents_seen=scan.documents_seen,
-        candidates=len(candidates),
-        candidates_by_kind=_count_by_kind(candidates),
-        excluded=scan.excluded,
-        bound=max_cases,
-        attempted=len(slice_) - len(unreached),
-        unreached=unreached,
-        outcomes_by_kind=_in_kind_order_nested(outcomes),
-        recut=counts[RECUT],
-        unchanged=counts[UNCHANGED],
-        pages_changed=counts[PAGES_CHANGED],
-        head_changed=counts[HEAD_CHANGED],
-        unreadable=counts[UNREADABLE],
-        empty_after_recut=counts[EMPTY_AFTER_RECUT],
-        fetch_failed=dict(sorted(fetch_failed.items())),
-        remaining=len(candidates) - left_class,
-        questions_rederived=questions_rederived,
-        recuts=dict(sorted(recuts.items())),
-        skipped=dict(sorted(skipped.items())),
-    )
+            self._left_class += exclusion_reason(outcome.recut) is not None
+        self._recuts[key] = outcome.detail
+
+    def result(
+        self, scan: RecutScan, *, scope: str, bound: int | None, sliced: int
+    ) -> DocumentRecutResult:
+        """The ledger over ``scan``'s class, for a slice of ``sliced`` candidates."""
+        counts = self._counts
+        return DocumentRecutResult(
+            applied=self._apply,
+            scope=scope,
+            cases_seen=scan.cases_seen,
+            documents_seen=scan.documents_seen,
+            candidates=len(scan.candidates),
+            candidates_by_kind=_count_by_kind(scan.candidates),
+            excluded=scan.excluded,
+            bound=bound,
+            attempted=sliced - len(self._unreached),
+            unreached=list(self._unreached),
+            outcomes_by_kind=_in_kind_order_nested(self._outcomes),
+            recut=counts[RECUT],
+            unchanged=counts[UNCHANGED],
+            pages_changed=counts[PAGES_CHANGED],
+            head_changed=counts[HEAD_CHANGED],
+            unreadable=counts[UNREADABLE],
+            empty_after_recut=counts[EMPTY_AFTER_RECUT],
+            fetch_failed=dict(sorted(self._fetch_failed.items())),
+            remaining=len(scan.candidates) - self._left_class,
+            questions_rederived=self._questions_rederived,
+            recuts=dict(sorted(self._recuts.items())),
+            skipped=dict(sorted(self._skipped.items())),
+        )
 
 
 def _count_by_kind(candidates: Sequence[RecutCandidate]) -> dict[str, int]:
