@@ -1066,9 +1066,10 @@ def _render_throttling(usage: ToolUsage) -> list[str]:
             "",
             f"**{', '.join(blind)}**: made MCP calls and not one of their result conditions "
             + "was legible, so there is no denominator and the figure is an em dash rather "
-            + "than 0%. Read that as **capture-blind, not throttle-free** — Gemini's "
-            + "telemetry logs no result payload by construction, and a log written before "
-            + "the per-call condition marker existed carries none either. A code-mode "
+            + "than 0%. Read that as **capture-blind, not throttle-free** — a Gemini log "
+            + "captured before its rows carried the logged call outcome has none, and a "
+            + "log written before the per-call condition marker existed carries none "
+            + "either. A code-mode "
             + "engine reaching its manifest tools from inside a freeform builtin call is a "
             + "third way to land here: only the program's combined output is captured, and "
             + "no part of it is attributable to an individual call inside the program, so "

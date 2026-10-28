@@ -1203,9 +1203,10 @@ def test_gemini_telemetry_tool_calls(tmp_path: Path) -> None:
     assert len(calls) == 1
     assert calls[0].tool == "search"
     assert calls[0].query == "qualified immunity"
-    # The local exporter logs no result payload, so the whole engine is
-    # unobserved — never "returned nothing".
-    assert calls[0].result_capture == "unobserved"
+    # The local exporter logs how a call ended and no result payload, so the
+    # row is outcome-only — never "returned nothing".
+    assert calls[0].result_capture == "outcome_only"
+    assert (calls[0].result_digest, calls[0].retrieved_doc_date) == (None, None)
 
 
 def test_gemini_telemetry_ignores_tool_call_metric_points(tmp_path: Path) -> None:
@@ -2037,25 +2038,120 @@ def test_a_codex_inline_mcp_error_reads_its_condition_from_the_field(tmp_path: P
     ]
 
 
-def test_every_gemini_call_is_condition_blind(tmp_path: Path) -> None:
-    # Not "no throttle" — no observation. The local exporter logs the
-    # invocation and nothing of what came back, so this engine can never be
-    # seen being starved.
+def _gemini_tool_call(tmp_path: Path, **attributes: object) -> RetrievalCall:
+    """Parse one ``gemini_cli.tool_call`` record carrying ``attributes``."""
+    telemetry = tmp_path / "telemetry.log"
+    record = {
+        "event.name": "gemini_cli.tool_call",
+        "function_name": "mcp_cl_search",
+        "function_args": {"q": "chevron"},
+        "event.timestamp": "2026-07-10T12:00:01Z",
+        **attributes,
+    }
+    telemetry.write_text(json.dumps({"attributes": record}))
+    (call,) = parse_gemini_retrieval(telemetry)
+    return call
+
+
+def test_a_gemini_call_without_a_logged_outcome_reads_as_the_residual(tmp_path: Path) -> None:
+    # A record carrying no `success` at all claims nothing either way, so the
+    # status is the wide residual rather than a guess at failure.
+    call = _gemini_tool_call(tmp_path)
+    assert (call.result_capture, call.result_status) == ("outcome_only", "ok")
+
+
+def test_a_successful_gemini_call_is_ok(tmp_path: Path) -> None:
+    call = _gemini_tool_call(tmp_path, success=True, content_length=812)
+    assert (call.result_capture, call.result_status) == ("outcome_only", "ok")
+
+
+def test_a_failed_gemini_call_is_an_engine_error(tmp_path: Path) -> None:
+    # A cancelled or policy-rejected call logs `success` false with no message.
+    call = _gemini_tool_call(tmp_path, success=False, decision="reject")
+    assert call.result_status == "error"
+
+
+def test_a_gemini_shell_command_that_exited_non_zero_is_an_error(tmp_path: Path) -> None:
+    # The shell tool reports a non-zero exit as a successful call whose data
+    # carries `isError`; prompt logging puts that data on the record as JSON.
+    call = _gemini_tool_call(
+        tmp_path,
+        function_name="run_shell_command",
+        function_args={"command": "uv run fedcourts query --docket 1"},
+        success=True,
+        metadata=json.dumps({"exitCode": 2, "isError": True}),
+    )
+    assert (call.result_capture, call.result_status) == ("outcome_only", "error")
+
+
+def test_a_gemini_manifest_tool_error_carrying_a_429_is_throttled(tmp_path: Path) -> None:
+    # The pinned server raises an upstream 429 as a tool error; the CLI wraps it
+    # with the call's arguments and the server's response parts.
+    message = (
+        "MCP tool 'search' reported tool error for function call: "
+        + '{"name":"mcp_cl_search","args":{"q":"chevron"}} with response: '
+        + '[{"functionResponse":{"response":{"isError":true,"content":[{"type":"text",'
+        + '"text":"Rate limit exceeded: HTTP 429: daily quota"}]}}}]'
+    )
+    call = _gemini_tool_call(
+        tmp_path, success=False, error=message, **{"error.message": message}
+    )
+    assert call.result_status == "throttled"
+
+
+def test_a_gemini_throttle_phrase_in_the_quoted_arguments_is_not_a_throttle(
+    tmp_path: Path,
+) -> None:
+    # The wrapper quotes the agent's own arguments ahead of the server's
+    # response; a search FOR the phrase that failed otherwise is an error.
+    message = (
+        "MCP tool 'search' reported tool error for function call: "
+        + '{"name":"mcp_cl_search","args":{"q":"rate limit exceeded"}} with response: '
+        + '[{"functionResponse":{"response":{"isError":true,"content":[{"type":"text",'
+        + '"text":"invalid court id"}]}}}]'
+    )
+    call = _gemini_tool_call(tmp_path, success=False, error=message)
+    assert call.result_status == "error"
+
+
+def test_a_gemini_builtin_error_mentioning_a_throttle_is_not_one(tmp_path: Path) -> None:
+    # The throttle reading stays gated on the manifest tool, as on every engine.
+    call = _gemini_tool_call(
+        tmp_path,
+        function_name="read_file",
+        function_args={"path": "reasoning.md"},
+        success=False,
+        error="Rate limit exceeded: HTTP 429",
+    )
+    assert call.result_status == "error"
+
+
+def test_a_gemini_outcome_in_otlp_list_form_is_read(tmp_path: Path) -> None:
     telemetry = tmp_path / "telemetry.log"
     telemetry.write_text(
         json.dumps(
             {
-                "attributes": {
-                    "event.name": "gemini_cli.tool_call",
-                    "function_name": "mcp_cl_search",
-                    "function_args": {"q": "chevron"},
-                    "event.timestamp": "2026-07-10T12:00:01Z",
-                }
+                "attributes": [
+                    {"key": "event.name", "value": {"stringValue": "gemini_cli.tool_call"}},
+                    {"key": "function_name", "value": {"stringValue": "mcp_cl_search"}},
+                    {"key": "function_args", "value": {"stringValue": '{"q": "x"}'}},
+                    {"key": "success", "value": {"boolValue": False}},
+                ]
             }
         )
     )
     (call,) = parse_gemini_retrieval(telemetry)
-    assert (call.result_capture, call.result_status) == ("unobserved", "unobserved")
+    assert call.result_status == "error"
+
+
+def test_an_outcome_only_row_carries_no_result(tmp_path: Path) -> None:
+    with pytest.raises(ValidationError, match="outcome_only"):
+        RetrievalCall(
+            tool="search",
+            result_capture="outcome_only",
+            result_status="ok",
+            result_digest="0123456789abcdef",
+        )
 
 
 def test_the_two_result_markers_may_not_disagree_about_capture() -> None:

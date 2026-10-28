@@ -303,7 +303,7 @@ def _gemini_attrs(node: dict[str, Any]) -> dict[str, Any]:
 def _otel_value(value: Any) -> Any:
     """Unwrap an OTLP typed attribute value (``{"intValue": "12"}`` -> ``"12"``)."""
     if isinstance(value, dict):
-        for key in ("intValue", "doubleValue", "stringValue", "value"):
+        for key in ("intValue", "doubleValue", "boolValue", "stringValue", "value"):
             if key in value:
                 return value[key]
     return value

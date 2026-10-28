@@ -898,8 +898,9 @@ class ThrottleRollup:
     belongs to, and a result no transcript captured.
 
     ``cells`` therefore counts only the logs that could have shown one;
-    ``blind_cells`` counts the rest — a Gemini cell, a cell that called no
-    manifest tool — separately rather than as clean cells, because a cell that
+    ``blind_cells`` counts the rest — a cell that called no manifest tool, or
+    one whose log carries no result condition (a Gemini log captured before its
+    rows carried the call's logged outcome) — separately rather than as clean cells, because a cell that
     could not be observed is not evidence that nothing happened to it.
     """
 
@@ -937,8 +938,8 @@ def render_throttle_note(rollup: ThrottleRollup | None) -> str:
             f"**Retrieval throttling was not observable this run**: none of "
             f"{rollup.blind_cells} cell log(s) captured a manifest-tool result condition, "
             f"so no cell could have been seen being rate-limited. Capture-blind, not "
-            f"throttle-free — an engine whose transcript drops results (Gemini's, by "
-            f"construction) and a cell that called no manifest tool both land here, and "
+            f"throttle-free — a log whose rows carry no result condition and a cell "
+            f"that called no manifest tool both land here, and "
             f"neither is evidence that the shared quota was not in the way."
         )
     blind = (

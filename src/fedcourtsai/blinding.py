@@ -76,14 +76,17 @@ blinded number depends on naming them:
   would name the candidate. What the rename cannot hide is the *shape*: an
   engine that reads through its shell stages a log of nothing but ``shell``,
   which narrows the guessing space the way prose style does. The same holds
-  for the capture profile: one engine's telemetry logs no results at all, so
-  an all-``unobserved`` log with a ``result_capture_coverage`` of 0.0 points
-  at it — marginally, since that engine's staged log already carries a null
-  ``result_digest`` and a null ``retrieved_doc_date`` on every row, both of
-  which pass the mask untouched. The marker is kept regardless, because
-  dropping it makes every uncaptured call read as one that returned nothing —
-  a leakage grade wrong in a known direction, which is the worse of the two
-  harms. Two fields are the case where that trade reverses and the value is
+  for the capture profile: one engine's telemetry logs how each call ended and
+  never what it returned, so an all-``outcome_only`` log with a
+  ``result_capture_coverage`` of 0.0 points at it — marginally, since that
+  engine's staged log already carries a null ``result_digest`` and a null
+  ``retrieved_doc_date`` on every row, both of which pass the mask untouched,
+  and its older logs read all-``unobserved`` to the same effect. The marker is
+  kept regardless, because dropping it makes every uncaptured call read as one
+  that returned nothing — a leakage grade wrong in a known direction, which is
+  the worse of the two harms — and respelling ``outcome_only`` as
+  ``unobserved`` would hide the one thing those rows tell a grader: that the
+  engine marked the call failed. Two fields are the case where that trade reverses and the value is
   dropped instead, both for the same reason — the grading needs neither, and
   each is engine-shaped. Call *provenance*: one engine reaches its manifest
   tools from inside a freeform call, so a row marked as lifted from such a

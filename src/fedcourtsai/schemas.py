@@ -3076,20 +3076,27 @@ class RetrievalCall(_Strict):
         description="A document/decision date parsed from the result, where one is legible "
         "— the leakage grading's timing signal",
     )
-    # Two named states rather than a bool: `false` would read as "returned
+    # Named states rather than a bool: `false` would read as "returned
     # nothing", which is the very conflation this field exists to end, and the
     # legacy null then sits one typo away from it in any `if not …` test. No
-    # third `not_applicable` state, because no call class the parsers emit has
-    # a structurally meaningless result — the provider-side ones have results
-    # nobody captured, which is what `unobserved` says.
-    result_capture: Literal["captured", "unobserved"] | None = Field(
+    # `not_applicable` state, because no call class the parsers emit has a
+    # structurally meaningless result — the provider-side ones have results
+    # nobody captured, which is what `unobserved` says. `outcome_only` is the
+    # one in-between an engine log produces: how the call ended, without what
+    # it returned.
+    result_capture: Literal["captured", "outcome_only", "unobserved"] | None = Field(
         default=None,
         description="Whether capture saw this call's result at all. `captured` means the "
         "engine log carried the call's result, in a paired result item or on the call "
         "item itself for an engine that settles it there; it does NOT mean the result had "
-        "content — an empty result, or a failed one, is still captured. `unobserved` "
-        "means no result reached the log: the engine logs none (Gemini's telemetry), "
-        "the call ran provider-side and echoed nothing back (a Codex hosted "
+        "content — an empty result, or a failed one, is still captured. `outcome_only` "
+        "means the engine logged how the call ENDED but not what it returned: Gemini's "
+        "telemetry records each call's success bit and a failed call's error message, "
+        "so `result_status` is legible on such a row while `result_digest` and "
+        "`retrieved_doc_date` are null by construction — grade the call on its query, "
+        "as for an unobserved one, but a `result_status` of `error` there is the engine "
+        "saying the call failed. `unobserved` "
+        "means no result reached the log: the call ran provider-side and echoed nothing back (a Codex hosted "
         "`web_search_call`), or capture found no result to pair with the call — "
         "the parsers derive the marker from a pairing rule, so a call the engine "
         "logged without a pairing id, and one whose result sits past a truncated "
@@ -3127,13 +3134,18 @@ class RetrievalCall(_Strict):
         "number besides. Biased to miss a throttle rather than invent one, so read "
         "`throttled` as a floor. `error` is the engine's OWN structural marker on the "
         "result (a Claude `tool_result` `is_error`, a Codex MCP item's inline `error`) with "
-        "no throttle shape. It is NOT gated on the tool name — it is a flag the engine set, "
+        "no throttle shape, or on an `outcome_only` row the engine's logged failure (Gemini's "
+        "`success` false, or a shell command's non-zero exit in its `metadata`). It is "
+        "NOT gated on the tool name — it is a flag the engine set, "
         "not text a payload can forge, so a failed builtin is honestly an error — and it is "
         "a floor too, since only some engines set one. `ok` is the residual, and it is "
         "wide: captured, no engine error marker, and either not a manifest-tool call at all "
         "or a manifest result with no throttle shape. It is not proof the call succeeded. "
-        "`unobserved` mirrors `result_capture` exactly: no result reached the log, so no "
-        "condition could be read, which is every Gemini call. Null on records written "
+        "On an `outcome_only` row `throttled` reads the logged error message alone, so it "
+        "sees a 429 the server raised as a tool error and never the citation tools' note "
+        "on a successful result: a narrower floor than a captured row's. "
+        "`unobserved` mirrors `result_capture` exactly: no result or outcome reached the "
+        "log, so no condition could be read. Null on records written "
         "before the field existed: condition-unknown, not `ok`. Every status is BAKED AT "
         "PARSE TIME and never recomputed, so a later recalibration of the predicate reaches "
         "only new logs; any rollup pools whatever predicate each log was minted under.",
@@ -3182,15 +3194,16 @@ class RetrievalCall(_Strict):
 
     @model_validator(mode="after")
     def _status_agrees_with_capture(self) -> RetrievalCall:
-        """Reject a row whose two result markers disagree about capture.
+        """Reject a row whose result markers disagree about capture.
 
         The states are one fact read twice — a condition can be read exactly
-        when a result was captured — so `unobserved` must appear in both fields
+        when a result or an outcome was captured — so `unobserved` must appear in both fields
         or in neither. Checked rather than derived, because each field is
         written by the same parser pass and a disagreement means that pass is
         broken, not that one field needs refreshing. Only when both are
         present: a null in either is the legacy record's capture-unknown, which
-        constrains nothing.
+        constrains nothing. An ``outcome_only`` row is held to its name as well:
+        no result reached the log, so nothing can have been digested or dated.
         """
         if self.result_capture is None or self.result_status is None:
             return self
@@ -3199,6 +3212,13 @@ class RetrievalCall(_Strict):
                 f"result_capture={self.result_capture!r} and "
                 f"result_status={self.result_status!r} disagree about whether this call's "
                 f"result was captured; `unobserved` belongs in both or neither"
+            )
+        if self.result_capture == "outcome_only" and (
+            self.result_digest is not None or self.retrieved_doc_date is not None
+        ):
+            raise ValueError(
+                "an `outcome_only` row carries no result, so it can carry neither a "
+                "result_digest nor a retrieved_doc_date"
             )
         return self
 
@@ -3598,7 +3618,8 @@ class RetrievalLog(_Strict):
         "the code-mode lift scans, not every call the cell made. Null when no call "
         "carries the marker: an empty log, or one written "
         "before the marker existed. A 0.0 is a real and different fact — every call ran "
-        "with its result unobserved, which is the standing shape of a Gemini cell. "
+        "with its result unseen, which is the standing shape of a Gemini cell, whose rows "
+        "are `outcome_only`: an outcome is not a result, so it does not count here. "
         "A code-mode cell reads low here BY CONSTRUCTION: every row lifted from a "
         "program's source (`call_source` `code_mode_source`) is unobserved, because the "
         "freeform call returns one combined output for the whole program and nothing "

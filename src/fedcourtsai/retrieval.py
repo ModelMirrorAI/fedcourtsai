@@ -32,8 +32,9 @@ log tool calls in the same places their token usage lives:
   single wrapping row is ``captured``, so the coverage rate reports a grader
   who saw everything over a cell whose retrieval is entirely invisible.
 - **Gemini**: the OpenTelemetry log's ``gemini_cli.tool_call`` events carry
-  ``function_name`` / ``function_args`` attributes, and no result payload at
-  all.
+  ``function_name`` / ``function_args`` attributes and the call's **outcome** —
+  the CLI's ``success`` bit, a failed call's error message, and a shell
+  command's non-zero exit in ``metadata`` — but no result payload at all.
 
 All parsers normalize to :class:`~fedcourtsai.schemas.RetrievalCall` rows.
 Long parameters and results are digested (SHA-256, 16 hex chars), with a
@@ -47,10 +48,12 @@ opposite posture, for a caller that wants a log it cannot read to fail, is
 Every row also states whether its result was seen at all: ``result_capture``
 is ``captured`` where the transcript carried the result — as a paired result
 item, or on the call item itself for an engine that settles it there — and
-``unobserved`` where nothing came back to capture — every Gemini row, a hosted
-Codex ``web_search_call``, or any call this pairing rule found no result item
-for, which includes one the engine logged without a pairing id and one whose
-result sits past a truncated transcript. The digests cannot say it, because a null
+``unobserved`` where nothing came back to capture — a hosted Codex
+``web_search_call``, or any call this pairing rule found no result item for,
+which includes one the engine logged without a pairing id and one whose result
+sits past a truncated transcript. Between the two sits ``outcome_only``, every
+Gemini row: the engine logged whether the call succeeded, and a failure's
+message, but never what a call returned. The digests cannot say it, because a null
 ``result_digest`` or ``retrieved_doc_date`` is what a captured-empty result
 and an uncaptured one both leave behind; without the marker a reader grades
 "this call surfaced nothing" over calls whose results were never in the log.
@@ -70,8 +73,13 @@ in), and the **phrasing** of each alternation excludes what a manifest tool
 legitimately returns — a search tool's whole job is handing back opinions, and
 an opinion may well discuss a rate limitation or too many requests for
 admission. The status is a floor by construction, decided once at parse time,
-and available only on engines whose results reach a transcript at all; every
-Gemini row is ``unobserved``.
+and available only on engines whose results or outcomes reach a transcript at
+all. On a Gemini row it is read from the logged outcome rather than a payload:
+``error`` where the CLI marked the call failed, ``throttled`` where that
+failure's message carries the throttle shape, and ``ok`` otherwise. That makes
+Gemini's throttle count a narrower floor than the others': a 429 the server
+raised as a tool error is legible, while the citation tools' note appended to a
+*successful* result is not, because the result never reached the log.
 
 A transcript is not trusted text: it records whatever a tool call carried,
 including a credential the agent never chose to write. Every string harvested
@@ -1003,8 +1011,9 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
     """Tool calls from a Gemini CLI OpenTelemetry ``telemetry.log``.
 
     Each ``gemini_cli.tool_call`` **log record** carries the invocation's
-    ``function_name`` / ``function_args``; the local exporter logs no result
-    payload, so result digests stay ``None`` for this engine.
+    ``function_name`` / ``function_args`` and its outcome, but the local
+    exporter logs no result payload, so result digests stay ``None`` for this
+    engine and every row is ``outcome_only`` (:func:`_gemini_outcome`).
 
     The CLI points its span, log, **and metric** exporters at the same
     ``outfile``, so the file interleaves log records with metric data points —
@@ -1032,19 +1041,18 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
         if name and event_name.endswith("tool_call"):
             params = _maybe_json(attrs.get("function_args") or node.get("function_args"))
             timestamp = attrs.get("event.timestamp") or node.get("event.timestamp")
+            tool = _tool_name(name)
             calls.append(
                 RetrievalCall(
-                    tool=_tool_name(name),
+                    tool=tool,
                     query=_query_slice(params),
                     params_digest=_digest(params),
                     timestamp=_text(timestamp),
-                    # The local exporter logs the invocation and nothing of what
-                    # came back, so every Gemini row is unobserved by
-                    # construction — a whole engine's capture rate is 0.0, and
-                    # its result condition is unreadable rather than fine: this
-                    # engine cannot be seen being throttled at all.
-                    result_capture="unobserved",
-                    result_status="unobserved",
+                    # The local exporter logs how the call ended and nothing of
+                    # what came back: no digest and no document date can be
+                    # read, and the capture marker says so.
+                    result_capture="outcome_only",
+                    result_status=_gemini_outcome(tool, {**node, **attrs}),
                     call_source="transcript_item",
                 )
             )
@@ -1054,6 +1062,52 @@ def parse_gemini_retrieval(telemetry_file: Path) -> list[RetrievalCall]:
     # timestamp where present (stable for ties/absent stamps).
     calls.sort(key=lambda call: call.timestamp or "")
     return calls[:RETRIEVAL_CALL_CAP]
+
+
+# Where a Gemini MCP tool error's own text begins. The CLI wraps a server's
+# `isError` result as `MCP tool '<name>' reported tool error for function call:
+# <the call, arguments and all> with response: <the server's parts>`, and the
+# arguments are agent-authored: a search for "rate limit exceeded" that failed
+# for any other reason would otherwise read as a throttle.
+_GEMINI_MCP_RESPONSE_MARK = " with response: "
+
+
+def _gemini_outcome(tool: str, attrs: dict[str, Any]) -> RetrievalResultStatus:
+    """A Gemini tool call's condition, read from the outcome its log record carries.
+
+    Gemini CLI 0.49 logs, on each ``gemini_cli.tool_call`` record, ``success``
+    (the call reached the CLI's success state; a cancelled or rejected call and a
+    failed one are both false), a failed call's message under ``error`` /
+    ``error.message``, and — with prompt logging on, as the cell workflows set it
+    — the tool's own ``metadata``, where a shell command that exited non-zero
+    leaves ``isError``. Those are flags the engine set, not text a payload can
+    forge, so they decide ``error`` exactly as a Claude ``is_error`` does.
+
+    The throttle predicate reads the error message, gated on the manifest tool
+    as everywhere else, and only its server-written tail where the CLI's MCP
+    wrapper quotes the call's arguments ahead of it
+    (:data:`_GEMINI_MCP_RESPONSE_MARK`). A record carrying no ``success`` at all
+    (a CLI that stopped logging it) is ``ok`` — the residual, which claims
+    nothing about success — rather than a guess either way.
+    """
+    message = str(attrs.get("error.message") or attrs.get("error") or "")
+    failed = not _truthy(attrs.get("success"), default=True) or bool(message)
+    metadata = _maybe_json(attrs.get("metadata"))
+    if isinstance(metadata, dict) and _truthy(metadata.get("isError"), default=False):
+        failed = True
+    if not failed:
+        return "ok"
+    _, marked, tail = message.rpartition(_GEMINI_MCP_RESPONSE_MARK)
+    return _result_status(tool, tail if marked else message, captured=True, engine_error=True)
+
+
+def _truthy(value: Any, *, default: bool) -> bool:
+    """A logged boolean in any of the spellings an OTLP exporter leaves it in."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.strip().lower() in {"true", "false"}:
+        return value.strip().lower() == "true"
+    return default
 
 
 # --- Engine-log shape check ------------------------------------------------

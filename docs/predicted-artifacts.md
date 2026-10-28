@@ -635,15 +635,23 @@ directory without knowing which part is which invites trusting the wrong half.
   agent does not write it; credential-shaped runs are redacted at capture. Each
   call also states whether capture saw its result at all — `result_capture` is
   `captured` when the log carried the call's result, whether in a paired result
-  item or on the call item itself for an engine that settles it there, and
-  `unobserved` when nothing came back to capture or capture found no result to
-  pair with the call, with `result_capture_coverage` the log-level share. Read
+  item or on the call item itself for an engine that settles it there,
+  `outcome_only` when the log carried how the call ended but not what it
+  returned (every gemini row: its telemetry records the call's success bit, a
+  failed call's message and a shell command's non-zero exit, never the payload),
+  and `unobserved` when nothing came back to capture or capture found no result
+  to pair with the call, with `result_capture_coverage` the log-level share of
+  `captured` rows. Read
   it before reading the digests: a null `result_digest` is what a
   captured-but-empty result and a never-captured one both leave behind, so
   "this call surfaced nothing" is a claim only the marker can support. Where a
   result *was* captured, `result_status` says what came back in it — `ok`,
   `error` (the engine's own structural failure marker), or `throttled`, the
-  shape the pinned CourtListener MCP server renders an upstream HTTP 429 as.
+  shape the pinned CourtListener MCP server renders an upstream HTTP 429 as. On
+  an `outcome_only` row it is read from the logged outcome instead: `error`
+  where the engine marked the call failed, `throttled` where that failure's
+  message carries the 429 shape, `ok` otherwise — so it can see a refusal the
+  server raised as an error, never a throttle note on a successful result.
   `throttled` is the state that changes how the cell reads: the shared daily
   quota turned the call away, so it retrieved nothing and the cell is not
   comparable with a well-fed one. Only a **manifest-tool** call can carry it —
