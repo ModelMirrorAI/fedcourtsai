@@ -4824,10 +4824,23 @@ def test_the_scrub_withholds_the_shapes_a_scanned_caption_leaves(detail: str) ->
 
     scrubbed = scrub_contact_details(text)
 
-    assert scrubbed.text == (
-        f"Jane Doe, Petitioner Pro Se\n{CONTACT_PLACEHOLDER}\nHouston, TX 77002\n"
-    )
-    assert scrubbed.replacements == 1
+    # A street address or box takes the "City, State ZIP" line below it with
+    # it; a telephone number or an email does not.
+    mailing = detail in {
+        "1234B Maple Rd.",
+        "1234 MAPLE STREET",
+        "99 Rue de la Paix Avenue",
+        "1234 Calle del Sol Way",
+        "P.0. Box 4417",
+        "P.O, Box 4417",
+        "P.O.- Box 4417",
+        "Post Office Box 4417",
+        "PO BOX 4417",
+        "Box 4417",
+    }
+    city = CONTACT_PLACEHOLDER if mailing else "Houston, TX 77002"
+    assert scrubbed.text == (f"Jane Doe, Petitioner Pro Se\n{CONTACT_PLACEHOLDER}\n{city}\n")
+    assert scrubbed.replacements == (2 if mailing else 1)
     assert scrubbed.residuals == 0
 
 
@@ -4974,6 +4987,160 @@ def test_a_contact_shape_the_scrub_leaves_on_the_opening_is_a_residual(
     assert not scrubbed.clean
 
 
+# A self-represented cover page's mailing block with its street type
+# abbreviated (scotus/9026000545's layout; the address is invented).
+_ABBREVIATED_COVER = (
+    "JOHN Q. PUBLIC, Petitioner Pro Se\n"
+    + "4521 Bramblewood Dr\n"
+    + "Springfield, IL 62704\n"
+    + "\nQUESTIONS PRESENTED\n"
+)
+_WITHHELD_COVER = (
+    "JOHN Q. PUBLIC, Petitioner Pro Se\n"
+    + f"{CONTACT_PLACEHOLDER}\n"
+    + f"{CONTACT_PLACEHOLDER}\n"
+    + "\nQUESTIONS PRESENTED\n"
+)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        # The docket spells the street type out where the filing abbreviates it.
+        "4521 Bramblewood Drive",
+        "4521 Bramblewood Dr.",
+        "4521 BRAMBLEWOOD DRIVE",
+    ],
+)
+def test_the_value_pass_reads_a_street_type_in_either_spelling(value: str) -> None:
+    # The value pass alone, so the shape pass's mailing block cannot stand in.
+    scrubbed = scrub_contact_details(_ABBREVIATED_COVER, (value,), shape=False)
+
+    assert scrubbed.text == _ABBREVIATED_COVER.replace("4521 Bramblewood Dr", CONTACT_PLACEHOLDER)
+    assert scrubbed.replacements == 1
+
+
+def test_the_value_pass_reads_an_abbreviated_value_spelled_out() -> None:
+    text = "Jane Doe\n88 North Cascade Avenue, Apartment 4B\n"
+
+    scrubbed = scrub_contact_details(text, ("88 North Cascade Ave, Apt 4B",), shape=False)
+
+    assert scrubbed.text == f"Jane Doe\n{CONTACT_PLACEHOLDER}\n"
+
+
+def test_a_street_type_spelling_does_not_match_a_different_street_type() -> None:
+    scrubbed = scrub_contact_details(_ABBREVIATED_COVER, ("4521 Bramblewood St",), shape=False)
+
+    assert scrubbed.text == _ABBREVIATED_COVER
+
+
+@pytest.mark.parametrize("suffix", ["Dr", "Dr.", "Ct", "Ct.", "Pl", "PL.", "DR"])
+def test_a_mailing_block_ending_on_an_abbreviation_is_withheld(suffix: str) -> None:
+    text = _ABBREVIATED_COVER.replace("Bramblewood Dr", f"Bramblewood {suffix}")
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == _WITHHELD_COVER
+    assert scrubbed.replacements == 2
+    assert scrubbed.residuals == 0
+    assert scrubbed.clean
+
+
+@pytest.mark.parametrize(
+    "survivor",
+    [
+        # The title, the court and the plaintiff, with no city line below.
+        "Dr. Smith examined him on 12 Dr. Jones's referral.\nHe testified.",
+        "In 1983 Smith Ct. held otherwise.\nSpringfield is in Illinois.",
+        "See 12 Pl. Br. 14.\nSpringfield, IL 62704",
+        # An abbreviation line with a city line that is not directly below it.
+        "4521 Bramblewood Dr\n\nSpringfield, IL 62704",
+        # The Court's own address line on its own.
+        "Supreme Court of the United States\nWashington, D.C. 20543",
+        # A reporter cite broken before its page, over an address line.
+        "See 141 S. Ct\nWashington, DC 20001",
+        # A line ending on a number and a capitalized word that names no state.
+        "Id. at 12 Smith Dr.\nMoreover Tex 12345",
+    ],
+)
+def test_an_abbreviation_outside_a_mailing_block_is_left_alone(survivor: str) -> None:
+    scrubbed = scrub_contact_details(survivor)
+
+    assert scrubbed.text == survivor
+    assert scrubbed.replacements == 0
+
+
+@pytest.mark.parametrize(
+    "street",
+    ["1234 Maple Street", "1234 Maple Street, Apt. 4B", "1 First Street, N.E.", "P.O. Box 4417"],
+)
+def test_the_city_line_below_a_withheld_street_is_withheld_on_its_own(street: str) -> None:
+    text = f"Jane Doe\n{street}\nWashington, D.C. 20543-0001\nQUESTION PRESENTED\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    lines = scrubbed.text.split("\n")
+    assert lines[1].startswith(CONTACT_PLACEHOLDER)
+    assert lines[2] == CONTACT_PLACEHOLDER
+    assert lines[3] == "QUESTION PRESENTED"
+    assert scrubbed.replacements == 2
+
+
+def test_a_mailing_block_with_crlf_line_ends_is_withheld_line_by_line() -> None:
+    text = _ABBREVIATED_COVER.replace("\n", "\r\n")
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == _WITHHELD_COVER.replace("\n", "\r\n")
+    assert scrubbed.replacements == 2
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Word" + " " * 150_000 + "x\n",
+        "1 Ab Dr" + " " * 150_000 + "\n",
+        "1234 Maple St" + " " * 150_000 + "\nx",
+    ],
+    ids=["city-line", "abbreviated-street", "street-unit"],
+)
+def test_the_mailing_block_shapes_scan_a_run_of_blanks_in_linear_time(text: str) -> None:
+    # A blank run at the document cap that is not a city line fails in one pass.
+    start = time.perf_counter()
+    scrub_contact_details(text)
+
+    assert time.perf_counter() - start < 5.0
+
+
+def test_the_city_line_below_a_withheld_address_value_is_withheld() -> None:
+    text = "Jane Doe\n2661 FM 2054\nTennessee Colony, TX 75884\n"
+
+    scrubbed = scrub_contact_details(text, ("2661 FM 2054",))
+
+    assert scrubbed.text == f"Jane Doe\n{CONTACT_PLACEHOLDER}\n{CONTACT_PLACEHOLDER}\n"
+
+
+def test_the_city_line_below_a_telephone_number_is_left_alone() -> None:
+    text = "Jane Doe\n(713) 555-0147\nHouston, TX 77002\n"
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == f"Jane Doe\n{CONTACT_PLACEHOLDER}\nHouston, TX 77002\n"
+
+
+def test_a_mailing_block_the_scrub_leaves_is_a_residual() -> None:
+    # A street name in lower case is out of the shape pass's reach; with the
+    # city line below it, the block still counts against a clean pass.
+    text = _ABBREVIATED_COVER.replace("Bramblewood", "bramblewood")
+
+    scrubbed = scrub_contact_details(text)
+
+    assert scrubbed.text == text
+    assert [name for name, _ in documents_module.contact_residual_matches(text)] == ["street"]
+    assert scrubbed.residuals == 1
+    assert not scrubbed.clean
+
+
 def test_an_ohio_reporter_citation_opening_a_line_is_not_a_residual() -> None:
     text = "Jane Doe, Petitioner Pro Se\n123 Ohio St. 3d 456 (2010).\n\nQUESTION PRESENTED\n"
 
@@ -5045,7 +5212,8 @@ def test_a_scrubbed_caption_leaves_no_residual() -> None:
 
     scrubbed = scrub_contact_details(block)
 
-    assert scrubbed.replacements == 3
+    # The street line, the city line below it, the telephone and the email.
+    assert scrubbed.replacements == 4
     assert scrubbed.residuals == 0
     assert scrubbed.clean
 
@@ -5086,7 +5254,7 @@ def test_no_scrub_ever_spans_a_line_break() -> None:
 
     scrubbed = scrub_contact_details(block)
 
-    assert scrubbed.replacements == 4
+    assert scrubbed.replacements == 5
     assert scrubbed.text.count("\n") == block.count("\n")
     assert [line.strip() == "" for line in scrubbed.text.splitlines()] == [
         line.strip() == "" for line in block.splitlines()

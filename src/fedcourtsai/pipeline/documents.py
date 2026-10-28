@@ -2738,9 +2738,12 @@ _PO_BOX_RE = re.compile(
 # not naming a street at all: `Ct.` is the institution every filing is addressed
 # to, `Pl.` is the standard short form of "Plaintiff", and `Dr.` is a doctor —
 # which a medical or disability petition names on every page. Their absence
-# costs a street address spelled with one of them and buys immunity from three
-# words this corpus is made of. `Drive` spelled out stays, since nothing else
-# spells it that way.
+# costs a street address spelled with one of them on a line of its own, and buys
+# immunity from three words this corpus is made of. `Drive` spelled out stays,
+# since nothing else spells it that way. The three are read only as the first
+# line of a mailing block, where a "City, State ZIP" line follows directly
+# (`_SHORT_SUFFIX_STREET_RE`): neither the title nor the court opens a line on a
+# house number with a ZIP code on the next.
 # Each is read as written everywhere, and in capitals on the document's
 # opening alone (`OPENING_WINDOW_CHARS`): a caption sets its lines in capitals
 # (`1234 MAPLE STREET`), but further in a heading set in capitals reads the
@@ -2801,22 +2804,70 @@ _OHIO_REPORTER = (
 )
 
 
-def _street_pattern(suffixes: str) -> re.Pattern[str]:
-    """The street-address shape ending on one of ``suffixes``."""
+# A "City, State ZIP" line, the whole of its line: up to four city words, an
+# optional comma, the state as a two-letter code, as initials (`D.C.`) or
+# spelled out by name, and a five-digit ZIP with an optional `+4`.
+# On its own the line is left alone, since the Court's own address line is set
+# the same way; it is withheld only as the line directly below a line ending on
+# a withheld street address or box (`_city_line_spans`), and it is what makes a
+# street line ending on `Dr`, `Ct` or `Pl` an address (`_SHORT_SUFFIX_STREET_RE`).
+# Every gap is `[ \t]`, so the line never reaches past its own line break.
+_STATE_NAMES = (
+    "Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|"
+    "District of Columbia|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|"
+    "Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|"
+    "Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|"
+    "North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Puerto Rico|"
+    "Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|"
+    "Washington|West Virginia|Wisconsin|Wyoming"
+)
+# Every blank run is possessive, so a line of blanks that is not a city line
+# fails in one pass rather than retrying each way of splitting the run.
+_CITY_LINE = (
+    r"[ \t]*+[A-Z][A-Za-z'.-]{0,30}+(?:[ \t]++[A-Za-z][A-Za-z'.-]{0,30}+){0,3}"
+    r"[ \t]*+,?[ \t]*+"
+    rf"(?:[A-Z]{{2}}|[A-Z]\.[ \t]?[A-Z]\.|(?i:{_STATE_NAMES.replace(' ', r'[ \t]+')}))\.?"
+    r"[ \t]++\d{5}(?:-\d{4})?[ \t]*+\r?$"
+)
+_CITY_LINE_RE = re.compile(rf"^{_CITY_LINE}", re.MULTILINE)
+
+# What may sit on a street line after the withheld street address before its
+# line ends, for the line below to count as the same mailing block: punctuation
+# and a compass quadrant (`1 First Street, N.E.`).
+_STREET_LINE_TAIL_RE = re.compile(r"[ \t.,]*(?:[NS]\.?[ \t]?[EW]\.?|[NSEW]\.?)?[ \t.,]*\r?\Z")
+
+
+def _street_pattern(
+    suffixes: str, tail: str = "", name: str = r"[A-Z][\w'.-]{0,40}"
+) -> re.Pattern[str]:
+    """The street-address shape ending on ``name`` and one of ``suffixes``, then ``tail``.
+
+    The unit's blank runs are possessive, so a ``tail`` that fails does not
+    send the match back through every split of a long run of blanks.
+    """
     return re.compile(
         r"(?:(?<![\w.-])|(?<=^[.-]))\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
         rf"(?:(?:[A-Z0-9][\w'.-]{{0,40}}|{_STREET_CONNECTORS})[ \t]+){{0,4}}"
-        rf"{_OHIO_REPORTER}(?:[A-Z][\w'.-]{{0,40}}|\d{{1,3}}(?:st|nd|rd|th))[ \t]+"
+        rf"{_OHIO_REPORTER}(?:{name}|\d{{1,3}}(?:st|nd|rd|th))[ \t]+"
         rf"(?:{suffixes})\b\.?"
-        r"(?:[ \t]*,?[ \t]*(?:Apt|Apartment|Suite|Ste|Unit|Floor|Fl|Rm|Room|No|APT|UNIT)"
-        r"\.?[ \t]*[\w-]+"
-        r"|[ \t]*#[ \t]*[\w-]+)?",
+        r"(?:[ \t]*+,?[ \t]*+(?:Apt|Apartment|Suite|Ste|Unit|Floor|Fl|Rm|Room|No|APT|UNIT)"
+        r"\.?[ \t]*+[\w-]+"
+        rf"|[ \t]*+#[ \t]*+[\w-]+)?{tail}",
         re.MULTILINE,
     )
 
 
 _STREET_RE = _street_pattern(_STREET_SUFFIXES)
 _CAPITAL_STREET_RE = _street_pattern(_STREET_CAPITAL_SUFFIXES)
+# The three abbreviations the street types leave out, read only as the first
+# line of a mailing block: a "City, State ZIP" line must follow directly. The
+# street's name before them is a word of two letters or more, so a reporter
+# cite broken before its page (`141 S. Ct`) is not read as one.
+_SHORT_SUFFIX_STREET_RE = _street_pattern(
+    "Dr|Ct|Pl|DR|CT|PL",
+    rf"(?=[ \t.,]*+\r?\n{_CITY_LINE})",
+    name=r"[A-Z][A-Za-z][\w'.-]{0,39}",
+)
 
 # Every pattern here, and every value pattern below, is matched against the
 # **original** text, and overlapping matches are merged into one withheld span
@@ -2837,6 +2888,12 @@ _CONTACT_PATTERNS: tuple[re.Pattern[str], ...] = (
     _PO_BOX_RE,
     _STREET_RE,
     _CAPITAL_STREET_RE,
+    _SHORT_SUFFIX_STREET_RE,
+)
+
+# The shapes a "City, State ZIP" line is withheld below (`_city_line_spans`).
+_ADDRESS_PATTERNS: frozenset[re.Pattern[str]] = frozenset(
+    {_PO_BOX_RE, _STREET_RE, _CAPITAL_STREET_RE, _SHORT_SUFFIX_STREET_RE}
 )
 
 # The telephone shapes whose letter-for-digit readings are kept honest by a
@@ -2951,6 +3008,50 @@ def party_contact_values(payload: Mapping[str, Any], sides: Sequence[str]) -> tu
     return tuple(values)
 
 
+# The street-type and unit words a docket's `Address` value and the filing it
+# copies may spell differently — the docket "Drive", the cover page "Dr" — each with the
+# spellings that name the same type. An address value's street-type word is
+# matched as any of its spellings, so the value pass reads the filing's line
+# whichever one it chose; a trailing period sits in the gap after it like any
+# other punctuation. A spelling here never widens the shape pass: it applies
+# to the docket's own value alone, which is specific to the filer by its
+# house number and name.
+_STREET_TYPE_SPELLINGS: tuple[tuple[str, ...], ...] = (
+    ("street", "st"),
+    ("avenue", "ave", "av"),
+    ("road", "rd"),
+    ("boulevard", "blvd"),
+    ("lane", "ln"),
+    ("drive", "dr"),
+    ("court", "ct"),
+    ("place", "pl"),
+    ("circle", "cir"),
+    ("parkway", "pkwy"),
+    ("highway", "hwy"),
+    ("square", "sq"),
+    ("trail", "trl"),
+    ("terrace", "ter"),
+    ("plaza", "plz"),
+    ("apartment", "apt"),
+    ("suite", "ste"),
+)
+_STREET_TYPE_VARIANTS: dict[str, tuple[str, ...]] = {
+    spelling: spellings for spellings in _STREET_TYPE_SPELLINGS for spelling in spellings
+}
+# A run of an address value's significant characters (letters and digits).
+_ADDRESS_TOKEN_RE = re.compile(r"[^\W_]+")
+
+
+def _address_token_pattern(token: str) -> str:
+    """One token of an address value, as the fragment-tolerant run of its characters.
+
+    A street-type word (`_STREET_TYPE_SPELLINGS`) matches any of its spellings.
+    """
+    spellings = _STREET_TYPE_VARIANTS.get(token.lower(), (token,))
+    runs = [_VALUE_GAP.join(re.escape(ch) for ch in spelling) for spelling in spellings]
+    return runs[0] if len(runs) == 1 else "(?:" + "|".join(runs) + ")"
+
+
 def _value_pattern(value: str) -> re.Pattern[str] | None:
     """The fragment-tolerant pattern for one contact value, or None below its floor."""
     if "@" in value:
@@ -2965,7 +3066,10 @@ def _value_pattern(value: str) -> re.Pattern[str] | None:
                 return None
         elif not digits or len(significant) < _MIN_ADDRESS_CHARS:
             return None
-    body = _VALUE_GAP.join(re.escape(ch) for ch in significant)
+    if "@" in value or all(ch.isdigit() for ch in significant):
+        body = _VALUE_GAP.join(re.escape(ch) for ch in significant)
+    else:
+        body = _VALUE_GAP.join(_address_token_pattern(t) for t in _ADDRESS_TOKEN_RE.findall(value))
     if all(ch.isdigit() for ch in significant):
         # A telephone number's parenthesized area code or `+` opens on
         # punctuation the significant characters leave out; take it with the
@@ -3022,7 +3126,10 @@ class ScrubbedText:
 # how a reporter citation's pin cite and year read; a street address opening its
 # line whose name tokens are lower case (opening the line, because mid-line a
 # citation such as "… v. Lane" or "Fla. St." takes the same shape, and without
-# the abbreviation `Cir`, which is a circuit);
+# the abbreviation `Cir`, which is a circuit), and one ending on `Dr`, `Ct` or
+# `Pl` with a "City, State ZIP" line directly below it, which is the only
+# reading of a city line it counts, since the Court's own address line is set
+# that way on its own;
 # `box` and a number in any case; and an `@` with two letters or digits on
 # one side of it and two letters on the other, a blank allowed on one side
 # only (OCR noise sets a lone `@` between single characters), or opening a
@@ -3047,6 +3154,18 @@ _RESIDUAL_STREET_RE = re.compile(
     rf"(?:{_RESIDUAL_STREET_SUFFIX_WORDS}|{_RESIDUAL_STREET_SUFFIX_WORDS.upper()})\b",
     re.MULTILINE,
 )
+# A street line ending on one of the abbreviations the street types leave out
+# (`Dr`, `Ct`, `Pl`), with a "City, State ZIP" line directly below it: the
+# mailing block the scrub withholds as `_SHORT_SUFFIX_STREET_RE`, with its name
+# words in any case.
+_RESIDUAL_SHORT_SUFFIX_STREET_RE = re.compile(
+    r"^[^\w\n]{0,3}\d[0-9OoIl]{0,5}[A-Za-z]?[ \t]+"
+    r"(?:[A-Za-z][\w'.-]{0,40}[ \t]+){0,4}"
+    r"(?:[A-Za-z][A-Za-z][\w'.-]{0,39}|\d{1,3}(?:st|nd|rd|th))[ \t]+"
+    r"(?:Dr|Ct|Pl|DR|CT|PL)\b[^\n]{0,40}+\n"
+    rf"{_CITY_LINE}",
+    re.MULTILINE,
+)
 _RESIDUAL_BOX_RE = re.compile(r"\bbox[ \t]*#?[ \t]*\d+", re.IGNORECASE)
 _RESIDUAL_EMAIL_RE = re.compile(
     r"[A-Za-z0-9]{2}[ \t]?@[A-Za-z]{2}|[A-Za-z0-9]{2}@[ \t]?[A-Za-z]{2}"
@@ -3056,6 +3175,7 @@ _RESIDUAL_EMAIL_RE = re.compile(
 RESIDUAL_SHAPES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("phone", _RESIDUAL_PHONE_RE),
     ("street", _RESIDUAL_STREET_RE),
+    ("street", _RESIDUAL_SHORT_SUFFIX_STREET_RE),
     ("box", _RESIDUAL_BOX_RE),
     ("email", _RESIDUAL_EMAIL_RE),
 )
@@ -3120,6 +3240,36 @@ def _merged_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
+def _city_line_spans(text: str, spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """The "City, State ZIP" lines directly below a line ending on one of ``spans``.
+
+    ``spans`` are the withheld street addresses and boxes. A mailing block's
+    second line carries the filer's city and ZIP code, and is withheld with the
+    line above it where that line ends on one of them (punctuation or a compass
+    quadrant may follow it). Each is withheld as a span of its
+    own, so the block's lines each keep a placeholder rather than one spanning
+    the line break. A city line under anything else is left alone, since the
+    Court's own address line is set the same way with no street line above it;
+    under a court or clerk street address it is withheld like any other.
+    """
+    found: list[tuple[int, int]] = []
+    for match in _CITY_LINE_RE.finditer(text):
+        line_start = match.start()
+        if line_start == 0:
+            continue
+        above_end = line_start - 1
+        above_start = text.rfind("\n", 0, above_end) + 1
+        if any(
+            above_start < end <= above_end and _STREET_LINE_TAIL_RE.match(text, end, above_end)
+            for _, end in spans
+        ):
+            # The line's leading and trailing blanks stay, as a shape match's do.
+            line = match.group()
+            lead = len(line) - len(line.lstrip(" \t"))
+            found.append((line_start + lead, line_start + len(line.rstrip(" \t\r"))))
+    return found
+
+
 def scrub_contact_details(
     text: str, values: tuple[str, ...] = (), *, shape: bool = True
 ) -> ScrubbedText:
@@ -3147,11 +3297,15 @@ def scrub_contact_details(
     telephone number (with the parenthesis, separator and letter-for-digit
     readings a scan makes, and the blank-separated spelling where a label or a
     line of its own says what it is), a post-office box, and a street address
-    (house number, name, street type, and any unit after it). Nothing else is a target — a
+    (house number, name, street type, and any unit after it), with the "City,
+    State ZIP" line directly below a line ending on a withheld street address or
+    box — withheld as a span of its own, so each line keeps its placeholder.
+    Nothing else is a target — a
     docket number, a date, a pin cite and a reporter citation all lack the
     shapes above, which is why the patterns are anchored on what a contact
     detail has and legal prose does not rather than on where in the document it
-    sits. No shape pattern spans a newline.
+    sits. No shape pattern's match spans a newline (the `Dr`/`Ct`/`Pl` street
+    shape looks past one to the city line below, but stops at it).
 
     Overlapping matches from either pass are merged, and each merged span is
     replaced once, by the placeholder followed by every line boundary the span
@@ -3172,10 +3326,14 @@ def scrub_contact_details(
     surface: under the shape pass alone, a detail the extractor broke across two
     lines and an email whose local part the scan split mid-word; a telephone
     number written with a slash, with no separators at all, or blank-separated
-    with no label beside it; a street name in lower case; a bare city/state/ZIP line, which is left
-    alone because the two-letter state and five-digit ZIP shape is also how the
-    Court's own address line is set; and an incarcerated filer's register number
-    beside an institution name, which has no shape at all. The value-keyed pass
+    with no label beside it; a street name in lower case; a street line ending
+    on `Dr`, `Ct` or `Pl` with no "City, State ZIP" line directly below it,
+    since those words are a doctor, the court and a plaintiff far more often
+    than a street type; a city/state/ZIP line under anything but a withheld
+    street address or box, which is left alone because the two-letter state
+    and five-digit ZIP shape is also how the Court's own address line is set;
+    and an incarcerated filer's register number beside an institution name,
+    which has no shape at all. The value-keyed pass
     closes the first two for the values the docket serves, and only those: a
     spelling that drops or substitutes a character of a value is still missed,
     as is a detail the docket does not carry. The scrub narrows what reaches the
@@ -3188,23 +3346,33 @@ def scrub_contact_details(
     (:attr:`ScrubbedText.clean`). A clean result says nothing about the
     middle of the document, and nothing at all where the value pass ran alone.
     """
-    patterns = [p for p in (_value_pattern(v) for v in values) if p is not None]
+    keyed = [(v, p) for v, p in ((v, _value_pattern(v)) for v in values) if p is not None]
+    patterns = [p for _, p in keyed]
+    # The patterns whose match is a street line a city line can sit below: the
+    # street and box shapes, and every value that is neither an email nor a
+    # run of telephone digits (a number with a lettered extension counts, which
+    # can only widen what is withheld).
+    addresses = set(_ADDRESS_PATTERNS) | {
+        p for v, p in keyed if "@" not in v and not all(ch.isdigit() for ch in v if ch.isalnum())
+    }
     passes = ((SCRUB_PASS_VALUE,) if patterns else ()) + ((SCRUB_PASS_SHAPE,) if shape else ())
     if shape:
         anchored = _EMAIL_ANCHOR_RE.search(text) is not None
         patterns += [p for p in _CONTACT_PATTERNS if anchored or p not in _ANCHORED_EMAIL_PATTERNS]
-    spans = _merged_spans(
-        [
-            _withheld_span(m)
-            for p in patterns
-            for m in p.finditer(text)
-            # An opening-only shape keeps the matches that start on the opening,
-            # read over the whole text so a line straddling the window's edge is
-            # matched as the line it is, not as its cut.
-            if (p not in _OPENING_ONLY or m.start() < OPENING_WINDOW_CHARS)
-            and (p not in _DIGIT_COUNTED or _phone_digits_ok(m))
-        ]
-    )
+    matched = [
+        (p, _withheld_span(m))
+        for p in patterns
+        for m in p.finditer(text)
+        # An opening-only shape keeps the matches that start on the opening,
+        # read over the whole text so a line straddling the window's edge is
+        # matched as the line it is, not as its cut.
+        if (p not in _OPENING_ONLY or m.start() < OPENING_WINDOW_CHARS)
+        and (p not in _DIGIT_COUNTED or _phone_digits_ok(m))
+    ]
+    withheld = [span for _, span in matched]
+    if shape:
+        withheld += _city_line_spans(text, [span for p, span in matched if p in addresses])
+    spans = _merged_spans(withheld)
     parts: list[str] = []
     cursor = 0
     for start, end in spans:

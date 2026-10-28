@@ -14115,3 +14115,99 @@ freeze commit is recorded here.
   the carrying promotion's merge time below.
 
   Carried to `main` by `promotion/2026-10-28` (merge commit `6027eac9f56905afd57a2e31725c2cea79405e3a`, merged `2026-10-28T12:42:27Z`).
+
+- **The contact scrub reads a mailing block whose street type is abbreviated,
+  and withholds the city line below a street; recorded 2026-10-28.** A
+  **conditioning** entry in the *what the pipeline provisions* class, under
+  unchanged digests: no prompt byte and no registry field the digests read
+  moves, and `uv run fedcourts process-digest --all` at this commit prints
+  what it prints at its parent on `staging`: `proc-v13` and the six digests
+  `6a176c28…` (claude-baseline), `2827480e…` (codex-baseline), `b69b2b3a…`
+  (gemini-baseline), `167b7d71…` (claude-judge), `a8610eec…` (codex-judge)
+  and `6a88d3dc…` (gemini-judge).
+
+  **What changes**, on the staged copy alone
+  (`pipeline.documents.scrub_contact_details` and the residual detector).
+  - **The value pass reads a street type in either spelling.** An address
+    value's street-type or unit word (`Drive`/`Dr`, `Street`/`St`,
+    `Avenue`/`Ave`, `Court`/`Ct`, `Place`/`Pl`, `Apartment`/`Apt` and the rest
+    of `_STREET_TYPE_SPELLINGS`)
+    matches any of its spellings, so a docket `Address` of "… Drive" withholds
+    a cover line that prints "… Dr". Only the docket's own value widens.
+  - **The shape pass reads `Dr`, `Ct` and `Pl` as the first line of a mailing
+    block.** A street line ending on one of them is withheld where a "City,
+    State ZIP" line sits directly below it. On their own the three stay
+    unread, as before, since they are a doctor, the court and a plaintiff far
+    more often than a street.
+  - **The city line below a withheld street address or box is withheld**
+    where the shape pass runs (the docket's own address value counts as a
+    withheld street), as a placeholder of its own, so the block keeps its line
+    count and each line its placeholder. A "City, State ZIP" line under
+    anything else stays, which is the shape the Court's own address line takes
+    with no street line above it; one under a court or clerk street address is
+    withheld with it.
+  - **The residual detector counts a `Dr`, `Ct` or `Pl` street line with a
+    city line directly below it** on the opening and closing, so a block the
+    scrub still misses (a street name in lower case) reads
+    `contact_scrubbed: false`.
+
+  **The executed check.** `scotus/9026000545`, the docket the codex cell
+  flagged (`evt-petition-arrival-disposition`), provisioned from the
+  production content store on 2026-10-28 (`provision-snapshot
+  --corpus-backend ranged`; the checkout's index pointer `8f164a94…`, latest
+  pull 2026-10-28): at the parent the scrub withheld 17 details across the
+  three staged documents and left the cover's street and city lines on both
+  `petition.txt` and `appendix.txt`, each row reading `contact_scrubbed:
+  true`; at this commit it withholds 24 (petition 2 → 4, appendix 15 → 20)
+  and both covers carry the placeholder on the street and city lines. The
+  new residual reading, run over the parent's staged text, counts one
+  `street` residual on each of the two documents.
+
+  **A harness boundary under the 2026-10-11 pooled rule.** The change moves
+  what a predict cell reads under unchanged digests, so it is composition and
+  not a cut: the pooled default and the paired figure keep both sides and list
+  each engine's `n` before and after.
+  - **The registry row** is `scrub-abbreviated-street-mailing-block`: every
+    predictor, reach `self-represented dockets`, not gradual, since
+    provisioning reads the stored documents and the next cell provisioned on
+    an affected docket reads the change. It is registered **pending** in the
+    change's own PR (`fedcourts register-boundary`). Its `merge` and `at`
+    stay null until the promotion merge that carries it to `main` stamps them
+    (`promotion-record`); until then it is left out of
+    `process_version.HARNESS_BOUNDARIES`, so no cell has a side of it.
+  - **The side test** is the registered one: a stamped cell is after the
+    change if the carrying merge is an ancestor of, or equal to, its
+    `process_version.pipeline_sha`; a cell with no `pipeline_sha` is on
+    neither side, and its number is listed.
+  - **Evaluate cells are dated by this entry, not partitioned**: the boundary
+    registry splits predictor cells only, and an evaluate cell provisioned
+    after the carrying merge reads the narrower text under the same evaluator
+    digests.
+  - **Exposure is an upper bound and is not sized.** Which self-represented
+    dockets print a mailing block with an abbreviated street type, or a city
+    line under a street, lives only in the stored documents, and no census of
+    either was run for this entry.
+
+  **What a post-change cell reads.** On an affected docket, a subset of the
+  pre-change text: the street and city lines of the filer's mailing block
+  replaced by the placeholder, and, on a court or clerk address written with
+  a street number, its city line as well. A `documents.json` row reads a
+  higher `contact_replacements`, and a row whose block the scrub still misses
+  reads `contact_scrubbed: false` where it read `true`. Predict cells,
+  evaluate cells and the case-summary lane's `summary-stage` read the same
+  from the carrying promotion on; cells already run and summaries already
+  written stay as they are. No skill movement is predicted, and a movement in
+  either direction across this boundary may not be read as a model effect.
+  No base rate re-prices, no membership rule moves, no scored figure moves,
+  and nothing is written to the corpus.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_documents.py -k "mailing_block or street_type or city_line"` is
+  green; `uv run fedcourts provision-snapshot --court scotus --docket
+  9026000545 --event evt-petition-arrival-disposition` stages a
+  `petition.txt` and an `appendix.txt` whose covers carry `[contact detail
+  withheld]` on the street and city lines; and `uv run fedcourts
+  process-digest --all` prints the same label and six digests at the carrying
+  merge as at its first parent.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
