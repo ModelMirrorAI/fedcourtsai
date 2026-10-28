@@ -629,9 +629,15 @@ writer publish carries the new schema; `migrate=False`, as
 read-only commands that open the local file directly (validation, analytics,
 the back-tests, the salience replay, the cleanup scan) use the same seam, so
 a pulled blob keeps matching its pointer's sha256 until a writer or
-maintenance command rewrites it — its default dry run included, since it opens
-the file through the writer seam (`corpus.connect`) and so migrates a blob
-older than the code — which `corpus-info` and `corpus-pull` then report.
+maintenance command's `--apply` rewrites it, which `corpus-info` and
+`corpus-pull` then report. A maintenance command opens the file through
+`corpus.connect_maintenance`: the writer seam (`corpus.connect`) on `--apply`,
+and `connect_local_read` on its default dry run, so a dry run against a blob
+older than the code reads a migrated temporary copy and leaves the file alone.
+In the window after a schema-adding promotion, each such dry run pays that
+copy, as a read command does; once an apply in the same job (a prerequisite
+pass, say) has migrated the blob, later dry runs open it read-only and copy
+nothing.
 `ranged` resolves the pointer the read paths honor —
 the out-of-band override when set, else the committed one — against
 the out-of-band remote URL; writers never use this seam. Each ranged connection
@@ -1012,9 +1018,9 @@ between syncs, since data commits land on `main` only — reads an old corpus:
 `origin/main`'s as last fetched (read ranged with that pointer supplied as the
 override before calling the vintage current). Separately,
 `corpus-info` and `corpus-pull` say when a pulled blob's bytes no longer match
-its pointer's sha256 because a writer or maintenance command ran against it
-locally — a dry run included, since it opens the file through the writer seam
-(the read-only commands never rewrite it); a re-pull, or a ranged read, serves the published
+its pointer's sha256 because a writer or maintenance command's `--apply` ran
+against it locally (the read-only commands and the maintenance dry runs never
+rewrite it); a re-pull, or a ranged read, serves the published
 bytes again. Such a local writer run stays local: outside an Actions job its
 writes never mirror to the content store, whatever credential the shell holds
 (*Only a writer job's writes to the corpus file reach the store*, above).

@@ -1831,6 +1831,24 @@ def connect_local_read(db_path: Path) -> Iterator[sqlite3.Connection]:
             yield conn
 
 
+@contextmanager
+def connect_maintenance(db_path: Path, *, apply: bool) -> Iterator[sqlite3.Connection]:
+    """The connection a maintenance command opens: writable only for an apply.
+
+    An apply takes :func:`connect`, which migrates the blob in place and writes
+    it. A dry run takes :func:`connect_local_read`, so it reads the full current
+    schema without changing the pulled file: a dry run against a blob older than
+    this code reads a migrated temporary copy rather than migrating the blob, and
+    the file keeps the sha256 its pointer names.
+    """
+    if apply:
+        with connect(db_path) as conn:
+            yield conn
+    else:
+        with connect_local_read(db_path) as conn:
+            yield conn
+
+
 def resolve_backend(override: CorpusBackend | None = None) -> CorpusBackend:
     """The effective read backend: an explicit override, else the setting."""
     if override is not None:
