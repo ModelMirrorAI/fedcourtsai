@@ -789,6 +789,16 @@ def test_render_flags_lists_harness_notes_apart_from_the_agents() -> None:
     assert "| harness |" in harness_row and "agent says" not in harness_row
 
 
+def test_render_flags_names_the_untracked_issue_a_row_cites() -> None:
+    md = render_flags(
+        [_flagset("a", AgentFlag(category=FlagCategory.scope, message="see it", issue=4242))],
+        themes=(_THEME,),
+    )
+    row = next(line for line in md.splitlines() if "see it" in line)
+    assert "_cites #4242_" in row
+    assert "tracked in" not in row
+
+
 def test_render_flags_counts_a_tracked_theme_instead_of_listing_it() -> None:
     md = render_flags(
         [

@@ -560,7 +560,8 @@ The roll-up groups flags by case, event, source and theme. The theme is the
 tracked theme a flag cites by `issue` or its message matches in
 `src/fedcourtsai/flag_themes.json` (a theme-to-issue map), then the untracked
 issue a flag cites, and otherwise the flag's category. So sibling actors'
-notes on one event read as one row naming every actor. An agent flag on a
+notes on one event read as one row naming every actor, and a row grouped by
+an untracked issue names it beside its notes. An agent flag on a
 tracked theme is counted against its issue rather than listed, so a new theme
 stands out. A `blocker` and a `normalised` flag are listed whether tracked or
 not, and a harness note is never counted as tracked. Nothing checks that a
