@@ -2251,6 +2251,30 @@ def test_the_exposure_rule_s_known_errors_are_pinned() -> None:
     )
 
 
+def test_a_note_filed_as_a_leakage_disclosure_is_a_candidate_whatever_its_wording(
+    tmp_path: Path,
+) -> None:
+    """The category marks the note, so a disclosure worded outside the text rule's cues is kept."""
+    message = "A news summary in the results discussed this petition after the cutoff."
+    assert not cert_backtest.outcome_exposure_candidate(message)
+    flags_path = tmp_path / "flags.json"
+    flags_path.write_text(
+        AgentFlags(
+            case_id="scotus/1",
+            run_id="R",
+            role=UsageRole.predictor,
+            actor_id="a",
+            flags=[AgentFlag(category=FlagCategory.leakage_disclosure, message=message)],
+        ).model_dump_json()
+    )
+    disclosure = cert_backtest._read_replayed_flags(
+        flags_path, predictor_id="a", case_id="scotus/1", run_id="R", scored=True
+    )
+    assert disclosure is not None
+    (flag,) = disclosure.flags
+    assert flag.outcome_exposure_candidate
+
+
 def _flags_json(case_id: str, actor_id: str, run_id: str, message: str) -> str:
     return AgentFlags(
         case_id=case_id,

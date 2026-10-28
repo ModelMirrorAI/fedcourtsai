@@ -3211,7 +3211,7 @@ def test_a_re_stamp_leaves_a_normalised_flags_file_as_it_is(_data_root: Path) ->
         CasePaths(_data_root, "scotus", 47).event(event).evaluation_flags("gemini-judge", "RID")
     )
     flags_path.parent.mkdir(parents=True, exist_ok=True)
-    flags_path.write_text('{"flags": [{"category": "capture-gap", "message": "x"}]}')
+    flags_path.write_text('{"flags": [{"category": "unfiled", "message": "x"}]}')
 
     assert _stamp("evaluator", "gemini-judge", 47, event, "RID").exit_code == 0
     once = flags_path.read_text()
@@ -3224,7 +3224,7 @@ def test_a_re_stamp_leaves_a_normalised_flags_file_as_it_is(_data_root: Path) ->
     assert flags.role == UsageRole.evaluator
     assert flags.run_id == "RID"
     assert flags.flags[0].category == FlagCategory.other
-    assert "'capture-gap'" in flags.flags[1].message
+    assert "'unfiled'" in flags.flags[1].message
 
 
 def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(
