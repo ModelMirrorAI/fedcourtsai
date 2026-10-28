@@ -28,10 +28,12 @@ before the cutoff). The cutoff is exclusive, the date rule every cell's
 snapshot, documents and companions are cut by
 (:func:`fedcourtsai.provision.moment_cutoff`), so a petition resolved on the
 cutoff day itself reads as pending, and the list never carries an outcome the
-cell's moment could not have seen. The index a list is read from is built
-over the same set (:meth:`QuestionFrame.index`): a term's weight counts only
-the texts docketed before the cutoff, so a score does not move with what was
-filed later. Counts and identifiers only: the entries carry no filing text.
+cell's moment could not have seen. The index a list is read from weighs a term
+by the texts docketed before the first day of the cutoff's month
+(:meth:`QuestionFrame.index`), so a score does not move with anything filed
+on or after the cutoff; the texts docketed between the month's first day and
+the cutoff are listed but do not weigh. Counts and identifiers only: the
+entries carry no filing text.
 
 **How well it matches.** :func:`vide_agreement` measures the match against the
 docket's own ``Vide`` links, which are a weak yardstick both ways: the Court
@@ -53,9 +55,9 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter, defaultdict
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from itertools import pairwise
 from typing import Final
 
@@ -231,7 +233,11 @@ def read_vide_links(
 
 
 class QuestionIndex:
-    """TF-IDF vectors over a set of questions-presented texts, with an inverted index."""
+    """TF-IDF vectors over a set of questions-presented texts, with an inverted index.
+
+    ``weigh`` names the texts the term weights are counted over, all of them by
+    default; a text outside it still gets a vector, weighted by the others.
+    """
 
     def __init__(
         self,
@@ -239,6 +245,7 @@ class QuestionIndex:
         *,
         max_df_share: float = MAX_DF_SHARE,
         counts: Mapping[str, Counter[str]] | None = None,
+        weigh: Callable[[Petition], bool] | None = None,
     ):
         self.petitions: dict[str, Petition] = {p.case_id: p for p in petitions}
         counts = {
@@ -246,9 +253,11 @@ class QuestionIndex:
             for p in petitions
         }
         df: Counter[str] = Counter()
-        for bag in counts.values():
-            df.update(bag.keys())
-        n = len(counts)
+        n = 0
+        for case_id, bag in counts.items():
+            if weigh is None or weigh(self.petitions[case_id]):
+                df.update(bag.keys())
+                n += 1
         # Below five texts a one-fifth ceiling drops every term; only a fixture is that small.
         ceiling = max_df_share * n
         idf = {t: math.log((n + 1) / (d + 1)) + 1 for t, d in df.items() if d <= ceiling}
@@ -278,11 +287,15 @@ class QuestionIndex:
 
 
 class QuestionFrame:
-    """The frame's texts, split into terms once, from which an index is built per cutoff.
+    """The frame's texts, split into terms once, from which an index is built per month.
 
-    A round's cells sit at many cutoffs; reading the terms of every text once and
-    weighting them per cutoff keeps the term split, the costly half, off the
-    per-cutoff path.
+    A round's cells sit at many cutoffs, and an index over the frame takes
+    seconds to build, so one index serves every cutoff in a calendar month: its
+    term weights are counted over the texts docketed before the month began,
+    and it holds a vector for every text docketed before the month ends, each
+    weighted by those earlier texts alone. A list read from it at a cutoff in
+    the month (:func:`same_question_petitions`) keeps only the texts docketed
+    before the cutoff, so nothing it lists or weighs is filed on or after it.
     """
 
     def __init__(self, petitions: Sequence[Petition], *, max_df_share: float = MAX_DF_SHARE):
@@ -291,22 +304,32 @@ class QuestionFrame:
         self.counts: dict[str, Counter[str]] = {
             p.case_id: Counter(terms(p.text)) for p in petitions
         }
-        self._indexes: dict[date, QuestionIndex] = {}
+        self._last: tuple[date, QuestionIndex] | None = None
 
     def index(self, cutoff: date) -> QuestionIndex:
-        """The index over the petitions docketed strictly before ``cutoff``.
+        """The index serving ``cutoff``: weighted as of its month's first day.
 
         A petition with no docketing date is left out, since it cannot be placed
-        before the cutoff.
+        before any cutoff.
         """
-        if cutoff not in self._indexes:
-            before = [
-                p for p in self.petitions.values() if p.docketed is not None and p.docketed < cutoff
+        month = cutoff.replace(day=1)
+        if self._last is None or self._last[0] != month:
+            following = (month + timedelta(days=32)).replace(day=1)
+            held = [
+                p
+                for p in self.petitions.values()
+                if p.docketed is not None and p.docketed < following
             ]
-            self._indexes[cutoff] = QuestionIndex(
-                before, max_df_share=self.max_df_share, counts=self.counts
+            # Only the latest index is kept: each holds a vector per text, so a
+            # round's months held at once would hold the frame many times.
+            index = QuestionIndex(
+                held,
+                max_df_share=self.max_df_share,
+                counts=self.counts,
+                weigh=lambda p: p.docketed is not None and p.docketed < month,
             )
-        return self._indexes[cutoff]
+            self._last = (month, index)
+        return self._last[1]
 
 
 def status_on(petition: Petition, cutoff: date) -> str:
@@ -364,28 +387,44 @@ def cell_lists(
     threshold: float = DEFAULT_THRESHOLD,
     limit: int = DEFAULT_LIMIT,
 ) -> SameQuestionLists:
-    """Each cell's list, read from the index as of its own cutoff."""
-    out = []
-    for cell in cells:
+    """Each cell's list, read from the index as of its own cutoff, in the order given.
+
+    The cells are walked by cutoff, so each month's index is built once and
+    dropped before the next (:meth:`QuestionFrame.index`). ``indexed`` counts
+    the texts docketed before the cell's cutoff.
+    """
+    given = list(cells)
+    out: dict[int, SameQuestionList] = {}
+    for position, cell in sorted(enumerate(given), key=lambda pair: pair[1].cutoff):
         index = frame.index(cell.cutoff)
+        own = index.petitions.get(cell.case_id)
+        listable = (
+            own is not None
+            and own.docketed is not None
+            and own.docketed < cell.cutoff
+            and cell.case_id in index.vectors
+        )
         petitions = (
             same_question_petitions(
                 index, cell.case_id, cell.cutoff, threshold=threshold, limit=limit
             )
-            if cell.case_id in index.vectors
+            if listable
             else None
         )
-        out.append(
-            SameQuestionList(
-                case_id=cell.case_id,
-                event_id=cell.event_id,
-                cutoff=cell.cutoff,
-                threshold=threshold,
-                indexed=len(index.vectors),
-                petitions=petitions,
-            )
+        out[position] = SameQuestionList(
+            case_id=cell.case_id,
+            event_id=cell.event_id,
+            cutoff=cell.cutoff,
+            threshold=threshold,
+            indexed=sum(
+                1
+                for case_id in index.vectors
+                if (docketed := index.petitions[case_id].docketed) is not None
+                and docketed < cell.cutoff
+            ),
+            petitions=petitions,
         )
-    return SameQuestionLists(lists=out)
+    return SameQuestionLists(lists=[out[position] for position in range(len(given))])
 
 
 class VideAgreement(BaseModel):

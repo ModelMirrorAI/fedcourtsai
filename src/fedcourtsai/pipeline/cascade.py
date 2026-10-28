@@ -252,7 +252,7 @@ def _provision_record(  # noqa: PLR0913
     related: Sequence[provision.RelatedRead] = (),
     *,
     authorship_tally: AuthorshipTally | None = None,
-    same_question: SameQuestionList | None = None,
+    same_question_list: SameQuestionList | None = None,
 ) -> _Record:
     """Write one cell's ``record/`` exactly as the workflow's provisioning step does.
 
@@ -283,7 +283,7 @@ def _provision_record(  # noqa: PLR0913
                 for item in related
             ],
             authorship_tally=authorship_tally,
-            same_question=same_question,
+            same_question=same_question_list,
         )
     except provision.ProvisionError as exc:
         raise CascadeError(str(exc)) from exc
@@ -419,6 +419,8 @@ def _read_same_question_lists(
     uncut cell's list is cut at the day after its snapshot, where the plan job
     cuts at the day after the plan: the cascade's fixture corpus has no today.
     """
+    if provision.SAME_QUESTION_WITHHELD:
+        return {}
     wanted = [
         same_question.CellCutoff(
             case_id=case_id,
@@ -430,7 +432,7 @@ def _read_same_question_lists(
         and modes[event_id] == "forward"
         and provision.carries_same_question(event_id)
     ]
-    if provision.SAME_QUESTION_WITHHELD or not wanted:
+    if not wanted:
         return {}
     with corpus.connect_readonly(db_path, backend=backend) as conn:
         petitions = same_question.read_petitions(conn)
@@ -818,7 +820,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
             placement,
             related.get(event_id, ()),
             authorship_tally=tallies.get(event_id),
-            same_question=same_question_lists.get(event_id),
+            same_question_list=same_question_lists.get(event_id),
         )
         placements.append(record.placement)
 

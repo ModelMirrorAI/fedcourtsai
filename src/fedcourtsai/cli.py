@@ -6924,9 +6924,8 @@ def same_question_cmd(
     lists the other petitions docketed by `--as-of` whose cosine reaches
     `--threshold`, with each one's status as of that date. `--vide-check`
     reads each petition's Vide links and reports how the match ranks them.
-    Counts and identifiers only, never filing text. Nothing a cell sees reads
-    it. JSON `{"lists", "vide_check"}` to stdout; a malformed date exits 2, a
-    missing corpus 1.
+    Counts and identifiers only, never filing text. JSON `{"lists",
+    "vide_check"}` to stdout; a malformed date exits 2, a missing corpus 1.
     """
     try:
         day = date.fromisoformat(as_of) if as_of else datetime.now(UTC).date()

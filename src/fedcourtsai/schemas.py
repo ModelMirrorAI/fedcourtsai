@@ -10237,7 +10237,7 @@ class SameQuestionList(_Strict):
         ge=0, description="Petitions docketed before the cutoff with a stored questions presented"
     )
     petitions: list[SameQuestionEntry] | None = Field(
-        description="Best first, at most ten; `null` where the listing petition has no "
+        description="Best first, at most the match limit; `null` where the listing petition has no "
         "stored questions presented docketed before the cutoff to match on"
     )
 

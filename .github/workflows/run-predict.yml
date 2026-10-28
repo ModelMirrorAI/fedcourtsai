@@ -191,9 +191,11 @@ jobs:
       # open event plus a row per candidate case, tens of thousands of them —
       # which a pulled corpus serves in seconds and a read-in-place backend would
       # serve as a range-request storm. So pull the whole index. The default
-      # role duration is right, and stays right at the 45-minute job cap: the
-      # walks that follow read the pulled file locally, so nothing needs the
-      # credential after this step returns. `predict-matrix` refuses a non-local
+      # one-hour role duration is right, and stays right at the 45-minute job
+      # cap: the walks that follow read the pulled file locally, and the one
+      # later read that needs the credential, the same-question lists' read of
+      # the questions-presented texts from the content store, ends inside the
+      # job cap and so inside the role's hour. `predict-matrix` refuses a non-local
       # backend for this scan rather than performing it slowly, so getting this
       # step wrong fails the plan loudly instead of quietly costing an hour.
       # (The cell jobs below read ranged, through their own sidecar: point
@@ -451,9 +453,11 @@ jobs:
       - name: Build the same-question lists
         if: ${{ steps.plan.outputs.has_jobs == 'true' }}
         continue-on-error: true
-        # One frame read (minutes) and a cosine per cell; the cap names a
-        # wedged read rather than letting it run to the job's.
-        timeout-minutes: 15
+        # One frame read (about six minutes measured over a ranged read of the
+        # production stores) and a cosine per cell. Capped well inside the
+        # job's 45 minutes, which the two backlog walks share: a job-level
+        # timeout would fail the round where this step's own does not.
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           uv run fedcourts same-question-lists --matrix-file matrix.json \
@@ -462,12 +466,17 @@ jobs:
       # Read by every cell job; plan-built, so no agent ever wrote it.
       - name: Keep the same-question lists for the cells
         if: ${{ steps.plan.outputs.has_jobs == 'true' }}
+        # Not the reason a round does not start either: a cell with no
+        # artifact to fetch goes without its list.
+        continue-on-error: true
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: same-question-lists
           path: ${{ runner.temp }}/same-question-lists.json
           if-no-files-found: ignore
-          retention-days: 1
+          # As long as the cell artifacts: the review hold can keep the cells
+          # waiting past a day.
+          retention-days: 7
 
       # The plan report the approval below is judged on: the tested plan
       # command re-derives the same fan-out the matrix step just minted (same
@@ -796,6 +805,11 @@ jobs:
             lists=(--same-question-file "$RUNNER_TEMP/same-question/same-question-lists.json")
           fi
           uv run fedcourts provision-snapshot --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" --mode forward --refuse-terminal --max-snapshot-age-days 10 --pre-mint-poll --pre-mint-poll-out "$poll" "${lists[@]}" || status=$?
+          # The round's lists file holds every cell's list, and only what
+          # provisioning staged is this cell's input: the claude and gemini
+          # engines read the runner's temp directory, so the file goes before
+          # any agent step runs, whatever the provisioning's outcome.
+          rm -rf "$RUNNER_TEMP/same-question"
           # The pre-mint poll's result travels as a step output, fixed before
           # any agent runs: a file would sit where the agent, running as the
           # same user, could rewrite it before the usage step reads it.

@@ -85,7 +85,7 @@
           "type": "null"
         }
       ],
-      "description": "Best first, at most ten; `null` where the listing petition has no stored questions presented docketed before the cutoff to match on",
+      "description": "Best first, at most the match limit; `null` where the listing petition has no stored questions presented docketed before the cutoff to match on",
       "title": "Petitions"
     },
     "threshold": {

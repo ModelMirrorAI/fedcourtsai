@@ -12,7 +12,8 @@ from typer.testing import CliRunner
 from fedcourtsai import corpus, provision
 from fedcourtsai.cli import _read_same_question, app
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline import moments
+from fedcourtsai.pipeline import cascade, moments
+from fedcourtsai.pipeline.documents import KIND_QUESTIONS_PRESENTED
 from fedcourtsai.pipeline.same_question import (
     CellCutoff,
     Petition,
@@ -24,7 +25,7 @@ from fedcourtsai.pipeline.same_question import (
     terms,
     vide_agreement,
 )
-from fedcourtsai.schemas import SameQuestionList, SameQuestionLists, Stage
+from fedcourtsai.schemas import Moment, SameQuestionList, SameQuestionLists, Stage
 from fedcourtsai.serialize import read_model
 
 runner = CliRunner()
@@ -189,7 +190,7 @@ def test_each_cell_gets_its_own_list_at_its_own_cutoff() -> None:
     frame = QuestionFrame(
         [
             _petition("scotus/1", FELON),
-            _petition("scotus/2", FELON, docketed=date(2025, 2, 1)),
+            _petition("scotus/2", FELON, docketed=date(2025, 2, 25)),
             _petition("scotus/3", PATENT),
             _petition("scotus/4", ARBITRATION, docketed=date(2025, 5, 1)),
         ],
@@ -198,7 +199,7 @@ def test_each_cell_gets_its_own_list_at_its_own_cutoff() -> None:
     lists = cell_lists(
         frame,
         [
-            CellCutoff("scotus/1", "evt-a", date(2025, 1, 20)),
+            CellCutoff("scotus/1", "evt-a", date(2025, 2, 20)),
             CellCutoff("scotus/1", "evt-b", date(2025, 3, 1)),
             CellCutoff("scotus/4", "evt-a", date(2025, 3, 1)),
             CellCutoff("scotus/9", "evt-a", date(2025, 3, 1)),
@@ -381,3 +382,130 @@ def test_the_record_carries_the_list_only_once_released(
     # The next cell provisioned in the same tree, with no list, does not inherit it.
     provision.write_cell_record(paths, "scotus/1", placement, mode="forward", cutoff=None)
     assert not paths.same_question.exists()
+
+
+def _seed_frame(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
+    """Live cert petitions, three on one question docketed either side of a CVSG cutoff."""
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    cvsg = next(m for m in moments.DECLARED_MOMENTS if m.moment == Moment.cvsg)
+    filed = {"scotus/1": date(2025, 10, 1), "scotus/2": date(2025, 11, 1)}
+    filed["scotus/3"] = date(2026, 2, 1)
+    texts = {"scotus/1": FELON, "scotus/2": FELON, "scotus/3": FELON}
+    # Distinct questions enough that the shared terms stay under the
+    # frequency ceiling the match ignores a term above.
+    for n in range(10, 22):
+        texts[f"scotus/{n}"] = f"Whether statute{n} bars remedy{n} under clause{n}."
+        filed[f"scotus/{n}"] = date(2025, 10, 2)
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=case_id,
+                    court="scotus",
+                    docket_number=f"25-{case_id.rsplit('/', 1)[-1]}",
+                    date_filed=filed[case_id],
+                    last_live_polled=date(2026, 8, 27),
+                )
+                for case_id in texts
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id=case_id,
+                    kind=KIND_QUESTIONS_PRESENTED,
+                    url=f"https://example/{case_id}.pdf",
+                    fetched_at=date(2026, 8, 27),
+                    text=text,
+                )
+                for case_id, text in texts.items()
+            ],
+        )
+        corpus.upsert_events(
+            conn,
+            [
+                corpus.CorpusEvent(
+                    event_id=cvsg.event_id,
+                    case_id="scotus/1",
+                    court="scotus",
+                    kind=cvsg.kind,
+                    stage=cvsg.stage,
+                    opened_at=date(2026, 1, 9),
+                )
+            ],
+        )
+    return cvsg.event_id
+
+
+def test_the_lists_command_cuts_a_placed_cell_at_its_moment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    event = _seed_frame(tmp_path, monkeypatch)
+    matrix = tmp_path / "matrix.json"
+    matrix.write_text(
+        json.dumps({"include": [{"court": "scotus", "docket": 1, "event_id": event}]})
+    )
+    out = tmp_path / "lists.json"
+    result = runner.invoke(
+        app, ["same-question-lists", "--matrix-file", str(matrix), "--out", str(out)]
+    )
+    assert result.exit_code == 0, result.output
+    (listed,) = SameQuestionLists.model_validate_json(out.read_bytes()).lists
+    # The day after the CVSG opened: the petition docketed later is neither
+    # listed nor weighed.
+    assert listed.cutoff == date(2026, 1, 10)
+    assert listed.indexed == 14
+    assert [e.case_id for e in listed.petitions or []] == ["scotus/2"]
+
+
+def test_the_cascade_reads_a_released_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    event = _seed_frame(tmp_path, monkeypatch)
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    placement = provision.Placement(
+        snapshot_date=date(2026, 1, 9),
+        payload={},
+        documents=[],
+        provenance="truncated",
+        boundary=None,
+        dropped_entries=0,
+        dropped_documents=0,
+    )
+    read = provision.CellRead(
+        latest=None, documents=[], events=[], row=None, cutoff=date(2026, 1, 10), dated=None
+    )
+
+    def lists(mode: str) -> dict[str, SameQuestionList]:
+        return cascade._read_same_question_lists(
+            db, "local", "scotus/1", {event: placement}, {event: read}, {event: mode}
+        )
+
+    assert lists("forward") == {}
+    monkeypatch.setattr(provision, "SAME_QUESTION_WITHHELD", False)
+    assert lists("replay") == {}
+    found = lists("forward")
+    assert found[event].cutoff == date(2026, 1, 10)
+    assert [e.case_id for e in found[event].petitions or []] == ["scotus/2"]
+
+
+def test_a_petition_docketed_earlier_in_the_month_is_listed_but_does_not_weigh() -> None:
+    frame = QuestionFrame(
+        [
+            _petition("scotus/1", FELON),
+            _petition("scotus/2", PATENT),
+            _petition("scotus/3", FELON, docketed=date(2025, 3, 5)),
+            _petition("scotus/4", FELON, docketed=date(2025, 3, 25)),
+        ],
+        max_df_share=1.0,
+    )
+    index = frame.index(date(2025, 3, 20))
+    # Listed: docketed before the cutoff. Not listed: docketed after it.
+    entries = same_question_petitions(index, "scotus/1", date(2025, 3, 20))
+    assert [e.case_id for e in entries] == ["scotus/3"]
+    # The weights are the two texts docketed before March, whatever March added.
+    alone = QuestionIndex(
+        [_petition("scotus/1", FELON), _petition("scotus/2", PATENT)], max_df_share=1.0
+    )
+    assert index.vectors["scotus/1"] == alone.vectors["scotus/1"]
