@@ -6,7 +6,9 @@ from pathlib import Path
 
 import pytest
 
+from fedcourtsai.pricing import TokenCounts
 from fedcourtsai.usage import (
+    codex_cell_rollouts,
     engine_version_from_output,
     parse_claude_usage,
     parse_codex_usage,
@@ -272,3 +274,56 @@ def test_pipeline_sha_unresolvable_is_none(monkeypatch: pytest.MonkeyPatch) -> N
 
     monkeypatch.setattr(subprocess, "run", boom)
     assert resolve_pipeline_sha() is None
+
+
+def _codex_session(path: Path, meta: dict[str, object], usage: dict[str, int]) -> None:
+    """One rollout: its ``session_meta`` line, then a cumulative token event."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"type": "session_meta", "payload": meta}) + "\n" + _codex_event(usage)
+    )
+
+
+def test_a_subagent_rollout_newer_than_its_parent_is_not_taken_for_the_cell(
+    tmp_path: Path,
+) -> None:
+    day = tmp_path / "sessions" / "2026" / "10" / "16"
+    parent = day / "rollout-2026-10-16T09-00-00-parent.jsonl"
+    child = day / "rollout-2026-10-16T09-05-00-child.jsonl"
+    _codex_session(
+        parent,
+        {"id": "p", "source": "exec"},
+        {"input_tokens": 1_000, "cached_input_tokens": 400, "output_tokens": 100},
+    )
+    _codex_session(
+        child,
+        {
+            "id": "c",
+            "source": {"subagent": {"thread_spawn": {"parent_thread_id": "p", "depth": 1}}},
+        },
+        {"input_tokens": 50, "cached_input_tokens": 10, "output_tokens": 5},
+    )
+    assert codex_cell_rollouts(tmp_path / "sessions") == [parent, child]
+    counts = parse_codex_usage(tmp_path / "sessions")
+    # Parent and subagent bill side by side, so both sum into the cell.
+    assert counts == TokenCounts(
+        input_tokens=640, output_tokens=105, cache_read_input_tokens=410
+    )
+
+
+def test_cell_rollouts_follow_the_parent_chain_and_skip_another_top_level_session(
+    tmp_path: Path,
+) -> None:
+    day = tmp_path / "sessions" / "2026" / "10" / "16"
+    usage = {"input_tokens": 1, "cached_input_tokens": 0, "output_tokens": 1}
+    earlier = day / "rollout-2026-10-16T08-00-00-earlier.jsonl"
+    parent = day / "rollout-2026-10-16T09-00-00-parent.jsonl"
+    grandchild = day / "rollout-2026-10-16T09-01-00-grandchild.jsonl"
+    child = day / "rollout-2026-10-16T09-02-00-child.jsonl"
+    orphan = day / "rollout-2026-10-16T09-03-00-compact.jsonl"
+    _codex_session(earlier, {"id": "e", "source": "exec"}, usage)
+    _codex_session(parent, {"id": "p", "source": "exec"}, usage)
+    _codex_session(grandchild, {"id": "g", "parent_thread_id": "c", "source": "exec"}, usage)
+    _codex_session(child, {"id": "c", "parent_thread_id": "p", "source": "exec"}, usage)
+    _codex_session(orphan, {"id": "o", "source": {"subagent": "compact"}}, usage)
+    assert codex_cell_rollouts(tmp_path / "sessions") == [parent, grandchild, child, orphan]

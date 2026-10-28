@@ -3172,3 +3172,58 @@ def test_a_call_without_both_url_and_prompt_keeps_its_key_order_slice(
     execution_file.write_text(json.dumps(_webfetch_transcript(tool_input)))
     (call,) = parse_claude_retrieval(execution_file)
     assert call.query == expected
+
+
+def _codex_call(timestamp: str, call_id: str, command: str) -> list[dict[str, object]]:
+    """One shell ``function_call`` and its paired output, as rollout records."""
+    return [
+        {
+            "timestamp": timestamp,
+            "type": "response_item",
+            "payload": {
+                "type": "function_call",
+                "name": "shell",
+                "call_id": call_id,
+                "arguments": json.dumps({"command": command}),
+            },
+        },
+        {
+            "timestamp": timestamp,
+            "type": "response_item",
+            "payload": {"type": "function_call_output", "call_id": call_id, "output": "ok"},
+        },
+    ]
+
+
+def test_a_codex_subagent_sessions_calls_join_the_cells_log(tmp_path: Path) -> None:
+    # A subagent's session is a rollout of its own, and here the newest one: a
+    # log read from the newest file alone would hold the subagent's call and
+    # lose the parent's.
+    day = tmp_path / "sessions" / "2026" / "10" / "16"
+    day.mkdir(parents=True)
+    parent = [
+        {"type": "session_meta", "payload": {"id": "p", "source": "exec"}},
+        *_codex_call("2026-10-16T09:00:01Z", "a", "cat record/context.json"),
+        *_codex_call("2026-10-16T09:00:09Z", "b", "cat reasoning.md"),
+    ]
+    child = [
+        {
+            "type": "session_meta",
+            "payload": {
+                "id": "c",
+                "source": {"subagent": {"thread_spawn": {"parent_thread_id": "p", "depth": 1}}},
+            },
+        },
+        *_codex_call("2026-10-16T09:00:05Z", "a", "curl https://example.org/opinion"),
+    ]
+    for name, records in (("09-00-00-p", parent), ("09-00-04-c", child)):
+        (day / f"rollout-2026-10-16T{name}.jsonl").write_text(
+            "\n".join(json.dumps(record) for record in records) + "\n"
+        )
+    calls = parse_codex_retrieval(tmp_path / "sessions")
+    assert [call.query for call in calls] == [
+        "cat record/context.json",
+        "curl https://example.org/opinion",
+        "cat reasoning.md",
+    ]
+    assert all(call.result_capture == "captured" for call in calls)

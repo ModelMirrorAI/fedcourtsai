@@ -107,7 +107,7 @@ from .usage import (
     _last_codex_token_usage,
     _load_json,
     _load_json_objects,
-    _newest_rollout,
+    codex_cell_rollouts,
 )
 
 # The human-legible query slice kept (redacted; the rest is digested).
@@ -509,7 +509,12 @@ _CODEX_INLINE_RESULT_FIELDS = ("output", "error", "result")
 def parse_codex_retrieval(
     sessions_dir: Path, *, offered: Sequence[str] = ()
 ) -> list[RetrievalCall]:
-    """Tool calls from the newest Codex rollout JSONL under ``sessions_dir``.
+    """Tool calls from the cell's Codex rollouts under ``sessions_dir``.
+
+    The cell's rollouts are its parent session and every subagent session it
+    spawned (:func:`~fedcourtsai.usage.codex_cell_rollouts`): a call a subagent
+    made is retrieval the cell did, so its rows join the parent's, merged into
+    timestamp order.
 
     ``offered`` is the cell's offered manifest set in the ``<server>.<tool>``
     spelling the log's own ``mcp_tools`` snapshot carries; it is what lets a
@@ -517,9 +522,19 @@ def parse_codex_retrieval(
     builtin (:func:`_resolve_codex_bare_name`). Empty means offered-unknown,
     and every bare name then stays as logged.
     """
-    rollout = _newest_rollout(sessions_dir)
-    if rollout is None:
-        return []
+    calls = [
+        call
+        for rollout in codex_cell_rollouts(sessions_dir)
+        for call in _parse_codex_rollout(rollout, offered)
+    ]
+    # Stable, so a code-mode program's lifted rows keep their place beside the
+    # wrapping call whose timestamp they share.
+    calls.sort(key=lambda call: call.timestamp or "")
+    return calls[:RETRIEVAL_CALL_CAP]
+
+
+def _parse_codex_rollout(rollout: Path, offered: Sequence[str]) -> list[RetrievalCall]:
+    """Every tool call one Codex rollout JSONL logs, in file order."""
     records = _codex_records(rollout)
     outputs: dict[str, Any] = {}
     for record in records:
@@ -587,7 +602,7 @@ def parse_codex_retrieval(
         # still counted.
         if is_code_mode:
             calls.extend(_code_mode_nested_calls(_query_candidate(params), timestamp=timestamp))
-    return calls[:RETRIEVAL_CALL_CAP]
+    return calls
 
 
 def _code_mode_nested_calls(source: str | None, *, timestamp: str | None) -> list[RetrievalCall]:
@@ -956,7 +971,7 @@ def _shape(value: Any, depth: int) -> Any:
 def distill_codex_shapes(sessions_dir: Path) -> dict[str, Any]:
     """Distinct item shapes across every Codex rollout under ``sessions_dir``.
 
-    Every rollout in the tree, not the newest alone
+    Every rollout in the tree, not the cell's sessions alone
     (:func:`parse_codex_retrieval`'s input): the question a distillation
     answers is which shapes an engine emits at all, and a session that logged
     the interesting item is as good evidence as the last one written.
@@ -1238,12 +1253,13 @@ def _claude_unread_block_types(events: list[Any]) -> set[str]:
 
 
 def _codex_shape_problems(sessions_dir: Path) -> list[str]:
-    rollout = _newest_rollout(sessions_dir)
+    # The parent session's rollout: the one the cell's own turns are in.
+    rollout = next(iter(codex_cell_rollouts(sessions_dir)), None)
     if rollout is None:
         return ["no codex rollout-*.jsonl under the sessions directory"]
     undecodable = _undecodable_line_count(rollout)
     if undecodable is None:
-        return ["the newest codex rollout is unreadable"]
+        return ["the cell's codex rollout is unreadable"]
     problems: list[str] = []
     if undecodable:
         problems.append(f"{undecodable} codex rollout line(s) are not JSON objects")

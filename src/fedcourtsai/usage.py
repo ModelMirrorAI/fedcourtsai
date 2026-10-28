@@ -149,40 +149,126 @@ def _find_claude_usage(doc: Any) -> dict[str, Any] | None:
 
 
 def parse_codex_usage(sessions_dir: Path) -> TokenCounts | None:
-    """Token counts from the newest Codex rollout JSONL under ``sessions_dir``.
+    """Token counts from the cell's Codex rollouts under ``sessions_dir``.
 
-    Reads the last ``token_count`` event's cumulative ``total_token_usage`` and
-    normalizes it to the Claude convention: Codex's ``input_tokens`` counts the
-    cached portion, so the cached tokens are split out into
-    ``cache_read_input_tokens`` and subtracted from fresh input. Returns ``None``
-    when no rollout file or usage event is found.
+    Reads each of the cell's sessions (:func:`codex_cell_rollouts`: the parent
+    and every subagent session it spawned) for its last ``token_count`` event's
+    cumulative ``total_token_usage`` and sums them, since a subagent bills
+    beside its parent rather than inside it. Normalizes to the Claude
+    convention: Codex's ``input_tokens`` counts the cached portion, so the
+    cached tokens are split out into ``cache_read_input_tokens`` and subtracted
+    from fresh input. Returns ``None`` when no rollout or usage event is found.
     """
-    rollout = _newest_rollout(sessions_dir)
-    if rollout is None:
+    totals = [
+        usage
+        for rollout in codex_cell_rollouts(sessions_dir)
+        if (usage := _last_codex_token_usage(rollout)) is not None
+    ]
+    if not totals:
         return None
-    usage = _last_codex_token_usage(rollout)
-    if usage is None:
-        return None
-    cached = _as_int(usage.get("cached_input_tokens"))
-    total_input = _as_int(usage.get("input_tokens"))
+    cached = sum(_as_int(usage.get("cached_input_tokens")) for usage in totals)
+    total_input = sum(_as_int(usage.get("input_tokens")) for usage in totals)
     return TokenCounts(
         input_tokens=max(0, total_input - cached),
-        output_tokens=_as_int(usage.get("output_tokens")),
+        output_tokens=sum(_as_int(usage.get("output_tokens")) for usage in totals),
         cache_read_input_tokens=cached,
         cache_creation_input_tokens=0,
     )
 
 
-def _newest_rollout(sessions_dir: Path) -> Path | None:
-    """The lexically-latest ``rollout-*.jsonl`` under ``sessions_dir``.
+def codex_cell_rollouts(sessions_dir: Path) -> list[Path]:
+    """The cell's own Codex sessions: its parent rollout, then each subagent's.
 
-    Codex names rollout files with a leading UTC timestamp, so lexical order is
-    chronological — no clock or ``mtime`` read needed for a deterministic pick.
+    A Codex session that spawns a subagent writes the subagent's session to a
+    rollout of its own, and a subagent started after the parent's last write
+    is the **newest** file — so "the newest rollout" can be a subagent's,
+    leaving the parent's calls and tokens out of the cell's record. Each
+    rollout opens with a ``session_meta`` record naming its thread ``id`` and,
+    for a subagent, its ``parent_thread_id`` and a ``source`` of
+    ``{"subagent": …}``, which is what this reads.
+
+    The **parent** is the newest rollout whose ``session_meta`` names no
+    parent and no subagent source. Its subagents are every rollout whose
+    parent chain reaches it, and every subagent rollout naming no parent at
+    all (the sessions directory is the cell's own, so an orphaned subagent is
+    still this cell's work). A subagent's calls are the cell's: what a cell
+    retrieved through a helper it spawned is what it retrieved, for leakage
+    grading as for spend. Parent first, then subagents in file order.
+
+    A tree with no ``session_meta`` anywhere — a rollout written before Codex
+    logged one — falls back to the newest rollout alone; an empty
+    or missing directory yields no rollouts.
     """
     if not sessions_dir.is_dir():
-        return None
+        return []
     rollouts = sorted(sessions_dir.rglob("rollout-*.jsonl"))
-    return rollouts[-1] if rollouts else None
+    metas = {rollout: _codex_session_meta(rollout) for rollout in rollouts}
+    parents = [
+        rollout
+        for rollout, meta in metas.items()
+        if meta is not None and _codex_parent_id(meta) is None and not _codex_is_subagent(meta)
+    ]
+    if not parents:
+        return rollouts[-1:]
+    parent = parents[-1]
+    included = {str((metas[parent] or {}).get("id") or "")}
+    children: list[Path] = []
+    pending = [rollout for rollout in rollouts if rollout not in parents]
+    progressed = True
+    while progressed:
+        progressed = False
+        for rollout in list(pending):
+            meta = metas[rollout]
+            if meta is None:
+                continue
+            parent_id = _codex_parent_id(meta)
+            orphan = parent_id is None and _codex_is_subagent(meta)
+            if orphan or (parent_id is not None and parent_id in included):
+                children.append(rollout)
+                included.add(str(meta.get("id") or ""))
+                pending.remove(rollout)
+                progressed = True
+    return [parent, *sorted(children)]
+
+
+def _codex_session_meta(rollout: Path) -> dict[str, Any] | None:
+    """The payload of a rollout's first ``session_meta`` record, if it has one."""
+    try:
+        with rollout.open() as handle:
+            for raw in handle:
+                line = raw.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(record, dict) and record.get("type") == "session_meta":
+                    payload = record.get("payload")
+                    return payload if isinstance(payload, dict) else None
+    except OSError:
+        return None
+    return None
+
+
+def _codex_subagent_source(meta: dict[str, Any]) -> Any:
+    """The ``subagent`` half of a session's ``source``, or ``None`` for a top-level one."""
+    source = meta.get("source")
+    return source.get("subagent") if isinstance(source, dict) else None
+
+
+def _codex_is_subagent(meta: dict[str, Any]) -> bool:
+    return _codex_subagent_source(meta) is not None
+
+
+def _codex_parent_id(meta: dict[str, Any]) -> str | None:
+    """The thread a session was spawned from, wherever its release records it."""
+    parent = meta.get("parent_thread_id")
+    if not parent:
+        subagent = _codex_subagent_source(meta)
+        spawn = subagent.get("thread_spawn") if isinstance(subagent, dict) else None
+        parent = spawn.get("parent_thread_id") if isinstance(spawn, dict) else None
+    return str(parent) if parent else None
 
 
 def _last_codex_token_usage(rollout: Path) -> dict[str, Any] | None:
