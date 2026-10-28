@@ -293,8 +293,9 @@ fails the cell.
     the stamped rate comes back null — what the pack could not support, since
     the reader cannot tell a thin pool from a missing section by looking at a
     null. `claim_scores`
-    is likewise not yours: every interim moment declares the four-claim
-    `interim-v1` set, and the harness computes the block from the prediction's
+    is likewise not yours: every interim moment declares the `interim-v2`
+    set (its four binary claims and the order-writers distribution claim),
+    and the harness computes the block from the prediction's
     claims, the outcome's `interim_signals`, and the committed statpack. You
     neither fill nor correct it.
   - **Merits-stage cells** (the event's stage is `merits` — the judgment the
@@ -370,9 +371,10 @@ fails the cell.
       forecast that is already settled, and recording it as the basis would
       stamp a cert salience version onto a merits cell. A merits cell carrying
       a band is the normal shape and takes no flag.
-    - `claim_scores` stays absent, as always. The merits event declares the
-      `merits-v1` set — one claim, `judgment-disturbed`, restating the
-      prediction's headline probability — and the harness computes the block
+    - `claim_scores` stays absent, as always. Every merits moment declares the
+      `merits-v2` set — one binary claim, `judgment-disturbed`, restating the
+      prediction's headline probability, beside the writing distribution
+      claims — and the harness computes the block
       from the prediction, the outcome, and the committed statpack, keyed on
       the same grant Term. You neither fill nor correct it. It pools the same
       statpack counts and refuses on the same guard as the stamped

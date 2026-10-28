@@ -185,7 +185,14 @@ def test_the_frozen_map_and_the_freeze_instant_move_together() -> None:
     """
     digests = process_version.FROZEN_PROCESS_DIGESTS
     since = process_version.FROZEN_SINCE
-    assert (len(digests) > 0) == (since is not None), (
+    # A label that moves every digest leaves none carried until the merge that
+    # carries it stamps them, while the previous label's instant still stands:
+    # the one legitimate empty map beside an instant, and it holds only while
+    # every registered digest is pending.
+    every_digest_pending = bool(process_version.REGISTERED_PROCESS_DIGESTS) and not (
+        process_version.REGISTERED_PROCESS_DIGESTS & digests.keys()
+    )
+    assert (len(digests) > 0 or every_digest_pending) == (since is not None), (
         "FROZEN_PROCESS_DIGESTS and FROZEN_SINCE must be set in the same commit"
     )
     for digest, blessed in digests.items():

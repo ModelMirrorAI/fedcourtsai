@@ -49,72 +49,80 @@
         "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       }
+    },
+    {
+      "label": "proc-v14",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
     }
   ],
   "blessings": [
     {
-      "digest": "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
+      "digest": "sha256:24f837fde794d1adc0af2c373c9ab6ac5becd0e47dcc4cd0660d5cbd69065f56",
       "role": "predictor",
       "actor_id": "claude-baseline",
-      "label": "proc-v13",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-26T19:00:50Z",
-        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+      "digest": "sha256:4537ce97f75e99d7993f8aeda93081172dacb6d8017d96ca30a189add25c13ba",
       "role": "predictor",
       "actor_id": "codex-baseline",
-      "label": "proc-v13",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-26T19:00:50Z",
-        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745",
+      "digest": "sha256:543d0439959a4ece38f1e741b5841d6171de23407038a8aec18c1061a2f8df15",
       "role": "predictor",
       "actor_id": "gemini-baseline",
-      "label": "proc-v13",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-26T19:00:50Z",
-        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+      "digest": "sha256:d49940aa59545ae61ff1c7616dd728f88b92876dd07685360b026942d9e689ad",
       "role": "evaluator",
       "actor_id": "claude-judge",
-      "label": "proc-v9",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-11T00:12:02Z",
-        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+      "digest": "sha256:63369e6cd3c723179ec731eaf64d7c72ea6f94b019ed903b42ef802fdbec09b1",
       "role": "evaluator",
       "actor_id": "codex-judge",
-      "label": "proc-v10",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-20T15:24:42Z",
-        "merge": "7d4f2c6c58e01b22f17adb850b5203418f71925e",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+      "digest": "sha256:c81e77e1c3f1c46a310a1914a457fb5fc35b57c54a52e2135ef90ac3569d4714",
       "role": "evaluator",
       "actor_id": "gemini-judge",
-      "label": "proc-v10",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-20T15:24:42Z",
-        "merge": "7d4f2c6c58e01b22f17adb850b5203418f71925e",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     }
@@ -321,7 +329,11 @@
         "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -333,7 +345,11 @@
         "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -343,6 +359,46 @@
       "opens": {
         "at": "2026-10-26T19:00:50Z",
         "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
+        "source": "merge"
+      },
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v14",
+      "digest": "sha256:24f837fde794d1adc0af2c373c9ab6ac5becd0e47dcc4cd0660d5cbd69065f56",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v14",
+      "digest": "sha256:4537ce97f75e99d7993f8aeda93081172dacb6d8017d96ca30a189add25c13ba",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v14",
+      "digest": "sha256:543d0439959a4ece38f1e741b5841d6171de23407038a8aec18c1061a2f8df15",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
         "source": "merge"
       },
       "closes": null,
@@ -383,6 +439,15 @@
       "proc-v11",
       "proc-v12",
       "proc-v13"
+    ],
+    "sha256:d49940aa59545ae61ff1c7616dd728f88b92876dd07685360b026942d9e689ad": [
+      "proc-v14"
+    ],
+    "sha256:63369e6cd3c723179ec731eaf64d7c72ea6f94b019ed903b42ef802fdbec09b1": [
+      "proc-v14"
+    ],
+    "sha256:c81e77e1c3f1c46a310a1914a457fb5fc35b57c54a52e2135ef90ac3569d4714": [
+      "proc-v14"
     ]
   },
   "harness_boundaries": [
