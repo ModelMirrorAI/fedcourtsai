@@ -2385,10 +2385,17 @@ jobs:
           HANDOFF_PLAN: ${{ runner.temp }}/handoff/plan.json
         run: |
           set -euo pipefail
+          # The extractor's warnings can quote a filing's own text, so stderr
+          # stays in the log, under suspended workflow commands, and only the
+          # command's ledger (counts and identifiers) reaches the summary.
+          stop_token="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          echo "::stop-commands::${stop_token}"
           if [ "${REPAIR_MODE}" != "apply" ]; then
+            status=0
             uv run fedcourts ocr-recover-petitions --worklist "${HANDOFF_PROJECTION}" \
-              --probe-only 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
-            exit 0
+              --probe-only | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+            echo "::${stop_token}::"
+            exit "${status}"
           fi
           # The slice's wall clock, measured from the moment the command
           # starts. The step has 45 minutes (2700 s), and the class walk, the
@@ -2423,9 +2430,12 @@ jobs:
           #
           # Counts and identifiers only reach the log: the plan's text is the
           # filings' own, and a self-represented filer's contact details are in it.
+          status=0
           uv run fedcourts ocr-recover-petitions --worklist "${HANDOFF_PROJECTION}" \
-            --plan-out "${HANDOFF_PLAN}" --deadline-seconds 2400 2>&1 \
-            | tee -a "$GITHUB_STEP_SUMMARY"
+            --plan-out "${HANDOFF_PLAN}" --deadline-seconds 2400 \
+            | tee -a "$GITHUB_STEP_SUMMARY" || status=$?
+          echo "::${stop_token}::"
+          exit "${status}"
 
       - name: Note the dry run
         if: ${{ inputs.repair_mode != 'apply' }}
@@ -3273,6 +3283,8 @@ jobs:
     needs: [authorize, validate, handoff-projection, handoff-parse]
     if: >-
       ${{ inputs.repair == 'ocr-recovery' && inputs.repair_mode == 'apply'
+      && needs.handoff-parse.outputs.plan-artifact != ''
+      && needs.handoff-projection.outputs.projection-artifact != ''
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}

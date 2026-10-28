@@ -84,6 +84,7 @@ KNOWN_WRITER_JOBS = {
     ("run-repair.yml", "repair"),
     ("run-repair.yml", "applications"),
     ("run-repair.yml", "decision-record"),
+    ("run-repair.yml", "documents"),
     ("run-repair.yml", "opinion-record"),
 }
 

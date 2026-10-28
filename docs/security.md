@@ -1532,7 +1532,8 @@ pair the third one writes:
 
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`, `run-seed`,
   `run-repair`'s corpus and decision-record jobs on an apply,
-  and `run-repair`'s application back-fill and opinion-record writer jobs,
+  and `run-repair`'s application back-fill, opinion-record and OCR
+  recovered-filings (`documents`) writer jobs,
   which run on an apply only) —
   **append-only**: it grants *enumerated object actions* — get, put, list —
   never `s3:*`, with an explicit `Deny` on every delete and on the two
