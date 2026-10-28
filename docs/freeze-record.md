@@ -14074,8 +14074,7 @@ freeze commit is recorded here.
     `LegacyDocketSource` key naming the page. `uv run fedcourts
     process-digest --all` still prints `proc-v13` and the same six digests.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
-  sha>`, merged `<FILL: merged time UTC>`). Applied by run `<FILL: apply run
+  Carried to `main` by `promotion/2026-10-28` (merge commit `6027eac9f56905afd57a2e31725c2cea79405e3a`, merged `2026-10-28T12:42:27Z`). Applied by run `<FILL: apply run
   id>` on `<FILL: apply date>`, landing `<FILL: rows landed>` rows. The first
   statpack refreshed after it, at commit `<FILL: statpack refresh commit>`,
   reads the OT2026 pool as `<FILL: OT2026 pool granted/resolved>`, the OT2025
@@ -14116,5 +14115,4 @@ freeze commit is recorded here.
   then. Until then a reading that wants to hold the image fixed splits at
   the carrying promotion's merge time below.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge
-  sha>`, merged `<FILL: merged time UTC>`).
+  Carried to `main` by `promotion/2026-10-28` (merge commit `6027eac9f56905afd57a2e31725c2cea79405e3a`, merged `2026-10-28T12:42:27Z`).
