@@ -29,6 +29,7 @@ from fedcourtsai.dataset_export import (
     with_docket_numbers,
     write_bundle,
 )
+from fedcourtsai.integrity import cell_clock
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.schemas import (
     Disposition,
@@ -242,6 +243,23 @@ def test_the_frozen_population_is_every_frozen_prediction_graded_or_not(ledger: 
     assert shake.predictor_id == "shake"
     assert shake.process_frozen is False
     assert shake.scored is True
+
+
+def test_created_at_is_the_harness_clock_not_the_agents_word(ledger: Path) -> None:
+    """A stamped row publishes its stamp time, whatever the agent wrote; a shakedown row its own."""
+    tables = build_tables(ledger, all_versions=True)
+    moved = 0
+    for row in tables.predictions:
+        court, _, docket = row.case_id.partition("/")
+        path = (
+            CasePaths(ledger, court, int(docket))
+            .event(row.event_id)
+            .prediction(row.predictor_id, row.run_id)
+        )
+        prediction = read_model(path, Prediction)
+        assert row.created_at == cell_clock(prediction)
+        moved += cell_clock(prediction) != prediction.created_at
+    assert moved > 0
 
 
 def test_counted_and_set_aside_flags(ledger: Path) -> None:

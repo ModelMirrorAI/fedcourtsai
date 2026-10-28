@@ -3132,6 +3132,19 @@ shipped ceiling sits above the measured rate of such a regression
 does not trip it at all; the auto-release budget in `config/review-hold.yaml`
 is what stops it running unattended.
 
+On predict, `plan` also builds the round's **same-question lists**
+(`fedcourts same-question-lists`), one per cert-stage cell of the minted matrix,
+and keeps them as the run's `same-question-lists` artifact, which each cell job
+fetches and hands `provision-snapshot`. The match weighs every petition's
+questions presented, so it is one read of the whole QP frame per round, which
+the plan job's pulled index serves and a cell's ranged read could not. A failed
+build starts the round anyway, each cell provisioned without its list, and
+each cell job deletes the round's file once provisioning has read it, so an
+agent reads only what was staged for it.
+Provisioning holds every list back from its cell until a re-bless
+(`provision.SAME_QUESTION_WITHHELD`); until then the step's log is where the
+lists' size and cost are read.
+
 ### The evaluate cell grades blind
 
 An evaluate cell brackets its agent with two deterministic harness steps

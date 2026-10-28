@@ -2055,19 +2055,21 @@ the rendered table) and
   cell's note can explain its loss — with each note's category, severity and
   an `outcome_exposure_candidate` bit, and `provenance.disclosure_tally`
   counts, per predictor on the board and over its scored cells, how many were
-  read, flagged, unreadable, and candidates. The bit is a triage highlighter
-  over free text, not a judgment: a note is a candidate when some clause of
-  it — split at sentence and clause punctuation (commas included) and before
-  *but*, *although*, *though*, *however*, *yet* and *whereas* — carries an
+  read, flagged, unreadable, and candidates. The bit is a triage highlighter,
+  not a judgment: a note filed under `leakage-disclosure` is a candidate
+  whatever its wording, and a note under any other category is a candidate
+  when some clause of it — split at sentence and clause punctuation (commas
+  included) and before *but*, *although*, *though*, *however*, *yet* and *whereas* — carries an
   exposure cue (leak, contaminat…, outcome-revealing, surfaced, encountered,
   saw, seen, reveal, exposed or exposure, snippet, unsuitable, show or
   showed, found, included), an outcome term (outcome, disposition, granted,
   denied, granting, denying, GVR, order list, grant language, grant order,
   "cert was") and no negator (no, not, none, nothing, never, neither, nor,
-  without, cannot, *-n't*). It over-calls on a retrieved prior's disposition,
-  and misses a disclosure worded outside its cues, one sharing its clause
+  without, cannot, *-n't*). It over-calls on a retrieved prior's disposition
+  and on a `leakage-disclosure` note that reports nothing surfaced, and misses a disclosure worded outside its cues, one sharing its clause
   with its own denial, and one whose cue and outcome term a comma separates —
-  so **an unmarked note is not a cleared one**. That is why it changes
+  so **an unmarked note is not a cleared one**, and a candidate count compares
+  only across runs read under one rule. That is why it changes
   nothing: a text rule deciding which cells stay scored would demote a
   predictor for its candour, unevenly across engines that write notes
   differently. So read the board with the direction stated — **a disclosed

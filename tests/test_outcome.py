@@ -3259,6 +3259,61 @@ def test_the_poll_reads_the_committed_caption_a_baseline_was_predicted_under(
     assert not CasePaths(tmp_path, "scotus", 9526000325).event(event.event_id).outcome.exists()
 
 
+def test_a_re_fired_mint_keeps_the_committed_caption_so_the_poll_refuses_it(
+    tmp_path: Path,
+) -> None:
+    # The response moment was minted under the earlier petition; the number was
+    # then re-entered, and the mint re-fires on the poll with the row's new
+    # caption. The corpus title re-tracks the row, so only the committed
+    # event.yaml still names the petition the moment opened under.
+    response = _interim_event("evt-order-response-requested-disposition", resolved=False)
+    db = _seed_application(
+        tmp_path,
+        [_interim_event("evt-motion-disposition", resolved=False)],
+        row=_redocketed_row(),
+    )
+    case = CasePaths(tmp_path, "scotus", 9526000325)
+    with corpus.connect(db) as conn:
+        outcome_module.persist_moment_events(
+            conn,
+            tmp_path,
+            "scotus",
+            9526000325,
+            [response.model_copy(update={"title": _EARLIER_PETITION})],
+        )
+        outcome_module.persist_moment_events(
+            conn,
+            tmp_path,
+            "scotus",
+            9526000325,
+            [response.model_copy(update={"title": _REDOCKETED_CAPTION})],
+        )
+        stored = {e.event_id: e for e in corpus.events_for_case(conn, "scotus/9526000325")}
+    assert stored[response.event_id].title == _REDOCKETED_CAPTION
+    committed = read_model(case.event(response.event_id).event_file, PredictableEvent)
+    assert committed.title == _EARLIER_PETITION
+    seed_prediction(tmp_path, "scotus", 9526000325, response.event_id)
+    resolution = resolve_case(db, tmp_path, _redocketed_poll_row(), "scotus", 9526000325)
+    assert list(resolution.outcomes) == ["evt-motion-disposition"]
+    (refused,) = resolution.unrecorded
+    assert refused.event_id == response.event_id
+    assert refused.reason == REDOCKETED_REASON
+    assert not case.event(response.event_id).outcome.exists()
+
+
+def test_a_re_mint_over_an_unreadable_definition_rewrites_it_whole(tmp_path: Path) -> None:
+    # A committed file the re-docketing check cannot read is no witness, so the
+    # re-mint writes the definition from the corpus row.
+    response = _interim_event("evt-order-response-requested-disposition", resolved=False)
+    db = _seed_application(tmp_path, [], row=_redocketed_row())
+    path = CasePaths(tmp_path, "scotus", 9526000325).event(response.event_id).event_file
+    path.parent.mkdir(parents=True)
+    path.write_text("title: [unclosed\n", encoding="utf-8")
+    with corpus.connect(db) as conn:
+        outcome_module.persist_moment_events(conn, tmp_path, "scotus", 9526000325, [response])
+    assert read_model(path, PredictableEvent).title == response.title
+
+
 def test_the_outcome_pass_marks_a_redocketed_moment(tmp_path: Path) -> None:
     db = _seed_application(
         tmp_path,

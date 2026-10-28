@@ -187,12 +187,42 @@ def test_stamp_injects_the_process_version_into_the_agents_prediction(_data_root
     assert pv["pipeline_sha"] == "sha-abc"
 
 
+def test_stamp_replaces_an_agent_written_created_at_with_the_stamps_time(
+    _data_root: Path,
+) -> None:
+    """An engine with no clock invents `created_at`; the stamp's own time replaces it."""
+    seed_prediction(_data_root, "scotus", 1, "evt-x", predictor_id="gemini-baseline")
+    seed_evaluation(
+        _data_root, "scotus", 1, "evt-x", evaluator_id="gemini-judge", run_id="20260101T000000Z"
+    )
+    event_paths = CasePaths(_data_root, "scotus", 1).event("evt-x")
+    paths = [
+        event_paths.prediction("gemini-baseline", "20260101T000000Z"),
+        *(event_paths.base / "evaluations" / "gemini-judge").glob("*/*/evaluation.json"),
+    ]
+    for path in paths:
+        record = json.loads(path.read_text())
+        record["created_at"] = "2020-01-01T00:00:00Z"
+        path.write_text(json.dumps(record))
+
+    stamped_at = "2026-03-04T05:06:07+00:00"
+    for role, actor in (("predictor", "gemini-baseline"), ("evaluator", "gemini-judge")):
+        result = _stamp(role, actor, 1, "evt-x", "20260101T000000Z", stamped_at=stamped_at)
+        assert result.exit_code == 0, result.output
+
+    assert len(paths) == 2
+    for path in paths:
+        record = json.loads(path.read_text())
+        assert datetime.fromisoformat(record["created_at"]) == datetime.fromisoformat(stamped_at)
+        assert record["created_at"] == record["process_version"]["stamped_at"]
+
+
 def test_stamp_is_byte_stable_under_a_fixed_clock(_data_root: Path) -> None:
-    """Everything but `stamped_at` is deterministic: re-stamping with the same
-    clock is byte-identical. In production `stamped_at` defaults to now, so a
-    rerun's bytes differ there — but the partition-relevant `digest` is stable
-    (proven in test_process_version), and a rerun regenerates the cell from the
-    agent anyway, so the wall-clock field never moves a metric."""
+    """Everything but `stamped_at` (and the `created_at` it sets) is deterministic:
+    re-stamping with the same clock is byte-identical. In production `stamped_at`
+    defaults to now, so a rerun's bytes differ there — but the partition-relevant
+    `digest` is stable (proven in test_process_version), and a rerun regenerates
+    the cell from the agent anyway, so the wall-clock field never moves a metric."""
     seed_prediction(_data_root, "scotus", 1, "evt-x", predictor_id="claude-baseline")
     path = (
         CasePaths(_data_root, "scotus", 1)
@@ -2885,8 +2915,13 @@ def test_regrade_writes_what_an_ordinary_stamp_would_but_the_version(
     stamped_version = stamped.pop("process_version")
     regraded_case = regraded.pop("case_id")
     stamped_case = stamped.pop("case_id")
+    # `created_at` is the stamp's time, so it travels with the version.
+    regraded_created = regraded.pop("created_at")
+    stamped_created = stamped.pop("created_at")
     assert regraded_version["stamped_at"].startswith("2025-06-01")
     assert stamped_version["stamped_at"].startswith("2026-01-01")
+    assert regraded_created.startswith("2025-06-01")
+    assert stamped_created.startswith("2026-01-01")
     assert regraded_case == "scotus/25"
     assert stamped_case == "scotus/26"
     assert regraded == stamped
@@ -3211,7 +3246,7 @@ def test_a_re_stamp_leaves_a_normalised_flags_file_as_it_is(_data_root: Path) ->
         CasePaths(_data_root, "scotus", 47).event(event).evaluation_flags("gemini-judge", "RID")
     )
     flags_path.parent.mkdir(parents=True, exist_ok=True)
-    flags_path.write_text('{"flags": [{"category": "capture-gap", "message": "x"}]}')
+    flags_path.write_text('{"flags": [{"category": "unfiled", "message": "x"}]}')
 
     assert _stamp("evaluator", "gemini-judge", 47, event, "RID").exit_code == 0
     once = flags_path.read_text()
@@ -3224,7 +3259,7 @@ def test_a_re_stamp_leaves_a_normalised_flags_file_as_it_is(_data_root: Path) ->
     assert flags.role == UsageRole.evaluator
     assert flags.run_id == "RID"
     assert flags.flags[0].category == FlagCategory.other
-    assert "'capture-gap'" in flags.flags[1].message
+    assert "'unfiled'" in flags.flags[1].message
 
 
 def test_stamp_leaves_the_conditioning_unjudged_with_no_snapshot_on_disk(

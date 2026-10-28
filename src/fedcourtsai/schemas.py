@@ -458,11 +458,22 @@ class UsageRole(StrEnum):
 
 
 class FlagCategory(StrEnum):
-    """What kind of thing an agent flag is about, for maintainer triage."""
+    """What kind of thing an agent flag is about, for maintainer triage.
+
+    ``provisioning`` is a cell's record that lacks something the pipeline should
+    have staged; ``capture-gap`` an outcome or docket record that cannot show
+    what a forecast or grading needed; ``leakage-disclosure`` a replay cell's
+    note that it surfaced material about its own case postdating its event date.
+    ``blocked`` stays valid for every file that carries it; severity ``blocker``
+    is what says a cell could not finish, under whatever category.
+    """
 
     data_quality = "data-quality"
     scope = "scope"
     ambiguous_event = "ambiguous-event"
+    provisioning = "provisioning"
+    capture_gap = "capture-gap"
+    leakage_disclosure = "leakage-disclosure"
     blocked = "blocked"
     other = "other"
 
@@ -2918,6 +2929,13 @@ class AgentFlag(_Strict):
     )
     event_id: str | None = Field(
         default=None, description="The specific event this flag is about, if narrower than the cell"
+    )
+    issue: int | None = Field(
+        default=None,
+        gt=0,
+        description="The repository issue that already tracks this problem, when the agent "
+        "cites one instead of re-describing it; the roll-up counts a cited tracked theme "
+        "against its issue",
     )
     source: FlagSource = Field(
         default=FlagSource.agent,
@@ -7767,11 +7785,13 @@ class CertBacktestFlag(_Strict):
     category: FlagCategory
     severity: FlagSeverity
     outcome_exposure_candidate: bool = Field(
-        description="True where a deliberately simple text rule "
+        description="True where the note is filed under `leakage-disclosure`, or where a "
+        "deliberately simple text rule "
         "(`fedcourtsai.cert_backtest.outcome_exposure_candidate`) reads the note's "
         "message as possibly disclosing that the cell saw its own petition's outcome. "
-        "A triage highlighter over free text, not a judgment: it over-calls on some "
-        "shapes (a retrieved prior's GVR, for one) and misses others, so an unmarked note "
+        "A triage highlighter, not a judgment: it over-calls on some "
+        "shapes (a retrieved prior's GVR, a disclosure note reporting nothing) and "
+        "misses others, so an unmarked note "
         "is not a cleared one — and it never changes which cells are scored"
     )
 
@@ -10304,6 +10324,45 @@ class AuthorshipTallySitting(_Strict):
     cases: list[AuthorshipTallyCase] = Field(
         description="The sitting's cases, by argument day then key"
     )
+
+
+class SameQuestionEntry(_Strict):
+    """One petition on a same-question list: identifiers and status, no text."""
+
+    docket_number: str
+    case_id: str
+    score: float = Field(ge=0, le=1, description="The TF-IDF cosine with the listing petition")
+    docketed: date | None
+    status: str = Field(
+        description="`pending` as of the cutoff, or the disposition once resolved before it"
+    )
+
+
+class SameQuestionList(_Strict):
+    """One cell's same-question petitions, staged as its ``record/same-question.json``."""
+
+    case_id: str = Field(description="The listing petition's case id")
+    event_id: str = Field(description="The cell's event, whose moment set the cutoff")
+    cutoff: date = Field(
+        description="Exclusive: only petitions docketed before this day are listed or "
+        "weighted, and a status reads resolved only where its date falls before it"
+    )
+    threshold: float = Field(
+        ge=0, le=1, description="The least score a petition had to reach to be listed"
+    )
+    indexed: int = Field(
+        ge=0, description="Petitions docketed before the cutoff with a stored questions presented"
+    )
+    petitions: list[SameQuestionEntry] | None = Field(
+        description="Best first, at most the match limit; `null` where the listing petition has no "
+        "stored questions presented docketed before the cutoff to match on"
+    )
+
+
+class SameQuestionLists(_Strict):
+    """A round's same-question lists, one per cert-stage cell, as the plan job writes them."""
+
+    lists: list[SameQuestionList]
 
 
 class AuthorshipTally(_Strict):
@@ -13645,8 +13704,9 @@ class ExportPredictionRow(_Strict):
         description="The prediction's run id (a UTC timestamp), as its ledger path spells it"
     )
     created_at: datetime = Field(
-        description="When the predictor says it wrote the prediction (agent-written; the "
-        "harness clock is `stamped_at`)"
+        description="When the harness ran the cell: the process stamp's `stamped_at`, or "
+        "the record's own `created_at` on a shakedown cell the harness never stamped "
+        "(`fedcourtsai.integrity.cell_clock`)"
     )
     probability: float = Field(
         description="The forecast probability of the positive outcome (a grant, at the cert stage)"
@@ -13982,6 +14042,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
     "authorship_tally": AuthorshipTally,
+    "same_question_list": SameQuestionList,
     "argument_features": ArgumentFeatures,
     "docket": DocketPack,
     "big_case_board": BigCaseBoard,
