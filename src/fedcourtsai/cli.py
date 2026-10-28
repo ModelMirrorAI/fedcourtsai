@@ -2735,6 +2735,11 @@ def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per 
                 "--deadline-seconds only; it opens no corpus and writes none."
             )
         if probe_only:
+            if deadline_seconds is not None:
+                _ocr_sweep_refuse(
+                    "--deadline-seconds bounds the reading parse (--plan-out); the "
+                    "probe re-fetches a sample and reads nothing."
+                )
             _ocr_probe_parse(worklist)
             return
         assert plan_out is not None  # narrowed by the refusal above
@@ -2976,10 +2981,12 @@ def _ocr_dispatched_write(
 ) -> None:
     """The dispatched pass's writer: land the plan, and state the class it leaves.
 
-    The class is walked before the write, so ``remaining`` is that class less
-    what this write recovered — the number the workflow's re-read must then
-    find. What it prints of the plan is counts and validated identifiers, as on
-    the sweep's writer.
+    The class is walked before the write, and only a row still in it is
+    written, so ``remaining`` is that class less what this write recovered —
+    the number the workflow's re-read must then find. A row the write skips
+    (the corpus moved since the projection) is named on its own line, apart
+    from the parse's fetch failures. What it prints of the plan is counts and
+    validated identifiers, as on the sweep's writer.
     """
     command = "ocr-recover-petitions"
     plan = _read_handoff_or_exit(command, plan_path, ocr_sweep.OcrPlan)
@@ -3007,11 +3014,12 @@ def _ocr_dispatched_write(
                 today=date.today(),
                 apply=apply,
                 dispatched=True,
+                within=frozenset(candidate.key for candidate in scan.candidates),
             )
     except HandoffRefused as exc:
         typer.echo(f"{command}: refusing the plan — {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    failures = {**plan.failures, **landed.skipped}
+    failures = dict(plan.failures)
     unfetched: dict[str, int] = {}
     for reason in failures.values():
         if reason != EMPTY_AFTER_OCR:
@@ -3040,6 +3048,9 @@ def _ocr_dispatched_write(
         failures=dict(sorted(failures.items())),
     )
     _echo_ocr_recovery(result, db_path, apply=apply)
+    typer.echo(f"skipped at the write: {len(landed.skipped)}")
+    for key, reason in landed.skipped.items():
+        typer.echo(f"  skipped {key}: {reason}")
     if apply:
         _ensure_corpus_layout(db_path)
     typer.echo(result.model_dump_json())

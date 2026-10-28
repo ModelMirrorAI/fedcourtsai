@@ -63,7 +63,7 @@ from __future__ import annotations
 
 import sqlite3
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Annotated, Final, Literal
@@ -544,7 +544,7 @@ def check_plan(
             raise HandoffRefused(f"the plan's text for {row.key} is empty")
 
 
-def apply_ocr_plan(
+def apply_ocr_plan(  # noqa: PLR0913
     conn: sqlite3.Connection,
     plan: OcrPlan,
     worklist: OcrWorklist,
@@ -554,6 +554,7 @@ def apply_ocr_plan(
     today: date,
     apply: bool,
     dispatched: bool = False,
+    within: Collection[str] | None = None,
 ) -> OcrSweepApplyResult:
     """Write each plan row whose stored row is still the scan the projection saw.
 
@@ -571,13 +572,19 @@ def apply_ocr_plan(
     ``dispatched`` is the dispatched pass's writer (:func:`check_plan`). It
     writes a row whose link now serves a filing of another length, as that pass
     always has, storing the page count the parse read: it reads the filing
-    whole, so the reading is of the filing served now.
+    whole, so the reading is of the filing served now. ``within`` is the
+    recovery class the writer walked before the write: a row outside it (its
+    case left the live slice since the projection) is skipped as
+    ``left-the-class``, so what is written is always counted out of that class.
     """
     check_plan(plan, worklist, cap=cap, char_cap=char_cap, dispatched=dispatched)
     written: dict[str, str] = {}
     skipped: dict[str, str] = {}
     rederived = 0
     for row in plan.rows:
+        if within is not None and row.key not in within:
+            skipped[row.key] = "left-the-class"
+            continue
         stored: Mapping[str, corpus.CaseDocument] = {
             d.kind: d for d in corpus.documents_for_case(conn, row.case_id)
         }

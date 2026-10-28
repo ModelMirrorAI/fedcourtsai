@@ -34,6 +34,7 @@ from fedcourtsai.pipeline.documents import (
     KIND_QUESTIONS_PRESENTED,
 )
 from fedcourtsai.pipeline.ocr_recovery import (
+    EMPTY_AFTER_OCR,
     OcrPageFactory,
     OcrRun,
     ScannedDocument,
@@ -829,6 +830,18 @@ def test_the_cli_writer_prints_only_counts_of_the_parses_failures(
         (["--sweep", "--deadline-seconds", "60"], "bounds the parse"),
         (["--sweep", "--from-plan", "p.json"], "--bind-worklist go together"),
         (["--sweep", "--probe", "3"], "the sweep probes nothing"),
+        (
+            [
+                *("--from-plan", "p.json", "--bind-worklist", "w.json"),
+                *("--max-cases", "1", "--probe", "1"),
+            ],
+            "the writer probes nothing",
+        ),
+        (["--emit-worklist", "w.json", "--deadline-seconds", "60"], "bounds the parse"),
+        (
+            ["--worklist", "w.json", "--probe-only", "--deadline-seconds", "60"],
+            "bounds the reading parse",
+        ),
     ],
 )
 def test_the_cli_refuses_a_mode_it_cannot_tell_apart(
@@ -993,6 +1006,76 @@ def test_the_dispatched_writer_refuses_a_plan_that_drops_an_item(tmp_path: Path)
     twice = OcrPlan(rows=[_row(first)], failures={"scotus/1 petition": "not-served"})
     with pytest.raises(HandoffRefused, match="names scotus/1 petition twice"):
         _dispatched_apply(db, twice, _bound(OcrPlan(rows=[_row(first)]), cap=2))
+
+
+def test_the_dispatched_writer_skips_a_row_that_left_the_class(tmp_path: Path) -> None:
+    """Only a row in the class the writer walked is written, so `remaining` counts out of it."""
+    first, second = _document("scotus/1"), _document("scotus/2")
+    db = _seed(tmp_path / "corpus", [first, second])
+    plan = OcrPlan(rows=[_row(first), _row(second)])
+    with corpus.connect(db) as conn:
+        result = apply_ocr_plan(
+            conn,
+            plan,
+            _bound(plan, cap=2),
+            cap=2,
+            char_cap=150_000,
+            today=_TODAY,
+            apply=True,
+            dispatched=True,
+            within=frozenset({"scotus/1 petition"}),
+        )
+    assert sorted(result.written) == ["scotus/1 petition"]
+    assert result.skipped == {"scotus/2 petition": "left-the-class"}
+    assert _documents(db, "scotus/2")[KIND_PETITION].text == ""
+
+
+def test_the_cli_dispatched_writer_ledgers_each_way_an_item_ends(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Recovered, empty after OCR, not served, unreached, and skipped at the write.
+
+    The ledger reads as the in-job pass's did: `attempted` is every item the
+    parse reached, a writer skip is named apart from the fetch failures, and
+    `remaining` is the class less what was written.
+    """
+    documents = [_document(f"scotus/{n}") for n in range(1, 6)]
+    db = _seed(tmp_path / "corpus", documents)
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    with corpus.connect(db) as conn:
+        bound = dispatched_worklist(conn, scanned_documents(conn).candidates, max_cases=5, probe=0)
+    plan = OcrPlan(
+        rows=[_row(documents[0]), _row(documents[4])],
+        failures={"scotus/2 petition": EMPTY_AFTER_OCR, "scotus/3 petition": "not-served"},
+        unreached=["scotus/4 petition"],
+    )
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn, [documents[4].model_copy(update={"text": "Gained a text layer."})]
+        )
+    plan_path, bound_path = tmp_path / "plan.json", tmp_path / "worklist.json"
+    write_handoff(plan_path, plan)
+    write_handoff(bound_path, bound)
+    result = runner.invoke(
+        app,
+        [
+            "ocr-recover-petitions",
+            *("--from-plan", str(plan_path), "--bind-worklist", str(bound_path)),
+            *("--max-cases", "5", "--apply"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    ledger = json.loads(result.output.strip().splitlines()[-1])
+    assert ledger["candidates"] == 4
+    assert ledger["attempted"] == 4
+    assert ledger["recovered"] == 1
+    assert ledger["empty_after_ocr"] == 1
+    assert ledger["unfetched"] == {"not-served": 1}
+    assert ledger["unreached"] == ["scotus/4 petition"]
+    assert ledger["remaining"] == 3
+    assert "scotus/5 petition" not in ledger["failures"]
+    assert "skipped at the write: 1" in result.output
+    assert "skipped scotus/5 petition: left-the-class" in result.output
 
 
 def test_the_cli_dispatched_split_round_trips_and_states_the_class_it_leaves(

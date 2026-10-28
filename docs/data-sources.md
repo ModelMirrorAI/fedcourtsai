@@ -848,8 +848,8 @@ material**:
     The writer refuses a plan whole above the window's cap, off its shape, or
     naming anything not on the window's worklist, and writes a row only into
     a stored document still empty at the same URL.
-  - *The dispatched pass* (proposed; merging the split of run-repair's
-    `ocr-recovery` pass decides it). The same text, of the same shape, read
+  - *The dispatched pass* (proposed; promoting the split of run-repair's
+    `ocr-recovery` pass to `main` decides it). The same text, of the same shape, read
     the same way, crosses run-repair's credential split as
     `repair-plan-<run_id>`, on an applied dispatch only, kept one day and
     consumed by that run's OCR recovery writer. Every term above holds for
