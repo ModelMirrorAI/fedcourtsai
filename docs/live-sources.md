@@ -910,7 +910,13 @@ or the blank-separated spelling after a telephone label on the same line,
 anywhere in the text; a post-office box with a comma or dash for a dot, a zero
 for the `O`, the words spelled out, or a bare `Box` and number, the box always
 carrying a digit; and a street address with a letter glued to its house number
-or with the lower-case connectors (`de`, `la`, `del`) a street name carries.
+or with the lower-case connectors (`de`, `la`, `del`) a street name carries. A
+street line ending on `Dr`, `Ct` or `Pl` is read as an address only where a
+"City, State ZIP" line sits directly below it, since on their own those words
+are far more often a doctor, the court and a plaintiff; and the "City, State
+ZIP" line directly below any withheld street address or box, the docket's own
+address value included, is withheld with it, as a placeholder of its own — a
+court or clerk street address takes its city line with it too.
 Two shapes are read on the document's **opening** alone (its first 6,000
 characters, which hold the cover page a self-represented caption sets its
 details on), because further in the same shape is mostly something else: a
@@ -925,15 +931,18 @@ qualifying blocks' alone, since amici are not co-parties), however the scan spac
 line-broke them, and puts back every line break it consumed; it runs only
 where the docket serves a value specific enough to key on (an email with its
 `@`, a telephone number of ten or more digits, an address with a digit and
-eight or more significant characters). Both passes are matched against the
+eight or more significant characters). An address value's street type is read
+in either spelling (`Drive` or `Dr`, `Avenue` or `Ave`), since the docket and
+the filing it copies need not abbreviate alike. Both passes are matched against the
 original text and overlapping matches are withheld as one span, so adding a
 pass can only widen what is withheld. Where the shape pass ran, the scrubbed
 text is then read once more by a **residual detector**: looser shapes over the
 document's opening (its first 6,000 characters) and its closing (as many at
 the end, where the signature block and a bundled proof of service sit) — a
 telephone number in any 3-3-4 grouping of blanks, dots, hyphens or a slash, a
-street address opening its line with lower-case name words, `box` and a number
-in any case, and an `@` set hard against letters. It withholds nothing, since
+street address opening its line with lower-case name words, a street line
+ending on `Dr`, `Ct` or `Pl` with a "City, State ZIP" line directly below it,
+`box` and a number in any case, and an `@` set hard against letters. It withholds nothing, since
 its shapes would cost legal text, but a document it finds anything on is
 recorded as **not** scrubbed. A clean reading is a claim about those two
 stretches alone, where the shape pass ran: the middle of a document is not
@@ -994,15 +1003,18 @@ can be self-represented, and the interim, replay and evaluate lanes sit outside
 that gate entirely.
 
 **What the scrub does not reach**, named so the section is not read as a covered
-surface. No pattern spans a newline — that is what makes the structural claim
+surface. No pattern's match spans a newline (the `Dr`/`Ct`/`Pl` street shape
+looks past one to the city line, but stops at it) — that is what makes the structural claim
 above true rather than aspirational, and it costs a detail the extractor broke
 across two lines. The blank-separated telephone spelling (`202 555 0147`) is
 deliberately not read at all: an appendix index and an OCR'd column emit exactly
 that shape, and the scrubbed population is disproportionately the scanned one,
 so reading it would delete legal text from the cells the scrub exists for. Nor
 are a box spelled out in full, a number written with a slash or with no
-separators, a bare city/state/ZIP line — that shape is also how the Court's own
-address line is set — or an incarcerated filer's register number beside an
+separators, a street line ending on `Dr`, `Ct` or `Pl` with no "City, State
+ZIP" line directly below it, a city/state/ZIP line under anything but a withheld
+street address or box (or under one on a docket the value pass alone scrubs) —
+that shape is also how the Court's own address line is set — or an incarcerated filer's register number beside an
 institution name, which has no shape at all.
 
 **The staged snapshot gets the same withholding, by key rather than by shape.**
