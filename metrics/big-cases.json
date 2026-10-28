@@ -4,11 +4,11 @@
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 293,
+      "cases": 296,
       "n": 3
     },
     {
-      "cases": 35,
+      "cases": 32,
       "n": 2
     },
     {
@@ -153,7 +153,7 @@
   },
   "median_adjacent_gap": 0.0033,
   "median_score_range": 0.2,
-  "missing_reads": 14,
+  "missing_reads": 11,
   "predictors": [
     "claude-baseline",
     "codex-baseline",
@@ -1714,36 +1714,36 @@
       "asking_declined": null,
       "asking_party": "Suncor Energy",
       "caption": "Suncor Energy (U.S.A.) Inc., et al. v. County Commissioners of Boulder County, et al.",
-      "caption_event_id": "evt-brief-judgment",
+      "caption_event_id": "evt-argument-judgment",
       "case_id": "scotus/73274859",
       "court_id": "scotus",
       "current_reads": [
         {
-          "big_case_rationale": "The survival of the entire genre of state and municipal climate-damages litigation turns on this case: dozens of parallel suits nationwide, a granted question the Court declined in Honolulu, the Solicitor General participating in divided argument, and one of the largest amicus dockets of the Term.",
-          "big_case_score": 0.97,
-          "event_id": "evt-brief-judgment",
+          "big_case_rationale": "Decides whether dozens of pending municipal and state climate-tort suits seeking billions against energy producers can proceed under state law; the Term's opening and likely most consequential environmental-federalism case.",
+          "big_case_score": 0.95,
+          "event_id": "evt-argument-judgment",
           "leakage_suspected": false,
           "predictor_id": "claude-baseline",
           "process_window": null,
-          "run_id": "20260816T173750Z"
+          "run_id": "20261028T011516Z"
         },
         {
-          "big_case_rationale": "The judgment could govern dozens of climate-damages suits and define state authority over interstate and international emissions-related harms.",
-          "big_case_score": 0.94,
-          "event_id": "evt-brief-judgment",
+          "big_case_rationale": "The availability of state climate-damages litigation against fossil-fuel producers has nationwide financial and federalism consequences, although the Court can decide a narrower preemption question without resolving climate policy generally.",
+          "big_case_score": 0.89,
+          "event_id": "evt-argument-judgment",
           "leakage_suspected": false,
           "predictor_id": "codex-baseline",
           "process_window": null,
-          "run_id": "20260816T173750Z"
+          "run_id": "20261028T011516Z"
         },
         {
-          "big_case_rationale": "Landmark climate litigation case determining whether dozens of state-level tort lawsuits against major energy companies can proceed, with massive financial implications and significant public interest.",
-          "big_case_score": 0.85,
-          "event_id": "evt-brief-judgment",
+          "big_case_rationale": "Bellwether Supreme Court test of whether state common-law tort suits seeking billions of dollars in climate-change damages from fossil-fuel producers can proceed in state courts nationwide.",
+          "big_case_score": 0.92,
+          "event_id": "evt-argument-judgment",
           "leakage_suspected": false,
           "predictor_id": "gemini-baseline",
           "process_window": null,
-          "run_id": "20260816T173750Z"
+          "run_id": "20261028T011516Z"
         }
       ],
       "docket_id": 73274859,
@@ -1751,6 +1751,56 @@
       "docket_number_source": "qp-topics",
       "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-170.html",
       "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Decides whether dozens of pending municipal and state climate-tort suits seeking billions against energy producers can proceed under state law; the Term's opening and likely most consequential environmental-federalism case.",
+              "big_case_score": 0.95,
+              "cell_path": "data/cases/scotus/73274859/events/evt-argument-judgment/predictions/claude-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274859/events/evt-argument-judgment/predictions/claude-baseline/20261028T011516Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.68,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "The availability of state climate-damages litigation against fossil-fuel producers has nationwide financial and federalism consequences, although the Court can decide a narrower preemption question without resolving climate policy generally.",
+              "big_case_score": 0.89,
+              "cell_path": "data/cases/scotus/73274859/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274859/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.77,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "Bellwether Supreme Court test of whether state common-law tort suits seeking billions of dollars in climate-change damages from fossil-fuel producers can proceed in state courts nationwide.",
+              "big_case_score": 0.92,
+              "cell_path": "data/cases/scotus/73274859/events/evt-argument-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73274859/events/evt-argument-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "confidence": 0.82,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.83,
+              "run_id": "20261028T011516Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Suncor Energy (U.S.A.) Inc., et al. v. County Commissioners of Boulder County, et al."
+        },
         {
           "actual_disposition": null,
           "event_id": "evt-brief-judgment",
@@ -1854,8 +1904,8 @@
       ],
       "leakage_suspected": false,
       "mean_big_case_score": 0.92,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-07-27",
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-10-05",
       "n": 3,
       "other_party": "County Commissioners of Boulder County",
       "outcome_lines": [
@@ -1876,9 +1926,9 @@
         }
       ],
       "scheduled": null,
-      "score_max": 0.97,
-      "score_min": 0.85,
-      "score_range": 0.12,
+      "score_max": 0.95,
+      "score_min": 0.89,
+      "score_range": 0.06,
       "short_caption": "Suncor Energy v. County Commissioners of Boulder County",
       "status": "pending"
     },
@@ -12935,178 +12985,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Anderson",
-      "caption": "Winston R. Anderson, et al. v. Intel Corporation Investment Policy Committee, et al.",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73278555",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Sets the pleading standard for the ERISA excessive-fee/underperformance litigation wave against 401(k) fiduciaries \u2014 trillions in defined-contribution assets and hundreds of pending suits turn on it, with the SG, DOL, Chamber, ICI, and NAM all filing; high stakes for the benefits industry though modest general-public salience.",
-          "big_case_score": 0.6,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "The case could set the nationwide pleading rule for ERISA imprudence suits involving retirement-plan investment performance.",
-          "big_case_score": 0.68,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": null,
-          "big_case_score": null,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        }
-      ],
-      "docket_id": 73278555,
-      "docket_number": "25-498",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-498.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Sets the pleading standard for the ERISA excessive-fee/underperformance litigation wave against 401(k) fiduciaries \u2014 trillions in defined-contribution assets and hundreds of pending suits turn on it, with the SG, DOL, Chamber, ICI, and NAM all filing; high stakes for the benefits industry though modest general-public salience.",
-              "big_case_score": 0.6,
-              "cell_path": "data/cases/scotus/73278555/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.66,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The case could set the nationwide pleading rule for ERISA imprudence suits involving retirement-plan investment performance.",
-              "big_case_score": 0.68,
-              "cell_path": "data/cases/scotus/73278555/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.56,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.62,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73278555/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.75,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Winston R. Anderson, et al. v. Intel Corporation Investment Policy Committee, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "A pleading-standard ruling that will govern the large and growing 401(k)/403(b) fiduciary-breach litigation industry across all circuits; high stakes for plan sponsors and participants, though technical and unlikely to lead general news.",
-              "big_case_score": 0.5,
-              "cell_path": "data/cases/scotus/73278555/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.55,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.65,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The case can set a nationwide pleading rule for ERISA imprudence suits affecting large retirement plans, but it is unlikely to alter fiduciaries' substantive duties broadly.",
-              "big_case_score": 0.63,
-              "cell_path": "data/cases/scotus/73278555/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.74,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.86,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "Important pleading standard for ERISA class actions, but relatively technical rather than broadly newsworthy.",
-              "big_case_score": 0.4,
-              "cell_path": "data/cases/scotus/73278555/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Winston R. Anderson, et al. v. Intel Corporation Investment Policy Committee, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.64,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-07-02",
-      "n": 2,
-      "other_party": "Intel Corporation Investment Policy Committee",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Anderson wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "The Intel Corporation Investment Policy Committee wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.68,
-      "score_min": 0.6,
-      "score_range": 0.08,
-      "short_caption": "Anderson v. Intel Corporation Investment Policy Committee",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Khatibi",
       "caption": "Azadeh Khatibi, et al. v. Kristina D. Lawson, President of the Medical Board of California, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -13220,128 +13098,6 @@
       "score_min": 0.55,
       "score_range": 0.15,
       "short_caption": "Khatibi v. Lawson",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Grand",
-      "caption": "Daniel Grand v. City of University Heights, Ohio, et al.",
-      "caption_event_id": "evt-order-judgment",
-      "case_id": "scotus/73281006",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Nationally watched religious-liberty case with a broad cross-ideological amicus coalition, but the question is justiciability: the likely outcome is a remand on ripeness, not a merits ruling on religious exercise.",
-          "big_case_score": 0.55,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "The case could set a nationwide boundary between First Amendment chilling injury and land-use finality for religious exercise in the home.",
-          "big_case_score": 0.72,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": null,
-          "big_case_score": null,
-          "event_id": "evt-order-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        }
-      ],
-      "docket_id": 73281006,
-      "docket_number": "25-965",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-965.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Nationally watched religious-liberty case with a broad cross-ideological amicus coalition, but the question is justiciability: the likely outcome is a remand on ripeness, not a merits ruling on religious exercise.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73281006/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281006/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.82,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "The case could set a nationwide boundary between First Amendment chilling injury and land-use finality for religious exercise in the home.",
-              "big_case_score": 0.72,
-              "cell_path": "data/cases/scotus/73281006/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281006/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.67,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.82,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73281006/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281006/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Daniel Grand v. City of University Heights, Ohio, et al."
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.635,
-      "moment": "evt-order-judgment",
-      "moment_opened_at": "2026-06-30",
-      "n": 2,
-      "other_party": "City of University Heights",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Grand wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "The City of University Heights wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.72,
-      "score_min": 0.55,
-      "score_range": 0.17,
-      "short_caption": "Grand v. City of University Heights",
       "status": "pending"
     },
     {
@@ -14419,6 +14175,228 @@
       "score_min": 0.5,
       "score_range": 0.29,
       "short_caption": "Roybal v. Griffith",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Salazar",
+      "caption": "Michael Salazar v. Paramount Global, dba 247Sports",
+      "caption_event_id": "evt-argument-judgment",
+      "case_id": "scotus/73278510",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Decides the threshold 'consumer' element for the wave of VPPA pixel class actions against websites; large aggregate statutory-damages exposure, but a single-clause statutory question with other limiting elements left open.",
+          "big_case_score": 0.55,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        },
+        {
+          "big_case_rationale": "The consumer definition affects nationwide video-privacy and tracking-pixel litigation, advertising practices, and potentially substantial statutory damages, but the question is a bounded statutory issue and does not settle provider coverage or qualifying personal information.",
+          "big_case_score": 0.62,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        },
+        {
+          "big_case_rationale": "Resolves an entrenched 2-2 circuit split over the scope of the Video Privacy Protection Act's 'consumer' definition with major implications for nationwide digital privacy and Meta Pixel class-action litigation.",
+          "big_case_score": 0.7,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        }
+      ],
+      "docket_id": 73278510,
+      "docket_number": "25-459",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-459.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Decides the threshold 'consumer' element for the wave of VPPA pixel class actions against websites; large aggregate statutory-damages exposure, but a single-clause statutory question with other limiting elements left open.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73278510/events/evt-argument-judgment/predictions/claude-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-argument-judgment/predictions/claude-baseline/20261028T011516Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.75,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "The consumer definition affects nationwide video-privacy and tracking-pixel litigation, advertising practices, and potentially substantial statutory damages, but the question is a bounded statutory issue and does not settle provider coverage or qualifying personal information.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73278510/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.78,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "Resolves an entrenched 2-2 circuit split over the scope of the Video Privacy Protection Act's 'consumer' definition with major implications for nationwide digital privacy and Meta Pixel class-action litigation.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/73278510/events/evt-argument-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-argument-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "confidence": 0.75,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "granted",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.72,
+              "run_id": "20261028T011516Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Michael Salazar v. Paramount Global, dba 247Sports"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Hundreds of pending Meta-pixel VPPA class actions against media, retail, and streaming companies turn on this definition, drawing an eleven-brief business and media amicus lineup; high stakes for industry, though doctrinally a niche statutory-interpretation question rather than a landmark.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73278510/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.4,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.45,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The ruling will govern nationwide VPPA exposure for common web analytics and video-tracking practices across media, retail, and technology businesses.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/73278510/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.58,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.42,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "High impact for internet privacy and liability of streaming platforms under the VPPA, but technically narrow statutory question.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/73278510/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Michael Salazar v. Paramount Global, dba 247Sports"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Decides whether the VPPA's 'consumer' definition sustains the large wave of pixel-tracking class actions against media and retail companies; high industry stakes (Meta, MPA, Chamber amici) but technical statutory subject matter with modest general-public salience.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/73278510/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.55,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.45,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The VPPA rule will affect nationwide digital-media, advertising, and privacy litigation, as reflected by the broad industry amicus participation.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/73278510/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.63,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.66,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73278510/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.35,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Michael Salazar v. Paramount Global, dba 247Sports"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.6233,
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-10-14",
+      "n": 3,
+      "other_party": "Paramount Global",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Salazar wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Paramount Global wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.7,
+      "score_min": 0.55,
+      "score_range": 0.15,
+      "short_caption": "Salazar v. Paramount Global",
       "status": "pending"
     },
     {
@@ -16219,178 +16197,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Department of the Air Force",
-      "caption": "Department of the Air Force, et al. v. Prutehi Guahan, fka Prutehi Litekyan",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73279024",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Significant administrative-law vehicle \u2014 APA finality for agency permit applications plus NEPA displacement by a specific environmental statute \u2014 with military operations, territorial communities, an 11-state amicus bloc on each side, and the Chamber of Commerce engaged; consequential for agencies and NEPA litigation but not a marquee public controversy.",
-          "big_case_score": 0.5,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "The case could set a nationally important boundary on final agency action and NEPA review when federal facilities seek environmental permits.",
-          "big_case_score": 0.7,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": null,
-          "big_case_score": null,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        }
-      ],
-      "docket_id": 73279024,
-      "docket_number": "25-579",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-579.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Significant administrative-law vehicle \u2014 APA finality for agency permit applications plus NEPA displacement by a specific environmental statute \u2014 with military operations, territorial communities, an 11-state amicus bloc on each side, and the Chamber of Commerce engaged; consequential for agencies and NEPA litigation but not a marquee public controversy.",
-              "big_case_score": 0.5,
-              "cell_path": "data/cases/scotus/73279024/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.84,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The case could set a nationally important boundary on final agency action and NEPA review when federal facilities seek environmental permits.",
-              "big_case_score": 0.7,
-              "cell_path": "data/cases/scotus/73279024/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.68,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.74,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": 0.8,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Department of the Air Force, et al. v. Prutehi Guahan, fka Prutehi Litekyan"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "A significant administrative-law case \u2014 APA finality and NEPA's reach over federal facilities' permitting, with military-operations stakes and an indigenous-community challenge from Guam \u2014 but doctrinal rather than headline-grabbing; closely watched in environmental and admin-law circles, not broadly salient.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73279024/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.7,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.88,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The ruling could affect federal permit-renewal practice nationwide, but the likely decision is a technical and narrow APA-finality holding.",
-              "big_case_score": 0.68,
-              "cell_path": "data/cases/scotus/73279024/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.78,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.88,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73279024/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.92,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Department of the Air Force, et al. v. Prutehi Guahan, fka Prutehi Litekyan"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.6,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-07-20",
-      "n": 2,
-      "other_party": "Prutehi Guahan",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "The Department of the Air Force wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Prutehi Guahan wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.7,
-      "score_min": 0.5,
-      "score_range": 0.2,
-      "short_caption": "Department of the Air Force v. Prutehi Guahan",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Mohan",
       "caption": "Brij Mohan, et al. v. Jordan Watkins",
       "caption_event_id": "evt-petition-disposition",
@@ -17199,6 +17005,178 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Grand",
+      "caption": "Daniel Grand v. City of University Heights, Ohio, et al.",
+      "caption_event_id": "evt-brief-judgment",
+      "case_id": "scotus/73281006",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Settles whether Williamson County finality reaches First Amendment/RLUIPA land-use claims \u2014 a recurring religious-liberty and zoning question with heavy amicus interest \u2014 but a remand-shaped ripeness ruling, not a substantive Free Exercise holding.",
+          "big_case_score": 0.45,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        },
+        {
+          "big_case_rationale": "A nationally consequential religious-liberty and federal-courts access case affecting local land-use disputes, but the likely ruling concerns justiciability rather than a substantive right to conduct every religious use without a permit.",
+          "big_case_score": 0.62,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        },
+        {
+          "big_case_rationale": "High doctrinal significance for First Amendment Free Exercise and RLUIPA justiciability across the federal circuits (resolving whether Williamson County's Takings Clause finality requirement applies to land-use religious-liberty and chilling-effect claims), though potentially narrowed by case-specific procedural facts.",
+          "big_case_score": 0.65,
+          "event_id": "evt-brief-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        }
+      ],
+      "docket_id": 73281006,
+      "docket_number": "25-965",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-965.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Settles whether Williamson County finality reaches First Amendment/RLUIPA land-use claims \u2014 a recurring religious-liberty and zoning question with heavy amicus interest \u2014 but a remand-shaped ripeness ruling, not a substantive Free Exercise holding.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73281006/events/evt-brief-judgment/predictions/claude-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281006/events/evt-brief-judgment/predictions/claude-baseline/20261028T011516Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.8,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "A nationally consequential religious-liberty and federal-courts access case affecting local land-use disputes, but the likely ruling concerns justiciability rather than a substantive right to conduct every religious use without a permit.",
+              "big_case_score": 0.62,
+              "cell_path": "data/cases/scotus/73281006/events/evt-brief-judgment/predictions/codex-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281006/events/evt-brief-judgment/predictions/codex-baseline/20261028T011516Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.76,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "High doctrinal significance for First Amendment Free Exercise and RLUIPA justiciability across the federal circuits (resolving whether Williamson County's Takings Clause finality requirement applies to land-use religious-liberty and chilling-effect claims), though potentially narrowed by case-specific procedural facts.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73281006/events/evt-brief-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281006/events/evt-brief-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20261028T011516Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Daniel Grand v. City of University Heights, Ohio, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Nationally watched religious-liberty case with a broad cross-ideological amicus coalition, but the question is justiciability: the likely outcome is a remand on ripeness, not a merits ruling on religious exercise.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73281006/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281006/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.82,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "The case could set a nationwide boundary between First Amendment chilling injury and land-use finality for religious exercise in the home.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/73281006/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281006/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.67,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.82,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73281006/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73281006/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Daniel Grand v. City of University Heights, Ohio, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.5733,
+      "moment": "evt-brief-judgment",
+      "moment_opened_at": "2026-10-23",
+      "n": 3,
+      "other_party": "City of University Heights",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Grand wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "The City of University Heights wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.65,
+      "score_min": 0.45,
+      "score_range": 0.2,
+      "short_caption": "Grand v. City of University Heights",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Guerrero",
       "caption": "Eric Guerrero, Director, Texas Department of Criminal Justice, Correctional Institutions Division v. Dexter Johnson",
       "caption_event_id": "evt-brief-judgment",
@@ -17651,6 +17629,228 @@
       "score_min": 0.45,
       "score_range": 0.25,
       "short_caption": "NHK Spring v. Seagate Technology",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Department of the Air Force",
+      "caption": "Department of the Air Force, et al. v. Prutehi Guahan, fka Prutehi Litekyan",
+      "caption_event_id": "evt-argument-judgment",
+      "case_id": "scotus/73279024",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A recurring administrative-law question (finality of a federal agency's own permit application to a non-federal regulator) plus NEPA/RCRA displacement, with state coalitions on both sides; significant for federal facility permitting but technical rather than headline.",
+          "big_case_score": 0.5,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        },
+        {
+          "big_case_rationale": "The local environmental stakes on Guam are substantial, and the finality question could affect challenges to federal agencies' permit applications nationwide. A narrow procedural ruling would leave the broader NEPA/RCRA displacement question unresolved.",
+          "big_case_score": 0.66,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        },
+        {
+          "big_case_rationale": "Moderate-to-high doctrinal significance for federal administrative law (clarifying APA 'final agency action' when federal agencies apply to state or territorial regulators under cooperative-federalism environmental statutes like RCRA) and military munitions operations in Guam, though likely resolved on a narrow threshold finality ground without reaching the broader NEPA-displacement question.",
+          "big_case_score": 0.55,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        }
+      ],
+      "docket_id": 73279024,
+      "docket_number": "25-579",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-579.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring administrative-law question (finality of a federal agency's own permit application to a non-federal regulator) plus NEPA/RCRA displacement, with state coalitions on both sides; significant for federal facility permitting but technical rather than headline.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/73279024/events/evt-argument-judgment/predictions/claude-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-argument-judgment/predictions/claude-baseline/20261028T011516Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.87,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "The local environmental stakes on Guam are substantial, and the finality question could affect challenges to federal agencies' permit applications nationwide. A narrow procedural ruling would leave the broader NEPA/RCRA displacement question unresolved.",
+              "big_case_score": 0.66,
+              "cell_path": "data/cases/scotus/73279024/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.89,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "Moderate-to-high doctrinal significance for federal administrative law (clarifying APA 'final agency action' when federal agencies apply to state or territorial regulators under cooperative-federalism environmental statutes like RCRA) and military munitions operations in Guam, though likely resolved on a narrow threshold finality ground without reaching the broader NEPA-displacement question.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73279024/events/evt-argument-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-argument-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "confidence": 0.85,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20261028T011516Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of the Air Force, et al. v. Prutehi Guahan, fka Prutehi Litekyan"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Significant administrative-law vehicle \u2014 APA finality for agency permit applications plus NEPA displacement by a specific environmental statute \u2014 with military operations, territorial communities, an 11-state amicus bloc on each side, and the Chamber of Commerce engaged; consequential for agencies and NEPA litigation but not a marquee public controversy.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/73279024/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.84,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The case could set a nationally important boundary on final agency action and NEPA review when federal facilities seek environmental permits.",
+              "big_case_score": 0.7,
+              "cell_path": "data/cases/scotus/73279024/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.68,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.74,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": 0.8,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of the Air Force, et al. v. Prutehi Guahan, fka Prutehi Litekyan"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A significant administrative-law case \u2014 APA finality and NEPA's reach over federal facilities' permitting, with military-operations stakes and an indigenous-community challenge from Guam \u2014 but doctrinal rather than headline-grabbing; closely watched in environmental and admin-law circles, not broadly salient.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73279024/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.7,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.88,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The ruling could affect federal permit-renewal practice nationwide, but the likely decision is a technical and narrow APA-finality holding.",
+              "big_case_score": 0.68,
+              "cell_path": "data/cases/scotus/73279024/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.78,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.88,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73279024/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279024/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.92,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Department of the Air Force, et al. v. Prutehi Guahan, fka Prutehi Litekyan"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.57,
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-10-07",
+      "n": 3,
+      "other_party": "Prutehi Guahan",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "The Department of the Air Force wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "Prutehi Guahan wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.66,
+      "score_min": 0.5,
+      "score_range": 0.16,
+      "short_caption": "Department of the Air Force v. Prutehi Guahan",
       "status": "pending"
     },
     {
@@ -18640,178 +18840,6 @@
       "score_min": 0.35,
       "score_range": 0.5,
       "short_caption": "Walls v. Prince George's County",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Salazar",
-      "caption": "Michael Salazar v. Paramount Global, dba 247Sports",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73278510",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Hundreds of pending Meta-pixel VPPA class actions against media, retail, and streaming companies turn on this definition, drawing an eleven-brief business and media amicus lineup; high stakes for industry, though doctrinally a niche statutory-interpretation question rather than a landmark.",
-          "big_case_score": 0.55,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "The ruling will govern nationwide VPPA exposure for common web analytics and video-tracking practices across media, retail, and technology businesses.",
-          "big_case_score": 0.72,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        },
-        {
-          "big_case_rationale": "High impact for internet privacy and liability of streaming platforms under the VPPA, but technically narrow statutory question.",
-          "big_case_score": 0.4,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T173750Z"
-        }
-      ],
-      "docket_id": 73278510,
-      "docket_number": "25-459",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-459.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Hundreds of pending Meta-pixel VPPA class actions against media, retail, and streaming companies turn on this definition, drawing an eleven-brief business and media amicus lineup; high stakes for industry, though doctrinally a niche statutory-interpretation question rather than a landmark.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73278510/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.4,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.45,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The ruling will govern nationwide VPPA exposure for common web analytics and video-tracking practices across media, retail, and technology businesses.",
-              "big_case_score": 0.72,
-              "cell_path": "data/cases/scotus/73278510/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.58,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.42,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "High impact for internet privacy and liability of streaming platforms under the VPPA, but technically narrow statutory question.",
-              "big_case_score": 0.4,
-              "cell_path": "data/cases/scotus/73278510/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": 0.8,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.85,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Michael Salazar v. Paramount Global, dba 247Sports"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Decides whether the VPPA's 'consumer' definition sustains the large wave of pixel-tracking class actions against media and retail companies; high industry stakes (Meta, MPA, Chamber amici) but technical statutory subject matter with modest general-public salience.",
-              "big_case_score": 0.5,
-              "cell_path": "data/cases/scotus/73278510/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
-              "confidence": 0.55,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.45,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": "The VPPA rule will affect nationwide digital-media, advertising, and privacy litigation, as reflected by the broad industry amicus participation.",
-              "big_case_score": 0.72,
-              "cell_path": "data/cases/scotus/73278510/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
-              "confidence": 0.63,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.66,
-              "run_id": "20260816T173750Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73278510/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278510/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.35,
-              "run_id": "20260816T173750Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Michael Salazar v. Paramount Global, dba 247Sports"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.5567,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-06-23",
-      "n": 3,
-      "other_party": "Paramount Global",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Salazar wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "Paramount Global wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.72,
-      "score_min": 0.4,
-      "score_range": 0.32,
-      "short_caption": "Salazar v. Paramount Global",
       "status": "pending"
     },
     {
@@ -20483,6 +20511,450 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Johnson",
+      "caption": "Floyd D. Johnson v. United States Congress",
+      "caption_event_id": "evt-argument-judgment",
+      "case_id": "scotus/73279865",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Settles where facial constitutional challenges to veterans'-benefits statutes are heard and whether the BVA must decide them; important to a large claimant population but a jurisdictional-channeling question rather than a headline merits ruling.",
+          "big_case_score": 0.45,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        },
+        {
+          "big_case_rationale": "The case determines access to district courts for constitutional challenges to veterans' benefits statutes and may clarify agency adjudicators' duties, but does not itself decide entitlement to benefits or the validity of the incarceration reduction.",
+          "big_case_score": 0.61,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        },
+        {
+          "big_case_rationale": null,
+          "big_case_score": null,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        }
+      ],
+      "docket_id": 73279865,
+      "docket_number": "25-735",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-735.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Settles where facial constitutional challenges to veterans'-benefits statutes are heard and whether the BVA must decide them; important to a large claimant population but a jurisdictional-channeling question rather than a headline merits ruling.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73279865/events/evt-argument-judgment/predictions/claude-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-argument-judgment/predictions/claude-baseline/20261028T011516Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.64,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "The case determines access to district courts for constitutional challenges to veterans' benefits statutes and may clarify agency adjudicators' duties, but does not itself decide entitlement to benefits or the validity of the incarceration reduction.",
+              "big_case_score": 0.61,
+              "cell_path": "data/cases/scotus/73279865/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.78,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73279865/events/evt-argument-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-argument-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.9,
+              "run_id": "20261028T011516Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Floyd D. Johnson v. United States Congress"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A recurring jurisdictional question governing every veteran's access to district courts, with a broad and ideologically diverse amicus coalition \u2014 significant for the veterans' bar and administrative-law watchers, but technical channeling doctrine with little general-public salience.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73279865/events/evt-brief-judgment/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-brief-judgment/predictions/claude-baseline/20260816T111104Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.78,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "The case governs the judicial forum for constitutional challenges affecting veterans nationwide, but presents a specialized jurisdictional question rather than a broadly salient merits controversy.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73279865/events/evt-brief-judgment/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-brief-judgment/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.6,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.4,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73279865/events/evt-brief-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-brief-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.7,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Floyd D. Johnson v. United States Congress"
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Structurally significant for jurisdiction-channeling doctrine and for millions of veterans' access to district courts, with a broad cross-ideological amicus lineup, but a technical jurisdictional holding rather than a headline constitutional ruling.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73279865/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
+              "confidence": 0.6,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.8,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "The case determines the federal forum for facial constitutional challenges to veterans-benefits statutes and resolves an acknowledged circuit conflict.",
+              "big_case_score": 0.66,
+              "cell_path": "data/cases/scotus/73279865/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
+              "confidence": 0.61,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.7,
+              "run_id": "20260816T111104Z"
+            },
+            {
+              "big_case_rationale": "Resolves a deep circuit split on federal court jurisdiction over constitutional challenges to veterans benefits statutes.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/73279865/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.25,
+              "run_id": "20260816T111104Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Floyd D. Johnson v. United States Congress"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.53,
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-10-05",
+      "n": 2,
+      "other_party": "United States Congress",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Johnson wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "The United States Congress wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.61,
+      "score_min": 0.45,
+      "score_range": 0.16,
+      "short_caption": "Johnson v. United States Congress",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Anderson",
+      "caption": "Winston R. Anderson, et al. v. Intel Corporation Investment Policy Committee, et al.",
+      "caption_event_id": "evt-argument-judgment",
+      "case_id": "scotus/73278555",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Sets the pleading bar for the large volume of 401(k) underperformance suits, but the question is narrow and both sides concede much of it.",
+          "big_case_score": 0.45,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        },
+        {
+          "big_case_rationale": "The pleading standard affects retirement-plan participants and fiduciaries nationwide, including suits involving alternative investments, but the question is narrower than the legality of hedge funds or private equity in retirement plans.",
+          "big_case_score": 0.56,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        },
+        {
+          "big_case_rationale": "Significant ERISA pleading precedent governing class-action challenges to 401(k) and defined-contribution retirement plan investment options nationwide, resolving a circuit split on the meaningful-benchmark standard.",
+          "big_case_score": 0.55,
+          "event_id": "evt-argument-judgment",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261028T011516Z"
+        }
+      ],
+      "docket_id": 73278555,
+      "docket_number": "25-498",
+      "docket_number_source": "qp-topics",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-498.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-argument-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Sets the pleading bar for the large volume of 401(k) underperformance suits, but the question is narrow and both sides concede much of it.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/73278555/events/evt-argument-judgment/predictions/claude-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-argument-judgment/predictions/claude-baseline/20261028T011516Z",
+              "confidence": 0.8,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.1,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "The pleading standard affects retirement-plan participants and fiduciaries nationwide, including suits involving alternative investments, but the question is narrower than the legality of hedge funds or private equity in retirement plans.",
+              "big_case_score": 0.56,
+              "cell_path": "data/cases/scotus/73278555/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.12,
+              "run_id": "20261028T011516Z"
+            },
+            {
+              "big_case_rationale": "Significant ERISA pleading precedent governing class-action challenges to 401(k) and defined-contribution retirement plan investment options nationwide, resolving a circuit split on the meaningful-benchmark standard.",
+              "big_case_score": 0.55,
+              "cell_path": "data/cases/scotus/73278555/events/evt-argument-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-argument-judgment/predictions/gemini-baseline/20261028T011516Z",
+              "confidence": 0.82,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.18,
+              "run_id": "20261028T011516Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Winston R. Anderson, et al. v. Intel Corporation Investment Policy Committee, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-brief-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "Sets the pleading standard for the ERISA excessive-fee/underperformance litigation wave against 401(k) fiduciaries \u2014 trillions in defined-contribution assets and hundreds of pending suits turn on it, with the SG, DOL, Chamber, ICI, and NAM all filing; high stakes for the benefits industry though modest general-public salience.",
+              "big_case_score": 0.6,
+              "cell_path": "data/cases/scotus/73278555/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-brief-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.66,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The case could set the nationwide pleading rule for ERISA imprudence suits involving retirement-plan investment performance.",
+              "big_case_score": 0.68,
+              "cell_path": "data/cases/scotus/73278555/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-brief-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.56,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.62,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": null,
+              "big_case_score": null,
+              "cell_path": "data/cases/scotus/73278555/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-brief-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.75,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Winston R. Anderson, et al. v. Intel Corporation Investment Policy Committee, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-order-judgment",
+          "reads": [
+            {
+              "big_case_rationale": "A pleading-standard ruling that will govern the large and growing 401(k)/403(b) fiduciary-breach litigation industry across all circuits; high stakes for plan sponsors and participants, though technical and unlikely to lead general news.",
+              "big_case_score": 0.5,
+              "cell_path": "data/cases/scotus/73278555/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-order-judgment/predictions/claude-baseline/20260816T173750Z",
+              "confidence": 0.55,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "claude-baseline",
+              "probability": 0.65,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "The case can set a nationwide pleading rule for ERISA imprudence suits affecting large retirement plans, but it is unlikely to alter fiduciaries' substantive duties broadly.",
+              "big_case_score": 0.63,
+              "cell_path": "data/cases/scotus/73278555/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-order-judgment/predictions/codex-baseline/20260816T173750Z",
+              "confidence": 0.74,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "codex-baseline",
+              "probability": 0.86,
+              "run_id": "20260816T173750Z"
+            },
+            {
+              "big_case_rationale": "Important pleading standard for ERISA class actions, but relatively technical rather than broadly newsworthy.",
+              "big_case_score": 0.4,
+              "cell_path": "data/cases/scotus/73278555/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73278555/events/evt-order-judgment/predictions/gemini-baseline/20260816T173750Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "other",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.85,
+              "run_id": "20260816T173750Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Winston R. Anderson, et al. v. Intel Corporation Investment Policy Committee, et al."
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.52,
+      "moment": "evt-argument-judgment",
+      "moment_opened_at": "2026-10-06",
+      "n": 3,
+      "other_party": "Intel Corporation Investment Policy Committee",
+      "outcome_lines": [
+        {
+          "action": "reversed",
+          "line": "Anderson wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
+          "side": "disturbed"
+        },
+        {
+          "action": "affirmed",
+          "line": "The Intel Corporation Investment Policy Committee wins: the lower court's decision is upheld.",
+          "side": "undisturbed"
+        },
+        {
+          "action": "vacated",
+          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
+          "side": "disturbed"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.56,
+      "score_min": 0.45,
+      "score_range": 0.11,
+      "short_caption": "Anderson v. Intel Corporation Investment Policy Committee",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Eric Alan Isaacson",
       "caption": "Eric Alan Isaacson v. Maribel Moses, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -21495,178 +21967,6 @@
       "score_min": 0.3,
       "score_range": 0.35,
       "short_caption": null,
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Johnson",
-      "caption": "Floyd D. Johnson v. United States Congress",
-      "caption_event_id": "evt-brief-judgment",
-      "case_id": "scotus/73279865",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A recurring jurisdictional question governing every veteran's access to district courts, with a broad and ideologically diverse amicus coalition \u2014 significant for the veterans' bar and administrative-law watchers, but technical channeling doctrine with little general-public salience.",
-          "big_case_score": 0.45,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": "The case governs the judicial forum for constitutional challenges affecting veterans nationwide, but presents a specialized jurisdictional question rather than a broadly salient merits controversy.",
-          "big_case_score": 0.55,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        },
-        {
-          "big_case_rationale": null,
-          "big_case_score": null,
-          "event_id": "evt-brief-judgment",
-          "leakage_suspected": false,
-          "predictor_id": "gemini-baseline",
-          "process_window": null,
-          "run_id": "20260816T111104Z"
-        }
-      ],
-      "docket_id": 73279865,
-      "docket_number": "25-735",
-      "docket_number_source": "qp-topics",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-735.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-brief-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "A recurring jurisdictional question governing every veteran's access to district courts, with a broad and ideologically diverse amicus coalition \u2014 significant for the veterans' bar and administrative-law watchers, but technical channeling doctrine with little general-public salience.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/73279865/events/evt-brief-judgment/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-brief-judgment/predictions/claude-baseline/20260816T111104Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.78,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "The case governs the judicial forum for constitutional challenges affecting veterans nationwide, but presents a specialized jurisdictional question rather than a broadly salient merits controversy.",
-              "big_case_score": 0.55,
-              "cell_path": "data/cases/scotus/73279865/events/evt-brief-judgment/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-brief-judgment/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.6,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.4,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": null,
-              "big_case_score": null,
-              "cell_path": "data/cases/scotus/73279865/events/evt-brief-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-brief-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.7,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Floyd D. Johnson v. United States Congress"
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-order-judgment",
-          "reads": [
-            {
-              "big_case_rationale": "Structurally significant for jurisdiction-channeling doctrine and for millions of veterans' access to district courts, with a broad cross-ideological amicus lineup, but a technical jurisdictional holding rather than a headline constitutional ruling.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/73279865/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-order-judgment/predictions/claude-baseline/20260816T111104Z",
-              "confidence": 0.6,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "claude-baseline",
-              "probability": 0.8,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "The case determines the federal forum for facial constitutional challenges to veterans-benefits statutes and resolves an acknowledged circuit conflict.",
-              "big_case_score": 0.66,
-              "cell_path": "data/cases/scotus/73279865/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-order-judgment/predictions/codex-baseline/20260816T111104Z",
-              "confidence": 0.61,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "codex-baseline",
-              "probability": 0.7,
-              "run_id": "20260816T111104Z"
-            },
-            {
-              "big_case_rationale": "Resolves a deep circuit split on federal court jurisdiction over constitutional challenges to veterans benefits statutes.",
-              "big_case_score": 0.65,
-              "cell_path": "data/cases/scotus/73279865/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/73279865/events/evt-order-judgment/predictions/gemini-baseline/20260816T111104Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "other",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.25,
-              "run_id": "20260816T111104Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Floyd D. Johnson v. United States Congress"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.5,
-      "moment": "evt-brief-judgment",
-      "moment_opened_at": "2026-07-13",
-      "n": 2,
-      "other_party": "United States Congress",
-      "outcome_lines": [
-        {
-          "action": "reversed",
-          "line": "Johnson wins: the lower court's decision is overturned, and any remaining issues go back to that court.",
-          "side": "disturbed"
-        },
-        {
-          "action": "affirmed",
-          "line": "The United States Congress wins: the lower court's decision is upheld.",
-          "side": "undisturbed"
-        },
-        {
-          "action": "vacated",
-          "line": "The lower court's decision is set aside and the case goes back to that court, without the Court deciding it for either side.",
-          "side": "disturbed"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.55,
-      "score_min": 0.45,
-      "score_range": 0.1,
-      "short_caption": "Johnson v. United States Congress",
       "status": "pending"
     },
     {
@@ -43567,5 +43867,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.3",
-  "scored_reads": 951
+  "scored_reads": 954
 }
