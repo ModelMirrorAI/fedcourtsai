@@ -20,6 +20,20 @@
           "description": "The specific event this flag is about, if narrower than the cell",
           "title": "Event Id"
         },
+        "issue": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The repository issue that already tracks this problem, when the agent cites one instead of re-describing it; the roll-up counts a cited tracked theme against its issue",
+          "title": "Issue"
+        },
         "message": {
           "description": "What the maintainer should know, in prose",
           "maxLength": 2000,
@@ -51,11 +65,14 @@
       "type": "object"
     },
     "FlagCategory": {
-      "description": "What kind of thing an agent flag is about, for maintainer triage.",
+      "description": "What kind of thing an agent flag is about, for maintainer triage.\n\n``provisioning`` is a cell's record that lacks something the pipeline should\nhave staged; ``capture-gap`` an outcome or docket record that cannot show\nwhat a forecast or grading needed; ``leakage-disclosure`` a replay cell's\nnote that it surfaced material about its own case postdating its event date.\n``blocked`` stays valid for every file that carries it; severity ``blocker``\nis what says a cell could not finish, under whatever category.",
       "enum": [
         "data-quality",
         "scope",
         "ambiguous-event",
+        "provisioning",
+        "capture-gap",
+        "leakage-disclosure",
         "blocked",
         "other"
       ],

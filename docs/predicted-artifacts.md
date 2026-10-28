@@ -470,8 +470,20 @@ was blocked. It validates against the `AgentFlags` model, and the `collect` job
 rolls every cell's flags into the run PR body, the Actions summary, and one
 long-lived agent-feedback tracking issue, so the note survives the trigger
 issue's closure and a maintainer sees it without reading every `reasoning.md`.
-`category` is one of `data-quality` / `scope` / `ambiguous-event` / `blocked` /
-`other`, and `severity` one of `info` / `warning` / `blocker`.
+`category` is one of `data-quality` / `scope` / `ambiguous-event` /
+`provisioning` / `capture-gap` / `leakage-disclosure` / `other`, and `severity`
+one of `info` / `warning` / `blocker`. `provisioning` is a record missing
+something the pipeline should have staged, `capture-gap` an outcome or docket
+record that cannot show what the forecast or grading needed, and
+`leakage-disclosure` a replay cell's note that it surfaced material about its
+own case postdating its event date; the cert back-test marks every note filed
+there as an exposure candidate, whatever its wording. `blocked` also
+validates; `severity: blocker` is what says a cell could not finish. An
+optional `issue` names the repository issue that already tracks the problem,
+so a cell can cite it instead of re-describing it. Written as a number it
+places the flag in that issue's tracked theme; written as text (`"#123"`) it
+is read the same, but the coercion marks the flag `normalised`, so it is
+listed rather than counted.
 
 **A flag never fails a predict or evaluate cell.** The cell's judgment is its
 output and its flags are advisory. So `stamp-cell` normalises a `flags.json`
@@ -486,7 +498,12 @@ note discard the output beside it. (This section spells the verb the way the
   becomes `warning`, loud enough to be read. Nothing is ever coerced to
   `blocker`.
 - An off-vocabulary `category` becomes `other`, after the same insensitive
-  match, so `"data_quality"` keeps its meaning.
+  match (so `"data_quality"` keeps its meaning) and a short synonym table:
+  `outcome-exposure`, `leakage`, `leak` and `outcome-leakage` read as
+  `leakage-disclosure`; `capture` and `data-capture` as `capture-gap`;
+  `provision`, `mis-provisioning` and `missing-document` as `provisioning`.
+- An `issue` written as `"#123"`, `"123"` or `"gh-123"` reads as 123; one that
+  is not an issue number is dropped.
 - An over-long message continues in further flags of the same category,
   severity and event, so its text is never cut.
 - An unknown key is dropped, and a missing envelope field is filled from the
@@ -528,8 +545,9 @@ shows depends on how its engine logs it, so the note is engine-shaped: counts
 of it per engine compare logging as much as behaviour.
 
 The roll-up groups flags by case, event, source and theme. The theme is the
-tracked theme a flag's message matches in `src/fedcourtsai/flag_themes.json`
-(a theme-to-issue map), and otherwise the flag's category. So sibling actors'
+tracked theme a flag cites by `issue` or its message matches in
+`src/fedcourtsai/flag_themes.json` (a theme-to-issue map), then the untracked
+issue a flag cites, and otherwise the flag's category. So sibling actors'
 notes on one event read as one row naming every actor. An agent flag on a
 tracked theme is counted against its issue rather than listed, so a new theme
 stands out. A `blocker` and a `normalised` flag are listed whether tracked or
