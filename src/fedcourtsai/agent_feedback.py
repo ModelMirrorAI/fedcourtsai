@@ -19,8 +19,8 @@ The job invokes this with the ambient ``GITHUB_TOKEN`` (job-scoped
 cross-workflow trigger because ``agent-feedback`` is a non-triggering label.
 
 The seam carries every issue write the pipeline makes under a non-triggering
-label, not only the latch: :func:`open_issue_once` opens the run-ops digests'
-per-issue reading surfaces from the same bounded runner and the same marker
+label, not only the latch: :func:`open_issue_once` opens the run-ops daily digest's
+per-issue reading surface from the same bounded runner and the same marker
 test, and :func:`find_or_create_issue` is the long-lived-issue half on its own,
 so no workflow has to grow its own find-or-create bash.
 """

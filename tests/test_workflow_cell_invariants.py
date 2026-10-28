@@ -122,7 +122,7 @@ from fedcourtsai.collect import (
 )
 from fedcourtsai.config import Settings
 from fedcourtsai.mcp import CODEX_CELL_PERMISSION_PROFILE, codex_mcp_config
-from fedcourtsai.ops import DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL
+from fedcourtsai.ops import DAILY_DIGEST_LABEL
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.documents import TextCoverage, TextCoverageCut
 from fedcourtsai.pipeline.runner import CodexRunner, RunRequest, _cell_env
@@ -3839,8 +3839,7 @@ def test_the_daily_digest_job_is_parked_by_the_pause_variable_and_nothing_else()
     code and the label stay, and clearing the variable resumes it. The gate
     must fail open — an absent variable runs the job, so a pause is always an
     explicit act — and must not key on the schedule string, which would be
-    true for every cron it does not name and would drop Monday's digest when
-    the weekly tick cancels the daily one.
+    true for every cron it does not name.
     """
     job = _load("run-ops.yml")["jobs"]["daily-digest"]
     # The whole expression, not substrings: a second disjunct — a dispatch
@@ -3863,7 +3862,7 @@ def test_no_workflow_triggers_on_a_digest_label() -> None:
         workflow = _load(path.name)
         # `on` parses to the truthy bool key in YAML; tolerate either spelling.
         triggers = workflow.get("on") or workflow.get(True) or {}
-        for label in (DAILY_DIGEST_LABEL, WEEKLY_DIGEST_LABEL):
+        for label in (DAILY_DIGEST_LABEL,):
             assert label not in yaml.safe_dump(triggers), (
                 f"{path.name} triggers on the non-triggering {label} label"
             )
@@ -3874,33 +3873,6 @@ def test_no_workflow_triggers_on_a_digest_label() -> None:
                     assert label not in condition, (
                         f"{path.name}:{name} gates on the non-triggering {label} label"
                     )
-
-
-def test_every_schedule_gate_names_a_cron_run_ops_declares() -> None:
-    """A cron literal in a gate must be one the workflow actually declares.
-
-    Change the schedule and forget the gate, and the weekly digest silently stops
-    posting — fail-closed, but silently, on a surface whose whole point is being
-    read once a week, so "silently" costs weeks. Scoped by *what a gate compares
-    against* rather than by the step's name, because a gate can live in an `if:`
-    or in an `env:` value the shell then tests, and keying on the name would stop
-    covering the gate the moment it moved.
-    """
-    workflow = _load("run-ops.yml")
-    triggers = workflow.get("on") or workflow.get(True) or {}
-    declared = {str(entry["cron"]) for entry in triggers["schedule"]}
-    gates = [
-        expression
-        for job in workflow["jobs"].values()
-        for step in job.get("steps", [])
-        for expression in [str(step.get("if", "")), *map(str, (step.get("env") or {}).values())]
-        if "github.event.schedule" in expression
-    ]
-    assert gates, "run-ops gates nothing on its schedule"
-    for gate in gates:
-        assert any(cron in gate for cron in declared), (
-            f"the gate {gate!r} names no cron run-ops declares: {sorted(declared)}"
-        )
 
 
 def _schedule(name: str) -> list[str]:
@@ -3915,9 +3887,9 @@ def test_the_back_test_cron_is_one_weekend_slot_off_every_other_workflows() -> N
 
     A released fortnight derives a plan, waits an unbounded human interval on
     the hold, runs up to its 330-minute cap and then lands a **reviewed** PR —
-    all before the Monday digest tick reads the report. Only a weekend slot
-    leaves that much room, so the day is pinned here rather than left to a later
-    edit that would quietly cost the digest a fresh report. The minute is pinned
+    all before the working week starts. Only a weekend slot leaves that much
+    room, so the day is pinned here rather than left to a later edit that would
+    quietly shorten the runway. The minute is pinned
     clear of every other workflow's for the reason the whole grid exists: GitHub
     queues a repository's crons together, so slots that share a minute contend.
     """
@@ -3929,7 +3901,7 @@ def test_the_back_test_cron_is_one_weekend_slot_off_every_other_workflows() -> N
         "a day-of-month stride resets every month and is not a fortnight; the "
         "parity guard is what halves this cron"
     )
-    # Ahead of run-ops' Monday digest tick with the weekend in between.
+    # Early on Saturday, so the runway spans the weekend.
     assert int(hour) < 12
     others = [
         cron

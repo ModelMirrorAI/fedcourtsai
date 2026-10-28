@@ -48,11 +48,11 @@ requests.
 | Schedule + dispatch (`limit`) | `summarize`     | Write a **plain-language summary** of each predicted case whose record changed — what happened, what the Court is being asked, where it stands — for site readers; one tool-less model call per case (a second when a rejected response is retried), every run behind the `review` release or auto-released within the trailing spend budget, landed as a reviewed PR ([`docs/case-summaries.md`](docs/case-summaries.md)) | Messages API (no agent) |
 | Biweekly schedule + dispatch | `run-backtest`  | Cert back-test: replay predictors over decided petitions (outcomes hidden), land `metrics/cert-backtest.json` as a reviewed PR. The schedule asks under pinned parameters and waits on the manual `review` release — a replay spends tokens, so no run spends without a human. A second dispatch mode replays the predictors over **decided argued merits cases** at the grant and briefed moments, into `metrics/merits-backtest.json`; a third replays the **deterministic salience gate** over past Terms instead — offline, token-free, into `metrics/salience-replay.json` | Claude Code + Codex + Gemini (replay); salience-gate replay is script-only |
 
-Plus `run-ops` (a read-only daily operations report, plus two issues the maintainer
-closes once read: a daily prediction-reading digest — one predicted event with
-every predictor side by side — and a Monday performance digest carrying the
-cells and spend produced over the week, the trailing month and the Term to
-date, plus the back-test results) and
+Plus `run-ops` (a read-only daily operations report with a performance digest
+of the cells and spend produced over the week, the trailing month and the Term
+to date, plus the back-test results; the public status page's daily snapshot;
+and a daily prediction-reading digest — one predicted event with every
+predictor side by side — on an issue the maintainer closes once read) and
 `run-analytics` — nine dispatch modes: corpus statistics, the
 distribution-parse census, the document text-coverage enumeration, the
 tool-usage roll-up, the metrics refresh, the daily big-case board, the weekly

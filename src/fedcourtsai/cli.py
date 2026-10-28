@@ -246,8 +246,6 @@ from .merits_event_migration import (
 from .ops import (
     DAILY_DIGEST_LABEL,
     DAILY_DIGEST_MARKER_LINES,
-    WEEKLY_DIGEST_LABEL,
-    WEEKLY_DIGEST_MARKER_LINES,
     ProducedWindow,
     Vintaged,
     WeeklyAnalytics,
@@ -263,8 +261,6 @@ from .ops import (
     select_daily_digest_event,
     summarize_substance,
     summarize_trigger_issues,
-    weekly_digest_title_for_week,
-    weekly_digest_week,
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import (
@@ -12459,14 +12455,6 @@ def _weekly_analytics(metrics_root: Path) -> WeeklyAnalytics:
     )
 
 
-#: The `weekly-digest` label's appearance when the first run creates it. Purple,
-#: so a reading queue is distinguishable at a glance from the daily one beside it.
-_WEEKLY_DIGEST_LABEL_COLOR = "5319e7"
-_WEEKLY_DIGEST_LABEL_DESCRIPTION = (
-    "Weekly performance digest (run-ops); close one once you have read it"
-)
-
-
 def _parse_when(stamp: str) -> datetime:
     """A report's ``generated_at`` as an aware datetime.
 
@@ -12593,8 +12581,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     digest_out: Annotated[
         Path | None,
         typer.Option(
-            help="Write the weekly performance digest Markdown here (the body the "
-            "run-ops weekly schedule opens as its own `weekly-digest` issue)."
+            help="Write the weekly performance digest Markdown here (the run-ops "
+            "job appends it to its run summary)."
         ),
     ] = None,
     trigger_issues: Annotated[
@@ -12646,8 +12634,8 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
     spend backstop's verdict) and the Term to date (closing with the forward
     cells scored under the process in force), then the back-test results, each
     back-test figure carrying the vintage of the artifact it came from.
-    ``post-weekly-digest`` is the separate command that opens it as a
-    `weekly-digest` issue, once per ISO week.
+    The run-ops job appends it to its run summary every day; ``--status-out``
+    is the public counterpart, the same windows without spend.
 
     Unlike the leaderboard/back-test roll-ups it is a point-in-time snapshot, so
     it is surfaced, not committed.
@@ -24830,52 +24818,6 @@ def post_issue_comment_cmd(
         typer.echo("nothing to post")
         return
     typer.echo(post_once(repo=repo, issue=issue, marker=marker, body=body))
-
-
-@app.command("post-weekly-digest")
-def post_weekly_digest_cmd(
-    body_file: Annotated[
-        Path, typer.Option(help="The rendered digest (`ops-report --digest-out`).")
-    ],
-    repo: Annotated[str, typer.Option(help="owner/name of the repository to post into.")],
-) -> None:
-    """Open a rendered weekly digest as its own `weekly-digest` issue, once a week.
-
-    A poster, not a renderer: it takes the body ``ops-report --digest-out``
-    already wrote and opens it, so the ops run's own reporting — the snapshot
-    and the data-validation escalation — has all completed before this
-    non-idempotent network write is attempted. A blip here therefore costs the
-    week's digest and nothing else.
-
-    The body's first line is its ISO-week marker, and both the idempotency key
-    and the issue's title come from it, so a re-dispatch of the Monday tick adds
-    no second issue and the title can never disagree with the body. A file whose
-    first line is not a weekly-digest marker is refused rather than opened under
-    a guessed title. ``weekly-digest`` is a non-triggering label, created
-    idempotently here; the find-or-create and the bounded gh retry are tested in
-    ``agent_feedback.py``, so this command is the thin gh-invoking wrapper.
-    """
-    body = body_file.read_text(encoding="utf-8") if body_file.exists() else ""
-    if not body.strip():
-        typer.echo("nothing to post")
-        return
-    marker = body.splitlines()[0]
-    week = weekly_digest_week(marker)
-    if week is None:
-        typer.echo(f"{body_file} does not open with a weekly-digest marker.", err=True)
-        raise typer.Exit(2)
-    typer.echo(
-        open_issue_once(
-            repo=repo,
-            label=WEEKLY_DIGEST_LABEL,
-            label_color=_WEEKLY_DIGEST_LABEL_COLOR,
-            label_description=_WEEKLY_DIGEST_LABEL_DESCRIPTION,
-            title=weekly_digest_title_for_week(week),
-            body=body,
-            marker=marker,
-            marker_lines=WEEKLY_DIGEST_MARKER_LINES,
-        )
-    )
 
 
 @app.command("post-agent-feedback")

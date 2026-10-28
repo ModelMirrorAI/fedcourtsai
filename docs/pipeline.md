@@ -44,7 +44,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
 | `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the unregistered `predicted_reasoning_quality` grade, or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
-| `run-ops`        | daily schedule (ops report + prediction-reading digest; a Monday tick adds the weekly performance digest), manual | script (no agent)    |
+| `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
 | `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` and `qp-topic-label-applications` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
@@ -117,9 +117,9 @@ summary** and appends each JSON snapshot to a dedicated **`ops-metrics` branch**
 (an orphan time-series that never merges to `main`, so the default branch stays
 clean and a prior snapshot backs the substance deltas). The report is a
 per-run artifact rather than a standing body edited in place: what a maintainer
-reads is the digests below, which are issues to close, and what alarms is the
-issue-as-alarm channel. On the Monday schedule tick the same job additionally
-opens the **weekly performance digest** as its own issue (below). It triggers
+reads is the weekly performance digest appended to the same run summary, the
+public status page, and the daily digest issue below, and what alarms is the
+issue-as-alarm channel. It triggers
 nothing and touches neither `main` nor the corpus. It reports the **promoted**
 state: scheduled runs execute from the default branch, so the report describes
 the tree that is actually running rather than the one staged for the next batch —
@@ -171,21 +171,18 @@ land.
 
 ### The weekly performance digest
 
-On the Monday tick the same job opens the **weekly performance digest** as its
-own issue under the non-triggering `weekly-digest` label — one per ISO week,
-which is what its `<!-- weekly-digest: YYYY-Www -->` marker makes the create
-idempotent on. Its own issue for the same reason the daily digest gets one: a
-digest is a thing to read and close, so the open issues under the label are the
-unread backlog.
+Every run renders the **weekly performance digest** and appends it to its own
+Actions run summary, under the ops report. It is the maintainer's view of the
+same production windows the public status page shows, with the measured spend
+the page leaves out. Its first line, `<!-- weekly-digest: YYYY-Www -->`, names
+the ISO week it covers.
 
 Five blocks, in the order a reader needs them:
 
 - **Produced this week** — cells landed by role and stage, how many events they
   covered, and the week's measured spend, all over one window and one set of
-  `usage.json` records. The window's bounds are in the heading: the Monday tick
-  titles its issue for the ISO week that *starts* that morning while the census
-  covers the seven days before it, so without them the block would describe the
-  previous week under this week's heading.
+  `usage.json` records. The window's bounds are in the heading, because the
+  census covers the seven days before the run rather than a calendar week.
 - **Produced this month** — the same shape over the trailing window the ex-post
   spend backstop is configured with, closing with that backstop's own verdict
   and how much of its ceiling the period has consumed. The window is the
@@ -266,14 +263,6 @@ vintage exists to prevent. The renderer refuses to read a shallow history and
 says the vintage is unknown; the `ops` job checks out full history so the dates
 are real ones.
 
-Only the Monday cron posts. Every run renders the digest to a file; only the
-Monday step hands it to `post-weekly-digest`, so the repair for a Monday run that
-failed before that step is a **re-run of that scheduled run**, not a dispatch.
-The create is the job's final step, after the snapshot push and
-the data-validation escalation, so a degraded API costs the week's digest and
-nothing else — and because the poster takes the already-rendered body rather than
-re-deriving it, the report build stays read-only.
-
 Week-over-week deltas read the `ops-metrics` orphan-branch snapshots, which is
 what makes the substance section's `(+n)` figures mean anything.
 
@@ -288,9 +277,8 @@ is producing; this answers *what it said* — a reading the big-case board
 (`metrics/big-cases.{json,md}`, which the site renders) also carries in summary
 form, which is why the job can be **parked rather than removed**: the
 repository variable `DAILY_DIGEST_PAUSED` set to `true` skips the job on every
-trigger, a manual dispatch included, while the `ops` job and the weekly digest
-keep running; unset or any value other than `true` (compared
-case-insensitively) runs it, so a pause is always an explicit act, and clearing
+trigger, a manual dispatch included, while the `ops` job keeps running; unset
+or any value other than `true` (compared case-insensitively) runs it, so a pause is always an explicit act, and clearing
 the variable resumes it on the next tick. Setting it is the maintainer's act —
 an interactive session's token is refused on variable administration — at
 Settings → Secrets and variables → Actions → Variables, or `gh variable set
@@ -333,11 +321,11 @@ Everything under a `##` heading in the body is agent-authored and untrusted: the
 predictors' own prose, verbatim. It is presented, not vouched for, and it can
 spell markdown of its own — including headings that look like the digest's.
 
-Unless parked, the job runs on every trigger the workflow has, including the Monday weekly
-tick: the day marker, not a schedule filter, is what makes it once a day. That
-is deliberate — a `schedule` filter is fail-open on any cron it does not name,
-and the workflow-level `cancel-in-progress` lets the 08:30 weekly tick cancel an
-08:00 run still retrying, which a filtered-out job could not make up.
+Unless parked, the job runs on every trigger the workflow has, a manual
+dispatch included: the day marker, not a schedule filter, is what makes it once
+a day. That is deliberate — a `schedule` filter is fail-open on any cron it does
+not name, and a dispatch after a failed or missed run makes up the day without
+posting twice.
 
 Selection, rendering, and the once-a-day issue create are all
 `fedcourts daily-digest`, so the workflow step is a thin wrapper with no `gh` of
@@ -1589,7 +1577,7 @@ run-log issue means exactly "a window broke".
 from its label.** An **alarm** — `pull-log`, `live-log`, `data-validation`,
 `pipeline-health` — is filed only by a failure and closed by a human once
 triaged, so an open one always means something needs attention. A **digest** —
-`daily-digest`, `weekly-digest` — is filed on the happy path and closed once
+`daily-digest` — is filed on the happy path and closed once
 read, so the open ones are the unread backlog and nothing more. The
 **`agent-feedback` tracker** is the one standing body a job writes to on a
 healthy run, by comment rather than by rewrite, and it stays open by design (its
@@ -1614,7 +1602,7 @@ Events created with the default `GITHUB_TOKEN` **do not trigger other workflows*
 run PRs, the metrics and back-test review PRs — is opened with a **GitHub App
 installation token** (`actions/create-github-app-token`), not `GITHUB_TOKEN`.
 The rule cuts the other way too, and that is what keeps the operational issues
-safe: the run-log alarms, the data-validation escalation, and the digests must
+safe: the run-log alarms, the data-validation escalation, and the daily digest must
 fire nothing, so they ride
 the ambient `GITHUB_TOKEN` and never the App's. See `docs/security.md` for the
 one-time App setup.
@@ -1837,7 +1825,7 @@ pattern rather than rediscovering it:
   fails on a bare `uv run fedcourts` reappearing in that composite.
 - **A GitHub API call has no retry unless you give it one.** The calls that
   route through `gh_retry` are the ones that keep the run *record* — the ops
-  report's collection calls, the weekly digest, the data-validation escalation,
+  report's collection calls, the data-validation escalation,
   run-backtest's result comment,
   the per-day `pull-log` / `live-log` alarms, the seed guard. They are
   bookkeeping about a run rather than the work, which is what makes a lost one
@@ -1861,10 +1849,10 @@ pattern rather than rediscovering it:
   A call that routes through `agent_feedback.py`'s runner carries the bound
   already: that module's default `GhRunner` applies the same three attempts at
   the same 30s cap to every `gh` call it makes, so the `post-issue-comment`,
-  `post-agent-feedback`, `daily-digest --post`, and `post-weekly-digest`
+  `post-agent-feedback`, and `daily-digest --post`
   commands — the plan report each non-empty
   predict/evaluate round posts before the review hold, the collect job's stall
-  and secret-scan reports, the flag roll-up latch itself, and both digests'
+  and secret-scan reports, the flag roll-up latch itself, and the daily digest's
   issue creates — are covered at
   the seam, and a new caller of it inherits the bound rather than adding a copy.
   `authz.py`'s collaborator-permission lookup carries the same bound in its own
