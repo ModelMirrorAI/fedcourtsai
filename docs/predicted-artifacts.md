@@ -61,7 +61,8 @@ fields that mean the same thing at every stage:
   brief now;
   [document-provisioning.md](document-provisioning.md)); the post-argument
   merits cell's `authorship-tally.json` is held back on the same rule
-  (`provision.AUTHORSHIP_TALLY_WITHHELD`). `argument-features.json` is the
+  (`provision.AUTHORSHIP_TALLY_WITHHELD`), as is a cert cell's
+  `same-question.json` (`provision.SAME_QUESTION_WITHHELD`). `argument-features.json` is the
   deterministic parse of the transcript the cell was staged. The staged documents carry a
   `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction

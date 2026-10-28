@@ -103,7 +103,10 @@ Each of these is stated, with its reason, where the code makes the choice:
 - **A petition raising the same question without a `Vide` link is not staged.**
   Only linked companions reach `record/related/`. `fedcourts same-question`
   lists the unlinked ones by questions-presented text similarity, cut to a date,
-  but no cell reads it yet (`pipeline/same_question.py`).
+  and `fedcourts same-question-lists` builds a cert cell's list at its own
+  cutoff, which provisioning would stage as `record/same-question.json`; the
+  list is held back from every cell until a re-bless
+  (`provision.SAME_QUESTION_WITHHELD`, `pipeline/same_question.py`).
 
 - **A combined opposition is kept or dropped whole.** It is dated by its
   earliest brief, so a cutoff between two respondents' briefs admits the later

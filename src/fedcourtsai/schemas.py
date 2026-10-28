@@ -10229,6 +10229,45 @@ class AuthorshipTallySitting(_Strict):
     )
 
 
+class SameQuestionEntry(_Strict):
+    """One petition on a same-question list: identifiers and status, no text."""
+
+    docket_number: str
+    case_id: str
+    score: float = Field(ge=0, le=1, description="The TF-IDF cosine with the listing petition")
+    docketed: date | None
+    status: str = Field(
+        description="`pending` as of the cutoff, or the disposition once resolved before it"
+    )
+
+
+class SameQuestionList(_Strict):
+    """One cell's same-question petitions, staged as its ``record/same-question.json``."""
+
+    case_id: str = Field(description="The listing petition's case id")
+    event_id: str = Field(description="The cell's event, whose moment set the cutoff")
+    cutoff: date = Field(
+        description="Exclusive: only petitions docketed before this day are listed or "
+        "weighted, and a status reads resolved only where its date falls before it"
+    )
+    threshold: float = Field(
+        ge=0, le=1, description="The least score a petition had to reach to be listed"
+    )
+    indexed: int = Field(
+        ge=0, description="Petitions docketed before the cutoff with a stored questions presented"
+    )
+    petitions: list[SameQuestionEntry] | None = Field(
+        description="Best first, at most the match limit; `null` where the listing petition has no "
+        "stored questions presented docketed before the cutoff to match on"
+    )
+
+
+class SameQuestionLists(_Strict):
+    """A round's same-question lists, one per cert-stage cell, as the plan job writes them."""
+
+    lists: list[SameQuestionList]
+
+
 class AuthorshipTally(_Strict):
     """Who has written from each argument sitting of a Term, as of one day.
 
@@ -13905,6 +13944,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
     "authorship_tally": AuthorshipTally,
+    "same_question_list": SameQuestionList,
     "argument_features": ArgumentFeatures,
     "docket": DocketPack,
     "big_case_board": BigCaseBoard,
