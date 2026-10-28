@@ -1498,3 +1498,15 @@ def test_assert_record_fill_exits_on_the_jail(tmp_path: Path) -> None:
     changes.write_text(f"M\t{FREEZE_RECORD_PATH}\n")
     after.unlink()
     assert CliRunner().invoke(app, args).exit_code == 1
+
+
+def test_a_record_fill_reads_crlf_and_abutting_placeholders_byte_exact() -> None:
+    crlf = _LANDED.replace("\n", "\r\n")
+    filled = crlf.replace("<FILL: pool\r\n  count>", "1,253")
+    assert record_fill_problems([("M", FREEZE_RECORD_PATH)], crlf, filled) == []
+    abutting = "- **2026-10-28 — entry.** At <FILL: one><FILL: two>.\n"
+    second = abutting.replace("<FILL: two>", "x")
+    both = abutting.replace("<FILL: one><FILL: two>", "xy")
+    assert record_fill_problems([("M", FREEZE_RECORD_PATH)], abutting, second) == []
+    # No literal marks where the first value ends, so filling both refuses.
+    assert record_fill_problems([("M", FREEZE_RECORD_PATH)], abutting, both)

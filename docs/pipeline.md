@@ -1901,7 +1901,10 @@ logic-in-tested-Python convention above).
 Code and config land on `staging`; `main` is the official pre-registration
 record and takes code only in reviewed **promotion batches**. Data never waits
 on promotion: the deterministic writers (pull, seed, live) and the data-run
-collect PRs land on `main` directly.
+collect PRs land on `main` directly. The one non-data change that skips a
+promotion is a record fill, a reviewed `record-fill/…` PR that fills
+freeze-record placeholders `main` already holds; like a promotion's record
+commit, it makes the next cut wait for the sync.
 
 Why the indirection: two classes of bug are invisible to per-PR CI but caught
 by an integration pass over real infrastructure — a workflow that is never

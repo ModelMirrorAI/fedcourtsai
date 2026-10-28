@@ -641,7 +641,10 @@ entry, a placeholder or a registration, which only a promotion merge stamps.
 The maintainer's approval on `main` still applies, and the next promotion
 waits for the daily sync to bring the fill into `staging`. A fill that also
 rides `staging` would meet the same lines twice, so a landed placeholder is
-filled on one route only.
+filled on one route only. The jail cannot tell a free-text placeholder from
+one of the writer's closed keys, so a closed-key placeholder a promotion merge
+just added is filled by hand only once that merge's `promotion-record` run has
+concluded without filling it; before then the writer owns it.
 
 The plan refuses a merge committed
 before either parent, in the future, or before an instant the registry

@@ -194,11 +194,11 @@ jobs:
           esac
           git diff --name-status "origin/${BASE_REF}...HEAD" > changes.txt
           if [ "$jail" = record-fill ]; then
-            # The record at the diff's own base and at the head. A record
-            # missing at either end fails `git show`, and so the jail.
+            # The record at the diff's own base and at the head, byte-exact.
+            # A record missing at either end fails the read, and so the jail.
             base=$(git merge-base "origin/${BASE_REF}" HEAD)
-            git show "${base}:docs/freeze-record.md" > record-before.md
-            git show "HEAD:docs/freeze-record.md" > record-after.md
+            git cat-file blob "${base}:docs/freeze-record.md" > record-before.md
+            git cat-file blob "HEAD:docs/freeze-record.md" > record-after.md
             uv run fedcourts assert-record-fill --name-status-file changes.txt \
               --before record-before.md --after record-after.md
           elif [ "$jail" = board ]; then

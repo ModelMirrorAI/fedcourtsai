@@ -387,10 +387,12 @@ this policy.
     merge unattended behind the `paths` jail below. One reviewed lane is not a
     bot's: a `record-fill/*` PR, which the `paths` jail holds to filling, in
     place, freeze-record placeholders the base already carries (the tested
-    `fedcourts assert-record-fill`), so the one hand-authored route to `main`
-    outside a promotion cannot carry code, config, an entry or a
-    registration. Like every jail here it runs the PR's own `ci.yml`, so it
-    deters mistakes; the maintainer's approval below is what catches the rest. Rulesets cannot constrain
+    `fedcourts assert-record-fill`), so the one route into `main` an
+    interactive session opens cannot carry code, config, a new entry or a
+    registration row. What a fill's one-line value says, and whether it is
+    the right value, the jail cannot judge, and like every jail here it runs
+    the PR's own `ci.yml`, so it deters mistakes; the maintainer's approval
+    below is what holds the value and catches the rest. Rulesets cannot constrain
     a PR's source branch, which is why it is a check rather than a rule. Its
     job definition lives in `main`'s own `ci.yml`, so the context reports on
     every lane into `main`; adding a context like it goes through the *Adding
@@ -435,7 +437,9 @@ this policy.
     job opens its PR on the `metrics/public-updates` branch, and there `paths`
     runs `fedcourts assert-update-paths`, which admits added
     `metrics/updates/<YYYY-Www>.md` files and nothing else — one bounded diff per
-    lane, so no unattended merge can carry a change a human never read. It is a no-op that
+    lane, so no unattended merge can carry a change a human never read. It
+    carries one reviewed lane's jail as well: on a `record-fill/*` branch it
+    runs `fedcourts assert-record-fill` (below). It is a no-op that
     passes on every other branch, so requiring it never blocks an ordinary PR. The
     same jail runs producer-side in each collect job; requiring it here enforces
     the guarantee independently of the workflow that produced the branch. Two
@@ -614,7 +618,8 @@ this policy.
   holding the maintainer's credentials, for which the rule is discipline
   again. The sync PR is not held by it in practice: its diff
   against `staging` is the `main` commits `staging` lacks, which are writer
-  data commits, since code reaches `main` only from `staging`; a commit to an
+  data commits and record fills to `docs/freeze-record.md`, an unowned path,
+  since code reaches `main` only from `staging`; a commit to an
   owned path reaching `main` any other way would stall the sync's auto-merge
   until the maintainer approves it or lands the sync through the bypass.
   **Bypass: the repository
@@ -706,7 +711,10 @@ the approval requirement. A bounded diff is what makes merging unattended safe, 
 check carries one per lane: the append-only `data/` jail for agent output, and
 `assert-board-paths` — the board's two files, written, nothing else — for the
 big-case board, and `assert-update-paths` — added week files under
-`metrics/updates/`, nothing else — for the weekly update history.
+`metrics/updates/`, nothing else — for the weekly update history. The
+reviewed record-fill lane gets the same treatment from `assert-record-fill`:
+in-place fills of the freeze-record placeholders the base already holds,
+nothing else.
 
 The predict/evaluate `collect` job latches each run's rolled-up agent flags onto
 one long-lived `agent-feedback` tracking issue — the durable, centralized home for
