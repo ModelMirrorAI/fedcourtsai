@@ -724,10 +724,9 @@ class ProducedWindow:
     def window(self) -> str:
         """The window as dates, so two adjacent digests are comparable.
 
-        "last 7d" alone is not recoverable by a reader: the Monday tick titles its
-        issue for the ISO week that *starts* that morning while the census covers
-        the seven days before it, so without the bounds the section silently
-        describes the previous week under this week's heading. The Term window
+        "last 7d" alone is not recoverable by a reader: the census covers the
+        seven days before the run rather than a calendar week, so without the
+        bounds the section does not say which seven days it counted. The Term window
         leads with the Term it names and the day that Term opened — the boundary a
         reader checks first — and still carries the far bound and the day count, so
         all three windows read the same way.
@@ -1408,17 +1407,11 @@ def _render_backtests(analytics: WeeklyAnalytics) -> list[str]:
     ]
 
 
-# The non-triggering label the weekly performance digest issues carry — the same
-# discipline as `daily-digest` below: no `run:*` workflow keys on it, and it must
-# never become one. Its reading state is the issue list too: the maintainer
-# closes one once read.
-WEEKLY_DIGEST_LABEL = "weekly-digest"
-
-#: One digest an ISO week, and that is what the issue create is idempotent on.
+#: The ISO week a digest covers, as its first line.
 _WEEKLY_DIGEST_MARKER = "<!-- weekly-digest: {week} -->"
 
-#: The weekly body's marker block. One line: unlike the daily digest this body
-#: inlines no agent prose, but the tests read the same way for both.
+#: The weekly body's marker block: the one line left verbatim when the rest of
+#: the body is defused.
 WEEKLY_DIGEST_MARKER_LINES = 1
 
 
@@ -1436,38 +1429,13 @@ def weekly_digest_marker(generated_at: str) -> str:
     return _WEEKLY_DIGEST_MARKER.format(week=_iso_week(generated_at))
 
 
-def weekly_digest_week(marker: str) -> str | None:
-    """The ISO week a weekly-digest marker names, or ``None`` if it is not one.
-
-    The inverse of :func:`weekly_digest_marker`, so a poster handed a rendered
-    body can recover the week from the body's own first line rather than being
-    told it a second time — and can refuse a file that is not a weekly digest
-    instead of opening an issue titled from a guess.
-    """
-    prefix, suffix = _WEEKLY_DIGEST_MARKER.split("{week}")
-    line = marker.strip()
-    if not line.startswith(prefix) or not line.endswith(suffix):
-        return None
-    return line[len(prefix) : len(line) - len(suffix)] or None
-
-
-def weekly_digest_title(generated_at: str) -> str:
-    """The weekly digest issue's title, naming its week."""
-    return weekly_digest_title_for_week(_iso_week(generated_at))
-
-
-def weekly_digest_title_for_week(week: str) -> str:
-    """The weekly digest issue's title for an already-resolved ISO week."""
-    return f"Weekly performance digest — {week}"
-
-
 def render_weekly_digest(
     report: OpsReport,
     *,
     analytics: WeeklyAnalytics | None = None,
     production: WeeklyProduction | None = None,
 ) -> str:
-    """The weekly performance digest: the week's substance, on its own issue.
+    """The weekly performance digest: the week's substance, on the ops run summary.
 
     Five blocks, in the order a reader needs them. **Produced this week** counts
     the cells that ran and what they cost, over one window and one set of
@@ -1496,8 +1464,8 @@ def render_weekly_digest(
         weekly_digest_marker(report.generated_at),
         "# Weekly performance digest",
         "",
-        f"_Generated {report.generated_at}. Close this issue once you have read it — the "
-        "open `weekly-digest` issues are the unread backlog._",
+        f"_Generated {report.generated_at}. The public status page carries the same "
+        "production windows and back-tests, without spend._",
     ]
     if production is not None:
         lines += _render_produced(production.week)
@@ -1558,14 +1526,15 @@ DAILY_DIGEST_MARKER_LINES = 2
 _DAILY_DIGEST_DOC_MAX_CHARS = 6_000
 
 #: Every digest body's hard ceiling, under GitHub's 65,536-character issue-body
-#: limit — refused with a 422 rather than truncated. Both digests are bounded by
-#: construction (one event with capped documents; a fixed set of tables); the
-#: clamp makes the bound a guarantee no matter how many predictors an event
-#: accumulates or how long a board grows.
+#: limit (refused with a 422 rather than truncated) that the daily digest's
+#: issue meets, and well inside the run-summary size the weekly digest lands
+#: in. Both are bounded by construction (one event with capped documents; a
+#: fixed set of tables); the clamp makes the bound a guarantee no matter how
+#: many predictors an event accumulates or how long a board grows.
 _DIGEST_MAX_CHARS = 60_000
 
 _DIGEST_TRUNCATED = (
-    "\n\n_Digest truncated at the issue-body ceiling; the linked paths and the committed "
+    "\n\n_Digest truncated at its size ceiling; the linked paths and the committed "
     "artifacts carry the rest._\n"
 )
 

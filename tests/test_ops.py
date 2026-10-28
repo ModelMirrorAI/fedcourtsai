@@ -3118,9 +3118,6 @@ def test_the_weekly_digest_marker_is_one_per_iso_week() -> None:
     assert ops.weekly_digest_marker("2026-09-02T08:30:00Z") == "<!-- weekly-digest: 2026-W36 -->"
     assert ops.weekly_digest_marker("2026-09-06T23:00:00Z") == "<!-- weekly-digest: 2026-W36 -->"
     assert ops.weekly_digest_marker("2026-09-07T08:30:00Z") == "<!-- weekly-digest: 2026-W37 -->"
-    assert ops.weekly_digest_title("2026-09-02T08:30:00Z") == (
-        "Weekly performance digest — 2026-W36"
-    )
 
 
 @pytest.mark.reads_data
@@ -3154,61 +3151,6 @@ def test_ops_report_renders_every_weekly_section_over_the_committed_tree(tmp_pat
     for artifact in ("backtest.json", "salience-replay.json"):
         assert f"`metrics/{artifact}`, " in md
     assert len(md) <= 60_000
-
-
-def test_post_weekly_digest_takes_its_key_and_title_from_the_body(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # The body's own marker is both the once-a-week idempotency key and the
-    # source of the title, so a re-dispatch adds no second issue and the title
-    # can never disagree with what the issue says.
-    seen: dict[str, object] = {}
-
-    def fake_open(**kwargs: object) -> str:
-        seen.update(kwargs)
-        return "opened https://github.com/o/r/issues/2"
-
-    monkeypatch.setattr(cli, "open_issue_once", fake_open)
-    body = tmp_path / "digest.md"
-    body.write_text("<!-- weekly-digest: 2026-W36 -->\n# Weekly performance digest\n")
-
-    result = runner.invoke(app, ["post-weekly-digest", "--repo", "o/r", "--body-file", str(body)])
-
-    assert result.exit_code == 0, result.output
-    assert seen["marker"] == "<!-- weekly-digest: 2026-W36 -->"
-    assert seen["label"] == ops.WEEKLY_DIGEST_LABEL
-    assert seen["title"] == "Weekly performance digest — 2026-W36"
-    assert seen["marker_lines"] == ops.WEEKLY_DIGEST_MARKER_LINES
-
-
-def test_post_weekly_digest_refuses_a_body_that_is_not_a_digest(tmp_path: Path) -> None:
-    # Opening it anyway would title the issue from a guess and key its
-    # idempotency on a line that means nothing.
-    body = tmp_path / "digest.md"
-    body.write_text("# Some other document\n")
-
-    result = runner.invoke(app, ["post-weekly-digest", "--repo", "o/r", "--body-file", str(body)])
-
-    assert result.exit_code == 2
-    assert "does not open with a weekly-digest marker" in result.output
-
-
-def test_post_weekly_digest_posts_nothing_for_an_empty_body(tmp_path: Path) -> None:
-    result = runner.invoke(
-        app, ["post-weekly-digest", "--repo", "o/r", "--body-file", str(tmp_path / "absent.md")]
-    )
-
-    assert result.exit_code == 0, result.output
-    assert "nothing to post" in result.output
-
-
-def test_the_weekly_digest_marker_round_trips_to_its_week() -> None:
-    marker = ops.weekly_digest_marker("2026-09-02T08:30:00Z")
-    assert ops.weekly_digest_week(marker) == "2026-W36"
-    assert ops.weekly_digest_title_for_week("2026-W36") == "Weekly performance digest — 2026-W36"
-    # Anything that is not a marker reads as one, so a poster can refuse it.
-    assert ops.weekly_digest_week("# Weekly performance digest") is None
-    assert ops.weekly_digest_week("<!-- daily-digest-day: 2026-09-02 -->") is None
 
 
 def test_artifact_vintage_refuses_a_shallow_history(
@@ -3333,10 +3275,9 @@ def test_the_weekly_digest_prints_an_uncomputed_backtest_figure_as_unknown() -> 
 
 
 def test_the_weekly_digest_dates_the_window_it_counted() -> None:
-    # "last 7d" alone is not recoverable: the Monday tick titles its issue for the
-    # week that starts that morning while the census covers the seven days before
-    # it, so without bounds the section describes the previous week under this
-    # week's heading.
+    # "last 7d" alone is not recoverable: the census covers the seven days before
+    # the run rather than a calendar week, so without bounds the section does not
+    # say which seven days it counted.
     production = ops.WeeklyProduction(
         week=_produced(
             "Produced this week",
@@ -3383,10 +3324,10 @@ def test_the_weekly_digest_dates_the_window_it_counted() -> None:
     assert "**402** cell(s) over **173** event(s), and **$910.40**" in md
 
 
-def test_the_weekly_digest_body_is_clamped_under_the_issue_size_limit() -> None:
+def test_the_weekly_digest_body_is_clamped_under_its_size_ceiling() -> None:
     # Bounded by construction, but the census tables grow with the roster, so the
-    # clamp is what makes the bound a guarantee — and the marker has to survive it
-    # or the week's idempotency key is gone.
+    # clamp is what makes the bound a guarantee — and the marker naming the week
+    # survives it.
     rows = [CellCensusRow(f"predictor-{index:05d}", "cert", 1) for index in range(4_000)]
 
     md = ops.render_weekly_digest(

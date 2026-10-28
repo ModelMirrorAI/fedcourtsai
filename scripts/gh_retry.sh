@@ -1,8 +1,8 @@
 # shellcheck shell=bash
 # A bounded retry around a single GitHub API call, for two classes of call on
 # the run surfaces. The **record** steps: the ops report's collection calls, the
-# weekly digest, the data-validation escalation, the per-day pull-log / live-log
-# alarms, and the seed guard. The **handoff writes**, which would be the work
+# data-validation escalation, the per-day pull-log / live-log alarms, and the
+# seed guard. The **handoff writes**, which would be the work
 # rather than a record of it — a write another lane's derivation reads back.
 # Every lane derives its own backlog from committed state, so that class has no
 # members today; it is named here because the next such write belongs in it, and
