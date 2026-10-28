@@ -1889,7 +1889,12 @@ logic-in-tested-Python convention above).
 Code and config land on `staging`; `main` is the official pre-registration
 record and takes code only in reviewed **promotion batches**. Data never waits
 on promotion: the deterministic writers (pull, seed, live) and the data-run
-collect PRs land on `main` directly.
+collect PRs land on `main` directly. The one non-data change that skips a
+promotion is a record fill, a reviewed `record-fill/…` PR that fills
+freeze-record placeholders `main` already holds; like a promotion's record
+commit, it makes the next cut wait for the sync, and a candidate already cut
+may conflict with it (*Pending registrations* in
+[process-version.md](process-version.md)).
 
 Why the indirection: two classes of bug are invisible to per-PR CI but caught
 by an integration pass over real infrastructure — a workflow that is never
@@ -1910,7 +1915,9 @@ The mechanics:
   `qp-topics/applications-refresh` PRs, the case-summary lane's
   `summaries/refresh` PR, the big-case board's
   `metrics/big-cases` PR and the update history's `metrics/public-updates`
-  PR); on those
+  PR), or a `record-fill/…` PR, which the `paths` jail holds to in-place fills
+  of freeze-record placeholders `main` already carries (*Pending
+  registrations* in [process-version.md](process-version.md)); on those
   legitimate lanes it reports `skipped`, which satisfies the requirement. Its
   definition lives in `main`'s own ci.yml, so the context reports on every
   lane into `main` (docs/security.md inventories this).

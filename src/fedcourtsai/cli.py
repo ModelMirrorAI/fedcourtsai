@@ -23908,6 +23908,40 @@ def assert_cleanup_paths_cmd(
     typer.echo(f"cleanup jail OK ({len(changes)} deletion(s))")
 
 
+@app.command("assert-record-fill")
+def assert_record_fill_cmd(
+    name_status_file: Annotated[
+        Path, typer.Option(help="File holding `git diff --name-status` output to check.")
+    ],
+    before: Annotated[
+        Path, typer.Option(help="The freeze record at the change's base (`git show`).")
+    ],
+    after: Annotated[
+        Path, typer.Option(help="The freeze record at the change's head (`git show`).")
+    ],
+) -> None:
+    """Enforce the record-fill jail; exit non-zero (with ::error::) on any violation.
+
+    A ``record-fill/`` PR may only modify ``docs/freeze-record.md``, and only by
+    filling, in place, placeholders the base's record already holds: each kept
+    or replaced by a one-line value holding no ``<``, ``>`` or backtick, the
+    surrounding text byte for byte. CI runs it in the required ``paths`` check,
+    so the one route to ``main`` outside a promotion cannot carry an entry, a
+    registration, a rewrap or any other file.
+    """
+    changes = [
+        (change.status, change.path) for change in parse_name_status(name_status_file.read_text())
+    ]
+    problems = promotion_record.record_fill_problems(
+        changes, promotion_record.read_file(before), promotion_record.read_file(after)
+    )
+    for problem in problems:
+        typer.echo(f"::error::record-fill jail: {problem}", err=True)
+    if problems:
+        raise typer.Exit(code=1)
+    typer.echo("record-fill jail OK (in-place fills of landed placeholders only)")
+
+
 @app.command("assert-required-contexts")
 def assert_required_contexts_cmd(
     workflows: Annotated[
