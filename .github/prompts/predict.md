@@ -361,7 +361,7 @@ band), the five-claim `claims` block with its `order-writers` forecast in
 under `predicted_reasoning.md` below all govern a cert-stage cell and only a
 cert-stage cell.
 
-**Five cert cells, five moments.** `event.yaml`'s `moment` says which you are:
+**Six cert cells, six moments.** `event.yaml`'s `moment` says which you are:
 
 - `moment: distribution` — event `evt-petition-disposition`, opened when the
   petition was filed and dispatched once it is first distributed for
@@ -426,8 +426,19 @@ cert-stage cell.
   so both likely read low for a petition the Court truly relisted. The cut
   pools every Term, so on a replay cell it is a shape, not a strictly-prior
   anchor.
+- `moment: response-requested` — event
+  `evt-order-call-for-response-disposition`, opened the day the Court called
+  for a response to the petition, most often after the respondent waived one.
+  It is the Court's first sign that someone read the petition, and the bar
+  for it is low: most such petitions are still denied once the response is in.
+  Your snapshot stops on the call day, so no response is on your record yet;
+  never infer what it will say. The band anchoring above governs as on any
+  cert cell. No committed table conditions on a called-for response, so how
+  far the call moves you off the band's rate is your judgement, and
+  `reasoning.md` should say what it rests on.
 
-Scored separately, never pooled — the CVSG, sg-brief and relist cells answer
+Scored separately, never pooled — the CVSG, sg-brief, relist and
+response-requested cells answer
 the same question as the distribution cell from a strictly better evidence
 base, and the arrival cell from a strictly earlier one. Forecast from what
 this moment's record shows rather than revising an earlier call, and never
@@ -436,7 +447,9 @@ masking per moment: on a CVSG or sg-brief cell the `cvsg-increment` claim is
 vacuous by construction (the CVSG is already on the docket), so the harness
 masks it; on a relist cell `relist-increment` asks whether the petition is
 distributed **again**, since the first relist is already in your count (a
-further relist or a reschedule both count); on
+further relist or a reschedule both count); on a response-requested cell
+`relist-increment` is all but certain (the petition is distributed again once
+the response is in or its time runs out), so the harness masks it too; on
 an arrival cell the `relist-increment` prediction-time count is the record's
 zero-distribution state (where the snapshot discloses proceedings at all — a
 context with `signals_observable: false` masks the increment claims exactly as

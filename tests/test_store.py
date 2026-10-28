@@ -1083,8 +1083,9 @@ def test_every_declared_forecastable_moment_is_admitted_somewhere(tmp_path: Path
                 )
             ],
         )
-        # The sg-brief and first-relist moments, minted on the same pending
-        # petition: the generic cert arm admits them as it does the arrival one.
+        # The sg-brief, first-relist and call-for-response moments, minted on
+        # the same pending petition: the generic cert arm admits them as it does
+        # the arrival one.
         corpus.upsert_events(
             conn,
             [
@@ -1099,11 +1100,13 @@ def test_every_declared_forecastable_moment_is_admitted_somewhere(tmp_path: Path
                 for event_id, kind in (
                     ("evt-brief-sg-disposition", EventKind.brief),
                     ("evt-order-relist-disposition", EventKind.order),
+                    ("evt-order-call-for-response-disposition", EventKind.order),
                 )
             ],
         )
-        # Both are bounded by the next conference, read off the live payload: the
-        # relist entry names a conference still ahead, so both stay open.
+        # All three are bounded by the next conference, read off the live
+        # payload: the relist entry names a conference still ahead, so all stay
+        # open.
         corpus.upsert_snapshot(
             conn,
             "scotus/81",

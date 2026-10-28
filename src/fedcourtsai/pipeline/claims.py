@@ -53,9 +53,11 @@ from ..schemas import (
     EventKind,
     Judgment,
     MeritsDecisionMethod,
+    Moment,
     Outcome,
     Prediction,
     PredictionContext,
+    Stage,
     StatPack,
     WritingRole,
 )
@@ -1190,6 +1192,26 @@ _BASELINES: Mapping[str, _BaselineFn] = {
 # the case, never of the predictor.
 _FEDERAL_PARTY_VACUOUS: frozenset[str] = frozenset({CLAIM_CVSG_INCREMENT})
 
+# The claims a declared moment makes vacuous, so they resolve ``None`` on its
+# cells. A cert petition the Court called for a response on is taken off its
+# conference and distributed again once the response is in, or the time for
+# it runs out: it cannot be decided otherwise. So the relist increment, a rise
+# in the distribution count, is all but certain from that moment, and a high
+# stated probability against it would bank skill no forecast earned. The same
+# shape as the federal-party mask: a property of the moment, never of the
+# predictor.
+_MOMENT_VACUOUS: Mapping[tuple[Stage, Moment], frozenset[str]] = {
+    (Stage.cert, Moment.response_requested): frozenset({CLAIM_RELIST_INCREMENT}),
+}
+
+
+def moment_vacuous_claims(event_id: str) -> frozenset[str]:
+    """The claims ``event_id``'s declared moment makes vacuous; empty off the table."""
+    spec = moments.spec_for(event_id)
+    if spec is None:
+        return frozenset()
+    return _MOMENT_VACUOUS.get((spec.stage, spec.moment), frozenset())
+
 
 def resolve_claim(
     claim_id: str,
@@ -1347,7 +1369,8 @@ def score_claims(
     the census, fixes what is scored.
 
     Per claim: the outcome from its resolver (``None`` = the availability
-    mask, ``federal_party`` included — see :func:`resolve_claim`), the
+    mask, ``federal_party`` included — see :func:`resolve_claim` — and a claim
+    the event's declared moment makes vacuous, :func:`moment_vacuous_claims`), the
     baseline from its baseline function, and the score from
     :func:`fedcourtsai.pipeline.base_rates.claim_score` where both exist. The
     ``total`` sums the scored claims only; the ``floor`` is the realized total
@@ -1388,9 +1411,14 @@ def score_claims(
     rows: list[ClaimScore] = []
     total: float | None = None
     floor: float | None = None
+    vacuous = moment_vacuous_claims(prediction.event_id)
     for claim_id in claim_ids:
         probability = stated[claim_id]
-        resolved = resolve_claim(claim_id, prediction.context, outcome, federal_party=federal_party)
+        resolved = (
+            None
+            if claim_id in vacuous
+            else resolve_claim(claim_id, prediction.context, outcome, federal_party=federal_party)
+        )
         mask_reason: Literal["signal-before-run"] | None = None
         if (
             resolved is not None

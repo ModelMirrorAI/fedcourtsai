@@ -3114,7 +3114,8 @@ the rendered table) and
   case first predicted after the freeze stays in scope through its own
   resolution. The re-predict rule (`REPREDICT_MOMENTS` in `pipeline/pull.py`)
   re-owes only the cert distribution, the CVSG and the three interim moments, so
-  a case sitting at the cert **arrival**, **sg-brief** or **relist** moment, or
+  a case sitting at the cert **arrival**, **sg-brief**, **relist** or
+  **response-requested** moment, or
   at any **merits** moment, is never refilled however long it waits. Those are a floor rather than the whole
   of it: a pending case at a moment the rule does re-owe can still sit outside,
   because a distribution is re-owed only until the conference it was distributed

@@ -465,7 +465,7 @@ def test_the_cert_call_for_response_moment_mints_only_on_an_open_petition() -> N
     application = row.model_copy(update={"docket_number": "26A120"})
     assert call_for_response_event_for(application, [baseline]) is None
     spec = moments.spec_for("evt-order-call-for-response-disposition")
-    assert spec is not None and not spec.forecastable
+    assert spec is not None and spec.forecastable
 
 
 def test_the_cert_relist_moment_mints_only_on_an_open_petition() -> None:

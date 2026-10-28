@@ -2070,7 +2070,9 @@ class ClaimScore(_Strict):
         "discloses no increment, a context whose signals were unobservable "
         "fixes no prediction-time value, and a CVSG already on the docket at "
         "prediction time, or a federal party named in the case's caption, makes "
-        "the cvsg-increment claim vacuous. Also None, with `mask_reason` saying so, "
+        "the cvsg-increment claim vacuous; on the cert call-for-response moment, "
+        "whose petition is always distributed again, the relist-increment claim is "
+        "vacuous. Also None, with `mask_reason` saying so, "
         "where the run-timing mask applies",
     )
     mask_reason: Literal["signal-before-run"] | None = Field(

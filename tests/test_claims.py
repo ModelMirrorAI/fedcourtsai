@@ -41,6 +41,7 @@ from fedcourtsai.pipeline.claims import (
     claim_baseline,
     claim_block_problems,
     declared_claim_set,
+    moment_vacuous_claims,
     resolve_claim,
     score_claims,
 )
@@ -337,6 +338,35 @@ def test_cvsg_increment_is_vacuous_where_a_federal_party_is_named() -> None:
     by_id = {row.claim_id: row for row in block.claims}
     assert by_id[CLAIM_CVSG_INCREMENT].outcome is None
     assert by_id[CLAIM_DISPOSITION].outcome == 1
+
+
+def test_relist_increment_is_vacuous_on_the_call_for_response_moment() -> None:
+    # A petition the Court called for a response on is distributed again once
+    # the response is in, so the increment is masked on that moment's cells —
+    # and only it, and only there: the same claim on the ordinary cert cell
+    # still resolves and scores.
+    event_id = "evt-order-call-for-response-disposition"
+    assert moment_vacuous_claims(event_id) == {CLAIM_RELIST_INCREMENT}
+    assert moment_vacuous_claims(_CERT_MOMENT) == frozenset()
+    ctx = _context()
+    rose = _outcome(signals=_signals(distribution_count=2)).model_copy(
+        update={"event_id": _CERT_MOMENT}
+    )
+    pack = _statpack(_term(2024, rate=0.06))
+    prediction = _prediction(claims=_cert_v2_claims(relist=0.9), context=ctx, event_id=_CERT_MOMENT)
+    ordinary = score_claims(prediction, rose, pack, lookback_terms=0)
+    called = score_claims(
+        prediction.model_copy(update={"event_id": event_id}),
+        rose.model_copy(update={"event_id": event_id}),
+        pack,
+        lookback_terms=0,
+    )
+    assert ordinary is not None and called is not None
+    assert {row.claim_id: row.outcome for row in ordinary.claims}[CLAIM_RELIST_INCREMENT] == 1
+    by_id = {row.claim_id: row for row in called.claims}
+    assert by_id[CLAIM_RELIST_INCREMENT].outcome is None
+    assert by_id[CLAIM_RELIST_INCREMENT].score is None
+    assert by_id[CLAIM_DISPOSITION].outcome == 0
 
 
 @pytest.mark.parametrize(
