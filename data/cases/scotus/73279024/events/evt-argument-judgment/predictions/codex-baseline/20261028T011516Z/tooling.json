@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279024",
+  "run_id": "20261028T011516Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: read provisioned inputs and schemas",
+    "fedcourts paths",
+    "local statpack arithmetic",
+    "web search and official-opinion open attempts: no usable content returned",
+    "CourtListener MCP search: throttled"
+  ],
+  "helpful": [
+    "Complete staged argument transcript and both sides' merits briefs made a substantive argued-moment forecast possible.",
+    "Argument-feature coverage distinguishes attributed questioning from unparsed material.",
+    "The statpack's grant-Term counts and exclusions support an exact prior-Term merits anchor."
+  ],
+  "gaps": [
+    "General-precedent MCP retrieval was throttled; web attempts supplied no usable source content.",
+    "No provisioned sitting-assignment context; authorship remains deliberately diffuse.",
+    "The default uv cache is read-only in this runner; a temporary writable cache was needed."
+  ],
+  "notes": "Forecast rests on staged pre-decision material and committed historical aggregates. No additional target-case retrieval was attempted."
+}

@@ -1,0 +1,167 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ec2f5189c42320b2",
+      "query": "{\"cmd\": \"if [ -f .claude/agents/stats-reviewer.md ]; then cat .claude/agents/stats-reviewer.md; fi\\nprintf '\\\\n--- permitted file sizes ---\\\\n'\\nwc -l metrics/statpack.md metrics/statpack.json .github/prompts/predict.md\\nprintf '\\\\n--- relevant headings ---\\\\n'\\nrg -n '^#{1,6} |merits|justice_votes|authorship|grant.term|grant_term|disturbed|coverage' metrics/statpack.md .github/prompts/predict.md\", \"max_output_tokens\": 12000}",
+      "result_capture": "captured",
+      "result_digest": "3bc177c15bcd4537",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:20:34.688Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "b3108a6631b1f9fc",
+      "query": "{\"cmd\": \"cat .claude/agents/stats-reviewer.md\\nprintf '\\\\n--- statpack merits headings ---\\\\n'\\nrg -n '^#|merits|justice_votes|authorship' metrics/statpack.md\\nprintf '\\\\n--- prompt merits rules ---\\\\n'\\nsed -n '675,803p' .github/prompts/predict.md\\nsed -n '822,854p' .github/prompts/predict.md\\nprintf '\\\\n--- JSON section names ---\\\\n'\\n jq 'keys' metrics/statpack.json\", \"max_output_tokens\": 12500}",
+      "result_capture": "captured",
+      "result_digest": "f9fed2031b98dea7",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:20:37.288Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8f725b4a903f8d36",
+      "query": "{\"cmd\": \"sed -n '90,210p' .claude/agents/stats-reviewer.md\\nprintf '\\\\n--- permitted statpack headings ---\\\\n'\\nrg -n '^#' metrics/statpack.md\\nprintf '\\\\n--- permitted JSON sections ---\\\\n'\\njq '{merits,justice_votes,authorship}' metrics/statpack.json\", \"max_output_tokens\": 14000}",
+      "result_capture": "captured",
+      "result_digest": "193519bf69ec748a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:20:40.797Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "1539c0c010ba8592",
+      "query": "{\"cmd\": \"printf '\\\\n--- merits and vote tables ---\\\\n'\\nsed -n '250,360p' metrics/statpack.md\\nprintf '\\\\n--- full merits anchoring rules ---\\\\n'\\nsed -n '687,803p' .github/prompts/predict.md\\nprintf '\\\\n--- JSON section structures ---\\\\n'\\njq '{merits, justice_votes: (.justice_votes | del(.terms)), vote_term_example: .justice_votes.terms[-1], authorship: (.authorship | del(.terms)), authorship_term_example: .authorship.terms[-1]}' metrics/statpack.json\", \"max_output_tokens\": 8500}",
+      "result_capture": "captured",
+      "result_digest": "0bd82185e22b13a2",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:20:45.044Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "5a78ad100eac2132",
+      "query": "{\"cmd\": \"sed -n '269,299p' metrics/statpack.md\\nsed -n '687,715p' .github/prompts/predict.md\\nsed -n '736,803p' .github/prompts/predict.md\\njq '{merits_keys:(.merits|keys),vote_keys:(.justice_votes|keys),vote_term_keys:(.justice_votes.terms[0]|keys),vote_justice_example:.justice_votes.terms[-1].justices[0],authorship_keys:(.authorship|keys),authorship_terms:[.authorship.terms[]|{term,decisions,observed,per_curiam}],merits_terms:.merits.terms}' metrics/statpack.json\", \"max_output_tokens\": 5500}",
+      "result_capture": "captured",
+      "result_digest": "bb52bf31d92abae5",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:20:49.587Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "250e82009ac9b660",
+      "query": "{\"cmd\": \"sed -n '741,766p' .github/prompts/predict.md\\nsed -n '675,687p' .github/prompts/predict.md\\nsed -n '90,96p' .claude/agents/stats-reviewer.md\\npython - <<'PY'\\nimport json\\nfrom collections import defaultdict\\nfrom pathlib import Path\\npack = json.loads(Path('metrics/statpack.json').read_text())\\nfor section in ('merits', 'justice_votes', 'authorship'):\\n    print(section, 'terms', [row['term'] for row in pack[section]['terms']])\\nrows = [row for row in pack['merits']['terms'] if 2015 <=",
+      "result_capture": "captured",
+      "result_digest": "2ecebe4720072469",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:20:58.887Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "bb9a5252cbf38338",
+      "query": "{\"cmd\": \"sed -n '651,679p' .github/prompts/predict.md\\nsed -n '830,854p' .github/prompts/predict.md\\npython - <<'PY'\\nimport json,re\\nfrom pathlib import Path\\nfrom collections import defaultdict\\npack=json.loads(Path('metrics/statpack.json').read_text())\\nmarkdown=Path('metrics/statpack.md').read_text()\\nmerits_text=markdown.split('## The merits docket (granted cases)\\\\n')[1].split('\\\\n## ')[0]\\nmerits_rows={int(row['term']):row for row in pack['merits']['terms']}\\nfor line in merits_text.split",
+      "result_capture": "captured",
+      "result_digest": "b8be2b9159e66c2b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:21:16.115Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "fbf11bea835998e6",
+      "query": "{\"cmd\": \"rg -n '^  \\\"authorship\\\"|^  \\\"merits\\\"|^  \\\"justice_votes\\\"' metrics/statpack.json\\npython - <<'PY'\\nimport json\\nfrom pathlib import Path\\npack=json.loads(Path('metrics/statpack.json').read_text())\\nmerits=pack['merits']\\nprint('merits global vs rendered vs omitted')\\nfor key in ('granted','parsed','disturbed','cert_order_excluded'):\\n    rendered=sum(row[key] for row in merits['terms'])\\n    print(key,merits[key],rendered,merits[key]-rendered)\\nPY\", \"max_output_tokens\": 300}",
+      "result_capture": "captured",
+      "result_digest": "a5adc4950b241bbf",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:21:23.945Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8b71de915d423881",
+      "query": "{\"cmd\": \"python - <<'PY'\\nfrom decimal import Decimal\\njudgments=[Decimal(value) for value in ['.64','.10','.03','.10','.07','.06']]\\nauthors=[Decimal(value) for value in ['.27','.22','.19','.10','.07','.08','.02','.01','.04','0']]\\nseparates=[Decimal(value) for value in ['.33','.35','.18','.08','.08','.40','.35','.30','0']]\\nprint('judgments total:',sum(judgments))\\nprint('disturbed projection:',sum(judgments[:3]))\\nprint('author distribution total:',sum(authors))\\nprint('separate-writer margin",
+      "result_capture": "captured",
+      "result_digest": "289d24fcbb3bfddb",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:22:03.557Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "9a0611de9a415e93",
+      "query": "{\"cmd\": \"target='data/cases/scotus/73274859/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z'\\nprintf '%s\\\\n' '--- own output files ---'\\nrg --files \\\"$target\\\"\\nprintf '%s\\\\n' '--- own output contents ---'\\nfind \\\"$target\\\" -maxdepth 1 -type f \\\\( -name '*.json' -o -name '*.md' \\\\) -print -exec cat {} \\\\;\", \"max_output_tokens\": 14000}",
+      "result_capture": "captured",
+      "result_digest": "fd30c1ca45053b64",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:23:41.562Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "370019b64e232516",
+      "query": "{\"cmd\": \"target='data/cases/scotus/73274859/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z'\\nprintf '\\\\n--- prediction ---\\\\n'\\ncat \\\"$target/prediction.json\\\"\\nprintf '\\\\n--- tooling ---\\\\n'\\ncat \\\"$target/tooling.json\\\"\\nprintf '\\\\n--- remaining reasoning ---\\\\n'\\nsed -n '27,150p' \\\"$target/reasoning.md\\\"\", \"max_output_tokens\": 5500}",
+      "result_capture": "captured",
+      "result_digest": "3ed5c3c9b1e276ba",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:23:44.600Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ddcdcb210675a547",
+      "query": "{\"cmd\": \"target='data/cases/scotus/73274859/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z'\\ncat \\\"$target/retrieval.md\\\"\\nsed -n '20,28p' \\\"$target/reasoning.md\\\"\\npython - <<'PY'\\nimport json\\nfrom decimal import Decimal\\nfrom pathlib import Path\\nroot=Path('data/cases/scotus/73274859/events/evt-argument-judgment/predictions/codex-baseline/20261028T011516Z')\\nprediction=json.loads((root/'prediction.json').read_text(),parse_float=Decimal)\\nassert prediction['probabilit",
+      "result_capture": "captured",
+      "result_digest": "590d13e124115831",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:23:53.206Z",
+      "tool": "exec_command"
+    }
+  ],
+  "case_id": "scotus/73274859",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

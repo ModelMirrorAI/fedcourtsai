@@ -1,0 +1,233 @@
+{
+  "actor_id": "codex-baseline",
+  "calls": [
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a0bf28010e5cdd51",
+      "query": "{\"cmd\": \"for file in merits-brief-petitioner.txt merits-brief-respondent.txt merits-reply-petitioner.txt merits-amicus-united-states.txt; do printf '\\\\n--- %s ---\\\\n' \\\"$file\\\"; wc -l \\\"data/cases/scotus/73278555/record/documents/$file\\\"; done; printf '\\\\n--- Applicable instructions ---\\\\n'; for dir in data data/cases data/cases/scotus data/cases/scotus/73278555 data/cases/scotus/73278555/record data/cases/scotus/73278555/record/documents; do if [ -f \\\"$dir/AGENTS.md\\\" ]; then printf '\\\\n--- %s/",
+      "result_capture": "captured",
+      "result_digest": "afe72d068c99dc55",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:24:09.527Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "df39dbef4bfcf9f8",
+      "query": "{\"cmd\": \"for file in merits-brief-petitioner.txt merits-brief-respondent.txt merits-reply-petitioner.txt merits-amicus-united-states.txt; do printf '\\\\n--- %s ---\\\\n' \\\"$file\\\"; rg -n 'QUESTION|SUMMARY OF ARGUMENT|CONCLUSION|affirm|revers|vacat|Ninth Circuit|standing|injury|Article III|ARGUMENT' \\\"data/cases/scotus/73278555/record/documents/$file\\\"; done\", \"max_output_tokens\": 10000}",
+      "result_capture": "captured",
+      "result_digest": "fff6a03bf9c66b57",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:24:12.319Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8a677595419296f4",
+      "query": "{\"cmd\": \"printf '\\\\n--- PETITIONER ---\\\\n'; nl -ba data/cases/scotus/73278555/record/documents/merits-brief-petitioner.txt | sed -n '300,410p;1080,1205p;1233,1296p;1800,1882p;2050,2094p'; printf '\\\\n--- RESPONDENT ---\\\\n'; nl -ba data/cases/scotus/73278555/record/documents/merits-brief-respondent.txt | sed -n '320,425p;640,847p'; printf '\\\\n--- US ---\\\\n'; nl -ba data/cases/scotus/73278555/record/documents/merits-amicus-united-states.txt | sed -n '270,305p;460,590p;1350,1365p'; printf '\\\\n--- RE",
+      "result_capture": "captured",
+      "result_digest": "1fb678289842a157",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:24:16.752Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "010517215e914404",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/merits-brief-respondent.txt | sed -n '350,423p;650,680p;688,847p'\", \"max_output_tokens\": 5500}",
+      "result_capture": "captured",
+      "result_digest": "c3e8af8201757b2a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:24:18.934Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "f525f4795699397b",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/merits-amicus-united-states.txt | sed -n '467,590p;1350,1362p'\", \"max_output_tokens\": 4500}",
+      "result_capture": "captured",
+      "result_digest": "c1cce51936b0638b",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:24:21.617Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "7324e8a0935f3587",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/merits-brief-petitioner.txt | sed -n '1233,1295p;1668,1728p;1882,1939p;2078,2093p'; nl -ba data/cases/scotus/73278555/record/documents/merits-reply-petitioner.txt | sed -n '726,785p;830,856p'\", \"max_output_tokens\": 6000}",
+      "result_capture": "captured",
+      "result_digest": "0e829e2d391dbeb7",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:24:24.534Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "ad94aa083cb895b2",
+      "query": "{\"cmd\": \"printf '\\\\n--- Petitioner: statutory argument and remedy ---\\\\n'; nl -ba data/cases/scotus/73278555/record/documents/merits-brief-petitioner.txt | sed -n '1688,1728p;2078,2093p'; printf '\\\\n--- Respondent: judgment and claim framing ---\\\\n'; nl -ba data/cases/scotus/73278555/record/documents/merits-brief-respondent.txt | sed -n '656,732p'; printf '\\\\n--- US: benchmark distinction ---\\\\n'; rg -n 'composite|MSCI|World Index|portfolio as a whole|whole portfolio|component|risk-adjusted' dat",
+      "result_capture": "captured",
+      "result_digest": "b87b283de99d7230",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:24:30.717Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "8d8e1d38ed6aa0dd",
+      "query": "{\"cmd\": \"printf '\\\\n--- US: application ---\\\\n'; nl -ba data/cases/scotus/73278555/record/documents/merits-amicus-united-states.txt | sed -n '1255,1290p;1305,1348p'; printf '\\\\n--- Respondent: litigation risk ---\\\\n'; nl -ba data/cases/scotus/73278555/record/documents/merits-brief-respondent.txt | sed -n '768,787p'; printf '\\\\n--- Petitioner: allocation allegations ---\\\\n'; nl -ba data/cases/scotus/73278555/record/documents/merits-brief-petitioner.txt | sed -n '289,303p'\", \"max_output_tokens\": 2",
+      "result_capture": "captured",
+      "result_digest": "b152596fb3c0fb3d",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:24:35.153Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "da8dd5f05f57bd3d",
+      "query": "{\"cmd\": \"wc -l data/cases/scotus/73278555/record/documents/argument-transcript.txt; rg -n 'JUSTICE|CHIEF|vacat|affirm|benchmark|comparator|holistic|categorical|allocation|Iqbal|Twombly|KAGAN' data/cases/scotus/73278555/record/documents/argument-transcript.txt\", \"max_output_tokens\": 7500}",
+      "result_capture": "captured",
+      "result_digest": "79b29c460ebb3d8c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:25:11.264Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "afa5c4ff83903d84",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/argument-transcript.txt | sed -n '1,110p;108,222p;247,338p'\", \"max_output_tokens\": 6000}",
+      "result_capture": "captured",
+      "result_digest": "d2f8a2721b239e9c",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:25:13.615Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "62d398efee0702bf",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/argument-transcript.txt | sed -n '338,533p'\", \"max_output_tokens\": 3500}",
+      "result_capture": "captured",
+      "result_digest": "93ad7a25195867e3",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:25:17.891Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "eae194a9d0edbd09",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/argument-transcript.txt | sed -n '534,716p'\", \"max_output_tokens\": 3500}",
+      "result_capture": "captured",
+      "result_digest": "6dde89d92f51febd",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:25:20.697Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a86d6b2a27c1caca",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/argument-transcript.txt | sed -n '717,945p'\", \"max_output_tokens\": 4000}",
+      "result_capture": "captured",
+      "result_digest": "4e846d9c69cbc5e6",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:25:22.502Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "15e5f3b7a1eb29b4",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/argument-transcript.txt | sed -n '946,1135p'\", \"max_output_tokens\": 3500}",
+      "result_capture": "captured",
+      "result_digest": "b42393378561beb3",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:25:25.527Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "27a19a636428ee94",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/argument-transcript.txt | sed -n '1136,1313p'\", \"max_output_tokens\": 3500}",
+      "result_capture": "captured",
+      "result_digest": "419da65d325a7f23",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:25:27.224Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "a7f8deaa09434d3b",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/argument-transcript.txt | sed -n '1314,1509p'\", \"max_output_tokens\": 3500}",
+      "result_capture": "captured",
+      "result_digest": "c718eb9ca0f79a78",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:25:29.535Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "10147b8909572d88",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/argument-transcript.txt | sed -n '1510,1721p'\", \"max_output_tokens\": 4000}",
+      "result_capture": "captured",
+      "result_digest": "e1fb09846aefd98a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:25:31.918Z",
+      "tool": "exec_command"
+    },
+    {
+      "call_source": "transcript_item",
+      "params_digest": "9ca7c8c31aebe344",
+      "query": "{\"cmd\": \"nl -ba data/cases/scotus/73278555/record/documents/argument-transcript.txt | sed -n '108,246p'\", \"max_output_tokens\": 2500}",
+      "result_capture": "captured",
+      "result_digest": "a339ba83077ff50a",
+      "result_status": "ok",
+      "retrieved_doc_date": null,
+      "timestamp": "2026-10-28T01:25:34.511Z",
+      "tool": "exec_command"
+    }
+  ],
+  "case_id": "scotus/73278555",
+  "engine": "codex",
+  "mcp_servers": [
+    "courtlistener=courtlistener-api-client[mcp]==1.1.0"
+  ],
+  "mcp_tools": [
+    "courtlistener.analyze_citations",
+    "courtlistener.call_endpoint",
+    "courtlistener.create_search_alert",
+    "courtlistener.delete_search_alert",
+    "courtlistener.extract_citations",
+    "courtlistener.get_choices",
+    "courtlistener.get_counts",
+    "courtlistener.get_endpoint_item",
+    "courtlistener.get_endpoint_schema",
+    "courtlistener.get_more_results",
+    "courtlistener.read_document",
+    "courtlistener.resume_citation_analysis",
+    "courtlistener.search",
+    "courtlistener.search_document",
+    "courtlistener.subscribe_to_docket_alert",
+    "courtlistener.unsubscribe_from_docket_alert"
+  ],
+  "mode": "forward",
+  "result_capture_coverage": 1.0,
+  "role": "predictor",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "self_provisioned_fetches": 0,
+  "throttled_calls": null
+}

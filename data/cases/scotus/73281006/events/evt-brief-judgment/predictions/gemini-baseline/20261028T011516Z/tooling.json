@@ -1,0 +1,21 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73281006",
+  "gaps": [
+    "The September 2026 letters regarding petitioner's move from University Heights were docketed prior to the cutoff but are not staged in record/documents/ (only briefs/petitions/appendices are staged)."
+  ],
+  "helpful": [
+    "Provisioned merits briefs (petitioner, respondent, and United States amicus) and joint appendix / cert appendix opinions in record/documents/",
+    "metrics/statpack.md and metrics/statpack.json for strictly-prior grant-Term merits disturbed rates, per-Justice vote rates, and authorship rates"
+  ],
+  "notes": "Provisioned merits briefs and statpack tables provided comprehensive doctrinal and empirical grounding for the merits forecast.",
+  "role": "predictor",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

@@ -1,0 +1,143 @@
+{
+  "big_case_rationale": "The local environmental stakes on Guam are substantial, and the finality question could affect challenges to federal agencies' permit applications nationwide. A narrow procedural ruling would leave the broader NEPA/RCRA displacement question unresolved.",
+  "big_case_score": 0.66,
+  "case_id": "scotus/73279024",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.05,
+        "Barrett": 0.2,
+        "Gorsuch": 0.08,
+        "Jackson": 0.14,
+        "Kagan": 0.09,
+        "Kavanaugh": 0.07,
+        "Roberts": 0.15,
+        "Sotomayor": 0.035,
+        "Thomas": 0.18,
+        "per-curiam": 0.005
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.16,
+        "Barrett": 0.07,
+        "Gorsuch": 0.2,
+        "Jackson": 0.15,
+        "Kagan": 0.16,
+        "Kavanaugh": 0.3,
+        "Roberts": 0.06,
+        "Sotomayor": 0.2,
+        "Thomas": 0.16
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.89
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-08",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 3,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-08",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-28T01:28:51Z",
+  "engine": "codex",
+  "event_id": "evt-argument-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-08.json",
+  "judgment": "reversed",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.89,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+    "label": "proc-v13",
+    "pipeline_sha": "e8becdd9c4b50f65c5334cf1037209962db0fd29",
+    "stamped_at": "2026-10-28T01:31:11.634748Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that submission of this RCRA permit-renewal application is not final agency action under APA section 704: the requested authorization remains subject to Guam EPA's substantive permitting process, and continuation of the old permit does not make the application itself the source of final legal rights or obligations. It will reverse on that threshold ground rather than hold that RCRA categorically displaces NEPA."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will confine its holding to review of a federal agency's submission of a permit-renewal application while substantive regulatory approval remains outstanding, leaving open review of a separately identifiable operational decision and declining to exempt all RCRA-regulated federal activity from NEPA."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

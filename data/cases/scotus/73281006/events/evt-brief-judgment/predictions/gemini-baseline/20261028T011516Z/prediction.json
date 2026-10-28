@@ -1,0 +1,143 @@
+{
+  "big_case_rationale": "High doctrinal significance for First Amendment Free Exercise and RLUIPA justiciability across the federal circuits (resolving whether Williamson County's Takings Clause finality requirement applies to land-use religious-liberty and chilling-effect claims), though potentially narrowed by case-specific procedural facts.",
+  "big_case_score": 0.65,
+  "case_id": "scotus/73281006",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.08,
+        "Barrett": 0.14,
+        "Gorsuch": 0.25,
+        "Jackson": 0.06,
+        "Kagan": 0.07,
+        "Kavanaugh": 0.13,
+        "Roberts": 0.15,
+        "Sotomayor": 0.05,
+        "Thomas": 0.06,
+        "per-curiam": 0.01
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.22,
+        "Barrett": 0.12,
+        "Gorsuch": 0.2,
+        "Jackson": 0.26,
+        "Kagan": 0.1,
+        "Kavanaugh": 0.16,
+        "Roberts": 0.04,
+        "Sotomayor": 0.22,
+        "Thomas": 0.28
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.85
+    }
+  ],
+  "confidence": 0.8,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-24",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 5,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-24",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-28T01:30:00Z",
+  "engine": "gemini",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-24.json",
+  "judgment": "vacated",
+  "model": "gemini-4-argon",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.85,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745",
+    "label": "proc-v13",
+    "pipeline_sha": "e8becdd9c4b50f65c5334cf1037209962db0fd29",
+    "stamped_at": "2026-10-28T01:38:37.509558Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The Court holds that Williamson County's land-use finality requirement does not displace standard Article III standing and Abbott Laboratories ripeness principles for First Amendment and RLUIPA claims alleging completed chilling or discriminatory injuries from a municipal cease-and-desist order and permitting process."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The Court adopts a claim-specific approach distinguishing completed past chilling and religious-discrimination injuries\u2014which are immediately justiciable without a final zoning decision\u2014from prospective challenges to the substantive application of land-use regulations, remanding for claim-by-claim evaluation."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

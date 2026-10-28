@@ -1,0 +1,143 @@
+{
+  "big_case_rationale": "A nationally consequential religious-liberty and federal-courts access case affecting local land-use disputes, but the likely ruling concerns justiciability rather than a substantive right to conduct every religious use without a permit.",
+  "big_case_score": 0.62,
+  "case_id": "scotus/73281006",
+  "claim_distributions": [
+    {
+      "claim_id": "majority-author",
+      "probabilities": {
+        "Alito": 0.09,
+        "Barrett": 0.18,
+        "Gorsuch": 0.12,
+        "Jackson": 0.04,
+        "Kagan": 0.16,
+        "Kavanaugh": 0.14,
+        "Roberts": 0.12,
+        "Sotomayor": 0.06,
+        "Thomas": 0.07,
+        "per-curiam": 0.02
+      }
+    },
+    {
+      "claim_id": "separate-writers",
+      "probabilities": {
+        "Alito": 0.18,
+        "Barrett": 0.14,
+        "Gorsuch": 0.26,
+        "Jackson": 0.28,
+        "Kagan": 0.12,
+        "Kavanaugh": 0.12,
+        "Roberts": 0.04,
+        "Sotomayor": 0.17,
+        "Thomas": 0.31
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "judgment-disturbed",
+      "probability": 0.76
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "high",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-24",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 5,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_date": "2026-10-24",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-28T01:35:41.562070Z",
+  "engine": "codex",
+  "event_id": "evt-brief-judgment",
+  "granted": 1,
+  "input_snapshot": "2026-10-24.json",
+  "judgment": "vacated",
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "other",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.76,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+    "label": "proc-v13",
+    "pipeline_sha": "e8becdd9c4b50f65c5334cf1037209962db0fd29",
+    "stamped_at": "2026-10-28T01:36:37.077806Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "semantic_claims": [
+    {
+      "claim_id": "majority-ground",
+      "proposition": "The majority will hold that Williamson County finality does not bar adjudication of alleged completed injuries from coercive threats and discriminatory permitting demands merely because the dispute involves land use; ordinary Article III injury principles, rather than an automatic requirement to obtain a final permit decision, govern those claims."
+    },
+    {
+      "claim_id": "ground-breadth",
+      "proposition": "The majority will limit its ruling to claims alleging injury independent of the eventual zoning decision, leaving intact a finality requirement where the asserted injury depends on what land use officials ultimately permit, rather than exempting every First Amendment or RLUIPA land-use claim from finality."
+    }
+  ],
+  "votes": [
+    {
+      "justice": "Roberts",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Thomas",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Alito",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Sotomayor",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kagan",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Gorsuch",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Kavanaugh",
+      "vote": "majority",
+      "writing": null
+    },
+    {
+      "justice": "Barrett",
+      "vote": "majority",
+      "writing": "majority"
+    },
+    {
+      "justice": "Jackson",
+      "vote": "majority",
+      "writing": null
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73278555",
+  "gaps": [
+    "CourtListener MCP throttled the second citation search; no opinion body was retrieved.",
+    "Web attempts returned no usable visible content.",
+    "Default uv cache was read-only; a writable temporary cache was required."
+  ],
+  "helpful": [
+    "Full argument transcript and both sides' merits briefs supplied substantive evidence beyond docket labels.",
+    "United States merits brief clarified the contextual comparison position supporting affirmance.",
+    "Argument-feature coverage allowed checking question allocation without treating counts as votes.",
+    "Grant-Term merits rows with explicit excluded counts supported an eligible prior pool."
+  ],
+  "notes": "Forecast completed from provisioned pre-decision material and committed prior-Term context. External retrieval yielded only general-precedent citation metadata; no case outcome was sought or encountered. No current opinion-assignment information was retrieved.",
+  "role": "predictor",
+  "run_id": "20261028T011516Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and context",
+    "provisioned merits briefs and argument transcript",
+    "argument-features.json",
+    "committed statpack",
+    "fedcourts paths",
+    "CourtListener MCP citation search",
+    "web search and official-opinion open attempts",
+    "read-only subagent briefing and forecast challenge",
+    "local Python aggregation and schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}
