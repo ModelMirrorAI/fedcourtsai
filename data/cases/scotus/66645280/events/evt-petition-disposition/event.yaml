@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-09-18'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Delaney E. Smith, Jr., Petitioner v. Los Angeles County Metropolitan Transportation
   Authority, et al.

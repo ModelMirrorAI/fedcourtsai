@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-03-11'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Maria Rita Castillo, aka Maria Rita Moreno Velasquez, Petitioner v. Merrick
   B. Garland, Attorney General

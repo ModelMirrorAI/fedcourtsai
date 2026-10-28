@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-03-20'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Flying Crown Subdivision Addition No. 1 and Addition No. 2 Property Owners
   Association, Petitioner v. Alaska Railroad Corporation

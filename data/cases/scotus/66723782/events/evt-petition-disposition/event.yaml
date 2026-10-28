@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-07-29'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Saban Rent-A-Car LLC, et al., Petitioners v. Arizona Department of Revenue,
   et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-02-11'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Just Energy Marketing Corp., et al., Petitioners v. Davina Hurt, Individually
   and on Behalf of All Others Similarly Situated, et al.

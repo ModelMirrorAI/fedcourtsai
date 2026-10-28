@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-09-24'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: North Cypress Medical Center Operating Company, Ltd., et al., Petitioners v.
   Cigna Healthcare, et al.

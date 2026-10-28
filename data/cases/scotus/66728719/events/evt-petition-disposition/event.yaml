@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-12-16'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: National Association for Gun Rights, Inc., Petitioner v. Jeff Mangan, in His
   Official Capacity as the Commissioner of Political Practices for the State of Montana,
   et al.

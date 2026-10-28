@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-08-25'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Alaska, et al., Petitioners v. Alaska State Employees Association/American
   Federation of State, County and Municipal Employees Local 52, AFL-CIO

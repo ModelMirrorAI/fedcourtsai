@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-12-11'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Richard McKinley Wilson, Jr., Petitioner v. Office of the Commissioner of the
   Revenue of Stafford County, et al.

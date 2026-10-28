@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-11-03'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Greg Vasquez, et al., Petitioners v. Maritza Amador, Individually and as Representative
   of the Estate of Gilbert Flores and as Next Friend of Minor R. M. F., et al.

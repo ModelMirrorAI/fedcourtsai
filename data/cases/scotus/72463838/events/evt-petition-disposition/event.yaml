@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-05-05'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: H. B., a Minor, Individually and as Successor in Interest to Michelle Lee Shirley,
   By and Through His Guardian ad Litem, Ronnie Shirley, Petitioner v. City of Torrance,
   California, et al.

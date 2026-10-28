@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-09-30'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Brian Kirk Malpasso, et al., Petitioners v. William M. Pallozzi, in His Official
   Capacity as Maryland Secretary of State Police

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-01-28'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: City of Austin, Texas, Petitioner v. Reagan National Advertising of Austin,
   LLC, et al.

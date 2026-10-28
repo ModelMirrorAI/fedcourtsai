@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-05-24'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Janice Hughes Barnes, Individually and as Representative of the Estate of Ashtian
   Barnes, Deceased, Petitioner v. Roberto Felix, Jr., et al.

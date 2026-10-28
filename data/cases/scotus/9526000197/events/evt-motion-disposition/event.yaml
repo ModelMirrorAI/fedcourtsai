@@ -5,7 +5,7 @@ docket_entry_id: null
 event_id: evt-motion-disposition
 kind: motion
 moment: arrival
-opened_at: null
+opened_at: '2026-07-26'
 resolved: true
 schema_version: '1.0'
 stage: interim

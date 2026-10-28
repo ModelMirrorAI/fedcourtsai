@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-12-31'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Sok Kong, Trustee for Next of Kin of Map Kong, Decedent, Petitioner v. City
   of Burnsville, Minnesota, et al.

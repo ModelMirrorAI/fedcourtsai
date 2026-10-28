@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-07-03'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Lourdes Fontanillas Lopez, Petitioner v. Morell Bauza Cartagena & Dapena, LLC,
   et al.

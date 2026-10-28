@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-06-11'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: William Cannon, Sr., as Special Representative for Charles Cannon, et al.,
   Petitioners v. Johnnie Lee Savory

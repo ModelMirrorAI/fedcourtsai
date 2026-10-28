@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-03-06'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Seven County Infrastructure Coalition, et al., Petitioners v. Eagle County,
   Colorado,  et al.

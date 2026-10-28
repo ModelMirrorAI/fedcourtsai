@@ -4,7 +4,9 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-08-30'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: HSBC Holdings PLC, et al., Petitioners v. Irving H. Picard, et al.

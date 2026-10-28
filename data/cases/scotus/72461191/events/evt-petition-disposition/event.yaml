@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-11-01'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Campaign for Southern Equality, et al., Petitioners v. Phil Bryant, Governor
   of Mississippi, et al.

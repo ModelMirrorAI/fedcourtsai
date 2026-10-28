@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-10-23'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Ralph Lisby, as the Personal Representative of the Estate of Ashlynn Lisby,
   Deceased, Petitioner v. Jonathan Henderson, Individually and in His Official Capacity
   as a Police Officer, et al.

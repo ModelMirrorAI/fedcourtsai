@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-09-05'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Frank Konarski, dba FGPJ Apartments and Development, et al., Petitioners v.
   City of Tucson, Arizona, et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-09-02'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Barrington Boyd, Petitioner v. Teachers Insurance and Annuity Association of
   America, et al.

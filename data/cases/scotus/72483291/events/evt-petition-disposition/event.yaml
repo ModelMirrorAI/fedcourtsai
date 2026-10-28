@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-02-01'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Douglas B. Moylan, Attorney General of Guam, Petitioner v. Lourdes Leon Guerrero,
   Governor of Guam, et al.

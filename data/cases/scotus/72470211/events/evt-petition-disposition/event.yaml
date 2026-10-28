@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-01-08'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: TNT Crane & Rigging, Inc., Petitioner v. Occupational Safety and Health Review
   Commission, et al.

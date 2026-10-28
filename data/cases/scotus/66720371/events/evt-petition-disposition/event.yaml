@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-12-28'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: "T. B., Jr., By and Through His Parents, T. B., Sr., et ux., Petitioner v.\
   \ Prince George\u2019s County Board of Education, et al."

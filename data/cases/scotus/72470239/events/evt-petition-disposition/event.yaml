@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-01-13'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Gregory Atkins, et al., Petitioners v. Kenneth Williams, Medical Director,
   Tennessee Department of Correction

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-01-15'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Emil Svrcina, et al., Petitioners v. Scott T. Nago, Chief Election Officer
   of the State of Hawaii, et al.

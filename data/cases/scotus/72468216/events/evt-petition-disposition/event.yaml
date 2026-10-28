@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-11-17'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Lone Star Silicon Innovations LLC, Petitioner v. Andrei Iancu, Under Secretary
   of Commerce for Intellectual Property and Director, United States Patent and Trademark
   Office

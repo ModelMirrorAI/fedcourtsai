@@ -4,7 +4,9 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-09-22'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: China Agritech, Inc., Petitioner v. Michael H. Resh, et al.

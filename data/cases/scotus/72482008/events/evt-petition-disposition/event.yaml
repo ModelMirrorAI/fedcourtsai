@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-12-21'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: "Rafael Hern\xE1ndez-Monta\xF1ez, Petitioner v. Financial Oversight and Management\
   \ Board for Puerto Rico"

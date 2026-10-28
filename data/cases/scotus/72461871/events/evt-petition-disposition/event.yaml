@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-11-14'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Applied Underwriters Captive Risk Assurance Company, Inc., Petitioner v. Minnieland
   Private Day School, Inc.

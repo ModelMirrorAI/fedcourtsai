@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-01-05'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: John Sturgeon, Petitioner v. Bert Frost, in His Official Capacity as Alaska
   Regional Director of the National Park Service, et al.

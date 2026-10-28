@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-11-20'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Melissa L. Barnette, Petitioner v. PROF-2013-M4 Legal Title, by U.S. Bank National
   Association, as Legal Title Trustee

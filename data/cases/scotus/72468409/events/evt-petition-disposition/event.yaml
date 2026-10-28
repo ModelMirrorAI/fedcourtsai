@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-11-19'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Rosemary Webster, et al., Petitioners v. Fresenius Medical Care Holdings, Inc.,
   aka Fresenius Medical Care North America

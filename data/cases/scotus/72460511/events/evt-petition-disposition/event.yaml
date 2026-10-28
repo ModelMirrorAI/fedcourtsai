@@ -4,10 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
-moment: null
+moment: distribution
 opened_at: '2018-03-29'
 resolved: true
 schema_version: '1.0'
-stage: null
+stage: cert
 title: Joseph B. Scarnati, III, In His Capacity as Senate President Pro Tempore, Appellant
   v. Louis Agre, et al.

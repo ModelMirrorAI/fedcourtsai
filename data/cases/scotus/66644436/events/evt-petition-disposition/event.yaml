@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-07-28'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: James Robinson v. Office of the Chief Disciplinary Counsel, Supreme Court of
   Missouri

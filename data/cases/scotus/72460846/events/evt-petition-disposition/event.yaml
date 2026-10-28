@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-10-11'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Southern California Alliance of Publicly Owned Treatment Works, Petitioner
   v. Environmental Protection Agency, et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-09-21'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Shirley L. Phelps-Roper, Petitioner v. Pete Ricketts, Governor of Nebraska,
   et al.

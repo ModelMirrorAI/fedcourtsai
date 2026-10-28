@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-04-18'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Dimond Rigging Company, LLC, dba Absolute Rigging And Millwrights, Petitioner
   v. Ordos City Hawtai Autobody Company, Ltd., et al.

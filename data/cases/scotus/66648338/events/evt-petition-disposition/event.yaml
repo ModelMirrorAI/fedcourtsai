@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-08-17'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: H. Richard Austin, Petitioner v. Hanover Insurance Company, aka Massachusetts
   Bay Insurance Company

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-10-16'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Edward G. McDonough, Petitioner v. Youel Smith, Individually and as Special
   District Attorney for the County of Rensselaer, New York, aka Trey Smith

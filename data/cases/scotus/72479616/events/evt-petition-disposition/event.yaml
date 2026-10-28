@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-06-14'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Daniel Phillips, as Administrator of the Estate of Melvin L. Phillips, Sr.
   and as Successor Trustee of Melvin Phillips, Sr./Orchard Party Trust, Petitioner
   v. Oneida Indian Nation

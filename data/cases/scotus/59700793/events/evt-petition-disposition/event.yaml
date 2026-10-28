@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-07-01'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Willie Earl Carr, et al., Petitioners v. Andrew M. Saul, Commissioner of Social
   Security

@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-02-19'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Nicholas L. Triantos, Petitioner v. Deutsche Bank National Trust Company, as
   Trustee for Morgan Stanley ABS Capital I Inc. Trust 2004-HE4, Mortgage Pass-Through
   Certificates, Series 2004-HE4, et al.

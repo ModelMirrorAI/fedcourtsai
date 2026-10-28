@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-12-14'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: City of Charlotte, North Carolina, et al., Petitioners v. Azucena Zamorano
   Aleman, Individually and as Administrator of the Estate of Rubin Galindo Chavez

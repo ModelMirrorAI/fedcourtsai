@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-12-23'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Donald J. Trump for President, Inc., Petitioner v. Veronica Degraffenreid,
   Acting Secretary of Pennsylvania, et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-11-13'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Artem M. Joukov, Petitioner v. Office of the State Attorney for the Second
   Judicial Circuit of Florida

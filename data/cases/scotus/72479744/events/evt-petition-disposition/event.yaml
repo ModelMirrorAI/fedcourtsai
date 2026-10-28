@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-08-31'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Aaron Hashim, et al., Petitioners v. Malia M. Cohen, Individually and in Her
   Official Capacity as State Controller of California, et al.
