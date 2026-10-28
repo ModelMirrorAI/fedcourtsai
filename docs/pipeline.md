@@ -1922,7 +1922,9 @@ The mechanics:
   `qp-topics/applications-refresh` PRs, the case-summary lane's
   `summaries/refresh` PR, the big-case board's
   `metrics/big-cases` PR and the update history's `metrics/public-updates`
-  PR); on those
+  PR), or a `record-fill/…` PR, which the `paths` jail holds to in-place fills
+  of freeze-record placeholders `main` already carries (*Pending
+  registrations* in [process-version.md](process-version.md)); on those
   legitimate lanes it reports `skipped`, which satisfies the requirement. Its
   definition lives in `main`'s own ci.yml, so the context reports on every
   lane into `main` (docs/security.md inventories this).

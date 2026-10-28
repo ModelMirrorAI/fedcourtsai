@@ -632,7 +632,16 @@ deleted makes the plan **refuse**, naming it, rather than guess which
 placeholder became which. A promotion that carries a hand-written fill which
 rewraps the prose around a placeholder is therefore refused and handled by
 hand. Fills of landed placeholders reach `main` directly rather than riding a
-promotion.
+promotion, through the **record-fill lane**: a PR into `main` from a
+`record-fill/<name>` branch, which `main-base` routes and the required `paths`
+check jails (`fedcourts assert-record-fill`). The jail admits a change to
+`docs/freeze-record.md` alone that fills, in exactly the form above,
+placeholders the record on `main` already holds, so the lane cannot add an
+entry, a placeholder or a registration, which only a promotion merge stamps.
+The maintainer's approval on `main` still applies, and the next promotion
+waits for the daily sync to bring the fill into `staging`. A fill that also
+rides `staging` would meet the same lines twice, so a landed placeholder is
+filled on one route only.
 
 The plan refuses a merge committed
 before either parent, in the future, or before an instant the registry

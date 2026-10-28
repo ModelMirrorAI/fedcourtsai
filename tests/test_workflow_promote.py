@@ -26,6 +26,7 @@ import yaml
 from fedcourtsai import metrics_refresh
 from fedcourtsai.collect import run_branch
 from fedcourtsai.finalize import FinalizeRole
+from fedcourtsai.promotion_record import RECORD_FILL_PREFIX
 from tests.workflow_gate import gated_jobs, own_condition
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -1307,6 +1308,21 @@ def test_main_base_jail_covers_every_legitimate_lane() -> None:
     assert job["permissions"] == {}
     # The job exists only to fail: when the `if` matches, the PR must not merge.
     assert "exit 1" in _steps_text(job)
+
+
+def test_the_record_fill_lane_is_routed_and_jailed_under_one_prefix() -> None:
+    """`main-base` lets a `record-fill/` head through, and the `paths` jail is
+    what holds it to in-place fills — and the jail's non-match path is a
+    **pass**. So the prefix is one literal in three places: the routing
+    allowlist, the jail's (case-folded) selector, and `RECORD_FILL_PREFIX`. A
+    drift would route a record-fill PR to `main` past a jail that never ran."""
+    ci = (WORKFLOWS / "ci.yml").read_text()
+    condition = _load(WORKFLOWS / "ci.yml")["jobs"]["main-base"]["if"]
+    assert f"startsWith(github.head_ref, '{RECORD_FILL_PREFIX}')" in condition
+    assert f"\n            {RECORD_FILL_PREFIX}*) jail=record-fill ;;" in ci
+    paths = _steps_text(_load(WORKFLOWS / "ci.yml")["jobs"]["paths"])
+    assert 'case "${HEAD_REF,,}" in' in paths
+    assert "uv run fedcourts assert-record-fill" in paths
 
 
 def test_dependabot_targets_staging() -> None:

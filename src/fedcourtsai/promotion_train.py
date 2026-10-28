@@ -105,8 +105,8 @@ BRANCH_PREFIX = "promote/"
 #: lanes, never through staging. `main` moves on these every few hours, so the
 #: cut cannot wait for `main` to be an ancestor of staging; what it waits for is
 #: anything *else* `main` holds that staging lacks — after a promotion, the
-#: merge itself and the record commit's registry and freeze-record stamps —
-#: which only a sync brings.
+#: merge itself and the record commit's registry and freeze-record stamps, and
+#: a record-fill PR's freeze-record fills — which only a sync brings.
 WRITER_LANE_PATHS = ("data/", "metrics/", "corpus/corpus.db.ref")
 
 #: The only branch names the train cuts and acts on: the UTC date, and a

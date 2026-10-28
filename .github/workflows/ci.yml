@@ -135,16 +135,21 @@ jobs:
         run: scripts/gate.sh schemas
 
   paths:
-    # Defense-in-depth path jail for every auto-merged PR. A predict/evaluate run
+    # Defense-in-depth path jail for every auto-merged PR, and for the
+    # record-fill lane. A predict/evaluate run
     # branch may only *add* files under data/; the daily big-case-board branch may
     # only write the board's own two artifacts; the weekly update-history branch
     # may only add week files under metrics/updates/. Either way a PR that auto-merges
-    # without a human cannot carry a code, workflow, or config change. A no-op
+    # without a human cannot carry a code, workflow, or config change. A
+    # `record-fill/` branch, the one reviewed route to `main` outside a
+    # promotion, may only fill in place placeholders `docs/freeze-record.md`
+    # already holds on its base. A no-op
     # that passes for every other branch, so it is safe to make a required status
     # check on all PRs. The data jail also runs producer-side in each collect job;
     # this required check enforces both independently of the workflow that
     # produced the branch. Logic lives in the tested `assert-paths` /
-    # `assert-board-paths` / `assert-update-paths` commands; this step only runs git.
+    # `assert-board-paths` / `assert-update-paths` / `assert-record-fill`
+    # commands; this step only runs git.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-26.04
     timeout-minutes: 10
@@ -160,7 +165,7 @@ jobs:
       - uses: ./.github/actions/setup-python-env
         with:
           restore-cache: "false"
-      - name: Enforce the path jail on the auto-merged branches
+      - name: Enforce the path jail on the auto-merged and record-fill branches
         # Diff against the live base ref, not the event's pull_request.base.sha:
         # that sha is frozen at PR creation while the checkout is the merge ref
         # (the PR merged into the base's *current* tip), so on a base that has
@@ -184,10 +189,19 @@ jobs:
             predict/run-*|evaluate/run-*) jail=data ;;
             metrics/big-cases) jail=board ;;
             metrics/public-updates) jail=updates ;;
-            *) echo "not an auto-merged branch; path jail not applicable"; exit 0 ;;
+            record-fill/*) jail=record-fill ;;
+            *) echo "not a jailed branch; path jail not applicable"; exit 0 ;;
           esac
           git diff --name-status "origin/${BASE_REF}...HEAD" > changes.txt
-          if [ "$jail" = board ]; then
+          if [ "$jail" = record-fill ]; then
+            # The record at the diff's own base and at the head. A record
+            # missing at either end fails `git show`, and so the jail.
+            base=$(git merge-base "origin/${BASE_REF}" HEAD)
+            git show "${base}:docs/freeze-record.md" > record-before.md
+            git show "HEAD:docs/freeze-record.md" > record-after.md
+            uv run fedcourts assert-record-fill --name-status-file changes.txt \
+              --before record-before.md --after record-after.md
+          elif [ "$jail" = board ]; then
             uv run fedcourts assert-board-paths --name-status-file changes.txt
           elif [ "$jail" = updates ]; then
             uv run fedcourts assert-update-paths --name-status-file changes.txt
@@ -386,7 +400,9 @@ jobs:
     # run branches, the maintainer's cleanup sweep, the metrics-refresh /
     # cert-backtest / merits-backtest / salience-replay PRs, the qp-topic
     # labeling runs' labels PRs (one fixed branch per frame), the case-summary lane's `summaries/refresh`
-    # PR, the daily big-case board's and the weekly update history's. All are
+    # PR, the daily big-case board's and the weekly update history's — or a
+    # `record-fill/` PR, which the `paths` jail holds to in-place fills of the
+    # freeze-record placeholders `main` already carries. All are
     # reviewed except the board's and the history's, which auto-merge behind
     # the `paths` jail above. This job runs (and fails) only on a
     # PR to `main` from any other head; every legitimate PR skips it, and the
@@ -412,6 +428,7 @@ jobs:
           startsWith(github.head_ref, 'predict/run-') ||
           startsWith(github.head_ref, 'evaluate/run-') ||
           startsWith(github.head_ref, 'cleanup/') ||
+          startsWith(github.head_ref, 'record-fill/') ||
           github.head_ref == 'metrics/refresh' ||
           github.head_ref == 'metrics/big-cases' ||
           github.head_ref == 'metrics/public-updates' ||
@@ -429,5 +446,5 @@ jobs:
     steps:
       - run: |
           set -euo pipefail
-          echo "::error::PRs to main carry only promotion batches (head 'staging' or a promote/ candidate) or the bot lanes; feature PRs target 'staging' (AGENTS.md)."
+          echo "::error::PRs to main carry only promotion batches (head 'staging' or a promote/ candidate), a record-fill/ fill or the bot lanes; feature PRs target 'staging' (AGENTS.md)."
           exit 1

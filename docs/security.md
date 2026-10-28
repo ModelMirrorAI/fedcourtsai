@@ -384,7 +384,13 @@ this policy.
     is not a same-repo `staging` or non-feature lane, so a feature PR
     cannot ride around the promotion path by mistake. Those lanes are all
     reviewed except the big-case board's and the weekly update history's, which
-    merge unattended behind the `paths` jail below. Rulesets cannot constrain
+    merge unattended behind the `paths` jail below. One reviewed lane is not a
+    bot's: a `record-fill/*` PR, which the `paths` jail holds to filling, in
+    place, freeze-record placeholders the base already carries (the tested
+    `fedcourts assert-record-fill`), so the one hand-authored route to `main`
+    outside a promotion cannot carry code, config, an entry or a
+    registration. Like every jail here it runs the PR's own `ci.yml`, so it
+    deters mistakes; the maintainer's approval below is what catches the rest. Rulesets cannot constrain
     a PR's source branch, which is why it is a check rather than a rule. Its
     job definition lives in `main`'s own `ci.yml`, so the context reports on
     every lane into `main`; adding a context like it goes through the *Adding
