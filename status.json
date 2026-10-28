@@ -1,0 +1,454 @@
+{
+  "backtests": [
+    {
+      "artifact": "metrics/backtest.json",
+      "key": "historical-replay",
+      "name": "Historical replay",
+      "reading": "Retrospective: every outcome was public before the run, so this measures recall of known history, never foresight. It is an iteration instrument, and nothing here is a claimable performance figure. Read each lift only against its own row's floor. The pooled row mixes in courts this pipeline does not predict.",
+      "summary": "2 simple baseline predictor(s) replayed over 37,975 resolved events in the corpus. No model runs here.",
+      "table": {
+        "columns": [
+          "Predictor",
+          "Docket",
+          "Events",
+          "Accuracy",
+          "Always-deny floor",
+          "Lift",
+          "Mean Brier"
+        ],
+        "rows": [
+          [
+            "prior-vote",
+            "SCOTUS cert petitions",
+            "20,489",
+            "89.3%",
+            "89.3%",
+            "+0.00%",
+            "0.1137"
+          ],
+          [
+            "prior-vote",
+            "SCOTUS applications",
+            "10,525",
+            "17.9%",
+            "17.9%",
+            "+0.00%",
+            "0.4449"
+          ],
+          [
+            "prior-vote",
+            "SCOTUS other dockets",
+            "63",
+            "19.0%",
+            "19.0%",
+            "+0.00%",
+            "0.0635"
+          ],
+          [
+            "prior-vote",
+            "All courts pooled",
+            "37,975",
+            "54.3%",
+            "54.3%",
+            "+0.06%",
+            "0.1913"
+          ],
+          [
+            "constant-denied",
+            "SCOTUS cert petitions",
+            "20,489",
+            "89.3%",
+            "89.3%",
+            "+0.00%",
+            "0.0624"
+          ],
+          [
+            "constant-denied",
+            "SCOTUS applications",
+            "10,525",
+            "17.9%",
+            "17.9%",
+            "+0.00%",
+            "0.8180"
+          ],
+          [
+            "constant-denied",
+            "SCOTUS other dockets",
+            "63",
+            "19.0%",
+            "19.0%",
+            "+0.00%",
+            "0.0635"
+          ],
+          [
+            "constant-denied",
+            "All courts pooled",
+            "37,975",
+            "54.3%",
+            "54.3%",
+            "+0.00%",
+            "0.2670"
+          ]
+        ]
+      },
+      "vintage": "2026-10-27"
+    },
+    {
+      "artifact": "metrics/cert-backtest.json",
+      "key": "cert",
+      "name": "Cert back-test",
+      "reading": "Retrospective: every outcome was public before the run, so this measures recall of known history, never foresight. It is an iteration instrument, and nothing here is a claimable performance figure. The floor is this sample's own denial share, so a different draw is scored against a different floor and is not comparable. No evaluator runs here, so a cell that saw its own outcome stays in and can only flatter its model.",
+      "summary": "3 model(s) and 2 reference baseline(s) replayed over 10 decided cert petitions drawn at random from paid petitions, with each outcome hidden. Always-deny scores 90.0% on exact disposition over this sample.",
+      "table": {
+        "columns": [
+          "Predictor",
+          "Kind",
+          "Petitions",
+          "Exact-disposition accuracy",
+          "Lift",
+          "Mean Brier"
+        ],
+        "rows": [
+          [
+            "claude-baseline",
+            "model",
+            "10",
+            "90.0%",
+            "+0.00%",
+            "0.0352"
+          ],
+          [
+            "codex-baseline",
+            "model",
+            "10",
+            "90.0%",
+            "+0.00%",
+            "0.0549"
+          ],
+          [
+            "gemini-baseline",
+            "model",
+            "10",
+            "90.0%",
+            "+0.00%",
+            "0.0589"
+          ],
+          [
+            "prior-vote",
+            "baseline",
+            "10",
+            "90.0%",
+            "+0.00%",
+            "0.0908"
+          ],
+          [
+            "constant-denied",
+            "baseline",
+            "10",
+            "90.0%",
+            "+0.00%",
+            "0.1000"
+          ]
+        ]
+      },
+      "vintage": "2026-10-17"
+    },
+    {
+      "artifact": "metrics/merits-backtest.json",
+      "key": "merits",
+      "name": "Merits back-test",
+      "reading": "Retrospective: every outcome was public before the run, so this measures recall of known history, never foresight. It is an iteration instrument, and nothing here is a claimable performance figure. Read accuracy against the majority floor beside it. Brier skill is against a base rate that could have been known at each case's cutoff; a positive figure beats it. Cases are fenced or set aside in ways that can track their outcome, so every set here is a selected one.",
+      "summary": "3 model(s) replayed over 15 decided argued case(s) from OT2024, OT2025, at the grant and briefing moments, forecasting whether the judgment below is disturbed.",
+      "table": {
+        "columns": [
+          "Predictor",
+          "Moment",
+          "Cases",
+          "Accuracy",
+          "Majority floor",
+          "Brier skill"
+        ],
+        "rows": [
+          [
+            "claude-baseline",
+            "grant",
+            "15",
+            "86.7%",
+            "73.3%",
+            "+0.58"
+          ],
+          [
+            "claude-baseline",
+            "briefed",
+            "15",
+            "93.3%",
+            "73.3%",
+            "+0.71"
+          ],
+          [
+            "codex-baseline",
+            "grant",
+            "15",
+            "93.3%",
+            "73.3%",
+            "+0.53"
+          ],
+          [
+            "codex-baseline",
+            "briefed",
+            "15",
+            "100.0%",
+            "73.3%",
+            "+0.71"
+          ],
+          [
+            "gemini-baseline",
+            "grant",
+            "15",
+            "86.7%",
+            "73.3%",
+            "+0.48"
+          ],
+          [
+            "gemini-baseline",
+            "briefed",
+            "14",
+            "100.0%",
+            "71.4%",
+            "+0.77"
+          ]
+        ]
+      },
+      "vintage": "2026-10-25"
+    },
+    {
+      "artifact": "metrics/salience-replay.json",
+      "key": "salience-replay",
+      "name": "Salience-gate replay",
+      "reading": "Retrospective: every outcome was public before the run, so this measures recall of known history, never foresight. It is an iteration instrument, and nothing here is a claimable performance figure. It was produced under sal-v1 while sal-v4 is the scorer in force, so it describes that version and is not a current reading of the gate.",
+      "summary": "The gate that picks which petitions are predicted, replayed over OT2022, OT2023, OT2024 under 3 cutoff policies.",
+      "table": null,
+      "vintage": "2026-08-07"
+    }
+  ],
+  "coverage": {
+    "corpus_dockets": 2153775,
+    "documents_provisioned": 134,
+    "evaluations_forward": 1359,
+    "events_predicted": 434,
+    "frontier_as_of": "2026-10-28",
+    "next_conference": "2026-11-06",
+    "next_conference_petitions": 270,
+    "predicted_resolved": 197,
+    "predictions": 1711,
+    "public_cases": 14261,
+    "watchlist": 479
+  },
+  "data_ok": true,
+  "generated_at": "2026-10-28T14:16:08.575671Z",
+  "lanes": [
+    {
+      "expected_since": "2026-10-28T10:47:00Z",
+      "label": "Docket refresh",
+      "lane": "run-pull",
+      "last_concluded_at": "2026-10-28T13:21:15Z",
+      "last_conclusion": "success",
+      "last_started_at": "2026-10-28T13:21:15Z",
+      "runs_7d": 70,
+      "schedule": "16 times a day",
+      "state": "up",
+      "successes_7d": 69,
+      "what": "Polls the Supreme Court's docket pages for new filings and orders, and enriches tracked dockets from CourtListener."
+    },
+    {
+      "expected_since": "2026-10-28T08:31:00Z",
+      "label": "Historical walker",
+      "lane": "run-seed",
+      "last_concluded_at": "2026-10-28T08:38:29Z",
+      "last_conclusion": "success",
+      "last_started_at": "2026-10-28T08:38:29Z",
+      "runs_7d": 17,
+      "schedule": "daily at 02:31, 08:31, 14:31 and 20:31 UTC",
+      "state": "up",
+      "successes_7d": 17,
+      "what": "Adds decided petitions from past Terms to the corpus the base rates are read from."
+    },
+    {
+      "expected_since": "2026-10-27T17:32:00Z",
+      "label": "Predict",
+      "lane": "run-predict",
+      "last_concluded_at": "2026-10-28T01:14:23Z",
+      "last_conclusion": "success",
+      "last_started_at": "2026-10-28T01:14:23Z",
+      "runs_7d": 20,
+      "schedule": "daily at 14:12 and 17:32 UTC",
+      "state": "up",
+      "successes_7d": 17,
+      "what": "Runs each model on the events that are owed a forecast."
+    },
+    {
+      "expected_since": "2026-10-27T15:39:00Z",
+      "label": "Evaluate",
+      "lane": "run-evaluate",
+      "last_concluded_at": "2026-10-27T15:49:19Z",
+      "last_conclusion": "success",
+      "last_started_at": "2026-10-27T15:49:19Z",
+      "runs_7d": 5,
+      "schedule": "daily at 15:39 UTC",
+      "state": "up",
+      "successes_7d": 3,
+      "what": "Grades the forecasts on events whose outcome is now known."
+    },
+    {
+      "expected_since": "2026-10-28T03:43:00Z",
+      "label": "Case summaries",
+      "lane": "summarize",
+      "last_concluded_at": "2026-10-28T03:44:34Z",
+      "last_conclusion": "success",
+      "last_started_at": "2026-10-28T03:44:34Z",
+      "runs_7d": 5,
+      "schedule": "daily at 03:43 UTC",
+      "state": "up",
+      "successes_7d": 5,
+      "what": "Writes the plain-language summaries of the predicted cases."
+    },
+    {
+      "expected_since": "2026-10-28T04:36:00Z",
+      "label": "Boards",
+      "lane": "run-analytics",
+      "last_concluded_at": "2026-10-28T04:38:32Z",
+      "last_conclusion": "success",
+      "last_started_at": "2026-10-28T04:38:32Z",
+      "runs_7d": 8,
+      "schedule": "daily at 04:36 UTC, plus Mondays at 05:41 and 12:59 UTC",
+      "state": "up",
+      "successes_7d": 8,
+      "what": "Rebuilds the big-case board daily and the metrics roll-ups weekly."
+    },
+    {
+      "expected_since": "2026-10-28T08:00:00Z",
+      "label": "Status report",
+      "lane": "run-ops",
+      "last_concluded_at": "2026-10-28T08:09:19Z",
+      "last_conclusion": "success",
+      "last_started_at": "2026-10-28T14:14:35Z",
+      "runs_7d": 6,
+      "schedule": "daily at 08:00 UTC, plus Mondays at 08:30 UTC",
+      "state": "up",
+      "successes_7d": 6,
+      "what": "Checks the committed data and writes this page's snapshot."
+    }
+  ],
+  "production": [
+    {
+      "by_stage": [
+        {
+          "cells": 3,
+          "role": "evaluator",
+          "stage": "cert"
+        },
+        {
+          "cells": 30,
+          "role": "evaluator",
+          "stage": "interim"
+        },
+        {
+          "cells": 71,
+          "role": "predictor",
+          "stage": "cert"
+        },
+        {
+          "cells": 21,
+          "role": "predictor",
+          "stage": "interim"
+        },
+        {
+          "cells": 47,
+          "role": "predictor",
+          "stage": "merits"
+        }
+      ],
+      "cells": 172,
+      "days": 7,
+      "end": "2026-10-28",
+      "events": 49,
+      "start": "2026-10-21",
+      "term": null,
+      "window": "7d"
+    },
+    {
+      "by_stage": [
+        {
+          "cells": 438,
+          "role": "evaluator",
+          "stage": "cert"
+        },
+        {
+          "cells": 87,
+          "role": "evaluator",
+          "stage": "interim"
+        },
+        {
+          "cells": 428,
+          "role": "predictor",
+          "stage": "cert"
+        },
+        {
+          "cells": 83,
+          "role": "predictor",
+          "stage": "interim"
+        },
+        {
+          "cells": 95,
+          "role": "predictor",
+          "stage": "merits"
+        }
+      ],
+      "cells": 1131,
+      "days": 30,
+      "end": "2026-10-28",
+      "events": 326,
+      "start": "2026-09-28",
+      "term": null,
+      "window": "30d"
+    },
+    {
+      "by_stage": [
+        {
+          "cells": 438,
+          "role": "evaluator",
+          "stage": "cert"
+        },
+        {
+          "cells": 75,
+          "role": "evaluator",
+          "stage": "interim"
+        },
+        {
+          "cells": 410,
+          "role": "predictor",
+          "stage": "cert"
+        },
+        {
+          "cells": 68,
+          "role": "predictor",
+          "stage": "interim"
+        },
+        {
+          "cells": 92,
+          "role": "predictor",
+          "stage": "merits"
+        }
+      ],
+      "cells": 1083,
+      "days": 27,
+      "end": "2026-10-28",
+      "events": 319,
+      "start": "2026-10-01",
+      "term": 2026,
+      "window": "term"
+    }
+  ],
+  "schema_version": "1.0",
+  "source_sha": "7392500f372ed662ae331cf2b405d712e6ab04e4"
+}
