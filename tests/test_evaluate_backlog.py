@@ -20,6 +20,7 @@ from fedcourtsai.pipeline.pull import PullQueues, derive_evaluate_backlog, evalu
 from fedcourtsai.registry import enabled_evaluators
 from fedcourtsai.schemas import CellFailure, EventKind, VoidedEvent
 from fedcourtsai.serialize import write_json
+from fedcourtsai.store import resolved_events
 from tests.conftest import MERITS_EVENT, seed_evaluation, seed_merits_outcome, seed_prediction
 
 EVALUATORS = Path("config/evaluators.yaml")
@@ -131,6 +132,23 @@ def test_a_voided_event_owes_no_grading(tmp_path: Path, monkeypatch: pytest.Monk
     )
 
     assert _derive(tmp_path, today=date(2026, 7, 20)).evaluate == []
+
+
+def test_an_event_closed_without_an_outcome_owes_no_grading(tmp_path: Path) -> None:
+    """A merits event whose proceeding ended with nothing decided is closed
+    without an outcome; its predictions have no ground truth to be graded on."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    event = "evt-order-judgment"
+    _resolved_event(db, "scotus", 1, event)
+    seed_prediction(data, "scotus", 1, event)
+    assert _derive(tmp_path, today=date(2026, 7, 20)).evaluate != []
+    with corpus.connect(db) as conn:
+        corpus.mark_resolved_without_outcome(
+            conn, "scotus/1", event, corpus.NO_OUTCOME_MERITS_TERMINATED
+        )
+    assert _derive(tmp_path, today=date(2026, 7, 21)).evaluate == []
+    assert resolved_events(db, "scotus", 1) == []
 
 
 def test_a_resolved_event_with_no_prediction_is_not_owed(tmp_path: Path) -> None:

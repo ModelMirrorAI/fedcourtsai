@@ -1243,7 +1243,10 @@ or network.
   predict-scope latch sweep), `fedcourts relabel-application-events --apply`
   (application baselines to their motion/interim identity), `fedcourts
   backfill-merits-judgments --apply` (the judgment a merits-bound grant
-  received), `fedcourts backfill-merits-events --apply` (the open merits
+  received, or the termination of one that ended with nothing decided, whose
+  open merits events it closes `resolved_without_outcome` with the reason
+  `merits-terminated`; a bare mandate notation is left open for the parse),
+  `fedcourts backfill-merits-events --apply` (the open merits
   forecast events on granted, undecided dockets — ledger `event.yaml` files
   staged in the same commit as the pointer, with the moment-column stamp
   `fedcourts backfill-event-moments --apply` riding the step first), and the
@@ -1535,7 +1538,13 @@ or network.
      (`no-snapshot`, `undated`, `opened-after-decision`, `redocketed`,
      `declined`) — a
      first-mint `ingested-decided` closure it cannot attribute is re-marked
-     with the pass's own reason, which says why it is still unrecorded.
+     with the pass's own reason, which says why it is still unrecorded. A
+     merits event the merits backfill closed as `merits-terminated` is no gap
+     while its row stays terminated, so neither pass re-marks it; a judgment
+     that later parses clears the termination, and the convergence records the
+     outcome over the mark. A `merits-terminated` event owes no grading, so
+     the evaluate backlog leaves it out, and the missed-forecast monitor leaves
+     it out too, since its question was never decided.
 
      **Ledger-outcome coverage.** Two populations, kept two ways. Inside the
      lookback, and at any age where the stage carries a committed prediction,
