@@ -806,7 +806,7 @@ def reconcile_scope_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = reconcile_predict_scope(conn, apply=apply)
     verb = "latched out / released" if apply else "would latch out / release"
     typer.echo(
@@ -844,7 +844,7 @@ def converge_decision_dates_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = converge_decision_dates(conn, apply=apply)
     # On an apply the number a maintainer reads off the run summary is the one
     # the UPDATE confirmed, not the one the plan plurality expected.
@@ -908,7 +908,7 @@ def scrub_bulk_cluster_fields_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         if apply:
             preview = scrub_bulk_cluster_fields(conn, apply=False)
             if preview.scrubbed > max_scrub:
@@ -1065,7 +1065,7 @@ def rederive_distribution_counts_cmd(
             "recorded corpus_sha256 names the override's blob",
             err=True,
         )
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = rederive_distribution_counts(
             conn,
             parse=parse,
@@ -1279,7 +1279,7 @@ def rederive_amicus_briefs_cmd(
             "recorded corpus_sha256 names the override's blob",
             err=True,
         )
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = rederive_amicus_briefs(
             conn,
             settings.data_root,
@@ -1429,7 +1429,7 @@ def rederive_cert_amicus_briefs_cmd(
             "recorded corpus_sha256 names the override's blob",
             err=True,
         )
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = rederive_cert_amicus_briefs(
             conn, apply=apply, corpus_sha256=corpus_sha, max_changes=max_changes
         )
@@ -1511,7 +1511,7 @@ def interim_reading_census_cmd() -> None:
         )
     else:
         corpus_sha = corpus.resolve_read_pointer(db_path).sha256
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_local_read(db_path) as conn:
         result = interim_reading_census(conn, settings.data_root, corpus_sha256=corpus_sha)
     typer.echo(
         f"interim-reading-census: {len(result.rows)} of {result.observable} readable resolved "
@@ -1559,7 +1559,7 @@ def reconcile_salience_selection_cmd(
         )
         raise typer.Exit(code=1)
     config = load_salience_config(settings.config_root)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = reconcile_salience_selection(conn, settings.data_root, config, apply=apply)
     typer.echo(
         f"reconcile-salience-selection ({'applied' if apply else 'dry-run'}): "
@@ -2344,7 +2344,7 @@ def unlatch_overselected_cmd(
     ref = db_path.parent / (db_path.name + ".ref")
     if ref.is_file():
         typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = unlatch_overselected(conn, config, apply=apply)
     verb = "cleared" if apply else "would clear"
     typer.echo(
@@ -2405,7 +2405,7 @@ def dedupe_live_rows_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = dedupe.dedupe_live_rows(conn, settings.data_root, apply=apply)
     verb = "dropped" if apply else "would drop"
     typer.echo(
@@ -2474,7 +2474,7 @@ def backfill_merits_judgments_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = backfill_merits_judgments(conn, apply=apply)
     verb = "stamped" if apply else "would stamp"
     distribution = (
@@ -2570,7 +2570,7 @@ def backfill_questions_presented_cmd(
         ref = db_path.parent / (db_path.name + ".ref")
         if ref.is_file():
             typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = backfill_questions_presented(conn, apply=apply)
     if not result.petitions:
         typer.echo(
@@ -2748,7 +2748,7 @@ def _ocr_sweep(  # noqa: PLR0912, PLR0913 - keyword-only; one flag per sweep mod
             char_cap=cfg.document_text_cap,
         )
         return
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         selection = ocr_sweep.sweep_selection(conn, cap=caps.ocr, now=datetime.now(UTC))
     if not selection.documents_seen:
         typer.echo(
@@ -2842,7 +2842,7 @@ def _ocr_sweep_write(
         if ref.is_file():
             typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
     try:
-        with corpus.connect(db_path) as conn:
+        with corpus.connect_maintenance(db_path, apply=apply) as conn:
             result = ocr_sweep.apply_ocr_plan(
                 conn, plan, bound, cap=cap, char_cap=char_cap, today=date.today(), apply=apply
             )
@@ -3099,7 +3099,7 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
             typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
     try:
         with (
-            corpus.connect(db_path) as conn,
+            corpus.connect_maintenance(db_path, apply=apply) as conn,
             SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
         ):
             result = recover_scanned_documents(
@@ -3266,7 +3266,7 @@ def recut_documents_cmd(
             typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
     scope = RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
     with (
-        corpus.connect(db_path) as conn,
+        corpus.connect_maintenance(db_path, apply=apply) as conn,
         SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
     ):
         result = recut_documents(
@@ -3484,7 +3484,7 @@ def enrich_opinions_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn, _client() as client:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn, _client() as client:
         result = enrich_opinions(
             conn,
             client,
@@ -3575,7 +3575,7 @@ def backfill_merits_events_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = backfill_merits_events(conn, settings.data_root, apply=apply)
     verb = "minted" if apply else "would mint"
     cases = sorted({case_id for case_id, _ in result.minted})
@@ -3621,7 +3621,7 @@ def backfill_event_moments_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = backfill_event_moments(conn, apply=apply)
     verb = "stamped" if apply else "would stamp"
     detail = ", ".join(f"{stage}: {count}" for stage, count in sorted(result.stamped.items()))
@@ -3711,7 +3711,7 @@ def converge_event_slugs_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         if apply:
             preview = converge_event_slugs(conn, settings.data_root, apply=False)
             if len(preview.renamed) > max_renames:
@@ -3771,7 +3771,7 @@ def relabel_application_events_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = relabel_application_baseline_events(conn, settings.data_root, apply=apply)
     verb = "renamed" if apply else "would rename"
     typer.echo(
@@ -3834,7 +3834,7 @@ def reopen_misattributed_outcomes_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         if apply:
             preview = reopen_misattributed_outcomes(conn, settings.data_root, apply=False)
             if len(preview.reopened) > max_reopens:
@@ -3991,7 +3991,7 @@ def converge_disposition_labels_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = converge_disposition_labels(
             conn,
             settings.data_root,
@@ -4324,7 +4324,7 @@ def remove_unmintable_events_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         if apply:
             preview = remove_unmintable_baseline_events(conn, settings.data_root, apply=False)
             if len(preview.removed) > max_removals:
@@ -4434,7 +4434,7 @@ def remove_ungranted_merits_events_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         if apply:
             preview = remove_ungranted_merits_events(
                 conn,
@@ -4611,7 +4611,7 @@ def normalize_docket_markings_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = normalize_docket_markings(
             conn, apply=apply, max_rewrites=max_rewrites, limit=cap, ceiling=ceiling
         )
@@ -4736,7 +4736,7 @@ def backfill_response_fields_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = backfill_response_fields(
             conn, apply=apply, max_fills=max_fills, limit=cap, ceiling=ceiling
         )
@@ -4853,7 +4853,7 @@ def backfill_decision_record_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = backfill_decision_record(
             conn, apply=apply, max_fills=max_fills, limit=cap, ceiling=ceiling
         )
@@ -6099,7 +6099,7 @@ def backfill_arrival_stamps_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect(db_path) as conn:
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = backfill_arrival_stamps(
             conn, apply=apply, max_fills=max_fills, data_root=settings.data_root
         )
@@ -6471,7 +6471,7 @@ def backfill_documents_cmd(
         if ref.is_file():
             typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
     with (
-        corpus.connect(db_path) as conn,
+        corpus.connect_maintenance(db_path, apply=apply) as conn,
         SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client,
     ):
         result = backfill_documents(
@@ -7399,11 +7399,11 @@ def _blob_drift_text(drift: corpus_remote.BlobDrift) -> str:
     """
     pulled = drift.pointer_source.name.endswith(".pulled" + corpus_ranged.POINTER_SUFFIX)
     cause = (
-        "it was rewritten since the pull, by a writer or maintenance command run "
-        "against it locally (a dry run included; the read-only commands never rewrite it)"
+        "it was rewritten since the pull, by a writer or maintenance command's --apply "
+        "run against it locally (read-only commands and dry runs never rewrite it)"
         if pulled
         else "it is not the blob that pointer names — rewritten in place by a "
-        "writer or maintenance command run locally (a dry run included), built locally, "
+        "writer or maintenance command's --apply run locally, built locally, "
         "or the committed pointer moved"
     )
     return (
@@ -14761,7 +14761,7 @@ def refresh_historical_cmd(
         raise typer.Exit(code=2)
     wanted = [name for name, _base in historical.HISTORICAL_STREAMS if not stream or name in stream]
     if not apply:
-        with corpus.connect(db_path) as conn:
+        with corpus.connect_local_read(db_path) as conn:
             pending = [
                 f"OT{2000 + t}/{name}"
                 for t in sorted(set(terms))
@@ -14870,7 +14870,7 @@ def refresh_dockets_cmd(
         )
         raise typer.Exit(code=2)
     if not apply:
-        with corpus.connect(db_path) as conn:
+        with corpus.connect_local_read(db_path) as conn:
             for number in numbers:
                 known = corpus.scotus_case_id_by_docket_number(conn, number)
                 typer.echo(f"  {number}: {known or 'no stored row — would onboard'}")
@@ -15359,9 +15359,9 @@ def corpus_info(
     Under ``local`` the blob is opened strictly read-only with no schema
     migration, so the report never rewrites the file it dates and a pulled
     blob keeps matching its pointer, even when it predates the code reading it.
-    No read-only command rewrites it, but a writer or maintenance command
-    run against it does — its dry run included, which opens the file through
-    the writer seam — so the report also says when the bytes
+    No read-only command or maintenance dry run rewrites it, but a writer or a
+    maintenance command's ``--apply`` run against it does, so the report also
+    says when the bytes
     on disk no longer match the sha256 their pointer names (settled by the
     digest unless the blob is untouched since its pull), and — with no pointer
     override set — when the checkout's committed pointer differs from the one
@@ -15483,9 +15483,9 @@ def _echo_pointer_provenance(db_path: Path, backend: str, *, override_set: bool)
                     f"pointer: the blob on disk is not the committed ref's (pulled "
                     f"sha256 {pulled_sha}) — re-pull before quoting this vintage"
                 )
-        # The bytes half: a pull lands a verified blob, but a writer or
-        # maintenance command (a dry run included) run locally rewrites it in
-        # place, after which the vintage dates a file no pointer names.
+        # The bytes half: a pull lands a verified blob, but a writer or a
+        # maintenance command's --apply run locally rewrites it in place, after
+        # which the vintage dates a file no pointer names.
         drift = corpus_remote.local_blob_drift(db_path)
         if drift is not None:
             typer.echo(f"pointer: {_blob_drift_text(drift)} — re-pull before quoting this vintage")
