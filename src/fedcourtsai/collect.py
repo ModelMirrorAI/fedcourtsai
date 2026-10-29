@@ -1322,9 +1322,10 @@ def render_prior_availability_note(rollup: PriorAvailabilityRollup | None) -> st
             f"📭 **Cells whose corpus sidecar logged no query**: {shown} cell(s) with a "
             f"counted sidecar log. Read off the sidecar's own request log, so it is the "
             f"same reading for every engine and does not depend on what the transcript "
-            f"shows: a quiet cell sent nothing the corpus service received, whether it "
-            f"never tried or its command failed before reaching the service. The cell's "
-            f"`retrieval.md` and `tooling.json` say which."
+            f"shows: a quiet cell sent nothing the corpus service received, whether it had "
+            f"no need to query, never tried, or its command failed before reaching the "
+            f"service. A record, not a fault: the cell's `retrieval.md` and `tooling.json` "
+            f"say which."
         )
     if rollup.lift_blind_cells:
         paragraphs.append(
