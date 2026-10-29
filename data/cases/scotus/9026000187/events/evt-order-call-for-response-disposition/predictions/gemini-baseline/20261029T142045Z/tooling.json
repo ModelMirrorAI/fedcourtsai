@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000187",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "queries": [
+    "uv run fedcourts query --court scotus --disposition granted --limit 10",
+    "uv run fedcourts query --court scotus --disposition gvr --limit 10",
+    "uv run fedcourts query --court scotus --judge "Jerry E. Smith" --limit 10",
+    "uv run fedcourts query --court scotus --citation "576 U.S. 389" --limit 10"
+  ],
+  "gaps": [
+    "CourtListener MCP server returned HTTP 429 daily rate limit exceeded (1400/day), preventing external opinion/docket lookups; provisioned petition and appendix documents were complete and sufficient.",
+    "A per-Term CFR (response-requested) risk-set cut in the statpack would sharpen calibration for the response-requested cert moment relative to the whole baseline band."
+  ],
+  "notes": "Used fedcourts paths to verify canonical paths and fedcourts query to inspect recent OT2026 cert grants and GVRs and check panel judge priors."
+}

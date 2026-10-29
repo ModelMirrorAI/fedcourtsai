@@ -1,0 +1,18 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000187",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": null,
+      "issue": null,
+      "message": "Harness normalised this cell's flags.json so it validates (gemini-baseline): no usable flag survived.",
+      "normalised": false,
+      "severity": "info",
+      "source": "harness"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0"
+}

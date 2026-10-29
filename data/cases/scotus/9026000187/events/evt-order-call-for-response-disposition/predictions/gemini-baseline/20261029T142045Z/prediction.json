@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000187",
+  "event_id": "evt-order-call-for-response-disposition",
+  "predictor_id": "gemini-baseline",
+  "engine": {
+    "name": "gemini",
+    "model": "gemini-4-argon"
+  },
+  "run_id": "20261029T142045Z",
+  "created_at": "2026-10-29T14:20:45Z",
+  "input_snapshot": "data/cases/scotus/9026000187/record/snapshots/2026-10-06.json",
+  "context": {
+    "schema_version": "1.0",
+    "mode": "forward",
+    "decided_before": null,
+    "cutoff": "2026-10-06",
+    "cut_kind": "date",
+    "cut_anchor_index": null,
+    "snapshot_date": "2026-10-06",
+    "snapshot_provenance": "truncated",
+    "snapshot_contact_scrub": {
+      "sides": [],
+      "blocks": 0,
+      "fields": 0
+    },
+    "paper_only_filings": false,
+    "snapshot_uptake": null,
+    "band": "baseline",
+    "salience_version": "sal-v4",
+    "distribution_count": 1,
+    "cvsg_date": null,
+    "signals_observable": true,
+    "vide_links": [],
+    "amicus_briefs": null,
+    "response_requested": null,
+    "referred_to_court": null,
+    "term": 2026
+  },
+  "granted": false,
+  "probability": 0.035,
+  "predicted_disposition": "denied",
+  "big_case_score": 0.65,
+  "big_case_rationale": "The petition squarely presents the deep, entrenched 5-4 circuit split over whether Kingsley v. Hendrickson's objective reasonableness standard extends to Fourteenth Amendment pretrial-detainee medical-care claims, on tragic facts involving a severe schizo-affective detainee delivering a baby unattended in a jail cell, though severe factual and qualified-immunity vehicle hurdles limit the likelihood of a merits landmark.",
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.035
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.12
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.15
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.06
+    }
+  ],
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Roberts": 0.001,
+        "Thomas": 0.01,
+        "Alito": 0.005,
+        "Sotomayor": 0.04,
+        "Kagan": 0.005,
+        "Gorsuch": 0.01,
+        "Kavanaugh": 0.002,
+        "Barrett": 0.002,
+        "Jackson": 0.025
+      }
+    }
+  ]
+}
