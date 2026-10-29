@@ -159,11 +159,15 @@ class _Projection(NamedTuple):
     reprojecting per version under one parse would re-read every snapshot for
     no gain. Versions pinning different parses get different projections,
     since the parse changes what the reconstruction counts.
+
+    ``labels`` is each projected row's provenance-mix key, parallel to
+    ``rows``, and ``skipped_rows`` the rows with no snapshot to project, so a
+    version that narrows its segment tallies both over the rows it admits.
     """
 
     rows: list[tuple[corpus.CorpusRow, asof.AsOfRow]]
-    provenance: Counter[str]
-    skipped: int
+    labels: list[str]
+    skipped_rows: list[corpus.CorpusRow]
 
 
 def _project_cohort(
@@ -175,17 +179,17 @@ def _project_cohort(
 ) -> _Projection:
     """Project one Term's petitions to ``policy``'s moment under ``parse``, tallying provenance."""
     projected: list[tuple[corpus.CorpusRow, asof.AsOfRow]] = []
-    provenance_mix: Counter[str] = Counter()
-    skipped = 0
+    labels: list[str] = []
+    skipped: list[corpus.CorpusRow] = []
     for row in rows:
         found = _project(conn, row, policy, parse=parse)
         if found is None:
-            skipped += 1
+            skipped.append(row)
             continue
         projection, label = found
-        provenance_mix[label] += 1
+        labels.append(label)
         projected.append((row, projection))
-    return _Projection(projected, provenance_mix, skipped)
+    return _Projection(projected, labels, skipped)
 
 
 def _replay_cell(
@@ -198,11 +202,17 @@ def _replay_cell(
 ) -> SalienceReplayCell:
     """One (Term, policy, version) cell: run the selection core and score the pick."""
     # A version that narrows its segment (sal-v5's Rule 20 writs) replays over
-    # the projected rows it admits only, so its cohorts, its carve-ins and its
-    # precision and recall denominators all leave the same rows out.
-    projected = [pair for pair in projection.rows if version.in_segment(pair[0])]
-    provenance_mix = projection.provenance
-    skipped = projection.skipped
+    # the rows it admits only. `eligible`, the no-snapshot count, the
+    # provenance mix, the cohorts, the carve-ins and the precision and recall
+    # denominators are all taken over that one population.
+    kept = [
+        (pair, label)
+        for pair, label in zip(projection.rows, projection.labels, strict=True)
+        if version.in_segment(pair[0])
+    ]
+    projected = [pair for pair, _ in kept]
+    provenance_mix: Counter[str] = Counter(label for _, label in kept)
+    skipped = sum(1 for row in projection.skipped_rows if version.in_segment(row))
 
     synthesized = [as_of.row for _, as_of in projected]
     scores, to_select, _, conferences = plan_cohorts(

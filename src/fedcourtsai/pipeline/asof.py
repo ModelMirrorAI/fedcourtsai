@@ -80,10 +80,9 @@ def project_row(
       rather than a replay-validated claim.
     - **Docket-acquired signals are re-derived from the payload** via the same
       parsers the cell-context builder uses — the cert pair
-      (``distribution_count``, ``cvsg_date``), the two dated cert signals a
-      relist count can be read against (``call_for_response_at``,
-      ``relisted_at``, through the ingest-time parsers), and the interim
-      escalation trio
+      (``distribution_count``, ``cvsg_date``), the conferences distributed
+      after a call for response (``distributed_after_call``, through the
+      ingest-time parser), and the interim escalation trio
       (``response_requested``, ``referred_to_court``, ``amicus_briefs``) — so
       they reflect the moment the payload represents rather than where the case
       ended up. Both families are monotone, which is exactly why re-deriving
@@ -151,8 +150,7 @@ def project_row(
             sample_weight=base.sample_weight,
             distribution_count=cert_signals.snapshot_distribution_count(payload, parse=parse),
             cvsg_date=cert_signals.entry_date(cert_signals.snapshot_cvsg_date(payload)),
-            call_for_response_at=cert_signals.call_for_response_date(payload),
-            relisted_at=cert_signals.first_relist_date(payload),
+            distributed_after_call=cert_signals.distributions_after_call(payload),
             response_requested=requested,
             referred_to_court=referred,
             amicus_briefs=amicus,

@@ -2576,6 +2576,39 @@ def test_from_live_docket_reads_no_opening_writ_without_a_petition_entry() -> No
     assert distributed.opening_writ is None
 
 
+def test_from_live_docket_latches_the_distributions_after_a_call() -> None:
+    """Conferences first named by a petition distribution filed after the call."""
+    filing = _payload()["ProceedingsandOrder"][0]
+    called = {"Date": "Sep 20 2026", "Text": "Response Requested. (Due October 20, 2026)"}
+    back = {"Date": "Oct 28 2026", "Text": "DISTRIBUTED for Conference of 11/14/2026."}
+    motion = {
+        "Date": "Oct 29 2026",
+        "Text": "Motion (26M10) DISTRIBUTED for Conference of 11/21/2026.",
+    }
+    row = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, called, back, motion]),
+        live_docket_id(25, 130),
+    )
+    assert row.distribution_count == 2
+    assert row.distributed_after_call == 1  # the motion's trip is not the petition's
+    # A call no distribution has followed yet: zero, not unknown.
+    waiting = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, called]), live_docket_id(25, 131)
+    )
+    assert waiting.distributed_after_call == 0
+    # A redistribution to a conference already named before the call is not new.
+    again = {"Date": "Oct 28 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
+    same = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, called, again]), live_docket_id(25, 132)
+    )
+    assert same.distributed_after_call == 0
+    # No call: nothing to count.
+    none = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP]), live_docket_id(25, 133)
+    )
+    assert none.distributed_after_call is None
+
+
 def test_ingest_live_payload_lands_weight_one_and_observed_zero_signals(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     result = ingest_live_payload(

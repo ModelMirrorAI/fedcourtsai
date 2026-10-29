@@ -391,33 +391,34 @@ def _sal_v3_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool
 #   petition whose opening entry is a writ of mandamus, prohibition or habeas
 #   corpus is neither scored nor selected, and enters none of sal-v5's bands.
 #
-# The two row inputs the relist rule reads — `call_for_response_at` and
-# `relisted_at` — and the `opening_writ` column the scope reads are latched by
-# the live poll at ingest, so a decided row polled before each column existed
-# carries NULL until a back-fill reads its stored snapshot. On such a row sal-v5
-# reads as sal-v4 reads (no call, no relist date, no writ), which is what its
+# The `distributed_after_call` column the relist rule reads and the
+# `opening_writ` column the scope reads are latched by the live poll at ingest,
+# so a decided row polled before each column existed carries NULL until a
+# back-fill reads its stored snapshot. On such a row sal-v5 reads as sal-v4
+# reads (no discounted call, no writ), which is what its
 # published pools over past Terms measure until that back-fill lands
 # (docs/salience.md).
 
 
 def call_for_response_superseded(row: corpus.CorpusRow) -> bool:
-    """Whether a call for response took the place of the petition's first conference.
+    """Whether a call for response took the place of a conference the petition was distributed for.
 
-    The index carries no date for a petition's second distribution, so the
-    rule reads the two dated cert signals it does carry: a call for response
-    (``call_for_response_at``) on a petition distributed at least twice
-    supersedes the first distribution unless a **relist** (``relisted_at``,
-    the first redistribution after a conference that sat on the petition) is
-    dated strictly before the call. A relist before the call means the first
-    conference sat and the second distribution was a real relist; with no such
-    relist, the distribution after the call is the petition's first real
-    conference. A relist dated on the call's own day reads as superseded,
-    since the day alone cannot order the two entries.
+    True when the petition was distributed before the call and again after it:
+    ``distributed_after_call`` (the conferences first named by a distribution
+    filed after the call) is at least 1, and ``distribution_count`` less that
+    is at least 1. The distribution after the call is then the conference the
+    call deferred the petition to, not a relist.
+
+    Monotone over a petition's life by construction: a call arriving after the
+    petition's distributions has no later distribution yet, so it removes no
+    relist the petition already had, and the redistribution that turns the
+    rule on adds one conference to the count in the same poll, so the relist
+    count it discounts never falls.
     """
-    called = row.call_for_response_at
-    if called is None or row.distribution_count is None or row.distribution_count < 2:
+    after = row.distributed_after_call
+    if after is None or row.distribution_count is None:
         return False
-    return row.relisted_at is None or row.relisted_at >= called
+    return after >= 1 and row.distribution_count - after >= 1
 
 
 def _sal_v5_relists(row: corpus.CorpusRow) -> int | None:

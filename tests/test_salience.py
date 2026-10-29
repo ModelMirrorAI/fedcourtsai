@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import re
 from dataclasses import fields
 from datetime import date
@@ -16,7 +17,7 @@ from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.config import SalienceConfig, load_salience_config
 from fedcourtsai.paths import CasePaths
-from fedcourtsai.pipeline import cell_context
+from fedcourtsai.pipeline import asof, cell_context
 from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.cert_signals import DEFAULT_DISTRIBUTION_PARSE, DISTRIBUTION_PARSES
 from fedcourtsai.pipeline.pull import _in_predict_scope
@@ -305,8 +306,7 @@ def _v5_row(
     case_id: str = "scotus/v5",
     *,
     distribution_count: int | None = 2,
-    call_for_response_at: date | None = None,
-    relisted_at: date | None = None,
+    distributed_after_call: int | None = None,
     opening_writ: str | None = None,
     petitioner_title: str | None = "John Doe",
     counsel: list[corpus.CounselEntry] | None = None,
@@ -319,8 +319,7 @@ def _v5_row(
         petitioner_title=petitioner_title,
         date_filed=date(2025, 10, 1),
         distribution_count=distribution_count,
-        call_for_response_at=call_for_response_at,
-        relisted_at=relisted_at,
+        distributed_after_call=distributed_after_call,
         opening_writ=opening_writ,
         counsel=counsel or [],
         distributed_for_conference=conference,
@@ -361,91 +360,113 @@ def test_sal_v5_reads_as_sal_v4_without_any_of_its_three_inputs() -> None:
 
 def test_sal_v5_does_not_count_a_superseded_first_distribution_as_a_relist() -> None:
     """A call for response takes the petition off its first conference, so the
-    distribution after the response is its first real conference."""
+    distribution after the response is the conference it was deferred to."""
     v4, v5 = scorer("sal-v4"), scorer("sal-v5")
-    called = date(2025, 11, 3)
-    once_more = _v5_row(distribution_count=2, call_for_response_at=called)
+    once_more = _v5_row(distribution_count=2, distributed_after_call=1)
     assert salience_module.call_for_response_superseded(once_more)
     assert v4.band(once_more) == "elevated"  # sal-v4 reads the second trip as a relist
-    assert v5.band(once_more) == "baseline"  # sal-v5 reads it as the first conference
-    # A real relist after that first conference is a relist again.
-    relisted = _v5_row(
-        distribution_count=3, call_for_response_at=called, relisted_at=date(2026, 1, 12)
-    )
+    assert v5.band(once_more) == "baseline"
+    # A real relist after that conference is a relist again.
+    relisted = _v5_row(distribution_count=3, distributed_after_call=2)
     assert v4.band(relisted) == "high"
     assert v5.band(relisted) == "elevated"
-    # One distribution: nothing to supersede, and nothing to subtract.
-    single = _v5_row(distribution_count=1, call_for_response_at=called)
-    assert not salience_module.call_for_response_superseded(single)
-    assert v5.score(single) == v4.score(single)
-    # Never parsed: still the unknown sentinel, call or no call.
-    unparsed = _v5_row(distribution_count=None, call_for_response_at=called)
+    # A call before any distribution supersedes nothing.
+    called_first = _v5_row(distribution_count=2, distributed_after_call=2)
+    assert not salience_module.call_for_response_superseded(called_first)
+    assert v5.band(called_first) == v4.band(called_first)
+    # A call no distribution has followed yet supersedes nothing either.
+    pending_call = _v5_row(distribution_count=2, distributed_after_call=0)
+    assert v5.band(pending_call) == v4.band(pending_call) == "elevated"
+    # Never parsed: still the unknown sentinel.
+    unparsed = _v5_row(distribution_count=None, distributed_after_call=1)
     assert v5.score(unparsed) == v4.score(unparsed)
 
 
-def test_sal_v5_keeps_the_relist_a_call_for_response_followed() -> None:
-    """A relist dated before the call means the first conference sat: the second
-    distribution was a real relist and the call superseded nothing. A relist on
-    the call's own day cannot be ordered against it and reads as superseded."""
-    v4, v5 = scorer("sal-v4"), scorer("sal-v5")
-    relist_first = _v5_row(
-        distribution_count=2,
-        relisted_at=date(2025, 11, 3),
-        call_for_response_at=date(2025, 11, 20),
-    )
-    assert not salience_module.call_for_response_superseded(relist_first)
-    assert v5.band(relist_first) == v4.band(relist_first) == "elevated"
-    same_day = _v5_row(
-        distribution_count=2,
-        relisted_at=date(2025, 11, 3),
-        call_for_response_at=date(2025, 11, 3),
-    )
-    assert salience_module.call_for_response_superseded(same_day)
+_PROPERTY_EVENTS = ("reschedule", "call", "redistribution", "relist")
 
 
-def test_sal_v5_band_never_falls_as_a_docket_accrues() -> None:
-    """The statpack's risk set reads a band as monotone over a petition's life.
-    The relist rule keeps that: a call that follows a relist leaves it counted,
-    and a call before the second distribution was already on the docket when
-    the count reached two."""
+def _docket_after(events: tuple[str, ...]) -> list[dict[str, str]]:
+    """A live proceedings list: one distribution, then ``events`` in order.
+
+    Each event is dated after the last, and each distribution names a fresh
+    conference after every earlier one — a reschedule moves the petition to
+    one, a redistribution follows a response, a relist follows a conference.
+    """
+    day = date(2025, 10, 1)
+    conference = date(2025, 10, 10)
+    entries = [
+        {"Date": "Sep 30 2025", "Text": "Petition for a writ of certiorari filed."},
+        {"Date": day.strftime("%b %d %Y"), "Text": "DISTRIBUTED for Conference of 10/10/2025."},
+    ]
+
+    def distribute() -> None:
+        nonlocal conference
+        conference = date.fromordinal(max(conference.toordinal(), day.toordinal()) + 10)
+        entries.append(
+            {
+                "Date": day.strftime("%b %d %Y"),
+                "Text": f"DISTRIBUTED for Conference of {conference:%m/%d/%Y}.",
+            }
+        )
+
+    for event in events:
+        day = date.fromordinal(day.toordinal() + 3)
+        if event == "reschedule":
+            entries.append({"Date": day.strftime("%b %d %Y"), "Text": "Rescheduled."})
+            distribute()
+        elif event == "call":
+            entries.append(
+                {"Date": day.strftime("%b %d %Y"), "Text": "Response Requested. (Due 30 days)"}
+            )
+        else:  # a redistribution after the response, or a relist after a conference
+            day = date.fromordinal(max(day.toordinal(), conference.toordinal() + 1))
+            distribute()
+    return entries
+
+
+def test_sal_v5_band_never_weakens_over_any_order_of_docket_events() -> None:
+    """The statpack's risk sets read a band as monotone over a petition's life.
+
+    Every sequence of up to four events from {reschedule, call, redistribution,
+    relist}, every prefix banded off the as-of projection (the same parsers
+    ingest latches the columns with): the sal-v5 band never weakens."""
     v5 = scorer("sal-v5")
     rank = {band: index for index, band in enumerate(v5.bands)}
-    lives = [
-        # distributed, relisted, then a call for response
-        [
-            _v5_row(distribution_count=1),
-            _v5_row(distribution_count=2, relisted_at=date(2025, 11, 3)),
-            _v5_row(
-                distribution_count=2,
-                relisted_at=date(2025, 11, 3),
-                call_for_response_at=date(2025, 11, 20),
-            ),
-            _v5_row(
-                distribution_count=3,
-                relisted_at=date(2025, 11, 3),
-                call_for_response_at=date(2025, 11, 20),
-            ),
-        ],
-        # distributed, a call for response, back to conference, then relisted
-        [
-            _v5_row(distribution_count=1),
-            _v5_row(distribution_count=1, call_for_response_at=date(2025, 10, 20)),
-            _v5_row(distribution_count=2, call_for_response_at=date(2025, 10, 20)),
-            _v5_row(
-                distribution_count=3,
-                call_for_response_at=date(2025, 10, 20),
-                relisted_at=date(2026, 1, 12),
-            ),
-            _v5_row(
-                distribution_count=4,
-                call_for_response_at=date(2025, 10, 20),
-                relisted_at=date(2026, 1, 12),
-            ),
-        ],
-    ]
-    for life in lives:
-        ranks = [rank[v5.band(row)] for row in life]
-        assert ranks == sorted(ranks, reverse=True), [v5.band(row) for row in life]
+    base = _v5_row(distribution_count=None)
+    checked = 0
+    for length in range(1, 5):
+        for events in itertools.product(_PROPERTY_EVENTS, repeat=length):
+            bands = []
+            for cut in range(length + 1):
+                payload = {"ProceedingsandOrder": _docket_after(events[:cut])}
+                projected = asof.project_row(
+                    base, payload, cutoff=None, provenance="dated", parse="dist-v2"
+                ).row
+                bands.append(v5.band(projected))
+            ranks = [rank[band] for band in bands]
+            assert ranks == sorted(ranks, reverse=True), (events, bands)
+            checked += 1
+    assert checked == 4 + 16 + 64 + 256
+
+
+def test_a_call_after_a_reschedule_or_relist_never_removes_a_counted_relist() -> None:
+    """The two scenarios the review raised: a petition at two distributions after
+    a reschedule (`elevated`) and at three (`high`) keeps its band when a call
+    for response arrives, and only a distribution after the call is discounted."""
+    v5 = scorer("sal-v5")
+    base = _v5_row(distribution_count=None)
+
+    def band(events: tuple[str, ...]) -> str:
+        payload = {"ProceedingsandOrder": _docket_after(events)}
+        row = asof.project_row(base, payload, cutoff=None, provenance="dated").row
+        return v5.band(row)
+
+    assert band(("reschedule",)) == "elevated"
+    assert band(("reschedule", "call")) == "elevated"
+    assert band(("reschedule", "relist")) == "high"
+    assert band(("reschedule", "relist", "call")) == "high"
+    # The redistribution after the call is the deferred conference, not a relist.
+    assert band(("reschedule", "call", "redistribution")) == "elevated"
 
 
 def test_sal_v5_bands_and_carves_an_sg_represented_warden_as_federal() -> None:

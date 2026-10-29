@@ -735,10 +735,11 @@ def test_a_second_parse_gets_its_own_projection_and_bands_differently(tmp_path: 
     assert v4.bands == {"baseline": 1}
 
 
-def test_a_projection_reads_the_call_for_response_as_of_its_cutoff() -> None:
-    """sal-v5's relist rule reads the call for response and the first relist, so
-    the as-of projection re-derives both from the payload it was cut to — never
-    the row's terminal columns — and carries the fixed-at-filing writ across."""
+def test_a_projection_reads_the_distributions_after_a_call_as_of_its_cutoff() -> None:
+    """sal-v5's relist rule reads the conferences distributed after a call for
+    response, so the as-of projection re-derives that count from the payload it
+    was cut to — never the row's terminal column — and carries the
+    fixed-at-filing writ across."""
     row, payload = _petition(
         "scotus/1",
         "23-100",
@@ -751,12 +752,9 @@ def test_a_projection_reads_the_call_for_response_as_of_its_cutoff() -> None:
             ("Feb 20 2024", "DISTRIBUTED for Conference of March 1, 2024."),
         ),
     )
-    row = row.model_copy(
-        update={"opening_writ": "certiorari", "call_for_response_at": date(2030, 1, 1)}
-    )
+    row = row.model_copy(update={"opening_writ": "certiorari", "distributed_after_call": 5})
     projected = asof.project_row(row, payload, cutoff=date(2024, 3, 4), provenance="dated")
-    assert projected.row.call_for_response_at == date(2024, 1, 16)
-    assert projected.row.relisted_at is None
+    assert projected.row.distributed_after_call == 1
     assert projected.row.distribution_count == 2
     assert projected.row.opening_writ == "certiorari"
     assert scorer("sal-v5").band(projected.row) == "baseline"

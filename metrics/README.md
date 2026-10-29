@@ -2371,8 +2371,7 @@ the rendered table) and
   call-for-response relist rule and the writ scope but never `caption-v3`,
   since the projection carries no counsel. Its pack block over past Terms is
   **not a `sal-v5` pool** until a run-repair back-fill fills
-  `call_for_response_at`, `relisted_at` and `opening_writ` on the decided
-  rows: until then those rows read as `sal-v4` reads them, mixed with the rows
+  `distributed_after_call` and `opening_writ` on the decided rows: until then those rows read as `sal-v4` reads them, mixed with the rows
   the live poll has re-read, and no figure from the block may be quoted
   (`docs/salience.md`, the `sal-v5` section).
 

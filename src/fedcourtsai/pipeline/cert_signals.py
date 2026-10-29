@@ -1250,6 +1250,40 @@ def opening_writ(payload: Mapping[str, Any]) -> OpeningWrit | None:
     return found[2] if found is not None else None
 
 
+def distributions_after_call(payload: Mapping[str, Any]) -> int | None:
+    """How many conferences the petition was first distributed for after a call for response.
+
+    The ingest latch behind the corpus's ``distributed_after_call`` column, the
+    input sal-v5's relist count reads. ``None`` where the docket shows no dated
+    call for response (:func:`call_for_response_date`). Otherwise the number of
+    distinct conference dates named by **petition** distributions (the
+    entry-initial ``dist-v2`` parse, the reading ``distribution_count`` holds)
+    filed strictly after the call, less any conference a distribution filed on
+    or before the call, or undated, also names. Counted over the whole docket,
+    as ``distribution_count`` is, so every conference counted here is one that
+    column counts too, and a conference enters this count only in the same
+    poll that first adds it to that one.
+    """
+    called = call_for_response_date(payload)
+    if called is None:
+        return None
+    after: set[date] = set()
+    other: set[date] = set()
+    for text, raw in proceedings_entries(payload):
+        match = _PETITION_DISTRIBUTED_RE.search(text)
+        if match is None:
+            continue
+        conference = conference_date(match.group(1))
+        if conference is None:
+            continue
+        filed = entry_date(raw)
+        if filed is not None and filed > called:
+            after.add(conference)
+        else:
+            other.add(conference)
+    return len(after - other)
+
+
 def petition_distributions(payload: Mapping[str, Any], *, through: date) -> list[tuple[date, date]]:
     """Every petition distribution filed on or before ``through``: ``(filed, conference)``.
 

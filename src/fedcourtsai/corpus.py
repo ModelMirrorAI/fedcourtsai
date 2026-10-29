@@ -544,6 +544,19 @@ class CorpusRow(BaseModel):
         "(`rederive-cert-amicus-briefs`, a run-repair pass) fills it. Written by "
         "the live cert branch and that back-fill only.",
     )
+    distributed_after_call: int | None = Field(
+        default=None,
+        description="How many conferences the petition was first distributed for "
+        "after the Court called for a response "
+        "(`pipeline.cert_signals.distributions_after_call`): distinct conference "
+        "dates named by petition distributions (the `dist-v2` reading "
+        "`distribution_count` holds) filed after `call_for_response_at`'s entry, "
+        "less any a distribution filed on or before it also names. The sal-v5 "
+        "relist count's input. Written by the live cert branch at ingest; "
+        "fill-in latched. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = no dated call for response, or not "
+        "parsed — on a decided row polled before the column existed, never parsed.",
+    )
     opening_writ: str | None = Field(
         default=None,
         description="The writ the docket's opening petition entry names "
@@ -1056,7 +1069,12 @@ CREATE TABLE IF NOT EXISTS cases (
     -- or other. Written by the live poll's cert branch at ingest; fill-in
     -- latched. Withheld from the retrieval surface. NULL = no opening petition
     -- entry disclosed, or not parsed.
-    opening_writ TEXT
+    opening_writ TEXT,
+    -- The conferences a cert petition was first distributed for after a call
+    -- for response (see CorpusRow and pipeline/cert_signals.py). Written by the
+    -- live poll's cert branch at ingest; fill-in latched. Withheld from the
+    -- retrieval surface. NULL = no dated call for response, or not parsed.
+    distributed_after_call INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1238,6 +1256,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "argument_transcript_at": "TEXT",
     "cert_amicus_briefs": "INTEGER",
     "opening_writ": "TEXT",
+    "distributed_after_call": "INTEGER",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -2078,6 +2097,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         ),
         "cert_amicus_briefs": row.cert_amicus_briefs,
         "opening_writ": row.opening_writ,
+        "distributed_after_call": row.distributed_after_call,
         "capital_case": int(row.capital_case),
     }
 
@@ -2199,6 +2219,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         argument_transcript_at=_optional_date(record, "argument_transcript_at"),
         cert_amicus_briefs=_optional_int(record, "cert_amicus_briefs"),
         opening_writ=_optional_str(record, "opening_writ"),
+        distributed_after_call=_optional_int(record, "distributed_after_call"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -2214,7 +2235,8 @@ def _update_clause(column: str) -> str:
     call-for-response and first-relist dates, the dated interim/merits signals beside them (a
     consolidated member's lead-filed respondent brief and the post-argument
     transcript's argument day among them), the merits decision record, and the
-    writ the opening petition entry names) only ever fill in, so a writer that
+    writ the opening petition entry names, and the conferences distributed
+    after a call for response) only ever fill in, so a writer that
     does not carry the fact keeps what another channel stamped;
     ``distribution_count``, the interim escalation signals
     (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
@@ -2263,6 +2285,7 @@ def _update_clause(column: str) -> str:
         "relisted_at",
         "argument_transcript_at",
         "opening_writ",
+        "distributed_after_call",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -4235,7 +4258,8 @@ def opinion_body(row: CorpusRow) -> str | None:
 #: Columns a ``query`` prior never carries, though the row stores them. The
 #: invited-brief, call-for-response, first-relist, argument-transcript and a
 #: consolidated member's lead-filed respondent brief dates are mint triggers, the
-#: opening petition's writ is a salience scope input, and the
+#: opening petition's writ and the conferences distributed after a call for
+#: response are salience inputs, and the
 #: merits decision record and the cert-stage amicus count are analytics
 #: surfaces — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
@@ -4258,6 +4282,7 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "argument_transcript_at",
         "cert_amicus_briefs",
         "opening_writ",
+        "distributed_after_call",
     }
 )
 
