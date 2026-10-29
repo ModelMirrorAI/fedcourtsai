@@ -14788,3 +14788,45 @@ freeze commit is recorded here.
     "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
     print('agent-shell-fedcourts-on-path' in {b.name for b in H})"` prints
     `True` once the promotion record has stamped the row.
+
+- **The live-duplicate dedupe merges a pair that a caption-only CourtListener
+  row sits beside, and nine cert-stage dispositions stop counting twice;
+  recorded 2026-10-29.** A corpus convergence under an unchanged digest that
+  moves published statpack counts.
+
+  **Why.** `dedupe-live-rows` merges a SCOTUS number held under both a
+  CourtListener docket id and a live-minted reserved-range id, but it took only
+  exact two-row groups. Nine numbers carry a third CourtListener row that
+  asserts no disposition, filing, decision, cert or live-poll date: `17-1107`,
+  `17-9572`, `18-1109`, `19-1302`, `20-1009`, `20-1084`, `21-439`, `21-511`
+  and `21-846`. Read ranged from the blob at `main` `a140d562d` (latest pull
+  2026-10-28, latest snapshot 2026-07-13), the CourtListener row and the live
+  twin agree on filing date, cert-grant date and disposition for all nine:
+  eight `granted`, one `gvr`. The statpack's cert-stage and merits
+  accumulators count rows, so each of the nine counts twice. The 2026-10-18
+  entry above named eight of them as this pattern; `17-9572` is the ninth.
+
+  **The change.** The candidate rule sets aside a CourtListener row asserting
+  none of `disposition`, `date_filed`, `date_decided`, `date_cert_granted`,
+  `date_cert_denied` or `last_live_polled` before counting the group, provided
+  its docket id sits above the survivor's. In all nine groups the caption-only
+  row's id is the highest. The merge then runs as for any pair, and the
+  caption-only row stays in place, untouched. It runs in run-seed's daily
+  dedupe step, so the nine converge on the first window after the carrying
+  promotion with no dispatch.
+
+  **What it moves.** The statpack's per-Term cert-stage figures for OT2017 to
+  OT2021 lose one row each for the nine numbers: eight grants and one GVR,
+  across the paid and IFP classes their serials fall in. The merits section
+  loses the eight grants' second rows from the Term of each grant. No
+  committed prediction or evaluation sits under a dropped live id (eight carry
+  only a baseline `event.yaml` and `outcome.json`, one carries nothing), so no
+  scored figure moves. A
+  statpack figure is not pooled across the first refresh after the merge.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live: after the first run-seed window
+  that follows the carrying merge, that window's "Dedupe live-minted duplicate
+  rows" step logs the nine live ids as dropped, and `uv run fedcourts
+  dedupe-live-rows` on a freshly pulled corpus prints `0 duplicate pair(s)`.
