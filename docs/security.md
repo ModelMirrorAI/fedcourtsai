@@ -942,9 +942,11 @@ promotion gate's `contexts` stage checks the environment
 time): it exists, its required reviewers are exactly the approver — no other
 user, no team — its branch policy admits exactly `main`, it holds no secret,
 and its variables are among the three above. The stage runs by hand with an
-admin-read token: after any settings change, and on any promotion its
-`contexts-due` verdict marks *due* (*Promotion* in
-[pipeline.md](pipeline.md)). The lane's plan job reads the environment too, with its
+admin-read token: after any settings change, and on a promotion its
+`contexts-due` verdict marks *due* because it changes the approver
+(`config/corpus-check.yaml` or `corpus_check.py`) or the check itself
+(*Promotion* in [pipeline.md](pipeline.md) says when a *due* verdict can be
+skipped). The lane's plan job reads the environment too, with its
 `actions: read` grant, and plans nothing while the reviewer or the policy is
 missing; it cannot see secrets or variables, so the gate is the check that
 holds.

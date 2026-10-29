@@ -2060,8 +2060,21 @@ The mechanics:
   (`config/corpus-check.yaml` and `corpus_check.py`, which parses it).
   `promotion-gate.sh all` ends with a `contexts-due` verdict naming any such
   path (`fedcourts contexts-due`), and the promotion PR's generated block
-  repeats it as *due* or *not due*. It never fails the gate. Most batches
-  touch a workflow, so most come out *due*. On *due*, run
+  repeats it as *due* or *not due*. It never fails the gate, and running the
+  stage is optional: *due* is a path match, not a finding. Most batches touch
+  a workflow, so most come out *due*, and a workflow edit that changes only
+  steps moves nothing the stage judges. In a workflow file it judges two
+  things. The first is the contexts `main` requires: on a workflow that
+  produces one, a change that renames, deletes or fails to parse the file,
+  changes its `on:` trigger or filters, or changes a required job's id or
+  `name:`, gives it a matrix or an expression-valued name, or removes it (a
+  required context nothing reports hangs every PR into `main`, the
+  unattended collect PRs first). The second is the first reference on `main`
+  to the `review` or `review-auto` environment, which the stage checks only
+  once a workflow names it; the other environments it judges are checked on
+  every run, and an environment it does not know is not judged at all. Skip
+  the stage when a batch's workflow diffs do none of that and it changes none
+  of the other paths above; otherwise run
   `scripts/promotion-gate.sh contexts` with your own token — before merging
   for what it reads from the checkout, and again once the promotion merges
   for workflow changes, since it reads `main`'s own workflows; the verdict
