@@ -84,12 +84,6 @@ MODEL_RATES: Final[dict[str, ModelRate]] = {
     # outside the prediction panel: the summarize command prices its plan and
     # each call's recorded usage from this row.
     "claude-sonnet-5": ModelRate(2.0, 10.0),
-    # `run-analytics.yml` offers the qp-topic labeler's `label_model` the dated
-    # id `claude-haiku-4-5-20251001`, which this table does not hold. The rate
-    # is the same, and the mismatch is latent only
-    # because a labeling run writes no `usage.json`: `record-usage` prices by
-    # exact key and exits non-zero on an id it cannot find, so labeler-shaped
-    # accounting needs the two spellings reconciled first.
     "claude-haiku-4-5": ModelRate(1.0, 5.0),
     # Both new frontier rows carry their published cached-input rate, a
     # twentieth of input, where the uniform multiplier would bill a tenth.

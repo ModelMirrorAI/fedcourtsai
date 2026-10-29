@@ -59,20 +59,15 @@ name: promote
 on:
   workflow_dispatch:
     inputs:
+      # The input never narrows what the batch merges on: the merge gate
+      # waives the smokes only for a batch main's cell-reach classifier calls
+      # cell-inert, or one carrying the `promote:skip-engine-smoke` label, so
+      # setting it here can never quietly become the merge decision too.
       skip_engine_smoke:
         description: >-
-          Drop the six token-spending engine runs — the three engine-smoke
-          cells and the three engine-actions-smoke boot probes — from THIS
-          PRE-FLIGHT's freshness check, accepting a token-free
-          `scenario=offline-gate` run as whole-suite evidence. It answers "is
-          anything else missing" without
-          paying for them. It does NOT narrow what the batch merges on:
-          the merge gate waives the smokes only for a batch main's
-          cell-reach classifier calls cell-inert, or one carrying the
-          `promote:skip-engine-smoke` label — so that setting this input can
-          never quietly become the merge decision too. Reserve it for batches
-          whose risk you judge not to be worth the smokes' tokens, and when
-          in doubt run the full suite.
+          Pre-flight only: accept a token-free `offline-gate` run in place of
+          the six engine smokes. Does not change what the merge gate requires.
+          When in doubt, run the full suite.
         type: boolean
         default: false
 
