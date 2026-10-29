@@ -1774,12 +1774,16 @@ def _anchor_reproduces(
     record that names the pinned build is accepted even after a refresh has
     moved the board's own statpack; one that disagrees with its pin is dropped,
     as a non-reproducing re-pool is. A grading whose build is also the board's
-    is then re-pooled besides, which checks the frozen rate itself.
+    is then re-pooled besides. The stamp has already verified the pin itself —
+    it copies a frozen anchor only where a committed statpack build carries its
+    digest and re-pools to its rate
+    (:func:`fedcourtsai.statpack_history.verify_cert_anchor`) — so this check
+    holds the grading to the pin rather than the pin to a build.
 
-    Before the pin, the committed board is built straight after a statpack
-    refresh, so the re-pool stands down for nearly every cell; it verifies an
-    off-cycle build. The pin is what makes the check total for the cohorts it
-    covers.
+    A grading that pools the statpack checked out at grading has no pin, and
+    the committed board is built straight after a statpack refresh, so for it
+    the re-pool stands down for nearly every cell and verifies an off-cycle
+    build.
 
     Every other cell passes: an earlier label's cert grading keeps the
     registered reading (the coherence check alone), and a cert cell on the

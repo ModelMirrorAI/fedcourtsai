@@ -27,6 +27,7 @@ from fedcourtsai.schemas import (
 )
 from fedcourtsai.serialize import write_json
 from tests.conftest import FixtureCorpus
+from tests.fixture_metrics import FIXTURE_BAND_RATE, fixture_metrics_root
 
 runner = CliRunner()
 
@@ -3377,6 +3378,9 @@ def test_the_local_cascade_provisions_the_record_this_command_writes(
         events = corpus.events_for_case(conn, "scotus/305")
     assert events
     assert not any(event.resolved for event in events)  # forward cells on both sides
+    # One fixture statpack read by both sides, so a cert cell's frozen anchor is
+    # part of what the two must agree on.
+    metrics_root = fixture_metrics_root(tmp_path)
 
     for event in events:
         provisioned = tmp_path / "provisioned" / event.event_id
@@ -3392,13 +3396,17 @@ def test_the_local_cascade_provisions_the_record_this_command_writes(
                 "--event",
                 event.event_id,
             ],
-            env={"FEDCOURTS_DATA_ROOT": str(provisioned)},
+            env={
+                "FEDCOURTS_DATA_ROOT": str(provisioned),
+                "FEDCOURTS_METRICS_ROOT": str(metrics_root),
+            },
         )
         assert result.exit_code == 0, result.output
         run_cascade(
             corpus_db_path=fixture_corpus.db_path,
             data_root=cascaded,
             config_root=Path("config"),
+            metrics_root=metrics_root,
             court="scotus",
             docket=305,
             event=event.event_id,
@@ -3408,6 +3416,9 @@ def test_the_local_cascade_provisions_the_record_this_command_writes(
         assert "documents/petition.txt" in expected
         assert b"jane.doe@example.com" not in expected["documents/petition.txt"]
         assert _record_bytes(cascaded, "scotus", 305) == expected, event.event_id
+        if event.event_id == "evt-petition-disposition":
+            context = json.loads(expected["context.json"])
+            assert context["cert_anchor"]["rate"] == pytest.approx(FIXTURE_BAND_RATE)
 
 
 def test_provisioning_clears_what_an_earlier_provisioning_left(
@@ -3509,6 +3520,7 @@ def test_the_cascade_refuses_an_unanchorable_moment_before_any_cell_runs(
             corpus_db_path=fixture_corpus.db_path,
             data_root=data_root,
             config_root=Path("config"),
+            metrics_root=fixture_metrics_root(tmp_path),
             court="scotus",
             docket=306,
             event="evt-motion-disposition",
@@ -3537,6 +3549,7 @@ def test_the_cascade_refuses_a_moment_whose_trigger_no_payload_carries(
             corpus_db_path=fixture_corpus.db_path,
             data_root=data_root,
             config_root=Path("config"),
+            metrics_root=fixture_metrics_root(tmp_path),
             court="scotus",
             docket=306,
             event="evt-order-response-requested-disposition",

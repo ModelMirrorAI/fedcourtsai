@@ -113,8 +113,12 @@ transcription to the stamp, and its freeze-record entry says so.
 grading whose scored prediction froze an anchor at provisioning
 (`context.cert_anchor`) stamps that anchor, pooled over the statpack in force
 when the forecast was placed, instead of pooling the statpack checked out at
-grading. A
-change there moves how a number was produced without moving
+grading, once the stamp has verified it against a committed statpack build.
+The label therefore covers two readings: under `proc-v15` and later, a grading
+of a cell provisioned without `cert_anchor` — placed before provisioning wrote
+the record, or with no readable statpack — still pools the statpack checked
+out at grading, and the grading's `base_rate_statpack_digest` names whichever
+build it read. A change there moves how a number was produced without moving
 any actor's digest, and belongs in the freeze record beside the window. This is
 the standard's own trigger case rather than an aside: the same prompt, the same
 definition, the same digest, a different author for the number. The

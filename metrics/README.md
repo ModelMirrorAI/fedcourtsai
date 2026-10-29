@@ -493,13 +493,18 @@ stays outside the gate:
   same pool over the statpack in force when the forecast was placed, with that
   build's digest and the window — and the stamp copies it, so a metrics
   refresh landing between forecast and grading does not move the anchor. The
-  board then holds such a grading to its pin whatever its own build: one that
-  records the pinned build, window and rate is accepted, one that disagrees
-  with its pin is dropped. Before the pin, the committed board is built
-  straight after a statpack refresh, so the re-pool stands down for nearly
-  every cell: it verifies an off-cycle build, and what holds the committed
-  figure is the stamp itself. A re-grade keeps the anchor it was first stamped
-  with. An
+  stamp copies it only once verified: the build it names must be a committed
+  revision of `metrics/statpack.json`, committed no later than the
+  prediction, and re-pool to the frozen rate; otherwise the anchor and skill
+  are cleared with a warning. The board then holds such a grading to its pin
+  whatever its own build: one that records the pinned build, window and rate
+  is accepted, one that disagrees with its pin is dropped. A grading that
+  pools the statpack checked out at grading — an earlier label's, or one whose
+  cell was provisioned without `cert_anchor` — carries no pin, and the
+  committed board is built straight after a statpack refresh, so for it the
+  re-pool stands down for nearly every cell: it verifies an off-cycle build,
+  and what holds the committed figure is the stamp itself. A re-grade keeps
+  the anchor it was first stamped with. An
   earlier label's cert grading, and a cert cell on the terminal fallback (no
   frozen band, so the band is re-derived from the corpus row), keep the
   evaluator's transcription, held by the coherence check alone.

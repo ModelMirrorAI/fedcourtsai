@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner, Result
 
-from fedcourtsai import process_version
+from fedcourtsai import cli, process_version
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import _anchor_reproduces
 from fedcourtsai.paths import CasePaths, EventPaths
@@ -44,6 +44,11 @@ from fedcourtsai.schemas import (
     StatPackTermVersionSegments,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
+from fedcourtsai.statpack_history import (
+    StatpackRevision,
+    find_statpack_build,
+    git_statpack_history,
+)
 
 runner = CliRunner()
 
@@ -468,6 +473,20 @@ def _refreshed() -> StatPack:
     )
 
 
+@pytest.fixture(autouse=True)
+def _history(monkeypatch: pytest.MonkeyPatch) -> list[StatpackRevision]:
+    """The statpack's committed history the frozen-anchor check walks, newest first.
+
+    One build, `_statpack()`, committed before every seeded prediction
+    (`created_at` 2026-10-01); a test prepends later revisions.
+    """
+    revisions: list[StatpackRevision] = [
+        (datetime(2026, 9, 1, tzinfo=UTC), _statpack().model_dump_json())
+    ]
+    monkeypatch.setattr(cli, "_statpack_history", lambda _root: list(revisions))
+    return revisions
+
+
 def _pinned(pack: StatPack | None = None) -> PredictionContext:
     """A frozen band carrying the anchor provisioning would have pooled from ``pack``."""
     context = _frozen()
@@ -499,14 +518,19 @@ def test_freezing_names_the_build_and_window_beside_the_pool() -> None:
 
 
 def test_from_proc_v15_a_refresh_after_provisioning_does_not_move_the_anchor(
-    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    _roots: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _history: list[StatpackRevision],
 ) -> None:
     """The cell froze its anchor against the build in force at placement; a
-    refresh lands before grading; the stamp copies the frozen anchor and its
-    build rather than re-pooling the pack now checked out."""
+    refresh lands before grading; the stamp finds the past build in history,
+    verifies the frozen anchor against it, and copies it rather than
+    re-pooling the pack now checked out."""
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
     placed = _statpack()
     event_paths = _seed(_roots, 11, context=_pinned(placed))
+    _history.insert(0, (datetime(2026, 10, 5, tzinfo=UTC), _refreshed().model_dump_json()))
     write_json(tmp_path / "metrics" / "statpack.json", _refreshed())
 
     result = _stamp(11)
@@ -522,37 +546,77 @@ def test_from_proc_v15_a_refresh_after_provisioning_does_not_move_the_anchor(
     assert stamped["base_rate_lookback_terms"] == 10
 
 
-def test_the_stamp_copies_the_frozen_anchor_rather_than_re_pooling_it(
-    _roots: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The frozen record is read as written: a rate and build no statpack on
-    disk could produce are the ones stamped."""
-    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
-    anchor = CertAnchor(rate=0.25, statpack_digest="sha256:placed", lookback_terms=7)
-    event_paths = _seed(_roots, 12, context=_frozen().model_copy(update={"cert_anchor": anchor}))
-
-    assert _stamp(12).exit_code == 0
-    stamped = _stamped(event_paths)
-    assert stamped["segment_base_rate"] == pytest.approx(0.25)
-    assert stamped["base_rate_statpack_digest"] == "sha256:placed"
-    assert stamped["base_rate_lookback_terms"] == 7
-    assert stamped["brier_skill_score"] == pytest.approx(1 - 0.04 / 0.25**2)
-
-
-def test_a_frozen_empty_pool_clears_the_anchor(
-    _roots: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
-    anchor = CertAnchor(rate=None, statpack_digest="sha256:placed", lookback_terms=10)
-    event_paths = _seed(_roots, 13, context=_frozen().model_copy(update={"cert_anchor": anchor}))
-
-    assert _stamp(13).exit_code == 0
-    stamped = _stamped(event_paths)
+def _assert_cleared(stamped: dict[str, object]) -> None:
     assert stamped["segment_base_rate"] is None
     assert stamped["base_rate_basis"] is None
     assert stamped["base_rate_statpack_digest"] is None
     assert stamped["base_rate_lookback_terms"] is None
     assert stamped["brier_skill_score"] is None
+    assert stamped["brier_score"] == pytest.approx(0.04)
+
+
+@pytest.mark.parametrize(
+    ("anchor", "reason"),
+    [
+        # A real build's digest beside a rate it does not pool to.
+        (
+            CertAnchor(rate=0.25, statpack_digest=statpack_digest(_statpack()), lookback_terms=10),
+            "does not re-pool",
+        ),
+        # A digest no committed build carries.
+        (
+            CertAnchor(rate=0.25, statpack_digest="sha256:invented", lookback_terms=10),
+            "no committed",
+        ),
+    ],
+    ids=["tampered-rate", "unknown-digest"],
+)
+def test_a_frozen_anchor_that_does_not_verify_is_refused_out_loud(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, anchor: CertAnchor, reason: str
+) -> None:
+    """`record/context.json` is reachable from the cell, so a frozen record is
+    copied only where a committed build backs it; otherwise the anchor is
+    cleared, never graded against."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    event_paths = _seed(_roots, 12, context=_frozen().model_copy(update={"cert_anchor": anchor}))
+
+    result = _stamp(12)
+
+    assert result.exit_code == 0, result.output
+    assert "frozen cert anchor does not verify" in result.output
+    assert reason in result.output
+    _assert_cleared(_stamped(event_paths))
+
+
+def test_a_build_committed_after_the_prediction_is_refused(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _history: list[StatpackRevision]
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    later = _refreshed()
+    _history.insert(0, (datetime(2026, 10, 5, tzinfo=UTC), later.model_dump_json()))
+    event_paths = _seed(_roots, 17, context=_pinned(later))
+
+    result = _stamp(17)
+
+    assert result.exit_code == 0, result.output
+    assert "after the prediction" in result.output
+    _assert_cleared(_stamped(event_paths))
+
+
+def test_a_verified_frozen_empty_pool_clears_the_anchor_quietly(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    context = _frozen().model_copy(update={"term": 2024})
+    anchor = freeze_cert_anchor(context, _statpack(), lookback_terms=10)
+    assert anchor is not None and anchor.rate is None
+    event_paths = _seed(_roots, 13, context=context.model_copy(update={"cert_anchor": anchor}))
+
+    result = _stamp(13)
+
+    assert result.exit_code == 0, result.output
+    assert "does not verify" not in result.output
+    _assert_cleared(_stamped(event_paths))
 
 
 def test_before_proc_v15_a_frozen_anchor_is_ignored_and_the_stamp_pools_now(
@@ -626,3 +690,21 @@ def test_the_board_accepts_a_pinned_anchor_across_a_refresh_and_drops_a_mismatch
         }
     )
     assert reproduces(earlier, refreshed)
+
+
+def test_the_history_lookup_stops_at_the_newest_matching_build() -> None:
+    pack = _statpack()
+    revisions: list[StatpackRevision] = [
+        (datetime(2026, 10, 9, tzinfo=UTC), "{not a statpack"),
+        (datetime(2026, 10, 5, tzinfo=UTC), _refreshed().model_dump_json()),
+        (datetime(2026, 9, 1, tzinfo=UTC), pack.model_dump_json()),
+        (datetime(2026, 8, 1, tzinfo=UTC), pack.model_dump_json()),
+    ]
+    build = find_statpack_build(statpack_digest(pack), revisions)
+    assert build is not None
+    assert build.committed_at == datetime(2026, 9, 1, tzinfo=UTC)
+    assert find_statpack_build("sha256:invented", revisions) is None
+
+
+def test_a_metrics_root_outside_any_work_tree_has_no_history(tmp_path: Path) -> None:
+    assert list(git_statpack_history(tmp_path / "metrics")) == []

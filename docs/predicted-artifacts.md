@@ -856,7 +856,7 @@ directory without knowing which part is which invites trusting the wrong half.
   cutoff** (`cut_kind`, with `cut_anchor_index` beside it), and the
   conditioning state frozen at provisioning: the
   salience band, the distribution count and CVSG date as at that cutoff (as at
-  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), whether the docket puts its filings on paper only under Rule 34.6, so nothing is posted to stage (`paper_only_filings`), what the contact scrub withheld from the staged snapshot (`snapshot_contact_scrub`: the self-represented sides it keyed on, empty where it did not run, and the blocks and values it replaced), on a cert cell that froze a band the skill anchor pooled at placement (`cert_anchor`: the risk-set rate over the frozen band, version and Term, the statpack build it was pooled from and the lookback window, null where no statpack was readable), and — on an
+  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), whether the docket puts its filings on paper only under Rule 34.6, so nothing is posted to stage (`paper_only_filings`), what the contact scrub withheld from the staged snapshot (`snapshot_contact_scrub`: the self-represented sides it keyed on, empty where it did not run, and the blocks and values it replaced), on a cert cell that froze a band the skill anchor pooled at placement (`cert_anchor`: the risk-set rate over the frozen band, version and Term, the statpack build it was pooled from and the lookback window; null on a cell of any other stage, on a cert cell that froze no band, and where no statpack was readable), and — on an
   application cell only — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would
@@ -1038,8 +1038,12 @@ who writes the baseline on each:
   `base_rate_lookback_terms`. From `proc-v15` on, where the scored prediction's
   context carries a `cert_anchor`, those three are copied from it rather than
   pooled from the statpack checked out at grading, so a metrics refresh
-  between forecast and grading does not move the anchor; a context with none
-  pools at grading as before. Before `proc-v9`,
+  between forecast and grading does not move the anchor — once the stamp has
+  verified it: the build it names must be a committed revision of
+  `metrics/statpack.json`, committed no later than the prediction, and
+  re-pool to the frozen rate, or the anchor and skill are cleared with a
+  warning. A context with no `cert_anchor` pools the statpack checked out at
+  grading. Before `proc-v9`,
   and on the terminal fallback, the evaluator transcribes the rate from
   `metrics/statpack.md`.
 - **An interim cell's baseline is registered and wired** — the statpack interim

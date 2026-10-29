@@ -79,6 +79,7 @@ from . import (
     scope_manifest,
     secretscan,
     site_status,
+    statpack_history,
     summaries,
     tool_usage,
     window_records,
@@ -12424,13 +12425,38 @@ def _cert_anchor_for(
     checked out now. A frozen record with a null rate yields all three ``None``,
     as an empty pool does, so a build and a window are only ever named beside
     the rate they produced.
+
+    **A frozen anchor is verified before it is copied.** ``record/context.json``
+    is reachable from the cell's workspace, so the record is a claim until a
+    committed statpack build backs it
+    (:func:`fedcourtsai.statpack_history.verify_cert_anchor`): the build it
+    names must be in the history of ``metrics/statpack.json``, committed no
+    later than the prediction, and re-pool to the recorded rate. Where it does
+    not, the anchor is cleared with a warning — the cell is not graded against
+    a baseline nothing can reproduce, the same omission a missing statpack is.
     """
-    frozen = scored.context.cert_anchor if scored.context is not None else None
-    if frozen is None or not process_version.pins_cert_anchor(label):
+    context = scored.context
+    frozen = context.cert_anchor if context is not None else None
+    if context is None or frozen is None or not process_version.pins_cert_anchor(label):
         return _pool_cert_anchor(scored, settings)
+    refusal = statpack_history.verify_cert_anchor(
+        frozen, context, scored.created_at, _statpack_history(settings.metrics_root)
+    )
+    if refusal is not None:
+        typer.echo(
+            f"::warning::stamp: the frozen cert anchor does not verify ({refusal}) — this "
+            + "cert cell's segment base rate and skill are cleared rather than copied.",
+            err=True,
+        )
+        return None, None, None
     if frozen.rate is None:
         return None, None, None
     return frozen.rate, frozen.statpack_digest, frozen.lookback_terms
+
+
+#: The reader the frozen-anchor check walks the statpack's history with: the
+#: log of ``metrics/statpack.json`` from ``HEAD``. A seam for tests.
+_statpack_history: statpack_history.StatpackHistory = statpack_history.git_statpack_history
 
 
 def _cert_anchor_pool(

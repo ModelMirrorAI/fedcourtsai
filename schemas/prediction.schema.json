@@ -2,7 +2,7 @@
   "$defs": {
     "CertAnchor": {
       "additionalProperties": false,
-      "description": "The cert skill anchor frozen at provisioning: one pool of one statpack build.\n\n**Harness-owned.** ``provision-snapshot`` pools it for a cert cell whose\ncontext froze a band, with the scorer's own pooler\n(:func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`) over the\nfrozen ``(band, salience_version, term)`` and the ``metrics/statpack.json``\nchecked out when the cell was placed. The evaluator stamp reads it in place\nof re-pooling, so a statpack refresh landing between forecast and grading\ndoes not move the baseline the forecast is scored against.",
+      "description": "The cert skill anchor frozen at provisioning: one pool of one statpack build.\n\n**Harness-owned.** ``provision-snapshot`` pools it for a cert cell whose\ncontext froze a band, with the scorer's own pooler\n(:func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`) over the\nfrozen ``(band, salience_version, term)`` and the ``metrics/statpack.json``\nchecked out when the cell was placed. The evaluator stamp reads it in place\nof re-pooling, so a statpack refresh landing between forecast and grading\ndoes not move the baseline the forecast is scored against \u2014 once it has\nfound the build ``statpack_digest`` names in the statpack's committed\nhistory and re-pooled the rate over it, since the file is reachable from\nthe cell's workspace.",
       "properties": {
         "lookback_terms": {
           "description": "The `salience.base_rate_lookback_terms` window the rate was pooled under (0 = no window)",

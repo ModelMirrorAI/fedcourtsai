@@ -27,6 +27,7 @@ from fedcourtsai.provision import (
 )
 from fedcourtsai.schemas import EventKind, Moment, Stage
 from tests.conftest import FixtureCorpus
+from tests.fixture_metrics import fixture_metrics_root
 
 runner = CliRunner()
 
@@ -391,6 +392,7 @@ def test_the_local_cascade_stages_the_companion(
         corpus_db_path=fixture_corpus.db_path,
         data_root=fixture_corpus.data_root,
         config_root=Path("config"),
+        metrics_root=fixture_metrics_root(tmp_path),
         court="scotus",
         docket=305,
         event="evt-order-judgment",

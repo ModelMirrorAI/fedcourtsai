@@ -44,6 +44,7 @@ from fedcourtsai.schemas import (
     Stage,
 )
 from fedcourtsai.serialize import read_model
+from tests.fixture_metrics import fixture_metrics_root
 
 CONFIG_ROOT = Path("config")
 RUN = "20260628T120000Z"
@@ -80,6 +81,7 @@ def _run(
         corpus_db_path=corpus_db,
         data_root=data_root,
         config_root=CONFIG_ROOT,
+        metrics_root=fixture_metrics_root(data_root.parent),
         court=court,
         docket=docket,
         run_id=RUN,
@@ -200,6 +202,7 @@ def test_missing_corpus_is_rejected(tmp_path: Path) -> None:
             corpus_db_path=tmp_path / "corpus" / "corpus.db",
             data_root=tmp_path / "data",
             config_root=CONFIG_ROOT,
+            metrics_root=fixture_metrics_root(tmp_path),
             court=RESOLVED_COURT,
             docket=RESOLVED_DOCKET,
             run_id=RUN,

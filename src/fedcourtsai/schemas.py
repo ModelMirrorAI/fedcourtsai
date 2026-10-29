@@ -832,7 +832,10 @@ class CertAnchor(_Strict):
     frozen ``(band, salience_version, term)`` and the ``metrics/statpack.json``
     checked out when the cell was placed. The evaluator stamp reads it in place
     of re-pooling, so a statpack refresh landing between forecast and grading
-    does not move the baseline the forecast is scored against.
+    does not move the baseline the forecast is scored against — once it has
+    found the build ``statpack_digest`` names in the statpack's committed
+    history and re-pooled the rate over it, since the file is reachable from
+    the cell's workspace.
     """
 
     rate: float | None = Field(

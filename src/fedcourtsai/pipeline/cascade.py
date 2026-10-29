@@ -719,7 +719,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     corpus_db_path: Path,
     data_root: Path,
     config_root: Path,
-    metrics_root: Path = Path("metrics"),
+    metrics_root: Path,
     court: str,
     docket: int,
     event: str | None = None,
