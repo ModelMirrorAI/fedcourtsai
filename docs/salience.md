@@ -1765,7 +1765,10 @@ ages out. The horizon sits far in the tail of how long the Court takes:
 across 1,097 decided substantive applications (production corpus, newest
 pull 2026-10-29), filing to decision runs a
 median of 5 days, a 95th percentile of 69 and a 99th of 167, and 11 (1%)
-took longer than 180. That 1% is the cost the horizon accepts — an
+took longer than 180. Those figures count decided applications only, so they
+are right-censored — an application still pending is in none of them — and
+the true tail is understated. That 1%, a lower bound, is the cost the horizon
+accepts — an
 application still pending at 180 days loses its funding before it resolves,
 so the funded interim slice under-represents the slowest applications. The
 age is measured to the pass's own date, never the wall clock inside the

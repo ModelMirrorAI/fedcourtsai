@@ -1614,8 +1614,12 @@ def reconcile_salience_selection_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+    try:
+        as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    except ValueError:
+        typer.echo(f"--today must be a date (YYYY-MM-DD), not {today!r}", err=True)
+        raise typer.Exit(code=2) from None
     config = load_salience_config(settings.config_root)
-    as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
     with corpus.connect_maintenance(db_path, apply=apply) as conn:
         result = reconcile_salience_selection(
             conn, settings.data_root, config, apply=apply, as_of=as_of
@@ -1628,10 +1632,10 @@ def reconcile_salience_selection_cmd(
     held = sum(o.holds_slot for o in result.reserve_occupants)
     aged = sum(o.aged_out for o in result.reserve_occupants)
     horizon = config.interim_reserve_age_out_days
+    age_out = f"{aged} aged out past {horizon} day(s)" if horizon else "age-out off"
     typer.echo(
         f"interim reserve as of {as_of}: {held} of {config.interim_reserve_slots} slot(s) held, "
-        f"{len(result.reserve_occupants) - held} occupant(s) released "
-        f"({aged} aged out past {horizon if horizon else 'no'} day(s))"
+        f"{len(result.reserve_occupants) - held} occupant(s) released ({age_out})"
     )
     for occupant in result.reserve_occupants:
         typer.echo(
@@ -19746,7 +19750,7 @@ def live_poll(
     salience_cfg = load_salience_config(settings.config_root)
     cap = live_cfg.max_cases_per_run if limit is None else min(limit, live_cfg.max_cases_per_run)
     deadline = time.monotonic() + max_run_seconds if max_run_seconds is not None else None
-    today = date.today()
+    today = datetime.now(UTC).date()
     probe_term = term if term is not None else current_docket_term(today)
     db = corpus.corpus_db_path(settings.corpus_root)
     with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:

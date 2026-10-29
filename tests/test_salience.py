@@ -1365,6 +1365,38 @@ def test_reconcile_printout_shows_the_age_out_on_each_occupant_line(
     ) in result.output
 
 
+def test_reconcile_printout_reads_age_out_off_at_horizon_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(
+        tmp_path,
+        [_application("scotus/9525000001", "25A1", selected=True, filed=_AGED_FILED)],
+    )
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    (config_root / "tracking.yaml").write_text(
+        yaml.safe_dump({"salience": {"interim_reserve_age_out_days": 0}})
+    )
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(config_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(_data_root(tmp_path)))
+    result = CliRunner().invoke(
+        app, ["reconcile-salience-selection", "--today", _PASS_DATE.isoformat()]
+    )
+    assert result.exit_code == 0, result.output
+    assert "1 of 5 slot(s) held, 0 occupant(s) released (age-out off)" in result.output
+
+
+def test_reconcile_refuses_a_malformed_today(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(tmp_path, [_application("scotus/9525000001", "25A1")])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = CliRunner().invoke(app, ["reconcile-salience-selection", "--today", "10/29/2026"])
+    assert result.exit_code == 2
+    assert "--today must be a date (YYYY-MM-DD)" in result.stderr
+
+
 def test_reserve_displaces_only_the_current_conference(tmp_path: Path) -> None:
     # The application is live in the cycle whose conference the pass is
     # filling — the latest cohort — so an earlier conference's fill is intact.

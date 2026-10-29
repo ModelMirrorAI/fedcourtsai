@@ -14991,22 +14991,30 @@ freeze commit is recorded here.
   **The horizon and its evidence.** Read from the production corpus (newest
   pull 2026-10-29), 1,097 substantive applications are decided. Days from
   filing to decision: median 5, 95th percentile 69, 99th percentile 167; 11
-  (1%) took more than 180.
+  (1%) took more than 180. The figures count decided applications only, so
+  they are right-censored: an application still pending today is in none of
+  them, and the true share still pending at 180 days is understated.
 
   **The de-funding risk.** About 1% of decided substantive applications were
-  still pending at 180 days. An application like them loses its slot before
+  still pending at 180 days, a lower bound for the reason above. An application like them loses its slot before
   it resolves, and a pending application past the horizon is never picked,
   so the funded interim slice under-represents the slowest applications. A
   forward cell already minted for an aged occupant stands; the slot it frees
   funds another application's.
 
-  **What it frees today.** One slot. On the same read, the stuck occupant
-  25A622 (`scotus/73279700`) is 338 days from filing and is freed; 26A163, at
-  85 days, keeps its slot.
+  **What it frees today.** Two slots. A dry run of the selection planner at
+  2026-10-29, read ranged against the index pointer `251805e6650ab3cb…` (the
+  pointer at `main` `54a2b8d40`), finds five latched, pending occupants, and
+  all five hold a slot before the change. 21A85 (`scotus/60667676`, filed
+  2021-10-18, 1,837 days, latched substantive and in scope) is one of them and
+  is freed; so is the stuck occupant 25A622 (`scotus/73279700`, 338 days).
+  26A163 (85 days), 26A458 (23) and 26A560 (8) keep their slots.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
 
   The runnable effect check once it is live: where the corpus is pulled,
   `uv run fedcourts reconcile-salience-selection` (a dry run) prints an
   `interim reserve as of <date>:` line counting the occupants aged out, and
-  the 25A622 occupant line reads `released: aged out past 180 day(s)` while
-  the 26A163 line reads `holds a slot`, for as long as neither has resolved
-  and 26A163 is inside the horizon.
+  the 21A85 and 25A622 occupant lines read `released: aged out past 180
+  day(s)` while the 26A163 line reads `holds a slot`, for as long as none of
+  them has resolved and 26A163 is inside the horizon.
