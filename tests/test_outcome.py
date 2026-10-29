@@ -45,6 +45,7 @@ from fedcourtsai.pipeline.redocket import REDOCKETED_REASON
 from fedcourtsai.schemas import (
     Disposition,
     EventKind,
+    Judgment,
     MeritsTermination,
     Moment,
     Outcome,
@@ -3571,6 +3572,40 @@ def test_a_lost_grant_on_a_decided_or_stale_merits_case_records_without_minting(
     assert not case.event(MERITS_EVENT_ID).base.exists()
     again = outcome_module.record_lost_outcomes(db, tmp_path, today=today)
     assert (again.population, again.recorded) == (0, {})
+
+
+def test_a_merits_moment_closed_by_its_termination_is_no_gap_until_a_judgment_parses(
+    tmp_path: Path,
+) -> None:
+    # The merits backfill closes the open merits moment of a terminated
+    # proceeding as `merits-terminated`. The outcome pass leaves it alone, so
+    # the reason is never overwritten as `undated`; a judgment that later
+    # parses clears the termination, and the convergence records it.
+    db = _seed_cert_gap(tmp_path, disposition=Disposition.granted, payload=_PLAIN_GRANT)
+    converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    case_id = "scotus/9026000100"
+    with corpus.connect(db) as conn:
+        corpus.set_merits_termination(conn, case_id, MeritsTermination.voluntary_dismissal)
+        corpus.mark_resolved_without_outcome(
+            conn, case_id, MERITS_EVENT_ID, corpus.NO_OUTCOME_MERITS_TERMINATED
+        )
+    seed_prediction(tmp_path, "scotus", 9026000100, MERITS_EVENT_ID)
+    applied = outcome_module.record_lost_outcomes(
+        db, tmp_path, apply=True, max_cases=1, today=date(2027, 2, 1)
+    )
+    assert (applied.population, applied.residue, applied.held_predicted) == (0, {}, [])
+    assert not converge_ledger_outcomes(db, tmp_path, today=date(2027, 2, 1)).recorded
+    with corpus.connect(db) as conn:
+        (merits,) = [e for e in corpus.events_for_case(conn, case_id) if e.stage == Stage.merits]
+    assert merits.resolved_without_outcome_reason == corpus.NO_OUTCOME_MERITS_TERMINATED
+
+    with corpus.connect(db) as conn:
+        corpus.set_merits_judgment(conn, case_id, Judgment.reversed, date(2027, 3, 1))
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2027, 3, 5))
+    assert result.recorded == {case_id: [MERITS_EVENT_ID]}
+    with corpus.connect(db) as conn:
+        (merits,) = [e for e in corpus.events_for_case(conn, case_id) if e.stage == Stage.merits]
+    assert merits.resolved and not merits.resolved_without_outcome
 
 
 def test_the_outcome_pass_holds_back_a_predicted_undated_gap(tmp_path: Path) -> None:

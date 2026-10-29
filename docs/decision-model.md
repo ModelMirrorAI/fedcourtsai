@@ -438,6 +438,9 @@ bucket once a judgment parses on its docket: the write of a parsed judgment
 (the backfill's, or the live poll's) clears the termination in the same write,
 one-way, and the row then meets the pool's admission like any other parse, gap
 guard included. The mandate notation is the kind this reaches in practice.
+The open merits events of the first kind are closed without an outcome
+(`merits-terminated`), so a forecast made on one is never graded; those of the
+second stay open for the parse.
 Folding either kind into the vocabulary as a seventh value would score it as
 undisturbed — asserting for the first that the decision below survived a
 merits ruling no one made, and for the second that it survived a ruling whose

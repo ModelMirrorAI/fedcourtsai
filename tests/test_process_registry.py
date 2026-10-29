@@ -184,9 +184,9 @@ GOLDEN_BLESSING_LABELS = {
         "proc-v12",
         "proc-v13",
     ),
-    "sha256:e5778ad8476ee03e1966f338cd3ebc6a94f9130a822fdf16c83ddaebb1d6084d": ("proc-v14",),
-    "sha256:dc766d90dcd66a3b702486fd02e2d6b80950f37ba638a66743865d303dd5a990": ("proc-v14",),
-    "sha256:4a70cd5870d165cc41b878164ab15fc67e7792a17bb2dcffc9097e15445a9a1c": ("proc-v14",),
+    "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec": ("proc-v14",),
+    "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30": ("proc-v14",),
+    "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9": ("proc-v14",),
 }
 
 _SCRUB_0921 = "a2f84f2eedb4e3b3dcc222522a55b8a93ae1eff0"

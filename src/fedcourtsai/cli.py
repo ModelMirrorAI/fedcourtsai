@@ -13,6 +13,7 @@ import json
 import logging
 import math
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -134,6 +135,7 @@ from .collect import (
     PriorAvailabilityRollup,
     PrPlan,
     SelfProvisionedRollup,
+    ServedModelRollup,
     StakesReadRollup,
     ThrottleRollup,
     assert_board_within_jail,
@@ -317,14 +319,29 @@ from .pipeline.decision_dates import converge_decision_dates
 from .pipeline.decision_record import backfill_decision_record, decision_census
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
-from .pipeline.document_backfill import backfill_documents
+from .pipeline.document_backfill import DocumentBackfillResult, backfill_documents
+from .pipeline.document_backfill_split import (
+    BackfillPlan,
+    BackfillWorklist,
+    apply_backfill_plan,
+    backfill_worklist,
+    dry_run_ledger,
+    plan_backfill_worklist,
+)
 from .pipeline.document_recut import (
     SCOPE_ALL_LIVE as RECUT_SCOPE_ALL_LIVE,
 )
 from .pipeline.document_recut import (
     SCOPE_PREDICT_RELEVANT as RECUT_SCOPE_PREDICT_RELEVANT,
 )
-from .pipeline.document_recut import recut_documents
+from .pipeline.document_recut import DocumentRecutResult, recut_documents
+from .pipeline.document_recut_split import (
+    RecutPlan,
+    RecutWorklist,
+    apply_recut_plan,
+    plan_recut_worklist,
+    recut_worklist,
+)
 from .pipeline.documents import (
     FETCH_LOSS_BIO_EMPTY,
     FETCH_LOSS_BIO_PARTIAL,
@@ -364,7 +381,17 @@ from .pipeline.missed import (
     scan_predictionless_resolutions,
 )
 from .pipeline.ocr_recovery import DEFAULT_PROBE_SAMPLE as DEFAULT_OCR_PROBE_SAMPLE
-from .pipeline.ocr_recovery import OcrToolsMissing, recover_scanned_documents
+from .pipeline.ocr_recovery import (
+    EMPTY_AFTER_OCR,
+    OcrFetchProbe,
+    OcrRecoveryResult,
+    OcrToolsMissing,
+    class_reading,
+    probe_documents,
+    recover_scanned_documents,
+    scanned_documents,
+)
+from .pipeline.ocr_recovery import RECOVERABLE_KINDS as OCR_RECOVERABLE_KINDS
 from .pipeline.opinion_enrichment import DEFAULT_MAX_CASES as DEFAULT_MAX_OPINION_CASES
 from .pipeline.opinion_enrichment import enrich_opinions
 from .pipeline.outcome import (
@@ -461,6 +488,7 @@ from .schemas import (
     AgentToolingFeedback,
     AuthorshipTally,
     Backtest,
+    BlindingRecord,
     CellFailure,
     CellMode,
     CertBacktest,
@@ -507,6 +535,8 @@ from .schemas import (
     RetrievalCall,
     RetrievalLog,
     SalienceReplay,
+    SameQuestionList,
+    SameQuestionLists,
     Stage,
     StagedOpinion,
     StatPack,
@@ -555,8 +585,11 @@ from .supremecourt import (
     parse_scotus_docket_number,
 )
 from .usage import (
+    parse_claude_served_models,
     parse_claude_usage,
+    parse_codex_served_models,
     parse_codex_usage,
+    parse_gemini_served_models,
     parse_gemini_usage,
     resolve_engine_version,
     resolve_pipeline_sha,
@@ -2459,7 +2492,9 @@ def backfill_merits_judgments_cmd(
     without a disposition (a post-grant Rule 46 dismissal, a dismissal as moot,
     an abatement on the petitioner's death, a grant the Court vacated, a bare
     mandate notation) — and stamps `merits_terminated` instead, which closes
-    the row's pendency without entering the parsed slice. Idempotent; a row
+    the row's pendency without entering the parsed slice, and closes the row's
+    open merits events without an outcome (`merits-terminated`) unless the
+    termination is the bare mandate notation. Idempotent; a row
     whose snapshot is unreachable is counted `no_snapshot` and left as it is.
     Dry-run by default; `--apply` writes (run where the corpus is pulled,
     `corpus-push` after). Prints a `MeritsBackfillResult`. Fails loud if the
@@ -2486,7 +2521,9 @@ def backfill_merits_judgments_cmd(
         f"({result.unchanged} already stored, {verb} {result.updated}), "
         f"{result.no_snapshot} without a reachable snapshot, "
         f"{result.terminated} terminated without a disposition "
-        f"({verb} {result.terminations_written}), "
+        f"({verb} {result.terminations_written}, "
+        f"{'closed' if apply else 'would close'} {result.terminated_events_closed} "
+        "open merits event(s) without an outcome), "
         f"{result.no_match} with no judgment-shaped entry"
     )
     if result.stale:
@@ -2681,38 +2718,74 @@ def _ocr_sweep_refuse(message: str) -> NoReturn:
     raise typer.Exit(code=2)
 
 
-def _ocr_sweep(  # noqa: PLR0912, PLR0913 - keyword-only; one flag per sweep mode
+def _ocr_sweep(  # noqa: PLR0912, PLR0913, PLR0915 - keyword-only; one flag per split mode
     started: float,
     *,
     apply: bool,
     sweep: bool,
     max_cases: int | None,
+    probe: int | None,
     deadline_seconds: float | None,
     emit_worklist: Path | None,
     worklist: Path | None,
     plan_out: Path | None,
+    probe_only: bool,
     from_plan: Path | None,
     bind_worklist: Path | None,
 ) -> None:
-    """The standing sweep's four modes: list, project, parse, write.
+    """The credential split's modes: the standing sweep's list, project, parse
+    and write, and the dispatched pass's project, parse and write.
 
-    Each job of the split runs exactly one, so the flags that select them are
+    Each job of a split runs exactly one, so the flags that select them are
     exclusive, and the one that reads fetched bytes (the parse) opens no corpus.
+    The parse is the same for both splits; ``--sweep`` picks which projection
+    and which writer.
     """
     command = "ocr-recover-petitions"
-    _refuse_bound_with_sweep(command, "--max-cases", max_cases)
-    if worklist is not None or plan_out is not None:
-        if worklist is None or plan_out is None:
-            _ocr_sweep_refuse("--worklist and --plan-out go together (the parse).")
-        if sweep or apply or emit_worklist or from_plan or bind_worklist:
+    if worklist is not None or plan_out is not None or probe_only:
+        if worklist is None or (plan_out is None) == (not probe_only):
             _ocr_sweep_refuse(
-                "the parse takes --worklist, --plan-out and --deadline-seconds only; "
-                "it opens no corpus and writes none."
+                "the parse takes --worklist with exactly one of --plan-out (read the "
+                "items) and --probe-only (probe their URLs)."
             )
+        if (
+            sweep
+            or apply
+            or max_cases is not None
+            or probe is not None
+            or emit_worklist
+            or from_plan
+            or bind_worklist
+        ):
+            _ocr_sweep_refuse(
+                "the parse takes --worklist, --plan-out or --probe-only, and "
+                "--deadline-seconds only; it opens no corpus and writes none."
+            )
+        if probe_only:
+            if deadline_seconds is not None:
+                _ocr_sweep_refuse(
+                    "--deadline-seconds bounds the reading parse (--plan-out); the "
+                    "probe re-fetches a sample and reads nothing."
+                )
+            _ocr_probe_parse(worklist)
+            return
+        assert plan_out is not None  # narrowed by the refusal above
         _ocr_sweep_parse(started, worklist, plan_out, deadline_seconds=deadline_seconds)
         return
     if not sweep:
-        _ocr_sweep_refuse("--emit-worklist and --from-plan run in --sweep mode.")
+        _ocr_dispatched_split(
+            apply=apply,
+            max_cases=max_cases,
+            probe=probe,
+            deadline_seconds=deadline_seconds,
+            emit_worklist=emit_worklist,
+            from_plan=from_plan,
+            bind_worklist=bind_worklist,
+        )
+        return
+    if probe is not None:
+        _ocr_sweep_refuse("--probe is the dispatched dry run's; the sweep probes nothing.")
+    _refuse_bound_with_sweep(command, "--max-cases", max_cases)
     if emit_worklist is not None and from_plan is not None:
         _ocr_sweep_refuse(
             "--emit-worklist (the projection) and --from-plan (the writer) are "
@@ -2818,6 +2891,198 @@ def _ocr_sweep_parse(
     write_handoff(plan_out, plan)
 
 
+def _ocr_probe_parse(worklist_path: Path) -> None:
+    """The dispatched dry run's parse: probe each worklist item's URL, read nothing."""
+    command = "ocr-recover-petitions"
+    settings = get_settings()
+    cfg = load_historical_config(settings.config_root)
+    handed = _read_handoff_or_exit(command, worklist_path, ocr_sweep.OcrWorklist)
+    try:
+        ocr_sweep.check_worklist(handed)
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
+        probes = probe_documents(client, handed.items)
+    typer.echo(
+        f"probe parse — {command}: {len(probes)} of a class of {handed.class_size} "
+        "re-fetched through the fetching lanes' own client"
+    )
+    for entry in probes:
+        _echo_ocr_probe(entry)
+
+
+def _ocr_dispatched_split(
+    *,
+    apply: bool,
+    max_cases: int | None,
+    probe: int | None,
+    deadline_seconds: float | None,
+    emit_worklist: Path | None,
+    from_plan: Path | None,
+    bind_worklist: Path | None,
+) -> None:
+    """The dispatched pass's projection and writer, run-repair's credential split.
+
+    The projection (``--emit-worklist``) prints the dry run's class ledger and
+    writes the worklist; the writer (``--from-plan --bind-worklist``) lands the
+    plan and prints the apply's ledger, the one its witness reads. Neither
+    fetches: the parse between them is the shared ``--worklist`` mode.
+    """
+    if emit_worklist is not None and from_plan is not None:
+        _ocr_sweep_refuse(
+            "--emit-worklist (the projection) and --from-plan (the writer) are "
+            "separate jobs; pass one."
+        )
+    if (from_plan is None) != (bind_worklist is None):
+        _ocr_sweep_refuse("--from-plan and --bind-worklist go together (the writer).")
+    if deadline_seconds is not None:
+        _ocr_sweep_refuse("--deadline-seconds bounds the parse (--worklist) only.")
+    if max_cases is not None and not 1 <= max_cases <= ocr_sweep.MAX_SWEEP_ITEMS:
+        _ocr_sweep_refuse(
+            f"--max-cases must be a slice of 1 to {ocr_sweep.MAX_SWEEP_ITEMS} candidates, "
+            f"the most one worklist may carry (got {max_cases}); dispatch a larger "
+            "backlog in slices."
+        )
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the OCR recovery.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if from_plan is not None and bind_worklist is not None:
+        if probe is not None:
+            _ocr_sweep_refuse("--probe is the dry run's; the writer probes nothing.")
+        if max_cases is None:
+            _ocr_sweep_refuse(
+                "the writer takes the dispatch's --max-cases, the bound the worklist was cut for."
+            )
+        cfg = load_historical_config(settings.config_root)
+        _ocr_dispatched_write(
+            db_path,
+            from_plan,
+            bind_worklist,
+            apply=apply,
+            max_cases=max_cases,
+            char_cap=cfg.document_text_cap,
+        )
+        return
+    if emit_worklist is None:
+        _ocr_sweep_refuse(
+            "without --sweep, the split modes are --emit-worklist (the projection), "
+            "--worklist (the parse) and --from-plan (the writer)."
+        )
+    if apply:
+        _ocr_sweep_refuse("the projection writes nothing; the apply is the writer's (--from-plan).")
+    if max_cases is not None and probe is not None:
+        _ocr_sweep_refuse(
+            "--max-cases cuts an apply's slice and --probe a dry run's sample; pass one."
+        )
+    with corpus.connect_maintenance(db_path, apply=False) as conn:
+        scan = scanned_documents(conn)
+        handed = ocr_sweep.dispatched_worklist(
+            conn,
+            scan.candidates,
+            max_cases=max_cases,
+            probe=DEFAULT_OCR_PROBE_SAMPLE if probe is None else probe,
+        )
+    result = class_reading(scan)
+    _echo_ocr_recovery(result, db_path, apply=False)
+    what = "slice" if max_cases is not None else "probe sample"
+    typer.echo(f"  worklist: {len(handed.items)} item(s), the apply's {what}")
+    typer.echo(result.model_dump_json())
+    write_handoff(emit_worklist, handed)
+
+
+def _ocr_dispatched_write(
+    db_path: Path,
+    plan_path: Path,
+    worklist_path: Path,
+    *,
+    apply: bool,
+    max_cases: int,
+    char_cap: int,
+) -> None:
+    """The dispatched pass's writer: land the plan, and state the class it leaves.
+
+    The class is walked before the write, and only a row still in it is
+    written, so ``remaining`` is that class less what this write recovered —
+    the number the workflow's re-read must then find. A row the write skips
+    (the corpus moved since the projection) is named on its own line, apart
+    from the parse's fetch failures. What it prints of the plan is counts and
+    validated identifiers, as on the sweep's writer.
+    """
+    command = "ocr-recover-petitions"
+    plan = _read_handoff_or_exit(command, plan_path, ocr_sweep.OcrPlan)
+    bound = _read_handoff_or_exit(command, worklist_path, ocr_sweep.OcrWorklist)
+    if bound.cap != max_cases:
+        typer.echo(
+            f"{command}: refusing the worklist — it was cut for a bound of {bound.cap}, "
+            f"not this dispatch's {max_cases}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if apply:
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    try:
+        with corpus.connect_maintenance(db_path, apply=apply) as conn:
+            scan = scanned_documents(conn)
+            landed = ocr_sweep.apply_ocr_plan(
+                conn,
+                plan,
+                bound,
+                cap=max_cases,
+                char_cap=char_cap,
+                today=date.today(),
+                apply=apply,
+                dispatched=True,
+                within=frozenset(candidate.key for candidate in scan.candidates),
+            )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the plan — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    failures = dict(plan.failures)
+    unfetched: dict[str, int] = {}
+    for reason in failures.values():
+        if reason != EMPTY_AFTER_OCR:
+            unfetched[reason] = unfetched.get(reason, 0) + 1
+    kinds = {key.split(" ", 1)[1] for key in landed.written}
+    result = OcrRecoveryResult(
+        applied=apply,
+        documents_seen=scan.documents_seen,
+        candidates=len(scan.candidates),
+        candidates_by_kind=class_reading(scan).candidates_by_kind,
+        set_keyed=scan.set_keyed,
+        bound=max_cases,
+        attempted=len(plan.rows) + len(plan.failures),
+        unreached=list(plan.unreached),
+        recovered=len(landed.written),
+        recovered_by_kind={
+            kind: sum(1 for key in landed.written if key.split(" ", 1)[1] == kind)
+            for kind in OCR_RECOVERABLE_KINDS
+            if kind in kinds
+        },
+        empty_after_ocr=sum(1 for reason in failures.values() if reason == EMPTY_AFTER_OCR),
+        unfetched=dict(sorted(unfetched.items())),
+        remaining=len(scan.candidates) - len(landed.written),
+        questions_rederived=landed.questions_rederived,
+        recoveries=landed.written,
+        failures=dict(sorted(failures.items())),
+    )
+    _echo_ocr_recovery(result, db_path, apply=apply)
+    typer.echo(f"skipped at the write: {len(landed.skipped)}")
+    for key, reason in landed.skipped.items():
+        typer.echo(f"  skipped {key}: {reason}")
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(result.model_dump_json())
+
+
 def _ocr_sweep_write(
     db_path: Path,
     plan_path: Path,
@@ -2870,8 +3135,71 @@ def _ocr_sweep_write(
         _ensure_corpus_layout(db_path)
 
 
+def _echo_ocr_recovery(result: OcrRecoveryResult, db_path: Path, *, apply: bool) -> None:
+    """The dispatched pass's ledger, as every mode of it prints it.
+
+    The dispatched dry run and apply, the credential split's projection and its
+    writer: one reading, so a dry run read off the split reads as one read off
+    the single job did.
+    """
+    if not result.documents_seen:
+        # Zero candidates has two causes and they are not the same run: a
+        # converged class, and a blob whose documents this process cannot read —
+        # a split-mode index with no content store configured serves every case
+        # an empty document list, which would otherwise report as a clean pass
+        # over an empty class. The denominator is what tells them apart.
+        typer.echo(
+            f"ocr-recover-petitions: no stored documents in {db_path} "
+            "— wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    verb = "recovered" if apply else "would attempt"
+    # A dry run states the whole class, since it takes no slice; the number a
+    # maintainer carries into `--max-cases` is that count, or as much of it as
+    # one dispatch should spend.
+    counted = result.recovered if apply else result.candidates
+    typer.echo(
+        f"ocr-recover-petitions ({'applied' if apply else 'dry-run'}): "
+        f"{result.candidates} scanned filing(s) in the class of "
+        f"{result.documents_seen} stored document(s) — "
+        f"{verb} {counted}, {result.remaining} left for the next slice"
+    )
+    # The class cut by kind, which is what a bound is drawn against: a slice of
+    # 10 over a class that is nine oppositions and one petition touches a very
+    # different set from one over the reverse, and the total alone hides it.
+    _echo_by_kind("class", result.candidates_by_kind)
+    if result.set_keyed:
+        _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
+    if apply:
+        _echo_by_kind("recovered", result.recovered_by_kind)
+        typer.echo(
+            f"  attempted {result.attempted} (bound {result.bound}); "
+            f"{result.empty_after_ocr} still empty after OCR; "
+            f"{result.questions_rederived} questions-presented row(s) re-derived"
+        )
+        losses = ", ".join(f"{reason}: {count}" for reason, count in result.unfetched.items())
+        typer.echo(f"  unfetched: {losses or 'none'}")
+    for key, detail in result.recoveries.items():
+        typer.echo(f"  {key}: {detail}")
+    for key, reason in result.failures.items():
+        typer.echo(f"  {key}: NOT RECOVERED ({reason})")
+    _echo_unreached(result.unreached)
+    for entry in result.probes:
+        _echo_ocr_probe(entry)
+
+
+def _echo_ocr_probe(entry: OcrFetchProbe) -> None:
+    """The dry run's second reading: one stored URL's status, before a slice is spent."""
+    typer.echo(
+        f"  probe {entry.case_id} {entry.kind}: {entry.outcome} "
+        f"(status {entry.status if entry.status is not None else 'none'}, "
+        f"{entry.bytes_fetched} bytes) {entry.url}"
+    )
+
+
 @app.command("ocr-recover-petitions")
-def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
+def ocr_recover_petitions_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     apply: Annotated[
         bool,
         typer.Option(
@@ -2924,8 +3252,11 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
         Path | None,
         typer.Option(
             "--emit-worklist",
-            help="With --sweep: write the window's slice (case id, kind, Court URL, page "
-            "count) to this file for the credential-free parse, and nothing else.",
+            help="The projection: write the worklist (case id, kind, Court URL, page "
+            "count) to this file for the credential-free parse, fetching nothing. With "
+            "--sweep, the window's slice; without, the dispatched pass's: the first "
+            "--max-cases candidates in class order, or with no --max-cases the dry "
+            "run's --probe sample, beside the dry run's own ledger.",
         ),
     ] = None,
     worklist: Annotated[
@@ -2940,13 +3271,23 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
         Path | None,
         typer.Option("--plan-out", help="With --worklist: where the plan is written."),
     ] = None,
+    probe_only: Annotated[
+        bool,
+        typer.Option(
+            "--probe-only",
+            help="With --worklist, in place of --plan-out: the dispatched dry run's "
+            "parse. Re-fetch each item's URL and report its status, reading nothing "
+            "out of the body and writing no plan.",
+        ),
+    ] = False,
     from_plan: Annotated[
         Path | None,
         typer.Option(
             "--from-plan",
-            help="With --sweep: the writer. Re-check each plan row against "
-            "--bind-worklist and the corpus, and write it with --apply; without, "
-            "report what it would write.",
+            help="The writer. Re-check each plan row against --bind-worklist and the "
+            "corpus, and write it with --apply; without, report what it would write. "
+            "With --sweep, the standing sweep's; without, the dispatched pass's, "
+            "which takes the dispatch's --max-cases.",
         ),
     ] = None,
     bind_worklist: Annotated[
@@ -2954,7 +3295,7 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
         typer.Option(
             "--bind-worklist",
             help="With --from-plan, required: the projection's own worklist for this "
-            "window. Every plan row, failure and unreached key must be one of its items.",
+            "run. Every plan row, failure and unreached key must be one of its items.",
         ),
     ] = None,
 ) -> None:
@@ -3053,18 +3394,18 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
     # is charged to the budget the caller sized: it happens inside the caller's
     # cap whether or not a candidate is ever started.
     started = time.monotonic()
-    if sweep or emit_worklist or worklist or plan_out or from_plan or bind_worklist:
-        if probe is not None:
-            _ocr_sweep_refuse("--probe is the dispatched dry run's; the sweep probes nothing.")
+    if sweep or emit_worklist or worklist or plan_out or probe_only or from_plan or bind_worklist:
         _ocr_sweep(
             started,
             apply=apply,
             sweep=sweep,
             max_cases=max_cases,
+            probe=probe,
             deadline_seconds=deadline_seconds,
             emit_worklist=emit_worklist,
             worklist=worklist,
             plan_out=plan_out,
+            probe_only=probe_only,
             from_plan=from_plan,
             bind_worklist=bind_worklist,
         )
@@ -3115,64 +3456,14 @@ def ocr_recover_petitions_cmd(  # noqa: PLR0912, PLR0913, PLR0917 - a CLI entryp
     except OcrToolsMissing as exc:
         typer.echo(f"ocr-recover-petitions: {exc}", err=True)
         raise typer.Exit(code=1) from exc
-    if not result.documents_seen:
-        # Zero candidates has two causes and they are not the same run: a
-        # converged class, and a blob whose documents this process cannot read —
-        # a split-mode index with no content store configured serves every case
-        # an empty document list, which would otherwise report as a clean pass
-        # over an empty class. The denominator is what tells them apart.
-        typer.echo(
-            f"ocr-recover-petitions: no stored documents in {db_path} "
-            "— wrong blob for this command?",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-    verb = "recovered" if apply else "would attempt"
-    # A dry run states the whole class, since it takes no slice; the number a
-    # maintainer carries into `--max-cases` is that count, or as much of it as
-    # one dispatch should spend.
-    counted = result.recovered if apply else result.candidates
-    typer.echo(
-        f"ocr-recover-petitions ({'applied' if apply else 'dry-run'}): "
-        f"{result.candidates} scanned filing(s) in the class of "
-        f"{result.documents_seen} stored document(s) — "
-        f"{verb} {counted}, {result.remaining} left for the next slice"
-    )
-    # The class cut by kind, which is what a bound is drawn against: a slice of
-    # 10 over a class that is nine oppositions and one petition touches a very
-    # different set from one over the reverse, and the total alone hides it.
-    _echo_by_kind("class", result.candidates_by_kind)
-    if result.set_keyed:
-        _echo_by_kind("left out (stored URL is a set key, not one link)", result.set_keyed)
-    if apply:
-        _echo_by_kind("recovered", result.recovered_by_kind)
-        typer.echo(
-            f"  attempted {result.attempted} (bound {result.bound}); "
-            f"{result.empty_after_ocr} still empty after OCR; "
-            f"{result.questions_rederived} questions-presented row(s) re-derived"
-        )
-        losses = ", ".join(f"{reason}: {count}" for reason, count in result.unfetched.items())
-        typer.echo(f"  unfetched: {losses or 'none'}")
-    for key, detail in result.recoveries.items():
-        typer.echo(f"  {key}: {detail}")
-    for key, reason in result.failures.items():
-        typer.echo(f"  {key}: NOT RECOVERED ({reason})")
-    _echo_unreached(result.unreached)
-    for entry in result.probes:
-        # The dry run's second reading: what the writer's own fetch path gets
-        # back from supremecourt.gov, before a slice is spent finding out.
-        typer.echo(
-            f"  probe {entry.case_id} {entry.kind}: {entry.outcome} "
-            f"(status {entry.status if entry.status is not None else 'none'}, "
-            f"{entry.bytes_fetched} bytes) {entry.url}"
-        )
+    _echo_ocr_recovery(result, db_path, apply=apply)
     if apply:
         _ensure_corpus_layout(db_path)
     typer.echo(result.model_dump_json())
 
 
 @app.command("recut-documents")
-def recut_documents_cmd(
+def recut_documents_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     apply: Annotated[
         bool,
         typer.Option(
@@ -3209,6 +3500,44 @@ def recut_documents_cmd(
             "(queued for prediction or selected by the salience gate).",
         ),
     ] = False,
+    emit_worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--emit-worklist",
+            help="The split's projection: walk the class, print its ledger and write the "
+            "slice the parse reads (the first --max-cases candidates, or the whole class "
+            "without it) to this file. Fetches nothing.",
+        ),
+    ] = None,
+    worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--worklist",
+            help="The split's parse: re-fetch and re-cut each item of this worklist with "
+            "no corpus, and write the plan to --plan-out. Takes --deadline-seconds.",
+        ),
+    ] = None,
+    plan_out: Annotated[
+        Path | None,
+        typer.Option("--plan-out", help="Where the parse writes its plan (with --worklist)."),
+    ] = None,
+    from_plan: Annotated[
+        Path | None,
+        typer.Option(
+            "--from-plan",
+            help="The split's reader: judge this plan against the stored text and print "
+            "the pass's ledger; with --apply, write the re-cuts. Takes --bind-worklist "
+            "and the --max-cases the worklist was cut for.",
+        ),
+    ] = None,
+    bind_worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--bind-worklist",
+            help="The projection's own worklist, which the reader checks the plan against "
+            "(with --from-plan).",
+        ),
+    ] = None,
 ) -> None:
     """Re-cut the petitions, applications and appendices stored under the plain head cut.
 
@@ -3239,8 +3568,44 @@ def recut_documents_cmd(
     once a candidate's estimate will not fit, reported unreached. The lane
     invocation is run-repair's `recut` pass. Fails loud if the corpus is absent
     or the walk reads no stored document of the three kinds.
+
+    run-repair runs the pass split at the credential boundary, in three jobs:
+    `--emit-worklist` (the projection, read-only), `--worklist --plan-out` (the
+    parse, which fetches and re-cuts with no corpus and no credential) and
+    `--from-plan --bind-worklist` (the reader, which judges each re-cut against
+    the stored text; with `--apply`, the writer). The plain mode with
+    `--max-cases 0` is the writer's witness re-read.
     """
     started = time.monotonic()
+    command = "recut-documents"
+    if worklist is not None or plan_out is not None:
+        if worklist is None or plan_out is None:
+            _recut_refuse("the parse takes --worklist and --plan-out together.")
+        if (
+            apply
+            or max_cases is not None
+            or all_live
+            or emit_worklist
+            or from_plan
+            or bind_worklist
+        ):
+            _recut_refuse(
+                "the parse takes --worklist, --plan-out and --deadline-seconds only; it "
+                "opens no corpus and writes none."
+            )
+        _recut_parse(started, worklist, plan_out, deadline_seconds=deadline_seconds)
+        return
+    if emit_worklist is not None or from_plan is not None or bind_worklist is not None:
+        _recut_split(
+            apply=apply,
+            max_cases=_slice_bound(max_cases, command=command),
+            all_live=all_live,
+            deadline_seconds=deadline_seconds,
+            emit_worklist=emit_worklist,
+            from_plan=from_plan,
+            bind_worklist=bind_worklist,
+        )
+        return
     settings = get_settings()
     if apply and max_cases is None:
         typer.echo(
@@ -3279,6 +3644,12 @@ def recut_documents_cmd(
             scope=scope,
             deadline=deadline,
         )
+    _echo_recut(result, db_path, apply=apply)
+
+
+def _echo_recut(result: DocumentRecutResult, db_path: Path, *, apply: bool) -> None:
+    """The pass's ledger, as the pass in one job and the split's reader both print it."""
+    scope = result.scope
     if not result.documents_seen:
         typer.echo(
             f"recut-documents: no stored documents of an appendix-bearing kind in {db_path} "
@@ -3325,6 +3696,163 @@ def recut_documents_cmd(
     if apply:
         _ensure_corpus_layout(db_path)
     typer.echo(result.model_dump_json())
+
+
+def _recut_refuse(message: str) -> NoReturn:
+    typer.echo(f"recut-documents: {message}", err=True)
+    raise typer.Exit(code=2)
+
+
+def _recut_parse(
+    started: float, worklist_path: Path, plan_out: Path, *, deadline_seconds: float | None
+) -> None:
+    """The credential-free parse: the worklist in, the plan out, no corpus."""
+    command = "recut-documents"
+    deadline = _slice_deadline(started, deadline_seconds, command=command)
+    cfg = load_historical_config(get_settings().config_root)
+    handed = _read_handoff_or_exit(command, worklist_path, RecutWorklist)
+    try:
+        with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
+            plan = plan_recut_worklist(
+                client, handed, char_cap=cfg.document_text_cap, deadline=deadline
+            )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    # Counts and identifiers only: the plan's text is the filings' own, and a
+    # self-represented filer's contact details are in it. The stored text the
+    # rest of the outcome turns on is the reader's to judge against.
+    typer.echo(
+        f"recut parse ({handed.scope}): {len(handed.items)} item(s) "
+        f"(bound {'none' if handed.bound is None else handed.bound}); "
+        f"re-cut {len(plan.rows)} for the reader to judge; "
+        f"settled by the served PDF {len(plan.skips)}; unreached {len(plan.unreached)}"
+    )
+    for row in plan.rows:
+        typer.echo(
+            f"  {row.key}: pages={row.pages} chars={len(row.text)} "
+            f"truncated={str(row.truncated).lower()}"
+        )
+    for key, detail in plan.skips.items():
+        typer.echo(f"  {key}: SKIPPED ({detail})")
+    _echo_unreached(plan.unreached)
+    write_handoff(plan_out, plan)
+
+
+def _recut_split(  # noqa: PLR0912, PLR0915 - keyword-only; one refusal per split mode
+    *,
+    apply: bool,
+    max_cases: int | None,
+    all_live: bool,
+    deadline_seconds: float | None,
+    emit_worklist: Path | None,
+    from_plan: Path | None,
+    bind_worklist: Path | None,
+) -> None:
+    """The split's projection and reader, run-repair's credential split for the re-cut.
+
+    The projection (``--emit-worklist``) prints the class ledger and writes the
+    worklist; the reader (``--from-plan --bind-worklist``) judges the plan
+    against the stored text and prints the pass's ledger, writing on an apply.
+    Neither fetches: the parse between them is the ``--worklist`` mode.
+    """
+    command = "recut-documents"
+    if emit_worklist is not None and from_plan is not None:
+        _recut_refuse(
+            "--emit-worklist (the projection) and --from-plan (the reader) are separate "
+            "jobs; pass one."
+        )
+    if (from_plan is None) != (bind_worklist is None):
+        _recut_refuse("--from-plan and --bind-worklist go together (the reader).")
+    if deadline_seconds is not None:
+        _recut_refuse("--deadline-seconds bounds the parse (--worklist) only.")
+    if max_cases == 0:
+        _recut_refuse(
+            "a split slice of 0 hands the parse nothing; the walk-only reading is the "
+            "plain mode's --max-cases 0."
+        )
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the re-cut.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if emit_worklist is not None:
+        scope = RECUT_SCOPE_ALL_LIVE if all_live else RECUT_SCOPE_PREDICT_RELEVANT
+        if apply:
+            _recut_refuse("the projection writes nothing; the apply is the reader's (--from-plan).")
+        try:
+            with corpus.connect_maintenance(db_path, apply=False) as conn:
+                handed, reading = recut_worklist(conn, scope=scope, bound=max_cases)
+        except HandoffRefused as exc:
+            typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        _echo_recut_class(reading, db_path)
+        what = "the apply's slice" if max_cases is not None else "the whole class"
+        typer.echo(f"  worklist: {len(handed.items)} item(s), {what}")
+        typer.echo(reading.model_dump_json())
+        write_handoff(emit_worklist, handed)
+        return
+    assert from_plan is not None and bind_worklist is not None  # narrowed above
+    if all_live:
+        _recut_refuse(
+            "the reader walks the scope the worklist was cut for; it takes no --all-live."
+        )
+    if apply and max_cases is None:
+        _recut_refuse(
+            "--apply requires an explicit --max-cases, the bound the worklist was cut for."
+        )
+    plan = _read_handoff_or_exit(command, from_plan, RecutPlan)
+    bound = _read_handoff_or_exit(command, bind_worklist, RecutWorklist)
+    if bound.bound != max_cases:
+        typer.echo(
+            f"{command}: refusing the worklist — it was cut for a bound of "
+            f"{'none' if bound.bound is None else bound.bound}, not this dispatch's "
+            f"{'none' if max_cases is None else max_cases}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if apply:
+        ref = db_path.parent / (db_path.name + ".ref")
+        if ref.is_file():
+            typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    cfg = load_historical_config(settings.config_root)
+    try:
+        with corpus.connect_maintenance(db_path, apply=apply) as conn:
+            result = apply_recut_plan(
+                conn,
+                plan,
+                bound,
+                char_cap=cfg.document_text_cap,
+                today=date.today(),
+                apply=apply,
+            )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the plan — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_recut(result, db_path, apply=apply)
+
+
+def _echo_recut_class(result: DocumentRecutResult, db_path: Path) -> None:
+    """The projection's class ledger: the walk-only reading, which fetches nothing."""
+    if not result.documents_seen:
+        typer.echo(
+            f"recut-documents: no stored documents of an appendix-bearing kind in {db_path} "
+            f"({result.scope}, {result.cases_seen} row(s)) — wrong blob for this command?",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    typer.echo(
+        f"recut-documents (projection, {result.scope}): {result.candidates} head-cut "
+        f"filing(s) in the class of {result.documents_seen} stored document(s) over "
+        f"{result.cases_seen} row(s)"
+    )
+    _echo_by_kind("class", result.candidates_by_kind)
+    if result.excluded:
+        _echo_by_kind("truncated but left out", result.excluded)
 
 
 @app.command("enrich-opinions")
@@ -6382,6 +6910,43 @@ def backfill_documents_cmd(
             "taking work. Omit for no deadline.",
         ),
     ] = None,
+    emit_worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--emit-worklist",
+            help="The credential split's projection: walk the class, print its ledger "
+            "and write the slice the parse fetches for (with --max-cases, the first N "
+            "candidates; without, the whole class). Fetches nothing.",
+        ),
+    ] = None,
+    worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--worklist",
+            help="The split's parse: fetch for this worklist's items with no corpus. "
+            "Alone, it is the dry run and prints its ledger; with --plan-out, the "
+            "apply's parse, which fetches the filings too and writes the plan.",
+        ),
+    ] = None,
+    plan_out: Annotated[
+        Path | None,
+        typer.Option("--plan-out", help="Where the apply's parse writes its plan."),
+    ] = None,
+    from_plan: Annotated[
+        Path | None,
+        typer.Option(
+            "--from-plan",
+            help="The split's writer: land this plan, with --apply and the --max-cases "
+            "the worklist was cut for. Takes --bind-worklist.",
+        ),
+    ] = None,
+    bind_worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--bind-worklist",
+            help="The projection's own worklist, which the plan must account for exactly.",
+        ),
+    ] = None,
 ) -> None:
     """Provision the queued cases that hold a document gap, a slice at a time.
 
@@ -6440,10 +7005,36 @@ def backfill_documents_cmd(
     half is a writer-lane pass by construction, since the corpus-write
     credentials exist only there, and the lane invocation is run-repair's
     `document-backfill` pass. Fails loud if the corpus is absent.
+
+    run-repair runs the pass split at the credential boundary, in three jobs:
+    `--emit-worklist` (the projection, read-only), `--worklist` (the parse, which
+    fetches with no corpus and no credential: alone the dry run, with
+    `--plan-out` the apply's) and `--from-plan --bind-worklist --apply` (the
+    writer). The plain mode with `--max-cases 0` is the writer's witness re-read.
     """
     # Taken before any other work, so the population walk this command opens with
     # is charged to the budget the caller sized.
     started = time.monotonic()
+    if worklist is not None or plan_out is not None:
+        if worklist is None:
+            _backfill_refuse("the parse takes --worklist (and, on an apply, --plan-out).")
+        if apply or max_cases is not None or emit_worklist or from_plan or bind_worklist:
+            _backfill_refuse(
+                "the parse takes --worklist, --plan-out and --deadline-seconds only; it "
+                "opens no corpus and writes none."
+            )
+        _backfill_parse(started, worklist, plan_out, deadline_seconds=deadline_seconds)
+        return
+    if emit_worklist is not None or from_plan is not None or bind_worklist is not None:
+        _backfill_split(
+            apply=apply,
+            max_cases=_slice_bound(max_cases, command="backfill-documents"),
+            deadline_seconds=deadline_seconds,
+            emit_worklist=emit_worklist,
+            from_plan=from_plan,
+            bind_worklist=bind_worklist,
+        )
+        return
     settings = get_settings()
     if apply and max_cases is None:
         typer.echo(
@@ -6483,12 +7074,19 @@ def backfill_documents_cmd(
             max_cases=max_cases,
             deadline=deadline,
         )
+    _echo_backfill(result, str(db_path), apply=apply)
+    if apply:
+        _ensure_corpus_layout(db_path)
+
+
+def _echo_backfill(result: DocumentBackfillResult, source: str, *, apply: bool) -> None:
+    """The pass's ledger, in prose and then as JSON, as every mode of it prints it."""
     if not result.cases_seen:
         # Zero candidates has two causes and they are not the same run: a corpus
         # whose queued population is fully provisioned, and one this process
         # cannot read at all. The denominator is what tells them apart.
         typer.echo(
-            f"backfill-documents: no predict-relevant live-slice rows in {db_path} "
+            f"backfill-documents: no predict-relevant live-slice rows in {source} "
             "— wrong blob for this command?",
             err=True,
         )
@@ -6563,9 +7161,180 @@ def backfill_documents_cmd(
             "modern docket (selector regression; the log names the kind)"
         )
     _echo_unreached(result.unreached)
-    if apply:
-        _ensure_corpus_layout(db_path)
+    if result.left_class:
+        typer.echo(
+            f"  {result.left_class} candidate(s) had left the class since the projection; "
+            "nothing written for them"
+        )
     typer.echo(result.model_dump_json())
+
+
+def _backfill_refuse(message: str) -> NoReturn:
+    typer.echo(f"backfill-documents: {message}", err=True)
+    raise typer.Exit(code=2)
+
+
+def _backfill_parse(
+    started: float, worklist_path: Path, plan_out: Path | None, *, deadline_seconds: float | None
+) -> None:
+    """The credential-free parse: the worklist in, the dry run's ledger or the plan out."""
+    command = "backfill-documents"
+    deadline = _slice_deadline(started, deadline_seconds, command=command)
+    cfg = load_historical_config(get_settings().config_root)
+    handed = _read_handoff_or_exit(command, worklist_path, BackfillWorklist)
+    try:
+        with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
+            if plan_out is None:
+                result = dry_run_ledger(
+                    client,
+                    handed,
+                    char_cap=cfg.document_text_cap,
+                    today=date.today(),
+                    deadline=deadline,
+                )
+            else:
+                plan = plan_backfill_worklist(
+                    client,
+                    handed,
+                    char_cap=cfg.document_text_cap,
+                    today=date.today(),
+                    deadline=deadline,
+                )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    if plan_out is None:
+        _echo_backfill(result, str(worklist_path), apply=False)
+        return
+    # Counts and identifiers only: the plan's text is the filings' own, and a
+    # self-represented filer's contact details are in it.
+    fetched = [reading for reading in plan.readings if reading.documents]
+    typer.echo(
+        f"backfill parse: {len(handed.items)} item(s) "
+        f"(bound {'none' if handed.bound is None else handed.bound}); "
+        f"fetched for {len(fetched)}; "
+        f"floors {sum(1 for r in plan.readings if r.floor is not None)}; "
+        f"docket losses {sum(1 for r in plan.readings if r.loss is not None)}; "
+        f"unreached {len(plan.unreached)}"
+    )
+    for reading in plan.readings:
+        if reading.loss is not None:
+            typer.echo(f"  {reading.case_id}: {reading.loss}")
+        elif reading.floor is not None:
+            alarm = " (selector alarm)" if reading.alarmed else ""
+            typer.echo(f"  {reading.case_id}: floor {reading.floor}{alarm}")
+        else:
+            typer.echo(
+                f"  {reading.case_id}: fetched "
+                + (
+                    ", ".join(
+                        f"{document.kind} chars={len(document.text)}"
+                        for document in reading.documents
+                    )
+                    or "nothing (a fetch loss)"
+                )
+            )
+    _echo_unreached(plan.unreached)
+    write_handoff(plan_out, plan)
+
+
+def _backfill_split(  # noqa: PLR0912, PLR0915 - keyword-only; one refusal per split mode
+    *,
+    apply: bool,
+    max_cases: int | None,
+    deadline_seconds: float | None,
+    emit_worklist: Path | None,
+    from_plan: Path | None,
+    bind_worklist: Path | None,
+) -> None:
+    """The split's projection and writer, run-repair's credential split for the back-fill.
+
+    The projection (``--emit-worklist``) prints the class ledger and writes the
+    worklist; the writer (``--from-plan --bind-worklist --apply``) lands the
+    plan and prints the pass's ledger. Neither fetches: the parse between them
+    is the ``--worklist`` mode.
+    """
+    command = "backfill-documents"
+    if emit_worklist is not None and from_plan is not None:
+        _backfill_refuse(
+            "--emit-worklist (the projection) and --from-plan (the writer) are separate "
+            "jobs; pass one."
+        )
+    if (from_plan is None) != (bind_worklist is None):
+        _backfill_refuse("--from-plan and --bind-worklist go together (the writer).")
+    if deadline_seconds is not None:
+        _backfill_refuse("--deadline-seconds bounds the parse (--worklist) only.")
+    if max_cases == 0:
+        _backfill_refuse(
+            "a split slice of 0 hands the parse nothing; the walk-only reading is the "
+            "plain mode's --max-cases 0."
+        )
+    if emit_worklist is not None and apply:
+        _backfill_refuse("the projection writes nothing; the apply is the writer's (--from-plan).")
+    if from_plan is not None and (not apply or max_cases is None):
+        _backfill_refuse(
+            "the writer takes --apply and an explicit --max-cases, the bound the worklist "
+            "was cut for; the dry run is read whole in the parse (--worklist)."
+        )
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the document back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if emit_worklist is not None:
+        try:
+            with corpus.connect_maintenance(db_path, apply=False) as conn:
+                handed, reading = backfill_worklist(conn, bound=max_cases)
+        except HandoffRefused as exc:
+            typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        if not reading.cases_seen:
+            typer.echo(
+                f"{command}: no predict-relevant live-slice rows in {db_path} "
+                "— wrong blob for this command?",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        typer.echo(
+            f"{command} (projection): {reading.candidates} addressable candidate(s) in a "
+            f"population of {reading.cases_seen} predict-relevant row(s) "
+            f"({reading.cases_with_documents} holding any stored document); "
+            f"{reading.unaddressable} unaddressable, {reading.standing_floors} held out "
+            "by a standing floor probe"
+        )
+        what = "the apply's slice" if max_cases is not None else "the whole class"
+        typer.echo(f"  worklist: {len(handed.items)} item(s), {what}")
+        typer.echo(reading.model_dump_json())
+        write_handoff(emit_worklist, handed)
+        return
+    assert from_plan is not None and bind_worklist is not None  # narrowed above
+    plan = _read_handoff_or_exit(command, from_plan, BackfillPlan)
+    bound = _read_handoff_or_exit(command, bind_worklist, BackfillWorklist)
+    if bound.bound != max_cases:
+        typer.echo(
+            f"{command}: refusing the worklist — it was cut for a bound of "
+            f"{'none' if bound.bound is None else bound.bound}, not this dispatch's {max_cases}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    ref = db_path.parent / (db_path.name + ".ref")
+    if ref.is_file():
+        typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    cfg = load_historical_config(settings.config_root)
+    try:
+        with corpus.connect_maintenance(db_path, apply=True) as conn:
+            result = apply_backfill_plan(
+                conn, plan, bound, char_cap=cfg.document_text_cap, today=date.today()
+            )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the plan — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_backfill(result, str(db_path), apply=True)
+    _ensure_corpus_layout(db_path)
 
 
 @app.command("scope-manifest")
@@ -6815,6 +7584,81 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
     return [row for row in frame if row.case_id in selected]
 
 
+@app.command("same-question-lists")
+def same_question_lists_cmd(
+    matrix_file: Annotated[
+        Path,
+        typer.Option("--matrix-file", help='The round\'s predict matrix (`{"include": [...]}`).'),
+    ],
+    out: Annotated[Path, typer.Option("--out", help="Where to write the round's lists (JSON).")],
+    today: Annotated[
+        str | None,
+        typer.Option(
+            "--today",
+            help="The plan's day (YYYY-MM-DD), which an uncut cell's list is read through. "
+            "Default: today (UTC).",
+        ),
+    ] = None,
+) -> None:
+    """Build a round's same-question lists, one per cert-stage cell. Read-only on the corpus.
+
+    For each distinct `(case, event)` of the matrix whose moment is on the cert
+    stage (`provision.carries_same_question`), the list is cut where the cell
+    will be: at its moment's cutoff (`provision.moment_cutoff`) where it
+    declares one, else at the day after `--today`. One read of the QP frame
+    serves every cell (`pipeline/same_question.py`). Writes the lists file
+    `provision-snapshot --same-question-file` stages from, and echoes counts
+    only. A matrix that cannot be read exits 2, a missing corpus 1.
+    """
+    try:
+        day = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    except ValueError:
+        typer.echo(f"same-question-lists: --today {today!r} is not a YYYY-MM-DD date.", err=True)
+        raise typer.Exit(code=2) from None
+    try:
+        entries = json.loads(matrix_file.read_text())["include"]
+        wanted = sorted(
+            {
+                (ids.case_id(str(cell["court"]), int(cell["docket"])), str(cell["event_id"]))
+                for cell in entries
+                if provision.carries_same_question(str(cell["event_id"]))
+            }
+        )
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        typer.echo(f"same-question-lists: cannot read {matrix_file}: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before building the lists.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    cells: list[same_question.CellCutoff] = []
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        for case_id, event_id in wanted:
+            cutoff = provision.moment_cutoff(event_id, corpus.events_for_case(conn, case_id))
+            cells.append(
+                same_question.CellCutoff(
+                    case_id=case_id,
+                    event_id=event_id,
+                    cutoff=cutoff if cutoff is not None else day + timedelta(days=1),
+                )
+            )
+        petitions = same_question.read_petitions(conn) if cells else []
+    lists = same_question.cell_lists(same_question.QuestionFrame(petitions), cells)
+    write_raw_json(out, lists.model_dump(mode="json"))
+    listed = [item for item in lists.lists if item.petitions is not None]
+    typer.echo(
+        f"same-question-lists: {len(lists.lists)} cert cell(s), {len(listed)} with stored "
+        f"questions presented, {sum(len(item.petitions or []) for item in listed)} "
+        f"match(es) listed, {len(petitions)} petition(s) in the frame -> {out}",
+        err=True,
+    )
+
+
 @app.command("same-question")
 def same_question_cmd(
     docket: Annotated[
@@ -6847,15 +7691,16 @@ def same_question_cmd(
     lists the other petitions docketed by `--as-of` whose cosine reaches
     `--threshold`, with each one's status as of that date. `--vide-check`
     reads each petition's Vide links and reports how the match ranks them.
-    Counts and identifiers only, never filing text. Nothing a cell sees reads
-    it. JSON `{"lists", "vide_check"}` to stdout; a malformed date exits 2, a
-    missing corpus 1.
+    Counts and identifiers only, never filing text. JSON `{"lists",
+    "vide_check"}` to stdout; a malformed date exits 2, a missing corpus 1.
     """
     try:
-        cutoff = date.fromisoformat(as_of) if as_of else datetime.now(UTC).date()
+        day = date.fromisoformat(as_of) if as_of else datetime.now(UTC).date()
     except ValueError:
         typer.echo(f"same-question: --as-of {as_of!r} is not a YYYY-MM-DD date.", err=True)
         raise typer.Exit(code=2) from None
+    # `--as-of` is inclusive; the lists' cutoff, like a cell's, is exclusive.
+    cutoff = day + timedelta(days=1)
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     if settings.corpus_backend != "ranged" and not db_path.exists():
@@ -6867,7 +7712,7 @@ def same_question_cmd(
         raise typer.Exit(code=1)
     with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
         petitions = same_question.read_petitions(conn)
-        index = same_question.QuestionIndex(petitions)
+        frame = same_question.QuestionFrame(petitions)
         links = (
             same_question.read_vide_links(conn, [p.case_id for p in petitions])
             if vide_check
@@ -6877,13 +7722,17 @@ def same_question_cmd(
         corpus.normalize_docket_number(p.docket_number) or p.docket_number: p.case_id
         for p in petitions
     }
+    index = frame.index(cutoff)
     lists: dict[str, list[dict[str, object]] | None] = {}
     for number in docket or []:
         normalized = corpus.normalize_docket_number(number) or number
         case_id = by_number.get(normalized)
-        if case_id is None:
+        if case_id is None or case_id not in index.vectors:
             lists[normalized] = None
-            typer.echo(f"{normalized}: no stored questions presented in the frame", err=True)
+            typer.echo(
+                f"{normalized}: no stored questions presented in the frame by {day.isoformat()}",
+                err=True,
+            )
             continue
         entries = same_question.same_question_petitions(index, case_id, cutoff, threshold=threshold)
         lists[normalized] = [entry.model_dump(mode="json") for entry in entries]
@@ -6892,8 +7741,14 @@ def same_question_cmd(
             f"(at most {same_question.DEFAULT_LIMIT})",
             err=True,
         )
-    agreement = same_question.vide_agreement(index, links) if vide_check else None
-    typer.echo(f"same-question: {len(index.vectors)} petition(s) indexed", err=True)
+    # The Vide check reads every petition's links as stored now, so it measures
+    # the match over the whole frame rather than as of a day.
+    whole = same_question.QuestionIndex(petitions, counts=frame.counts) if vide_check else None
+    agreement = same_question.vide_agreement(whole, links) if whole is not None else None
+    typer.echo(
+        f"same-question: {len(index.vectors)} petition(s) indexed by {day.isoformat()}",
+        err=True,
+    )
     if agreement is not None:
         typer.echo(
             f"vide-check: {agreement.top1_linked} of {agreement.linked} linked petition(s) "
@@ -9550,6 +10405,21 @@ def _resolve_token_counts(
     return explicit
 
 
+def _resolve_served_models(
+    claude_execution_file: Path | None,
+    codex_sessions_dir: Path | None,
+    gemini_telemetry_file: Path | None,
+) -> list[str] | None:
+    """The models the named engine log says served the cell, read like its tokens."""
+    if claude_execution_file is not None:
+        return parse_claude_served_models(claude_execution_file)
+    if codex_sessions_dir is not None:
+        return parse_codex_served_models(codex_sessions_dir)
+    if gemini_telemetry_file is not None:
+        return parse_gemini_served_models(gemini_telemetry_file)
+    return None
+
+
 @app.command("poll-docket")
 def poll_docket_cmd(
     court: Annotated[str, typer.Option()],
@@ -9712,6 +10582,9 @@ def record_usage(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
         actor_id=actor,
         engine=engine,
         model=resolved_model,
+        served_models=_resolve_served_models(
+            claude_execution_file, codex_sessions_dir, gemini_telemetry_file
+        ),
         created_at=when,
         pipeline_sha=resolve_pipeline_sha(pipeline_sha),
         engine_version=recorded_version,
@@ -10484,8 +11357,72 @@ def _tidy_cell_self_reports(event_paths: EventPaths, where: CellCoordinates, eve
     _normalise_cell_flags(event_paths, where)
     _normalise_cell_tooling(event_paths, where)
     _flag_judge_level_outputs(event_paths, where, event_id, settled)
+    if where.role == UsageRole.evaluator:
+        _flag_names_the_judge_wrote(event_paths, where, event_id)
     if where.role == UsageRole.predictor:
         _flag_cell_access(event_paths, where, event_id)
+
+
+_BLINDING_PREFIX = "Harness check: before un-aliasing, the judge's own output named"
+# How many (term, file) rows the note quotes before it summarizes the rest.
+_BLINDING_EXAMPLES = 6
+
+
+def _flag_names_the_judge_wrote(
+    event_paths: EventPaths, where: CellCoordinates, event_id: str
+) -> None:
+    """Note in the cell's ``flags.json`` any identity term the judge wrote itself.
+
+    Reads the ``blinding.json`` un-aliasing wrote for this cell
+    (:class:`~fedcourtsai.schemas.BlindingRecord`); its ``names_present`` rows
+    are names that were already in the judge's text before the harness put any
+    there, which the committed prose can no longer tell apart from a
+    substitution. A ``warning`` in the channel the collect job rolls into the
+    run PR and the agent-feedback issue, because a judge that names a candidate
+    is the one way a blinded grade stops being blind, and the ledger alone
+    would never show it. Silent when the record is absent, unreadable or
+    empty: the record's own file is the durable copy either way.
+    """
+    path = event_paths.evaluation_blinding(where.actor_id, where.run_id)
+    try:
+        record = BlindingRecord.model_validate_json(path.read_text())
+    except (OSError, ValueError):
+        return
+    if not record.names_present:
+        return
+    rows = [
+        f"`{_one_line(row.term)[:60]}` x{row.count} in `{_one_line(row.file)[:120]}`"
+        for row in record.names_present
+    ]
+    rest = len(rows) - _BLINDING_EXAMPLES
+    shown = "; ".join(rows[:_BLINDING_EXAMPLES]) + (f"; and {rest} more" if rest > 0 else "")
+    total = sum(row.count for row in record.names_present)
+    typer.echo(
+        f"::warning::stamp: {where.actor_id} {_one_line(where.case_id)} wrote {total} "
+        + "identity term(s) of its own before un-aliasing; see its blinding.json.",
+        err=True,
+    )
+    message = (
+        f"{_BLINDING_PREFIX} {total} identity term(s) itself: {shown}. The staged "
+        + "candidates had every such name redacted, so these were not put there by the "
+        + "harness: read each as the judge recognising a candidate, a route around the "
+        + "blind, or a family word in its ordinary sense. Counts are in this cell's "
+        + "blinding.json."
+    )
+    _append_harness_notes(
+        event_paths.evaluation_flags(where.actor_id, where.run_id),
+        where,
+        [
+            AgentFlag(
+                category=FlagCategory.other,
+                severity=FlagSeverity.warning,
+                message=message[:_FLAG_MESSAGE_LIMIT],
+                event_id=event_id,
+                source=FlagSource.harness,
+            )
+        ],
+        what="blinding note",
+    )
 
 
 _JUDGE_PAIR_PREFIX = "Harness check: the judge-level"
@@ -14362,10 +15299,11 @@ def _report_vote_write(
         )
     for ref, reason in result.held_back:
         typer.echo(f"  held back {ref}: {reason}")
-    # The two classes that are the ordinary state of most outcomes are counted
-    # above and not listed one by one; every other reason is.
+    # The classes that are the ordinary state of most outcomes, and those with
+    # no order text to read by design, are counted above and not listed one by
+    # one; every other reason is.
     for ref, reason in result.skipped:
-        if not reason.startswith(("nothing observed", "inside the")):
+        if not reason.startswith(("nothing observed", "inside the", "no order text expected")):
             typer.echo(f"  nothing to stamp {ref}: {reason}")
 
 
@@ -14588,14 +15526,19 @@ def stamp_order_votes_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options
     current Term. For
     each resolution date it reads every order list, miscellaneous order and
     opinion relating to orders the Court lists for that date
-    (`order-notations`), and stamps each outcome with its docket's reading:
-    the partial vote list (`complete: false` always — only noted votes and
-    non-participation are observable), and `writing_roles` where every
-    participating Justice's writing was observed. Nothing is read for a date
-    inside the 7-day settling window, since a writing can follow its order.
+    (`order-notations`; for a date in October the outgoing Term's listing too,
+    since the Court's pages roll over on the first Monday), and stamps each
+    outcome with its docket's reading: the partial vote list (`complete:
+    false` always — only noted votes and non-participation are observable),
+    and `writing_roles` where every participating Justice's writing was
+    observed. Nothing is read for a date inside the 7-day settling window,
+    since a writing can follow its order.
     A docket whose reading has a problem, whose order text mentions a
     rehearing, or which only a writing names is held back; one with no noted
-    vote and writings not complete has nothing to stamp.
+    vote and writings not complete has nothing to stamp. A dismissed petition,
+    a withdrawn application and one decided in chambers that no document names
+    are skipped under their own `no order text expected` reasons, counted but
+    not listed.
 
     Reads the corpus, writes only `outcome.json` under `data/`. An outcome
     carrying the same record is left alone; one carrying a different record is
@@ -16526,6 +17469,67 @@ def _read_authorship_tally(
     return tally
 
 
+def _echo_staged_lists(case: str, written: provision.RecordWrite, paths: CasePaths) -> None:
+    """Echo the authorship tally and same-question list a record was given, as counts."""
+    if written.authorship_tally is not None:
+        # Counts only: the cases are public, and the file holds them.
+        tallied = written.authorship_tally
+        typer.echo(
+            f"{case} authorship tally OT{tallied.term} as of {tallied.as_of.isoformat()} "
+            f"({len(tallied.sittings)} sitting(s), "
+            f"{sum(len(s.cases) for s in tallied.sittings)} case(s)) -> {paths.authorship_tally}"
+        )
+    if written.same_question is not None:
+        # Counts only: the list's dockets are public, and the file holds them.
+        listed = written.same_question.petitions
+        typer.echo(
+            f"{case} same-question petitions before {written.same_question.cutoff.isoformat()}: "
+            f"{'no stored questions presented' if listed is None else len(listed)} "
+            f"-> {paths.same_question}"
+        )
+
+
+def _read_same_question(
+    lists_file: Path, case: str, event: str, *, cutoff: date | None, mode: str
+) -> SameQuestionList | None:
+    """A cert cell's own same-question list, out of the round's lists file.
+
+    Nothing is read while the list is held back
+    (:data:`provision.SAME_QUESTION_WITHHELD`), for a moment that carries none,
+    or for a replay cell: the plan job builds the lists for the forward cells
+    it mints, and cuts an uncut cell's list at the day after the plan rather
+    than at a replay cell's Term clock. A cell placed at its moment takes its
+    list only where the list was cut at the same day. A file that cannot be
+    read, or holds no list for this cell, leaves the cell without one, and the
+    log says so.
+    """
+    if (
+        provision.SAME_QUESTION_WITHHELD
+        or not provision.carries_same_question(event)
+        or mode != "forward"
+    ):
+        return None
+    try:
+        lists = SameQuestionLists.model_validate_json(lists_file.read_bytes())
+    except (OSError, ValidationError) as exc:
+        typer.echo(f"::warning::no same-question list: {lists_file} unreadable ({exc})", err=True)
+        return None
+    found = next(
+        (item for item in lists.lists if item.case_id == case and item.event_id == event), None
+    )
+    if found is None:
+        typer.echo(f"::warning::no same-question list for {case} {event}", err=True)
+        return None
+    if cutoff is not None and found.cutoff != cutoff:
+        typer.echo(
+            f"::warning::no same-question list: {case} {event} is cut at "
+            f"{cutoff.isoformat()}, its list at {found.cutoff.isoformat()}",
+            err=True,
+        )
+        return None
+    return found
+
+
 def _place_at_moment(
     case: str,
     event: str,
@@ -16720,6 +17724,14 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "provenance, not cell input.",
         ),
     ] = None,
+    same_question_file: Annotated[
+        Path | None,
+        typer.Option(
+            help="The round's same-question lists (`fedcourts same-question-lists`); a "
+            "forward cert cell's own list is staged as record/same-question.json once "
+            "the list is no longer held back.",
+        ),
+    ] = None,
     corpus_backend: CorpusBackendOption = "",
 ) -> None:
     """Materialize a case's corpus snapshot (and documents) for an agent run.
@@ -16905,6 +17917,11 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         if event and out is None
         else None
     )
+    listed = (
+        _read_same_question(same_question_file, case, event, cutoff=cutoff, mode=mode)
+        if event and out is None and same_question_file is not None
+        else None
+    )
     # The whole record — snapshot, context.json, documents and manifest, each
     # staged copy through the contact-detail scrubs — goes through the one
     # writer the local cascade shares (`provision.write_cell_record`), so the
@@ -16920,6 +17937,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             snapshot_dest=out,
             related=related,
             authorship_tally=tally,
+            same_question=listed,
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)
@@ -16950,14 +17968,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             for item in written.related
         )
         typer.echo(f"{case} related ({linked}) -> {paths.related_dir}")
-    if written.authorship_tally is not None:
-        # Counts only: the cases are public, and the file holds them.
-        tallied = written.authorship_tally
-        typer.echo(
-            f"{case} authorship tally OT{tallied.term} as of {tallied.as_of.isoformat()} "
-            f"({len(tallied.sittings)} sitting(s), "
-            f"{sum(len(s.cases) for s in tallied.sittings)} case(s)) -> {paths.authorship_tally}"
-        )
+    _echo_staged_lists(case, written, paths)
     if written.staged:
         kinds = ", ".join(doc.kind for doc, _ in written.staged)
         typer.echo(f"{case} documents ({kinds}) -> {paths.documents_dir}")
@@ -17625,6 +18636,7 @@ def unblind_evaluations_cmd(
     try:
         moved = blinding.unblind_evaluations(
             data_root=settings.data_root,
+            config_root=settings.config_root,
             court=court,
             docket=docket,
             event_id=event,
@@ -24284,6 +25296,9 @@ def _collect_plan_json(plan: CollectPlan, *, role: FinalizeRole, run_id: str) ->
         # not the clean comparison it presents as, and nothing else says so.
         # Empty on a run where no cell fetched one.
         "self_provisioned": plan.self_provisioned_markdown,
+        # Which cells' engine logs name a model other than the one requested.
+        # Rides the PR body; empty on a run where every legible log matched.
+        "served_models": plan.served_models_markdown,
         # The census of this run's own output rather than of what reached it:
         # how many predictions landed with no `big_case_score`, and whose. It
         # rides the PR body like the two above, and unlike them the collect
@@ -24725,6 +25740,60 @@ def _load_stakes_reads(status_dir: Path, run_id: str) -> StakesReadRollup:
     return rollup
 
 
+# A served id that is the requested one plus a dated or numbered release
+# suffix (`-001`, `-05-06`, `-20251001`, `-2025-10-01`): the spelling a provider
+# reports a pinned version of the model under, not another model. A short
+# number (`-1`) is a point release, so it is not one of these.
+_VERSION_SUFFIX = re.compile(r"-(?:[0-9]{3}|[0-9]{8}|[0-9]{2}-[0-9]{2}|[0-9]{4}-[0-9]{2}-[0-9]{2})")
+
+
+def _same_model(requested: str, served: str) -> bool:
+    """Whether a logged model id names the requested model, release suffix aside."""
+    if served == requested:
+        return True
+    return served.startswith(requested) and bool(
+        _VERSION_SUFFIX.fullmatch(served[len(requested) :])
+    )
+
+
+def _load_served_models(status_dir: Path, run_id: str) -> ServedModelRollup:
+    """Census this run's ``usage.json`` records for the model each cell ran on.
+
+    The same walk shape and the same two filters as
+    :func:`_load_retrieval_rollups`, for the same reasons — every artifact carries
+    the committed history beside this run's records, and a record of this run
+    rides along in later cells' artifacts — keyed on the identity the record
+    carries itself. A record that does not parse is skipped: a usage record names
+    no model either way, and never fatal, since this is a notification.
+    """
+    seen: set[tuple[str, str, str, str]] = set()
+    rollup = ServedModelRollup()
+    for path in sorted(status_dir.glob(f"**/{run_id}/usage.json")):
+        try:
+            record = ModelUsage.model_validate_json(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if record.run_id != run_id:
+            continue
+        identity = (record.case_id, record.event_id, record.actor_id, str(record.role))
+        if identity in seen:
+            continue
+        seen.add(identity)
+        rollup = replace(rollup, cells=rollup.cells + 1)
+        if record.served_models is None:
+            rollup = replace(rollup, unknown=rollup.unknown + 1)
+        elif any(not _same_model(record.model, served) for served in record.served_models):
+            cell = f"{record.case_id}/{record.event_id}/{record.actor_id}"
+            rollup = replace(
+                rollup,
+                substituted=(
+                    *rollup.substituted,
+                    (cell, record.model, ", ".join(record.served_models)),
+                ),
+            )
+    return rollup
+
+
 @app.command("collect-plan")
 def collect_plan_cmd(
     role: Annotated[FinalizeRole, typer.Option(help="predict | evaluate.")],
@@ -24833,6 +25902,10 @@ def collect_plan_cmd(
         stakes_reads=(
             _load_stakes_reads(status_dir, run_id) if role is FinalizeRole.predict else None
         ),
+        # And whether any cell's own engine log says it ran on a model other
+        # than the one requested — a provider or CLI fallback that leaves the
+        # prediction looking like the registered model's.
+        served_models=_load_served_models(status_dir, run_id),
     )
     typer.echo(
         json.dumps(_collect_plan_json(plan, role=role, run_id=run_id), separators=(",", ":"))

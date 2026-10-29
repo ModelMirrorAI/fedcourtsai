@@ -453,6 +453,26 @@ queues behind the production run of the same mode. The modes:
   staging environment holds no CourtListener token today, so a staging
   dispatch stops at the scan's no-token refusal; the first scan that reads
   upstream is a production one.
+- **`decision-below`** (dispatch) runs `fedcourts decision-below --sample 35`:
+  for the newest 35 cert petitions whose lower court is a federal court of
+  appeals, whether CourtListener holds the lower court's docket and the opinion
+  on the judgment date, and what its entries say about rehearing en banc — the
+  match rate the decision-below cell input waits on. It reads the corpus (a
+  full pull, for the sample, then each sampled case's newest snapshot from the
+  content store) and CourtListener, so it holds the read-only role
+  and the CourtListener token, the token on its measuring step alone, and
+  buys nothing (no RECAP Fetch). About four requests a case, sixteen at worst:
+  the step runs the governor at 10 a minute with order-scan's 150 as its hourly
+  limit, the cap that fits beside a pull window and a live window's enrichment,
+  so a walk that would pass it stops with the rest reported deferred, and the
+  sample is sized to fit it. A refused credential fails the run. Dispatch it in
+  the quiet odd hours `run-pull`'s enrich job names. The match rate and the
+  per-status counts go on the step summary; the report (court-record
+  identifiers, captions, panels and docket entry numbers and dates, no opinion
+  text) is uploaded on the same one-day retention as the census. Its own
+  never-cancelled, ref-suffixed concurrency group keeps two runs of one ref
+  from overlapping. As with `order-scan`, a staging dispatch stops at the
+  no-token refusal, after pulling the staging pair.
 - **`metrics-refresh`** (weekly schedule, or dispatch) keeps the committed metrics
   artifacts from drifting stale: `metrics/claim-scores.json` (input: the `data/`
   evaluations ledger), `metrics/leaderboard.json` (the same ledger plus the
@@ -1066,27 +1086,33 @@ multi-respondent opposition, stored as a single row whose URL is the canonical
 join of every brief fetched into it — a set key, not a link to re-fetch. Its
 per-brief headings are themselves text, so such a row is not empty by the
 coverage report's per-kind test either: it reads as covered there while
-carrying no argument, so the report sizes it on a line of its own. It is the
-only pass here that installs a binary dependency, in its own gated step inside the credentialed corpus job (`tesseract` and poppler's `pdftoppm`,
-from the runner image's own archive), and one of the three whose bound is a
-**slice size** rather than a refusal threshold: each case costs a re-fetch and a
-page-by-page recognition, and runner minutes are the whole cost. That makes the
-bound a *spend* cap, so the step hands the pass a wall-clock deadline as well —
-sized under the step's own cap by everything that must still fit there once the
-pass stops taking work — and the pass stops taking new candidates once what is
-left will not hold the next one's estimated cost, which it reads off the stored
-page count. The ledger cuts the class, and what an apply wrote, by document
+carrying no argument, so the report sizes it on a line of its own. It runs as
+the credential split below: the projection walks the class and writes the
+worklist, the credential-free parse re-fetches and recognizes each item, and a
+writer job of its own (`documents`) lands the plan. It is the only pass here
+that installs a binary dependency, in a gated step of the parse job alone
+(`tesseract` and poppler's `pdftoppm`, from the runner image's own archive),
+and one of the three whose bound is a **slice size** rather than a refusal
+threshold: each case costs a re-fetch and a page-by-page recognition, and runner
+minutes are the whole cost. On an apply the projection takes the first
+`repair_bound` candidates in class order as the worklist. That makes the bound
+a *spend* cap, so the parse step is handed a wall-clock deadline as well —
+sized under its own cap by everything that must still fit there once the pass
+stops taking work — and the parse stops taking new candidates once what is left
+will not hold the next one's estimated cost, which it reads off the stored page
+count. The ledger cuts the class, and what an apply wrote, by document
 kind, so a slice's blast radius is legible before it is spent and after. A
 recovered row leaves the class, so successive dispatches drain it — but only the
 recovered ones leave, and what a slice could not recover, or never started,
 stays at its head to be retried first, which the ledger names one by one. Its `dry-run`
-carries a second reading beside the class count — a small sample of the
-population re-fetched through the writer's own fetch path, reporting what
-supremecourt.gov serves a *writer* rather than what a cell's retrieval reported.
-The apply writes documents, which under the corpus split live in the content
-store rather than the blob, so the pointer cannot witness it: the step re-reads
-the class afterwards and requires exactly what the apply's ledger said it would
-leave behind.
+carries a second reading beside the projection's class count — a small spread
+sample of the population re-fetched by the parse through the fetching lanes'
+own client, reporting what supremecourt.gov serves the pass rather than what a
+cell's retrieval reported. The apply writes documents, which under the corpus
+split live in the content store rather than the blob, so the pointer cannot
+witness it: the writer walks the class before it writes, re-reads it after, and
+requires exactly what its ledger said it would leave behind. It commits from
+the pass table's record, as the corpus job's persist step does.
 
 `document-backfill` provisions the queued cases that hold a document gap.
 A case reaches prediction with the filing that opens it — the petition on a
@@ -1128,11 +1154,14 @@ version rather than one per dispatch and a bounded slice reaches the tail of the
 class. `standing_floors` on the ledger is that held-out balance, beside
 `candidates`; a floor the selector-regression alarm fired on is never stamped.
 Like the OCR recovery it writes documents,
-which under the corpus split live in the content store, so the step re-walks the
+which under the corpus split live in the content store, so the writer re-walks the
 class afterwards — an empty slice, which costs no round trip — and requires
 exactly what the apply's ledger said it would leave behind. The stamps are its
 one index write, so an applied slice that read any floor also moves the
-pointer.
+pointer. It runs as a credential split (below): the dry run is read whole in the
+parse, which fetches each docket and hands nothing on, and an apply's parse
+fetches the filings too and writes the plan the `documents` writer lands, after
+applying the dedupe prerequisite under the lock.
 
 `recut` re-cuts the petitions, applications and appendices stored under the
 plain head cut. Those three kinds are cut the appendix-aware way at ingest —
@@ -1151,9 +1180,14 @@ re-cut writes nothing, and a re-cut petition rewrites its questions-presented ro
 only where the re-cut moves the section. It is the third slice-bounded pass and
 the second whose `dry-run` is bounded too, since both modes fetch and re-cut
 every candidate in the slice — the dry run's per-kind outcome counts are what an
-apply is read off. Like the other two it writes documents, so the step re-walks
-the class on an empty slice afterwards and requires exactly what the apply's
-ledger said it would leave behind.
+apply is read off. It runs on the credential split below: the parse fetches and
+re-cuts, and settles what the served PDF alone shows; the head and unchanged
+checks and the questions re-derivation read the stored text, so they run on the
+corpus side — on an apply in the writer, on a dry run in a read-only reader job
+of its own (`documents-dry-run`), which is why the re-cut's plan crosses in both
+modes. Like the other two it writes documents, so the writer re-walks the class
+on an empty slice afterwards and requires exactly what the apply's ledger said
+it would leave behind.
 
 `arrival-backfill` re-derives the interim baseline's arrival stamp — the day an
 application was submitted to a Justice, which is the moment that event declares
@@ -1292,18 +1326,22 @@ file carries the docketing date. The summary carries the ledger: the counts,
 each fill shape with its count, every `opened_at` rewrite and every held field.
 The per-file list is in the step log. Its bound is the dry run's file count.
 
-Four of the passes that fetch and parse the Court's content — `opinion-votes`,
-`order-votes`, `application-backfill` and `opinion-record` — run as a
-**credential split** of three jobs (`ocr-recovery`, `document-backfill` and
-`recut` also parse fetched PDFs, inside the corpus job, and are not split here;
-run-seed's OCR sweep is the split, scheduled route to the same recovery). `handoff-projection` holds the read-only
+Every pass that fetches and parses the Court's content — `opinion-votes`,
+`order-votes`, `application-backfill`, `opinion-record`, `ocr-recovery`,
+`recut` and `document-backfill` — runs as a **credential split** of three jobs
+(run-seed's OCR sweep is the split, scheduled route to the OCR recovery). `handoff-projection` holds the read-only
 role, pulls the corpus and writes the few public facts the parse needs;
 `handoff-parse` holds no credential at all (no environment, no `id-token`, no
 secret), fetches and parses, prints the dry-run ledger, and on an apply writes
 the plan; and on an apply only, a writer job takes `corpus-write`, re-validates
-the plan whole as untrusted input and applies it, fetching nothing. The two
-files cross as one-day run artifacts carrying public Court data only
-([security.md](security.md), *S3 / the private stores*). A job boundary is
+the plan whole as untrusted input and applies it, fetching nothing. The OCR
+recovery's, the re-cut's and the document back-fill's writer (`documents`) also binds the plan to the
+projection's own worklist, which it downloads by artifact id, as does the
+re-cut's dry-run reader, which holds the read-only role and writes nothing. The
+two files cross as one-day run artifacts carrying public Court data only
+([security.md](security.md), *S3 / the private stores*); the application, OCR,
+re-cut and document back-fill plans each cross under their own PII carve-out
+([data-sources.md](data-sources.md), *PII stance*). A job boundary is
 what does the separating: in a job holding `id-token: write` the runner hands
 every step the OIDC request pair after the step's own `env:`, so no step there
 can be put out of reach of minting a token.
@@ -3132,6 +3170,19 @@ shipped ceiling sits above the measured rate of such a regression
 does not trip it at all; the auto-release budget in `config/review-hold.yaml`
 is what stops it running unattended.
 
+On predict, `plan` also builds the round's **same-question lists**
+(`fedcourts same-question-lists`), one per cert-stage cell of the minted matrix,
+and keeps them as the run's `same-question-lists` artifact, which each cell job
+fetches and hands `provision-snapshot`. The match weighs every petition's
+questions presented, so it is one read of the whole QP frame per round, which
+the plan job's pulled index serves and a cell's ranged read could not. A failed
+build starts the round anyway, each cell provisioned without its list, and
+each cell job deletes the round's file once provisioning has read it, so an
+agent reads only what was staged for it.
+Provisioning holds every list back from its cell until a re-bless
+(`provision.SAME_QUESTION_WITHHELD`); until then the step's log is where the
+lists' size and cost are read.
+
 ### The evaluate cell grades blind
 
 An evaluate cell brackets its agent with two deterministic harness steps
@@ -3239,7 +3290,9 @@ note is harness-rendered from the logs rather than agent free text, so it rides
 even the facts-only PR of a wholesale-failed run, where starvation is a live
 candidate cause. It is the only per-run record there is: the 429 payload itself
 is digested away at capture, so without the marker a starved run and a well-fed
-one look identical afterwards.
+one look identical afterwards. Beside it, the run's `usage.json` records name
+every cell whose engine log says it ran on a model other than the one requested
+(`served_models`), and a run where every legible log matched prints nothing.
 
 The same walk asks the corpus-side version of that question and writes a second
 harness-rendered note beside it: which cells ran a `fedcourts` corpus query

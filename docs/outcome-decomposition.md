@@ -1047,6 +1047,31 @@ these). The alpha
 that will meet them when they land — and what it deliberately
 does not yet decide — is *The semantic family, alpha*.
 
+### Non-standard dispositions, end to end
+
+A disposition other than a plain grant, denial, affirmance or reversal reaches
+the scored surfaces through the same writers as any other. This table follows
+each one from its corpus label to the outcome written, every claim that grades
+or masks on it, and whether it enters a base-rate pool. Each row names the
+test that pins it; where a row rests on a corpus count instead, the count and
+its vintage are given.
+
+| Disposition | Corpus label | Outcome written | Claims | Pools | Pinned by |
+| --- | --- | --- | --- | --- | --- |
+| GVR in the cert order | cert `disposition` `gvr` | Cert outcome, `actual_granted` 1 (`gvr` is in the grant family), `disposition_route` `gvr` from the label | `disposition` grades 1; `summary-disposition-route` grades 1; `dissent-from-denial` vacuous. No merits event is minted (`opens_merits_proceeding` is false) | Grant family in the cert pools and the summary-route numerator; never the merits pool | `test_gvr_and_summary_reversal_mint_no_merits_event`, `test_convergence_reads_a_munsingwear_gvr_from_the_stored_snapshot` |
+| Summary reversal or GVR recorded as `granted` | `granted`, with a merits judgment dated the grant's own day (`summary-order` or `summary-opinion`) | Cert outcome, `actual_granted` 1, `disposition_route` `summary-merits` through the same-day guard, whichever of vacatur or reversal rode the order | `summary-disposition-route` grades 1 (a binary claim, so the marker's name moves no grade); no merits event is minted on a case whose judgment has latched | Out of the merits pool's `parsed` slice: the same-day guard counts it in `cert_order_excluded`. The label is not rewritten, so the cert grant-family counts keep it as a grant. 25 such rows granted since 2025, all with a gap of 0 days (production corpus, origin/main pointer, latest pull 2026-10-28) | `test_merits_population_excludes_judgments_that_rode_the_grant_order`, `test_minting_never_reopens_a_resolved_merits_event`, `test_a_lost_grant_on_a_decided_or_stale_merits_case_records_without_minting` |
+| Partial grant | `granted-in-part` | Cert outcome, `actual_granted` 1; it opens a merits proceeding, so the merits event mints | `disposition` grades 1; `summary-disposition-route` resolves on it, while its baseline counts the grant family only, which leaves `granted-in-part` out of the denominator (a small population mismatch, unmeasured) | Merits pool once a judgment parses | `test_granted_flag_maps_partial_grant_to_granted` |
+| Dismissed as improvidently granted | merits `Judgment` `dig` | Merits outcome, `actual_granted` 0 | `judgment-disturbed` grades 0 (the judgment below stands); `judgment_correct` is an exact match on `dig`; `majority-author` masked | In `parsed`, counted undisturbed | `test_judgment_disturbed_resolves_through_the_shared_projection`, `test_a_dig_and_an_equally_divided_court_stay_in_as_undisturbed` |
+| Affirmed by an equally divided Court | merits `Judgment` `equally-divided` | Merits outcome, `actual_granted` 0 | As a DIG: `judgment-disturbed` 0, `judgment_correct` exact, `majority-author` masked | In `parsed`, counted undisturbed | The same two tests |
+| Merits case ended with nothing decided (a Rule 46 dismissal, a dismissal as moot, an abatement, a vacated grant) | `merits_terminated`, `merits_judgment` null | No outcome. The merits backfill closes each open merits event as `resolved_without_outcome` with the reason `merits-terminated`, and a committed prediction on it is never graded | None: there is no outcome to grade against, and a termination never reads as undisturbed | Out of `parsed` and of the disturbed rate | `test_backfill_closes_a_terminated_rows_open_merits_events`, `test_a_merits_moment_closed_by_its_termination_is_no_gap_until_a_judgment_parses` |
+| Bare mandate notation ("Judgment issued.") on a decided docket | `merits_terminated` `judgment-issued` | No outcome, and the merits events stay open: the docket was decided and the parser missed the entry, so they wait for a parse | None until a judgment parses | Out of `parsed` until then | `test_backfill_closes_a_terminated_rows_open_merits_events` |
+
+The cert-stage label of a vacated grant (`grant-vacated`) still reads as the
+grant the Court withdrew: its cert outcome says `granted`. Reconciling that
+label moves the cert grant counts, so it is a separate, registered change.
+Interim partial grants and moot dismissals are read as denials; that parse is
+tracked on its own and not restated here.
+
 ### Where each forecast content class goes
 
 `predicted_reasoning.md` is a forecast document, and the whole point of keeping

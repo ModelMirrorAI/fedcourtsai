@@ -25,7 +25,7 @@ from fedcourtsai.pipeline.judgment import (
     opinion_author,
 )
 from fedcourtsai.pipeline.justices import resolve_surname
-from fedcourtsai.schemas import Disposition, Judgment, MeritsTermination
+from fedcourtsai.schemas import Disposition, EventKind, Judgment, MeritsTermination, Moment, Stage
 from tests.conftest import DictSnapshotSource
 
 runner = CliRunner()
@@ -741,6 +741,58 @@ def test_backfill_records_terminations_without_a_judgment(tmp_path: Path) -> Non
     # A terminated row is never also a `no_match`: the residue is the genuine
     # remainder, so the two counts partition the unparsed rows.
     assert applied.no_match == 1 and applied.eligible == 3
+
+
+def _merits_event(case_id: str, event_id: str, *, resolved: bool = False) -> corpus.CorpusEvent:
+    return corpus.CorpusEvent(
+        event_id=event_id,
+        case_id=case_id,
+        court="scotus",
+        kind=EventKind.order,
+        stage=Stage.merits,
+        moment=Moment.grant,
+        title="Doe v. Roe",
+        opened_at=date(2024, 1, 12),
+        decision_target="judgment",
+        resolved=resolved,
+    )
+
+
+def test_backfill_closes_a_terminated_rows_open_merits_events(tmp_path: Path) -> None:
+    # A proceeding that ended with nothing decided has no outcome to record, so
+    # its open merits moments close without one, under their own reason, while
+    # the pending row's and the mandate-only row's stay open.
+    db = _seed_termination_corpus(tmp_path / "corpus")
+    with corpus.connect(db) as conn:
+        corpus.upsert_events(
+            conn,
+            [
+                _merits_event("scotus/10", "evt-order-judgment"),
+                _merits_event("scotus/10", "evt-brief-judgment"),
+                _merits_event("scotus/11", "evt-order-judgment"),
+                _merits_event("scotus/12", "evt-order-judgment"),
+            ],
+        )
+        dry = backfill_merits_judgments(conn, apply=False)
+        untouched = {e.event_id: e.resolved for e in corpus.events_for_case(conn, "scotus/10")}
+        applied = backfill_merits_judgments(conn, apply=True)
+        closed = corpus.events_for_case(conn, "scotus/10")
+        (pending,) = corpus.events_for_case(conn, "scotus/12")
+        (mandate,) = corpus.events_for_case(conn, "scotus/11")
+        again = backfill_merits_judgments(conn, apply=True)
+    assert dry.terminated_events_closed == 2
+    assert untouched == {"evt-brief-judgment": False, "evt-order-judgment": False}
+    assert applied.terminated_events_closed == 2
+    assert all(
+        e.resolved
+        and e.resolved_without_outcome
+        and e.resolved_without_outcome_reason == corpus.NO_OUTCOME_MERITS_TERMINATED
+        for e in closed
+    )
+    assert not pending.resolved
+    # A bare mandate notation is a decided docket the parser missed: it waits.
+    assert not mandate.resolved
+    assert again.terminated_events_closed == 0
 
 
 def test_backfill_terminates_the_real_unvocabularied_grants(tmp_path: Path) -> None:

@@ -62,7 +62,8 @@ fields that mean the same thing at every stage:
   brief now;
   [document-provisioning.md](document-provisioning.md)); the post-argument
   merits cell's `authorship-tally.json` is held back on the same rule
-  (`provision.AUTHORSHIP_TALLY_WITHHELD`). `argument-features.json` is the
+  (`provision.AUTHORSHIP_TALLY_WITHHELD`), as is a cert cell's
+  `same-question.json` (`provision.SAME_QUESTION_WITHHELD`). `argument-features.json` is the
   deterministic parse of the transcript the cell was staged. The staged documents carry a
   `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
@@ -637,7 +638,14 @@ Part of what a prediction consists of is not the agent's word, and reading the
 directory without knowing which part is which invites trusting the wrong half.
 
 - **`usage.json`** — measured token counts and the estimated cost for the cell,
-  written by a post-run harness step from the engine log. On a forward predict
+  written by a post-run harness step from the engine log. `model` is the model
+  requested and priced; `served_models` is what the engine log names for the
+  cell's main-agent calls, so a cell that ran on something else shows, and the
+  run PR names each one. The engines differ in how close that value sits to
+  the provider: claude's is the model each API response named, gemini's the
+  response's own version string (else the model the CLI asked for), and
+  codex's the model the CLI addressed, which never shows a provider-side reroute.
+  Null means the log named no model: unknown, not a match. On a forward predict
   cell it also carries the docket bracket: `pre_mint_poll`, taken just before the
   cell was minted, and `post_run_poll`, taken after its engine stopped, each with
   `polled_at` (when the fetch began), the docket number polled, and a state.
@@ -667,15 +675,23 @@ directory without knowing which part is which invites trusting the wrong half.
   agent does not write it; credential-shaped runs are redacted at capture. Each
   call also states whether capture saw its result at all — `result_capture` is
   `captured` when the log carried the call's result, whether in a paired result
-  item or on the call item itself for an engine that settles it there, and
-  `unobserved` when nothing came back to capture or capture found no result to
-  pair with the call, with `result_capture_coverage` the log-level share. Read
+  item or on the call item itself for an engine that settles it there,
+  `outcome_only` when the log carried how the call ended but not what it
+  returned (every gemini row: its telemetry records the call's success bit, a
+  failed call's message and a shell command's non-zero exit, never the payload),
+  and `unobserved` when nothing came back to capture or capture found no result
+  to pair with the call, with `result_capture_coverage` the log-level share of
+  `captured` rows. Read
   it before reading the digests: a null `result_digest` is what a
   captured-but-empty result and a never-captured one both leave behind, so
   "this call surfaced nothing" is a claim only the marker can support. Where a
   result *was* captured, `result_status` says what came back in it — `ok`,
   `error` (the engine's own structural failure marker), or `throttled`, the
-  shape the pinned CourtListener MCP server renders an upstream HTTP 429 as.
+  shape the pinned CourtListener MCP server renders an upstream HTTP 429 as. On
+  an `outcome_only` row it is read from the logged outcome instead: `error`
+  where the engine marked the call failed, `throttled` where that failure's
+  message carries the 429 shape, `ok` otherwise — so it can see a refusal the
+  server raised as an error, never a throttle note on a successful result.
   `throttled` is the state that changes how the cell reads: the shared daily
   quota turned the call away, so it retrieved nothing and the cell is not
   comparable with a well-fed one. Only a **manifest-tool** call can carry it —
@@ -697,7 +713,7 @@ directory without knowing which part is which invites trusting the wrong half.
   read, so those rows count as builtins and their results were never checked
   for a throttle. `throttled_calls` is the log-level count over
   that same gated set, null where no manifest result was legible, because a
-  throttle is only countable where one reached the transcript. Both are floors
+  throttle is only countable where a result or outcome reached the log. Both are floors
   — the predicate is anchored on the server's own rate-limit phrasing, biased
   to miss rather than invent, and baked at parse time, since the raw 429 text is
   digested away one line after it is read and can never be re-examined.
@@ -923,7 +939,14 @@ harness stages each predictor's latest prediction under an opaque alias with its
 identity masked (`fedcourtsai.blinding`), the evaluator reads those and keys its
 output on the alias, and a post-run step renames the directories onto the real
 predictor ids before the stamp. The committed layout above is what un-aliasing
-produces. What a blinded grade may be read as is in
+produces, plus the cell's `blinding.json`: per file, how many aliases the
+harness rewrote to which predictor id, and which identity terms the judge's own
+text already named before it did. The judge was staged text with every such
+name redacted, so a non-empty `names_present` is a name the judge wrote itself,
+and the stamp says so in the cell's `flags.json`. Read the term and file before
+reading it as a broken blind: a family word in its ordinary sense (`codex` for a
+manuscript) counts too, and so does the judge's own family word, since only its
+id, engine and model are left out. What a blinded grade may be read as is in
 [outcome-decomposition.md](outcome-decomposition.md); which files are staged and
 which are dropped is in [cli.md](cli.md), under
 `provision-blinded-predictions`. Briefly: a candidate's

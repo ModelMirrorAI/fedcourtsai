@@ -41,7 +41,12 @@ record shapes share nothing but the stamping:
   lists for the outcome's ``resolved_at`` — the date of the order disposing of
   the petition or application — so a notation on a later rehearing or motion
   order is never attached to it, and a docket whose order text on that date
-  mentions a rehearing is held back. Its votes are partial by construction
+  mentions a rehearing is held back. The listings read are the outcome's
+  October Term's and, for a day in October, the outgoing Term's
+  (:func:`fedcourtsai.pipeline.order_lineups.listing_terms`). A dismissed
+  petition, a withdrawn application, and one decided in chambers have no
+  order text by design and are skipped under their own reasons
+  (:func:`_no_order_text_expected`). Its votes are partial by construction
   (``complete: false``): only the Justices who noted a vote, or who took no
   part, are there. ``writing_roles`` is stamped only where the reading
   observed every participating Justice's writing, and only once the order is
@@ -107,6 +112,7 @@ from .pipeline.base_rates import PER_CURIAM_LABEL
 from .pipeline.lineup import WritingKind
 from .pipeline.vote_sources import SUPREMECOURT_OPINIONS, SUPREMECOURT_ORDERS
 from .schemas import (
+    Disposition,
     GrammarStamp,
     JusticeVote,
     JusticeWriting,
@@ -702,6 +708,39 @@ def _shared_across_stages(dockets: Sequence[order_lineups.OrderDocketReading]) -
     return mixed
 
 
+#: The reasons an outcome is expected to have no order text naming it, each its
+#: own prefix so :func:`reason_counts` keeps them apart from the unexplained
+#: "no order document" and "not named" skips.
+NO_ORDER_TEXT_DISMISSED = "no order text expected (a dismissal)"
+NO_ORDER_TEXT_WITHDRAWN = "no order text expected (withdrawn)"
+NO_ORDER_TEXT_IN_CHAMBERS = "no order text expected (an in-chambers disposition)"
+
+
+def _no_order_text_expected(target: OutcomeTarget, day: date) -> str | None:
+    """Why no order document names this outcome, where that is expected; else ``None``.
+
+    Read only where the date's documents, all read whole, do not name the
+    docket. A heuristic by disposition: most petition dismissals are the
+    Clerk's under Rule 46, with no order, while one the Court orders is named
+    in the order text and so never reaches this read. An
+    application withdrawn, or decided by its Circuit Justice alone (not
+    referred to the full Court), is disposed of by a docket entry, not a
+    listed order. An application the full Court decided is not excused: that
+    skip stays unexplained.
+    """
+    outcome = target.outcome
+    if target.stage == Stage.cert.value and outcome.actual_disposition == Disposition.dismissed:
+        return f"{NO_ORDER_TEXT_DISMISSED}: {day}"
+    if target.stage != Stage.interim.value:
+        return None
+    if outcome.actual_disposition == Disposition.withdrawn:
+        return f"{NO_ORDER_TEXT_WITHDRAWN}: {day}"
+    signals = outcome.interim_signals
+    if signals is not None and not signals.referred_to_court:
+        return f"{NO_ORDER_TEXT_IN_CHAMBERS}: {day}"
+    return None
+
+
 def _stamp_order_day(
     day: date,
     refs: Sequence[order_lineups.OrderDocumentRef],
@@ -726,7 +765,13 @@ def _stamp_order_day(
         found = dockets.get(number)
         if found is None:
             result.skipped.append(
-                (target.ref, f"not named in the date's documents: {number} on {day}")
+                (
+                    target.ref,
+                    # A document that could not be read may be the one naming
+                    # the docket, so the excuse is read only on a covered day.
+                    (_no_order_text_expected(target, day) if covers else None)
+                    or f"not named in the date's documents: {number} on {day}",
+                )
             )
             continue
         record, why = order_record(found, shared_across_stages=number in mixed)
@@ -771,38 +816,49 @@ def stamp_order_votes(  # noqa: PLR0913 - the pass's inputs, keyword-only beside
     targets = _order_targets(data_root, order_vote_terms(today) if terms is None else terms)
     result.population = len(targets)
     numbers = _numbers_for(conn, (t.case_id for t in targets))
-    by_term: dict[int, dict[date, list[OutcomeTarget]]] = defaultdict(lambda: defaultdict(list))
+    by_day: dict[date, list[OutcomeTarget]] = defaultdict(list)
     for target in targets:
-        day = target.outcome.resolved_at
-        by_term[_term(day)][day].append(target)
-    for term, days in sorted(by_term.items()):
-        yy = term % 100
-        try:
-            listed = fetcher.listed(yy)
-        except httpx.HTTPError as exc:
-            result.failures.append(f"OT{yy:02d} orders listings: {exc}")
-            for members in days.values():
-                result.skipped.extend(
-                    (t.ref, f"the orders listings could not be read: OT{yy:02d}") for t in members
+        by_day[target.outcome.resolved_at].append(target)
+    # Each Term's listings are fetched once, and a Term whose listings cannot
+    # be read is reported once, however many days need it.
+    listings: dict[int, list[order_lineups.OrderDocumentRef]] = {}
+    unreadable: set[int] = set()
+    for day, members in sorted(by_day.items()):
+        if (today - day).days < SETTLING_DAYS:
+            result.skipped.extend(
+                (t.ref, f"inside the {SETTLING_DAYS}-day settling window: {day}") for t in members
+            )
+            continue
+        terms_for_day = order_lineups.listing_terms(day)
+        for yy in terms_for_day:
+            if yy in listings or yy in unreadable:
+                continue
+            try:
+                listings[yy] = fetcher.listed(yy)
+            except httpx.HTTPError as exc:
+                unreadable.add(yy)
+                result.failures.append(f"OT{yy:02d} orders listings: {exc}")
+        missing = [yy for yy in terms_for_day if yy in unreadable]
+        if missing:
+            result.skipped.extend(
+                (t.ref, f"the orders listings could not be read: OT{missing[0]:02d}")
+                for t in members
+            )
+            continue
+        refs = order_lineups.refs_for_day(day, listings)
+        if not refs:
+            for t in members:
+                result.skipped.append(
+                    (
+                        t.ref,
+                        _no_order_text_expected(t, day)
+                        or f"the Court lists no order document for the date: {day}",
+                    )
                 )
             continue
-        for day, members in sorted(days.items()):
-            if (today - day).days < SETTLING_DAYS:
-                result.skipped.extend(
-                    (t.ref, f"inside the {SETTLING_DAYS}-day settling window: {day}")
-                    for t in members
-                )
-                continue
-            refs = [ref for ref in listed if ref.day == day]
-            if not refs:
-                result.skipped.extend(
-                    (t.ref, f"the Court lists no order document for the date: {day}")
-                    for t in members
-                )
-                continue
-            _stamp_order_day(
-                day, refs, members, numbers, fetcher, result, replace_differing=replace_differing
-            )
+        _stamp_order_day(
+            day, refs, members, numbers, fetcher, result, replace_differing=replace_differing
+        )
     return _finish(result, apply=apply, max_stamps=max_stamps, sweep=sweep)
 
 

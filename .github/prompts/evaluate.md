@@ -618,11 +618,14 @@ candidate:
    a document date was legible. Each call also carries a `result_capture`
    marker, and it gates every absence you might weigh: `captured` means the
    engine's log carried the call's result — an empty or failed result is
-   still captured — while `unobserved` means no result ever reached the log
-   (an engine whose telemetry records no results, a call that ran
+   still captured — `outcome_only` means the log carried how the call ended
+   (succeeded, failed, a shell command's non-zero exit) but not what it
+   returned, so its `result_status` is that logged outcome and its digest and
+   document date stay null, and `unobserved` means no result ever reached the
+   log (an engine whose telemetry records no results, a call that ran
    provider-side and echoed nothing back, a result past a truncated
-   transcript). On an `unobserved` call a null `retrieved_doc_date` or
-   result digest says the result was never seen, not that nothing was found:
+   transcript). On an `outcome_only` or `unobserved` call a null
+   `retrieved_doc_date` or result digest says the result was never seen, not that nothing was found:
    grade the call on its query, and never credit it as having returned
    nothing. A null marker predates the field — capture-unknown, not
    unobserved. The log's `result_capture_coverage` is the **captured** share

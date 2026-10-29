@@ -94,7 +94,7 @@
       }
     },
     {
-      "digest": "sha256:e5778ad8476ee03e1966f338cd3ebc6a94f9130a822fdf16c83ddaebb1d6084d",
+      "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
       "role": "evaluator",
       "actor_id": "claude-judge",
       "label": "proc-v14",
@@ -105,7 +105,7 @@
       }
     },
     {
-      "digest": "sha256:dc766d90dcd66a3b702486fd02e2d6b80950f37ba638a66743865d303dd5a990",
+      "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
       "role": "evaluator",
       "actor_id": "codex-judge",
       "label": "proc-v14",
@@ -116,7 +116,7 @@
       }
     },
     {
-      "digest": "sha256:4a70cd5870d165cc41b878164ab15fc67e7792a17bb2dcffc9097e15445a9a1c",
+      "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
       "role": "evaluator",
       "actor_id": "gemini-judge",
       "label": "proc-v14",
@@ -440,13 +440,13 @@
       "proc-v12",
       "proc-v13"
     ],
-    "sha256:e5778ad8476ee03e1966f338cd3ebc6a94f9130a822fdf16c83ddaebb1d6084d": [
+    "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec": [
       "proc-v14"
     ],
-    "sha256:dc766d90dcd66a3b702486fd02e2d6b80950f37ba638a66743865d303dd5a990": [
+    "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30": [
       "proc-v14"
     ],
-    "sha256:4a70cd5870d165cc41b878164ab15fc67e7792a17bb2dcffc9097e15445a9a1c": [
+    "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9": [
       "proc-v14"
     ]
   },

@@ -94,7 +94,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `run-pull` | data | contents | commit facts to `main`; publish the verdict/frontier JSONs to `ops-metrics`. Its one issue write — the failure-only run-log issue — must trigger nothing and so rides the ambient token, never this one |
 | `run-seed` | data | contents (walker steps; the order-vote and OCR sweeps' writers); none at all on either sweep's projection and parse jobs; ambient issues + actions:read (guard) | commit historical facts to `main`; publish the verdict; the guard raises the `pipeline-health` issue on the ambient token. The daily window's sweeps also read stored live snapshots from the content store (the merits-judgment, response-signal and decision-record sweeps) and fill index columns from them; nothing parsed leaves the job but the response-signal and decision-record sweeps' ledger line and per-row report in the run summary |
 | `promotion-record` (write job only) | data | contents | on a staging→main promotion merge only (a no-secret, read-only `classify` job decides that first): push the annotated `promotion/` and `prereg/` tags and the one-parent record commit that fills the placeholders the merge added and stamps its pending registrations. The job runs up to three attempts. In each, the plan, the tags, the apply, the commit, the jail and a validation of the jailed SHA run holding no write credential; only then is a token minted, and only that attempt's push and revoke steps read it, the push refusing one that is not the data App's. The push never re-plans: where `main` advanced it records the rejection, the attempt's token is revoked, and the next attempt prepares again from a fresh fetch holding no credential, running `write.sh` from the newly fetched main tip — the same trust the data App already places in main. Every token still live after the last attempt is revoked before the job ends, and the check that main holds no pending registration runs in the report job, so no repo code runs in the write job while a write token is live. The step split is a least-exposure ordering within one job, not a credential boundary: the planner's code is main's own reviewed code, and a hostile planner would need a job boundary to be contained. A tag push never replaces one, the commit is pushed with a lease on the base it was jailed against, and every push blanks any ambient header and runs no hook. The failure issue and the PR comment ride the ambient token in a separate job |
-| `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record and opinion-record jobs); none at all on the selector-validation, `handoff-projection` and `handoff-parse` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Four of the passes that fetch and parse the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`) run as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill and opinion-record writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The corpus job's dry run holds the read-only session and no App token, and pushes nothing; its apply holds the read-write role and the App token. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for every role its environment is trusted by — both corpus roles under `corpus-write` (the corpus, application back-fill, decision-record and opinion-record jobs), and under `prod` (`handoff-projection`) the read-only role alone, since the read-write role's trust names `corpus-write` only (*`corpus-write` holds the production read-write role* below) — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
+| `run-repair` | data | contents (the corpus, re-grade, vote, application back-fill, decision-record, opinion-record and document jobs); none at all on the selector-validation, `handoff-projection`, `handoff-parse` and `documents-dry-run` jobs | commit one dispatched maintenance pass's corpus and/or ledger writes to `main`; publish the verdict. Every pass that fetches and parses the Court's content (`opinion-votes`, `order-votes`, `application-backfill`, `opinion-record`, `ocr-recovery`, `recut`, `document-backfill`) runs as a credential split: a read-only projection job, a parse job holding **no** credential (no environment, no `id-token`, no secret), and on an apply only a writer job that re-validates the parse's plan whole and applies it, fetching nothing; the re-cut's dry run reads its plan in `documents-dry-run`, which holds the read-only session alone and writes nothing. The vote writer holds the App token and nothing else — no AWS role and no `id-token` — and mints it only after the planned stamps are applied; the application back-fill, opinion-record and document (OCR recovery, re-cut and document back-fill) writers take the read-write role, pull, apply and push, and mint the App token only after the push, for a commit step that blanks the AWS session's variables and asserts it. The corpus job's dry run holds the read-only session and no App token, and pushes nothing; its apply holds the read-write role and the App token. The decision-record job is one job (it fetches nothing and parses only private stored snapshots): its dry run holds the read-only session, its apply the read-write one, and its commit step blanks and asserts the AWS session's variables. In every job here that holds `id-token: write`, each step can mint a token for every role its environment is trusted by — both corpus roles under `corpus-write` (the corpus, application back-fill, decision-record, opinion-record and document jobs), and under `prod` (`handoff-projection`, `documents-dry-run`) the read-only role alone, since the read-write role's trust names `corpus-write` only (*`corpus-write` holds the production read-write role* below) — the runner injects the OIDC request pair into every step after the step's own `env:`, so a step env cannot blank it and only a job boundary removes it; the validation, `handoff-parse`, vote-writer and re-grade jobs hold no `id-token` |
 | `run-predict`, `run-evaluate` (`collect` job only) | dev | contents, pull-requests | the cell jobs name no App credential: a Claude cell's action gets the job's own token, capped at `contents: read` by the cell job's permissions, and the codex and gemini cells get none. The workflow commits, and `collect` merges its run PR once the required checks pass with a second workflow token minted for that step alone. The engine watchdog that brackets every engine step holds no token: it reports only on the runner, through the cell's own tail |
 | `run-backtest` (publish job only) | dev | contents, pull-requests | open the reviewed back-test PR. The replay job holds no App credential: it hands the arm's one report to the publish job as a one-day artifact, and the publish job, which runs no engine and assumes no role, checks that the hand-off holds that file alone, that the tree differs from the commit there alone, and scans the change and the PR prose for secrets, all before it mints. A merits replay also uploads its cells' scanned forecasts as the 30-day `merits-forecasts` artifact from the replay job itself, on the runtime token, with no App credential (SECURITY.md states that artifact's gate and residuals). The `cadence` guard holds no App token either, only an ambient `actions: read` over this workflow's own run history, for the overlap check that keeps a fortnight from replaying behind a run still going |
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
@@ -812,7 +812,9 @@ the CourtListener API token (used by pull's ingestion; by the opinion
 enrichment — the dispatched enrich job's step and, step-scoped, the live job's
 one awaiting-grading enrichment step, the only step of that job holding it; by
 `run-analytics`'s order-scan job, step-scoped to its scan step, in a job that
-assumes no cloud role and mints no App token; by the MCP
+assumes no cloud role and mints no App token; by its decision-below job,
+step-scoped to its measuring step, in a job that holds the read-only role for
+its corpus pull and mints no App token; by the MCP
 sidecar composite's launch step — the cells', `integration-test`'s
 engine-smoke **codex** leg, its engine-actions-smoke legs and each
 repro-family leg, all of which wire the same sidecar to exercise it —
@@ -1006,9 +1008,7 @@ jobs take the lock under `prod`, holding no role, and the corpus and
 decision-record jobs' dry runs bind the environment without taking the lock.) It removes
 *agents* from the write role's reach, not hostile *parsers*: the writer jobs
 parse fetched third-party content while holding or able to mint the role — the pull and seed
-windows' fetched dockets, and the corpus repair job's `ocr-recovery`,
-`document-backfill` and `recut` passes, which are not split the way the fetching
-passes are (*S3 / the private stores* below). Configure it with:
+windows' fetched dockets (*S3 / the private stores* below). Configure it with:
 
 - **deployment branches**: `main` alone, as a named custom policy. The
   writers' triggers run `main`'s workflow file, and this policy is what
@@ -1532,7 +1532,8 @@ pair the third one writes:
 
 - **Read-write role** (`AWS_ROLE_TO_ASSUME`, used by `run-pull`, `run-seed`,
   `run-repair`'s corpus and decision-record jobs on an apply,
-  and `run-repair`'s application back-fill and opinion-record writer jobs,
+  and `run-repair`'s application back-fill, opinion-record and document
+  (`documents`, the OCR recovery's, the re-cut's and the document back-fill's) writer jobs,
   which run on an apply only) —
   **append-only**: it grants *enumerated object actions* — get, put, list —
   never `s3:*`, with an explicit `Deny` on every delete and on the two
@@ -1555,8 +1556,11 @@ pair the third one writes:
   the predict/evaluate **plan** jobs, whose backlog derivation scans every open
   event, and the scan-heavy `run-analytics` / the metrics refresh and
   `run-backtest`, and `run-repair`'s `handoff-projection` job, which pulls the
-  index for the vote, application back-fill and opinion-record passes and
-  writes only the small public projection their parse needs, and
+  index for the vote, application back-fill, opinion-record, OCR recovery,
+  re-cut and document back-fill passes and writes only the small public
+  projection their parse needs, and `run-repair`'s `documents-dry-run` job, which pulls the index for
+  the re-cut's dry run and reads the stored filings it judges the plan against,
+  writing nothing, and
   `run-repair`'s decision-record job, whose read-only pull feeds the dry run,
   which writes nothing, and on an apply the blob the write builds on, and
   `run-repair`'s corpus job on a dry run, which assumes it directly for the
@@ -1594,13 +1598,14 @@ Access mirrors each workflow's role in the pipeline:
 | `run-pull` (pull + live + enrich jobs), `run-seed`, `run-repair` (corpus and decision-record jobs on an apply; application back-fill and opinion-record writers) | read-write | corpus writers (`corpus-push` + content-store mirror); each of these jobs binds `corpus-write`, the one environment the role's trust names |
 | `run-predict`, `run-evaluate` — plan jobs  | read-only     | each derives its own backlog — a scan over every open (resolved) event, so it pulls the index rather than reading it in place |
 | `run-backtest`                            | read-only     | replay: full index `corpus-pull` + redacted snapshots from the content store |
-| `run-repair` — `handoff-projection` job | read-only | the credential split's first job, for the vote, application back-fill and opinion-record passes: a full index `corpus-pull`, then the pass's public projection (docket numbers, stored serials, recorded listing keys) as a one-day artifact; it fetches nothing from the Court |
-| `run-repair` — `handoff-parse` job | none | every fetch from supremecourt.gov and every parse of what it served: no environment, no `id-token: write`, no secret, and a step asserts the AWS and OIDC variables are absent first; its only output is the dry-run ledger and, on an apply, the plan artifact |
+| `run-repair` — `handoff-projection` job | read-only | the credential split's first job, for the vote, application back-fill, opinion-record, OCR recovery, re-cut and document back-fill passes: a full index `corpus-pull`, then the pass's public projection (docket numbers, stored serials, recorded listing keys; for the OCR recovery and the re-cut the class walk through the content store and a worklist of case ids, kinds, Court URLs and page counts; for the document back-fill the dedupe applied to the runner's copy alone, then the class walk and a worklist of case ids, missing kinds, upstream addresses, Terms and the Court URLs of each case's stored documents) as a one-day artifact; it fetches nothing from the Court |
+| `run-repair` — `documents-dry-run` job | read-only | the re-cut's dry run only: a full index `corpus-pull`, the plan and worklist downloaded by artifact id, and the class walk through the content store that judges each re-cut against the stored text; no lock, no App token, the remote-writes switch off, no push |
+| `run-repair` — `handoff-parse` job | none | every fetch from supremecourt.gov and every parse of what it served: no environment, no `id-token: write`, no secret, and a step asserts the AWS and OIDC variables are absent first; its only output is the dry-run ledger and, on an apply, the plan artifact — for the re-cut, the plan artifact in both modes, its dry-run ledger read by `documents-dry-run`; for the document back-fill, the whole dry-run ledger, with nothing handed on |
 | `run-repair` — votes writer | none | on an apply only: re-validates the plan against the ledger and stamps `outcome.json`; no corpus, no role, no `id-token` — the data App token pushes the commit |
 | `run-seed` — `order-votes-projection`, `order-votes-parse`, `order-votes` jobs | read-only, none, none | the order-list vote sweep: the same three-job split as run-repair's `order-votes` pass on the daily window — a projection job with the read-only role (a full index `corpus-pull`, then each population case's docket number), a parse job holding no credential (no environment, no `id-token`, no secret, and the same AWS/OIDC guard), and a writer holding only the data App token, minted after the planned stamps are applied |
 | `run-seed` — `opinion-record-projection`, `opinion-record-parse`, `opinion-record` jobs | read-only, none, read-write | the opinion-record sweep: the same three-job split as run-repair's `opinion-record` pass on the daily window, over the current and previous Term — a projection job with the read-only role (the record's listing keys), a parse job holding no credential (the same AWS/OIDC guard) that reads at most the window's slice of documents, and a writer under `corpus-write` that pulls fresh, re-validates, stores each writing's text in the content store and inserts, pushes the blob, and mints the data App token only after the push |
-| `run-repair` — application back-fill and opinion-record writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied (the opinion-record writer storing each writing's text in the content store first), `corpus-push`, then the pointer commit — no fetch, no PDF parse |
-| `run-repair` — corpus job | read-only on a dry run, read-write on an apply | a dry run pulls the index, applies the dedupe (and, for the overhang clear, the scope reconcile) to the runner's copy alone and tees the pass's ledger: no App token, no `corpus-write` lock, the remote-writes switch off, no push. An apply holds the lock, the read-write role and the App token for the whole job, re-assumed for the OCR pass. The dry run narrows what is held, not what is reachable: the job still binds `corpus-write` with `id-token: write`, so any step, the OCR and document back-fill dry runs' PDF parsing among them, can still mint the read-write role |
+| `run-repair` — application back-fill, opinion-record and document writers | read-write | on an apply only, under the `corpus-write` lock: a fresh `corpus-pull`, the plan re-validated and applied (the opinion-record writer storing each writing's text in the content store first; the document writer, for the OCR recovery, the re-cut and the document back-fill, binding the plan to the projection's worklist by artifact id and re-reading the class as its witness, and for the back-fill applying the dedupe under the lock first), `corpus-push`, then the pointer commit — no fetch, no PDF parse |
+| `run-repair` — corpus job | read-only on a dry run, read-write on an apply | a dry run pulls the index, applies the dedupe (and, for the overhang clear, the scope reconcile) to the runner's copy alone and tees the pass's ledger: no App token, no `corpus-write` lock, the remote-writes switch off, no push. An apply holds the lock, the read-write role and the App token for the whole job. The dry run narrows what is held, not what is reachable: the job still binds `corpus-write` with `id-token: write`, so any step can still mint the read-write role. No pass in it fetches or parses third-party content |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull). A forward predict cell's provisioning step also fetches its docket's current JSON from the Court (the pre-mint poll), and a post-run step holding no credential fetches it once more, both through the live poller's client, which refuses any hop off the Court's host; each payload is only scanned for the event's outcome, never stored or handed to the cell |
 | `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store; the text-coverage mode reads wider on the same terms — a document-manifest round trip per live-slice case plus each stored document's text body |
@@ -1609,6 +1614,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — order-scan              | none          | reads CourtListener's REST API only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its scan step. Its runtime token adds `actions: read`, to fetch the previous run's report artifact the scan resumes |
+| `run-analytics` — decision-below          | read-only     | the sample (full `corpus-pull`, then each sampled case's newest snapshot from the content store), then CourtListener's REST API. It binds the branch-resolved environment for the CourtListener token, scoped to its measuring step, and mints no App token |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
 | `summarize` — generate, publish           | none          | generate holds the environment's Anthropic API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |
@@ -1947,7 +1953,16 @@ Its job holds the CourtListener token and, on the runtime token, `actions:
 read`, used only to fetch the previous run's report so the scan resumes: the
 fetch takes the newest unexpired `order-scan` artifact from the same ref,
 checks that its run is a dispatch of `run-analytics`, and extracts the one
-report file by name. But it
+report file by name. A seventh rides it too: the `decision-below` report,
+which names, for each sampled cert petition, the identifiers and dates its
+stored supremecourt.gov docket carries (the SCOTUS number, the lower court's
+name and case numbers, the judgment and rehearing-denied dates), the lower
+court's CourtListener
+docket (id, number and caption, the court of appeals' public caption for the
+case), its opinion clusters with their panels and authors, and the numbers
+and dates of the docket entries the rehearing reading rests on, with no opinion
+or entry text; re-derivable on a re-dispatch at the cost of its CourtListener
+spend. But it
 widens
 discovery, not reach: the role can already `GetObject` that content by key, and
 the no-republication posture is license/content-based (see
@@ -1997,6 +2012,41 @@ stores, one artifact, one day, never committed and never printed. On this
 public repository any signed-in user can download either artifact while it
 exists, four windows a day; deleting the plan once the writer has read it
 would need `actions: write` on the writer, a trade left to the maintainer.
+`run-repair`'s `ocr-recovery` pass carries the same text across its own split,
+in `repair-projection-<run_id>` (the dispatch's worklist, same fields) and
+`repair-plan-<run_id>` (the plan, same shape), under the same carve-out, on
+each applied dispatch; its writer reads the worklist back by artifact id,
+from the projection job's output, so the parse cannot stand another in.
+Its `recut` pass carries the same kind of text across the same two files —
+a worklist of case ids, kinds, Court URLs and stored page counts, and a plan
+of each item's re-cut text or the outcome the served PDF alone settled —
+under its own carve-out there, and on every dispatch rather than an applied
+one: its dry run is judged against the stored text by a read-only reader
+job, which reads both files back by artifact id as the writer does. The
+re-cut's skip lines take a closed shape, the pass's own outcome strings, so a
+forged one is refused on read. Its reader holds no PDF to re-cut, so a row's
+text is checked against the stored filing only by the pass's own head check:
+a hostile parse could still hand in text that opens as the stored filing does
+and departs from it after, for a row of the slice the worklist names.
+Its `document-backfill` pass carries a worklist of public facts — case ids,
+missing kinds, the upstream docket address and Term, and the Court URLs of the
+documents each case already holds — and, on an applied dispatch only, a plan
+of each reached item's docket loss, floor or fetched documents, the filings'
+text among them, under its own carve-out there; its dry run is read whole in
+the parse and hands nothing on. The writer reads both back by artifact id,
+refuses a reading of more than one shape, an alarm no floor on a modern docket
+can carry, a document of another case, a second of one kind, a text above the
+cap, or a filing at the URL its item already holds it at (which the fetch never
+re-fetches), and writes nothing for a candidate whose gap has changed since the
+projection. It holds no docket and no PDF, so what it cannot check is what the
+Court served: a hostile parse could hand in text of its own at a Court URL for
+an item of the slice, or a floor that stamps the candidate out of the class
+until the live channel next polls its docket. The stamp is a fill-in latch no
+writer clears, so on a docket the live rotation has left, a forged floor holds
+its candidate out for good; the slice bound caps how many one dispatch can
+stamp. That is the same trust model as the OCR split: the parse holds no
+credential, and what it can still forge is bounded by the worklist and the
+writer's checks.
 The recovered text also meets the contact scrub, whose shapes OCR output does
 not always match. The residual detector records such a document as not
 scrubbed and keeps it out of the summary stage, but the cell is still staged
@@ -2170,13 +2220,11 @@ which holds no credential by design and hands a plan its writer re-validates;
 and `run-analytics`'s `tool-usage`, a read-only report over committed
 retrieval logs that opens no PR and feeds no check. A poisoned entry there runs
 beside nothing worth taking: the job's own read-scoped runtime token, which the
-attacker already held to save the entry, and an output nothing trusts. The same reach, with
-every credential besides, belongs to the three passes that parse fetched
-PDFs inside the corpus job: `ocr-recovery`, `document-backfill` and `recut`
-are not split. And in every job that holds `id-token: write` — the projection,
-the two corpus writers, the decision-record and corpus jobs — every step can
-mint a token for every role its environment is trusted by — under `prod`
-(the projection) the read-only role alone, since the read-write role's trust
+attacker already held to save the entry, and an output nothing trusts.
+And in every job that holds `id-token: write` — the projection, the re-cut's
+dry-run reader, the three corpus writers, the decision-record and corpus jobs —
+every step can mint a token for every role its environment is trusted by —
+under `prod` (the projection and the dry-run reader) the read-only role alone, since the read-write role's trust
 names `corpus-write` only (*`corpus-write` holds the production read-write role*), and both
 corpus roles under `corpus-write` (the rest): the runner injects the OIDC
 request pair into each step after the step's own `env:`, so blanking it there

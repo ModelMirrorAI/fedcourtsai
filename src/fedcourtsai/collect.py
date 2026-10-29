@@ -718,6 +718,11 @@ class CollectPlan:
     and trips no gate. That echo passes the flag roll-up's secret-scan gates,
     since the cells and predictors it names are named by the ids their own
     ``prediction.json`` carries.
+
+    ``served_models_markdown`` names the cells whose engine log says they ran on
+    a model other than the one requested (``usage.json`` ``served_models``).
+    It travels like the throttle note, and is empty on a run where every
+    legible log named the requested model.
     """
 
     ready: PrPlan | None
@@ -728,6 +733,7 @@ class CollectPlan:
     prior_availability_markdown: str = ""
     self_provisioned_markdown: str = ""
     stakes_read_markdown: str = ""
+    served_models_markdown: str = ""
     pre_mint_refusals: tuple[CellStatus, ...] = ()
     pre_mint_refusals_markdown: str = ""
     feedback_comment: str = ""
@@ -897,12 +903,14 @@ class ThrottleRollup:
     denominator each log's own ``throttled_calls`` and the corpus rollup's
     per-engine rate use. Both of its exclusions drop calls that could never have
     shown a throttle: a builtin, which does not talk to the upstream this quota
-    belongs to, and a result no transcript captured.
+    belongs to, and a call whose result and outcome no log captured.
 
     ``cells`` therefore counts only the logs that could have shown one;
-    ``blind_cells`` counts the rest — a Gemini cell, a cell that called no
-    manifest tool — separately rather than as clean cells, because a cell that
-    could not be observed is not evidence that nothing happened to it.
+    ``blind_cells`` counts the rest — a cell that called no manifest tool, or
+    one whose log carries no result condition (a Gemini log captured before its
+    rows carried the call's logged outcome) — separately rather than as clean
+    cells, because a cell that could not be observed is not evidence that
+    nothing happened to it.
     """
 
     cells: int = 0
@@ -939,8 +947,8 @@ def render_throttle_note(rollup: ThrottleRollup | None) -> str:
             f"**Retrieval throttling was not observable this run**: none of "
             f"{rollup.blind_cells} cell log(s) captured a manifest-tool result condition, "
             f"so no cell could have been seen being rate-limited. Capture-blind, not "
-            f"throttle-free — an engine whose transcript drops results (Gemini's, by "
-            f"construction) and a cell that called no manifest tool both land here, and "
+            f"throttle-free — a log whose rows carry no result condition and a cell "
+            f"that called no manifest tool both land here, and "
             f"neither is evidence that the shared quota was not in the way."
         )
     blind = (
@@ -958,9 +966,10 @@ def render_throttle_note(rollup: ThrottleRollup | None) -> str:
         f"legible.{blind} Those cells retrieved less than an unthrottled cell would have "
         f"— the shared daily quota, not the agent — so read their coverage, and any "
         f"comparison that puts them beside a well-fed cell, with that in mind. The count "
-        f"is a floor: a call whose result never reached the transcript cannot be counted, "
-        f"a builtin's result is not read for this at all, and a cell that gave up on a "
-        f"call leaves no row."
+        f"is a floor: a call whose result and outcome never reached the log cannot be "
+        f"counted, a gemini call is read from its logged outcome alone and so shows only "
+        f"a 429 the server raised as an error, a builtin's result is not read for this at "
+        f"all, and a cell that gave up on a call leaves no row."
     )
 
 
@@ -1613,6 +1622,58 @@ def feedback_marker(role: FinalizeRole, run_id: str) -> str:
     return f"<!-- agent-feedback-run: {role.value}/{run_id} -->"
 
 
+@dataclass(frozen=True)
+class ServedModelRollup:
+    """What this run's ``usage.json`` records say about the model each cell ran on.
+
+    ``cells`` counts the records read, ``unknown`` the ones whose engine log named
+    no model (``served_models`` null: unknown, not a match), and ``substituted``
+    each cell whose log named anything other than exactly the requested model, as
+    ``(cell, requested, served)`` with the served models comma-joined. A served
+    id that is the requested one plus a dated or numbered release suffix
+    (``-001``, ``-20251001``) is read as a match, since a provider reports a
+    pinned version that way; a point release (``-1``) is another model.
+    """
+
+    cells: int = 0
+    unknown: int = 0
+    substituted: tuple[tuple[str, str, str], ...] = ()
+
+
+def render_served_model_note(rollup: ServedModelRollup | None) -> str:
+    """The run PR's warning when a cell ran on a model other than the one requested, or ``""``.
+
+    Silent on a run where every legible log named the requested model, for the
+    reason :func:`render_throttle_note` is silent on a clean run. The ids are
+    harness-written (``record-usage`` stamps the record from the matrix and the
+    engine log), so the note carries no agent text.
+    """
+    if rollup is None or not rollup.substituted:
+        return ""
+    shown = "; ".join(
+        f"`{_md_id(cell)}` asked for `{_md_id(requested)}`, log names `{_md_id(served)}`"
+        for cell, requested, served in rollup.substituted[:_NAMED_CELL_CAP]
+    )
+    rest = len(rollup.substituted) - _NAMED_CELL_CAP
+    more = f"; and {rest} more" if rest > 0 else ""
+    unread = (
+        f" A further {rollup.unknown} cell(s)' logs named no model, so they are unchecked."
+        if rollup.unknown
+        else ""
+    )
+    return (
+        f"⚠️ **{len(rollup.substituted)} of {rollup.cells} cell(s) ran on a model other "
+        f"than the one requested**, by the engine's own log (`usage.json` "
+        f"`served_models`): {shown}{more}. Read their output as that model's, not the "
+        f"registered one's; the cost estimate stays priced at the requested model. "
+        f"Each engine's value sits at its own distance from the provider: claude's is the "
+        f"model the API response named; gemini's is the response's own version string "
+        f"(a dated or numbered release suffix on the requested id is read as a match); "
+        f"codex's is the model the CLI addressed, so a provider-side reroute there never "
+        f"lands here.{unread}"
+    )
+
+
 def render_feedback_comment(
     role: FinalizeRole, run_id: str, flags_markdown: str, refusals_markdown: str = ""
 ) -> str:
@@ -1670,6 +1731,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     prior_availability: PriorAvailabilityRollup | None = None,
     self_provisioned: SelfProvisionedRollup | None = None,
     stakes_reads: StakesReadRollup | None = None,
+    served_models: ServedModelRollup | None = None,
     auto_released: bool = False,
 ) -> CollectPlan:
     """Partition a run's cells into one ready PR, one draft PR, and the skipped.
@@ -1867,6 +1929,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     prior_md = render_prior_availability_note(prior_availability)
     self_provisioned_md = render_self_provisioned_note(self_provisioned)
     stakes_md = render_stakes_read_note(stakes_reads)
+    served_md = render_served_model_note(served_models)
     refusals_md = render_pre_mint_refusals(refused)
 
     # A wholesale-failed run — no ready PR and no draft — still has failure facts
@@ -1901,7 +1964,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
     ready_plan, partial_plan = _append_sections(
         ready_plan,
         partial_plan,
-        (refusals_md, throttle_md, prior_md, self_provisioned_md, stakes_md, flags_md),
+        (refusals_md, served_md, throttle_md, prior_md, self_provisioned_md, stakes_md, flags_md),
     )
     return CollectPlan(
         ready=ready_plan,
@@ -1912,6 +1975,7 @@ def collect_plan(  # noqa: PLR0913 - one arg per independent per-run input the p
         prior_availability_markdown=prior_md,
         self_provisioned_markdown=self_provisioned_md,
         stakes_read_markdown=stakes_md,
+        served_models_markdown=served_md,
         pre_mint_refusals=refused,
         pre_mint_refusals_markdown=refusals_md,
         feedback_comment=render_feedback_comment(role, run_id, flags_md, refusals_md),

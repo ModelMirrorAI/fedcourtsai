@@ -113,23 +113,30 @@ REMOTE_COMMANDS = frozenset({"corpus-push", "corpus-pull"})
 #: the *fixture* corpus lacks rather than to anything about the argv. The
 #: fixture stores no petition text, so the questions-presented backfill refuses
 #: the blob outright — after parsing every flag it was handed.
-BENIGN_REFUSALS = {
+BENIGN_REFUSALS: dict[str, str | tuple[str, ...]] = {
     "backfill-questions-presented": "no stored petition text",
     # Same fixture, same reason from the other side: the OCR recovery reads the
     # stored *rows* of every fetched kind, and a corpus holding none is the wrong
     # blob rather than a converged class — the refusal that tells a misconfigured
-    # content store apart from a corpus with nothing left to repair.
-    "ocr-recover-petitions": "no stored documents",
+    # content store apart from a corpus with nothing left to repair. Its
+    # projection refuses on that before writing the worklist, so the parse and
+    # the writer after it find no file to read, and refuse it — having parsed
+    # every flag first.
+    "ocr-recover-petitions": ("no stored documents", "refusing the handoff file"),
     # The same refusal a third time, on the population rather than the
     # documents: the fixture holds no row queued for prediction or selected by
     # the salience gate, so the document back-fill has no denominator to walk.
     # Reaching it is also what keeps this pass's argv offline here — the refusal
     # fires on the walk, before a candidate, a docket fetch or a client exists.
-    "backfill-documents": "no predict-relevant live-slice rows",
+    # Its projection refuses on that before writing the worklist, so the parse
+    # and the writer after it find no file to read, as the OCR recovery's do.
+    "backfill-documents": ("no predict-relevant live-slice rows", "refusing the handoff file"),
     # And for the re-cut, on the documents again: the fixture stores no petition,
     # application or appendix, so the walk has no denominator, and the refusal
-    # fires before a candidate or a fetch.
-    "recut-documents": "no stored documents",
+    # fires before a candidate or a fetch. Its projection refuses on that before
+    # writing the worklist, so the parse and the reader after it find no file
+    # to read, as the OCR recovery's do.
+    "recut-documents": ("no stored documents", "refusing the handoff file"),
 }
 
 
@@ -227,6 +234,9 @@ def _values(pass_name: str | None = None, handoff: Path | None = None) -> dict[s
     return {
         "HANDOFF_PROJECTION": str(handoff / "projection.json"),
         "HANDOFF_PLAN": str(handoff / "plan.json"),
+        # The writer that binds its plan to the projection reads it back
+        # under this name, from its own download directory.
+        "HANDOFF_WORKLIST": str(handoff / "projection.json"),
         "REPAIR_BOUND": REPAIR_BOUND,
         # The re-derivation and the back-fill splice `REPAIR_TARGET` into argv
         # directly; the re-grade reads its own target through the five fields
@@ -315,7 +325,8 @@ def _run(argv: list[str], tmp_path: Path) -> None:
     if result.exit_code == 0:
         return
     expected = BENIGN_REFUSALS.get(argv[0])
-    assert expected is not None and expected in result.output, (
+    allowed = (expected,) if isinstance(expected, str) else expected or ()
+    assert any(refusal in result.output for refusal in allowed), (
         f"`fedcourts {rendered}` failed with no declared benign refusal\n{result.output}"
     )
 
@@ -441,12 +452,12 @@ def test_the_regrade_cell_grammar_admits_this_tests_subject() -> None:
     )
 
 
-#: What the OCR step holds back between the slice deadline it passes and its own
-#: `timeout-minutes`: the witness re-read, the blob push, the pointer commit, and
-#: the work a started candidate can run past the deadline. The arithmetic is
-#: stated beside the invocation; this number is the same one, here so the two
-#: halves of it cannot move apart.
-OCR_DEADLINE_RESERVE_SECONDS = 660
+#: What the OCR parse step holds back between the slice deadline it passes and
+#: its own `timeout-minutes`: the work a started candidate can run past the
+#: deadline, and the plan write. The class walk, the witness, the push and the
+#: commit are the writer job's. The arithmetic is stated beside the invocation;
+#: this number is the same one, here so the two halves of it cannot move apart.
+OCR_DEADLINE_RESERVE_SECONDS = 300
 
 
 def test_the_ocr_slice_deadline_keeps_its_reserve_under_the_steps_own_cap() -> None:
@@ -480,20 +491,16 @@ def test_the_ocr_slice_deadline_keeps_its_reserve_under_the_steps_own_cap() -> N
     assert deadline > ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + DOCUMENT_BUDGET_SECONDS
 
 
-#: What the document back-fill's apply holds back between the slice deadline it
-#: passes and its own `timeout-minutes`: the walk-only witness re-read, the blob
-#: push, the pointer commit, and the work a started candidate can run past the
-#: deadline. The push term is double the OCR recovery's, because this pass's
-#: floor probes are index columns: the index moves on any applied slice that
-#: read a floor, so the push is the ordinary path rather than a reserved one,
-#: and the exclusions are durable only once it lands (the documents are already
-#: banked per case in the content store). As with the OCR reserve above, the
-#: arithmetic is stated beside the invocation and repeated here so the two
-#: halves cannot move apart.
-DOCUMENT_BACKFILL_DEADLINE_RESERVE_SECONDS = 600
+#: What the document back-fill's apply parse holds back between the slice
+#: deadline it passes and its step's `timeout-minutes`: the work a started
+#: candidate can run past the deadline, and the plan write. The class walk is the
+#: projection's and the write, the witness, the push and the commit are the
+#: writer's. As with the OCR reserve above, the arithmetic is stated beside the
+#: invocation and repeated here so the two halves cannot move apart.
+DOCUMENT_BACKFILL_DEADLINE_RESERVE_SECONDS = 300
 
-#: And what its *dry run* holds back, which is smaller because a dry run commits
-#: and pushes nothing: only a started candidate's own docket fetch follows it.
+#: And what its *dry run* holds back, which is smaller because a dry run writes
+#: no plan: only a started candidate's own docket fetch follows it.
 DOCUMENT_BACKFILL_DRY_RESERVE_SECONDS = 120
 
 
@@ -514,7 +521,7 @@ def test_the_document_backfill_deadlines_keep_their_reserve_under_the_step_cap(
     upstream round trips — the dry run fetches every candidate's docket JSON —
     so neither is free to run to the step's kill. The two reserves differ only
     in what still has to happen after the pass stops taking work: a dry run
-    writes nothing, so it holds back the overshoot alone.
+    writes no plan, so it holds back the overshoot alone. Both are the parse's.
     """
     (step,) = [
         step
@@ -525,8 +532,9 @@ def test_the_document_backfill_deadlines_keep_their_reserve_under_the_step_cap(
     (argv,) = [
         invocation
         for invocation in command_argv(str(step["run"]), FEDCOURTS)
-        if "--deadline-seconds" in invocation and ("--apply" in invocation) == apply
+        if "--deadline-seconds" in invocation and ("--plan-out" in invocation) == apply
     ]
+    assert "--worklist" in argv, "the document back-fill's deadlines are the parse's"
     deadline = float(argv[argv.index("--deadline-seconds") + 1])
     assert deadline == cap - reserve, (
         f"the document back-fill's {'apply' if apply else 'dry-run'} deadline "
@@ -546,12 +554,17 @@ def test_the_document_backfills_witness_reads_the_ledger_fields_its_pass_writes(
     the witness into a `KeyError` on the run that was going to prove the write
     landed, which is the one run where a silent failure costs the most.
     """
-    (step,) = [
-        step
+    runs = [
+        str(step["run"])
         for step in _steps_for("document-backfill")
         if "ledger_field" in str(step.get("run", ""))
     ]
-    read = set(re.findall(r"ledger_field /tmp/[a-z-]+\.txt ([a-z_]+)", str(step["run"])))
+    assert len(runs) == 2, "the parse's alarm and the writer's witness read the ledger"
+    read = {
+        field
+        for run in runs
+        for field in re.findall(r"ledger_field /tmp/[a-z-]+\.txt ([a-z_]+)", run)
+    }
     assert read, "the witness reads no ledger field; this test now covers nothing"
     assert read <= set(DocumentBackfillResult.model_fields), (
         f"the witness reads ledger field(s) the pass does not write: "
@@ -559,23 +572,16 @@ def test_the_document_backfills_witness_reads_the_ledger_fields_its_pass_writes(
     )
 
 
-#: The re-cut's two reserves, on the document back-fill's terms: an apply holds
-#: back the witness re-walk, the blob push, the pointer commit and a started
-#: candidate's overshoot; a dry run writes nothing and holds back the overshoot
-#: alone. The arithmetic is stated beside the invocation.
-RECUT_DEADLINE_RESERVE_SECONDS = 600
-RECUT_DRY_RESERVE_SECONDS = 120
+#: What the re-cut's parse holds back between its slice deadline and its step
+#: cap: a started candidate's overshoot and the plan write. The class walks, the
+#: write, the witness and the push are the reader's and the writer's, and the
+#: dry run and the apply read the same slice, so the one deadline serves both.
+#: The arithmetic is stated beside the invocation.
+RECUT_PARSE_RESERVE_SECONDS = 180
 
 
-@pytest.mark.parametrize(
-    ("apply", "reserve"),
-    [(True, RECUT_DEADLINE_RESERVE_SECONDS), (False, RECUT_DRY_RESERVE_SECONDS)],
-    ids=["apply", "dry-run"],
-)
-def test_the_recut_deadlines_keep_their_reserve_under_the_step_cap(
-    apply: bool, reserve: int
-) -> None:
-    """Both of the re-cut's deadlines are derived from its one step cap."""
+def test_the_recut_deadline_keeps_its_reserve_under_the_parse_steps_cap() -> None:
+    """The parse's deadline is derived from its step cap, as the OCR recovery's is."""
     (step,) = [
         step for step in _steps_for("recut") if "--deadline-seconds" in str(step.get("run", ""))
     ]
@@ -583,12 +589,13 @@ def test_the_recut_deadlines_keep_their_reserve_under_the_step_cap(
     (argv,) = [
         invocation
         for invocation in command_argv(str(step["run"]), FEDCOURTS)
-        if "--deadline-seconds" in invocation and ("--apply" in invocation) == apply
+        if "--deadline-seconds" in invocation
     ]
+    assert "--worklist" in argv, "the re-cut's deadline is the parse's"
     deadline = float(argv[argv.index("--deadline-seconds") + 1])
-    assert deadline == cap - reserve, (
-        f"the re-cut's {'apply' if apply else 'dry-run'} deadline ({deadline:.0f}s) "
-        f"no longer leaves {reserve}s under the step's {cap}s cap"
+    assert deadline == cap - RECUT_PARSE_RESERVE_SECONDS, (
+        f"the re-cut's parse deadline ({deadline:.0f}s) no longer leaves "
+        f"{RECUT_PARSE_RESERVE_SECONDS}s under the step's {cap}s cap"
     )
 
 
@@ -604,20 +611,35 @@ def test_the_recut_witness_reads_the_ledger_fields_its_pass_writes() -> None:
 
 
 def test_every_recut_invocation_walks_the_same_scope() -> None:
-    """The apply and its witness must count one class.
+    """The projection, the reader, the writer and its witness must count one class.
 
     The witness compares the apply's `remaining` with a re-walk's `candidates`,
     which holds only when both walk the same scope: an `all-live` apply checked
     by a predict-relevant re-walk would report a failed write on every dispatch.
+    The projection reads the scope off the dispatch's options and writes it into
+    the worklist; the reader and the writer take it from there and refuse
+    `--all-live`; the witness takes it off the writer's ledger.
     """
-    (step,) = [step for step in _steps_for("recut") if "ledger_field" in str(step.get("run", ""))]
-    argvs = [
+    (projection,) = [
+        step for step in _steps_for("recut") if "--emit-worklist" in str(step.get("run", ""))
+    ]
+    (emit,) = [
         argv
-        for argv in command_argv(str(step["run"]), FEDCOURTS)
+        for argv in command_argv(str(projection["run"]), FEDCOURTS)
         if argv and argv[0] == "recut-documents"
     ]
-    assert len(argvs) == 3, "the re-cut step no longer runs its dry run, apply and witness"
-    assert all('"${scope_args[@]}"' in argv or "${scope_args[@]}" in argv for argv in argvs)
+    assert '"${scope_args[@]}"' in emit or "${scope_args[@]}" in emit
+    (writer,) = [step for step in _steps_for("recut") if "ledger_field" in str(step.get("run", ""))]
+    argvs = [
+        argv
+        for argv in command_argv(str(writer["run"]), FEDCOURTS)
+        if argv and argv[0] == "recut-documents"
+    ]
+    assert len(argvs) == 2, "the re-cut writer no longer runs its apply and witness"
+    apply, witness = argvs
+    assert "--from-plan" in apply and "--all-live" not in apply
+    assert '"${scope_args[@]}"' in witness or "${scope_args[@]}" in witness
+    assert "ledger_field /tmp/recut-apply.txt scope" in str(writer["run"])
 
 
 def test_the_regrade_dry_run_preview_names_the_argv_it_would_run() -> None:

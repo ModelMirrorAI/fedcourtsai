@@ -14346,6 +14346,136 @@ freeze commit is recorded here.
   run python scripts/checks/redocketed_numbers.py` reports the same refusal
   counts at the carrying merge as at its first parent.
 
+- **Gemini rows carry the call's logged outcome, and codex logs gain the
+  cell's subagent sessions, 2026-10-28.** Two **capture** changes of the
+  masking-surface class, in one PR. No digest, constant, window, boundary or
+  membership rule moves, and `uv run fedcourts process-digest --all` prints the
+  same `proc-v13` digests at the change as at its base.
+
+  **Gemini.** Gemini CLI 0.49's `gemini_cli.tool_call` record carries the
+  call's `success` bit, a failed call's message, and, with prompt logging on
+  as the cell workflows set it, a shell command's non-zero exit in `metadata`.
+  Capture now reads them. Every gemini row is `result_capture` `outcome_only`
+  where it was `unobserved`, with `result_status` `error` where the CLI marked
+  the call failed (its `success` false, an error message logged, or a shell
+  command's non-zero exit), `throttled` where a manifest call's failure message
+  carries the 429 shape (read after the CLI's `with response:` wrapper where it
+  quotes the call's own arguments, else the whole message), and `ok` otherwise. Digests and
+  document dates stay null, because the payload is still not logged.
+  - **What it reaches through the blinded log.** The mask passes both markers
+    through, so every evaluator now sees, on a gemini candidate, which calls
+    the engine marked failed. That is the point: a judge reading a
+    `fedcourts query` row against a `retrieval.md` that reports no retrieval
+    can tell a failed attempt from an undisclosed one. The evaluate prompt
+    describes `captured` and `unobserved` only; it is not edited here, so an
+    `outcome_only` row reaches a judge described by its own name and the
+    field's schema description until a re-bless adds a line for it. A judge
+    applying the prompt literally may read an `outcome_only` row's null digest
+    as "returned nothing", so blinded leakage grades of gemini candidates sit
+    on a capture seam across the merge. An all-`outcome_only` log identifies
+    the gemini candidate as surely as an all-`unobserved` one did.
+  - **What it moves on published surfaces.** Gemini manifest calls enter the
+    throttle denominator for the first time: the log's `throttled_calls`, the
+    run PR's throttle note, and the tool-usage report's per-engine throttle
+    cut. Gemini's figure sees a 429 the server raised as a tool error and never
+    the citation tools' note on a successful result, so it is a narrower floor
+    than claude's or codex's. Gemini logs captured before the carrying merge
+    stay `unobserved` and add nothing to it, so a gemini throttle figure is
+    scoped to logs captured after the merge, and a move across it is a capture
+    change. `result_capture_coverage` does not move: it counts `captured` rows
+    only.
+
+  **Codex.** Capture read the newest `rollout-*.jsonl` under the cell's
+  sessions directory, and a subagent session started after the parent's last
+  write is the newest file. It now reads the parent session (the newest
+  rollout whose `session_meta` names no parent thread and no subagent source),
+  every subagent session descending from it, and any subagent session in the
+  cell's directory that names no parent: calls merge in timestamp order, and
+  token counts sum. A subagent forked with its parent's history copies the
+  parent's token events and continues its running total, so only what it adds
+  past the inherited total counts; the fork copies no tool call, so no row
+  repeats. A tree with no top-level `session_meta` reads the newest rollout
+  alone.
+  - **What it reaches.** A codex candidate's staged log can gain rows a
+    subagent made, which is retrieval the cell did and which the judge
+    previously could not see. A codex cell's `usage.json` tokens and estimated
+    cost rise by the subagent's use, so measured spend moves with them, under
+    the same process version: a codex $/cell measured across the carrying
+    merge pools two capture regimes that no digest separates, and earlier
+    codex measurements leave subagent spend out, so a re-anchor of codex's
+    planning rate reads cells after the merge only. Subagent tokens are priced
+    at the parent's requested model, and `served_models` reads the parent
+    session alone, so a subagent on another model is priced as the parent.
+  - **What it does not repair.** The 10 of 675 committed codex logs (counted
+    2026-10-16) that looked like a subagent's session keep what they carry,
+    and so do the same cells' `usage.json`, which count the subagent's tokens
+    rather than the parent's: capture runs once, and those rollouts are gone.
+
+  The parsers were built against the Gemini CLI 0.49 and Codex 0.144.1 sources
+  and exercised on fixtures shaped from them; no real engine log was read for
+  this entry, so both readings are unverified until the first round after the
+  carrying merge. The runnable effect check once it is live, on the first
+  predict round after the carrying merge: across its gemini
+  `retrieval_log.json` files, `jq '[.calls[].result_status] | unique'` prints
+  more than `["ok"]` on at least one cell (a status read from a real
+  `success` or error field, not the residual), and across its `usage.json`
+  files `jq .served_models` is non-null on each engine's cells; on the first
+  evaluate round, each cell directory carries a `blinding.json`; and `uv run
+  fedcourts process-digest --all` prints the same label and six digests at
+  the carrying merge as at its first parent.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+- **A merits event on a proceeding that ended with nothing decided closes
+  without an outcome, `merits-terminated`; recorded 2026-10-28.** A
+  **membership** entry: it states the terminal state of a forecast that can
+  never be graded, and moves no scored figure. It moves no digest: no prompt
+  template, neither agent config and not `src/fedcourtsai/process_version.py`
+  changes, and `uv run fedcourts process-digest --all` at this commit prints
+  `proc-v13` and the six digests the entries above list.
+
+  **What changes.** `pipeline.judgment.backfill_merits_judgments`, the
+  run-seed step that stamps `merits_terminated`, now also closes every open
+  merits-stage event on a row whose termination says the proceeding ended
+  with nothing decided (a Rule 46 dismissal, a dismissal as moot, an
+  abatement, a grant the Court vacated). Each is marked
+  `resolved_without_outcome` with the new reason `merits-terminated`. No
+  outcome is written, and the termination is never read as an undisturbed
+  judgment. A row whose only terminal entry is the bare mandate notation
+  (`judgment-issued`) is a decided docket the parser missed, and its events
+  stay open. The outcome passes leave a `merits-terminated` event alone while
+  its row stays terminated; if a judgment later parses, the parse clears the
+  termination and the convergence records the outcome over the mark.
+
+  **What a closed event owes.** Nothing. The evaluate backlog
+  (`pipeline.pull.derive_evaluate_backlog`) and `store.resolved_events` leave
+  out a `merits-terminated` event: with no `outcome.json` there is no ground
+  truth to grade, and a cell minted on one could only fail at model cost. The missed-forecast scan leaves out a
+  `merits-terminated` event, which was never decided: it is neither a missed
+  forecast nor a missing outcome record.
+
+  **What moves**, read 2026-10-28 from the production corpus under
+  `origin/main`'s pointer (`5e42eb35…`, latest pull 2026-10-28) and the
+  ledger at `origin/main`. Twelve open merits events on nine dockets carry a
+  termination other than the mandate notation: 19-825 (`grant-vacated`) and
+  20-429, 20-454, 20-539, 20-794, 20-1374, 20-1541, 24-413 and 25-886
+  (`voluntary-dismissal`). Only 25-886 (`scotus/73280386`,
+  `evt-order-judgment`) carries committed predictions: three forward cells
+  of run `20260816T111104Z`, one per predictor. They were never graded and
+  now never will be, and no evaluate cell is minted on them. The other cells
+  on these events are failed attempts.
+  **0 scored outcomes move**, and no base rate re-prices: a terminated row
+  was already outside the merits pool's `parsed` slice.
+
+  The runnable effect check once it is live: run-seed's merits backfill step
+  (its daily scheduled window, or a dispatch) prints `closed 12 open merits
+  event(s) without an outcome` on its first run after the carrying promotion
+  and `closed 0` after; `uv run fedcourts backfill-merits-judgments` (a dry
+  run, where the corpus is pulled) prints `would close 12` before it; and `uv
+  run pytest tests/test_judgment.py tests/test_outcome.py
+  tests/test_evaluate_backlog.py tests/test_missed_forecasts.py -k
+  "terminat or without_an_outcome"` is green.
+
 - **`proc-v14`: the predict and evaluate prompts take the flag vocabulary,
   the harness clock and the call-for-response moment; recorded 2026-10-28.**
   Carried to `main` by `<FILL: promotion tag>` (merge `<FILL: merge sha>`,
@@ -14402,7 +14532,9 @@ freeze commit is recorded here.
     it knows what it is.
 
   **What moved, in the evaluate prompt.** The same `created_at`, corpus
-  command, flag vocabulary and `cutoff: null` lines; the `vote_accuracy`
+  command, flag vocabulary and `cutoff: null` lines; what an `outcome_only`
+  retrieval-log row means (a call whose ending the log carried but not its
+  result); the `vote_accuracy`
   completeness rule in both places it is described; and the claim-set names,
   which now read `interim-v2` and `merits-v2`. That pays the amendment debt
   the `proc-v12` entry left for the next label to move the judges.
@@ -14478,9 +14610,9 @@ freeze commit is recorded here.
   | `claude-baseline` | `sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d` (`proc-v13`) | `sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf` (new) |
   | `codex-baseline` | `sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354` (`proc-v13`) | `sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6` (new) |
   | `gemini-baseline` | `sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745` (`proc-v13`) | `sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583` (new) |
-  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | `sha256:e5778ad8476ee03e1966f338cd3ebc6a94f9130a822fdf16c83ddaebb1d6084d` (new) |
-  | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | `sha256:dc766d90dcd66a3b702486fd02e2d6b80950f37ba638a66743865d303dd5a990` (new) |
-  | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | `sha256:4a70cd5870d165cc41b878164ab15fc67e7792a17bb2dcffc9097e15445a9a1c` (new) |
+  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | `sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec` (new) |
+  | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | `sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30` (new) |
+  | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | `sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9` (new) |
 
   **Step 0.** At `origin/main` `a0a526439` (`2026-10-28T21:01:15Z`), `git grep
   -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of

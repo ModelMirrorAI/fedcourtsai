@@ -519,6 +519,11 @@ def derive_evaluate_backlog(
     # backend that fetches by range.
     resolved_by_case: dict[str, list[str]] = {}
     for event in corpus.iter_resolved_events(conn, court="scotus"):
+        # A merits event closed because its proceeding ended with nothing
+        # decided has no outcome to grade against, whatever predictions it
+        # holds; it owes no grading.
+        if event.resolved_without_outcome_reason == corpus.NO_OUTCOME_MERITS_TERMINATED:
+            continue
         resolved_by_case.setdefault(event.case_id, []).append(event.event_id)
     candidates: list[corpus.CorpusRow] = []
     for case_id in resolved_by_case:

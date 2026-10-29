@@ -84,6 +84,7 @@ KNOWN_WRITER_JOBS = {
     ("run-repair.yml", "repair"),
     ("run-repair.yml", "applications"),
     ("run-repair.yml", "decision-record"),
+    ("run-repair.yml", "documents"),
     ("run-repair.yml", "opinion-record"),
 }
 
@@ -241,22 +242,19 @@ def test_a_repair_dry_run_holds_the_read_only_role_and_no_write_credential() -> 
     and not the `corpus-write` lock a scheduled writer window queues on; nor
     does it publish a verdict over a blob nobody committed. Each read-only
     grant's condition is its read-write twin's with the mode test negated, so
-    exactly one role is assumed at the opening and at the OCR re-mint."""
+    exactly one role is assumed."""
     apply = "inputs.repair_mode == 'apply'"
     for name in (
         "Mint app token",
         "Configure git identity",
         "Configure AWS credentials (corpus S3 remote, read-write)",
-        "Mint app token (OCR pass)",
-        "Configure AWS credentials (corpus S3 remote, read-write, OCR pass)",
         "Produce + publish the corpus validation verdict",
     ):
         assert apply in _repair_step(name)["if"], name
-    for suffix in ("", ", OCR pass"):
-        write = _repair_step(f"Configure AWS credentials (corpus S3 remote, read-write{suffix})")
-        step = _repair_step(f"Configure AWS credentials (corpus S3 remote, read-only{suffix})")
-        assert step["if"] == write["if"].replace(apply, "inputs.repair_mode != 'apply'"), suffix
-        assert step["with"]["role-to-assume"] == "${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}"
+    write = _repair_step("Configure AWS credentials (corpus S3 remote, read-write)")
+    step = _repair_step("Configure AWS credentials (corpus S3 remote, read-only)")
+    assert step["if"] == write["if"].replace(apply, "inputs.repair_mode != 'apply'")
+    assert step["with"]["role-to-assume"] == "${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}"
     group = _repair_job()["concurrency"]["group"]
     assert f"&& {apply} && 'corpus-write' ||" in group
 
