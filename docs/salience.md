@@ -485,19 +485,14 @@ Three things about the artifact's shape decide what may be read off it:
   from the conference count and a pending docket has had fewer conferences —
   band and maturity are correlated by construction.
 
-It is produced by `run-analytics`'s **`census`** mode ([pipeline.md](pipeline.md)),
-which pulls the corpus under the read-only role, runs the command over that
-frame, and uploads the JSON as a run artifact beside the step summary — the
-review is conducted over a file with a `corpus_sha256` in it, so it says which
-corpus state it is re-derivable against and outlives the run page. `dist-v1`
-against `dist-v2` are the dispatch defaults; both parse labels are inputs, so
-once a further reading is registered it is argued from the same surface with no
-workflow change — and because `dist-v2` is now the incumbent, a dispatch left on
-those defaults reads the activation backwards rather than arguing a candidate,
-which is a re-derivable check on what the flip moved but not a review of
-anything. The band function is not a *dispatch* input — the workflow
-reads against the active scorer, though the command itself takes `--version`
-and defaults to it.
+It is produced by running the command where the corpus is pulled, read-only:
+a dev checkout or the corpus environment, or the corpus-check lane for a pull
+request without corpus access (`distribution-census` is on its auto allowlist).
+The review is conducted over the JSON, which carries a `corpus_sha256`, so it
+says which corpus state it is re-derivable against. Both parse labels are
+arguments, so once a further reading is registered it is argued with no code
+change. The band function defaults to the active scorer, and `--version` names
+another.
 
 On the command, only the **incumbent** parse defaults. `--baseline-parse`
 follows `DEFAULT_DISTRIBUTION_PARSE` because the registry names the incumbent;

@@ -1040,8 +1040,7 @@ so the pace measured over two complete batches is 76–128 turns for the same
 argument for leaving the ceiling where it is rather than for raising it: the
 clock cannot rise without the step cap rising first, the turn count varies by
 nearly two to one across two runs of the same size, and the next complete run's
-minutes are the number that would re-derive the headroom. `claude-haiku-4-5`
-is no datum for either bound: its one run ended after 200 rows. The default,
+minutes are the number that would re-derive the headroom. The default,
 `claude-opus-5-5`, has not run a batch yet, so its first run, complete or
 cut off by the clock, is the one that measures its pace. The labeling
 prompt states its budget as "whatever the extract holds" for the same reason —
