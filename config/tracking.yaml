@@ -26,10 +26,13 @@ pull:
   # Reserve up to this many of each run's slots for the stalest SCOTUS dockets
   # (the prediction scope), so the in-scope set rotates ahead of the much larger
   # general active set and new docket activity is caught before a case resolves.
-  # Unused slots fall through to the normal rotation, so it never wastes budget —
-  # a large reserve is safe: it only bites when the SCOTUS-open pool is big
-  # enough to fill it, which is exactly when prediction should get priority.
-  eligible_refresh_reserve: 20
+  # Unused slots fall through to the normal rotation, so it never wastes budget.
+  # It equals max_cases_per_run, so the general rotation runs only when the
+  # SCOTUS-open pool cannot fill a run. That rotation leads with never-pulled
+  # bulk-loaded circuit dockets, and pull_case pages every docket entry, so one
+  # circuit docket with hundreds of entry pages takes a whole run's hourly
+  # budget, never completes, and leads the rotation again next window.
+  eligible_refresh_reserve: 30
   # Discover newly-filed dockets in the tracked courts since the last run.
   # OFF: the live channel's frontier probing onboards newly filed SCOTUS
   # petitions (fresher, budget-free), and circuit discovery onboarded cases
@@ -96,6 +99,15 @@ live:
   # away). A third of max_cases_per_run; at twelve cycles a day that drains at
   # most ~600 overdue dockets a day.
   max_overdue_per_run: 50
+  # Slots of each cycle kept for rows the live channel has never polled,
+  # oldest Term first, so a row the historical walker skipped (undecided when
+  # walked, or never served) is still reached: the Term tiers lead with recent
+  # Terms, which always fill the cap. Taken only from what the overdue and
+  # distributed rows leave, so it never delays an order-list re-read. Only the
+  # row its docket number resolves to qualifies, so a caption-only upstream
+  # duplicate is never polled into a second full row. At twelve cycles a day,
+  # 10 slots reach up to ~120 rows a day; 0 disables the reserve.
+  never_polled_reserve_per_run: 10
   # Days after a conference by which its order list has issued: the Monday
   # after a Friday conference (Tuesday after a Monday holiday), the first
   # Monday of October after the long conference. A still-pending petition polled later than this past its

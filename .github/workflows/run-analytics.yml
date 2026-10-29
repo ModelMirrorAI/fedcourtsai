@@ -13,22 +13,13 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #   - corpus-stats:    aggregate disposition base-rates over the packed corpus
 #                      (`fedcourts stats`) — the "what's the grant rate for X"
 #                      question. Reads the corpus read-only via a full pull.
-#   - census:          the distribution-parse census (`fedcourts
-#                      distribution-census`) — what re-reading the DISTRIBUTED
-#                      phrase would move, case by case and band by band
-#                      (`docs/salience.md`). Read-only like corpus-stats, but
-#                      its JSON is the review of record a version pinning a new
-#                      parse is read from, so it is uploaded as a run artifact
-#                      as well as summarised, and it walks the whole live slice
-#                      one snapshot at a time — much the longest of the
-#                      read-only modes.
 #   - text-coverage:   enumerate document text coverage over the content store
 #                      (`fedcourts corpus-info --text-coverage`) — which stored
 #                      documents carry no text and which queued cases hold no
 #                      primary document for their docket form, with the
 #                      untruncated case-id
 #                      ledgers the OCR pass and the document backfill work
-#                      from. Read-only like the census and sized like it: the
+#                      from. Read-only like corpus-stats, but much longer: the
 #                      walk is a store round trip per live-slice case.
 #   - metrics-refresh: regenerate the committed deterministic artifacts
 #                      (leaderboard / claim scores / backtest / statpack / the
@@ -87,19 +78,18 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      buys nothing (no RECAP Fetch), and leaves its report as
 #                      a run artifact.
 #
-# The read-only analysis modes (corpus-stats, census, text-coverage, tool-usage, order-scan, decision-below) write neither the
+# The read-only analysis modes (corpus-stats, text-coverage, tool-usage, order-scan, decision-below) write neither the
 # corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
-# result goes to the Actions step summary and the run log, and the census's machine
-# JSON additionally to a run artifact, because a review of record has to outlive the
-# summary page it is read beside — and text-coverage's ledgers to an artifact for
-# the same reason, as do order-scan's and decision-below's reports. The four committing modes write only under their own
+# result goes to the Actions step summary and the run log, and text-coverage's ledgers
+# additionally to a run artifact, because a worklist has to outlive the summary page
+# it is read beside — as do order-scan's and decision-below's reports. The four committing modes write only under their own
 # paths — metrics-refresh under `metrics/` + `data/scope/`, big-cases under
 # `metrics/big-cases.*`, public-updates under `metrics/updates/`, qp-topic-label
 # under `data/qp-topics/` — and land the change as a PR to `main`, reviewed
 # except for the board's and the update history's (argued at those jobs).
 # GitHub scopes permissions and tokens per **job**, so each mode runs as its own
 # least-privilege job gated on `mode` and none is ever granted another's credential:
-# corpus-stats, distribution-census, text-coverage and qp-topic-extract hold only the read-only S3
+# corpus-stats, text-coverage and qp-topic-extract hold only the read-only S3
 # role; decision-below holds that role and the CourtListener token, on its one
 # measuring step; metrics-refresh holds that role *and* mints the dev App token (contents + PR
 # write) for its review PR; qp-topic-label, big-cases and public-updates mint the
@@ -159,7 +149,6 @@ on:
         type: choice
         options:
           - corpus-stats
-          - census
           - text-coverage
           - metrics-refresh
           - big-cases
@@ -171,7 +160,7 @@ on:
           - decision-below
         default: corpus-stats
       label_model:
-        description: "qp-topic-label and qp-topic-label-applications: the model the Claude Code labeler runs (ignored by the other modes)."
+        description: "qp-topic-label modes only: the labeler's model."
         # A choice, not a free string: the value is spliced into the agent's own
         # `claude_args` block, where a newline would append flags the mode's
         # contract withholds (an `--mcp-config` line would hand a text-only
@@ -179,8 +168,6 @@ on:
         # artifact's provenance, so a closed set keeps that field well-formed.
         type: choice
         options:
-          - claude-haiku-4-5-20251001
-          - claude-sonnet-4-6
           - claude-fable-5
           - claude-opus-5-5
         default: claude-opus-5-5
@@ -191,44 +178,29 @@ on:
         type: string
         default: ""
       topic:
-        description: "corpus-stats: restrict to one exact nature-of-suit / topic. Empty = all."
+        description: "corpus-stats: restrict to one exact topic (nature of suit). Empty = all."
         type: string
         default: ""
       disposition:
-        description: "corpus-stats: restrict to one realized outcome label (e.g. granted). Empty = all."
+        description: "corpus-stats: restrict to one outcome label (e.g. granted). Empty = all."
         type: string
         default: ""
       group_by:
-        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition / originating_court / era / relist_bucket / cvsg / fee_class / capital_case / salience_band. Empty = overall only."
+        description: "corpus-stats: group base rates by court, topic, judge, term_year, disposition, originating_court, era, relist_bucket, cvsg, fee_class, capital_case or salience_band. Empty = overall."
         type: string
         default: ""
       term:
-        description: "corpus-stats: restrict to one SCOTUS October-Term year, e.g. 2024. Empty = all Terms."
+        description: "corpus-stats: restrict to one October Term (e.g. 2024). Empty = all."
         type: string
         default: ""
-      # census inputs (ignored by every other mode). Both name a distribution
-      # parse registered in `pipeline.cert_signals.DISTRIBUTION_PARSES`; an
-      # unregistered label fails the command with the registered set printed,
-      # so a typo costs a run rather than producing a mislabelled census. The
-      # salience version whose band function bands both counts is not exposed:
-      # the census is read against the active one, and dispatching a different
-      # version is a code change (registering it), not a run-time choice.
-      census_baseline_parse:
-        description: "census: the registered distribution parse counted as the incumbent."
-        type: string
-        default: dist-v1
-      census_candidate_parse:
-        description: "census: the registered distribution parse counted against the incumbent."
-        type: string
-        default: dist-v2
 
 # Least privilege by default; each job widens only to what its mode needs.
 permissions: {}
 
 # Concurrency is per-job (not workflow-level): corpus-stats cancels a superseded
 # run of itself, while a metrics refresh or a labeling run must never be
-# cancelled mid-PR (or mid-agent) by an unrelated analysis dispatch. The census,
-# text-coverage and order-scan each take their own never-cancelled group: a
+# cancelled mid-PR (or mid-agent) by an unrelated analysis dispatch. Text-coverage
+# and order-scan each take their own never-cancelled group: a
 # cancelled job runs no upload step, and the artifact is what those modes exist
 # to produce. The corpus analysis jobs are read-only, so their overlap costs
 # nothing; order-scan's costs CourtListener requests on the one account every
@@ -353,169 +325,6 @@ jobs:
             --term "$TERM_YEAR" \
             --summary-out "$GITHUB_STEP_SUMMARY"
 
-  distribution-census:
-    needs: [authorize]
-    # What re-reading the DISTRIBUTED phrase would move, case by case and band by
-    # band — the input-level cut a statistical review reads before any salience
-    # version pins a new parse (docs/salience.md). Read-only on exactly
-    # corpus-stats's terms: the read-only role, no contents:write, no App token,
-    # nothing written to git or to the corpus remote. What it adds is durability
-    # — the JSON *is* the review, so it leaves the runner as an artifact rather
-    # than living only on a summary page.
-    if: >-
-      ${{ inputs.mode == 'census'
-      && needs.authorize.result == 'success'
-      && (needs.authorize.outputs.attempt == github.run_attempt
-      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
-    runs-on: ubuntu-26.04
-    # What bounds this job is the credential clock, not the wall clock. The
-    # census walks the gate's scored segment and, with the corpus-split mode on,
-    # takes a latest-snapshot read per frame case — one `snapshots/` listing plus
-    # a get per snapshot walked past to reach the newest live-shaped one, so two
-    # round trips is the floor and not the term — serially, because no bounded
-    # prefetch serves this loop.
-    # Against corpus-stats's 20-minute budget for the same pull and the same scan
-    # with no per-case fetch, that is the dominant term by far. The composite's
-    # credentials are static (boto3 cannot refresh them), so the scan step's cap
-    # must sit inside the credential window `role-duration-seconds` grants below
-    # — the step then fails first, legibly, inside the session, instead of dying
-    # mid-walk on ExpiredToken with no artifact and an error naming the wrong
-    # cause. An 8100-second session, a 110-minute step, a 125-minute job.
-    timeout-minutes: 125
-    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
-    # Its own group, never cancelled: a cancelled census runs no upload step,
-    # so the artifact the mode exists to produce is lost to a sibling
-    # corpus-stats dispatch. Both jobs are read-only, so overlap is harmless.
-    concurrency:
-      group: run-analytics-census-${{ github.ref_name }}
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      id-token: write # assume the read-only AWS role to pull the corpus
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - uses: ./.github/actions/setup-python-env
-        with:
-          restore-cache: "false"
-
-      # The census counts real snapshots, so the corpus must be on disk. No
-      # contents:write, no App token: this job cannot touch git or the corpus.
-      - uses: ./.github/actions/corpus-readonly
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_TO_ASSUME_READONLY }}
-          aws-region: ${{ vars.AWS_REGION }}
-          corpus-base-url: ${{ vars.CORPUS_BASE_URL }}
-          # The out-of-band staging index pointer, forwarded only off `main`:
-          # a staging-bound pull must resolve the staging pair's own digest —
-          # the committed corpus/corpus.db.ref names the production blob,
-          # which the staging remote does not hold — while a prod-bound run
-          # stays on the committed pointer even if the variable ever appears
-          # at repository scope. `ref_name`, the environment expression's own
-          # key, so the fence is its exact complement: whatever binds `prod`
-          # forwards nothing. (The publish fences use the stricter exact-ref
-          # spelling instead — under-inclusion is safe there, not here.)
-          corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
-          # Covers the census step's cap below plus everything before it —
-          # checkout, env sync, up to 120s of assume-role retry, and the
-          # composite's own uncapped corpus pull — so the step cap, not the
-          # credential clock, is what a too-long scan hits. Needs the
-          # read-only role's IAM maximum session duration to allow it; an
-          # excess request fails at the assume step inside its 120s action
-          # timeout (the STS reason is in the retry lines, the terminal
-          # error is the timeout), not at the hour mark.
-          role-duration-seconds: "8100"
-
-      - name: Census the distribution parses
-        timeout-minutes: 110
-        env:
-          # Both parse labels pass through the environment rather than the shell
-          # line, as the corpus-stats filters do, so a maintainer-supplied value
-          # cannot inject commands; an unregistered label exits 2 with the
-          # registered set printed.
-          BASELINE_PARSE: ${{ inputs.census_baseline_parse }}
-          CANDIDATE_PARSE: ${{ inputs.census_candidate_parse }}
-          # The corpus estate's base URL: the pulled
-          # corpus.db is a payload-free index and each case's latest live
-          # snapshot comes from the per-case content store the same base
-          # derives. Load-bearing here, not defensive: the census reads a
-          # snapshot per case, so an unaddressed store leaves a payload-free
-          # blob with no snapshot anywhere and reports the whole frame
-          # `unobservable` — a census that is silently empty rather than one
-          # that fails.
-          FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
-        run: |
-          set -euo pipefail
-          out="$RUNNER_TEMP/distribution-census.json"
-          # The machine DistributionCensus JSON goes to stdout, the headline and
-          # the occupied band transitions to stderr (the run log). Capture stdout
-          # to the file the upload step publishes, and summarise from that file
-          # so the page and the artifact can never disagree.
-          uv run fedcourts distribution-census \
-            --baseline-parse "$BASELINE_PARSE" \
-            --candidate-parse "$CANDIDATE_PARSE" \
-            > "$out"
-          {
-            echo "### Distribution-parse census"
-            echo
-            jq -r '
-              "| field | value |",
-              "| --- | --- |",
-              "| baseline parse | `\(.baseline_parse)` |",
-              "| candidate parse | `\(.candidate_parse)` |",
-              "| salience version | `\(.salience_version)` |",
-              "| corpus sha256 | `\(.corpus_sha256)` |",
-              "| frame cases (observable) | \(.cases) |",
-              "| unobservable | \(.unobservable) |",
-              "| count changed | \(.count_changed) |",
-              "| band changed | \(.band_changed) |"
-            ' "$out"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-          # The whole JSON belongs on the page too, but the step summary is
-          # capped at 1 MiB and the census carries a complete case-id list per
-          # changed set — deliberately, since the review checks the shifted
-          # dockets one by one. So a large census is pointed at the artifact
-          # instead of truncating the page or failing the summary write.
-          size=$(wc -c < "$out")
-          if [ "$size" -le 524288 ]; then
-            {
-              echo '```json'
-              cat "$out"
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Census JSON is ${size} bytes — over the step-summary budget; read it from the \`distribution-census\` run artifact." \
-              >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Upload the census
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: distribution-census
-          path: ${{ runner.temp }}/distribution-census.json
-          if-no-files-found: error
-          # The review of record for a parse pinning has to outlive the run page
-          # it is first read beside — a statistical review and the follow-up it
-          # provokes do not fit in the extract's single day — and the file
-          # carries the `corpus_sha256` that says which corpus state it is
-          # re-derivable against.
-          #
-          # What the window costs is a disclosure, and it is not the extract's:
-          # this republishes no stored document text, only counts, band labels,
-          # and the changed cases' ids. Those ids name ingested dockets by
-          # public docket number — the compilation-extent boundary
-          # `docs/security.md` bounds with a one-day window on the other
-          # analytics run artifacts — so this artifact rides the same one-day
-          # window, named in that inventory. The census is deterministic over
-          # the blob (the JSON carries its corpus_sha256), so the re-read path
-          # after the day is a re-dispatch, not a longer window; this
-          # repository is public, and a run artifact is downloadable by any
-          # logged-in user for as long as it exists.
-          retention-days: 1
-
   tool-usage:
     needs: [authorize]
     # Which configured MCP tools cells actually call. Reads `data/` only — no
@@ -563,7 +372,7 @@ jobs:
       && (needs.authorize.outputs.attempt == github.run_attempt
       || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
     runs-on: ubuntu-26.04
-    # The credential clock bounds this job the census's way: the walk reads the
+    # What bounds this job is the credential clock, not the wall clock: the walk reads the
     # documents of every live-slice case — under the split a content-store
     # manifest round trip per case plus a text body per stored document, on the
     # CLI's own bounded reader pool — so the session must outlast the step cap
@@ -608,9 +417,12 @@ jobs:
           corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
           # Covers the walk's cap below plus everything before it — checkout,
           # env sync, up to 120s of assume-role retry, and the composite's own
-          # uncapped corpus pull — the census's sizing, for the census's
-          # reason: the step cap, not the credential clock, is what a too-long
-          # walk hits.
+          # uncapped corpus pull — so the step cap, not the credential clock,
+          # is what a too-long walk hits. Needs the read-only role's IAM
+          # maximum session duration to allow it; an excess request fails at
+          # the assume step inside its 120s action timeout (the STS reason is
+          # in the retry lines, the terminal error is the timeout), not at the
+          # hour mark.
           role-duration-seconds: "8100"
 
       - name: Enumerate document text coverage
@@ -630,8 +442,7 @@ jobs:
           # The report is line-oriented: the four self-limiting header lines
           # and the kind x segment cuts, then the three untruncated case-id
           # ledgers. The whole of it is the artifact — the ledgers are the
-          # worklists, and the artifact outlives the run page the way the
-          # census's does. The step summary gets only the part above the
+          # worklists, and the artifact outlives the run page. The step summary gets only the part above the
           # ledgers, which on a large corpus would overflow the page.
           #
           # EVERY ledger header belongs in the sentinel, not just the first: a
@@ -2875,7 +2686,7 @@ jobs:
   # not pass or this attempt is neither the one the gate judged nor a re-run by
   # a login the gate published. No checkout, no token, no environment.
   run-gate:
-    needs: [authorize, corpus-stats, distribution-census, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-extract, qp-topic-label, qp-topic-publish, order-scan, decision-below]
+    needs: [authorize, corpus-stats, tool-usage, text-coverage, metrics-refresh, big-cases, public-updates, qp-topic-extract, qp-topic-label, qp-topic-publish, order-scan, decision-below]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5

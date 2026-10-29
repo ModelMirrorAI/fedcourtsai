@@ -55,19 +55,15 @@ on:
     inputs:
       refresh_terms:
         description: >-
-          Re-open past Terms before walking: space-separated two-digit October
-          Terms (e.g. "17 18 19"), or "all" for every configured Term. Leave
-          blank — the default, and what every scheduled run uses — to resume
-          normally. Clears the walk cursors so the Terms are re-covered from the
-          numbering base; re-walking adds through the corpus latches and deletes
-          nothing.
+          Re-walk past Terms from the start: two-digit October Terms (e.g.
+          "17 18 19") or "all". Blank (default) resumes normally. Adds through
+          the corpus latches and deletes nothing.
         required: false
         default: ""
       refresh_streams:
         description: >-
-          Which numbering stream the refresh re-opens. IFP is ~70% of the probe
-          cost and feeds no scored segment, so prefer paid when the goal is the
-          predicted population. Ignored when refresh_terms is blank.
+          Stream refresh_terms re-opens. IFP is ~70% of the probe cost and
+          feeds no scored segment, so prefer paid for the predicted population.
         required: false
         default: historical-paid
         type: choice
@@ -75,20 +71,18 @@ on:
           - historical-paid
           - historical-ifp
           - both
+      # `refresh_dockets` is for rows already known and enumerated:
+      # `refresh_terms` costs a Term's entire serial range to reach a handful of
+      # dockets. Each number is re-served and re-ingested through the walk's own
+      # path, adding through the corpus latches exactly as a re-walk does, and
+      # is grammar-checked all-or-nothing before anything runs. Applications
+      # ("22A123") and original-docket numbers are separate sequences this path
+      # does not serve. Every scheduled run leaves both blank.
       refresh_dockets:
         description: >-
-          Re-snapshot named dockets without re-walking their Terms: Term-form
-          SCOTUS docket numbers, one per line or space-separated (e.g.
-          "22-451 23-1234"). Leave blank —
-          the default, and what every scheduled run uses. For the case where the
-          rows needing a fresh read are known and enumerated; `refresh_terms`
-          above is the instrument when a whole population needs re-reading, and
-          it costs a Term's entire serial range to reach a handful of dockets.
-          Each number is re-served and re-ingested through the walk's own path,
-          adding through the corpus latches exactly as a re-walk does, and no
-          walk cursor moves — a targeted re-read is not a rewind. Grammar-checked
-          all-or-nothing before anything runs; applications ("22A123") and
-          original-docket numbers are separate sequences this path does not serve.
+          Re-snapshot named SCOTUS petitions without re-walking their Terms,
+          space-separated (e.g. "22-451 23-1234"). No applications or original
+          dockets. Moves no walk cursor; one bad number refuses the list.
         required: false
         default: ""
         type: string

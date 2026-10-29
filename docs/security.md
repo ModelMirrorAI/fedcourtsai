@@ -942,9 +942,11 @@ promotion gate's `contexts` stage checks the environment
 time): it exists, its required reviewers are exactly the approver — no other
 user, no team — its branch policy admits exactly `main`, it holds no secret,
 and its variables are among the three above. The stage runs by hand with an
-admin-read token: after any settings change, and on any promotion its
-`contexts-due` verdict marks *due* (*Promotion* in
-[pipeline.md](pipeline.md)). The lane's plan job reads the environment too, with its
+admin-read token: after any settings change, and on a promotion its
+`contexts-due` verdict marks *due* because it changes the approver
+(`config/corpus-check.yaml` or `corpus_check.py`) or the check itself
+(*Promotion* in [pipeline.md](pipeline.md) says when a *due* verdict can be
+skipped). The lane's plan job reads the environment too, with its
 `actions: read` grant, and plans nothing while the reviewer or the policy is
 missing; it cannot see secrets or variables, so the gate is the check that
 holds.
@@ -1569,8 +1571,8 @@ pair the third one writes:
   head, and its `run-auto` job, whose pull serves an allowlisted query run at
   `main`'s own commit. Two operational facts ride this role. Its IAM **maximum
   session duration** must allow the sessions its callers request —
-  `run-backtest`'s replay job asks for 21600 s (6 h), the census for 8100 s —
-  because a
+  `run-backtest`'s replay job asks for 21600 s (6 h), `run-analytics`'
+  text-coverage job for 8100 s — because a
   re-provisioned role at the AWS default hour fails both at their first
   credentialed step. (`run-backtest` calls the composite twice: its cadence
   `plan` job pulls the index at the composite's default hour and reads it
@@ -1608,7 +1610,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-repair` — corpus job | read-only on a dry run, read-write on an apply | a dry run pulls the index, applies the dedupe (and, for the overhang clear, the scope reconcile) to the runner's copy alone and tees the pass's ledger: no App token, no `corpus-write` lock, the remote-writes switch off, no push. An apply holds the lock, the read-write role and the App token for the whole job. The dry run narrows what is held, not what is reachable: the job still binds `corpus-write` with `id-token: write`, so any step can still mint the read-write role. No pass in it fetches or parses third-party content |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull). A forward predict cell's provisioning step also fetches its docket's current JSON from the Court (the pre-mint poll), and a post-run step holding no credential fetches it once more, both through the live poller's client, which refuses any hop off the Court's host; each payload is only scanned for the event's outcome, never stored or handed to the cell |
-| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store; the text-coverage mode reads wider on the same terms — a document-manifest round trip per live-slice case plus each stored document's text body |
+| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the text-coverage mode additionally reads the content store under the split — a document-manifest round trip per live-slice case plus each stored document's text body |
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
@@ -1851,8 +1853,8 @@ env-configured `ranged` backend; an explicit
 per-command `--corpus-backend` is the only thing that still wins), and the
 casestore read path *does* list (`s3:ListBucket`) — a latest-snapshot-style
 read lists a case's `snapshots/` to find the newest (`provision-snapshot`, the
-writer's own change detection, the signal backfill, and the distribution census
-`run-analytics` dispatches, which takes one such read per frame case — one
+writer's own change detection, the signal backfill, and the
+`distribution-census` command, which takes one such read per frame case — one
 listing each, and a get per snapshot it walks past to reach the newest
 live-shaped one), while
 pure `GetObject` reads (`materialize-event`'s event/document reads, document
@@ -1926,12 +1928,7 @@ stripping mechanism, since the summary tees the command's stderr verbatim; and
 the labeling job's label-line count, which is arithmetic computed from the
 file rather than anything read out of it, and is therefore the one record that
 needs no scan ahead of it. A fourth run artifact rides the same one-day
-window: the `distribution-census` JSON, which republishes no document text —
-counts, band labels, and changed-case ids only — but whose id lists name
-ingested dockets by public docket number, membership conditioned on a parse
-delta (the case's DISTRIBUTED count reads differently under the candidate
-parse), re-derivable on a re-dispatch against the corpus sha it records. A
-fifth rides the same window on the same terms: the `text-coverage` report,
+window: the `text-coverage` report,
 which also republishes no document text — counts, kinds, and three untruncated
 case-id ledgers, the empty-text documents (fetch-conditioned membership whose
 extent tracks corpus growth), the queued cert-form cases holding no petition row
@@ -1940,7 +1937,7 @@ grant-correlated cut argued above) and the queued application-form cases holding
 no application document (membership conditioned on the interim lane's own
 predict-queue decision, which turns on the ask being substantive rather than on
 any grant-correlated cut, and is the weaker of the two) — re-derivable on a
-re-dispatch over the blob its own vintage lines name. A sixth rides the same
+re-dispatch over the blob its own vintage lines name. A fifth rides the same
 window: the `order-scan` report, which names district dockets the corpus does
 not hold, by court, docket id, number and filing date, with the numbers and
 dates of the entries a RECAP search matched and the order kinds read from them.
@@ -1953,7 +1950,7 @@ Its job holds the CourtListener token and, on the runtime token, `actions:
 read`, used only to fetch the previous run's report so the scan resumes: the
 fetch takes the newest unexpired `order-scan` artifact from the same ref,
 checks that its run is a dispatch of `run-analytics`, and extracts the one
-report file by name. A seventh rides it too: the `decision-below` report,
+report file by name. A sixth rides it too: the `decision-below` report,
 which names, for each sampled cert petition, the identifiers and dates its
 stored supremecourt.gov docket carries (the SCOTUS number, the lower court's
 name and case numbers, the judgment and rehearing-denied dates), the lower

@@ -59,7 +59,7 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: "Plan at most this many owed cases, cases without a summary first (0 = every owed case)."
+        description: "Plan at most this many owed cases, unsummarized first (0 = all)."
         type: number
         default: 0
 

@@ -60,21 +60,17 @@ on:
     inputs:
       dockets:
         description: >-
-          The slice, one `<court>/<docket>` case id per line — spaces work
-          too, and are what the dispatch form's single-line field gives you.
-          Every id is matched against the case-id grammar before anything
-          runs, and the whole list is refused if any line fails. Pick cases
-          that are real specimens of what the scenarios read: an undisposed
-          SCOTUS petition with an open event and a stored snapshot is the
-          shape `integration-test.yml` targets.
+          `<court>/<docket>` case ids, one per line (spaces work too). One bad
+          id refuses the list. integration-test targets undisposed SCOTUS
+          petitions with an open event and a stored snapshot.
         required: true
         type: string
+      # Read a previous dispatch's census first: an apply run's own census is a
+      # receipt, not a reading, since nobody reads it before the write.
       apply:
         description: >-
-          Seed the staging stores. Left unset — the default — the run is a
-          dry-run census and writes nothing. Set it only after reading a
-          previous dispatch's census: an apply run's own census is a receipt,
-          not a reading, since nobody reads it before the write.
+          Seed the staging stores. Unset (default) is a dry-run census that
+          writes nothing; read one before setting this.
         required: false
         default: false
         type: boolean

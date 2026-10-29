@@ -350,6 +350,12 @@ class LiveConfig(BaseModel):
     # than this drains over several cycles instead of displacing the
     # distributed petitions, whose order-list results are due within days.
     max_overdue_per_run: int = Field(default=100, ge=1)
+    # Slots of each cycle's cap kept for rows the channel has never polled,
+    # oldest Term first. Inside the tiers the current Terms always fill the
+    # cap, so without a reserve an older Term's never-polled row is never
+    # reached. Taken only from what the overdue and distributed rows leave;
+    # 0 disables it.
+    never_polled_reserve_per_run: int = Field(default=0, ge=0)
     # Days after a conference by which its order list has issued (the Monday
     # after a Friday conference, Tuesday after a Monday holiday; the first
     # Monday of October after the long conference). A still-pending petition

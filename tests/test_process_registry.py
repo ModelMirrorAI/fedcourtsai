@@ -42,7 +42,6 @@ _SRC = Path(process_version.__file__)
 _REGISTRY_FILE = _SRC.with_name("process_registry.json")
 
 _V8 = datetime(2026, 9, 16, 0, 26, 4, tzinfo=UTC)
-_V9_MERGE = datetime(2026, 10, 11, 0, 12, 2, tzinfo=UTC)
 _V9_SINCE = datetime(2026, 10, 11, 12, 0, 0, tzinfo=UTC)
 _V10 = datetime(2026, 10, 20, 15, 24, 42, tzinfo=UTC)
 _V11 = datetime(2026, 10, 23, 2, 37, 11, tzinfo=UTC)

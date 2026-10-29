@@ -98,12 +98,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Which refresh to run (the historical walker is dispatched via run-seed.yml)"
+        description: "Which refresh to run. The historical walker is run-seed."
         type: choice
         options: [pull, live, enrich-opinions]
         default: pull
       max_cases:
-        description: "enrich-opinions only: granted dockets to walk this run (~4 API requests each; ~75 exhausts the hourly tier ceiling)"
+        description: "enrich-opinions only: granted dockets to walk (~4 API requests each; ~75 hits the hourly ceiling)."
         type: string
         default: "50"
 

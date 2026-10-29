@@ -14,6 +14,7 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 from fedcourtsai import analytics, corpus
@@ -355,8 +356,9 @@ def test_the_dispatch_input_advertises_every_dimension() -> None:
     """`run-analytics`'s `group_by` input is the surface a maintainer reads when
     dispatching, and a workflow input description cannot render from the enum —
     so it is pinned here instead, where the CLI help is pinned."""
-    described = (Path(".github") / "workflows" / "run-analytics.yml").read_text()
-    line = next(li for li in described.splitlines() if "corpus-stats: break base-rates" in li)
+    workflow = yaml.safe_load((Path(".github") / "workflows" / "run-analytics.yml").read_text())
+    triggers = workflow.get("on") or workflow.get(True)
+    line = triggers["workflow_dispatch"]["inputs"]["group_by"]["description"]
     missing = [g.value for g in analytics.STATS_DIMENSIONS if g.value not in line]
     assert not missing, f"the group_by dispatch input omits: {missing}"
 
