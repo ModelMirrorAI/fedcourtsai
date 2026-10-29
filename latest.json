@@ -1,7 +1,7 @@
 {
   "cost": {
     "actions_cost_usd": 0.0,
-    "actions_minutes": 969.9,
+    "actions_minutes": 887.8,
     "actions_monthly_usd": 0.0,
     "estimated_monthly_usd": 1485.37,
     "fixed_monthly_usd": 115.0,
@@ -21,15 +21,15 @@
           "problems": []
         },
         {
-          "checked": 2153775,
-          "detail": "2153775 rows vs baseline 2153775",
+          "checked": 2153806,
+          "detail": "2153806 rows vs baseline 2153806",
           "failures": 0,
           "name": "row_count_monotonic",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 4310961,
+          "checked": 4311027,
           "detail": "",
           "failures": 0,
           "name": "required_columns_non_empty",
@@ -37,7 +37,7 @@
           "problems": []
         },
         {
-          "checked": 2153775,
+          "checked": 2153806,
           "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
           "failures": 0,
           "name": "docket_numbers_carry_no_capital_marking",
@@ -46,23 +46,23 @@
         },
         {
           "checked": 3073,
-          "detail": "as of 2026-10-28",
+          "detail": "as of 2026-10-29",
           "failures": 0,
           "name": "snapshot_not_future_dated",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 691,
-          "detail": "granted before 2024-10-28 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
+          "checked": 693,
+          "detail": "granted before 2024-10-29 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
           "failures": 0,
           "name": "no_stale_unparsed_grants",
           "passed": true,
           "problems": []
         },
         {
-          "checked": 2153775,
-          "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-10-28); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
+          "checked": 2153806,
+          "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-10-29); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
           "failures": 66,
           "name": "case_dates_ordered",
           "passed": true,
@@ -90,7 +90,7 @@
           ]
         },
         {
-          "checked": 4307888,
+          "checked": 4307954,
           "detail": "",
           "failures": 0,
           "name": "domain_values_valid",
@@ -98,7 +98,7 @@
           "problems": []
         },
         {
-          "checked": 4310961,
+          "checked": 4311027,
           "detail": "",
           "failures": 0,
           "name": "no_duplicate_cases_or_events",
@@ -114,7 +114,7 @@
           "problems": []
         },
         {
-          "checked": 304,
+          "checked": 306,
           "detail": "",
           "failures": 0,
           "name": "minted_moments_defined_in_ledger",
@@ -122,7 +122,7 @@
           "problems": []
         },
         {
-          "checked": 29279,
+          "checked": 29281,
           "detail": "",
           "failures": 0,
           "name": "event_dirs_hold_only_ledger_entries",
@@ -226,14 +226,14 @@
           "problems": []
         }
       ],
-      "corpus_events": 2154113,
-      "corpus_rows": 2153775,
+      "corpus_events": 2154148,
+      "corpus_rows": 2153806,
       "ok": true,
       "schema_version": "1.0",
       "skipped": false
     },
     "ledger": {
-      "checked": 41125,
+      "checked": 41127,
       "invalid": 0,
       "ok": true,
       "problems": []
@@ -241,11 +241,11 @@
     "ok": true
   },
   "flags": {
-    "archived": 790,
-    "blockers": 1,
-    "cells": 91,
+    "archived": 819,
+    "blockers": 0,
+    "cells": 69,
     "harness": 19,
-    "infos": 57,
+    "infos": 41,
     "normalised_cells": 0,
     "recent": [
       {
@@ -597,62 +597,51 @@
         "schema_version": "1.0"
       }
     ],
-    "total": 114,
-    "warnings": 56,
+    "total": 85,
+    "warnings": 44,
     "window_days": 14
   },
-  "generated_at": "2026-10-28T14:16:08.575671+00:00",
+  "generated_at": "2026-10-29T08:10:59.818514+00:00",
   "health": [
-    {
-      "failures": 1,
-      "last_conclusion": "failure",
-      "last_run_at": "2026-10-27T15:44:24Z",
-      "median_seconds": 133,
-      "p95_seconds": 133,
-      "runs_considered": 1,
-      "success_rate": 0.0,
-      "successes": 0,
-      "workflow": "Dependabot Updates"
-    },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T12:42:37Z",
-      "median_seconds": 72,
-      "p95_seconds": 72,
+      "last_run_at": "2026-10-28T20:36:12Z",
+      "median_seconds": 71,
+      "p95_seconds": 71,
       "runs_considered": 1,
       "success_rate": 1.0,
       "successes": 1,
       "workflow": "Dependency Graph"
     },
     {
-      "failures": 2,
+      "failures": 4,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T14:12:51Z",
-      "median_seconds": 117,
-      "p95_seconds": 363,
-      "runs_considered": 48,
-      "success_rate": 0.9583333333333334,
-      "successes": 46,
+      "last_run_at": "2026-10-29T07:36:06Z",
+      "median_seconds": 237,
+      "p95_seconds": 388,
+      "runs_considered": 52,
+      "success_rate": 0.9230769230769231,
+      "successes": 48,
       "workflow": "ci"
     },
     {
-      "failures": 2,
-      "last_conclusion": null,
-      "last_run_at": "2026-10-28T14:12:51Z",
-      "median_seconds": 255,
-      "p95_seconds": 279,
-      "runs_considered": 53,
-      "success_rate": 0.9615384615384616,
-      "successes": 50,
+      "failures": 7,
+      "last_conclusion": "success",
+      "last_run_at": "2026-10-29T07:36:06Z",
+      "median_seconds": 254,
+      "p95_seconds": 288,
+      "runs_considered": 69,
+      "success_rate": 0.8985507246376812,
+      "successes": 62,
       "workflow": "codeql"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T13:50:51Z",
-      "median_seconds": 30,
-      "p95_seconds": 41,
+      "last_run_at": "2026-10-29T07:50:24Z",
+      "median_seconds": 29,
+      "p95_seconds": 47,
       "runs_considered": 48,
       "success_rate": 1.0,
       "successes": 48,
@@ -661,119 +650,97 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T11:54:10Z",
-      "median_seconds": 343,
-      "p95_seconds": 507,
-      "runs_considered": 3,
+      "last_run_at": "2026-10-28T19:29:53Z",
+      "median_seconds": 345,
+      "p95_seconds": 345,
+      "runs_considered": 1,
       "success_rate": 1.0,
-      "successes": 3,
+      "successes": 1,
       "workflow": "integration-test"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T12:42:32Z",
-      "median_seconds": 25,
-      "p95_seconds": 26,
-      "runs_considered": 4,
+      "last_run_at": "2026-10-29T03:38:45Z",
+      "median_seconds": 21,
+      "p95_seconds": 62,
+      "runs_considered": 14,
       "success_rate": 1.0,
-      "successes": 4,
+      "successes": 14,
       "workflow": "lint-actions"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T13:28:53Z",
-      "median_seconds": 44,
+      "last_run_at": "2026-10-29T07:30:18Z",
+      "median_seconds": 45,
       "p95_seconds": 96,
-      "runs_considered": 24,
+      "runs_considered": 17,
       "success_rate": 1.0,
-      "successes": 24,
+      "successes": 17,
       "workflow": "promotion-prep"
     },
     {
-      "failures": 1,
+      "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T14:12:51Z",
-      "median_seconds": 20,
-      "p95_seconds": 24,
-      "runs_considered": 33,
-      "success_rate": 0.9696969696969697,
-      "successes": 32,
+      "last_run_at": "2026-10-29T07:36:06Z",
+      "median_seconds": 19,
+      "p95_seconds": 46,
+      "runs_considered": 23,
+      "success_rate": 1.0,
+      "successes": 23,
       "workflow": "promotion-record"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T04:38:32Z",
-      "median_seconds": 530,
-      "p95_seconds": 530,
-      "runs_considered": 1,
+      "last_run_at": "2026-10-29T04:38:24Z",
+      "median_seconds": 309,
+      "p95_seconds": 1319,
+      "runs_considered": 4,
       "success_rate": 1.0,
-      "successes": 1,
+      "successes": 4,
       "workflow": "run-analytics"
     },
     {
       "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-10-27T15:49:19Z",
-      "median_seconds": 1904,
-      "p95_seconds": 1904,
-      "runs_considered": 1,
-      "success_rate": 1.0,
-      "successes": 1,
-      "workflow": "run-evaluate"
-    },
-    {
-      "failures": 0,
       "last_conclusion": null,
-      "last_run_at": "2026-10-28T14:14:35Z",
-      "median_seconds": 81,
-      "p95_seconds": 81,
-      "runs_considered": 2,
-      "success_rate": 1.0,
-      "successes": 1,
+      "last_run_at": "2026-10-29T08:09:30Z",
+      "median_seconds": null,
+      "p95_seconds": null,
+      "runs_considered": 1,
+      "success_rate": null,
+      "successes": 0,
       "workflow": "run-ops"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T01:14:23Z",
-      "median_seconds": 131,
-      "p95_seconds": 1756,
-      "runs_considered": 3,
+      "last_run_at": "2026-10-28T19:05:43Z",
+      "median_seconds": 124,
+      "p95_seconds": 1094,
+      "runs_considered": 2,
       "success_rate": 1.0,
-      "successes": 3,
+      "successes": 2,
       "workflow": "run-predict"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T13:21:15Z",
+      "last_run_at": "2026-10-29T07:22:57Z",
       "median_seconds": 883,
-      "p95_seconds": 2221,
-      "runs_considered": 15,
+      "p95_seconds": 2313,
+      "runs_considered": 11,
       "success_rate": 1.0,
-      "successes": 15,
+      "successes": 11,
       "workflow": "run-pull"
     },
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T14:11:16Z",
-      "median_seconds": 188,
-      "p95_seconds": 2048,
-      "runs_considered": 5,
-      "success_rate": 1.0,
-      "successes": 5,
-      "workflow": "run-repair"
-    },
-    {
-      "failures": 0,
-      "last_conclusion": "success",
-      "last_run_at": "2026-10-28T08:38:29Z",
-      "median_seconds": 2470,
-      "p95_seconds": 2471,
+      "last_run_at": "2026-10-29T02:36:49Z",
+      "median_seconds": 2279,
+      "p95_seconds": 3324,
       "runs_considered": 3,
       "success_rate": 1.0,
       "successes": 3,
@@ -782,9 +749,9 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T03:44:34Z",
-      "median_seconds": 643,
-      "p95_seconds": 643,
+      "last_run_at": "2026-10-29T03:44:35Z",
+      "median_seconds": 528,
+      "p95_seconds": 528,
       "runs_considered": 1,
       "success_rate": 1.0,
       "successes": 1,
@@ -793,21 +760,21 @@
     {
       "failures": 0,
       "last_conclusion": "success",
-      "last_run_at": "2026-10-28T13:13:01Z",
-      "median_seconds": 66,
-      "p95_seconds": 74,
-      "runs_considered": 2,
+      "last_run_at": "2026-10-29T03:22:21Z",
+      "median_seconds": 41,
+      "p95_seconds": 41,
+      "runs_considered": 1,
       "success_rate": 1.0,
-      "successes": 2,
+      "successes": 1,
       "workflow": "sync-staging"
     }
   ],
   "leakage": {
-    "assessed": 522,
+    "assessed": 354,
     "flagged": [],
     "likely": 0,
-    "none": 42,
-    "not_applicable": 479,
+    "none": 39,
+    "not_applicable": 314,
     "possible": 1,
     "window_days": 14
   },
@@ -824,7 +791,7 @@
     "calibration": {
       "accuracy": null,
       "accuracy_scored": 0,
-      "base_rate_cases": 44788,
+      "base_rate_cases": 44777,
       "deny_base_rate": 0.9509,
       "lift_over_always_deny": null,
       "mean_brier": null,
@@ -840,9 +807,9 @@
       "evaluations_retrospective_delta": 0,
       "events_predicted": 434,
       "predicted_resolved": 197,
-      "predicted_resolved_delta": 11,
+      "predicted_resolved_delta": 8,
       "predictions": 1711,
-      "predictions_delta": 139
+      "predictions_delta": 121
     },
     "forward_claim": {
       "by_predictor": {},
@@ -973,7 +940,7 @@
         }
       ],
       "documents_provisioned": 134,
-      "generated_on": "2026-10-28",
+      "generated_on": "2026-10-29",
       "next_conference": "2026-11-06",
       "next_conference_petitions": 270,
       "schema_version": "1.0",
@@ -1445,20 +1412,12 @@
     }
   },
   "tooling": {
-    "base_rate_uses": 301,
-    "corpus_query_uses": 49,
+    "base_rate_uses": 247,
+    "corpus_query_uses": 46,
     "gaps": [
       {
         "count": 2,
-        "label": "General web calls returned no usable content."
-      },
-      {
-        "count": 2,
         "label": "General-precedent web calls returned no usable content."
-      },
-      {
-        "count": 2,
-        "label": "Generic web calls returned no usable content."
       },
       {
         "count": 2,
@@ -1478,15 +1437,23 @@
       },
       {
         "count": 1,
-        "label": "A citation-only CourtListener search returned an irrelevant reporter match; adding the case name, court, and historical date bound located the intended opinion."
-      },
-      {
-        "count": 1,
         "label": "A corpus filter on granted merits questions or statutory/Guideline provisions would help surface functionally analogous merits priors."
       },
       {
         "count": 1,
         "label": "A dedicated flag on fedcourts query to filter specifically by application_kind=substantive or counsel_of_record would reduce egress when comparing Solicitor General emergency applications."
+      },
+      {
+        "count": 1,
+        "label": "A filter in `fedcourts query` for rows with non-null `merits_judgment` (or `--stage merits`) would make retrieving resolved merits judgment priors faster without scanning recent undecided grants."
+      },
+      {
+        "count": 1,
+        "label": "A filter on fedcourts query for substantive applications only (excluding extension applications when --include-applications is passed) or by escalation signals (e.g., --response-requested) would make retrieving comparable interim-docket priors more targeted."
+      },
+      {
+        "count": 1,
+        "label": "A flag on fedcourts query to search SCOTUS dockets by attorney or amicus party name"
       }
     ],
     "helpful": [
@@ -1495,24 +1462,16 @@
         "label": "metrics/statpack.md"
       },
       {
-        "count": 6,
+        "count": 5,
         "label": "run_shell_command"
-      },
-      {
-        "count": 4,
-        "label": "mcp_courtlistener_search"
-      },
-      {
-        "count": 3,
-        "label": "Blinded candidate artifacts"
-      },
-      {
-        "count": 3,
-        "label": "Blinded predictions and separate rationale and forecast documents"
       },
       {
         "count": 3,
         "label": "Provisioned blinded candidate directories with captured retrieval_log.json"
+      },
+      {
+        "count": 3,
+        "label": "mcp_courtlistener_search"
       },
       {
         "count": 3,
@@ -1529,6 +1488,14 @@
       {
         "count": 3,
         "label": "statpack base rates"
+      },
+      {
+        "count": 2,
+        "label": "Blinded prediction and rationale pairs"
+      },
+      {
+        "count": 2,
+        "label": "Blinded predictions and separate rationale and forecast documents"
       }
     ],
     "recent": [
@@ -1727,7 +1694,7 @@
         "used_corpus_query": false
       }
     ],
-    "reports": 431,
+    "reports": 332,
     "window_days": 14
   }
 }
