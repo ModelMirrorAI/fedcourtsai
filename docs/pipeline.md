@@ -866,7 +866,7 @@ than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 any SCOTUS petition carrying both a CourtListener-keyed row and a live-minted
 reserved-range row — the pair shape a docket-number spelling leaves when it
 defeats the channels' identity join, with any caption-only CourtListener row
-for the same number set aside and left in place — moving a minted event's committed
+for the number set aside and left in place — moving a minted event's committed
 `event.yaml` with its re-keyed row, staged in the one pointer commit; the
 **predict-scope reconcile**
 (`fedcourts reconcile-scope`), which latches out-of-scope cases (the

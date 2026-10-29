@@ -14799,34 +14799,53 @@ freeze commit is recorded here.
   exact two-row groups. Nine numbers carry a third CourtListener row that
   asserts no disposition, filing, decision, cert or live-poll date: `17-1107`,
   `17-9572`, `18-1109`, `19-1302`, `20-1009`, `20-1084`, `21-439`, `21-511`
-  and `21-846`. Read ranged from the blob at `main` `a140d562d` (latest pull
+  and `21-846`. Read ranged from the blob at `main` `d8b560718` (latest pull
   2026-10-28, latest snapshot 2026-07-13), the CourtListener row and the live
-  twin agree on filing date, cert-grant date and disposition for all nine:
-  eight `granted`, one `gvr`. The statpack's cert-stage and merits
-  accumulators count rows, so each of the nine counts twice. The 2026-10-18
-  entry above named eight of them as this pattern; `17-9572` is the ninth.
+  twin agree on filing date, cert-grant date and disposition for all nine
+  (eight `granted`, one `gvr`), both rows carry `last_live_polled`, and for
+  the eight grants both carry the same `merits_judgment` and
+  `merits_decided`. So each of the nine is two rows in every figure that
+  counts rows. The 2026-10-18 entry above named eight of them as this
+  pattern; `17-9572` is the ninth.
 
-  **The change.** The candidate rule sets aside a CourtListener row asserting
-  none of `disposition`, `date_filed`, `date_decided`, `date_cert_granted`,
-  `date_cert_denied` or `last_live_polled` before counting the group, provided
-  its docket id sits above the survivor's. In all nine groups the caption-only
-  row's id is the highest. The merge then runs as for any pair, and the
-  caption-only row stays in place, untouched. It runs in run-seed's daily
-  dedupe step, so the nine converge on the first window after the carrying
-  promotion with no dispatch.
+  **The change.** The candidate rule sets aside any CourtListener row
+  asserting none of `disposition`, `date_filed`, `date_decided`,
+  `date_cert_granted`, `date_cert_denied` or `last_live_polled` before
+  counting the group, provided every such row's docket id sits above the
+  survivor's. In all nine groups the caption-only row's id is the highest.
+  The merge then runs as for any pair, and the caption-only row stays in
+  place, untouched. It runs in run-seed's dedupe step, which runs in the daily
+  02:31 UTC window, so the nine converge in the first such window after the
+  carrying promotion with no dispatch.
 
-  **What it moves.** The statpack's per-Term cert-stage figures for OT2017 to
-  OT2021 lose one row each for the nine numbers: eight grants and one GVR,
-  across the paid and IFP classes their serials fall in. The merits section
-  loses the eight grants' second rows from the Term of each grant. No
-  committed prediction or evaluation sits under a dropped live id (eight carry
-  only a baseline `event.yaml` and `outcome.json`, one carries nothing), so no
-  scored figure moves. A
-  statpack figure is not pooled across the first refresh after the merge.
+  **What it moves.** Every row-counting statpack figure that reads these rows
+  loses one row per number:
+  - the pack-level `corpus_rows` and the court and era sections, by nine;
+  - the live-slice totals and the live-slice cert-stage sections (the relist,
+    CVSG and amicus cuts among them);
+  - the per-Term cert-stage figures for OT2017 to OT2021: eight grants and one
+    GVR, in the paid or IFP class each serial falls in;
+  - the merits section, from the Term of each grant: `granted`, `parsed` and
+    the judgment counts lose the eight grants: two `affirmed` (`17-1107`,
+    `18-1109`), five `reversed` (`17-9572`, `20-1009`, `20-1084`, `21-439`,
+    `21-511`) and one `vacated` (`21-846`). The GVR enters no merits row.
+
+  No committed prediction, evaluation or graded figure sits under a dropped
+  live id. Eight keep a baseline `event.yaml` and `outcome.json` under the
+  dropped id, by the dedupe's design, and one carries nothing; no rate or
+  census reads them. Baselines pooled from a statpack refreshed after the
+  merge read the deduplicated counts: the cert band rates and the merits
+  disturbed rate, whose ten-Term windows cover OT2017 to OT2021, so a stamp,
+  re-grade or merits grading after that refresh draws on them.
+
+  **The boundary.** An OT2017 to OT2021 per-Term cert-stage or merits figure,
+  or a baseline pooled over those Terms, from a statpack refreshed before the
+  carrying merge is not compared or pooled with one refreshed after it.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
 
-  The runnable effect check once it is live: after the first run-seed window
-  that follows the carrying merge, that window's "Dedupe live-minted duplicate
-  rows" step logs the nine live ids as dropped, and `uv run fedcourts
-  dedupe-live-rows` on a freshly pulled corpus prints `0 duplicate pair(s)`.
+  The runnable effect check once it is live: the first 02:31 UTC run-seed
+  window after the carrying merge drops the nine live ids in its "Dedupe
+  live-minted duplicate rows" step, and
+  `uv run fedcourts dedupe-live-rows` on a freshly pulled corpus then prints
+  `would drop 0 live-minted row(s)`.
