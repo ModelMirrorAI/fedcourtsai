@@ -60,8 +60,15 @@ names the missing distribution until then. The labels artifact exists and
 accrues one batch a run, so the cut renders wherever a checkout holds it and
 `fedcourts docket` is re-run — which the weekly metrics refresh does, landing
 the regenerated pack in its own reviewed PR; a committed `metrics/docket.md`
-older than that run still carries the gap bullet. The publication bar the reference
-section sets is **not** enforced by the cut's code and cannot be: whether a
+older than that run still carries the gap bullet. The pack renders the application frame's
+topic cut beside it from the application labels file on the same terms (see
+*Applications*), and a topic mix by stage summarizes both: the share of the
+labeled cert petitions, of the labeled petitions granted plenary review, and of
+the labeled applications under each primary label, one column per stage and
+each column with its own scope string, since the three are covered to very
+different depths and the application column is read from different inputs. The
+publication bar the reference section sets is **not** enforced by the cut's
+code and cannot be: whether a
 labeler has covered the supplement block is a property of the labeling run's
 review, which the labels artifact does not record as such — so merging a
 labeling run's artifact is the decision that licenses the cut, and the
@@ -446,9 +453,10 @@ application inputs in place of the petition ones:
   labeled once.
 - What it writes is `data/qp-topics/qp-topics-applications.json`
   (`QpTopicApplicationLabels`), a file of its own beside the petition labels
-  file, so the petition artifact, the docket pack and the public site that read
-  it are untouched. Each row carries the `input_kind` of the extract row its
-  label was read from, and the PR lands on its own fixed branch,
+  file, so the petition artifact and every reader of it are untouched; the
+  docket pack and the public site read the two files side by side. Each row
+  carries the `input_kind` of the extract row its label was read from, and the
+  PR lands on its own fixed branch,
   `qp-topics/applications-refresh`.
 - The shadow rules run over the stored application text only, so a
   `docket-only` row never fires one. Their level means less here than on the
@@ -458,9 +466,9 @@ The gate measures agreement with the block's adjudicated labels, and the block
 was adjudicated by the session that wrote the fitted rules above. So a passing
 application run measures agreement with those rules as applied by one session,
 not with independent raters, and a held-out blind pass is still owed before an
-application agreement figure is quoted. No labels have been published yet, and
-a per-topic cut that reads them does not yet exist. The petition frame's gates
-are unchanged.
+application agreement figure is quoted; the docket pack's application cut
+prints the figure marked as not yet quotable for that reason. The petition
+frame's gates are unchanged.
 
 ## The reference set
 

@@ -10533,6 +10533,17 @@ def docket(
             "labeler run lands; naming one that does not exist is an error).",
         ),
     ] = None,
+    qp_topics_applications_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--qp-topics-applications",
+            exists=True,
+            help="Application topic labels artifact backing the emergency-application topic "
+            "cut (default: <data_root>/qp-topics/qp-topics-applications.json, silently "
+            "absent until an application labeler run lands; naming one that does not exist "
+            "is an error).",
+        ),
+    ] = None,
 ) -> None:
     """Roll the corpus into the court-facing docket pack at ``metrics/docket.{json,md}``.
 
@@ -10553,16 +10564,28 @@ def docket(
     ``qp-topic-v0`` labels artifact, always beside its labeler and measured
     agreement and always carrying the coverage caveat of ``docs/qp-topic.md``;
     with none there, the document names the missing distribution among its gaps
-    instead. The **default** path is allowed to be absent — that is the standing
-    state until a labeler run lands — while a path named on the command line is
-    checked, so a typo cannot quietly publish the pack without its cut.
+    instead. The emergency-application topic cut renders on the same terms from
+    the ``qp-topic-v1`` application labels artifact, and a stage-by-stage topic
+    mix (cert, merits, interim) summarizes whichever cuts render. The
+    **default** paths are allowed to be absent — that is the standing state until
+    a labeler run lands — while a path named on the command line is checked, so a
+    typo cannot quietly publish the pack without its cut.
     """
     settings = get_settings()
     db_path = corpus.corpus_db_path(settings.corpus_root)
     labels = (
         qp_topics_path if qp_topics_path is not None else qp_topics.labels_path(settings.data_root)
     )
-    pack = analytics.build_docket_pack(corpus_db_path=db_path, qp_topics_path=labels)
+    application_labels = (
+        qp_topics_applications_path
+        if qp_topics_applications_path is not None
+        else qp_topics.application_labels_path(settings.data_root)
+    )
+    pack = analytics.build_docket_pack(
+        corpus_db_path=db_path,
+        qp_topics_path=labels,
+        qp_topics_applications_path=application_labels,
+    )
     json_dest = out if out is not None else settings.metrics_root / "docket.json"
     md_dest = markdown_out if markdown_out is not None else settings.metrics_root / "docket.md"
     write_json(json_dest, pack)

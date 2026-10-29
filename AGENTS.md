@@ -481,8 +481,9 @@ same PR.
   See `docs/pipeline.md`.
 - **The public site reads this repository.** fedcourts.ai
   (`ModelMirrorAI/fedcourts.ai`) builds daily from `main` and fails closed:
-  it reads `metrics/*.json`, `metrics/updates/*.md`,
-  `data/qp-topics/qp-topics.json`, the `event.yaml`, `outcome.json`,
+  it reads `metrics/*.json`, `metrics/updates/*.md`, the two topic labels
+  files `data/qp-topics/qp-topics.json` and
+  `data/qp-topics/qp-topics-applications.json`, the `event.yaml`, `outcome.json`,
   `prediction.json` and `evaluation.json` records and the case summaries under
   `data/cases/`, the release manifest `docs/releases.json`, and each release
   document at its tag. A change to the shape of any of these needs a matching
