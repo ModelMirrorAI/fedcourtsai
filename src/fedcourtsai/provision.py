@@ -70,6 +70,7 @@ from .schemas import (
     AuthorshipTally,
     Moment,
     SameQuestionList,
+    SnapshotContactScrub,
     Stage,
     StagedDecision,
     StagedWriting,
@@ -1169,7 +1170,21 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
             cutoff=cutoff,
             boundary=placement.boundary,
             decided_before=decided_before,
-        ).model_dump(mode="json"),
+        )
+        # The one field not read off the payload: the scrub above ran over a
+        # copy of it, so only this writer can say what it withheld. Stated
+        # beside the trigger it keyed on, so a snapshot with no placeholder
+        # reads as scrubbed and clean or as never scrubbed, not as either.
+        .model_copy(
+            update={
+                "snapshot_contact_scrub": SnapshotContactScrub(
+                    sides=list(unrepresented),
+                    blocks=0 if snapshot_scrub is None else snapshot_scrub.blocks,
+                    fields=0 if snapshot_scrub is None else snapshot_scrub.fields,
+                )
+            }
+        )
+        .model_dump(mode="json"),
     )
     staged: list[tuple[CaseDocument, ScrubbedText | None]] = []
     if placement.documents:

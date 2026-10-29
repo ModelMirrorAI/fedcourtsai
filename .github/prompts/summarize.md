@@ -197,6 +197,11 @@ About **330 words in total**:
   the filings refer to someone by initials (a minor, for example), use the
   initials. Add no personal detail — addresses, contact details, health,
   family, or history — beyond what is needed to explain the dispute.
+  Where a party or amicus represents itself, the pipeline replaces its
+  contact details with `[contact detail withheld]` and a prisoner register
+  number with `[register number withheld]`. These markers are not part of
+  the record: never quote, mention or explain them, and do not read them as
+  a sign that something about the case was hidden.
 - **No paragraph begins with "Whether"**, in any section.
 - **No markup beyond the five headings and paragraphs.** No bullet or
   numbered lists, no bold or italics, no code formatting, no links, no URLs,

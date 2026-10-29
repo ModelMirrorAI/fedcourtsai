@@ -307,6 +307,18 @@
           "title": "Signals Observable",
           "type": "boolean"
         },
+        "snapshot_contact_scrub": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SnapshotContactScrub"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the contact scrub withheld from the staged snapshot this cell reads: the self-represented sides it keyed on and the blocks and values it replaced with placeholders. A placeholder in `record/snapshot` is the pipeline's, not the docket's. Null where the provisioner runs no snapshot contact scrub (the cert back-test, which redacts its snapshot by its own rule) or the cell predates the record"
+        },
         "snapshot_date": {
           "description": "Date of the snapshot the harness provisioned for this cell, and the day its file is named for. Whether the cell went on to read it is `snapshot_uptake`, not this field",
           "format": "date",
@@ -450,6 +462,44 @@
         "proposition"
       ],
       "title": "SemanticClaim",
+      "type": "object"
+    },
+    "SnapshotContactScrub": {
+      "additionalProperties": false,
+      "description": "What the contact scrub withheld from the cell's staged snapshot.\n\n**Harness-owned.** The staged snapshot carries the scrub only as inline\nplaceholders, and a snapshot with none reads the same whether the scrub ran\nand found nothing or never ran. This record is the difference: ``sides``\nnames the counsel-block lists the docket was read as self-represented on,\nwhich is the scrub's trigger, so an empty list says it did not run and a\nnon-empty one with zero counts says it ran and withheld nothing. Counts\nonly, never a withheld value.",
+      "properties": {
+        "blocks": {
+          "description": "Counsel blocks that had at least one value withheld. Zero where `sides` is empty",
+          "minimum": 0,
+          "title": "Blocks",
+          "type": "integer"
+        },
+        "fields": {
+          "description": "Values withheld across those blocks, each replaced by `[contact detail withheld]` or, for a party's prison register number, `[register number withheld]`. Zero where `sides` is empty",
+          "minimum": 0,
+          "title": "Fields",
+          "type": "integer"
+        },
+        "sides": {
+          "description": "The counsel-block lists on which some served block names nobody to write to but the filer itself, in petitioner, respondent, `Other` order. The scrub runs over the snapshot exactly where this is non-empty; empty means the docket was read as represented throughout and the staged snapshot is the payload as served",
+          "items": {
+            "enum": [
+              "Petitioner",
+              "Respondent",
+              "Other"
+            ],
+            "type": "string"
+          },
+          "title": "Sides",
+          "type": "array"
+        }
+      },
+      "required": [
+        "sides",
+        "blocks",
+        "fields"
+      ],
+      "title": "SnapshotContactScrub",
       "type": "object"
     },
     "VoteValue": {
