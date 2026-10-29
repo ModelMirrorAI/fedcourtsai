@@ -1,0 +1,186 @@
+{
+  "additionalProperties": false,
+  "description": "``data/qp-topics/spend/<run_id>-<run_attempt>.json`` \u2014 one labeling run's spend.\n\nOne record per attempt of the labeling job whose engine left an execution\nfile, whatever became of the batch: a run refused at the reference gate\nspends as much as one that publishes and writes no labels file, so the\nspend lives here rather than on the labels artifact's batch ledger. The\ntoken counts are the engine log's, read and priced by the rule every\ncell's ``usage.json`` is (:func:`fedcourtsai.usage.parse_claude_usage`,\n:func:`fedcourtsai.pricing.estimate_cost_usd`), so a labeler dollar and a\ncell dollar are the same dollar, and the measured spend total\n(:func:`fedcourtsai.spend.measured_spend`) sums these by ``recorded_at``.\n\nThe gate figures are carried for the same reason: a refused attempt is on\nfile with its measured agreement, and the label seam's review hold reads\nthe newest gated outcome per frame (:mod:`fedcourtsai.review_hold`).",
+  "properties": {
+    "agree": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Compared reference entries matched; null unmeasured",
+      "title": "Agree"
+    },
+    "batch_rows": {
+      "description": "Rows in the extract the labeler was handed",
+      "minimum": 0,
+      "title": "Batch Rows",
+      "type": "integer"
+    },
+    "cache_creation_input_tokens": {
+      "description": "Cache-write tokens",
+      "minimum": 0,
+      "title": "Cache Creation Input Tokens",
+      "type": "integer"
+    },
+    "cache_read_input_tokens": {
+      "description": "Cached input tokens read",
+      "minimum": 0,
+      "title": "Cache Read Input Tokens",
+      "type": "integer"
+    },
+    "estimated_cost_usd": {
+      "description": "The run's on-demand cost at `pricing.MODEL_RATES` for `model`",
+      "minimum": 0.0,
+      "title": "Estimated Cost Usd",
+      "type": "number"
+    },
+    "floor": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What a constant labeler scores on the same compared entries; null when unmeasured",
+      "title": "Floor"
+    },
+    "frame": {
+      "description": "Which labeling frame the run labeled",
+      "enum": [
+        "petitions",
+        "applications"
+      ],
+      "title": "Frame",
+      "type": "string"
+    },
+    "input_tokens": {
+      "description": "Fresh input tokens",
+      "minimum": 0,
+      "title": "Input Tokens",
+      "type": "integer"
+    },
+    "label_lines": {
+      "description": "Label lines the run left behind",
+      "minimum": 0,
+      "title": "Label Lines",
+      "type": "integer"
+    },
+    "labeler": {
+      "description": "Who labeled \u2014 engine and model",
+      "minLength": 1,
+      "title": "Labeler",
+      "type": "string"
+    },
+    "lane": {
+      "const": "qp-topic-label",
+      "default": "qp-topic-label",
+      "description": "The spend lane this run belongs to",
+      "title": "Lane",
+      "type": "string"
+    },
+    "model": {
+      "description": "The model the cost rates were applied to",
+      "minLength": 1,
+      "title": "Model",
+      "type": "string"
+    },
+    "n": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Reference entries compared; null unmeasured",
+      "title": "N"
+    },
+    "outcome": {
+      "description": "published: the batch cleared the reference gate and its labels were handed to the publish job; refused: it was measured and fell below the gate; incomplete: it was never measured (a labels file short of the batch, or a check ahead of the measurement that failed)",
+      "enum": [
+        "published",
+        "refused",
+        "incomplete"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "output_tokens": {
+      "description": "Output tokens",
+      "minimum": 0,
+      "title": "Output Tokens",
+      "type": "integer"
+    },
+    "rate": {
+      "anyOf": [
+        {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "agree / n \u2014 agreement with the frame's reference, not accuracy; null when unmeasured or nothing was compared",
+      "title": "Rate"
+    },
+    "recorded_at": {
+      "description": "When the record was written, timezone-aware; the spend window reads it",
+      "format": "date-time",
+      "title": "Recorded At",
+      "type": "string"
+    },
+    "run_attempt": {
+      "description": "The labeling job's run attempt",
+      "minimum": 1,
+      "title": "Run Attempt",
+      "type": "integer"
+    },
+    "run_id": {
+      "description": "The Actions run id of the labeling run",
+      "pattern": "^[0-9]+$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "frame",
+    "run_id",
+    "run_attempt",
+    "labeler",
+    "model",
+    "outcome",
+    "batch_rows",
+    "label_lines",
+    "recorded_at",
+    "input_tokens",
+    "output_tokens",
+    "cache_read_input_tokens",
+    "cache_creation_input_tokens",
+    "estimated_cost_usd"
+  ],
+  "title": "QpTopicRunSpend",
+  "type": "object"
+}

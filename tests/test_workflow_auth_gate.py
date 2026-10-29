@@ -448,6 +448,52 @@ def test_an_auto_released_round_marks_its_commit_for_the_daily_count(workflow: s
         assert "auto-released: ${{ needs.plan.outputs.auto_release }}" in text
 
 
+def test_the_topic_labeler_spends_only_behind_the_review_hold() -> None:
+    """The labeling lane is a spend lane under the same hold as summarize.
+
+    Its agent job waits on `qp-topic-approval`, whose environment is routed
+    only by the extract job's `hold` step — the tested `hold-decision --seam
+    label`, run on `main` alone, reading the deployments it counts and never
+    writing one — and the publish job marks the commit `main` keeps when the
+    round auto-released, so the committed half of the daily count sees it.
+    """
+    wf = _load("run-analytics.yml")
+    jobs = wf["jobs"]
+    assert jobs["qp-topic-approval"]["environment"] == (
+        "${{ needs.qp-topic-extract.outputs.auto-release == 'true' && 'review-auto' || 'review' }}"
+    )
+    assert jobs["qp-topic-approval"]["permissions"] == {}
+    assert "qp-topic-approval" in jobs["qp-topic-label"]["needs"]
+    agent_jobs = [
+        name
+        for name, job in _jobs(wf).items()
+        if any("claude-code-action" in step.get("uses", "") for step in _steps(job))
+    ]
+    assert agent_jobs == ["qp-topic-label"]
+    extract = jobs["qp-topic-extract"]
+    assert extract["outputs"]["auto-release"] == "${{ steps.hold.outputs.auto_release }}"
+    assert extract["permissions"].get("deployments") == "read"
+    (hold,) = [step for step in _steps(extract) if step.get("id") == "hold"]
+    assert "github.ref == 'refs/heads/main'" in str(hold["if"])
+    run = str(hold["run"])
+    assert "uv run fedcourts hold-decision --seam label" in run
+    assert '--plan-file "$RUNNER_TEMP/label-plan.json"' in run
+    assert "deployments?environment=review-auto" in run
+    assert "commits?sha=main" in run
+    assert run.count("auto_release=") == 1
+    for step in _steps(extract):
+        if step.get("id") != "hold":
+            assert "auto_release=" not in str(step.get("run", ""))
+    (publish,) = [
+        s
+        for s in _steps(jobs["qp-topic-publish"])
+        if s.get("name") == "Open or update the review PR"
+    ]
+    assert publish["env"]["AUTO_RELEASED"] == "${{ needs.qp-topic-extract.outputs.auto-release }}"
+    assert "(run ${GITHUB_RUN_ID})${mark}" in publish["run"]
+    assert "mark=' [auto-released]'" in publish["run"]
+
+
 def test_the_scheduled_back_test_spends_only_behind_the_review_hold() -> None:
     """The same spend gate, on the lane the sweep above cannot see.
 

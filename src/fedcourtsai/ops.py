@@ -829,8 +829,9 @@ def _render_backstop(backstop: SpendVerdict | None) -> list[str]:
         f"Spend backstop: **${backstop.spent_usd:,.2f}** of "
         f"**${backstop.ceiling_usd:,.2f}** over the trailing "
         f"{backstop.window_days}d window (**{share:.0%}** consumed, "
-        f"${backstop.remaining_usd:,.2f} left, {backstop.cells} cell(s)) — {verdict} "
-        "on a lagging ledger, so the verdict is a floor too.",
+        f"${backstop.remaining_usd:,.2f} left; {backstop.cells} agent cell(s), plus case "
+        f"summaries and topic-labeler runs) — {verdict} on a lagging ledger, so the verdict "
+        "is a floor too.",
     ]
 
 

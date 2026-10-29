@@ -1,18 +1,21 @@
 """Whether a spend round may skip the `review` hold, and whether to chain another.
 
-The `review` hold is the per-round spend gate: every predict, evaluate and
-summarize round renders its plan and waits for a maintainer to release it.
+The `review` hold is the per-round spend gate: every predict, evaluate,
+summarize and topic-label round renders its plan and waits for a maintainer to
+release it.
 Two decisions read that same plan, and both are made here so the workflow only
 routes on their answers:
 
 - **Auto-release.** A round skips the hold when its priced plan is under the
   per-round cap, fewer than the daily number of rounds have been
-  auto-released in the trailing 24 hours across the three lanes, and the
+  auto-released in the trailing 24 hours across the lanes, and the
   round's projected spend keeps the trailing-window total under the
   auto-release budget (below). It fails closed: an unknown count, an unread
   ledger, a missing estimate, a matrix that disagrees with the plan, a budget
   that does not sit below the spend backstop's ceiling, or a disabled knob all
-  keep the hold.
+  keep the hold. A label round also keeps it when the newest gated labeling
+  run of its frame was refused at the reference gate: a retry of a refused
+  batch waits for a maintainer's release.
 - **Drain.** A predict round that left owed work behind because a cap stopped
   it — the per-round cell cap, or the reconciliation's case cap — asks for
   another round as soon as its own output has landed, rather than waiting for
@@ -22,9 +25,10 @@ routes on their answers:
 **The budget is a projection over measured spend.** A round is released only
 when ``measured + in_flight + estimate <= auto_release_budget_usd``, where
 *measured* is the committed spend over the spend backstop's trailing window
-(``tracking.yaml``'s ``spend.window_days``): every ``usage.json`` on the ledger
-(:func:`fedcourtsai.spend.trailing_spend`) plus the usage every committed case
-summary's front matter records; *in_flight* is the rounds auto-released in the
+(``tracking.yaml``'s ``spend.window_days``) — the same total the backstop sums
+(:func:`fedcourtsai.spend.measured_spend`): every ``usage.json`` on the ledger,
+the usage every committed case summary's front matter records, and every
+topic-labeler run's spend record; *in_flight* is the rounds auto-released in the
 last 24 hours times the per-round cap, an allowance for the *estimated* spend
 of released rounds that have not reached the ledger yet (a collect PR lands
 only once its checks pass) — not a bound on actual spend, which can exceed a
@@ -34,7 +38,9 @@ The ledger is a floor on what was spent — a manually released round still in
 flight, an auto-released round whose collect PR is still open more than 24
 hours on, a summary run whose review PR has not merged (outside the summarize
 plan, which carries the open refresh PR's summaries and so counts them), and a
-rejected summary response's tokens are all invisible to it — so the budget sits
+rejected summary response's tokens, and a labeler run's record whose
+reviewed PR has not merged (outside the label plan, which carries the open
+PR's records and so counts them) are all invisible to it — so the budget sits
 below the backstop's ceiling, which stops minting outright, and a budget at or
 above that ceiling keeps every round on the hold rather than being adopted
 silently.
@@ -45,9 +51,9 @@ first walk minted. The two are built by the same helpers but nothing forces
 them to agree, so such a round auto-releases only when the matrix holds exactly
 the plan's would-mint cell count, and its price is the larger of the plan's
 estimate and the matrix's own cells priced at the same planning rates
-(:mod:`fedcourtsai.planning_rates`). A summarize round has no matrix: its
-generate job runs the plan document itself, so the price is the plan's upper
-estimate.
+(:mod:`fedcourtsai.planning_rates`). A summarize or label round has no
+matrix: its spend job runs the plan document itself, so the price is the
+plan's upper estimate.
 
 **The daily count has two sources.** Each auto-released round leaves a
 deployment to the `review-auto` environment, which every lane shares, and its
@@ -72,7 +78,7 @@ import math
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, get_args
 
@@ -82,21 +88,26 @@ from pydantic import BaseModel, ConfigDict, Field
 from .collect import AUTO_RELEASED_MARKER
 from .config import SpendConfig, load_spend_config
 from .planning_rates import price_cells
-from .spend import trailing_spend
-from .summaries import parse_summary
+from .spend import MeasuredSpend, iter_labeler_runs
+from .spend import measured_spend as _measured_spend
+
+__all__ = ["MeasuredSpend"]
 
 #: The lanes whose rounds the review hold may auto-release. The back-test is
 #: not one: its replay always waits on a maintainer's release.
-Seam = Literal["predict", "evaluate", "summarize"]
+Seam = Literal["predict", "evaluate", "summarize", "label"]
 SEAMS: tuple[Seam, ...] = get_args(Seam)
+
+#: The seams priced from a plan document alone: no matrix, no drain.
+_PLAN_PRICED: frozenset[str] = frozenset({"summarize", "label"})
 
 
 class ReviewHoldConfig(BaseModel):
     """When a spend round may skip the `review` hold (``config/review-hold.yaml``).
 
     The hold is the per-round spend gate: a maintainer releases each round's plan
-    before a cell spends. Auto-release lets a predict, evaluate or summarize
-    round skip that wait, so the lanes drain without a human releasing every
+    before a cell spends. Auto-release lets a predict, evaluate, summarize or
+    label round skip that wait, so the lanes drain without a human releasing every
     cycle. It is bounded three times — per round by estimated spend, per day by
     the number of rounds released this way, and over the spend backstop's
     trailing window by projected total spend — and anything past any bound
@@ -114,8 +125,8 @@ class ReviewHoldConfig(BaseModel):
     # At most $250: a sanity bound above the largest committed round, so a
     # slipped decimal ("750" for "7.50") is refused at load rather than adopted.
     auto_release_usd_per_round: float = Field(default=0.0, ge=0.0, le=250.0, allow_inf_nan=False)
-    # At most this many rounds, across the predict, evaluate and summarize
-    # lanes together, are auto-released in any trailing 24 hours; the next one
+    # At most this many rounds, across the predict, evaluate, summarize and
+    # label lanes together, are auto-released in any trailing 24 hours; the next one
     # waits on the hold. `0` disables auto-release too. The daily bound on
     # unattended *estimated* spend is therefore at most this times the
     # per-round cap.
@@ -161,26 +172,19 @@ _MARK = re.escape(AUTO_RELEASED_MARKER)
 #: ``data(summaries): N plain-language case summaries (run <n>) [auto-released]``
 #: — and its review PR is merged by hand, under the repository's default merge
 #: subject, which is the PR title (docs/security.md) so the mark lands dated at
-#: the merge as the unattended lanes' does.
+#: the merge as the unattended lanes' does. A topic-label publish commit has the
+#: same shape under its own scope — ``data(qp-topics): batch N — … (run <n>)
+#: [auto-released]`` for a labels PR, or a spend record's title for a run that
+#: published nothing — and is merged by hand the same way.
 _AUTO_RELEASED_SUBJECTS = (
     re.compile(
         r"^(?P<lane>predict|evaluate)\b.*?\brun (?P<run>\d{8}T\d{6}Z)\b.*" + _MARK,
     ),
-    re.compile(r"^data\(summaries\):.*?\(run (?P<run>\d+)\).*" + _MARK),
+    re.compile(r"^data\((?P<scope>summaries|qp-topics)\):.*?\(run (?P<run>\d+)\).*" + _MARK),
 )
 
-
-@dataclass(frozen=True)
-class MeasuredSpend:
-    """Committed spend over the trailing window: agent cells and case summaries."""
-
-    cells_usd: float
-    summaries_usd: float
-
-    @property
-    def total_usd(self) -> float:
-        """Both sources together."""
-        return self.cells_usd + self.summaries_usd
+#: The lane a ``data(<scope>):`` publish subject belongs to.
+_SCOPE_LANES = {"summaries": "summarize", "qp-topics": "label"}
 
 
 class HoldDecision(BaseModel):
@@ -202,6 +206,7 @@ class HoldDecision(BaseModel):
     window_days: int | None
     measured_cells_usd: float | None
     measured_summaries_usd: float | None
+    measured_labeler_usd: float | None = None
     in_flight_bound_usd: float | None
     projected_spend_usd: float | None
 
@@ -218,7 +223,8 @@ def count_auto_released(subjects: Iterable[str]) -> int:
         for pattern in _AUTO_RELEASED_SUBJECTS:
             match = pattern.match(subject.strip())
             if match:
-                lane = match.groupdict().get("lane") or "summarize"
+                groups = match.groupdict()
+                lane = groups.get("lane") or _SCOPE_LANES[groups["scope"]]
                 runs.add((lane, match.group("run")))
                 break
     return len(runs)
@@ -236,41 +242,48 @@ def released_last_day(deployments: int | None, committed: int | None) -> int | N
     return max(deployments, committed)
 
 
-def summary_spend(data_root: Path, *, window_days: int, now: datetime | None = None) -> float:
-    """The usage committed case summaries record, over the trailing window.
-
-    Read from each summary's front matter (``usage.estimated_cost_usd``, by
-    ``generated_at``). A summary written without usage adds nothing; a file
-    that will not parse raises, so the caller can keep the hold.
-    """
-    cutoff = (now or datetime.now(UTC)) - timedelta(days=window_days)
-    total = 0.0
-    for path in sorted((data_root / "cases").glob("*/*/summaries/*.md")):
-        front, _ = parse_summary(path.read_text(encoding="utf-8"))
-        generated = front.generated_at
-        if generated.tzinfo is None:
-            generated = generated.replace(tzinfo=UTC)
-        if front.usage is not None and generated >= cutoff:
-            total += front.usage.estimated_cost_usd
-    return total
-
-
 def measured_spend(
     data_root: Path, *, window_days: int, now: datetime | None = None
 ) -> MeasuredSpend | None:
     """The committed spend over the trailing window, or ``None`` if unreadable.
 
-    A missing ledger reads as unreadable rather than as nothing spent: a plan
-    job whose checkout lost ``data/`` must not see an empty budget.
+    The backstop's own total (:func:`fedcourtsai.spend.measured_spend`). A
+    missing ledger reads as unreadable rather than as nothing spent: a plan job
+    whose checkout lost ``data/`` must not see an empty budget.
     """
     if not (data_root / "cases").is_dir():
         return None
     try:
-        cells, _ = trailing_spend(data_root, window_days=window_days, now=now)
-        summaries = summary_spend(data_root, window_days=window_days, now=now)
+        measured, _ = _measured_spend(data_root, window_days=window_days, now=now)
     except (OSError, ValueError):
         return None
-    return MeasuredSpend(cells_usd=cells, summaries_usd=summaries)
+    return measured
+
+
+def label_refusal(data_root: Path, frame: str) -> str | None:
+    """Why a label round of ``frame`` keeps the hold after a refusal, or ``None``.
+
+    Reads the labeler's run records (``data/qp-topics/spend/``, with any the
+    plan job carried from the frame's open, unmerged PR): when the newest gated
+    run of the frame — ``published`` or ``refused``, by ``recorded_at`` — was
+    refused, a retry waits for a maintainer. An ``incomplete`` run was never
+    gated, so it neither sets nor clears the refusal. A record that will not
+    read keeps the hold too.
+    """
+    try:
+        runs = iter_labeler_runs(data_root)
+    except (OSError, ValueError):
+        return "the labeler's run records could not be read"
+    gated = [run for run in runs if run.frame == frame and run.outcome != "incomplete"]
+    if not gated:
+        return None
+    newest = max(gated, key=lambda run: (run.recorded_at, int(run.run_id), run.run_attempt))
+    if newest.outcome == "refused":
+        return (
+            f"the last {frame} labeling run was refused at the reference gate; a retry waits "
+            "for a maintainer's release"
+        )
+    return None
 
 
 def _number(value: object) -> float | None:
@@ -286,6 +299,11 @@ def _plan_cells(plan: Mapping[str, Any], seam: Seam) -> int | None:
     if seam == "summarize":
         cases = plan.get("cases")
         return len(cases) if isinstance(cases, list) else None
+    if seam == "label":
+        rows = plan.get("rows")
+        if isinstance(rows, bool) or not isinstance(rows, int) or rows <= 0:
+            return None
+        return rows
     counts = plan.get("counts")
     ledger = counts.get("cell_ledger") if isinstance(counts, Mapping) else None
     cells = ledger.get("would_mint_cells") if isinstance(ledger, Mapping) else None
@@ -304,13 +322,14 @@ def _matrix_cells(matrix: Mapping[str, Any] | None) -> list[Mapping[str, Any]] |
 def _price(
     plan: Mapping[str, Any], matrix: list[Mapping[str, Any]] | None, seam: Seam
 ) -> float | None:
-    """The round's price: for a summarize round its plan's upper estimate, else
-    the larger of the plan's estimate and the matrix's own priced cells.
+    """The round's price: for a summarize or label round its plan's upper
+    estimate, else the larger of the plan's estimate and the matrix's own
+    priced cells.
 
     A missing, boolean, non-finite or negative plan estimate is no estimate at
     all, so it keeps the hold rather than comparing as under the cap.
     """
-    if seam == "summarize":
+    if seam in _PLAN_PRICED:
         return _number(plan.get("estimated_cost_usd_high"))
     estimate = _number(plan.get("estimated_spend_usd"))
     if estimate is None:
@@ -363,13 +382,14 @@ def _arithmetic(
     return (
         f"projected trailing {budget.window_days}-day spend ${projected:,.2f} = "
         f"measured ${measured.total_usd:,.2f} (agent cells ${measured.cells_usd:,.2f} + "
-        f"case summaries ${measured.summaries_usd:,.2f}) + in flight up to "
+        f"case summaries ${measured.summaries_usd:,.2f} + labeler runs "
+        f"${measured.labeler_usd:,.2f}) + in flight up to "
         f"${budget.in_flight or 0.0:,.2f} ({released} round(s) auto-released in the last "
         f"24h x ${config.auto_release_usd_per_round:,.2f}) + this round ${estimate:,.2f}"
     )
 
 
-def _auto_release(  # noqa: PLR0911, PLR0912 - one return per fail-closed reason, each named
+def _auto_release(  # noqa: PLR0911, PLR0912, PLR0913 - one return per fail-closed reason
     seam: Seam,
     estimate: float | None,
     config: ReviewHoldConfig,
@@ -378,6 +398,8 @@ def _auto_release(  # noqa: PLR0911, PLR0912 - one return per fail-closed reason
     plan_cells: int | None,
     matrix: list[Mapping[str, Any]] | None,
     budget: _Budget,
+    *,
+    refusal: str | None,
 ) -> tuple[bool, str]:
     if (
         config.auto_release_usd_per_round <= 0
@@ -413,6 +435,11 @@ def _auto_release(  # noqa: PLR0911, PLR0912 - one return per fail-closed reason
     if seam == "summarize":
         if plan_cells is None:
             return False, "the plan's case list could not be read"
+    elif seam == "label":
+        if plan_cells is None:
+            return False, "the plan's row count could not be read"
+        if refusal is not None:
+            return False, refusal
     else:
         if matrix is None:
             return False, "the minted matrix could not be read"
@@ -431,7 +458,8 @@ def _auto_release(  # noqa: PLR0911, PLR0912 - one return per fail-closed reason
         )
     if budget.measured is None or budget.projected is None:
         return False, (
-            "the committed spend ledger (usage.json and case-summary usage) could not be "
+            "the committed spend ledger (usage.json, case-summary usage and labeler run "
+            "records) could not be "
             f"read, so the trailing {backstop.window_days}-day spend is unknown"
         )
     arithmetic = _arithmetic(config, budget, budget.measured, budget.projected, released, estimate)
@@ -474,6 +502,7 @@ def decide(
     matrix: Mapping[str, Any] | None,
     backstop: SpendConfig | None,
     measured: MeasuredSpend | None,
+    label_refusal: str | None = None,
 ) -> HoldDecision:
     """Decide auto-release (and, for predict, drain) for one round's plan.
 
@@ -484,14 +513,24 @@ def decide(
     summarize round; ``None`` keeps a predict or evaluate round's hold.
     ``backstop`` is ``tracking.yaml``'s `spend` section and ``measured`` the
     committed spend over its window (:func:`measured_spend`); either ``None``
-    keeps the hold.
+    keeps the hold. ``label_refusal`` is a label round's reason to hold after
+    its frame's last gated run was refused (:func:`label_refusal`), ``None``
+    when there is none; other seams ignore it.
     """
-    cells = None if seam == "summarize" else _matrix_cells(matrix)
+    cells = None if seam in _PLAN_PRICED else _matrix_cells(matrix)
     estimate = _price(plan, cells, seam)
     plan_cells = _plan_cells(plan, seam)
     budget = _project(config, backstop, measured, released_last_day, estimate)
     release, release_reason = _auto_release(
-        seam, estimate, config, backstop, released_last_day, plan_cells, cells, budget
+        seam,
+        estimate,
+        config,
+        backstop,
+        released_last_day,
+        plan_cells,
+        cells,
+        budget,
+        refusal=label_refusal if seam == "label" else None,
     )
     drain, drain_reason = _drain(plan, seam)
     return HoldDecision(
@@ -508,6 +547,7 @@ def decide(
         window_days=budget.window_days,
         measured_cells_usd=None if measured is None else round(measured.cells_usd, 2),
         measured_summaries_usd=None if measured is None else round(measured.summaries_usd, 2),
+        measured_labeler_usd=None if measured is None else round(measured.labeler_usd, 2),
         in_flight_bound_usd=budget.in_flight,
         projected_spend_usd=budget.projected,
     )
@@ -527,8 +567,12 @@ def render_summary(decision: HoldDecision) -> str:
         lines.append(f"- **Waits on the review hold:** {decision.auto_release_reason}.")
     measured = (
         None
-        if decision.measured_cells_usd is None or decision.measured_summaries_usd is None
-        else decision.measured_cells_usd + decision.measured_summaries_usd
+        if decision.measured_cells_usd is None
+        or decision.measured_summaries_usd is None
+        or decision.measured_labeler_usd is None
+        else decision.measured_cells_usd
+        + decision.measured_summaries_usd
+        + decision.measured_labeler_usd
     )
     window = "unknown" if decision.window_days is None else f"{decision.window_days}-day"
     lines.extend(
@@ -538,6 +582,7 @@ def render_summary(decision: HoldDecision) -> str:
             "| --- | ---: |",
             f"| Measured: agent cells (`usage.json`) | {_usd(decision.measured_cells_usd)} |",
             f"| Measured: case summaries | {_usd(decision.measured_summaries_usd)} |",
+            f"| Measured: topic-labeler runs | {_usd(decision.measured_labeler_usd)} |",
             f"| In flight: {_count(decision.released_last_day)} round(s) auto-released "
             f"in the last 24h x per-round cap | {_usd(decision.in_flight_bound_usd)} |",
             f"| This round's estimate | {_usd(decision.estimated_spend_usd)} |",
@@ -611,7 +656,8 @@ def decide_from_files(
     will not parse) and keeps the hold; the caps come from
     ``config_root/review-hold.yaml``, the backstop's ceiling and window from
     ``config_root/tracking.yaml``, and the measured spend from the committed
-    ledger under ``data_root``.
+    ledger under ``data_root``. A label round's frame is the plan's ``frame``,
+    and the refusal rule reads that frame's run records there too.
     """
     backstop = _read_backstop(config_root)
     measured = (
@@ -626,7 +672,16 @@ def decide_from_files(
         released_last_day=released_last_day(
             deployments_released, _read_committed(main_subjects_file)
         ),
-        matrix=None if seam == "summarize" else _read_matrix(matrix_file),
+        matrix=None if seam in _PLAN_PRICED else _read_matrix(matrix_file),
         backstop=backstop,
         measured=measured,
+        label_refusal=_label_refusal_for(plan, data_root) if seam == "label" else None,
     )
+
+
+def _label_refusal_for(plan: Mapping[str, Any], data_root: Path) -> str | None:
+    """:func:`label_refusal` for the frame a label plan names; no frame keeps the hold."""
+    frame = plan.get("frame")
+    if frame not in ("petitions", "applications"):
+        return "the plan names no labeling frame"
+    return label_refusal(data_root, str(frame))

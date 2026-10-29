@@ -5,13 +5,14 @@ evaluations ledger, the corpus) move without them. The ``run-analytics``
 workflow's weekly ``metrics-refresh`` job keeps the scheduled set current —
 ``metrics/leaderboard.json``, ``metrics/claim-scores.json``,
 ``metrics/backtest.json``, ``metrics/statpack.{json,md}``,
-``metrics/big-cases.{json,md}``, and ``data/scope/scope.json`` — by rerunning
-the tested ``fedcourts`` commands
-(``leaderboard`` / ``claim-scores`` / ``backtest`` / ``statpack`` /
-``big-cases`` / ``scope-manifest``) and, when anything changed,
-landing the result as a **reviewed** PR (never a direct commit to ``main``,
-never auto-merged). ``metrics/docket.{json,md}`` is committed alongside them but
-is regenerated on demand with ``fedcourts docket``, not on the schedule.
+``metrics/docket.{json,md}``, ``metrics/big-cases.{json,md}``, and
+``data/scope/scope.json`` — by rerunning the tested ``fedcourts`` commands
+(``leaderboard`` / ``claim-scores`` / ``backtest`` / ``statpack`` / ``docket``
+/ ``big-cases`` / ``scope-manifest``) and, when anything changed, landing the
+result as a **reviewed** PR (never a direct commit to ``main``, never
+auto-merged). The docket pack is regenerated beside the statpack because its
+topic cut reads the committed labels artifact, which the weekly labeling runs
+grow, so a pack left to on-demand runs would lag the labels it renders.
 
 This module is the tested half of that workflow: given the changed paths (``git
 diff --cached --name-only -- metrics/ data/scope/``, plumbed by the workflow),
@@ -56,10 +57,7 @@ REFRESH_BRANCH = "metrics/refresh"
 
 # Display order for the artifacts a refresh PR may carry, as repo-relative paths.
 # It is also the filter: a changed path not listed here drives no PR and appears
-# in none, so an artifact must be named to be reportable at all. The docket pack
-# is listed defensively: the analytics workflow does not regenerate it, so it
-# should never appear here — but if it ever does, being named is what keeps it in
-# the PR body rather than silently absent from it.
+# in none, so an artifact must be named to be reportable at all.
 #
 # `data/scope/scope.json` is the one entry outside `metrics/`. It is a
 # deterministic, git-tracked artifact regenerated from the corpus plus the

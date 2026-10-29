@@ -554,12 +554,12 @@ runbook, [docs/security.md](docs/security.md).
   admitted for their own workflow alone — so a workflow added later inherits
   the boundary. Behind all of it the `review` hold remains the
   thing between a plan and any spend, on every round alike — save one bounded
-  carve-out: a predict, evaluate or summarize round whose own plan is within
+  carve-out: a predict, evaluate, summarize or topic-label round whose own plan is within
   the auto-release caps and budget (`config/review-hold.yaml`; any knob at 0
   turns it off) binds the reviewer-less `review-auto` instead. The back-test
   has no such carve-out. The per-round and daily caps bound **estimated**
   spend (the planning rates over the round's own minted matrix, or a summary
-  plan's upper estimate); actual spend can exceed the estimate, since retries
+  or label plan's upper estimate); actual spend can exceed the estimate, since retries
   spend and the rates price some engines low. The trailing budget projects
   measured spend from the committed ledger, plus an in-flight allowance, plus
   the round's estimate, and must sit below the `spend` backstop's ceiling or
@@ -568,7 +568,7 @@ runbook, [docs/security.md](docs/security.md).
   the next round, never the current one. The knobs, the planning rates and the
   decision code are maintainer-owned (`.github/CODEOWNERS`). The daily cap
   counts the larger of two records, the `review-auto` deployments and the
-  auto-released commits on `main`, across the three lanes. A write holder,
+  auto-released commits on `main`, across the lanes. A write holder,
   which includes the agent account interactive sessions act as, can prune the
   deployment list or edit an unmerged collect PR, so each record alone is
   tamperable; `main`'s history is not, once a round's commit has landed.

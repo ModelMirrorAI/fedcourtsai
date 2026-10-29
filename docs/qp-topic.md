@@ -50,15 +50,17 @@ up to the labels artifact exists (the application frame's state is in
 *Applications* below): the vocabulary, the reference set (both blocks), the labeling
 prompt (`.github/prompts/qp-topic-label.md`), the extract and measurement
 commands (`fedcourts qp-corpus` / `fedcourts qp-topics`), the shadow rules
-(`fedcourtsai.pipeline.qp_topics`), the run mode that dispatches the labeler
-(`run-analytics`'s `qp-topic-label`, which lands `data/qp-topics/qp-topics.json`
-as a reviewed PR — see `docs/pipeline.md`), and the court-facing docket pack's
+(`fedcourtsai.pipeline.qp_topics`), the run mode that runs the labeler
+(`run-analytics`'s `qp-topic-label`, on dispatch and on a weekly cron behind the
+review hold, which lands `data/qp-topics/qp-topics.json` as a reviewed PR — see
+`docs/pipeline.md`), and the court-facing docket pack's
 topic section, which renders — always with the inline scope string below, and
 only from a gate-passing labels artifact — in place of the gap bullet that
 names the missing distribution until then. The labels artifact exists and
 accrues one batch a run, so the cut renders wherever a checkout holds it and
-`fedcourts docket` is re-run; a committed `metrics/docket.md` older than that
-run still carries the gap bullet. The publication bar the reference
+`fedcourts docket` is re-run — which the weekly metrics refresh does, landing
+the regenerated pack in its own reviewed PR; a committed `metrics/docket.md`
+older than that run still carries the gap bullet. The publication bar the reference
 section sets is **not** enforced by the cut's code and cannot be: whether a
 labeler has covered the supplement block is a property of the labeling run's
 review, which the labels artifact does not record as such — so merging a
@@ -1046,12 +1048,60 @@ cut off by the clock, is the one that measures its pace. The labeling
 prompt states its budget as "whatever the extract holds" for the same reason —
 one number, in one place, and no second copy to drift.
 
-What a batch costs is measured per run from the labeler's own engine report,
-never a planning rate: at `claude-fable-5` a ceiling-sized 1,200-row extract has
-run at $60.16 and at $37.48 (both full batches, 847 new labels beside the
-353-row reference set), so budget about $40–60 a dispatch. At that rate the
-rest of the 8,498-row frame — ~5,600 rows against the committed artifact — is
-on the order of five dispatches and a few hundred dollars.
+What a batch costs is measured per run from the labeler's own engine report:
+at `claude-opus-5-5`, the default, a ceiling-sized 1,200-row batch has run at
+$10.01; at `claude-fable-5` two have run at $60.16 and $37.48 (both full
+batches, 847 new labels beside the 353-row reference set). So budget about $10
+a run at the default and $40–60 at `claude-fable-5`. Every run's figure is
+recorded (*Weekly runs, the review hold, and the spend record*, below), and the
+planning rate a round is priced at before it runs sits above these
+measurements (`fedcourtsai.planning_rates`).
+
+### Weekly runs, the review hold, and the spend record
+
+Each frame has a **weekly cron** on `run-analytics` (the petition frame on
+Tuesdays, the application frame on Wednesdays; the schedule is in
+[pipeline.md](pipeline.md)), and a dispatch of either mode runs the same jobs. A
+run whose frame has nothing new to label — converged, or a batch the reference
+set fills on its own — **stands down at the extract**: on a schedule
+`qp-corpus --converged-ok` writes no extract and exits 0, and every later job
+skips; a dispatch keeps the refusal, so an operator who asked for a batch hears
+why there is none.
+
+**Every run waits on the review hold**, the per-round spend gate the predict,
+evaluate and summarize lanes take (`src/fedcourtsai/review_hold.py`). The
+extract job prices the round — the batch's rows at the labeler's per-row
+planning rate, `fedcourts qp-label-plan` — and on `main` decides with
+`fedcourts hold-decision --seam label` whether it auto-releases under
+`config/review-hold.yaml`'s caps and trailing budget. A round that does not
+waits on a maintainer's release, a dispatched one included: the dispatcher
+releases it. A staging rehearsal always holds. **A refused batch is not retried
+automatically**: while the newest gated run of a frame (published or refused)
+was refused at the reference gate, the next round of that frame never
+auto-releases, whatever its price, and waits for a maintainer — the hold's
+summary names the refusal. The rule reads the frame's spend records below,
+including those on the frame's open, unmerged PR, so a refusal still under
+review counts.
+
+**Every run's spend is recorded, whatever the gate decided.** A run refused at
+the gate spends as much as one that publishes and writes no labels file, so the
+spend is not a field of the labels artifact: each attempt of the labeling job
+whose engine left an execution file writes one record,
+`data/qp-topics/spend/<run_id>-<run_attempt>.json` (`fedcourts qp-topic-spend`,
+the `QpTopicRunSpend` model), carrying the engine's token counts priced by the
+rule every cell's `usage.json` is, the run's outcome (`published`, `refused`,
+or `incomplete` for a batch that was never measured), and its gate figures
+(agree, n, rate, floor). A published run's labels PR carries the record beside
+the labels file; a refused or incomplete run's record lands alone on the same
+fixed branch, in a PR titled as a spend record of a run that published no
+labels, with the gate figures in its body — onto the frame's open PR where one
+is open, so a pending batch is kept. Neither is ever auto-merged. A run whose
+labeling step left no execution file (the step-cap kill) has nothing to record,
+and its step summary says so. These records are one of the three sources the
+**measured spend total** sums — with the agent cells and the case summaries,
+each windowed on its own stamp, `recorded_at` here — and that one total is what
+the spend backstop (`tracking.yaml` `spend:`) and the auto-release budget both
+read ([budget.md](budget.md)). A refused run's spend counts.
 
 ### Publication keys on the count, not on the agent's verdict
 
@@ -1201,10 +1251,13 @@ shape worth stating rather than leaving to inference:
   per batch, while each batch publishes hundreds of denial-stream rows — which is
   why the per-stream split at measurement review binds every batch, not just the
   first.
-- **Re-dispatching after a gate failure looks at the same rows.** The derivation
+- **Re-running after a gate failure looks at the same rows.** The derivation
   is deterministic, so a second attempt is scored on the identical 353 entries
   against the identical threshold. That is the repository's own "tuned on the
   measurement set" warning, one level up: say what changed between attempts.
+  Which is why nothing retries a refused batch on its own: the next weekly
+  run cuts its batch against a frame that has grown since, and it waits on a
+  maintainer's release while the frame's last gated run stands refused.
 - **Convergence ends measurement.** Once the frame is clear no further batch
   runs, so the last batch's rate is the figure the whole artifact carries.
 
@@ -1240,8 +1293,8 @@ batch — the historical backlog clears in **ten dispatches**. That figure moves
 with the frame and with the reference set; it is arithmetic over two numbers, not
 a property of the design. When nothing is left to label outside the reference
 set, `qp-corpus` says so and exits non-zero rather than spending a run to
-re-grade the reference and publish nothing; the next batch arrives when the next
-pull grows the frame. It refuses on one more state for the same reason: a
+re-grade the reference and publish nothing — or, on the weekly schedule, stands
+down cleanly — and the next batch arrives when the next pull grows the frame. It refuses on one more state for the same reason: a
 reference set large enough to fill the ceiling on its own leaves no room to
 label anything, which does not clear with the next pull.
 
@@ -1254,8 +1307,9 @@ monthly intake and the deferred row's stratum share shrinks as the pool does.
 
 Forward accrual is the smaller number. The Court dockets on the order of five
 thousand cert petitions a Term and only the QP-bearing ones enter this frame, so
-once the backlog is clear one batch absorbs a long stretch of new filings and a
-dispatch every few months keeps up. Treat that as a bound to re-derive from the
+once the backlog is clear one batch absorbs a long stretch of new filings, and
+the weekly run labels a batch whenever the frame has grown enough to owe one
+and stands down otherwise. Treat that as a bound to re-derive from the
 first cleared frame rather than a measured rate: the frame's recent growth is
 extraction catching up with petitions already on hand, not the filing rate, and
 the two cannot be separated until the backlog is gone.

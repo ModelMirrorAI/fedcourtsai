@@ -9521,6 +9521,94 @@ class QpTopicApplicationLabels(_Strict):
         return self
 
 
+QpTopicFrame = Literal["petitions", "applications"]
+QpTopicRunOutcome = Literal["published", "refused", "incomplete"]
+
+
+class QpTopicRunSpend(_Strict):
+    """``data/qp-topics/spend/<run_id>-<run_attempt>.json`` — one labeling run's spend.
+
+    One record per attempt of the labeling job whose engine left an execution
+    file, whatever became of the batch: a run refused at the reference gate
+    spends as much as one that publishes and writes no labels file, so the
+    spend lives here rather than on the labels artifact's batch ledger. The
+    token counts are the engine log's, read and priced by the rule every
+    cell's ``usage.json`` is (:func:`fedcourtsai.usage.parse_claude_usage`,
+    :func:`fedcourtsai.pricing.estimate_cost_usd`), so a labeler dollar and a
+    cell dollar are the same dollar, and the measured spend total
+    (:func:`fedcourtsai.spend.measured_spend`) sums these by ``recorded_at``.
+
+    The gate figures are carried for the same reason: a refused attempt is on
+    file with its measured agreement, and the label seam's review hold reads
+    the newest gated outcome per frame (:mod:`fedcourtsai.review_hold`).
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    lane: Literal["qp-topic-label"] = Field(
+        default="qp-topic-label", description="The spend lane this run belongs to"
+    )
+    frame: QpTopicFrame = Field(description="Which labeling frame the run labeled")
+    run_id: str = Field(pattern=r"^[0-9]+$", description="The Actions run id of the labeling run")
+    run_attempt: int = Field(ge=1, description="The labeling job's run attempt")
+    labeler: str = Field(min_length=1, description="Who labeled — engine and model")
+    model: str = Field(min_length=1, description="The model the cost rates were applied to")
+    outcome: QpTopicRunOutcome = Field(
+        description="published: the batch cleared the reference gate and its labels were "
+        "handed to the publish job; refused: it was measured and fell below the gate; "
+        "incomplete: it was never measured (a labels file short of the batch, or a check "
+        "ahead of the measurement that failed)"
+    )
+    batch_rows: int = Field(ge=0, description="Rows in the extract the labeler was handed")
+    label_lines: int = Field(ge=0, description="Label lines the run left behind")
+    agree: int | None = Field(
+        default=None, ge=0, description="Compared reference entries matched; null unmeasured"
+    )
+    n: int | None = Field(
+        default=None, ge=0, description="Reference entries compared; null unmeasured"
+    )
+    rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="agree / n — agreement with the frame's reference, not accuracy; null "
+        "when unmeasured or nothing was compared",
+    )
+    floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant labeler scores on the same compared entries; null "
+        "when unmeasured",
+    )
+    recorded_at: datetime = Field(
+        description="When the record was written, timezone-aware; the spend window reads it"
+    )
+    input_tokens: int = Field(ge=0, description="Fresh input tokens")
+    output_tokens: int = Field(ge=0, description="Output tokens")
+    cache_read_input_tokens: int = Field(ge=0, description="Cached input tokens read")
+    cache_creation_input_tokens: int = Field(ge=0, description="Cache-write tokens")
+    estimated_cost_usd: float = Field(
+        ge=0.0,
+        allow_inf_nan=False,
+        description="The run's on-demand cost at `pricing.MODEL_RATES` for `model`",
+    )
+
+    @model_validator(mode="after")
+    def _consistent(self) -> QpTopicRunSpend:
+        if self.recorded_at.tzinfo is None:
+            raise ValueError("recorded_at must be timezone-aware")
+        measured = self.agree is not None and self.n is not None
+        if (self.agree is None) != (self.n is None):
+            raise ValueError("agree and n are recorded together or not at all")
+        if measured and self.agree is not None and self.n is not None and self.agree > self.n:
+            raise ValueError("agree cannot exceed n")
+        if self.outcome != "incomplete" and not measured:
+            raise ValueError(f"a {self.outcome} run carries its gate figures")
+        if self.outcome == "published" and self.label_lines != self.batch_rows:
+            raise ValueError("a published run labeled every row of its batch")
+        return self
+
+
 class DispositionShare(_Strict):
     """One realized outcome's count and share of the resolved cases in a slice.
 
@@ -14151,6 +14239,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "qp_topic_application_reference": QpTopicApplicationReference,
     "qp_topics": QpTopicLabels,
     "qp_topics_applications": QpTopicApplicationLabels,
+    "qp_topic_run_spend": QpTopicRunSpend,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "summary_plan": SummaryPlan,
     "export_prediction_row": ExportPredictionRow,

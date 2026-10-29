@@ -529,10 +529,12 @@ from .schemas import (
     PredictionContext,
     PredictorConfig,
     ProcessVersion,
+    QpTopicAgreement,
     QpTopicApplicationLabels,
     QpTopicApplicationReference,
     QpTopicLabels,
     QpTopicReference,
+    QpTopicRunSpend,
     RetrievalCall,
     RetrievalLog,
     SalienceReplay,
@@ -7451,7 +7453,8 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
     out: Path,
     scope: str,
     applications: bool = False,
-) -> list[Row]:
+    converged_ok: bool = False,
+) -> list[Row] | None:
     """The rows this dispatch labels, cut from the scoped frame by committed state.
 
     Reads the committed reference set and, where one exists, the committed labels
@@ -7465,6 +7468,11 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
     to stderr, and exits non-zero on the two states where a dispatch would spend
     a labeling run for nothing: a converged frame, and a frame holding too few of
     the reference set for the run to clear the publication gate's coverage floor.
+
+    ``converged_ok`` turns the converged frame and the no-fill batch — the two
+    states with nothing new to label — into a clean stand-down: ``None`` comes
+    back and the caller writes nothing and exits 0. The coverage refusal stays
+    a refusal either way, since it says the frame is broken rather than done.
 
     ``applications`` cuts the application frame's batch by the same rule, from
     the application reference block and the application labels artifact,
@@ -7555,6 +7563,8 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
             "with the next pull, when the frame grows.",
             err=True,
         )
+        if converged_ok:
+            return None
         raise typer.Exit(code=1)
     if not batch.fill:
         # Rows left to label, but no budget to label them with: the reference set
@@ -7570,6 +7580,8 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
             "publish nothing. Nothing was written.",
             err=True,
         )
+        if converged_ok:
+            return None
         raise typer.Exit(code=1)
     # Beside the extract, never inside it: the extract is the labeler's whole
     # evidentiary input and the contract is text-only, so the selection rule and
@@ -7788,6 +7800,15 @@ def qp_corpus(
             "(qp-topic-v1), pre-disposition text only. Both are batched.",
         ),
     ] = "petitions",
+    converged_ok: Annotated[
+        bool,
+        typer.Option(
+            "--converged-ok",
+            help="Stand down cleanly on a frame with nothing new to label (converged, or a "
+            "batch the reference set fills alone): write no extract and exit 0. The "
+            "scheduled labeling run passes it; a dispatch keeps the refusal.",
+        ),
+    ] = False,
 ) -> None:
     """Extract the stored ``questions-presented`` texts a topic labeler reads.
 
@@ -7845,7 +7866,10 @@ def qp_corpus(
     could not clear the publication gate whatever the labeler did: the batch
     carries every reference case the frame holds and the labeler labels every
     row, so that coverage is exact at extract time. Neither moves the gate; the
-    second enforces it earlier and more cheaply.
+    second enforces it earlier and more cheaply. Under ``--converged-ok`` the
+    first state, and the batch the reference set fills on its own, instead
+    write nothing and exit 0, so a scheduled run with nothing owed stands down
+    rather than failing; the coverage refusal is unchanged.
 
     **``--frame applications``** extracts the application frame a ``qp-topic-v1``
     labeler reads instead (:mod:`~fedcourtsai.pipeline.application_topics`):
@@ -7875,7 +7899,9 @@ def qp_corpus(
             )
             raise typer.Exit(code=2)
     if frame == "applications":
-        _qp_corpus_applications(settings, corpus_db, out, all_texts=all_texts)
+        _qp_corpus_applications(
+            settings, corpus_db, out, all_texts=all_texts, converged_ok=converged_ok
+        )
         return
     db_path = corpus_db if corpus_db is not None else corpus.corpus_db_path(settings.corpus_root)
     if not db_path.is_file():
@@ -7932,7 +7958,17 @@ def qp_corpus(
             )
             raise typer.Exit(code=1)
     else:
-        rows = _labeling_batch(extract.rows, data_root=settings.data_root, out=out, scope=scope)
+        batch_rows = _labeling_batch(
+            extract.rows,
+            data_root=settings.data_root,
+            out=out,
+            scope=scope,
+            converged_ok=converged_ok,
+        )
+        if batch_rows is None:
+            typer.echo("qp-corpus: nothing owed in this frame; standing down (--converged-ok)")
+            return
+        rows = batch_rows
     write_raw_json(
         out,
         [
@@ -7949,7 +7985,12 @@ def qp_corpus(
 
 
 def _qp_corpus_applications(
-    settings: Settings, corpus_db: Path | None, out: Path, *, all_texts: bool
+    settings: Settings,
+    corpus_db: Path | None,
+    out: Path,
+    *,
+    all_texts: bool,
+    converged_ok: bool = False,
 ) -> None:
     """``qp-corpus --frame applications``: the application extract, batched like the petitions'."""
     if all_texts:
@@ -7989,7 +8030,11 @@ def _qp_corpus_applications(
         out=out,
         scope="live-slice non-extension application dockets",
         applications=True,
+        converged_ok=converged_ok,
     )
+    if rows is None:
+        typer.echo("qp-corpus: nothing owed in this frame; standing down (--converged-ok)")
+        return
     write_raw_json(out, [row.as_json() for row in rows])
     typer.echo(f"qp-corpus: {len(rows)} application(s) -> {out}")
 
@@ -8031,6 +8076,14 @@ def qp_topics_cmd(
             "the application reference block and accrues qp-topics-applications.json.",
         ),
     ] = "petitions",
+    agreement_out: Annotated[
+        Path | None,
+        typer.Option(
+            "--agreement-out",
+            help="Also write the run's measured agreement (the gate figures) here as JSON, "
+            "whether or not the run clears the gate; `qp-topic-spend` records it.",
+        ),
+    ] = None,
 ) -> None:
     """Measure a topic labeler against the reference set and accrue its labels artifact.
 
@@ -8080,10 +8133,16 @@ def qp_topics_cmd(
     gate and floors, and accrues the application labels artifact
     (``data/qp-topics/qp-topics-applications.json``), each row stamped with the
     extract's ``input_kind``. ``--frame-rows`` there counts the application frame.
+
+    ``--agreement-out`` writes the measured agreement — the gate figures — to a
+    file of its own on either side of the gate, so a refused run's measurement
+    survives into its spend record (``fedcourts qp-topic-spend``). Nothing is
+    written there when the labels never reach a measurement (a mis-joined or
+    malformed labels file).
     """
     settings = get_settings()
     if frame == "applications":
-        _qp_topics_applications(settings, labels, texts, labeler, out, frame_rows)
+        _qp_topics_applications(settings, labels, texts, labeler, out, frame_rows, agreement_out)
         return
     reference_path = qp_topics.reference_path(settings.data_root)
     if not reference_path.is_file():
@@ -8106,6 +8165,8 @@ def qp_topics_cmd(
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+    if agreement_out is not None:
+        write_json(agreement_out, artifact.agreement)
     _report_labels_run(artifact, reference_name="the reference set")
     destination = out if out is not None else qp_topics.labels_path(settings.data_root)
     write_json(destination, artifact)
@@ -8119,6 +8180,7 @@ def _qp_topics_applications(
     labeler: str,
     out: Path | None,
     frame_rows: int | None,
+    agreement_out: Path | None = None,
 ) -> None:
     """``qp-topics --frame applications``: measure an application batch and accrue its artifact."""
     reference_path = qp_topics.application_reference_path(settings.data_root)
@@ -8143,6 +8205,8 @@ def _qp_topics_applications(
     reference = read_model(reference_path, QpTopicApplicationReference)
     lines = {entry.case_id: entry.label for entry in qp_topics.read_label_lines(labels)}
     typer.echo(qp_topics.render_input_kind_split(lines, reference))
+    if agreement_out is not None:
+        write_json(agreement_out, artifact.agreement)
     _report_labels_run(artifact, reference_name="the application reference block")
     destination = out if out is not None else prior_path
     write_json(destination, artifact)
@@ -8193,6 +8257,174 @@ def _report_labels_run(
             err=True,
         )
         raise typer.Exit(code=1)
+
+
+@app.command("qp-topic-spend")
+def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
+    execution_file: Annotated[
+        Path,
+        typer.Option(
+            "--execution-file",
+            help="The labeling step's Claude Code execution_file, read for its token usage.",
+        ),
+    ],
+    frame: Annotated[
+        Literal["petitions", "applications"],
+        typer.Option(help="The frame the run labeled."),
+    ],
+    run_id: Annotated[str, typer.Option("--run-id", help="The Actions run id.")],
+    run_attempt: Annotated[
+        int, typer.Option("--run-attempt", min=1, help="The labeling job's run attempt.")
+    ],
+    model: Annotated[str, typer.Option(help="The labeler's model, priced at MODEL_RATES.")],
+    batch_rows: Annotated[
+        int, typer.Option("--batch-rows", min=0, help="Rows in the extract the run was handed.")
+    ],
+    label_lines: Annotated[
+        int, typer.Option("--label-lines", min=0, help="Label lines the run left behind.")
+    ],
+    published: Annotated[
+        bool,
+        typer.Option(
+            "--published/--not-published",
+            help="Whether the measure step cleared the gate and wrote the labels artifact.",
+        ),
+    ] = False,
+    agreement_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--agreement-file",
+            help="The measured agreement `qp-topics --agreement-out` wrote; absent or "
+            "missing means the run was never measured.",
+        ),
+    ] = None,
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Where to write the record (default: "
+            "<data_root>/qp-topics/spend/<run_id>-<run_attempt>.json)."
+        ),
+    ] = None,
+    recorded_at: Annotated[
+        str, typer.Option("--recorded-at", help="ISO timestamp; defaults to now (UTC).")
+    ] = "",
+) -> None:
+    """Record one topic-labeler run's measured spend, whatever became of its batch.
+
+    Reads the engine's execution file as every Claude cell's ``record-usage``
+    does (:func:`fedcourtsai.usage.parse_claude_usage`), prices it at the one
+    rate table (:func:`fedcourtsai.pricing.estimate_cost_usd`), and writes a
+    ``QpTopicRunSpend`` record with the run's outcome and gate figures. The
+    outcome is ``published`` when the measure step cleared the gate, ``refused``
+    when it measured the batch below the gate, and ``incomplete`` when no
+    measurement exists — a labels file short of the batch, or a check ahead of
+    the measurement that failed. A refused run spends as much as a published
+    one, which is why this record, not the labels artifact, carries the spend.
+
+    Exits 3 without writing when the execution file carries no usage, so the
+    workflow step can say there was nothing to record rather than commit false
+    zeros; exits 2 on a model with no rate, an unreadable agreement file, or a
+    published run whose measurement says the gate refused.
+    """
+    settings = get_settings()
+    counts = parse_claude_usage(execution_file)
+    if counts is None or counts.total_tokens == 0:
+        typer.echo(
+            "qp-topic-spend: no model usage in the execution file; nothing recorded", err=True
+        )
+        raise typer.Exit(code=3)
+    if model not in MODEL_RATES:
+        known = ", ".join(sorted(MODEL_RATES))
+        typer.echo(f"qp-topic-spend: no rate for model '{model}'; known models: {known}", err=True)
+        raise typer.Exit(code=2)
+    agreement: QpTopicAgreement | None = None
+    if agreement_file is not None and agreement_file.is_file():
+        try:
+            agreement = read_model(agreement_file, QpTopicAgreement)
+        except (OSError, ValueError) as exc:
+            typer.echo(f"qp-topic-spend: cannot read {agreement_file}: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+    if published and (agreement is None or not agreement.gate_passed):
+        typer.echo(
+            "qp-topic-spend: --published needs a measurement that cleared the gate", err=True
+        )
+        raise typer.Exit(code=2)
+    outcome: Literal["published", "refused", "incomplete"]
+    if published:
+        outcome = "published"
+    elif agreement is not None and not agreement.gate_passed:
+        outcome = "refused"
+    else:
+        outcome = "incomplete"
+    when = datetime.fromisoformat(recorded_at) if recorded_at else datetime.now(UTC)
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    try:
+        record = QpTopicRunSpend(
+            frame=frame,
+            run_id=run_id,
+            run_attempt=run_attempt,
+            labeler=f"claude-code/{model}",
+            model=model,
+            outcome=outcome,
+            batch_rows=batch_rows,
+            label_lines=label_lines,
+            agree=None if agreement is None else agreement.overall_agree,
+            n=None if agreement is None else agreement.overall_n,
+            rate=None if agreement is None else agreement.overall_rate,
+            floor=None if agreement is None else agreement.floor,
+            recorded_at=when,
+            input_tokens=counts.input_tokens,
+            output_tokens=counts.output_tokens,
+            cache_read_input_tokens=counts.cache_read_input_tokens,
+            cache_creation_input_tokens=counts.cache_creation_input_tokens,
+            estimated_cost_usd=estimate_cost_usd(model, counts),
+        )
+    except ValueError as exc:
+        typer.echo(f"qp-topic-spend: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    destination = (
+        out
+        if out is not None
+        else qp_topics.run_spend_path(settings.data_root, run_id, run_attempt)
+    )
+    write_json(destination, record)
+    typer.echo(
+        f"qp-topic-spend: {frame} run {run_id} attempt {run_attempt} {outcome}, "
+        f"{counts.total_tokens} tok ~${record.estimated_cost_usd:.2f} -> {destination}"
+    )
+
+
+@app.command("qp-label-plan")
+def qp_label_plan_cmd(
+    *,
+    rows: Annotated[int, typer.Option(min=1, help="Rows in the batch the extract cut.")],
+    model: Annotated[str, typer.Option(help="The labeler's model.")],
+    frame: Annotated[
+        Literal["petitions", "applications"], typer.Option(help="The frame the round labels.")
+    ],
+    out: Annotated[Path, typer.Option(help="Write the plan document here (JSON).")],
+    report: Annotated[
+        Path | None, typer.Option(help="Also write the plan's markdown report here.")
+    ] = None,
+) -> None:
+    """Price a topic-label round: the plan document the review hold judges it on.
+
+    The round's price is its batch's rows at the labeler's per-row planning
+    rate (:data:`fedcourtsai.planning_rates.LABEL_RATES_USD_PER_ROW`; a model the
+    table does not name prices at its highest rate), written as
+    ``estimated_cost_usd_high`` — the figure ``hold-decision --seam label``
+    compares against the per-round cap. Reads nothing and spends nothing.
+    """
+    plan = qp_topics.build_label_plan(frame=frame, model=model, rows=rows)
+    write_raw_json(out, plan)
+    if report is not None:
+        write_text(report, qp_topics.render_label_plan(plan))
+    typer.echo(
+        f"qp-label-plan: {frame} {rows} row(s) by {model} at "
+        f"${plan['rate_usd_per_row']:.2f}/row -> ${plan['estimated_cost_usd_high']:.2f} -> {out}"
+    )
 
 
 @app.command("corpus-status")
@@ -13540,7 +13772,7 @@ def _weekly_production(data_root: Path, config_root: Path, when: datetime) -> We
             since=term_start,
             term=term,
         ),
-        backstop=verdict_over(usage, spend_config, now=when),
+        backstop=verdict_over(usage, spend_config, data_root=data_root, now=when),
     )
 
 
@@ -20927,10 +21159,11 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
         return verdict
     typer.echo(
         f"::error::{stage}: spend backstop reached — ${verdict.spent_usd:.2f} recorded over the "
-        f"trailing {verdict.window_days} day(s) across {verdict.cells} cell(s), at or above the "
+        f"trailing {verdict.window_days} day(s) ({verdict.cells} agent cell(s), plus case "
+        f"summaries and topic-labeler runs), at or above the "
         f"${verdict.ceiling_usd:.2f} ceiling, so no cells are minted this run. The queued work is "
         f"untouched and re-runs once the window rolls off or the ceiling is raised "
-        f"(spend.ceiling_usd). NOTE: the ledger only counts cells whose collect PR has merged, so "
+        f"(spend.ceiling_usd). NOTE: the ledger only counts records whose PR has merged, so "
         f"actual spend is at least this.",
         err=True,
     )
@@ -20940,10 +21173,11 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
             fh.write(
                 f"## {stage} — spend backstop reached, no cells minted\n"
                 f"Recorded **${verdict.spent_usd:.2f}** over the trailing "
-                f"{verdict.window_days} day(s) across {verdict.cells} cell(s), at or above the "
+                f"{verdict.window_days} day(s) ({verdict.cells} agent cell(s), plus case summaries "
+                f"and topic-labeler runs), at or above the "
                 f"**${verdict.ceiling_usd:.2f}** ceiling (`spend.ceiling_usd`). Queued work is "
                 f"deferred, not dropped — it re-runs once the window rolls off or the ceiling is "
-                f"raised. The ledger counts only cells whose collect PR has merged, so actual "
+                f"raised. The ledger counts only records whose PR has merged, so actual "
                 f"spend is at least this figure.\n"
             )
     return verdict
@@ -22251,8 +22485,11 @@ def _spend_verdict_json(verdict: SpendVerdict) -> dict[str, Any]:
         # claim about anything.
         "spent_usd_is_floor": True if enforced else None,
         "basis": (
-            "The ledger counts collected cells only — a cell's usage.json reaches data/ when "
-            "its run's collect PR merges — so spent_usd is a FLOOR on spend within the window, "
+            "The ledger counts committed spend only — a cell's usage.json reaches data/ when "
+            "its run's collect PR merges, a case summary's or a topic-labeler run's record "
+            "when its reviewed PR does — and `cells` counts the agent cells inside spent_usd, "
+            "which also sums those summaries and labeler runs; so spent_usd is a FLOOR on "
+            "spend within the window, "
             "never a live figure. Null where no ceiling is configured: the backstop returns "
             "before reading the ledger, so those figures are unmeasured, not zero."
         ),
@@ -23138,7 +23375,8 @@ def hold_decision_cmd(
         Path,
         typer.Option(
             "--plan-file",
-            help="The round's plan document: `predict-plan`, `evaluate-plan` or `summarize-plan`.",
+            help="The round's plan document: `predict-plan`, `evaluate-plan`, `summarize-plan` "
+            "or `qp-label-plan`.",
         ),
     ],
     seam: Annotated[
@@ -23146,8 +23384,8 @@ def hold_decision_cmd(
         typer.Option(
             "--seam",
             help=(
-                "The lane the round belongs to: predict, evaluate or summarize. It picks "
-                "how the plan is priced and whether a drain is considered."
+                "The lane the round belongs to: predict, evaluate, summarize or label. It "
+                "picks how the plan is priced and whether a drain is considered."
             ),
         ),
     ] = "predict",
@@ -23158,8 +23396,8 @@ def hold_decision_cmd(
             help=(
                 "The `predict-matrix` / `evaluate-matrix` document the round minted. "
                 "Auto-release needs it to hold exactly the plan's would-mint cells, and "
-                "prices it too; omitted or unreadable keeps the hold. A summarize round "
-                "has no matrix and ignores it."
+                "prices it too; omitted or unreadable keeps the hold. A summarize or "
+                "label round has no matrix and ignores it."
             ),
         ),
     ] = None,
@@ -23203,9 +23441,10 @@ def hold_decision_cmd(
     trailing spend plus the in-flight bound plus this round's price is within
     the trailing budget) and `drain_more` (predict only: a cap stopped the round
     short of the backlog, so another round is owed as soon as this one's output
-    lands). Fails closed: a disabled knob, an unreadable count or ledger, a
-    missing matrix or a plan with no estimate keeps the hold. Spends nothing and
-    reads no corpus.
+    lands). A label round also holds when its frame's last gated labeling run
+    was refused at the reference gate. Fails closed: a disabled knob, an
+    unreadable count or ledger, a missing matrix or a plan with no estimate
+    keeps the hold. Spends nothing and reads no corpus.
     """
     settings = get_settings()
     if seam not in REVIEW_HOLD_SEAMS:
