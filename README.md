@@ -53,8 +53,8 @@ of the cells and spend produced over the week, the trailing month and the Term
 to date, plus the back-test results; the public status page's daily snapshot;
 and a daily prediction-reading digest — one predicted event with every
 predictor side by side — on an issue the maintainer closes once read) and
-`run-analytics` — nine dispatch modes: corpus statistics, the
-distribution-parse census, the document text-coverage enumeration, the
+`run-analytics` — dispatch modes for corpus statistics, the
+document text-coverage enumeration, the
 tool-usage roll-up, the metrics refresh, the daily big-case board, the weekly
 public update history, the
 qp-topic labeler (the only one that runs an agent), and the adverse-order scan

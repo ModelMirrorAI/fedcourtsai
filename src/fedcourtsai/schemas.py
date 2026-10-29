@@ -10817,6 +10817,163 @@ class DocketPackQpTopics(_Strict):
     )
 
 
+class DocketPackApplicationTopics(_Strict):
+    """The emergency-application topic distribution, inseparable from how it was labeled.
+
+    The application frame's counterpart to :class:`DocketPackQpTopics`, read from
+    the ``qp-topic-v1`` application labels artifact and measured against the
+    application reference block rather than the petition one. The two frames are
+    read from different inputs — an application carries no questions presented,
+    so a labeler reads its caption, court below, pre-decision docket entries and,
+    where the store holds it, the application's own text — which is why the two
+    cuts are published apart and never pooled into one row.
+
+    The same pairing caveat holds as for the petition cut: ``labeler`` and
+    ``agree``/``n`` are the most recent batch's, while the rows in ``section``
+    come from every batch. ``docket_only_cases`` is carried because the input
+    shape decides how much a label can say: a docket-only row whose caption and
+    entries name no subject is ``unclassifiable`` by rule, so that bucket is
+    mostly a measure of how thin the docket is rather than of what the
+    applications are about.
+    """
+
+    labeler: str = Field(
+        min_length=1,
+        description="Who assigned the most recent batch's labels — the free-form actor string "
+        "from the labels artifact. Earlier batches may name a different one",
+    )
+    batches: int = Field(
+        default=1, ge=1, description="Labeling runs the application artifact accrued over"
+    )
+    reference_rows: int = Field(
+        default=0,
+        ge=0,
+        description="Labeled applications whose published label is the application reference "
+        "block's adjudicated one, carried in every batch and so over-represented while the "
+        "frame is still accruing",
+    )
+    frame_rows: int | None = Field(
+        default=None,
+        ge=1,
+        description="Applications in the labeling frame the newest batch was cut from, as that "
+        "batch's extract counted them, at the batch's corpus vintage rather than this pack's. "
+        "None where the newest batch recorded no count",
+    )
+    agree: int = Field(
+        ge=0,
+        description="Reference entries where the labeler matched the application block's "
+        "adjudicated label — agreement, not accuracy",
+    )
+    n: int = Field(ge=0, description="Reference entries compared — the denominator of `agree`")
+    floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant labeler scores on the same compared entries",
+    )
+    uncovered: int = Field(
+        default=0, ge=0, description="Reference entries the labeler produced no label for"
+    )
+    labeled_cases: int = Field(
+        default=0, ge=0, description="Applications the labels artifact carries a primary label for"
+    )
+    matched_cases: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, the ones that joined a row in this section's population — the "
+        "cut's raw row count",
+    )
+    docket_only_cases: int = Field(
+        default=0,
+        ge=0,
+        description="Of the labeled applications, those read from caption, court below and "
+        "docket entries alone, with no stored application text",
+    )
+    unmeasured_labels: list[QpTopicLabel] = Field(
+        default_factory=list,
+        description="Buckets whose per-label agreement the application block cannot measure — "
+        "fewer reference examples than the support floor. The headline agreement certifies "
+        "none of these rows",
+    )
+    support: list[QpTopicSupport] = Field(
+        default_factory=list,
+        description="The raw rows behind each bucket, with the reference-sourced share of them",
+    )
+    section: StatPackSection = Field(
+        description="The distribution: labeled applications bucketed by primary `qp-topic-v1` label"
+    )
+
+
+class TopicMixShare(_Strict):
+    """One topic's share of one stage's labeled cases."""
+
+    label: QpTopicLabel = Field(description="The primary topic label")
+    cases: int = Field(
+        ge=0,
+        description="Labeled cases at this stage under the label, as the stage's own section "
+        "counts them (denial-reweighted where that section is)",
+    )
+    share: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="`cases` over the stage's `cases` — a share of this stage's labeled cases, "
+        "never of the docket",
+    )
+    classified_share: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="`cases` over the stage's cases outside `unclassifiable`; None on "
+        "`unclassifiable` itself. A companion to `share`, never a replacement: whether a row "
+        "names a subject depends on what the labeler had to read",
+    )
+    rows: int = Field(ge=0, description="Rows on hand behind `cases`, unweighted")
+
+
+class TopicMixStage(_Strict):
+    """What share of one stage's labeled cases falls under each topic."""
+
+    stage: Literal["cert", "merits", "interim"] = Field(
+        description="`cert`: labeled cert-form petitions, whatever their disposition. "
+        "`merits`: those of them the Court granted. `interim`: labeled emergency applications"
+    )
+    vocabulary: Literal["qp-topic-v0", "qp-topic-v1"] = Field(
+        description="The labels artifact the stage is read from: the petitions' `qp-topic-v0` "
+        "labels, or the applications' `qp-topic-v1` ones. v1 keeps every v0 label and petition "
+        "boundary, so the two share one label set"
+    )
+    cases: int = Field(ge=0, description="The stage's labeled cases, the shares' denominator")
+    rows: int = Field(ge=0, description="Rows on hand behind `cases`, unweighted")
+    shares: list[TopicMixShare] = Field(
+        default_factory=list,
+        description="One entry per label the stage holds, `unclassifiable` included, largest "
+        "first. The shares sum to 1 up to rounding",
+    )
+    scope_note: str = Field(
+        min_length=1,
+        description="The coverage caveat that must travel with any share quoted from this "
+        "stage (`docs/qp-topic.md`, *The coverage caveat*)",
+    )
+
+
+class DocketPackTopicMix(_Strict):
+    """The share of labeled cases in each topic, stage by stage.
+
+    A summary view over the topic cuts this pack already carries, for a reader
+    who asks what the cases are about at each stage of the docket rather than
+    how each topic is disposed of. Each stage is read from one labels artifact
+    and one section, never pooled across frames, and each carries its own scope
+    string, because the stages are labeled from different inputs and covered to
+    very different depths.
+    """
+
+    stages: list[TopicMixStage] = Field(
+        default_factory=list,
+        description="The stages a gate-passing labels artifact backs, in docket order: cert, "
+        "merits, interim",
+    )
+
+
 class DocketPack(_Strict):
     """``metrics/docket.json`` — court-facing docket statistics (an independent artifact).
 
@@ -10870,6 +11027,16 @@ class DocketPack(_Strict):
         description="The question-presented topic distribution with its labeler provenance, "
         "present only once a labels artifact exists; None while none has been produced, in "
         "which case the rendered document names it among the gaps instead",
+    )
+    application_topics: DocketPackApplicationTopics | None = Field(
+        default=None,
+        description="The emergency-application topic distribution with its labeler provenance, "
+        "present only once a gate-passing application labels artifact exists",
+    )
+    topic_mix: DocketPackTopicMix | None = Field(
+        default=None,
+        description="The share of labeled cases in each topic at each stage (cert, merits, "
+        "interim), read off the topic cuts above; None when neither labels artifact backs a cut",
     )
 
 

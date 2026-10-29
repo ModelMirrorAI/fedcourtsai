@@ -87,6 +87,147 @@
       "title": "DispositionShare",
       "type": "object"
     },
+    "DocketPackApplicationTopics": {
+      "additionalProperties": false,
+      "description": "The emergency-application topic distribution, inseparable from how it was labeled.\n\nThe application frame's counterpart to :class:`DocketPackQpTopics`, read from\nthe ``qp-topic-v1`` application labels artifact and measured against the\napplication reference block rather than the petition one. The two frames are\nread from different inputs \u2014 an application carries no questions presented,\nso a labeler reads its caption, court below, pre-decision docket entries and,\nwhere the store holds it, the application's own text \u2014 which is why the two\ncuts are published apart and never pooled into one row.\n\nThe same pairing caveat holds as for the petition cut: ``labeler`` and\n``agree``/``n`` are the most recent batch's, while the rows in ``section``\ncome from every batch. ``docket_only_cases`` is carried because the input\nshape decides how much a label can say: a docket-only row whose caption and\nentries name no subject is ``unclassifiable`` by rule, so that bucket is\nmostly a measure of how thin the docket is rather than of what the\napplications are about.",
+      "properties": {
+        "agree": {
+          "description": "Reference entries where the labeler matched the application block's adjudicated label \u2014 agreement, not accuracy",
+          "minimum": 0,
+          "title": "Agree",
+          "type": "integer"
+        },
+        "batches": {
+          "default": 1,
+          "description": "Labeling runs the application artifact accrued over",
+          "minimum": 1,
+          "title": "Batches",
+          "type": "integer"
+        },
+        "docket_only_cases": {
+          "default": 0,
+          "description": "Of the labeled applications, those read from caption, court below and docket entries alone, with no stored application text",
+          "minimum": 0,
+          "title": "Docket Only Cases",
+          "type": "integer"
+        },
+        "floor": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What a constant labeler scores on the same compared entries",
+          "title": "Floor"
+        },
+        "frame_rows": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Applications in the labeling frame the newest batch was cut from, as that batch's extract counted them, at the batch's corpus vintage rather than this pack's. None where the newest batch recorded no count",
+          "title": "Frame Rows"
+        },
+        "labeled_cases": {
+          "default": 0,
+          "description": "Applications the labels artifact carries a primary label for",
+          "minimum": 0,
+          "title": "Labeled Cases",
+          "type": "integer"
+        },
+        "labeler": {
+          "description": "Who assigned the most recent batch's labels \u2014 the free-form actor string from the labels artifact. Earlier batches may name a different one",
+          "minLength": 1,
+          "title": "Labeler",
+          "type": "string"
+        },
+        "matched_cases": {
+          "default": 0,
+          "description": "Of those, the ones that joined a row in this section's population \u2014 the cut's raw row count",
+          "minimum": 0,
+          "title": "Matched Cases",
+          "type": "integer"
+        },
+        "n": {
+          "description": "Reference entries compared \u2014 the denominator of `agree`",
+          "minimum": 0,
+          "title": "N",
+          "type": "integer"
+        },
+        "reference_rows": {
+          "default": 0,
+          "description": "Labeled applications whose published label is the application reference block's adjudicated one, carried in every batch and so over-represented while the frame is still accruing",
+          "minimum": 0,
+          "title": "Reference Rows",
+          "type": "integer"
+        },
+        "section": {
+          "$ref": "#/$defs/StatPackSection",
+          "description": "The distribution: labeled applications bucketed by primary `qp-topic-v1` label"
+        },
+        "support": {
+          "description": "The raw rows behind each bucket, with the reference-sourced share of them",
+          "items": {
+            "$ref": "#/$defs/QpTopicSupport"
+          },
+          "title": "Support",
+          "type": "array"
+        },
+        "uncovered": {
+          "default": 0,
+          "description": "Reference entries the labeler produced no label for",
+          "minimum": 0,
+          "title": "Uncovered",
+          "type": "integer"
+        },
+        "unmeasured_labels": {
+          "description": "Buckets whose per-label agreement the application block cannot measure \u2014 fewer reference examples than the support floor. The headline agreement certifies none of these rows",
+          "items": {
+            "enum": [
+              "administrative-law-and-benefit-programs",
+              "business-and-financial-regulation",
+              "civil-procedure",
+              "constitutional-rights",
+              "criminal-law",
+              "election-law",
+              "employment-and-antidiscrimination",
+              "environment-energy-and-property",
+              "firearms",
+              "first-amendment",
+              "habeas-and-postconviction",
+              "immigration",
+              "intellectual-property",
+              "sovereignty-and-foreign-relations",
+              "tax",
+              "unclassifiable"
+            ],
+            "type": "string"
+          },
+          "title": "Unmeasured Labels",
+          "type": "array"
+        }
+      },
+      "required": [
+        "labeler",
+        "agree",
+        "n",
+        "section"
+      ],
+      "title": "DocketPackApplicationTopics",
+      "type": "object"
+    },
     "DocketPackQpTopics": {
       "additionalProperties": false,
       "description": "The question-presented topic distribution, inseparable from how it was labeled.\n\nA topic share is only readable beside the labeling that produced it and its\nmeasured agreement with the ``qp-topic-v0`` reference rater, so the two\ntravel in one object rather than as a section a quotation can lift alone.\n``agree``/``n`` is **agreement, not accuracy**: with a single hand rater,\nreference error and labeler error cannot be separated, and the reference\nframe is grant-enriched, so the figure certifies the grant stream only\n(``docs/qp-topic.md``).\n\nThe labels artifact **accrues across dispatches**, so the pairing is looser\nthan one run's: ``labeler`` and ``agree``/``n`` are the most recent batch's,\nwhile the rows counted in ``section`` come from ``batches`` runs that may\nhave had different labelers. The rate therefore certifies the batch that\nproduced it, not every row beside it, and ``batches`` is carried so a reader\ncan see that rather than infer one run. Per-batch labelers and rates are in\nthe labels artifact's own ledger.\n\nThree fields exist because the headline rate alone is unreadable. ``floor``\nis what a constant labeler scores on the same entries \u2014 the distance from it\nis the only part that is skill. ``uncovered`` is the reference entries the\nlabeler never labeled, so ``n`` is not mistaken for the whole reference set.\n``unmeasured_labels`` names the buckets whose per-label agreement is\nunmeasured in v0 (under the reference support floor), so a row quoted from\nthe table is not read as certified by the headline figure.\n\n``section`` counts **primary labels only** \u2014 secondary labels and the vehicle\nflag are unmeasured in v0 and appear in no published cut \u2014 over the labeled\ncases alone, and its ``scope_note`` carries the coverage caveat every\npublished share must render beside it.",
@@ -344,6 +485,22 @@
       "title": "DocketPackTerm",
       "type": "object"
     },
+    "DocketPackTopicMix": {
+      "additionalProperties": false,
+      "description": "The share of labeled cases in each topic, stage by stage.\n\nA summary view over the topic cuts this pack already carries, for a reader\nwho asks what the cases are about at each stage of the docket rather than\nhow each topic is disposed of. Each stage is read from one labels artifact\nand one section, never pooled across frames, and each carries its own scope\nstring, because the stages are labeled from different inputs and covered to\nvery different depths.",
+      "properties": {
+        "stages": {
+          "description": "The stages a gate-passing labels artifact backs, in docket order: cert, merits, interim",
+          "items": {
+            "$ref": "#/$defs/TopicMixStage"
+          },
+          "title": "Stages",
+          "type": "array"
+        }
+      },
+      "title": "DocketPackTopicMix",
+      "type": "object"
+    },
     "GroupBy": {
       "description": "A dimension the ``stats`` aggregation buckets base-rates by.\n\n``judge`` is multi-valued \u2014 a case with a three-judge panel lands in each\njudge's bucket \u2014 so grouped case counts can exceed the ungrouped total; every\nother dimension is single-valued. ``term_year`` reads the October-Term year\nfrom a modern SCOTUS docket number (:func:`fedcourtsai.corpus.scotus_term_year`).\n``originating_court`` groups by the lower court a docket came from (the\ncircuit-scorecard cut for SCOTUS petitions); rows without the linkage share\none ``(none)`` bucket, so coverage is visible rather than silently dropped.\n``era`` buckets by decade (:func:`fedcourtsai.corpus.case_era` \u2014 Term year,\nelse filing/decision date), so historical cases base-rate against their own\nperiod; rows with no date signal share one ``(none)`` bucket. Three of the\ncert-signal dimensions read the live-parsed columns: ``relist_bucket``\ngroups by relists (`distribution_count` - 1, floored at 0) into 0 / 1 / 2 /\n3+ buckets, ``cvsg`` by whether the Court called for the views of the\nSolicitor General, and ``fee_class`` by the docket serial's numbering\nstream (paid / IFP); rows the live channel never parsed share one\n``(unknown)`` bucket on the first two, so parse coverage stays visible.\n``capital_case`` groups by whether the Court's docket marks the case a\ncapital one (``capital`` / ``unmarked``). The flag is latched from\nsupremecourt.gov's ``bCapitalCase`` payload field OR-ed with the\n``*** CAPITAL CASE ***`` annotation the same channel appends to the docket\nnumber, and no other channel serves either reading, so ``last_live_polled``\nis that column's coverage sentinel: a row the live channel never polled\nshares the same ``(unknown)`` bucket rather than reading as unmarked, which\nwould let a coverage gap pass for an absence of capital cases. The\npositive needs no such guard \u2014 the column max-latches, so only a writer that\nsaw the signal can have raised it.\n``cert_amicus`` groups a cert petition by how many amicus briefs its docket\nrecorded before the Court disposed of it (``0`` / ``1`` / ``2+``, from the\ncorpus ``cert_amicus_briefs`` column); a row the live channel has not read\nsince that column existed shares the ``(unknown)`` bucket. A section supplies\nits key function, and ``stats`` does not offer it as a cut: the column is\nwithheld from what a cell retrieves, and ``stats`` is a cell's tool too.\n``salience_band`` groups by the active scorer's frozen grant-likelihood band\nover the paid modern-cert petitions \u2014 the\npredicted segment \u2014 so a case's base rate is its own salience tier's rate.\n``qp_topic`` groups by the ``qp-topic-v0`` primary label of a case's\nquestions-presented text (``docs/qp-topic.md``) \u2014 distinct from ``topic``,\nwhich is the corpus's upstream nature-of-suit column and empty on SCOTUS\nrows. It is read from a labeler's artifact rather than off a corpus row, so\na section supplies its own key function for it and ``stats`` does not offer\nit as a cut.",
       "enum": [
@@ -520,11 +677,154 @@
       ],
       "title": "StatPackSection",
       "type": "object"
+    },
+    "TopicMixShare": {
+      "additionalProperties": false,
+      "description": "One topic's share of one stage's labeled cases.",
+      "properties": {
+        "cases": {
+          "description": "Labeled cases at this stage under the label, as the stage's own section counts them (denial-reweighted where that section is)",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "classified_share": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "`cases` over the stage's cases outside `unclassifiable`; None on `unclassifiable` itself. A companion to `share`, never a replacement: whether a row names a subject depends on what the labeler had to read",
+          "title": "Classified Share"
+        },
+        "label": {
+          "description": "The primary topic label",
+          "enum": [
+            "administrative-law-and-benefit-programs",
+            "business-and-financial-regulation",
+            "civil-procedure",
+            "constitutional-rights",
+            "criminal-law",
+            "election-law",
+            "employment-and-antidiscrimination",
+            "environment-energy-and-property",
+            "firearms",
+            "first-amendment",
+            "habeas-and-postconviction",
+            "immigration",
+            "intellectual-property",
+            "sovereignty-and-foreign-relations",
+            "tax",
+            "unclassifiable"
+          ],
+          "title": "Label",
+          "type": "string"
+        },
+        "rows": {
+          "description": "Rows on hand behind `cases`, unweighted",
+          "minimum": 0,
+          "title": "Rows",
+          "type": "integer"
+        },
+        "share": {
+          "description": "`cases` over the stage's `cases` \u2014 a share of this stage's labeled cases, never of the docket",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Share",
+          "type": "number"
+        }
+      },
+      "required": [
+        "label",
+        "cases",
+        "share",
+        "rows"
+      ],
+      "title": "TopicMixShare",
+      "type": "object"
+    },
+    "TopicMixStage": {
+      "additionalProperties": false,
+      "description": "What share of one stage's labeled cases falls under each topic.",
+      "properties": {
+        "cases": {
+          "description": "The stage's labeled cases, the shares' denominator",
+          "minimum": 0,
+          "title": "Cases",
+          "type": "integer"
+        },
+        "rows": {
+          "description": "Rows on hand behind `cases`, unweighted",
+          "minimum": 0,
+          "title": "Rows",
+          "type": "integer"
+        },
+        "scope_note": {
+          "description": "The coverage caveat that must travel with any share quoted from this stage (`docs/qp-topic.md`, *The coverage caveat*)",
+          "minLength": 1,
+          "title": "Scope Note",
+          "type": "string"
+        },
+        "shares": {
+          "description": "One entry per label the stage holds, `unclassifiable` included, largest first. The shares sum to 1 up to rounding",
+          "items": {
+            "$ref": "#/$defs/TopicMixShare"
+          },
+          "title": "Shares",
+          "type": "array"
+        },
+        "stage": {
+          "description": "`cert`: labeled cert-form petitions, whatever their disposition. `merits`: those of them the Court granted. `interim`: labeled emergency applications",
+          "enum": [
+            "cert",
+            "merits",
+            "interim"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "vocabulary": {
+          "description": "The labels artifact the stage is read from: the petitions' `qp-topic-v0` labels, or the applications' `qp-topic-v1` ones. v1 keeps every v0 label and petition boundary, so the two share one label set",
+          "enum": [
+            "qp-topic-v0",
+            "qp-topic-v1"
+          ],
+          "title": "Vocabulary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage",
+        "vocabulary",
+        "cases",
+        "rows",
+        "scope_note"
+      ],
+      "title": "TopicMixStage",
+      "type": "object"
     }
   },
   "additionalProperties": false,
   "description": "``metrics/docket.json`` \u2014 court-facing docket statistics (an independent artifact).\n\nFacts about the dockets themselves: what the Supreme Court is asked to take,\nfrom which court below, on what fee stream, after how many relists, and how it\ndisposes of the petitions. Deliberately **free of any claim about this\nproject's predictions** \u2014 no accuracy, no leaderboard, no salience \u2014 so it is\nreadable and citable by someone with no interest in whether the models are any\ngood. That exclusion is the artifact's contract, not a coincidence of what has\nbeen built.\n\nA pure function of the corpus (no clock, no network), so reruns over an\nunchanged corpus reproduce it byte for byte; git-tracked and rendered to a\ncompanion Markdown document. Every rate carries its scope and its denominator,\nand each section states whether its counts are denial-reweighted: the\nhistorical walk samples denials on a committed frame, so every cert cut is\nreweighted and its counts are population *estimates* rather than rows on\nhand. That distinction is why a reweighted denominator is not a sample size:\nthe observed row count behind it is smaller. A breakdown bucket carries no\nraw view of its own; the per-Term entries carry both, so the gap between the\ntwo is legible there. Starts empty (zero counts, scaffolded sections) until a\ncorpus is present.",
   "properties": {
+    "application_topics": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DocketPackApplicationTopics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The emergency-application topic distribution with its labeler provenance, present only once a gate-passing application labels artifact exists"
+    },
     "corpus_rows": {
       "default": 0,
       "description": "Case rows in the corpus",
@@ -597,6 +897,18 @@
       },
       "title": "Terms",
       "type": "array"
+    },
+    "topic_mix": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DocketPackTopicMix"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The share of labeled cases in each topic at each stage (cert, merits, interim), read off the topic cuts above; None when neither labels artifact backs a cut"
     }
   },
   "title": "DocketPack",

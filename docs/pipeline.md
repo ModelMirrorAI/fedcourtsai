@@ -370,40 +370,6 @@ queues behind the production run of the same mode. The modes:
   judge / SCOTUS Term / disposition / originating circuit / decade era, with a
   cert-stage cut restricted to modern discretionary-cert dockets). Read-only: results go
   to the Actions step summary and run log, nothing else.
-- **`census`** (dispatch) assumes the same read-only role and pull, then runs
-  `fedcourts distribution-census` — two registered readings of the DISTRIBUTED
-  phrase counted over the salience gate's scored segment and banded by one
-  scorer, the evidence a version pinning a new parse is argued from
-  ([salience.md](salience.md)). `census_baseline_parse` / `census_candidate_parse`
-  name the two readings (`dist-v1` against `dist-v2` by default — dispatch
-  defaults left where the activation census set them, so a bare dispatch now
-  re-reads what the flip moved rather than arguing a candidate); the band
-  function is deliberately **not** a dispatch input — the census reads against the
-  active scorer, and running it under a different salience version means
-  registering one, which is a code change. Read-only like `corpus-stats`, with
-  one difference that matters: the machine JSON is uploaded as a run artifact as
-  well as summarised, because a statistical review is conducted over the file
-  rather than the page. The artifact rides the **one-day** retention every
-  analytics run artifact does — this repository is public, so one is
-  downloadable by any logged-in user for as long as it exists, and the
-  compilation-extent inventory in [security.md](security.md) bounds every one
-  of them the same way. Re-reading a census after the day is therefore a re-dispatch
-  rather than a longer window: it is deterministic over the blob its
-  `corpus_sha256` names. Two things an operator needs before dispatching
-  it. It carries by far the largest budget of the read-only modes — a
-  latest-snapshot read per frame case under the corpus-split mode — and what
-  bounds it is the read-only role's credential session rather than the wall
-  clock: the census passes `role-duration-seconds: 8100` to the
-  `corpus-readonly` composite, the scan step is capped at 110 minutes and the
-  job at 125, so a scan too long for its credentials fails legibly inside
-  them instead of dying on an expired token after the whole walk. Raising the
-  ceiling further is that composite input again, within the read-only role's
-  IAM maximum session duration. And it holds its
-  **own** ref-suffixed concurrency group (`cancel-in-progress:
-  false`) rather than sharing `corpus-stats`'s: a cancelled job runs no upload
-  step, so a sibling stats dispatch would otherwise take the artifact the mode
-  exists to produce with it. Both jobs are read-only, so letting them overlap
-  costs nothing.
 - **`text-coverage`** (dispatch) assumes the same read-only role and pull, then
   runs `fedcourts corpus-info --text-coverage` — where the document text
   actually lives and for which cases it is missing, the enumeration whose
@@ -411,13 +377,19 @@ queues behind the production run of the same mode. The modes:
   and not on a dev checkout; the report's own `text source:` line names which
   side served it). The full report — the three untruncated case-id ledgers
   included, since a repair is a per-case question and a count names no case —
-  is uploaded as a run artifact on the same **one-day** retention the census
-  rides, for the same compilation-extent reason; the step summary carries only
-  the part above the ledgers. Sized exactly like the census and for the same
-  reason (a store round trip per live-slice case): `role-duration-seconds:
-  8100`, a 110-minute step cap inside a 125-minute job, and its own
-  never-cancelled concurrency group so a sibling dispatch cannot take the
-  artifact with it.
+  is uploaded as a run artifact on the **one-day** retention every analytics
+  run artifact rides — this repository is public, so one is downloadable by any
+  logged-in user for as long as it exists, and the compilation-extent inventory
+  in [security.md](security.md) bounds each the same way; the step summary
+  carries only the part above the ledgers. It carries by far the largest budget
+  of the read-only modes (a store round trip per live-slice case), and what
+  bounds it is the read-only role's credential session rather than the wall
+  clock: `role-duration-seconds: 8100`, a 110-minute step cap inside a
+  125-minute job, so a walk too long for its credentials fails legibly inside
+  them instead of dying on an expired token. Raising the ceiling further is
+  that composite input again, within the role's IAM maximum session duration.
+  It holds its own never-cancelled concurrency group so a sibling dispatch
+  cannot take the artifact with it.
 - **`order-scan`** (dispatch) runs `fedcourts order-scan`: a bounded RECAP
   search for district orders against federal executive action, the candidate
   generation the adverse-order pool is hand-coded from
@@ -442,7 +414,7 @@ queues behind the production run of the same mode. The modes:
   with a warning. `--plan`
   prints how many runs the committed config takes at most. The report
   (court-record identifiers and order readings; no caption, entry text or
-  nature of suit) is uploaded on the same one-day retention as the census,
+  nature of suit) is uploaded on the same one-day retention as text-coverage's,
   failed runs included, and the step summary carries the scan's progress, the
   per-search counts, the spend and the gold recall. The run fails when the credential is refused
   or every search fails, so neither reads as an empty result. Its own
@@ -469,7 +441,7 @@ queues behind the production run of the same mode. The modes:
   the quiet odd hours `run-pull`'s enrich job names. The match rate and the
   per-status counts go on the step summary; the report (court-record
   identifiers, captions, panels and docket entry numbers and dates, no opinion
-  text) is uploaded on the same one-day retention as the census. Its own
+  text) is uploaded on the same one-day retention as text-coverage's. Its own
   never-cancelled, ref-suffixed concurrency group keeps two runs of one ref
   from overlapping. As with `order-scan`, a staging dispatch stops at the
   no-token refusal, after pulling the staging pair.

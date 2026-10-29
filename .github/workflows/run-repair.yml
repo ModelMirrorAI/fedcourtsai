@@ -58,7 +58,7 @@ on:
   workflow_dispatch:
     inputs:
       repair:
-        description: "Which maintenance pass to run — one per dispatch; see docs/data-pipeline.md, Maintenance passes."
+        description: "Maintenance pass to run, one per dispatch. Every input is described under Maintenance passes in docs/data-pipeline.md."
         required: false
         default: none
         type: choice
@@ -86,8 +86,10 @@ on:
           - application-backfill
           - decision-record
           - opinion-record
+      # A dry run still applies the pass's prerequisites, to the runner's copy
+      # only; an apply runs the prerequisites and the pass, then pushes.
       repair_mode:
-        description: "dry-run prints the pass's ledger and writes nothing off the runner (its prerequisites apply to the runner's copy only); apply runs the prerequisites and the pass and pushes — see docs/data-pipeline.md, Maintenance passes."
+        description: "dry-run prints the ledger and writes nothing off the runner; apply runs the pass and pushes."
         required: false
         default: dry-run
         type: choice
@@ -95,17 +97,17 @@ on:
           - dry-run
           - apply
       repair_bound:
-        description: "Blast-radius bound: the positive integer read off the dry-run ledger, required on apply where the pass takes one — see docs/data-pipeline.md, Maintenance passes."
+        description: "apply: required where the pass takes one; the bound read off the dry-run ledger."
         required: false
         default: ""
         type: string
       repair_target:
-        description: "The pass's named subject — a distribution parse label, the cell list to re-grade, or the Term to back-fill — see docs/data-pipeline.md, Maintenance passes."
+        description: "The pass's subject: a distribution parse label, the cells to re-grade, or the Term to back-fill."
         required: false
         default: ""
         type: string
       repair_options:
-        description: "Space- or comma-separated switches from the selected pass's closed vocabulary — see docs/data-pipeline.md, Maintenance passes."
+        description: "Space- or comma-separated switches the pass accepts."
         required: false
         default: ""
         type: string
