@@ -14853,42 +14853,60 @@ freeze commit is recorded here.
 - **The live rotation keeps ten slots a cycle for never-polled rows, oldest
   Term first; recorded 2026-10-29.** A **membership-rule** entry under
   unchanged digests: no digest or `salience_version` moves, but which rows the
-  live channel refreshes, and so which rows carry live facts, can.
+  live channel refreshes, and so which rows carry live facts and, rarely,
+  which petitions selection sees, can.
 
   **What moved.** `live_rotation` takes `live.never_polled_reserve_per_run`
   (10 in `config/tracking.yaml`) slots of each cycle's `live.max_cases_per_run`
-  for live rows the channel has never polled: SCOTUS, undecided, no
-  disposition, an open event, a Term at or above the rotation's floor, no row
-  under the same number already polled, and the row the identity join resolves
-  the number to. They are ordered oldest Term first. The reserve takes only
-  what the overdue and distributed rows leave, so neither moves; it displaces
-  the tail of the Term tiers, which the staleness bound keeps from going stale.
-  At twelve cycles a day that reaches about 120 rows a day.
+  for rows the channel has never polled: a SCOTUS Term-prefixed cert number
+  (no applications) at or above the rotation's Term floor, undecided, with no
+  disposition and an open event, no row under the same number already polled,
+  and the row the identity join resolves the number to. They are ordered
+  oldest Term first. The reserve takes only what the overdue and distributed
+  rows leave, so neither moves and the reserve yields while an overdue backlog
+  drains; it displaces the tail of the Term tiers, which the staleness bound
+  keeps from going stale. At twelve cycles a day that reaches up to about 120
+  rows a day.
 
   **Why it is a boundary.** The Term tiers lead with the newest Terms, which
   fill the cap on their own, so a past-Term row the historical walker skipped
   (undecided when walked, or never served) was never polled. Polling it writes
-  the facts a live poll writes (disposition, dates, counsel, the snapshot and
-  `last_live_polled`), so it enters the live slice and every row-counting
-  statpack figure that reads the live slice or a disposition. Read ranged from
-  the blob at `main` `d8b560718` (pointer committed 2026-10-29T11:00Z), the
-  reserve's first 120 rows are 47 from OT2017 and 73 from OT2018. The
-  historical-ifp re-walks dispatched for Terms 18 to 25 reach the same rows
-  for those Terms, so OT2017's 47 are the rows only the reserve reaches until
-  those walks finish. Selection reads distributed pending petitions, which
-  the reserve never displaces; a reserved row that is in fact still pending
-  can gain a distribution and enter the pool as any polled row would.
+  what a live poll writes (disposition, dates, counsel, the snapshot and
+  `last_live_polled`), so the row enters the live slice and every row-counting
+  statpack figure that reads the live slice or a disposition. Its weight is
+  `legacy_denial_sample_weight`'s, as for any live poll: 1 on a block the
+  walker has enumerated. Read ranged from the blob at `main` `d8b560718`
+  (latest pull 2026-10-28, latest snapshot 2026-07-13), the reserve's backlog
+  is about 20,800 rows: OT2017 47, OT2018 4,238, OT2019 3,403, OT2020 3,013,
+  OT2021 2,867, OT2022 2,530, OT2023 2,480 and OT2024 2,210, counted before
+  the identity join, which can only lower them; the reserve's first 120
+  picks are OT2017's 47 and 73 from OT2018. At up to 120 rows a day the
+  reserve alone would take months to drain it. The historical-ifp re-walks in flight for OT2018 to OT2025 re-open the
+  IFP stream only, so the reserve is the sole route to OT2017's rows and to
+  every paid-stream row. A reserved row that is in fact still pending can gain
+  a distribution and enter the selection pool as any polled row would.
 
-  **The boundary.** A live-slice or per-Term disposition figure for OT2017 or
-  later from a statpack refreshed before the carrying merge is not compared or
-  pooled with one refreshed after it without reading the two separately.
+  The reached rows are not a random slice of their Terms. Most were undecided
+  when the walker read them, which selects slow resolvers (holds, CVSGs,
+  relists); the likely direction is a grant rate above their Term's, which
+  would make the pre-boundary per-Term rates the biased ones, but nothing here
+  measures it in advance, and the counts above are rows, not an effect size.
+
+  **The boundary** is a drift, not a step: the reserve adds rows in every
+  cycle with free slots until its backlog drains, so two statpacks refreshed
+  after the carrying merge also differ. It starts at the first scheduled live
+  window after that merge and ends when the check below reports a zero
+  backlog. A per-Term cert-stage or live-slice figure for OT2017 onward, or a
+  baseline pooled over those Terms (the cert band rates), from a statpack
+  refreshed inside that window or before it is not compared or pooled with one
+  refreshed after it; a prediction stamped after such a refresh draws on the
+  moved baseline.
 
   Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
 
-  The runnable effect check once it is live: a day after the carrying merge,
-  on a freshly pulled corpus, `uv run python -c "from pathlib import Path;
-  from fedcourtsai import corpus; c = corpus.connect_readonly(Path('corpus/corpus.db'));
-  print(sorted({r.docket_number[:2] for r in corpus._never_polled_reserve(c,
-  limit=50, term_floor_year=2017, exclude=())}))"` no longer lists `17`;
-  a row still listed under it is one whose poll failed in transit, which the
-  live cycle's failed queue names.
+  The runnable effect check once it is live: after a day of live windows
+  with reserve slots free, `CHECK_SUMMARY=out.md uv run python
+  scripts/checks/never_polled_reserve.py` over a freshly pulled corpus shows
+  the OT2017 row gone from its table, or holding only rows whose poll failed
+  in transit, which the live cycle's failed queue names; its total falls with
+  each later run until it reaches zero.

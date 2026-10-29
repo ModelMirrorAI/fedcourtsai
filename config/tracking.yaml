@@ -103,7 +103,7 @@ live:
   # distributed rows leave, so it never delays an order-list re-read. Only the
   # row its docket number resolves to qualifies, so a caption-only upstream
   # duplicate is never polled into a second full row. At twelve cycles a day,
-  # 10 slots reach ~120 rows a day.
+  # 10 slots reach up to ~120 rows a day; 0 disables the reserve.
   never_polled_reserve_per_run: 10
   # Days after a conference by which its order list has issued: the Monday
   # after a Friday conference (Tuesday after a Monday holiday), the first

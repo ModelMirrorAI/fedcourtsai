@@ -855,17 +855,58 @@ def test_live_rotation_reserve_reads_past_a_page_of_passed_over_rows(tmp_path: P
                 disposition="denied",
             )
         )
+        # A spelling that normalizes alike, so only the identity join, not the
+        # SQL's exact-spelling guard, can tell the row is a duplicate.
         shadowed.append(
             corpus.CorpusRow(
                 case_id=f"scotus/{serial + 1000}",
                 court="scotus",
-                docket_number=f"17-{serial}",
+                docket_number=f"17-{serial} ",
             )
         )
     with corpus.connect(db) as conn:
         _seed_pending(conn, [*_reserve_rows(), *shadowed])
         picked = [r.case_id for r in corpus.live_rotation(conn, limit=3, never_polled_reserve=1)]
     assert picked == ["scotus/1", "scotus/18", "scotus/2"]
+
+
+def test_live_rotation_reserve_skips_a_number_whose_higher_twin_was_polled(
+    tmp_path: Path,
+) -> None:
+    """The join resolves 18-5 to the never-polled lower id, but its live-minted
+    twin has been polled: polling the lower row would fill a second full row."""
+    db = tmp_path / "corpus.db"
+    rows = [
+        *_reserve_rows(),
+        corpus.CorpusRow(case_id="scotus/5", court="scotus", docket_number="18-5"),
+        corpus.CorpusRow(
+            case_id="scotus/9000000005",
+            court="scotus",
+            docket_number="18-5",
+            last_live_polled=date(2026, 10, 1),
+        ),
+    ]
+    with corpus.connect(db) as conn:
+        _seed_pending(conn, rows)
+        picked = [r.case_id for r in corpus.live_rotation(conn, limit=3, never_polled_reserve=2)]
+    assert picked == ["scotus/1", "scotus/18", "scotus/19"]
+
+
+def test_never_polled_rows_drops_an_exact_spelling_above_a_lower_id(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [
+        corpus.CorpusRow(
+            case_id="scotus/6", court="scotus", docket_number="18-6", disposition="denied"
+        ),
+        corpus.CorpusRow(case_id="scotus/66", court="scotus", docket_number="18-6"),
+        corpus.CorpusRow(case_id="scotus/7", court="scotus", docket_number="18-7"),
+    ]
+    with corpus.connect(db) as conn:
+        _seed_pending(conn, rows)
+        page = corpus._never_polled_page(conn, term_floor_year=2017, size=10, offset=0)
+        picked = corpus.never_polled_rows(conn, limit=5, term_floor_year=2017, exclude=())
+    assert [r.case_id for r in page] == ["scotus/7"]
+    assert [r.case_id for r in picked] == ["scotus/7"]
 
 
 def test_live_rotation_reserve_never_displaces_an_overdue_row(tmp_path: Path) -> None:

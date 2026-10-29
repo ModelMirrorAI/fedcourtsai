@@ -5240,10 +5240,11 @@ def live_rotation(
     current Terms always hold more than ``limit`` rows, so an older Term's
     never-polled row would otherwise never reach a cycle.
     ``never_polled_reserve`` slots go to such rows, oldest Term first (see
-    :func:`_never_polled_reserve`). The reserve takes only what the overdue
-    and distributed rows leave of ``limit``, so it never displaces either; it
-    displaces the tail of the Term tiers, which the overdue bound already
-    keeps from going stale. 0 disables it.
+    :func:`never_polled_rows`). The reserve takes only what the overdue
+    and distributed rows leave of ``limit``, so it never displaces either and
+    yields while an overdue backlog drains; it displaces the tail of the Term
+    tiers, which the overdue bound already keeps from going stale. 0 disables
+    it.
     """
     if limit <= 0:
         return []
@@ -5276,7 +5277,7 @@ def live_rotation(
             if row.last_live_polled is not None and row.last_live_polled < overdue_before
         }
     free = limit - len(protected)
-    reserve = _never_polled_reserve(
+    reserve = never_polled_rows(
         conn,
         limit=min(never_polled_reserve, free),
         term_floor_year=term_floor_year,
@@ -5290,7 +5291,7 @@ def live_rotation(
     return (head + reserve + tail)[:limit]
 
 
-def _never_polled_reserve(
+def never_polled_rows(
     conn: sqlite3.Connection, *, limit: int, term_floor_year: int, exclude: Collection[str]
 ) -> list[CorpusRow]:
     """Up to ``limit`` live rows the channel has never polled, oldest Term first.
@@ -5301,10 +5302,12 @@ def _never_polled_reserve(
     for a number would fill a duplicate with the same facts and every figure
     counting rows would count the petition twice; such a row is passed over and
     left as it is. A row whose number already has a polled sibling is dropped
-    in SQL, through the live-docket index, before the join is asked. The
-    candidates are read a page at a time until ``limit`` qualify, so rows that
-    keep failing the join cannot hold the head of the order and starve the
-    reserve; the scan stops after ``_RESERVE_SCAN_PAGES`` pages.
+    in SQL, through the live-docket index, before the join is asked, and so is
+    one stored under the same spelling as a lower docket id, which the join
+    would pass over every cycle. The join still decides between spellings that
+    normalize alike; the candidates are read a page at a time until ``limit``
+    qualify, so such rows cannot hold the head of the order and starve the
+    reserve, and the scan stops after ``_RESERVE_SCAN_PAGES`` pages.
     """
     if limit <= 0:
         return []
@@ -5333,7 +5336,7 @@ _RESERVE_SCAN_PAGES = 10
 def _never_polled_page(
     conn: sqlite3.Connection, *, term_floor_year: int, size: int, offset: int
 ) -> list[CorpusRow]:
-    """One page of :func:`_never_polled_reserve`'s candidates, oldest Term first."""
+    """One page of :func:`never_polled_rows`'s candidates, oldest Term first."""
     cur = conn.execute(
         "SELECT * FROM cases WHERE court = 'scotus' "
         "AND date_decided IS NULL AND disposition IS NULL "
@@ -5346,6 +5349,11 @@ def _never_polled_page(
         "                WHERE sibling.court = 'scotus' "
         "                AND sibling.docket_number = cases.docket_number "
         "                AND sibling.last_live_polled IS NOT NULL) "
+        "AND NOT EXISTS (SELECT 1 FROM cases AS sibling "
+        "                WHERE sibling.court = 'scotus' "
+        "                AND sibling.docket_number = cases.docket_number "
+        "                AND CAST(substr(sibling.case_id, 8) AS INTEGER) "
+        "                    < CAST(substr(cases.case_id, 8) AS INTEGER)) "
         f"ORDER BY {_TERM_YEAR_SQL} ASC, case_id ASC LIMIT ? OFFSET ?",
         (term_floor_year, size, offset),
     )
