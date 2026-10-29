@@ -1,0 +1,88 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:84feb6798b6407fea2a17fed92c36d8a8db71d12850a967d840f018295ba4641",
+  "big_case": {
+    "evaluator_score": 0.38,
+    "notes": "The underlying question\u2014whether federal common law or state law governs nonsignatory equitable estoppel under Chapter 2 of the FAA and the New York Convention, expressly reserved in GE Energy Power Conversion France SAS, Corp. v. Outokumpu Stainless USA, LLC, 590 U.S. 432, 445 (2020)\u2014carries meaningful doctrinal and commercial stakes for international arbitration and the surplus-lines insurance market (particularly across dozens of post-hurricane municipal and hospital coverage disputes in Louisiana). However, this specific docket (No. 26-2) is an explicit tag-along petition seeking a hold behind the lead vehicle (Indian Harbor Insurance Co. v. Town of Vinton, No. 25-1383) and challenging a one-sentence unpublished Fifth Circuit summary affirmance, which substantially limits the standalone significance of this vehicle."
+  },
+  "brier_score": 0.0361,
+  "brier_skill_score": -12.818905052571166,
+  "case_id": "scotus/9026000002",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05111128320297375,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.19,
+        "score": -0.03348763672934541
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.93,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.1,
+        "score": null
+      },
+      {
+        "baseline": 0.3442622950819672,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.78,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.05,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.03348763672934541,
+    "total": -0.03348763672934541
+  },
+  "correct": 0,
+  "created_at": "2026-10-29T15:54:11.275501Z",
+  "engine": "gemini",
+  "evaluator_id": "gemini-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "Forward prediction created on 2026-10-06T00:03:09Z while the petition was unresolved (twenty days before the October 26, 2026 Rule 46 dismissal and seventeen days before the October 23 joint stipulation). All tool calls in retrieval_log.json are legitimate forward-mode lookups of precedent and the contemporaneous companion SCOTUS dockets (Nos. 25-1383, 26-2, and 26-53) as of October 5, 2026.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gemini-4-argon",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": null,
+  "predicted_reasoning_review": null,
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "claude-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+    "label": "proc-v14",
+    "pipeline_sha": "54a2b8d40efa9cf8141b48da2fe4f86aeb41d8d9",
+    "stamped_at": "2026-10-29T15:54:11.275501Z"
+  },
+  "reasoning_quality": 0.96,
+  "run_id": "20261029T154357Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05111128320297375,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}
