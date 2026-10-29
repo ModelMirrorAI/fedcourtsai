@@ -17,6 +17,7 @@ case-insensitive substrings, in file bodies *and* in filenames.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -1447,3 +1448,23 @@ def test_the_stamp_notes_a_name_the_judge_wrote_in_its_flags(ledger: Path) -> No
         f"`gemini` x1 in `{first.predictor_id}/{EVALUATE_RUN}/evaluation.md`"
         in (harness[0]["message"])
     )
+
+
+def test_the_sidecar_request_count_does_not_reach_the_grader() -> None:
+    # How often a cell queried is an engine habit, and the grading reads rows.
+    masked = blinding.mask_retrieval_log(
+        {
+            "actor_id": "gemini-baseline",
+            "engine": "gemini",
+            "calls": [],
+            "corpus_service": {
+                "queries": 3,
+                "queries_ok": 3,
+                "open_events": 0,
+                "open_events_ok": 0,
+            },
+        },
+        alias="candidate-a",
+        pattern=re.compile("gemini"),
+    )
+    assert "corpus_service" not in masked

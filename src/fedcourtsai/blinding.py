@@ -542,6 +542,10 @@ def mask_retrieval_log(
     grader reads does not move. A dropped value reads as the same
     never-counted null a pre-field record carries.
 
+    The log-level ``corpus_service`` count is **dropped** on the same ground: how
+    many requests a cell's sidecar answered is an engine habit as much as a
+    behaviour, and no part of the grading reads it.
+
     ``call_source`` is **dropped** for the same reason. It names the transcript shape a
     row was read from, and only one engine's transcript has that shape, so it
     identifies the candidate about as directly as the raw tool vocabulary the
@@ -557,6 +561,7 @@ def mask_retrieval_log(
     masked["actor_id"] = alias
     masked["engine"] = None
     masked.pop("self_provisioned_fetches", None)
+    masked.pop("corpus_service", None)
     calls = masked.get("calls")
     if isinstance(calls, list):
         for call in calls:

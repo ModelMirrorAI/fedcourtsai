@@ -537,3 +537,45 @@ def test_docket_number_lookup_over_the_ranged_backend(tmp_path: Path) -> None:
         )
     assert [row.case_id for row in live] == ["scotus/305"]
     assert [row.case_id for row in walked] == ["ca1/201"]
+
+
+def test_the_request_count_reads_only_the_per_request_lines() -> None:
+    # The shape `log_request` writes, with and without its latency suffix,
+    # beside the lines a sidecar log also holds: startup, health checks and a
+    # failure's traceback, none of which is a corpus request.
+    log = "\n".join(
+        [
+            "INFO:fedcourtsai.corpus_service:serving on 127.0.0.1:8377",
+            "INFO:fedcourtsai.corpus_service:127.0.0.1 - /healthz -> 200",
+            "INFO:fedcourtsai.corpus_service:127.0.0.1 - /v1/query -> 200 (0.4s)",
+            "INFO:fedcourtsai.corpus_service:127.0.0.1 - /v1/query -> 400 (0.0s)",
+            "ERROR:fedcourtsai.corpus_service:request to /v1/query failed",
+            "Traceback (most recent call last):",
+            "INFO:fedcourtsai.corpus_service:127.0.0.1 - /v1/query -> 500 (2.1s)",
+            "INFO:fedcourtsai.corpus_service:127.0.0.1 - /v1/open-events -> 200",
+            "INFO:fedcourtsai.corpus_service:127.0.0.1 - [unrecognized path] -> 404",
+        ]
+    )
+    counts = corpus_service.count_requests(log)
+    assert counts.model_dump() == {
+        "queries": 3,
+        "queries_ok": 1,
+        "open_events": 1,
+        "open_events_ok": 1,
+    }
+    assert corpus_service.count_requests("").queries == 0
+
+
+def test_the_request_count_reads_what_the_server_logs(
+    fixture_corpus: FixtureCorpus, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Round trip: the counter reads the line the live handler writes, so a
+    # change to that line's shape fails here rather than silently zeroing
+    # every cell's count.
+    with (
+        caplog.at_level(logging.INFO, logger="fedcourtsai.corpus_service"),
+        _running_server(fixture_corpus.db_path) as url,
+    ):
+        corpus_service.client_query(url, corpus.PriorQuery(court="ca9"), limit=5, full=False)
+    log = "\n".join(f"{r.levelname}:{r.name}:{r.getMessage()}" for r in caplog.records)
+    assert corpus_service.count_requests(log).queries_ok == 1

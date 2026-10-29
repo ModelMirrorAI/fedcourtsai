@@ -14667,3 +14667,64 @@ freeze commit is recorded here.
   - the first predict round after the carrying merge writes a
     `prediction_summary.md` in every cell (the stamp's warning lines count
     the misses), and `fedcourts validate data` stays green on its run PR.
+
+- **A bare `fedcourts` resolves in every agent's shell, and each cell's
+  retrieval log counts the requests its corpus sidecar answered; recorded
+  2026-10-29.** An environment change with no reading rule and no scored
+  figure, and a harness record beside it.
+
+  **Why.** The agent shell had `uv` but not the project's own `fedcourts` on
+  its PATH, so a cell that ran `fedcourts query` without the `uv run` prefix
+  got "command not found" and either retried or dropped the corpus. Cells of
+  every engine did both, gemini's most often, in the predict run diagnosed on
+  2026-09-28 (23 gemini cells compared against their sidecar logs). The
+  prompts now spell `uv run fedcourts`; this makes the bare form work too.
+  Separately, whether a cell's query reached the corpus service could only be
+  read from the engine's transcript and the cell's own report, which differ by
+  engine in what they show.
+
+  **The environment half.** The predict and evaluate cell jobs symlink the
+  project venv's `fedcourts` into `/usr/local/bin` after the venv is built.
+  It is the same binary `uv run fedcourts` runs, so a command that worked
+  before gives the same answer; what changes is that the bare spelling now
+  runs instead of failing. `/usr/local/bin` is on codex's `secure_path`, so
+  codex's separate account reaches it too. No prompt text or other digest
+  input changes, so no digest moves.
+  - **The registry row.** The boundary is `agent-shell-fedcourts-on-path`. It
+    applies to every predictor, with reach `all`, and is not gradual: every
+    cell run after the carrying merge has the bare command. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`). Its
+    `merge` and `at` stay null until the promotion merge that carries it to
+    `main` stamps them (`promotion-record`).
+  - **Expected population.** Every cell after the carrying merge. Only a cell
+    that types the bare command is affected, and its transcript shows it.
+
+  **The record half.** `retrieval_log.json` gains `corpus_service`, the
+  `/v1/query` and `/v1/open-events` requests the cell's corpus sidecar logged
+  and how many it answered 200, counted by the capture step off the sidecar's
+  request log. The collect job's prior-availability note gains a line naming,
+  per actor, the cells whose sidecar logged no query. It changes nothing a
+  cell reads, and the blinding mask drops it, so it reaches no grader. It
+  needs no boundary.
+
+  **What it moves.** No scored figure. Once cells sit on both sides of the
+  stamped boundary, each pooled entry's and each paired engine's `boundaries`
+  list gains an `agent-shell-fedcourts-on-path` row. That row is composition,
+  not a cut. Neither the boundary nor `corpus_service` is a cut, exclusion or
+  rank key on any board. A later dated entry must register one before any
+  figure reads either.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live:
+  - on the first predict run after the carrying merge, a cell job's log shows
+    the "Put the project CLI on the agent shell's PATH" step green, and `jq -c
+    '.corpus_service'
+    data/cases/scotus/*/events/*/predictions/*/<run_id>/retrieval_log.json`
+    prints an object, never `null`, for every file;
+  - the run PR's body carries the sidecar line only where some cell's sidecar
+    logged no query, naming that actor's count against its own cells;
+  - on `main`, `uv run python -c
+    "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('agent-shell-fedcourts-on-path' in {b.name for b in H})"` prints
+    `True` once the promotion record has stamped the row.

@@ -3661,6 +3661,32 @@ record to a parse error.
 """
 
 
+class CorpusServiceRequests(_Strict):
+    """What the cell's corpus sidecar logged answering, read off its request log.
+
+    The engine-agnostic half of the corpus-prior channel. Every other reading of
+    whether a cell reached the corpus comes from the engine's own transcript
+    (an attempt) or the cell's own ``tooling.json`` (a report), and both differ
+    by engine in what they can see. The sidecar sits behind every engine's
+    ``fedcourts query`` alike, so a count of the requests it answered says
+    whether a query arrived, whatever the transcript shows.
+    """
+
+    queries: int = Field(ge=0, description="`/v1/query` requests the sidecar logged")
+    queries_ok: int = Field(
+        ge=0, description="Of `queries`, those answered 200: a query that returned rows or none"
+    )
+    open_events: int = Field(ge=0, description="`/v1/open-events` requests the sidecar logged")
+    open_events_ok: int = Field(ge=0, description="Of `open_events`, those answered 200")
+
+    @model_validator(mode="after")
+    def _answered_within_asked(self) -> CorpusServiceRequests:
+        """An answered count is a subset of the requests it counts."""
+        if self.queries_ok > self.queries or self.open_events_ok > self.open_events:
+            raise ValueError("an `_ok` count cannot exceed the requests it is a subset of")
+        return self
+
+
 class RetrievalLog(_Strict):
     """``retrieval_log.json`` — the cell's tool-call transcript, harness-captured.
 
@@ -3809,6 +3835,22 @@ class RetrievalLog(_Strict):
         "records written before the field existed: "
         "unasked, not zero — a real 0 is the stronger claim that the rows were read and "
         "carried no such call.",
+    )
+    corpus_service: CorpusServiceRequests | None = Field(
+        default=None,
+        description="The requests the cell's corpus sidecar logged, counted off its "
+        "request log after the agent finished. The sidecar answers every engine's "
+        "`fedcourts query` and `open-events` alike, so this is the one corpus-use "
+        "reading that does not depend on what an engine's transcript shows: a cell "
+        "whose transcript holds a well-formed query and whose count is zero sent "
+        "nothing the service received. DESCRIPTIVE ONLY: no score or rank key reads "
+        "it. The log sits in the cell's workspace, so like `record/context.json` it "
+        "is a file the agent could have altered; the request lines carry only the "
+        "route and status, never client bytes, so a request cannot forge one. Counts "
+        "the whole job, which is one cell. Dropped by the blinding mask, since how "
+        "often a cell queries is engine-shaped. Null where no sidecar log was read: "
+        "a job with no sidecar, a log that was missing, or a record written before "
+        "the field existed",
     )
 
     # Derives and replaces where `_check_coverage_denominator` raises, because

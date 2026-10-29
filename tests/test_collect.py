@@ -1967,3 +1967,23 @@ def test_the_self_provisioning_record_stays_off_the_facts_only_pr() -> None:
     assert "Cells reached outside" not in plan.facts_only.body
     # It still leaves the process on the plan, for the surface that echoes it.
     assert plan.self_provisioned_markdown
+
+
+def test_the_sidecar_note_names_each_actor_with_a_quiet_cell() -> None:
+    # The one corpus-use reading that is the same for every engine, so it
+    # names actors with their own denominators rather than one pooled rate.
+    note = render_prior_availability_note(
+        PriorAvailabilityRollup(
+            sidecar_by_actor=(("claude-baseline", 0, 20), ("gemini-baseline", 11, 23))
+        )
+    )
+    assert "Cells whose corpus sidecar logged no query" in note
+    assert "`gemini-baseline` 11 of 23" in note
+    assert "claude-baseline" not in note
+    # Every counted cell queried: silent, like the other prior paragraphs.
+    assert (
+        render_prior_availability_note(
+            PriorAvailabilityRollup(sidecar_by_actor=(("claude-baseline", 0, 20),))
+        )
+        == ""
+    )
