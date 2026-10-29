@@ -466,16 +466,19 @@ def _distribution_cell_closed(
 
 #: The cert moments whose information set closes when the next conference sits
 #: (:func:`fedcourtsai.pipeline.cert_signals.conference_sat_since`).
-_CONFERENCE_BOUNDED_MOMENTS = frozenset({Moment.relist, Moment.sg_brief})
+_CONFERENCE_BOUNDED_MOMENTS = frozenset({Moment.relist, Moment.sg_brief, Moment.response_requested})
 
 
 def _conference_bounded_cell_closed(
     event: corpus.CorpusEvent, *, day: date, payloads: PayloadReader
 ) -> bool:
-    """Whether a relist or sg-brief cell's conference has already considered the petition.
+    """Whether a conference-bounded cert cell's conference has already considered the petition.
 
     The relist moment forecasts the conference the petition was relisted for,
-    and the sg-brief moment the first conference after the brief. A petition
+    the sg-brief moment the first conference after the brief, and the
+    call-for-response moment the first conference after the call, once the
+    response is in. Only the cert admission reads this, so the interim moment
+    of the same name never reaches it. A petition
     still pending after that conference sat has been relisted again or held,
     so a cell placed back at the trigger would be scored against a population
     the petition has left: the same reason a distribution cell is refused once
@@ -508,11 +511,11 @@ def _cert_forecastable(
     on a scotus row that is neither an application docket nor already decided,
     whose declared moment is still open — its information set exists and,
     for the distribution moment, the conference has not already considered
-    the petition (:func:`_distribution_cell_closed`), and for the relist and
-    sg-brief moments, no conference after the trigger has considered it
-    (:func:`_conference_bounded_cell_closed`). In practice this arm carries the
-    **CVSG order**, the **arrival moment**, the **sg-brief** and the **first
-    relist** — the cert moments past the
+    the petition (:func:`_distribution_cell_closed`), and for the relist,
+    sg-brief and call-for-response moments, no conference after the trigger has
+    considered it (:func:`_conference_bounded_cell_closed`). In practice this arm
+    carries the **CVSG order**, the **arrival moment**, the **sg-brief**, the
+    **call for response** and the **first relist** — the cert moments past the
     registry's first position (the arrival moment is chronologically the
     *earliest*; registry order is not chronology) — since the petition
     baseline the register also declares is already admitted by the

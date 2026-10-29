@@ -603,9 +603,9 @@ docket does not yield is taken from the lead's selection. The rules:
   dates the first respondent brief the attribution reads as the member's, after
   both the member's grant and the lead's (`documents.member_respondent_brief_date`),
   into `merits_brief_on_lead`. A lead the corpus does not hold dates nothing. A self-represented party on the lead does not refuse
-  it, since a date carries no contact details. No mint reads the column: the
-  briefed moment's dating is registered, so opening it for members is a
-  re-bless decision, and the column accrues until then.
+  it, since a date carries no contact details. The member's briefed moment
+  opens on the column at the member's next poll, exactly as on
+  `merits_brief_filed` (the member's own date wins where it has one).
 
 The **lead's own** selection reads the same attribution the other way round. A
 lead docket — one whose consolidation entry names its own number — carries

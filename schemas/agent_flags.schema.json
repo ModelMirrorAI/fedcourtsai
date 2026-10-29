@@ -65,7 +65,7 @@
       "type": "object"
     },
     "FlagCategory": {
-      "description": "What kind of thing an agent flag is about, for maintainer triage.\n\n``provisioning`` is a cell's record that lacks something the pipeline should\nhave staged; ``capture-gap`` an outcome or docket record that cannot show\nwhat a forecast or grading needed; ``leakage-disclosure`` a replay cell's\nnote that it surfaced material about its own case postdating its event date.\n``blocked`` stays valid for every file that carries it; severity ``blocker``\nis what says a cell could not finish, under whatever category.",
+      "description": "What kind of thing an agent flag is about, for maintainer triage.\n\n``provisioning`` is a cell's record that lacks something the pipeline should\nhave staged; ``capture-gap`` an outcome or docket record that cannot show\nwhat a forecast or grading needed; ``leakage-disclosure`` a note that\noutcome material about the case reached the cell or a candidate it grades\n(on a replay cell, material postdating its ``context.cutoff``).\n``blocked`` stays valid for every file that carries it; severity ``blocker``\nis what says a cell could not finish, under whatever category.",
       "enum": [
         "data-quality",
         "scope",

@@ -793,6 +793,8 @@ def _group_row(group: FlagGroup) -> str:
         notes.append(note)
     if group.theme is not None:
         notes.append(f"_tracked in #{group.theme.issue}_")
+    elif group.issue is not None:
+        notes.append(f"_cites #{group.issue}_")
     category = _md_cell(group.category)
     if group.theme is not None:
         category += f" · {_md_cell(group.theme.id)}"

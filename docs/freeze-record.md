@@ -14475,3 +14475,195 @@ freeze commit is recorded here.
   run pytest tests/test_judgment.py tests/test_outcome.py
   tests/test_evaluate_backlog.py tests/test_missed_forecasts.py -k
   "terminat or without_an_outcome"` is green.
+
+- **`proc-v14`: the predict and evaluate prompts take the flag vocabulary,
+  the harness clock and the call-for-response moment; recorded 2026-10-28.**
+  Carried to `main` by `<FILL: promotion tag>` (merge `<FILL: merge sha>`,
+  `<FILL: merged-at>`), to be tagged **`prereg/proc-v14`**. Registered under
+  the merge-stamped rule, so its counting instant, its six bless moments and
+  every window edge it moves are the carrying merge's committer time. It is
+  the first label to move all six digests at once, so it takes two
+  supersession shapes together
+  ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  `.github/prompts/predict.md` changes, so each predictor's open `proc-v13`
+  window **closes** at this label's instant and a `proc-v14` window opens
+  there for each new digest (the third shape); and
+  `.github/prompts/evaluate.md` changes, so the three judges' blessings are
+  replaced (the second shape). Nothing is de-counted and nothing is re-owed:
+  every cell counted in a closed window keeps counting under its own label.
+  Until the carrying merge stamps the six new blessings, the carried bless map
+  is empty while `FROZEN_SINCE` stays at `proc-v13`'s instant; every board
+  built in that interval counts nothing of this label, the safe direction.
+
+  **What moved, in the predict prompt.**
+  - *Sources.* The CourtListener tools are for lower-court records; the
+    docket's own state comes from the snapshot and the Court's site. A
+    forward cell that meets a claimed outcome of its own case checks it
+    against the docket and, where it cannot, flags it unverified.
+  - *The replay boundary* is stated as the context's `cutoff`, with the
+    docket's decided-before Term named as the coarser bound it is; a replay
+    cell's disclosure of outcome-revealing material is written under the
+    `leakage-disclosure` category.
+  - *Flags.* The prompt lists the category vocabulary (`provisioning`,
+    `capture-gap`, `leakage-disclosure` among them), defines each severity,
+    offers the optional `issue` field, and tells the cell never to write
+    `source` or `normalised`. `blocked` is no longer offered; a cell that
+    could not finish writes the category that names why, at severity
+    `blocker`. The "good hygiene" note is dropped: a decisive signal belongs
+    in `reasoning.md`.
+  - *Corpus commands* are spelled `uv run fedcourts query` and `uv run
+    fedcourts open-events`, with a note on `PATH`, `--help`, and at least one
+    filtered query.
+  - *The distribution moment* is placed at no cut (`cutoff: null`), so its
+    snapshot is the docket as last stored, and the prompt says so.
+  - *The vote block* is scored only against a complete record over the whole
+    bench.
+  - *`created_at`* may be any timestamp: the stamp overwrites it.
+  - *`retrieval.md`* lists every call the cell attempted, a failed or refused
+    one included, since the harness log records them all.
+  - *Paper-only filings* in the context are named.
+  - *`prediction_summary.md`*: every predict cell writes a plain-language
+    summary of about 80 words beside its other files (the stamp warns past
+    160). It is display material, read by no scorer and staged to no judge
+    (the blinded staging copies only allowlisted files); the stamp warns on a
+    missing or overlong one and refuses nothing.
+  - *The cert call-for-response moment* (`moment: response-requested`, event
+    `evt-order-call-for-response-disposition`) is named, so a cell placed on
+    it knows what it is.
+
+  **What moved, in the evaluate prompt.** The same `created_at`, corpus
+  command, flag vocabulary and `cutoff: null` lines; what an `outcome_only`
+  retrieval-log row means (a call whose ending the log carried but not its
+  result); the `vote_accuracy`
+  completeness rule in both places it is described; and the claim-set names,
+  which now read `interim-v2` and `merits-v2`. That pays the amendment debt
+  the `proc-v12` entry left for the next label to move the judges.
+
+  **What the harness releases with this label.**
+  - *The cert call-for-response moment is forecastable.* It was declared,
+    parsed and minted (92 committed definitions at `origin/main` `a0a526439`) but filed no
+    cell. A cell on it is admitted only until a conference the petition was
+    distributed for on or after the call has sat
+    (`store._CONFERENCE_BOUNDED_MOMENTS`, the bound the relist and sg-brief
+    moments already carry), so the events minted for petitions called on long
+    before the switch-on should never be filed: a conference has already sat
+    on them. That is read from the code and the store tests, not from a
+    dry-run over the corpus; the `predict-plan` effect check below settles
+    it. The moment is not in `REPREDICT_MOMENTS`. It is scored separately
+    and never pooled with another cert moment. No committed table conditions
+    on a called-for response, so the prompt anchors the cell on its band and
+    asks it to say how far the call moves it.
+  - *`relist-increment` is masked as vacuous on that moment*
+    (`pipeline.claims._MOMENT_VACUOUS`): a petition the Court called for a
+    response on is distributed again once the response is in or its time
+    runs out, so the count is all but certain to rise. The claim has no
+    baseline today and scores nowhere, so the mask moves no scored figure;
+    it keeps a resolved `1` from standing beside a certain forecast once a
+    baseline lands.
+  - *A consolidated member's briefed moment* opens on the lead docket's
+    merits brief where the member's own row records none
+    (`merits_brief_on_lead`). The member latch is written after ingest, so
+    the moment mints one poll after the lead's brief.
+  - *The flag roll-up* names the untracked issue a row cites.
+
+  **What scored figures move.** None in the headline: no baseline, rate or
+  membership rule moves, and the call-for-response cells are a new
+  population with no prior cell to compare against, whose own block's skill
+  is not claimable until a floor conditioned on the call is registered
+  ([metrics/README.md](../metrics/README.md)). Headline *membership* can
+  still move through the judges: the leakage exclusion drops a grading with
+  `leakage_suspected` from every scored figure, the ranked
+  `cert@distribution` arm included, and the evaluate prompt now reads a
+  distribution cell's later docket entries as provisioned input (the
+  evaluator half below). At `a0a526439`, 23 committed gradings carry
+  `leakage_suspected: true`, 18 of them on `evt-petition-disposition`, so an
+  exclusion count on that arm reads per rubric. One diagnostic moves in
+  definition: the back-tests' `outcome_exposure_candidate` bit is set on any
+  flag written under `leakage-disclosure` as well as on the message
+  heuristic, so a candidate count read across this boundary, the cert
+  back-test's and the merits back-test's `exposure_candidates` alike,
+  compares two rules ([metrics/README.md](../metrics/README.md)).
+
+  **The retiring evaluator digests, and what was graded under them.**
+  `sha256:167b7d71…` (`claude-judge`), `sha256:a8610eec…` (`codex-judge`) and
+  `sha256:6a88d3dc…` (`gemini-judge`) leave the blessed set. At `origin/main`
+  `a0a526439` they stamp **174**, **87** and **87** committed evaluations, and
+  `store.stratify` over that ledger keeps **156**, **84** and **84** of them
+  in scope, **324** counted cells in all. Each keeps counting on its timing
+  (`graded_in_window`); only the constant stops naming the digest, so this
+  entry is where the grading process behind them stays recorded. Because an
+  evaluator digest records and never partitions, every judge's grading series
+  pools across this rubric boundary, and a judge-dependent figure that spans
+  it reads per rubric ([metrics/README.md](../metrics/README.md)). Two
+  grading criteria moved with the rubric text. The judge reads a
+  distribution cell's later docket entries as provisioned input, not
+  retrieval, so a leakage call on such a cell can differ across the boundary;
+  `leakage_suspected` series on distribution cells read per rubric. And
+  `vote_accuracy` is written only against a complete vote record, which no
+  committed merits outcome carries yet, so no grade moves on it today.
+
+  **Digests** (`uv run fedcourts process-digest --all`, at `staging`
+  `cd3500993` before this change and at it):
+
+  | Actor | Before | `proc-v14` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d` (`proc-v13`) | `sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf` (new) |
+  | `codex-baseline` | `sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354` (`proc-v13`) | `sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6` (new) |
+  | `gemini-baseline` | `sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745` (`proc-v13`) | `sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583` (new) |
+  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | `sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec` (new) |
+  | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | `sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30` (new) |
+  | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | `sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9` (new) |
+
+  **Step 0.** At `origin/main` `a0a526439` (`2026-10-28T21:01:15Z`), `git grep
+  -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
+  the six newly blessed digests, and `git grep -l '"process_version": {'
+  origin/main -- data/cases | wc -l` is **3107** stamped cells.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`6a176c28…`) | `proc-v13` | `2026-10-26T19:00:50Z` | this label's instant (was open) |
+  | `codex-baseline` (`2827480e…`) | `proc-v13` | `2026-10-26T19:00:50Z` | this label's instant (was open) |
+  | `gemini-baseline` (`b69b2b3a…`) | `proc-v13` | `2026-10-26T19:00:50Z` | this label's instant (was open) |
+  | `claude-baseline` (`641ede79…`) | `proc-v14` | this label's instant | open (new) |
+  | `codex-baseline` (`231b2fd0…`) | `proc-v14` | this label's instant | open (new) |
+  | `gemini-baseline` (`725538ea…`) | `proc-v14` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** This was run with this commit's
+  pending rows stamped by hand at a provisional instant,
+  `2026-10-29T00:00:00Z`, in a scratch copy of the registry, over
+  `origin/main`'s ledger at `a0a526439`. `uv run fedcourts
+  successor-disclosures --closed proc-v13 --successor proc-v14`:
+
+  ```
+  successor proc-v14 closes proc-v13 at 2026-10-29T00:00:00+00:00
+    closed proc-v13 codex-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    closed proc-v13 claude-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    closed proc-v13 gemini-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v13` window figure is quoted outside the committed
+  board.
+
+  **Evidence for the change other than the closed windows' boards.** None:
+  the prompt lines answer what the agents' own flags and the maintainer's
+  review of cells reported, not a score.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v14`, and `uv run
+    fedcourts process-digest --all` prints the six digests above;
+  - `uv run python -c "from fedcourtsai.pipeline.moments import spec_for;
+    print(spec_for('evt-order-call-for-response-disposition').forecastable)"`
+    prints `True`, and `uv run fedcourts predict-plan` names a
+    call-for-response cell only for a petition no conference has sat on
+    since its call;
+  - the first predict round after the carrying merge writes a
+    `prediction_summary.md` in every cell (the stamp's warning lines count
+    the misses), and `fedcourts validate data` stays green on its run PR.

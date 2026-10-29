@@ -116,11 +116,11 @@ with the one the public cares about most:
 - **First-relist re-forecast** and **call for response** — the strongest public
   cert-stage signals. Both are declared, parsed and minted. The first relist
   (`evt-order-relist-disposition`, moment `relist`), which fires once per
-  petition rather than at every relist, is forecast. The call for response
-  (`evt-order-call-for-response-disposition`, moment `response-requested` on
-  the cert stage) is switched off: no cell is filed under it until the process
-  version whose predict prompt names it, because its first polls open events
-  for petitions called long before, and how those count is not yet decided.
+  petition rather than at every relist, is forecast, and so is the call for
+  response (`evt-order-call-for-response-disposition`, moment
+  `response-requested` on the cert stage). Both are bounded by the next
+  conference after their trigger, so an event the poll opened for a petition
+  called on long before is never filed: a conference has already sat on it.
 
 These add a few hundred events at most, mainly on the low-volume merits track,
 so the cost is engineering rather than inference: each moment is a

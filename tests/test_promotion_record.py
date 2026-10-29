@@ -314,7 +314,10 @@ def test_the_label_line_is_set_once() -> None:
 
 def test_a_pending_blessing_under_a_carried_label_is_refused() -> None:
     raw = json.loads(json.dumps(COMMITTED))
-    carried = next(b for b in raw["blessings"] if b["label"] != raw["labels"][-1]["label"])
+    # A label that moves every digest leaves no blessing under a carried label,
+    # so the row is put under one: the label before the last.
+    carried = raw["blessings"][0]
+    carried["label"] = raw["labels"][-2]["label"]
     carried["blessed"] = dict(PENDING)
     with pytest.raises(ValueError, match="not the label being registered"):
         load_process_registry(json.dumps(raw))

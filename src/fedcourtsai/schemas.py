@@ -462,8 +462,9 @@ class FlagCategory(StrEnum):
 
     ``provisioning`` is a cell's record that lacks something the pipeline should
     have staged; ``capture-gap`` an outcome or docket record that cannot show
-    what a forecast or grading needed; ``leakage-disclosure`` a replay cell's
-    note that it surfaced material about its own case postdating its event date.
+    what a forecast or grading needed; ``leakage-disclosure`` a note that
+    outcome material about the case reached the cell or a candidate it grades
+    (on a replay cell, material postdating its ``context.cutoff``).
     ``blocked`` stays valid for every file that carries it; severity ``blocker``
     is what says a cell could not finish, under whatever category.
     """
@@ -2070,7 +2071,9 @@ class ClaimScore(_Strict):
         "discloses no increment, a context whose signals were unobservable "
         "fixes no prediction-time value, and a CVSG already on the docket at "
         "prediction time, or a federal party named in the case's caption, makes "
-        "the cvsg-increment claim vacuous. Also None, with `mask_reason` saying so, "
+        "the cvsg-increment claim vacuous; on the cert call-for-response moment, "
+        "whose petition is all but certain to be distributed again, the "
+        "relist-increment claim is vacuous. Also None, with `mask_reason` saying so, "
         "where the run-timing mask applies",
     )
     mask_reason: Literal["signal-before-run"] | None = Field(

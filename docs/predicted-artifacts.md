@@ -31,6 +31,7 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/predictions/<predictor_id>/<
   prediction.json          # the quantitative judgment
   predicted_reasoning.md   # what the Court will do
   reasoning.md             # why this number
+  prediction_summary.md    # the call in plain language, for a lay reader
   retrieval.md             # what was consulted beyond the provisioned inputs
   flags.json               # optional: a durable note for a maintainer
   tooling.json             # a short self-report on the tooling the cell had
@@ -453,6 +454,15 @@ neither can be read for what it is, and the forecast cannot be scored because
 it cannot be separated from the rationale. The evaluator's `reasoning_quality`
 grades `reasoning.md` and that document only.
 
+## `prediction_summary.md`
+
+One paragraph of about 80 words for a reader with no legal training: the call,
+its probability in words, and the main reason, with the predicted judgment and
+vote split at the merits stage. It restates `prediction.json` and must agree
+with it; it is not a second prediction. Blinded staging copies only the files a
+grade needs, so no judge reads it, and nothing scores it. `stamp-cell` warns,
+and only warns, where a cell left none or one over 160 words.
+
 ## `retrieval.md`
 
 Free-form markdown, not schema-validated: what the cell consulted beyond the
@@ -469,7 +479,7 @@ capture in `retrieval_log.json`.
 
 Written **only** when the cell has something durable to surface — a
 data-quality problem, a scope question, an ambiguous event, or the reason it
-was blocked. It validates against the `AgentFlags` model, and the `collect` job
+could not finish. It validates against the `AgentFlags` model, and the `collect` job
 rolls every cell's flags into the run PR body, the Actions summary, and one
 long-lived agent-feedback tracking issue, so the note survives the trigger
 issue's closure and a maintainer sees it without reading every `reasoning.md`.
@@ -478,8 +488,9 @@ issue's closure and a maintainer sees it without reading every `reasoning.md`.
 one of `info` / `warning` / `blocker`. `provisioning` is a record missing
 something the pipeline should have staged, `capture-gap` an outcome or docket
 record that cannot show what the forecast or grading needed, and
-`leakage-disclosure` a replay cell's note that it surfaced material about its
-own case postdating its event date; the cert back-test marks every note filed
+`leakage-disclosure` a note that outcome material about the case reached the
+cell or a candidate it grades (on a replay cell, material postdating its
+`context.cutoff`); the cert back-test marks every note filed
 there as an exposure candidate, whatever its wording. `blocked` also
 validates; `severity: blocker` is what says a cell could not finish. An
 optional `issue` names the repository issue that already tracks the problem,
@@ -551,7 +562,8 @@ The roll-up groups flags by case, event, source and theme. The theme is the
 tracked theme a flag cites by `issue` or its message matches in
 `src/fedcourtsai/flag_themes.json` (a theme-to-issue map), then the untracked
 issue a flag cites, and otherwise the flag's category. So sibling actors'
-notes on one event read as one row naming every actor. An agent flag on a
+notes on one event read as one row naming every actor, and a row grouped by
+an untracked issue names it beside its notes. An agent flag on a
 tracked theme is counted against its issue rather than listed, so a new theme
 stands out. A `blocker` and a `normalised` flag are listed whether tracked or
 not, and a harness note is never counted as tracked. Nothing checks that a

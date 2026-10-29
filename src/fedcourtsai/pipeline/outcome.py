@@ -1916,7 +1916,7 @@ def arrival_event_for(
 
 
 def briefed_merits_event_for(
-    row: MeritsMintRow, open_event_ids: list[str]
+    row: MeritsMintRow, open_event_ids: list[str], brief_on_lead: date | None = None
 ) -> corpus.CorpusEvent | None:
     """The merits stage's **second** forecast moment, or ``None``.
 
@@ -1937,8 +1937,15 @@ def briefed_merits_event_for(
     because of the **open-first-moment** guard: without it, a brief on a docket
     whose judgment has already landed would mint a permanently open phantom
     event that nothing could ever resolve.
+
+    A consolidated member's respondent files on the group's lead docket, so its
+    own ``merits_brief_filed`` stays empty; ``brief_on_lead`` is that filing's
+    date, latched on the stored row (``merits_brief_on_lead``) by the live poll
+    after its ingest, so a member's moment mints at the case's next poll after
+    the latch. The member's own brief, where it has one, wins.
     """
-    if row.merits_brief_filed is None or row.merits_judgment is not None:
+    briefed_at = row.merits_brief_filed or brief_on_lead
+    if briefed_at is None or row.merits_judgment is not None:
         return None
     spec = moments.moments_for(Stage.merits)[1]
     if not corpus.opens_merits_proceeding(row):
@@ -1957,7 +1964,7 @@ def briefed_merits_event_for(
         moment=spec.moment,
         title=row.case_name or row.docket_number or row.case_id,
         description=spec.description,
-        opened_at=row.merits_brief_filed,
+        opened_at=briefed_at,
         decision_target=spec.decision_target,
         resolved=False,
     )
@@ -2026,13 +2033,17 @@ def mint_moment_events(
     shape ``materialize-event`` provisions for the agent cells).
     """
     opens = list(open_event_ids or [])
-    transcript_at = _stored_transcript_at(corpus_db_path, row, opens)
+    stored = _stored_merits_row(corpus_db_path, row, opens)
     minted = [
         event
         for event in (
             merits_event_for(row, resolution),
-            briefed_merits_event_for(row, opens),
-            argued_merits_event_for(row, opens, transcript_at),
+            briefed_merits_event_for(
+                row, opens, None if stored is None else stored.merits_brief_on_lead
+            ),
+            argued_merits_event_for(
+                row, opens, None if stored is None else stored.argument_transcript_at
+            ),
             cvsg_event_for(row, opens),
             sg_brief_event_for(row, opens),
             call_for_response_event_for(row, opens),
@@ -2050,22 +2061,23 @@ def mint_moment_events(
         return persist_moment_events(conn, data_root, court_id, docket_id, minted)
 
 
-def _stored_transcript_at(
+def _stored_merits_row(
     corpus_db_path: Path, row: CorpusRow, open_event_ids: list[str]
-) -> date | None:
-    """The stored row's ``argument_transcript_at``, read only where it could mint.
+) -> corpus.CorpusRow | None:
+    """The stored corpus row, read only where a merits moment could mint off it.
 
     The ingestion row is built from the docket payload, which links no
-    transcript, so the post-argument trigger is read off the corpus row the
-    transcript pass latched it on. Read only while the grant moment is open and
-    no judgment is recorded, the two conditions without which the moment cannot
-    mint, so a cert or interim poll opens no extra read.
+    transcript and, on a consolidated member, carries no respondent brief, so
+    the post-argument trigger (``argument_transcript_at``) and a member's
+    briefed trigger (``merits_brief_on_lead``) are read off the corpus row the
+    live passes latched them on. Read only while the grant moment is open and
+    no judgment is recorded, the two conditions without which neither moment
+    can mint, so a cert or interim poll opens no extra read.
     """
     if MERITS_EVENT_ID not in open_event_ids or row.merits_judgment is not None:
         return None
     with corpus.connect(corpus_db_path) as conn:
-        stored = corpus.get_row(conn, row.case_id)
-    return None if stored is None else stored.argument_transcript_at
+        return corpus.get_row(conn, row.case_id)
 
 
 def _without_terminated_merits(

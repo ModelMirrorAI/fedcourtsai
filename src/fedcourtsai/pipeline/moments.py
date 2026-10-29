@@ -164,8 +164,7 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
         # The cert stage's call for a response, typically after the respondent
         # waived: the Court's first sign that a petition has a reader. It shares
         # the interim moment's name, as `arrival` does, because the moment is the
-        # same act at a different stage; aggregation keys on the pair. Declared
-        # but switched off until the predict prompt names it.
+        # same act at a different stage; aggregation keys on the pair.
         event_id=ids.event_id(EventKind.order.value, "call-for-response-disposition"),
         kind=EventKind.order,
         stage=Stage.cert,
@@ -176,7 +175,6 @@ DECLARED_MOMENTS: tuple[MomentSpec, ...] = (
             "Disposition of the petition, forecast after the Court called for a response to it."
         ),
         claim_set_version=CLAIM_SET_CERT_V3,
-        forecastable=False,
     ),
     MomentSpec(
         # The cert stage's first relist: a conference considered the petition and

@@ -10848,6 +10848,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
                 case_paths, event_paths, provisioned, record, actor, run_id
             )
             _warn_on_missing_stakes_read(record, actor)
+            _warn_on_summary_shape(event_paths, record, actor)
         if isinstance(record, Evaluation):
             # The graded-prediction identity is the harness's word like every
             # stamped field: the ordinary stamp resolves it (immediately
@@ -11681,6 +11682,36 @@ def _warn_on_missing_stakes_read(record: Prediction, actor: str) -> None:
         + "predictor's big_case tau-b.",
         err=True,
     )
+
+
+#: Twice the prompt's "about 80 words": past this a summary is no longer a paragraph.
+SUMMARY_WORD_LIMIT = 160
+
+
+def _warn_on_summary_shape(event_paths: EventPaths, record: Prediction, actor: str) -> None:
+    """Say when a predictor cell left no ``prediction_summary.md``, or one far over length.
+
+    The summary is display material for a lay reader: nothing scores it and no
+    judge is staged it, so a missing or overlong one only warns. Its text is not
+    echoed, for the reason :func:`_warn_on_missing_stakes_read` gives.
+    """
+    path = event_paths.prediction_summary(actor, record.run_id)
+    where = f"{_one_line(record.case_id)} {_one_line(record.event_id)} {actor}"
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    if not text.strip():
+        typer.echo(
+            f"::warning::stamp: {where} wrote no prediction_summary.md; the prompt "
+            + "contracts a plain-language paragraph beside every prediction.",
+            err=True,
+        )
+        return
+    words = len(text.split())
+    if words > SUMMARY_WORD_LIMIT:
+        typer.echo(
+            f"::warning::stamp: {where} wrote a prediction_summary.md of {words} words; "
+            + f"the prompt asks for about 80 (warned past {SUMMARY_WORD_LIMIT}).",
+            err=True,
+        )
 
 
 def _refuse_unsupported_regrade(role: str, pipeline_sha: str, stamped_at: str) -> None:

@@ -29,7 +29,8 @@ lane never calls writes it.
             event.yaml
             outcome.json
             predictions/<predictor_id>/<run_id>/{prediction.json,reasoning.md,
-                                                predicted_reasoning.md?,flags.json?}
+                                                predicted_reasoning.md?,prediction_summary.md?,
+                                                flags.json?}
             evaluations/<evaluator_id>/<predictor_id>/<run_id>/{evaluation.json,evaluation.md}
             evaluations/<evaluator_id>/<run_id>/flags.json?
 
@@ -138,6 +139,11 @@ class EventPaths:
     def reasoning(self, predictor_id: str, run_id: str) -> Path:
         # The predictor's rationale for its own numbers (`reasoning_doc`).
         return self.prediction_dir(predictor_id, run_id) / "reasoning.md"
+
+    def prediction_summary(self, predictor_id: str, run_id: str) -> Path:
+        # A plain-language paragraph restating the prediction for a lay reader;
+        # never staged for a judge and never scored.
+        return self.prediction_dir(predictor_id, run_id) / "prediction_summary.md"
 
     def predicted_reasoning(self, predictor_id: str, run_id: str) -> Path:
         # The forecast of the Court's own reasoning (`predicted_reasoning_doc`) —

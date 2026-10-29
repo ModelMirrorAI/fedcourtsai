@@ -457,8 +457,8 @@ class CorpusRow(BaseModel):
         "so the member's own `merits_brief_filed` stays empty. Written by the live "
         "poll from the lead's "
         "newest stored live snapshot; fill-in latched. "
-        "Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`) and read "
-        "by no mint: the briefed moment still opens on `merits_brief_filed` alone. "
+        "Withheld from the retrieval surface (`RETRIEVAL_WITHHELD_COLUMNS`). Opens the "
+        "member's briefed moment where `merits_brief_filed` is empty. "
         "None = not a consolidated member, not yet filed, or the lead not stored.",
     )
     sg_brief_filed: date | None = Field(
@@ -4194,9 +4194,8 @@ def opinion_body(row: CorpusRow) -> str | None:
 
 
 #: Columns a ``query`` prior never carries, though the row stores them. The
-#: invited-brief, call-for-response, first-relist and argument-transcript dates are mint
-#: triggers, a consolidated
-#: member's lead-filed respondent brief dates a moment no mint reads yet, and the
+#: invited-brief, call-for-response, first-relist, argument-transcript and a
+#: consolidated member's lead-filed respondent brief dates are mint triggers, and the
 #: merits decision record and the cert-stage amicus count are analytics
 #: surfaces — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted

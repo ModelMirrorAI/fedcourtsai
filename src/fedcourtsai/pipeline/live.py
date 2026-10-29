@@ -399,9 +399,8 @@ def latch_member_brief_on_lead(
     the first respondent brief the attribution reads as the member's
     (:func:`~fedcourtsai.pipeline.documents.member_respondent_brief_date`). A
     lead the corpus does not hold dates nothing. The date lands in
-    ``merits_brief_on_lead``, which no mint reads: the briefed moment's dating
-    is registered, so opening it for members is a re-bless decision, and the
-    column accrues until then.
+    ``merits_brief_on_lead``, which opens the member's briefed moment at its
+    next poll (:func:`~fedcourtsai.pipeline.outcome.briefed_merits_event_for`).
     """
     lead = consolidation_lead(payload)
     if lead is None:
