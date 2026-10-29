@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will most likely **deny certiorari without a separate writing**. The preservation dispute and the alleged independent specific-jurisdiction basis give the Court reasons to reject this vehicle without resolving Mallory's full scope.
+
+The snapshot contains **two distributions**, most recently for the November 13, 2026 conference, and **no CVSG**. The modal path is **zero further distributions**, followed by denial after that conference, likely in mid-to-late November. Disposition by December 2026 is a reasonable central horizon allowing for another conference, not a scored deadline. I assign **24%** to at least one additional distribution; on that alternative, one more is likelier than a prolonged series. The earlier redistribution follows obtaining a requested response and is not certain evidence of substantive relisting.
+
+The Court will probably **not request the Solicitor General's views**: **2%** for a new CVSG. If it does, the invitation would most naturally follow the November conference or another conference shortly thereafter and substantially delay resolution.
+
+**If review is granted**, the likely question is a narrowed form of the petition's question: whether due process permits general jurisdiction based on registration when the statute lacks express notice and the judicial construction postdates the corporation's original registration. Preservation and an independent specific-jurisdiction basis would need to be overcome before the Court reaches that question. Plenary briefing and argument are likelier than summary relief: **15% conditional on a grant** for disposition in the cert order itself, and 85% for opening a merits proceeding. No staged intervening ruling makes a GVR the natural route. Any ruling on the constitutional notice issue remains conditional on a grant.
+
+Conditional on denial, **8%** is assigned to a dissent or statement respecting denial and 92% to neither. A writing, if one appears, would most plausibly address the unresolved boundary of consent jurisdiction rather than the correctness of the default judgment. Barrett or Kavanaugh is a tentative possibility, but no individual Justice is likely to write. The order-writer probabilities are authorship forecasts, not probabilities of joining another Justice's opinion.

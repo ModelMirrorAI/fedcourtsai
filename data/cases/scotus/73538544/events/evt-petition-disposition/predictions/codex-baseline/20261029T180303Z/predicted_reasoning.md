@@ -1,0 +1,13 @@
+# Forecast of the Court's disposition
+
+The Court will most likely grant certiorari, vacate the California judgment, and remand for reconsideration in light of Montgomery v. Caribe Transport II, LLC. This is a GVR, not an adjudication that Casarez ultimately wins her negligence action. The safety-exception reasoning in the appended California opinion is the immediate target: it relied on Ye and Aspen and rejected claims that did not allege an unsafe or defective tractor-trailer itself. The parties' descriptions of Montgomery give the Court a straightforward reason to let the state court revisit that analysis.
+
+The October 29 snapshot records two distributions, for September 28 and November 13, 2026. The second followed a September 10 request for Walmart's response and the filing of that response on October 13. This is not strong evidence of two completed conferences considering a fully briefed petition. From that state, I expect no further distribution as the modal path, with a 30% chance of at least one additional distribution; if delayed, one additional conference is more likely than a long series. A disposition on the orders following the November 13 conference, or shortly afterward, is the central timing forecast.
+
+No CVSG is on the record. I put a new invitation for the Solicitor General's views at 1%: the Court can apply its recent precedent without asking for a new federal position.
+
+Conditional on any grant, there is a 97% chance of disposition in the cert order itself. A Montgomery GVR is much more likely than either summary reversal or plenary briefing and argument. The Court can address Questions 1 and 3 through reconsideration without deciding Question 2's broader shipper/receiver coverage issue. If it instead takes plenary review, that second question is the natural candidate, but there is little reason to reach it before the safety exception is reconsidered.
+
+I expect no separate writing. Conditional on denial, I assign 2.5% to a noted dissent or statement respecting denial. A rare objection to the GVR would be more plausible from Thomas or Gorsuch than from most other Justices, but no particular author is the central prediction. The order-writers probabilities are unconditional and allow writings on a grant as well as on a denial.
+
+If relief is granted, the likely rationale is that Montgomery sufficiently calls the federal ground below into question to warrant reconsideration, not that its broker holding necessarily establishes liability for a shipper or receiver. Unresolved duty, causation, and evidentiary defenses will remain for the lower courts.

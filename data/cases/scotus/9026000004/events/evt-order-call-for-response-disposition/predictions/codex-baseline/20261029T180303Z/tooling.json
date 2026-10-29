@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000004",
+  "gaps": [
+    "The citation-filter corpus lookup returned no Mallory prior because reporter-citation coverage is sparse.",
+    "corpus-info does not support the cell's service backend, so a newest-pull/newest-snapshot vintage could not be reported.",
+    "No committed base-rate table conditions on a cert-stage requested response."
+  ],
+  "helpful": [
+    "The moment-specific snapshot and context distinguish a requested response from a substantive relist.",
+    "The staged petition includes the lower-court opinion, permitting a vehicle assessment rather than relying on the petition's advocacy.",
+    "Matching sal-v4 reached-band tables and JSON denominators permit an exact prior-Term anchor.",
+    "The official Mallory opinion clarifies the limits of the petition's statutory-notice theory."
+  ],
+  "notes": "Used only provisioned case material, committed statistical context, and general pre-existing precedent. No live case docket or outcome was retrieved. Set UV_CACHE_DIR=/tmp/uv-cache after the default cache was refused as read-only. No CourtListener MCP call was needed.",
+  "role": "predictor",
+  "run_id": "20261029T180303Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned record and schema reads",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed metrics/statpack.md and metrics/statpack.json",
+    "fedcourts corpus-info (unsupported service-backend attempt)",
+    "web search/open/find: official Mallory opinion",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
