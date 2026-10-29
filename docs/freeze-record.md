@@ -14902,7 +14902,7 @@ freeze commit is recorded here.
   refreshed after it; a prediction stamped after such a refresh draws on the
   moved baseline.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by `promotion/2026-10-29-2` (merge commit `7dde3572fb8db291cf4e8c8d992b517e42a2a28a`, merged `2026-10-29T22:36:30Z`).
 
   The runnable effect check once it is live: after a day of live windows
   with reserve slots free, `CHECK_SUMMARY=out.md uv run python
