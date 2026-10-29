@@ -14667,3 +14667,63 @@ freeze commit is recorded here.
   - the first predict round after the carrying merge writes a
     `prediction_summary.md` in every cell (the stamp's warning lines count
     the misses), and `fedcourts validate data` stays green on its run PR.
+
+- **A cell's context records what the snapshot contact scrub withheld;
+  recorded 2026-10-29.** A record change with no reading rule and no scored
+  figure.
+
+  **Why.** On a docket read as self-represented, provisioning stages the
+  snapshot with that filer's contact keys replaced by placeholders. The only
+  record of it was the placeholders themselves and the run log's counts, and
+  the log expires. A staged snapshot with no placeholder therefore read the
+  same whether the scrub ran and found nothing or never ran. The document
+  scrub already says this per file in `documents.json`; the snapshot scrub
+  said nothing.
+
+  **The record.** `PredictionContext` gains `snapshot_contact_scrub`:
+  - `sides`, the counsel-block lists the docket was read as self-represented
+    on, which is the scrub's trigger; empty where it did not run;
+  - `blocks` and `fields`, the blocks that had a value withheld and the
+    values withheld, both zero where `sides` is empty.
+
+  It is written on every cell `write_cell_record` provisions, forward and
+  replay alike. It is null on the cert back-test's replay contexts, whose
+  provisioner redacts the snapshot by its own rule and runs no contact scrub,
+  and on every cell provisioned before the carrying merge. The cell reads
+  `record/context.json`, so the field joins its information set. It adds
+  nothing the cell could not already see, since the placeholders are in the
+  staged snapshot, and it carries counts only, never a withheld value. No
+  prompt text or other digest input changes, so no digest moves. The summary
+  prompt, which is outside every digest, gains a line telling the summary
+  writer the placeholders are the pipeline's and not to be repeated.
+  - **The registry row.** The boundary is `context-snapshot-contact-scrub`.
+    It applies to every predictor, with reach `all`, and is not gradual:
+    every cell provisioned after the carrying merge carries the record. It is
+    registered **pending** in this change's own PR
+    (`fedcourts register-boundary`). Its `merge` and `at` stay null until the
+    promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **Expected population.** Every newly provisioned cell carries the record.
+    A non-empty `sides` appears exactly where the run log's existing
+    snapshot-scrub line appears, so the record changes no cell's staged
+    snapshot or documents. No corpus count was taken for this entry.
+
+  **What it moves.** No scored figure. Once cells sit on both sides of the
+  stamped boundary, each pooled entry's and each paired engine's `boundaries`
+  list gains a `context-snapshot-contact-scrub` row. That row is composition,
+  not a cut. The field is no cut, exclusion or rank key on any board. A later
+  dated entry must register one before any figure reads it.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_snapshot_scrub.py -k scrub_record` and `uv run
+    pytest tests/test_cli_provision.py -k snapshot_scrub_ran` are green;
+  - on the first predict run's collect PR after the carrying merge, `jq -c
+    '.context.snapshot_contact_scrub'
+    data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json`
+    prints an object, never `null`, for every file;
+  - on `main`, `uv run python -c
+    "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('context-snapshot-contact-scrub' in {b.name for b in H})"` prints
+    `True` once the promotion record has stamped the row.
