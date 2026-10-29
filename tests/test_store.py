@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from fedcourtsai import corpus, process_version
+from fedcourtsai.config import load_pull_config
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import moments
 from fedcourtsai.pipeline import moments as moments_module
@@ -174,6 +175,30 @@ def test_eligible_reserve_respects_skip_closed(tmp_path: Path) -> None:
     with corpus.connect(db) as conn:
         corpus.upsert_rows(conn, rows)
     assert cases_due_for_pull(db, limit=2, eligible_reserve=1) == [("ca9", 2)]
+
+
+def test_committed_pull_config_spends_every_slot_on_scotus(tmp_path: Path) -> None:
+    # A refresh pages every docket entry, so one never-pulled bulk circuit docket
+    # with hundreds of entry pages takes a whole window's hourly budget and never
+    # completes. The committed reserve must cover the whole cap, so while the
+    # SCOTUS-open pool can fill a run no general slot reaches such a docket.
+    cfg = load_pull_config(Path(__file__).resolve().parents[1] / "config")
+    assert cfg.eligible_refresh_reserve >= cfg.max_cases_per_run
+    db = corpus.corpus_db_path(tmp_path)
+    rows = [corpus.CorpusRow(case_id="ca1/10249", court="ca1", last_pulled=None)] + [
+        corpus.CorpusRow(case_id=f"scotus/{n}", court="scotus", last_pulled=date(2026, 6, 20))
+        for n in range(1, cfg.max_cases_per_run + 1)
+    ]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+    due = cases_due_for_pull(
+        db,
+        limit=cfg.max_cases_per_run,
+        skip_closed=cfg.skip_closed,
+        eligible_reserve=cfg.eligible_refresh_reserve,
+    )
+    assert len(due) == cfg.max_cases_per_run
+    assert {court for court, _ in due} == {"scotus"}
 
 
 def test_open_and_resolved_events_partition_corpus_events(tmp_path: Path) -> None:
