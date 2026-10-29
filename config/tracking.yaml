@@ -26,10 +26,13 @@ pull:
   # Reserve up to this many of each run's slots for the stalest SCOTUS dockets
   # (the prediction scope), so the in-scope set rotates ahead of the much larger
   # general active set and new docket activity is caught before a case resolves.
-  # Unused slots fall through to the normal rotation, so it never wastes budget —
-  # a large reserve is safe: it only bites when the SCOTUS-open pool is big
-  # enough to fill it, which is exactly when prediction should get priority.
-  eligible_refresh_reserve: 20
+  # Unused slots fall through to the normal rotation, so it never wastes budget.
+  # It equals max_cases_per_run, so the general rotation runs only when the
+  # SCOTUS-open pool cannot fill a run. That rotation leads with never-pulled
+  # bulk-loaded circuit dockets, and pull_case pages every docket entry, so one
+  # circuit docket with hundreds of entry pages takes a whole run's hourly
+  # budget, never completes, and leads the rotation again next window.
+  eligible_refresh_reserve: 30
   # Discover newly-filed dockets in the tracked courts since the last run.
   # OFF: the live channel's frontier probing onboards newly filed SCOTUS
   # petitions (fresher, budget-free), and circuit discovery onboarded cases
