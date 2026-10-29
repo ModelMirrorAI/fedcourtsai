@@ -14849,3 +14849,46 @@ freeze commit is recorded here.
   live-minted duplicate rows" step, and
   `uv run fedcourts dedupe-live-rows` on a freshly pulled corpus then prints
   `would drop 0 live-minted row(s)`.
+
+- **The live rotation keeps ten slots a cycle for never-polled rows, oldest
+  Term first; recorded 2026-10-29.** A **membership-rule** entry under
+  unchanged digests: no digest or `salience_version` moves, but which rows the
+  live channel refreshes, and so which rows carry live facts, can.
+
+  **What moved.** `live_rotation` takes `live.never_polled_reserve_per_run`
+  (10 in `config/tracking.yaml`) slots of each cycle's `live.max_cases_per_run`
+  for live rows the channel has never polled: SCOTUS, undecided, no
+  disposition, an open event, a Term at or above the rotation's floor, no row
+  under the same number already polled, and the row the identity join resolves
+  the number to. They are ordered oldest Term first. The reserve takes only
+  what the overdue and distributed rows leave, so neither moves; it displaces
+  the tail of the Term tiers, which the staleness bound keeps from going stale.
+  At twelve cycles a day that reaches about 120 rows a day.
+
+  **Why it is a boundary.** The Term tiers lead with the newest Terms, which
+  fill the cap on their own, so a past-Term row the historical walker skipped
+  (undecided when walked, or never served) was never polled. Polling it writes
+  the facts a live poll writes (disposition, dates, counsel, the snapshot and
+  `last_live_polled`), so it enters the live slice and every row-counting
+  statpack figure that reads the live slice or a disposition. Read ranged from
+  the blob at `main` `d8b560718` (pointer committed 2026-10-29T11:00Z), the
+  reserve's first 120 rows are 47 from OT2017 and 73 from OT2018. The
+  historical-ifp re-walks dispatched for Terms 18 to 25 reach the same rows
+  for those Terms, so OT2017's 47 are the rows only the reserve reaches until
+  those walks finish. Selection reads distributed pending petitions, which
+  the reserve never displaces; a reserved row that is in fact still pending
+  can gain a distribution and enter the pool as any polled row would.
+
+  **The boundary.** A live-slice or per-Term disposition figure for OT2017 or
+  later from a statpack refreshed before the carrying merge is not compared or
+  pooled with one refreshed after it without reading the two separately.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live: a day after the carrying merge,
+  on a freshly pulled corpus, `uv run python -c "from pathlib import Path;
+  from fedcourtsai import corpus; c = corpus.connect_readonly(Path('corpus/corpus.db'));
+  print(sorted({r.docket_number[:2] for r in corpus._never_polled_reserve(c,
+  limit=50, term_floor_year=2017, exclude=())}))"` no longer lists `17`;
+  a row still listed under it is one whose poll failed in transit, which the
+  live cycle's failed queue names.

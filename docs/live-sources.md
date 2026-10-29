@@ -160,6 +160,16 @@ the cycles its overdue backlog takes to drain. The overdue tier takes at most
 several cycles while the distributed petitions, whose order-list results are
 days away, keep the rest; an overdue docket past that share keeps its ordinary
 place. A never-polled row has no stamp to age and keeps its ordinary priority-tier place.
+Behind the overdue and distributed rows, `live.never_polled_reserve_per_run`
+slots of each cycle go to rows the channel has never polled, oldest Term
+first: an undecided row with an open event, in practice a past-Term row the
+historical walker skipped (undecided when walked, or never served). The Term tiers lead
+with the newest Terms, which fill the cap on their own, so without the reserve
+such a row would never be reached. The reserve takes only what the overdue
+and distributed rows leave, so it never delays an order-list re-read, and a
+row qualifies only when its docket number resolves to that row and no row
+under the same number has been polled, so a caption-only upstream duplicate is
+never polled into a second full row.
 The bound is set well above one sweep of the polled watchlist at the cap, so
 it bites only when a tier is starving the rest and the priority tiers govern
 otherwise.

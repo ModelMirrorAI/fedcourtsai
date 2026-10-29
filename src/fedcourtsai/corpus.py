@@ -5199,6 +5199,7 @@ def live_rotation(
     overdue_before: date | None = None,
     overdue_limit: int | None = None,
     order_list_lag_days: int | None = None,
+    never_polled_reserve: int = 0,
 ) -> list[CorpusRow]:
     """The next ``limit`` live petitions the live poller should refresh.
 
@@ -5234,9 +5235,133 @@ def live_rotation(
     Term tiers (:func:`_pending_conference_sql`; ``None`` never demotes). Rotates on
     ``last_live_polled``, never ``last_pulled``, so the CourtListener
     enrichment rotation is undisturbed.
+
+    **Never-polled reserve.** Inside the tiers, recent Terms lead and the
+    current Terms always hold more than ``limit`` rows, so an older Term's
+    never-polled row would otherwise never reach a cycle.
+    ``never_polled_reserve`` slots go to such rows, oldest Term first (see
+    :func:`_never_polled_reserve`). The reserve takes only what the overdue
+    and distributed rows leave of ``limit``, so it never displaces either; it
+    displaces the tail of the Term tiers, which the overdue bound already
+    keeps from going stale. 0 disables it.
     """
     if limit <= 0:
         return []
+    picked = _live_rotation_tiers(
+        conn,
+        limit=limit,
+        term_floor_year=term_floor_year,
+        overdue_before=overdue_before,
+        overdue_limit=overdue_limit,
+        order_list_lag_days=order_list_lag_days,
+    )
+    if never_polled_reserve <= 0:
+        return picked
+    conference = _pending_conference_sql(order_list_lag_days)
+    protected: set[str] = set()
+    if picked:
+        marks = ",".join("?" for _ in picked)
+        protected = {
+            str(record["case_id"])
+            for record in conn.execute(
+                f"SELECT case_id FROM cases WHERE case_id IN ({marks}) "
+                f"AND {conference} IS NOT NULL",
+                tuple(row.case_id for row in picked),
+            )
+        }
+    if overdue_before is not None:
+        protected |= {
+            row.case_id
+            for row in picked
+            if row.last_live_polled is not None and row.last_live_polled < overdue_before
+        }
+    free = limit - len(protected)
+    reserve = _never_polled_reserve(
+        conn,
+        limit=min(never_polled_reserve, free),
+        term_floor_year=term_floor_year,
+        exclude=protected,
+    )
+    if not reserve:
+        return picked
+    reserved = {row.case_id for row in reserve}
+    head = [row for row in picked if row.case_id in protected]
+    tail = [row for row in picked if row.case_id not in protected and row.case_id not in reserved]
+    return (head + reserve + tail)[:limit]
+
+
+def _never_polled_reserve(
+    conn: sqlite3.Connection, *, limit: int, term_floor_year: int, exclude: Collection[str]
+) -> list[CorpusRow]:
+    """Up to ``limit`` live rows the channel has never polled, oldest Term first.
+
+    Only the row the identity join resolves its number to
+    (:func:`scotus_case_ids_by_docket_numbers`, lowest docket id) qualifies. A
+    poll writes to the row it was asked about, so polling a second upstream row
+    for a number would fill a duplicate with the same facts and every figure
+    counting rows would count the petition twice; such a row is passed over and
+    left as it is. A row whose number already has a polled sibling is dropped
+    in SQL, through the live-docket index, before the join is asked. The
+    candidates are read a page at a time until ``limit`` qualify, so rows that
+    keep failing the join cannot hold the head of the order and starve the
+    reserve; the scan stops after ``_RESERVE_SCAN_PAGES`` pages.
+    """
+    if limit <= 0:
+        return []
+    page = (limit + len(exclude)) * 4 + 50
+    picked: list[CorpusRow] = []
+    for number in range(_RESERVE_SCAN_PAGES):
+        candidates = _never_polled_page(
+            conn, term_floor_year=term_floor_year, size=page, offset=number * page
+        )
+        eligible = [row for row in candidates if is_modern_cert(row) and row.case_id not in exclude]
+        canonical = scotus_case_ids_by_docket_numbers(conn, [row.docket_number for row in eligible])
+        picked += [
+            row
+            for row in eligible
+            if canonical.get(normalize_docket_number(row.docket_number) or "") == row.case_id
+        ]
+        if len(picked) >= limit or len(candidates) < page:
+            break
+    return picked[:limit]
+
+
+# Pages of never-polled candidates one cycle reads before its reserve gives up.
+_RESERVE_SCAN_PAGES = 10
+
+
+def _never_polled_page(
+    conn: sqlite3.Connection, *, term_floor_year: int, size: int, offset: int
+) -> list[CorpusRow]:
+    """One page of :func:`_never_polled_reserve`'s candidates, oldest Term first."""
+    cur = conn.execute(
+        "SELECT * FROM cases WHERE court = 'scotus' "
+        "AND date_decided IS NULL AND disposition IS NULL "
+        "AND last_live_polled IS NULL "
+        "AND docket_number GLOB '[0-9][0-9]-*' "
+        f"AND {_TERM_YEAR_SQL} >= ? "
+        "AND EXISTS (SELECT 1 FROM events "
+        "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
+        "AND NOT EXISTS (SELECT 1 FROM cases AS sibling "
+        "                WHERE sibling.court = 'scotus' "
+        "                AND sibling.docket_number = cases.docket_number "
+        "                AND sibling.last_live_polled IS NOT NULL) "
+        f"ORDER BY {_TERM_YEAR_SQL} ASC, case_id ASC LIMIT ? OFFSET ?",
+        (term_floor_year, size, offset),
+    )
+    return [_from_record(record) for record in cur]
+
+
+def _live_rotation_tiers(
+    conn: sqlite3.Connection,
+    *,
+    limit: int,
+    term_floor_year: int,
+    overdue_before: date | None,
+    overdue_limit: int | None,
+    order_list_lag_days: int | None,
+) -> list[CorpusRow]:
+    """:func:`live_rotation`'s tiers: overdue, distributed, then Term."""
     live_sql = (
         "SELECT * FROM cases WHERE court = 'scotus' "
         "AND date_decided IS NULL "
