@@ -8,6 +8,7 @@ import random
 import re
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -3245,3 +3246,70 @@ def test_a_codex_subagent_sessions_calls_join_the_cells_log(tmp_path: Path) -> N
         "cat reasoning.md",
     ]
     assert all(call.result_capture == "captured" for call in calls)
+
+
+def _record_gemini_retrieval(*extra: str) -> Any:
+    return runner.invoke(
+        app,
+        [
+            "record-retrieval",
+            "--court",
+            "scotus",
+            "--docket",
+            "305",
+            "--event",
+            "evt-petition-disposition",
+            "--run-id",
+            "20260710T120000Z",
+            "--engine",
+            "gemini",
+            "--role",
+            "predictor",
+            "--actor",
+            "gemini-baseline",
+            *extra,
+        ],
+    )
+
+
+def _written_gemini_log(fixture_corpus: FixtureCorpus) -> dict[str, Any]:
+    destination = (
+        CasePaths(fixture_corpus.data_root, "scotus", 305)
+        .event("evt-petition-disposition")
+        .prediction_retrieval_log("gemini-baseline", "20260710T120000Z")
+    )
+    written: dict[str, Any] = json.loads(destination.read_text())
+    return written
+
+
+def test_record_retrieval_counts_the_sidecar_requests(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # The engine-agnostic reading: the transcript here is empty, and the
+    # sidecar's own log still says the cell's queries arrived.
+    log = tmp_path / "corpus-sidecar.log"
+    log.write_text(
+        "INFO:fedcourtsai.corpus_service:127.0.0.1 - /healthz -> 200\n"
+        + "INFO:fedcourtsai.corpus_service:127.0.0.1 - /v1/query -> 200 (0.3s)\n"
+        + "INFO:fedcourtsai.corpus_service:127.0.0.1 - /v1/query -> 200 (0.2s)\n"
+    )
+    result = _record_gemini_retrieval("--corpus-sidecar-log", str(log))
+    assert result.exit_code == 0, result.output
+    assert _written_gemini_log(fixture_corpus)["corpus_service"] == {
+        "queries": 2,
+        "queries_ok": 2,
+        "open_events": 0,
+        "open_events_ok": 0,
+    }
+
+
+def test_a_missing_sidecar_log_records_no_count_rather_than_zero(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    # Zero queries is a claim about the cell; a log nobody could read is not.
+    result = _record_gemini_retrieval("--corpus-sidecar-log", str(tmp_path / "absent.log"))
+    assert result.exit_code == 0, result.output
+    assert "corpus sidecar log not read" in result.output
+    assert _written_gemini_log(fixture_corpus)["corpus_service"] is None
+    _record_gemini_retrieval()
+    assert _written_gemini_log(fixture_corpus)["corpus_service"] is None

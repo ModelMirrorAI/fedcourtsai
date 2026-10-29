@@ -1198,6 +1198,14 @@ class PriorAvailabilityRollup:
     syntactically and this counts the cells whose *manifest* one produced
     nothing, and a bare numerator on a surface read once per run would present
     a long-running gap as a fresh regression every time.
+
+    ``sidecar_by_actor`` is the third channel, and the only one that reads the
+    same for every engine: ``(actor, quiet_cells, counted_cells)`` for each
+    actor with a cell whose log carries the sidecar's request count, a quiet
+    cell being one whose sidecar logged no ``/v1/query`` at all. It is beside
+    the attempt and report channels rather than reconciled with them, because
+    its denominator is different: every cell whose log carries the count,
+    whatever capture could read of its commands.
     """
 
     cells: int = 0
@@ -1207,6 +1215,7 @@ class PriorAvailabilityRollup:
     unreported: tuple[str, ...] = ()
     code_mode_cells: int = 0
     lift_blind_cells: int = 0
+    sidecar_by_actor: tuple[tuple[str, int, int], ...] = ()
 
 
 #: Backstop on how much of one identifier any note prints. The stakes census
@@ -1247,10 +1256,12 @@ def _named_cells(names: Sequence[str]) -> str:
 def render_prior_availability_note(rollup: PriorAvailabilityRollup | None) -> str:
     """The run PR's note on the corpus-prior channel, or ``""``.
 
-    Up to three paragraphs, each printed only when it has something to say: the
+    Up to four paragraphs, each printed only when it has something to say: the
     cells that asked the corpus for priors and reported not getting them, the
-    cells whose answer could not be read at all, and the tripwire on whether
-    code-mode capture could have seen such an attempt in the first place. The
+    cells whose answer could not be read at all, the cells whose corpus sidecar
+    logged no query, and the tripwire on whether code-mode capture could have
+    seen such an attempt in the first place. The sidecar paragraph is silent
+    where every counted cell queried, by the same convention as the first two. The
     first two are separate because the claims are: a warning that the channel
     failed is not the same as a note that nobody can tell, and merging them
     would let the louder one speak for both.
@@ -1303,6 +1314,18 @@ def render_prior_availability_note(rollup: PriorAvailabilityRollup | None) -> st
             f"parsed, so there is no answer either way — unknown, not served and not "
             f"starved: {_named_cells(rollup.unreported)}. The denominator is what capture "
             f"could read of each engine's commands, so it is a within-run figure."
+        )
+    quiet = [(actor, q, n) for actor, q, n in rollup.sidecar_by_actor if q]
+    if quiet:
+        shown = ", ".join(f"`{_md_id(actor)}` {q} of {n}" for actor, q, n in quiet)
+        paragraphs.append(
+            f"📭 **Cells whose corpus sidecar logged no query**: {shown} cell(s) with a "
+            f"counted sidecar log. Read off the sidecar's own request log, so it is the "
+            f"same reading for every engine and does not depend on what the transcript "
+            f"shows: a quiet cell sent nothing the corpus service received, whether it had "
+            f"no need to query, never tried, or its command failed before reaching the "
+            f"service. A record, not a fault: the cell's `retrieval.md` and `tooling.json` "
+            f"say which."
         )
     if rollup.lift_blind_cells:
         paragraphs.append(

@@ -820,6 +820,18 @@ directory without knowing which part is which invites trusting the wrong half.
   construction, and the grading reads the rows rather than any summary over
   them. So it never reaches an evaluator, and the staged file's field set is
   exactly what it was.
+  `corpus_service` is the one corpus-use reading that does not come from the
+  engine's transcript: the `/v1/query` and `/v1/open-events` requests the
+  cell's corpus sidecar logged, each with how many it answered 200, counted
+  off the sidecar's request log by the capture step after the agent finished.
+  The sidecar answers every engine's `fedcourts query` alike, so a cell whose
+  transcript holds a well-formed query and whose count is zero sent nothing
+  the service received. **Descriptive only**: no score or rank key reads it.
+  The log sits in the cell's workspace, where the agent could alter it; a
+  request line carries only the route constant and the status, and only a line
+  in that shape is counted. The blinding mask drops it on the same ground as
+  `self_provisioned_fetches`. Null where no sidecar log was read: a job with no
+  sidecar, a log that was missing, or a record written before the field.
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
   One path removes a committed one: the `include-failed-attempts` widening on

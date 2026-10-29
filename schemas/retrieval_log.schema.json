@@ -1,5 +1,43 @@
 {
   "$defs": {
+    "CorpusServiceRequests": {
+      "additionalProperties": false,
+      "description": "What the cell's corpus sidecar logged answering, read off its request log.\n\nThe engine-agnostic half of the corpus-prior channel. Every other reading of\nwhether a cell reached the corpus comes from the engine's own transcript\n(an attempt) or the cell's own ``tooling.json`` (a report), and both differ\nby engine in what they can see. The sidecar sits behind every engine's\n``fedcourts query`` alike, so a count of the requests it answered says\nwhether a query arrived, whatever the transcript shows.",
+      "properties": {
+        "open_events": {
+          "description": "`/v1/open-events` requests the sidecar logged",
+          "minimum": 0,
+          "title": "Open Events",
+          "type": "integer"
+        },
+        "open_events_ok": {
+          "description": "Of `open_events`, those answered 200",
+          "minimum": 0,
+          "title": "Open Events Ok",
+          "type": "integer"
+        },
+        "queries": {
+          "description": "`/v1/query` requests the sidecar logged",
+          "minimum": 0,
+          "title": "Queries",
+          "type": "integer"
+        },
+        "queries_ok": {
+          "description": "Of `queries`, those answered 200: a query that returned rows or none",
+          "minimum": 0,
+          "title": "Queries Ok",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "queries",
+        "queries_ok",
+        "open_events",
+        "open_events_ok"
+      ],
+      "title": "CorpusServiceRequests",
+      "type": "object"
+    },
     "Engine": {
       "description": "Agentic coding engine that produced an artifact.",
       "enum": [
@@ -176,6 +214,18 @@
     "case_id": {
       "title": "Case Id",
       "type": "string"
+    },
+    "corpus_service": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CorpusServiceRequests"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The requests the cell's corpus sidecar logged, counted off its request log after the agent finished. The sidecar answers every engine's `fedcourts query` and `open-events` alike, so this is the one corpus-use reading that does not depend on what an engine's transcript shows: a cell whose transcript holds a well-formed query and whose count is zero sent nothing the service received. DESCRIPTIVE ONLY: no score or rank key reads it. The log sits in the cell's workspace, so like `record/context.json` it is a file the agent could have altered. A request line carries only the route constant and the status, and only a line in that shape counts. Counts the whole job, which is one cell. Dropped by the blinding mask, since how often a cell queries is engine-shaped. Null where no sidecar log was read: a job with no sidecar, a log that was missing, or a record written before the field existed"
     },
     "engine": {
       "$ref": "#/$defs/Engine"

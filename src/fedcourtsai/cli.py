@@ -501,6 +501,7 @@ from .schemas import (
     ClaimScoreBlock,
     ClaimScoreBoard,
     ConferenceBucket,
+    CorpusServiceRequests,
     CorpusValidation,
     CountedConferenceTotal,
     DataHealth,
@@ -13125,6 +13126,13 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
     gemini_telemetry_file: Annotated[
         Path | None, typer.Option(help="Gemini CLI telemetry.log to read tool calls from.")
     ] = None,
+    corpus_sidecar_log: Annotated[
+        Path | None,
+        typer.Option(
+            help="The job's corpus sidecar log, whose request lines are counted into "
+            "`corpus_service`. A named log that is missing records null with a warning."
+        ),
+    ] = None,
     strict: Annotated[
         bool,
         typer.Option(
@@ -13227,6 +13235,7 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         # written before the field into one that rewrites itself on the next
         # read. Stamped once, from the rows as capture minted them.
         self_provisioned_fetches=len(self_provisioned_fetches(calls)),
+        corpus_service=_count_sidecar_requests(corpus_sidecar_log),
     )
     event_paths = CasePaths(settings.data_root, court, docket).event(event)
     destination = (
@@ -13251,6 +13260,27 @@ def record_retrieval(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to in
         _require_parsed_engine_log_shape(
             engine, claude_execution_file, codex_sessions_dir, gemini_telemetry_file
         )
+
+
+def _count_sidecar_requests(log: Path | None) -> CorpusServiceRequests | None:
+    """The corpus sidecar's request counts, or None where no log was named or read.
+
+    A missing or unreadable log is a warning, never a failure: the harvested
+    calls are the point of the capture step, and a null here reads as "not
+    counted", which is what it is.
+    """
+    if log is None:
+        return None
+    try:
+        text = log.read_text(errors="replace")
+    except OSError as exc:
+        typer.echo(
+            f"::warning::record-retrieval: corpus sidecar log not read "
+            f"({type(exc).__name__}); recording no request count",
+            err=True,
+        )
+        return None
+    return corpus_service.count_requests(text)
 
 
 def _require_parsed_engine_log_shape(
@@ -25495,6 +25525,14 @@ def _add_prior_cell(
 ) -> PriorAvailabilityRollup:
     """Fold one cell's log (and its sibling tooling report) into the prior rollup."""
     rollup = replace(rollup, cells=rollup.cells + 1)
+    if log.corpus_service is not None:
+        counts = {actor: (q, n) for actor, q, n in rollup.sidecar_by_actor}
+        quiet, counted = counts.get(log.actor_id, (0, 0))
+        counts[log.actor_id] = (quiet + (log.corpus_service.queries == 0), counted + 1)
+        rollup = replace(
+            rollup,
+            sidecar_by_actor=tuple((actor, q, n) for actor, (q, n) in sorted(counts.items())),
+        )
     if any(call.tool == CODE_MODE_PARENT_TOOL for call in log.calls):
         rollup = replace(rollup, code_mode_cells=rollup.code_mode_cells + 1)
     if code_mode_lift_blind(log.calls):

@@ -3321,7 +3321,18 @@ warning stays silent where every attempt was served, and rides whichever PR the
 run opens. A cell whose answer cannot be read at all gets its own line rather
 than the warning's, because unknown and starved are different claims.
 
-A **capture tripwire** prints beside those two — and, unlike them, *also on a
+A third line reads the corpus **sidecar's own request log** rather than the
+transcript or the cell's report: for each actor, how many of its cells' sidecars
+logged no `/v1/query` at all, over the cells whose retrieval log carries that
+count (`corpus_service` in [predicted-artifacts.md](predicted-artifacts.md)).
+The sidecar answers every engine's `fedcourts query` alike, so this is the one
+corpus-use reading that is the same for every engine, and its denominator
+does not depend on what capture could read of a cell's commands. A quiet cell sent nothing the service received, whether it had no
+need to query, never tried, or its command failed before reaching the service;
+the cell's own `retrieval.md` and `tooling.json` say which. It stays silent where every
+counted cell queried.
+
+A **capture tripwire** prints beside those — and, unlike them, *also on a
 fully-served run*, since it reports on what could be seen rather than on what
 happened, and an unseen attempt is least suspected exactly where nothing looks
 wrong. It carries its own denominator: cells that called the freeform `exec`
