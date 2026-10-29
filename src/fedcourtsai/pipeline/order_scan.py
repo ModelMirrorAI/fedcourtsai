@@ -120,7 +120,7 @@ _KINDS: Final[tuple[tuple[OrderKind, re.Pattern[str]], ...]] = (
     (
         "stay-705",
         re.compile(
-            r"(?:\bsection|\bsec\.|§|U\.S\.C\.?)\s*705\b|\bpostpone\w* the effective date", re.I
+            r"(?:\bsection|\bsec\.|§|\bU\.?S\.?C\.?)\s*705\b|\bpostpone\w* the effective date", re.I
         ),
     ),
 )
