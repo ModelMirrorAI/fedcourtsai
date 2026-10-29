@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-06-04'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: California Sea Urchin Commission, et al., Petitioners v. Susan Combs, Acting
   Assistant Secretary for Fish, Wildlife, and Parks, et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-08-06'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Elzie Ball, et al., Petitioners v. James M. LeBlanc, Secretary, Louisiana Department
   of Public Safety and Corrections, et al.

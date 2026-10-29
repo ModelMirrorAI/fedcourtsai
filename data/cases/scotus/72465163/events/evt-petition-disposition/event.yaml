@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-02-22'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Thomas Jefferson Smallwood, Petitioner v. Bobby Lumpkin, Director, Texas Department
   of Criminal Justice, Correctional Institutions Division

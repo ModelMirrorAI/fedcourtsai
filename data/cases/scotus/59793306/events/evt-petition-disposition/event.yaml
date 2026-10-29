@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-08-20'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Joseph R. Biden, Jr., President of the United States, et al., Petitioners v.
   Knight First Amendment Institute at Columbia University, et al.

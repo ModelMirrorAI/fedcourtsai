@@ -4,7 +4,9 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-03-19'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Commissioner of Internal Revenue, Petitioner v. Isobel Berry Culp, et vir

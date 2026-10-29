@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-09-28'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Chad Richardson, et ux., Individually and as Parents and Next Friends of L,
   Petitioners v. Omaha School District

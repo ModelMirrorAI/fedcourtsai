@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-06-17'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Doug Smith, et al., Petitioners v. Richard Stillie, Jr., in His Official Capacity
   as Chair, Alaska Public Offices Commission, et al.

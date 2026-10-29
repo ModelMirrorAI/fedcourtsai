@@ -4,7 +4,9 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-07-20'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Jeff H. Choate, aka Jeff L. Choate, et ux. v. Bank of Cadiz & Trust Company

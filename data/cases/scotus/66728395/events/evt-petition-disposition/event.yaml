@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-01-06'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Kristanalea Dyroff, Individually and on Behalf of the Estate of Wesley Greer,
   Petitioner v. Ultimate Software Group, Inc.

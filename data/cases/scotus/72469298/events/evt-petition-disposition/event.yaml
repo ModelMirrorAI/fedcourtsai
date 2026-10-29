@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-12-08'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Waterfront Commission of New York Harbor, Petitioner v. Phil Murphy, Governor
   of New Jersey, et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-10-11'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: North Carolina Department of Revenue, Petitioner v. The Kimberley Rice Kaestner
   1992 Family Trust

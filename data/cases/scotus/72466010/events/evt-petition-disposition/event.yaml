@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-08-31'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Stephen B. Pence, et al., Petitioners v. VNB New York, LLC, as Successor by
   Merger to VNB New York Corporation, as Successor in Interest to the Park Avenue
   Bank

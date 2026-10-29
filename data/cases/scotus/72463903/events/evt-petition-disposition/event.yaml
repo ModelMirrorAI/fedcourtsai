@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-06-03'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Timothy James Dummer, Petitioner v. California Contractors State License Board,
   et al.

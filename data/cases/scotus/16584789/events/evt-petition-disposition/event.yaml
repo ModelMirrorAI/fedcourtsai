@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-01-15'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Thryv, Inc., fka Dex Media, Inc., Petitioner v. Click-To-Call Technologies,
   LP, et al.

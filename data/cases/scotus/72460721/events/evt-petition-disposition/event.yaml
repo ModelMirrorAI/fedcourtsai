@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-09-19'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: R.J. Reynolds Tobacco Company, et al., Petitioners v. Theresa Graham, as Personal
   Representative of Faye Dale Graham, Deceased

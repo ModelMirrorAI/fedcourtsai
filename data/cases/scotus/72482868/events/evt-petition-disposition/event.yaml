@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-01-11'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: 0.12 Acres of Land, More or Less, in Washington County, Maryland, et al., Petitioners
   v. Columbia Gas Transmission, LLC

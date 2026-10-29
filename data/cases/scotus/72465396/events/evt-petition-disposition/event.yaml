@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-03-26'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Regina B. Heisler, Individually and as the Executrix of the Succession of Frederick
   P. Heisler, Petitioner v. Girod LoanCo, LLC

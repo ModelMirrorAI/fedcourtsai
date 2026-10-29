@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-02-05'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: West Virginia, ex rel. June Yurish, et al., Petitioners v. Laura V. Faircloth,
   Judge, Circuit Court of West Virginia, 23rd Judicial Circuit, et al.

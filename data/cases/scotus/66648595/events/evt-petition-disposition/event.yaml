@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-09-26'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Nigel Parker, et al., Petitioners v. Andrei Iancu, Under Secretary of Commerce
   for Intellectual Property and Director, Patent and Trademark Office

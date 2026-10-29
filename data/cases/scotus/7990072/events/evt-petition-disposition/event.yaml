@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-07-13'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Weyerhaeuser Company, Petitioner v. United States Fish and Wildlife Service,
   et al.

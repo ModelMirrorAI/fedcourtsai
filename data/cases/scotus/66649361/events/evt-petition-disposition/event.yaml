@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-07-23'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Jerrard T. Cook, aka Jerrad T. Cook, aka Jerrard Cook aka Jerrard Tramaine
   Cook, aka J-Fat, Petitioner v. Mississippi

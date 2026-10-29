@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-07-11'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Arthur Lopez, Petitioner v. Court of Appeal of California, Fourth Appellate
   District, Division Three, et al.

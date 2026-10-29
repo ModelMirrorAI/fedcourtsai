@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-01-05'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Independent School District No. 283, Petitioner v. E. M. D. H. ex rel. L. H.
   and S. D.

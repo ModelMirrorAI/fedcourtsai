@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-11-02'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: L. W., By and Through Her Parents and Next Friends, Samantha Williams and Brian
   Williams, et al., Petitioners v. Jonathan Skrmetti, Attorney General and Reporter
   for Tennessee, et al.

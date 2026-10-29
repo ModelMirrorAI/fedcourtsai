@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-01-30'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Donald E. Craig, et al., Petitioners v. Janet Turner O'Kelley, Individually
   and as Personal Representative of the Estate of John Harley Turner, et al.

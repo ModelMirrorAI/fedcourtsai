@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-05-24'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: County of Fulton, Pennsylvania, et al., Petitioners v. Al Schmidt, Secretary
   of Pennsylvania, et al.

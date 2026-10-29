@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-03-12'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Therese M. Waters, on Behalf of Kelly E. Waters, Petitioner v. Xavier Becerra,
   Secretary of Health and Human Services

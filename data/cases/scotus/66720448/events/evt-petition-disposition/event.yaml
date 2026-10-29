@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-12-14'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Oberist Lee Saunders, Petitioner v. Wayne Ivey, Sheriff, Brevard County, Florida,
   et al.

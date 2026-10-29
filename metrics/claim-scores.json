@@ -2,7 +2,7 @@
   "by_protocol": [
     {
       "forward": {
-        "cells": 380,
+        "cells": 381,
         "claims": [
           {
             "claim_id": "disposition",
@@ -94,7 +94,7 @@
     },
     {
       "forward": {
-        "cells": 383,
+        "cells": 384,
         "claims": [
           {
             "claim_id": "disposition",
@@ -140,7 +140,7 @@
     },
     {
       "forward": {
-        "cells": 383,
+        "cells": 384,
         "claims": [
           {
             "claim_id": "disposition",
@@ -185,11 +185,11 @@
       "retrospective": null
     }
   ],
-  "cells_with_claims": 1149,
+  "cells_with_claims": 1152,
   "entries": [
     {
       "forward": {
-        "cells": 383,
+        "cells": 384,
         "claims": [
           {
             "claim_id": "disposition",
@@ -234,7 +234,7 @@
       "retrospective": null,
       "windows": [
         {
-          "n": 380,
+          "n": 381,
           "opens": "2026-09-16T00:26:04Z",
           "process_window": "proc-v8"
         },
@@ -247,7 +247,7 @@
     },
     {
       "forward": {
-        "cells": 383,
+        "cells": 384,
         "claims": [
           {
             "claim_id": "disposition",
@@ -292,7 +292,7 @@
       "retrospective": null,
       "windows": [
         {
-          "n": 383,
+          "n": 384,
           "opens": "2026-09-16T00:26:04Z",
           "process_window": "proc-v8"
         }
@@ -300,7 +300,7 @@
     },
     {
       "forward": {
-        "cells": 383,
+        "cells": 384,
         "claims": [
           {
             "claim_id": "disposition",
@@ -345,21 +345,21 @@
       "retrospective": null,
       "windows": [
         {
-          "n": 383,
+          "n": 384,
           "opens": "2026-09-16T00:26:04Z",
           "process_window": "proc-v8"
         }
       ]
     }
   ],
-  "evaluations_total": 1149,
+  "evaluations_total": 1152,
   "forward_agreement": {
     "masked_claim_total": 0,
     "missing_claim_block": 0,
     "missing_reasoning_quality": 0,
     "pair_events": 128,
-    "pairs": 1149,
-    "rank_agreement": 0.1264264677965672,
+    "pairs": 1152,
+    "rank_agreement": 0.1272634483482485,
     "rubrics": [
       {
         "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
@@ -384,7 +384,7 @@
       {
         "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
         "evaluator_id": "codex-judge",
-        "n": 51
+        "n": 54
       },
       {
         "digest": "sha256:225580440df0f97970177cf3b0e8e5175d0c2fa66da329dacb7f80a875718300",
@@ -405,7 +405,7 @@
     "suppressed": false,
     "windows": [
       {
-        "n": 380,
+        "n": 381,
         "predictor_id": "claude-baseline",
         "process_window": "proc-v8"
       },
@@ -415,12 +415,12 @@
         "process_window": "proc-v9"
       },
       {
-        "n": 383,
+        "n": 384,
         "predictor_id": "codex-baseline",
         "process_window": "proc-v8"
       },
       {
-        "n": 383,
+        "n": 384,
         "predictor_id": "gemini-baseline",
         "process_window": "proc-v8"
       }
@@ -428,7 +428,7 @@
   },
   "forward_claim": {
     "by_predictor": {},
-    "claimed_forward": 1461,
+    "claimed_forward": 1491,
     "excluded": 0,
     "policy": "exclude"
   },
@@ -566,7 +566,7 @@
     ]
   },
   "leakage_exclusion": {
-    "assessed": 1461,
+    "assessed": 1491,
     "by_predictor": {
       "gemini-baseline": 3
     },
@@ -599,7 +599,7 @@
   "set_aside_sensitivity": [
     {
       "including": {
-        "cells": 404,
+        "cells": 405,
         "claims": [
           {
             "claim_id": "disposition",
@@ -644,7 +644,7 @@
     },
     {
       "including": {
-        "cells": 404,
+        "cells": 405,
         "claims": [
           {
             "claim_id": "disposition",
@@ -689,7 +689,7 @@
     },
     {
       "including": {
-        "cells": 404,
+        "cells": 405,
         "claims": [
           {
             "claim_id": "disposition",

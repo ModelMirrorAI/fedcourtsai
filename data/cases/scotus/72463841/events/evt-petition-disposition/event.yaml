@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-05-06'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: TCL Communication Technology Holdings Limited, et al., Petitioners v.  Telefonaktiebolaget
   LM Ericsson, et al.

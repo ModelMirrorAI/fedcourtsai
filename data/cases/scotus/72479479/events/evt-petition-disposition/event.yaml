@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-05-01'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Malcolm H. Sage, Individually and in His Capacity as Partner or Joint Venturer
   of Sage Associates and Sage Realty, Petitioner v. Irving H. Picard, Trustee for
   the Liquidation of Bernard L. Madoff Investment Securities LLC

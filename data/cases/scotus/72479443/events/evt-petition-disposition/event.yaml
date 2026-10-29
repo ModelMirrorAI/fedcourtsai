@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-04-22'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Nelda Kellom, Individually and as Personal Representative of the Estate of
   Terrance Kellom, Deceased, et al., Petitioners v. United States

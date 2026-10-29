@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-09-14'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: City of San Antonio, Texas, On Behalf of Itself and All Other Similarly Situated
   Texas Municipalities, Petitioner v. Hotels.com, L.P., et al.

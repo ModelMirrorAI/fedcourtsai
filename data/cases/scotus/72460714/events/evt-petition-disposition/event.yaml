@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-09-14'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Charles N. Ganson, Jr., as Personal Representative of the Estate of Molly Beyer,
   Petitioner v. City of Marathon, Florida, et al.

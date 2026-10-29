@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-12-28'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Tony Evers, in His Official Capacity as Governor of Wisconsin, Petitioner v.
   Michael Dean, et al.

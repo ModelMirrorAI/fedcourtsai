@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-11-22'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Nidec Motor Corporation, Petitioner v. Zhongshan Broad Ocean Motor Co., Ltd.,
   et al.

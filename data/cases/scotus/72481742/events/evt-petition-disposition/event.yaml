@@ -4,7 +4,9 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-07-24'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Alfredo  J. Molina, et al., Petitioners v. BMO Harris Bank, et al.

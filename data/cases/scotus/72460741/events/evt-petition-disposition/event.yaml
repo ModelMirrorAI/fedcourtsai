@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-09-25'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: S. S., a Minor, By and Through Her Mother and Next Friend, Doran Schmidt, Petitioner
   v. Bellevue Medical Center L.L.C., et al.

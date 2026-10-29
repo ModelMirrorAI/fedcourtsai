@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-11-29'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Tina Neville, Petitioner v. Janet Dhillon, Chair, Equal Employment Opportunity
   Commission, et al.

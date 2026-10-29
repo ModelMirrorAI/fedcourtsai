@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-08-23'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Isaacson/Weaver Family Trust, Petitioner v. Fresno County Employees' Retirement
   Association, et al.

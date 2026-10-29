@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-11-27'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Donald Grochowski, as Administrator of the Estate of Kenneth Grochowski, Deceased,
   et al., Petitioners v. Clayton County, Georgia, et al.

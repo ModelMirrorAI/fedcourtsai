@@ -4,7 +4,9 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-11-22'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Pfizer Inc., et al., Petitioners v. Rite Aid Corporation, et al.

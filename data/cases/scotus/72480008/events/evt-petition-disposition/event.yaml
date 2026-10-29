@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-10-26'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Joyce Daniels, as the Administrator of the Estate of Mark Daniels, Deceased,
   Petitioner v. City of Pittsburgh, Pennsylvania, et al.

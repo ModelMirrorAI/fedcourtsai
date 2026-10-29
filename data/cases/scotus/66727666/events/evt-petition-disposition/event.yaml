@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-03-13'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Charter Communications, Inc., Petitioner v. National Association of African
   American-Owned Media, et al.

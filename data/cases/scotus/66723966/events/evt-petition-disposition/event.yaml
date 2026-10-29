@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-08-07'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Jonathan Quinn, Individually and as Guardian ad Litem for H. Q., a Minor Child,
   et al., Petitioners v. Truck Insurance Exchange, et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-02-07'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Valerie Abbott, et al., Petitioners v. William Bell, Mayor of the City of Birmingham,
   Alabama, et al.
