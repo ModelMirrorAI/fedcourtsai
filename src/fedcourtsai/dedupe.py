@@ -46,8 +46,11 @@ any such artifact refuses the whole pair.
 
 Deterministic and conservative: a pair disagreeing on ``date_filed``,
 ``date_decided``, or ``disposition`` is reported and never dropped — the
-dry-run output is the triage list — and only exact two-row groups with exactly
-one live-minted id are candidates at all. Three ledger shapes likewise refuse a
+dry-run output is the triage list — and only two-row groups with exactly one
+live-minted id are candidates at all, counted after setting aside any upstream
+row that asserts none of the disposition, timing or live-poll facts (a
+caption-only CourtListener twin, left in place, and only where its docket id is
+above the survivor's). Three ledger shapes likewise refuse a
 pair whole rather than merge it in part, because a half-merged twin is worse
 than an unmerged one: committed cell output under the dropped id (above), a
 survivor *already* holding a committed directory for a moment the twin also
@@ -203,14 +206,38 @@ def _conflicts(keep: corpus.CorpusRow, drop: corpus.CorpusRow) -> list[str]:
     return found
 
 
+#: The docket facts an upstream row must assert at least one of to count as a
+#: claim on its petition in :func:`_candidates`.
+_STUB_FACTS = (
+    "disposition",
+    "date_filed",
+    "date_decided",
+    "date_cert_granted",
+    "date_cert_denied",
+    "last_live_polled",
+)
+
+
+def _is_stub(conn: sqlite3.Connection, case_id: str) -> bool:
+    """Whether an upstream row asserts none of :data:`_STUB_FACTS`."""
+    row = corpus.get_row(conn, case_id)
+    return row is not None and all(_lacks(getattr(row, field)) for field in _STUB_FACTS)
+
+
 def _candidates(conn: sqlite3.Connection) -> list[tuple[DuplicatePair, list[str]]]:
     """Every duplicate pair with its conflict list, in normalized-docket order.
 
-    A candidate is an exact two-row group sharing one normalized docket number,
-    of which exactly one id sits in the live-minted reserved range and the
-    other below it. Any other group shape — three-plus rows, two upstream ids,
-    two live ids, an unparseable id — is not this rule's pattern and is left
-    untouched.
+    A candidate is a two-row group sharing one normalized docket number, of
+    which exactly one id sits in the live-minted reserved range and the other
+    below it. Upstream :func:`_is_stub` rows are set aside before the group is
+    counted: CourtListener can carry one Supreme Court number under a second
+    docket id that asserts none of the disposition, timing or live-poll facts,
+    and such a row is no third claim on the petition, so it neither blocks the
+    pair nor joins it, and the merge leaves it where it is. The survivor must
+    still be the lowest upstream id in the group, the one the identity join
+    resolves the number to, so a stub below it leaves the group untouched. Any
+    other group shape — two upstream ids that each assert such a fact, two live
+    ids, an unparseable id — is not this rule's pattern and is left untouched.
     """
     groups: dict[str, list[str]] = {}
     cur = conn.execute(
@@ -223,11 +250,24 @@ def _candidates(conn: sqlite3.Connection) -> list[tuple[DuplicatePair, list[str]
     found: list[tuple[DuplicatePair, list[str]]] = []
     for dn in sorted(groups):
         case_ids = groups[dn]
-        if len(case_ids) != 2:
+        if len(case_ids) < 2:
             continue
         docket_ids = [_docket_id(case_id) for case_id in case_ids]
         if any(docket_id is None for docket_id in docket_ids):
             continue
+        stub_ids: list[int] = []
+        if len(case_ids) > 2:
+            kept: list[tuple[str, int]] = []
+            for case_id, docket_id in zip(case_ids, docket_ids, strict=True):
+                assert docket_id is not None  # the group was skipped above otherwise
+                if not is_live_docket_id(docket_id) and _is_stub(conn, case_id):
+                    stub_ids.append(docket_id)
+                else:
+                    kept.append((case_id, docket_id))
+            if len(kept) != 2:
+                continue
+            case_ids = [case_id for case_id, _ in kept]
+            docket_ids = [docket_id for _, docket_id in kept]
         live = [
             case_id
             for case_id, docket_id in zip(case_ids, docket_ids, strict=True)
@@ -237,6 +277,12 @@ def _candidates(conn: sqlite3.Connection) -> list[tuple[DuplicatePair, list[str]
             continue
         drop_id = live[0]
         keep_id = next(case_id for case_id in case_ids if case_id != drop_id)
+        # The identity join resolves a number to its lowest docket id, so a
+        # survivor above a set-aside stub would leave the join pointing at the
+        # stub, and the next write for the number would land there.
+        keep_docket = _docket_id(keep_id)
+        if stub_ids and (keep_docket is None or keep_docket > min(stub_ids)):
+            continue
         keep_row = corpus.get_row(conn, keep_id)
         drop_row = corpus.get_row(conn, drop_id)
         if keep_row is None or drop_row is None:  # pragma: no cover — rows just listed

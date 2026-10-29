@@ -119,7 +119,8 @@ def test_finds_the_cross_range_pair_and_only_it(tmp_path: Path) -> None:
         # Nor are two live-minted ids sharing one.
         _row(f"scotus/{live_docket_id(24, 501)}", "24-501"),
         _row(f"scotus/{live_docket_id(24, 502)}", "24-501"),
-        # Nor a three-row group, even with a live id inside it.
+        # Nor a group whose upstream rows are all caption-only stubs: with them
+        # set aside, the live id has no counterpart.
         _row("scotus/113", "23-777"),
         _row("scotus/114", "23-777"),
         _row(f"scotus/{live_docket_id(23, 777)}", "23-777"),
@@ -130,6 +131,79 @@ def test_finds_the_cross_range_pair_and_only_it(tmp_path: Path) -> None:
     assert pairs[0].keep == _KEEP
     assert pairs[0].drop == _DROP
     assert pairs[0].agreed is True
+
+
+def test_a_caption_only_upstream_twin_does_not_block_the_pair(tmp_path: Path) -> None:
+    # CourtListener carries the number under a second docket id holding only a
+    # caption: no claim on the petition, so the real pair is still found.
+    stub = "scotus/73299999"
+    rows = [
+        *_pair_rows(keep_disposition="granted", drop_disposition="granted"),
+        _row(stub, "25-5184", case_name="Doe v. Roe", last_pulled=date(2026, 10, 17)),
+    ]
+    with _seeded(tmp_path, rows) as conn:
+        seeded_stub = corpus.get_row(conn, stub)
+        pairs = dedupe.find_live_duplicates(conn)
+        assert [(pair.keep, pair.drop) for pair in pairs] == [(_KEEP, _DROP)]
+        result = dedupe.dedupe_live_rows(conn, tmp_path / "data", apply=True)
+        assert result.dropped == [_DROP]
+        # The stub is left exactly as it was.
+        assert corpus.get_row(conn, stub) == seeded_stub
+        assert corpus.get_row(conn, _KEEP) is not None
+        assert corpus.get_row(conn, _DROP) is None
+
+
+def test_two_caption_only_twins_are_both_set_aside(tmp_path: Path) -> None:
+    rows = [
+        *_pair_rows(keep_disposition="granted"),
+        _row("scotus/73299998", "25-5184", case_name="Doe v. Roe"),
+        _row("scotus/73299999", "25-5184"),
+    ]
+    with _seeded(tmp_path, rows) as conn:
+        pairs = dedupe.find_live_duplicates(conn)
+    assert [(pair.keep, pair.drop) for pair in pairs] == [(_KEEP, _DROP)]
+
+
+def test_a_stub_below_the_survivor_leaves_the_group_untouched(tmp_path: Path) -> None:
+    # The identity join resolves the number to its lowest id; merging onto a
+    # higher one would leave the join pointing at the stub.
+    rows = [
+        *_pair_rows(keep_disposition="granted"),
+        _row("scotus/111", "25-5184", case_name="Doe v. Roe"),
+    ]
+    with _seeded(tmp_path, rows) as conn:
+        assert dedupe.find_live_duplicates(conn) == []
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("disposition", "denied"),
+        ("date_filed", date(2025, 9, 2)),
+        ("date_decided", date(2025, 11, 3)),
+        ("date_cert_granted", date(2025, 11, 3)),
+        ("date_cert_denied", date(2025, 11, 3)),
+        ("last_live_polled", date(2025, 11, 3)),
+    ],
+)
+def test_each_stub_fact_makes_the_row_a_claim(tmp_path: Path, field: str, value: object) -> None:
+    rows = [
+        *_pair_rows(keep_date_filed=date(2025, 9, 2)),
+        _row("scotus/73299999", "25-5184", **{field: value}),
+    ]
+    with _seeded(tmp_path, rows) as conn:
+        assert dedupe.find_live_duplicates(conn) == []
+
+
+def test_two_upstream_rows_asserting_a_fact_still_block_the_pair(tmp_path: Path) -> None:
+    # A second upstream row that dates the filing is a claim, so the group is
+    # not this rule's pattern.
+    rows = [
+        *_pair_rows(keep_date_filed=date(2025, 9, 2)),
+        _row("scotus/73299999", "25-5184", date_filed=date(2025, 9, 2)),
+    ]
+    with _seeded(tmp_path, rows) as conn:
+        assert dedupe.find_live_duplicates(conn) == []
 
 
 def test_a_disagreeing_pair_is_skipped_and_reported_never_dropped(tmp_path: Path) -> None:
