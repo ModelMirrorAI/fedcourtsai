@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-03-23'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Arthur J. Clemens, Jr., Petitioner v. Local One Service Employees International
   Union, et al.

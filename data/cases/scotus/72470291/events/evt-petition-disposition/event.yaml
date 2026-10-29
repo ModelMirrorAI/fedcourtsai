@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-01-26'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Thomas J. Dart, Sheriff, Cook County, Illinois, Petitioner v. Anthony Mays,
   et al.

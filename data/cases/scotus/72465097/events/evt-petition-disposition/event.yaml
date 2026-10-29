@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-02-08'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Scott Erik Stafne, Petitioner v. Thomas S. Zilly, Judge, United States District
   Court for the Western District of Washington, et al.

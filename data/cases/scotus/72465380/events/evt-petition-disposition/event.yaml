@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-03-25'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: True Harmony, et al., Petitioners v. United States District Court for the Central
   District of California

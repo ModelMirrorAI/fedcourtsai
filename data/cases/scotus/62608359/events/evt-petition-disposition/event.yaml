@@ -4,9 +4,9 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
-moment: null
+moment: distribution
 opened_at: '2021-07-07'
 resolved: true
 schema_version: '1.0'
-stage: null
+stage: cert
 title: Federal Election Commission, Appellant v. Ted Cruz for Senate, et al.

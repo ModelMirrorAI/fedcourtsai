@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-03-28'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Robert M. Miller, Petitioner v. Martin J. Gruenberg, Chairman, Federal Deposit
   Insurance Corporation

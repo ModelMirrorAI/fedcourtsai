@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-01-31'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Daniel T. Pauly, as Personal Representative of the Estate of Samuel Pauly,
   Deceased, et al., Petitioners v. Ray White, et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-04-07'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Starline Tours of Hollywood, Inc., Petitioner v. EHM Productions, Inc., dba
   TMZ, et al.

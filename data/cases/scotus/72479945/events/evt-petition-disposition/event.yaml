@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-10-12'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Michael Boresky, in His Individual and Official Capacity as a Special Agent
   for the U.S. Secret Service, Petitioner v. Jeremy Graber

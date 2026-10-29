@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-01-02'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Thomas Rogers, et al., Petitioners v. Gurbir Grewal, Attorney General of New
   Jersey, et al.

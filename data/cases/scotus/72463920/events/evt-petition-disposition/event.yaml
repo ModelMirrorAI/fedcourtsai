@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-06-09'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: AGI Consulting LLC, by Assaf Al-Assaf as Trustee/Owner/Plan Administrator of
   an Alleged Non-Integrated Defined Benefit Plan, Petitioner v. American National
   Insurance Company

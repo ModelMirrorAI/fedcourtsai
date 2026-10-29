@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-09-15'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Brigith Dayana Gomez Barco, et al., Petitioners v. Diane Witte, Field Office
   Director, New Orleans District, Immigration and Customs Enforcement and Removal
   Operations, et al.

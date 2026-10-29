@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-01-14'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Angela Thigpen, Petitioner v. Board of Trustees of the Local 807 Labor-Management
   Pension Fund

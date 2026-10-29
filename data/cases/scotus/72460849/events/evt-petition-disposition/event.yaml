@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-10-11'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Anita Arrington-Bey, Administratrix of the Estate of Omar K. Arrington-Bey,
   Petitioner v. City of Bedford Heights, Ohio, et al.

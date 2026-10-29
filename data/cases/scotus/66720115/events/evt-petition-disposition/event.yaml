@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-12-19'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Power Integrations Inc., Petitioner v. Fairchild Semiconductor International,
   Inc., et al.

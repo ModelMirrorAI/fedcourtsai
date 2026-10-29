@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-03-22'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Sody Clements, et al., Petitioners v. Southwestern Bell Telephone Company,
   dba AT&T Oklahoma, et al.

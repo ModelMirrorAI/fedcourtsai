@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-09-19'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: National Association for the Advancement of Multijurisdiction Practice v. Beryl
   A. Howell, Chief Judge, United States District Court for the District of Columbia

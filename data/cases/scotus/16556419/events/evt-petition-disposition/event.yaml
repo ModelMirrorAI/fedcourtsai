@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-04-03'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Simon E. Rodriguez, as Chapter 7 Trustee for the Bankruptcy Estate of United
   Western Bancorp, Inc., Petitioner v. Federal Deposit Insurance Corporation, as Receiver
   for United Western Bank

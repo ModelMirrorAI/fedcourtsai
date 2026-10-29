@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-06-13'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Cynthia Diveglia, Petitioner v. Pennsylvania Department of Transportation,
   Bureau of Driver Licensing

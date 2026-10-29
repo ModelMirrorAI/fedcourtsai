@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-10-18'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Presbytery of the Twin Cities Area, Petitioner v. Eden Prairie Presbyterian
   Church, dba Prairie Community Church of the Twin Cities

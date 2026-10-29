@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-06-28'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Donald C. Kupperstein, Petitioner v. Irene Schall, Personal Representative
   of the Probate Estate of Fred Kuhn, et al.

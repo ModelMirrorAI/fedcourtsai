@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-03-01'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Eugene Milton Clemons, II, Petitioner v. Jefferson S. Dunn, Commissioner, Alabama
   Department of Corrections, et al.

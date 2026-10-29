@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-04-19'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Jairo Acosta, Police Officer for the City of Los Banos, Petitioner v. Tan Lam,
   as Successor-in-Interest to Decedent Sonny Lam, aka Son Tung Lam

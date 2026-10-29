@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-12-14'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: M. L., a Minor, By His Parents and Next Friends, Akiva and Shani Leiman, et
   al., Petitioners v. Jack R. Smith, in His Official Capacity as Superintendent, et
   al.

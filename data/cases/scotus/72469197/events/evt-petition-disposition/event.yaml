@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-12-02'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Ericka Richardson, et al., Petitioners v. Coverall North America, Inc., et
   al.

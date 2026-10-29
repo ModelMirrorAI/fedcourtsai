@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-01-04'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Philippe Tanguy, et al., Petitioners v. William G. West, as Chapter 7 Trustee
   of Richard Davis, Debtor, et al.

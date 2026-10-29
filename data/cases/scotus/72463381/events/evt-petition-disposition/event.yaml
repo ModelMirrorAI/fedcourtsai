@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-01-02'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Rodney Brossart, et al., Petitioners v. Kelly Janke, Individually and in His
   Official Capacity as Sheriff for Nelson County, North Dakota, et al.

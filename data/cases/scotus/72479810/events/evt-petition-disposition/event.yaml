@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-09-18'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Lewis County, Kentucky, et al., Petitioners v. Julie Helphenstine, Administratrix
   of the Estate of Christopher Dale Helphenstine and Guardian of B. D. H., the Minor
   Son of Christopher Dale Helphenstine

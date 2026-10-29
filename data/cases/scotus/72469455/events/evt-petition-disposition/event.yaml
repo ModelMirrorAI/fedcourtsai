@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-12-09'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: United States, ex rel. Gwendolyn Porter, Petitioner v. Magnolia Health Plan,
   Inc.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-11-29'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: R.J. Reynolds Tobacco Company, Petitioner v. Jan Grossman, as Personal Representative
   of the Estate of Laura Grossman, Deceased

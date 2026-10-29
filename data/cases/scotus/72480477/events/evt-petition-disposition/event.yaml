@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-11-20'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Kendall Merlo, Petitioner v. Ingrid Warren, Presiding Judge, Probate Court
   No. 2, Dallas County, Texas

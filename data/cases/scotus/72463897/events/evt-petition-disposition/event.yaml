@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-06-01'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Mary P. Strong, Petitioner v. U.S. Bank Trust N.A., as Trustee for LSF9 Master
   Participation Trust

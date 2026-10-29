@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-03-13'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: American Exploration & Mining Association, Petitioner v. Ryan Zinke, Secretary
   of the Interior, et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-08-30'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Monty Bauch, Individually and as Father and Next Friend of O. B., a Minor,
   et al., Petitioners v. Richland County Children Services, et al.

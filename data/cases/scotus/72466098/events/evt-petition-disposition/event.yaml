@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-09-11'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Charlie Wilson, as Executor of the Estate of Debra Wilson, Petitioner v. Dallas
   County Hospital District, dba Parkland Health and Hospital System

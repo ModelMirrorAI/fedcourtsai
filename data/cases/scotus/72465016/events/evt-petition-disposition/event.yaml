@@ -4,7 +4,9 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-01-27'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Merrilee Stewart, Petitioner v. RRL Holding Company of Ohio, LLC, et al.

@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-12-08'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Feng Li, Petitioner v. Diana Peng, as Administratrix of the Estate of Alfred
   T. C. Peng, Tzuli Hsu, Joseph Huang, Stephen Huang, and Pen Fa Lee, et al.

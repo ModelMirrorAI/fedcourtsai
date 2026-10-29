@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2017-10-23'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Ricardo Medrano-Arzate, et al., Petitioners v. Paul C. May, Individually and
   as Sheriff of Okeechobee County, Florida, et al.

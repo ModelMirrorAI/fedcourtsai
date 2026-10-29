@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-06-04'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: The National Retirement Fund, et al., Petitioners v. Metz Culinary Management,
   Inc.

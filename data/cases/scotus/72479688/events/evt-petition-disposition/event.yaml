@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2024-07-02'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Keyvon Sellers, Petitioner v. Jerry Nelson, as Personal Representative of the
   Estate of Eddie Lee Nelson, Jr., Deceased, et al.

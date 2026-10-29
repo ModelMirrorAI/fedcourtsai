@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-12-04'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Gerardo Serrano, Petitioner v. United States Customs and Border Protection,
   et al.

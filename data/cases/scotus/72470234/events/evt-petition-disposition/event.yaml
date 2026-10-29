@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-01-12'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Vilma Walker, et al., Petitioners v. Deutsche Bank National Trust Company,
   as Trustee for Harborview Mortgage Loan Trust Mortgage Loan Pass-Through Certificates,
   Series 2007-6

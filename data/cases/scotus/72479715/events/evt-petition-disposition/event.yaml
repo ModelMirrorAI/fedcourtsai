@@ -4,9 +4,11 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-08-21'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Bob Johnson, Individually and in His Official Capacity as Sheriff of Santa
   Rosa County, Florida, Petitioner v. Jessica N. Rogers, as Personal Representative
   of the Estate of Jose F. Escano-Reyes and as Parent and Natural Guardian of Y. C.,

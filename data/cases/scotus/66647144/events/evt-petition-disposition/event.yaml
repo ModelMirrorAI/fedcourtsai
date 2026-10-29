@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-06-28'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Robbie Ohlendorf, et al., Petitioners v. Local 876, United Food & Commercial
   Workers International Union

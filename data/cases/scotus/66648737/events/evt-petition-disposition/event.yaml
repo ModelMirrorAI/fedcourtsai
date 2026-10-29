@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-10-03'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Joseph J. Germinaro, et al., Petitioners v. Fidelity National Title Insurance
   Company, et al.

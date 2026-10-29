@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-12-01'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Confederated Tribes and Bands of the Yakama Nation, Petitioner v. Yakima County,
   Washington, et al.

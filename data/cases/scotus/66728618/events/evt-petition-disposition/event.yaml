@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-01-22'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Joslyn Manufacturing Company, LLC, et al., Petitioners v. Valbruna Slater Steel
   Corporation, et al.

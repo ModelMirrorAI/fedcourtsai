@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2023-10-13'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Metropolitan School District of Martinsville, Petitioner v. A. C., a Minor
   Child by His Next Friend, Mother and Legal Guardian, M. C.

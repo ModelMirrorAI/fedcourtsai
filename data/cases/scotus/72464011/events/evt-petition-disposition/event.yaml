@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-07-01'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Excel Modular Scaffold & Leasing Company, dba Excel Scaffold & Leasing, Petitioner
   v. Occupational Safety and Health Review Commission, et al.

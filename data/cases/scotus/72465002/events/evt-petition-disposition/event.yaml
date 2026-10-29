@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-02-06'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Native Wholesale Supply Company, Petitioner v. California, ex rel. Xavier Becerra,
   Attorney General, et al.

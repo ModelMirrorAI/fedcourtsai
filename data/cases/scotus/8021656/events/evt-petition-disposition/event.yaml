@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2018-02-07'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Air and Liquid Systems Corp., et al., Petitioners v. Roberta G. DeVries, Individually
   and as Administratrix of the Estate of John B. DeVries, Deceased, et al.

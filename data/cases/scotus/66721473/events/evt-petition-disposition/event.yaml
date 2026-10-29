@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-01-04'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Ray Allen, Secretary, Wisconsin Department of Workforce Development, et al.,
   Petitioners v. International Association of Machinists District Ten, et al.

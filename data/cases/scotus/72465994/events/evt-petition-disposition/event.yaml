@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2020-08-27'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Aladdin Manufacturing Corporation, et al., Petitioners v. The Water Works and
   Sewer Board of the Town Centre, et al.

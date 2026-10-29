@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2021-06-21'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Sarasota Wine Market, LLC, et al., Petitioners v. Eric S. Schmitt, Attorney
   General of Missouri, et al.

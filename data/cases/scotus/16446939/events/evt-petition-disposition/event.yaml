@@ -4,8 +4,10 @@ description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
+moment: distribution
 opened_at: '2019-01-08'
 resolved: true
 schema_version: '1.0'
+stage: cert
 title: Frederick L. Allen, et al., Petitioners v. Roy A. Cooper, III, Governor of
   North Carolina, et al.
