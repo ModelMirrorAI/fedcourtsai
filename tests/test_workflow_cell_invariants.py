@@ -1673,8 +1673,21 @@ def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() 
     stage = next(s for s in steps if s.get("id") == "stage_publish")
     upload = next(s for s in steps if s.get("id") == "publish_upload")
     assert steps.index(measure) < steps.index(stage) < steps.index(upload)
-    assert _norm(stage["if"]) == "${{ !cancelled() && steps.measure.outcome == 'success' }}"
+    # The labels cross only behind the measure step's success; the run's spend
+    # record crosses on any outcome it was written on, so a refused or short
+    # run still lands what it cost.
+    assert _norm(stage["if"]) == (
+        "${{ !cancelled() && (steps.measure.outcome == 'success' "
+        "|| steps.spend.outcome == 'success') }}"
+    )
+    assert 'if [ "$MEASURED" = success ]; then' in stage["run"]
+    assert stage["env"]["MEASURED"] == "${{ steps.measure.outcome }}"
     assert "steps.stage_publish.outcome == 'success'" in _norm(upload["if"])
+    assert '[ -L "$1" ]' in stage["run"], "the source side refuses a symlinked file"
+
+
+def test_the_qp_publish_job_rechecks_the_hand_off_before_the_mint() -> None:
+    """The publish job keys on the hand-off alone and re-holds what crossed."""
     wf = _load("run-analytics.yml")
     assert wf["jobs"]["qp-topic-label"]["outputs"]["publish"] == (
         "${{ steps.publish_upload.outcome }}"
@@ -1693,12 +1706,19 @@ def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() 
     revalidate = publish_steps[names.index("Re-validate the measured artifact")]
     assert "uv run fedcourts validate data/qp-topics" in revalidate["run"]
     # The measured block lands in a public PR body, so it is bounded and
-    # scanned with the labels file, and the hand-off holds those two alone.
+    # scanned with every file of the hand-off, which holds the labels file and
+    # its measured block, the run's spend record, or both — and nothing else.
     assert "-gt 65536" in revalidate["run"]
-    assert '--extra-file "$dir/measured.txt"' in revalidate["run"]
-    assert '--extra-file "$dir/${LABELS_NAME}"' in revalidate["run"]
-    assert '! -path "$dir/${LABELS_NAME}" ! -path "$dir/measured.txt"' in revalidate["run"]
-    assert '[ -L "$f" ]' in stage["run"], "the source side refuses a symlinked file"
+    assert 'for f in "${present[@]}"; do scan+=(--extra-file "$f"); done' in revalidate["run"]
+    assert '"$dir/${LABELS_NAME}" "$dir/measured.txt" "$dir/spend.json"' in revalidate["run"]
+    assert (
+        '! -path "$dir/${LABELS_NAME}" ! -path "$dir/measured.txt"' in revalidate["run"]
+        and '! -path "$dir/spend.json"' in revalidate["run"]
+    )
+    assert "the labels file crossed without its measured block" in revalidate["run"]
+    # The spend record lands under the slot its own run id spells, which must
+    # be this run's, before the strict model holds the record to that name.
+    assert '[ "$run_id" != "$GITHUB_RUN_ID" ]' in revalidate["run"]
     assert "if" not in revalidate
     assert names.index("Re-validate the measured artifact") < names.index("Mint app token")
 
@@ -1846,8 +1866,8 @@ def test_the_qp_frame_count_crosses_as_a_value_and_the_sidecar_stays_behind() ->
     assert action["inputs"]["frame-rows"]["required"] is False
     assert action["inputs"]["frame-rows"]["default"] == ""
     run = next(s for s in action["runs"]["steps"] if s.get("id") == "measure")["run"]
-    assert 'frame=(--frame-rows "$FRAME_ROWS")' in run
-    assert '"${frame[@]+"${frame[@]}"}"' in run, (
+    assert 'extra=(--frame-rows "$FRAME_ROWS")' in run
+    assert '"${extra[@]+"${extra[@]}"}"' in run, (
         "an empty frame must expand to no argument, not to an empty one"
     )
 
@@ -4128,8 +4148,8 @@ def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> No
     # above: the denials are what make the labeling contract structural, and
     # the leg that rehearses the block has to carry them in its own right.
     _assert_labeler_denials(str(smoke["with"]["claude_args"]))
-    assert lane_model == "--model ${{ inputs.label_model }}", (
-        "the lane's model line must read its dispatch input"
+    assert lane_model == "--model ${{ needs.qp-topic-resolve.outputs.model }}", (
+        "the lane's model line must read the resolved model"
     )
     assert smoke_model == f"--model {default_model}", (
         "the smoke's model is not the labeling lane's dispatch default"
@@ -4145,7 +4165,7 @@ def test_the_labeler_smoke_sends_the_labeling_lanes_own_invocation_block() -> No
     smoke_with = {k: v for k, v in smoke["with"].items() if k != "claude_args"}
     lane_with["prompt"] = (
         str(lane_with["prompt"])
-        .replace("${{ inputs.label_model }}", default_model)
+        .replace("${{ needs.qp-topic-resolve.outputs.model }}", default_model)
         .replace("${{ env.QP_FRAME }}", "petitions")
     )
     assert lane_with == smoke_with, "the with: mappings diverge beyond the model"
@@ -4200,7 +4220,19 @@ def test_run_analytics_environments_resolve_from_the_dispatching_branch() -> Non
     resolved = "${{ github.ref_name == 'main' && 'prod' || github.ref_name }}"
     # The run gate binds no environment and reads no corpus, so it holds no
     # concurrency group either (test_workflow_auth_gate.py pins its shape).
+    # The labeling lane's mode reader and its hold reach nothing a corpus pair
+    # holds: the resolve and rejected jobs bind no environment, and the hold
+    # binds `review` (or `review-auto`), which `test_workflow_auth_gate.py`
+    # pins. None holds a concurrency group, because a group admits one pending
+    # job and replaces it with the next — a round parked on the hold would be
+    # cancelled by the following week's.
+    hold_jobs = {"qp-topic-resolve", "qp-topic-approval", "qp-topic-rejected"}
     for job_id, job in gated_jobs(_load("run-analytics.yml")).items():
+        if job_id in hold_jobs:
+            assert "concurrency" not in job, f"{job_id} must not hold a concurrency group"
+            if job_id != "qp-topic-approval":
+                assert "environment" not in job, f"{job_id} reaches nothing; no environment"
+            continue
         if job_id == "tool-usage":
             assert "environment" not in job, "tool-usage reaches nothing; no environment"
         else:
@@ -5166,20 +5198,38 @@ def test_the_application_labeling_mode_reads_its_frame_off_the_mode_alone() -> N
     triggers = wf.get("on") or wf.get(True) or {}
     modes = triggers["workflow_dispatch"]["inputs"]["mode"]["options"]
     assert {"qp-topic-label", "qp-topic-label-applications"} <= set(modes)
-    frame = "${{ inputs.mode == 'qp-topic-label-applications' && 'applications' || 'petitions' }}"
-    name = (
-        "${{ inputs.mode == 'qp-topic-label-applications' "
-        "&& 'qp-topics-applications.json' || 'qp-topics.json' }}"
-    )
+    frame = "${{ needs.qp-topic-resolve.outputs.frame }}"
+    name = "${{ needs.qp-topic-resolve.outputs.labels-name }}"
     for job in ("qp-topic-extract", "qp-topic-label", "qp-topic-publish"):
         env = wf["jobs"][job]["env"]
         assert _norm(env["QP_FRAME"]) == frame, job
         assert _norm(env["LABELS_NAME"]) == name, job
-    for job in ("qp-topic-extract", "qp-topic-label"):
-        assert (
-            "(inputs.mode == 'qp-topic-label' || inputs.mode == 'qp-topic-label-applications')"
-            in _norm(wf["jobs"][job]["if"])
-        ), job
+        assert "qp-topic-resolve" in wf["jobs"][job]["needs"], job
+    # The resolve job is the one reader of the mode and the crons: it gates on
+    # both labeling modes and both labeling crons, and its step maps each to
+    # exactly one frame and labels file.
+    resolve = wf["jobs"]["qp-topic-resolve"]
+    gate = _norm(resolve["if"])
+    assert "inputs.mode == 'qp-topic-label' || inputs.mode == 'qp-topic-label-applications'" in (
+        gate
+    )
+    crons = _schedule("run-analytics.yml")
+    run = next(s for s in resolve["steps"] if s.get("id") == "resolve")["run"]
+    for cron, mode in (
+        ("8 9 * * 2", "qp-topic-label"),
+        ("4 9 * * 3", "qp-topic-label-applications"),
+    ):
+        assert cron in crons
+        assert f"startsWith(github.event.schedule, '{cron.split()[0]} ')" in gate
+        assert f'"schedule:{cron}") mode={mode}; scheduled=true ;;' in run
+    assert "qp-topic-label) frame=petitions; labels=qp-topics.json ;;" in run
+    assert (
+        "qp-topic-label-applications) frame=applications; labels=qp-topics-applications.json ;;"
+        in run
+    )
+    assert wf["jobs"]["qp-topic-extract"]["if"].startswith(
+        "${{ needs.qp-topic-resolve.outputs.mode != ''"
+    )
     extract = next(s for s in wf["jobs"]["qp-topic-extract"]["steps"] if s.get("id") == "extract")
     assert 'qp-corpus --frame "$QP_FRAME"' in extract["run"]
     measure = next(s for s in wf["jobs"]["qp-topic-label"]["steps"] if s.get("id") == "measure")
@@ -5191,6 +5241,41 @@ def test_the_application_labeling_mode_reads_its_frame_off_the_mode_alone() -> N
     )
     branch = _norm(publish["env"]["BRANCH"])
     assert "'qp-topics/applications-refresh'" in branch and "'qp-topics/refresh'" in branch
+    assert "needs.qp-topic-resolve.outputs.frame == 'applications'" in branch
+
+
+def test_a_scheduled_label_run_takes_the_dispatch_default_model() -> None:
+    """A schedule carries no inputs, so the resolve job supplies the model.
+
+    It must be the dispatch input's own default — the model the smoke
+    certifies — and the closed set it refuses outside of must be the input's
+    choice list, since the value is spliced into the agent's `claude_args`.
+    """
+    wf = _load("run-analytics.yml")
+    triggers = wf.get("on") or wf.get(True) or {}
+    model = triggers["workflow_dispatch"]["inputs"]["label_model"]
+    run = next(s for s in wf["jobs"]["qp-topic-resolve"]["steps"] if s.get("id") == "resolve")[
+        "run"
+    ]
+    assert f'model="${{MODEL:-{model["default"]}}}"' in run
+    assert f"\n  {'|'.join(model['options'])}) ;;" in run
+
+
+def test_a_scheduled_label_run_stands_down_on_a_converged_frame() -> None:
+    """Only a scheduled run passes `--converged-ok`, and every later job keys on `owed`."""
+    wf = _load("run-analytics.yml")
+    extract = wf["jobs"]["qp-topic-extract"]
+    step = next(s for s in extract["steps"] if s.get("id") == "extract")
+    assert step["env"]["SCHEDULED"] == "${{ needs.qp-topic-resolve.outputs.scheduled }}"
+    assert 'if [ "$SCHEDULED" = true ]; then\n  standdown=(--converged-ok)' in step["run"]
+    assert 'echo "owed=false" >> "$GITHUB_OUTPUT"' in step["run"]
+    assert extract["outputs"]["owed"] == "${{ steps.extract.outputs.owed }}"
+    assert _norm(wf["jobs"]["qp-topic-approval"]["if"]).startswith(
+        "${{ needs.qp-topic-extract.outputs.owed == 'true'"
+    )
+    assert _norm(wf["jobs"]["qp-topic-label"]["if"]).startswith(
+        "${{ needs.qp-topic-approval.result == 'success'"
+    )
 
 
 def test_the_documents_writer_rereads_the_tip_around_its_dedupe() -> None:

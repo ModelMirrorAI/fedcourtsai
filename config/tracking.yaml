@@ -569,7 +569,12 @@ statpack:
 # per-period limit above it: across the day's scheduled windows, spend is bounded
 # only by how many cells happen to be owed — the quantity that becomes large at a
 # long conference. This section is the bound above them, read by the predict and
-# evaluate plan seams before either mints a matrix.
+# evaluate plan seams before either mints a matrix. What it sums is the one
+# measured total the review hold's auto-release budget (config/review-hold.yaml)
+# projects over too: every committed usage.json (the agent cells), the usage each
+# committed case summary records, and every topic-labeler run's spend record
+# under data/qp-topics/spend/ — a run refused at the reference gate included,
+# since it spends as much as one that publishes — each windowed on its own stamp.
 spend:
   # Trailing-window ceiling on measured spend, USD (0 would DISABLE the
   # backstop, the convention the other caps use — the code default, so a
@@ -602,8 +607,9 @@ spend:
   # The window the ceiling applies over, days. Sized to approximate the billing
   # period being protected, not a run (trailing, so it never aligns exactly
   # with a calendar cycle). NOTE the measurement lags: a cell's usage.json
-  # reaches data/ only when its run's collect PR merges, so the ledger is a FLOOR
-  # on spend within the window, never a live figure.
+  # reaches data/ only when its run's collect PR merges, and a summary's or a
+  # labeler run's record when its reviewed PR does, so the ledger is a FLOOR on
+  # spend within the window, never a live figure.
   window_days: 30
 
 # runner = the agentic predict/evaluate cell runner's retry governor (see
