@@ -10,7 +10,7 @@
     },
     {
       "checked": 2153806,
-      "detail": "2153806 rows vs baseline 2153795",
+      "detail": "2153806 rows vs baseline 2153806",
       "failures": 0,
       "name": "row_count_monotonic",
       "passed": true,
@@ -34,7 +34,7 @@
     },
     {
       "checked": 3073,
-      "detail": "as of 2026-10-28",
+      "detail": "as of 2026-10-29",
       "failures": 0,
       "name": "snapshot_not_future_dated",
       "passed": true,
@@ -42,7 +42,7 @@
     },
     {
       "checked": 693,
-      "detail": "granted before 2024-10-28 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
+      "detail": "granted before 2024-10-29 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
       "passed": true,
@@ -50,7 +50,7 @@
     },
     {
       "checked": 2153806,
-      "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-10-28); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
+      "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-10-29); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
       "failures": 66,
       "name": "case_dates_ordered",
       "passed": true,
