@@ -492,6 +492,44 @@ def test_the_topic_labeler_spends_only_behind_the_review_hold() -> None:
     assert publish["env"]["AUTO_RELEASED"] == "${{ needs.qp-topic-extract.outputs.auto-release }}"
     assert "(run ${GITHUB_RUN_ID})${mark}" in publish["run"]
     assert "mark=' [auto-released]'" in publish["run"]
+    # A full page of deployments still inside the window is not a count.
+    assert '\\"truncated\\"' in run
+    # The hold reads the open PR's carried records, and a declined round's
+    # record is written only when the extract itself succeeded.
+    assert '--carried-file "$RUNNER_TEMP/carried-spend.txt"' in run
+    rejected = " ".join(str(jobs["qp-topic-rejected"]["if"]).split())
+    assert "needs.qp-topic-extract.result == 'success'" in rejected
+
+
+def test_a_label_round_never_re_labels_a_batch_still_under_review() -> None:
+    """The next batch is cut from `main`'s labels file, so an open labels PR's
+    batch would be labeled, and paid for, again and its PR replaced.
+
+    The extract job carries the open PR's spend records in before the extract,
+    only those a GitHub App's bot identity added, and asks the tested
+    `qp-topic-pending` whether a published batch is among them: a scheduled run
+    then stands down, and a dispatched one reaches the hold with the same list,
+    where `hold-decision` keeps it on `review`.
+    """
+    jobs = _load("run-analytics.yml")["jobs"]
+    steps = _steps(jobs["qp-topic-extract"])
+    ids = [step.get("id") for step in steps]
+    carry = steps[ids.index("carry")]
+    assert ids.index("carry") < ids.index("extract") < ids.index("hold")
+    assert str(carry["if"]) == "${{ github.ref == 'refs/heads/main' }}"
+    run = str(carry["run"])
+    assert "--diff-filter=A HEAD...FETCH_HEAD -- data/qp-topics/spend/" in run
+    assert '*"[bot]@users.noreply.github.com")' in run
+    assert "uv run fedcourts qp-topic-pending --frame" in run
+    assert 'echo "pending=${pending}" >> "$GITHUB_OUTPUT"' in run
+    extract = steps[ids.index("extract")]
+    assert extract["env"]["PENDING"] == "${{ steps.carry.outputs.pending }}"
+    assert '[ "$SCHEDULED" = true ] && [ "$PENDING" = true ]' in str(extract["run"])
+    # Each frame queues on its own groups, so a released round of one frame is
+    # never displaced from the pending slot by the other frame's arrival.
+    for name in ("qp-topic-extract", "qp-topic-label", "qp-topic-publish"):
+        group = str(jobs[name]["concurrency"]["group"])
+        assert "needs.qp-topic-resolve.outputs.frame" in group, (name, group)
 
 
 def test_the_scheduled_back_test_spends_only_behind_the_review_hold() -> None:

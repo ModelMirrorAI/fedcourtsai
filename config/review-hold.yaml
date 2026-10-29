@@ -18,7 +18,8 @@
 # The next round past any bound waits on the `review` hold, and the `spend`
 # backstop in tracking.yaml stands behind all three, ex post. A topic-label
 # round also waits on the hold while its frame's newest gated labeling run
-# stands refused at the reference gate. The back-test is
+# stands refused at the reference gate, and while its frame's open labels PR
+# holds an unmerged published batch. The back-test is
 # not a lane here: its replay always waits on a maintainer's release.
 #
 # This file is spend authority, so it lives apart from tracking.yaml and is
@@ -30,16 +31,16 @@
 # cells and the matrix the round actually minted, the larger of the two; a
 # summarize round's is its plan's upper estimate, one call per case, which
 # leaves out a rejected response's retry; a topic-label round's is its plan's
-# upper estimate too, its batch's rows at the labeler's per-row planning rate. Those rates sit at or above each
-# engine's measured mean, but a cell's spend varies around its mean and
+# upper estimate too, its batch's rows at the labeler's per-row planning rate.
+# Those rates sit at or above each engine's measured mean, but a cell's spend varies around its mean and
 # retries spend more than a cell's rate, so actual spend can exceed the
 # estimate. The budget is a projection over a ledger that lags — a manually
 # released round in flight, an auto-released round whose collect PR is still
 # open more than 24 hours on, an unmerged summaries PR (except in the
 # summarize plan, which counts the summaries it carries), a rejected summary
-# response, and an unmerged labels or spend-record PR (except in the label
-# plan, which counts the spend records it carries) are invisible to it — which is why it must sit below the
-# backstop's ceiling: a budget at or above `spend.ceiling_usd` keeps every
+# response, and an unmerged labels or spend-record PR (except to that frame's
+# next label round, whose extract job carries its spend records in) are
+# invisible to it — which is why it must sit below the backstop's ceiling: a budget at or above `spend.ceiling_usd` keeps every
 # round on the hold. `0` in any knob DISABLES auto-release.
 #
 # The values. Measured on the committed ledger evaluated on 2026-10-17 before
@@ -57,8 +58,8 @@
 #   under $2,000 only as that campaign ages out). The backstop's ceiling is
 #   $3,000 (tracking.yaml `spend:`), so the standing room above the budget is
 #   $500. The budget and the backstop read one base: agent cells, case
-#   summaries and topic-labeler runs. The steady state since the campaign runs at ~$1,425 per 30 days on
-#   the budget's base (cells ~$1,320 + summaries ~$105), extrapolated from 9
+#   summaries and topic-labeler runs. The steady state since the campaign
+#   runs at ~$1,425 per 30 days on the budget's base (cells ~$1,320 + summaries ~$105), extrapolated from 9
 #   days, two of which carry over a third of the cell spend.
 # - Per round $75: releases most steady-state rounds (14 of the 16 since
 #   2026-10-08 by actual spend; the cap applies to the planning-rate price,

@@ -347,7 +347,7 @@ def _run_spend_problems(file: Path) -> list[str] | None:
     if (record.run_id, record.run_attempt) != (name["run"], int(name["attempt"])):
         return [
             f"names run {name['run']} attempt {name['attempt']} but records run "
-            f"{record.run_id} attempt {record.run_attempt}"
+            + f"{record.run_id} attempt {record.run_attempt}"
         ]
     return []
 

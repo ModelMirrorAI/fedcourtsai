@@ -91,8 +91,11 @@ or its budgeted auto-release, and standing down on a week with nothing new to
 label. Measured basis: $10.01 for a full batch at the default
 `claude-opus-5-5`, $37.48 and $60.16 at `claude-fable-5`; a round is priced
 before it runs at $0.02 and $0.06 a row (`fedcourtsai.planning_rates`). At the
-default, both frames weekly come to at most about $90 a month, and less once the
-frames' backlogs clear and most weeks stand down. Every run's spend is recorded
+default, both frames weekly come to about $90 a month at the one measured
+opus batch, and up to about $210 a month at the planning rate, less once the
+frames' backlogs clear and most weeks stand down. A `claude-fable-5` dispatch
+of a full 1,200-row batch prices at $72, just under the $75 per-round cap, so
+it too can auto-release. Every run's spend is recorded
 under `data/qp-topics/spend/`, a run refused at the reference gate included.
 
 **The merits replay and the grading pilot over it spend outside the ledger

@@ -22,6 +22,7 @@ from fedcourtsai.review_hold import (
     Seam,
     count_auto_released,
     decide,
+    label_pending,
     label_refusal,
     load_review_hold_config,
     measured_spend,
@@ -1021,3 +1022,112 @@ def test_the_command_decides_a_label_round_and_reads_the_refusal(tmp_path: Path)
     held = json.loads(runner.invoke(app, args, env=env).stdout)
     assert held["auto_release"] is False
     assert "refused at the reference gate" in held["auto_release_reason"]
+
+
+def test_a_future_dated_run_record_keeps_a_label_round_held(tmp_path: Path) -> None:
+    # A record dated after the plan is not one a run wrote; a forged
+    # `published` one would otherwise mask the frame's refusal.
+    _write_run(tmp_path, "200", "2026-10-08T09:00:00Z", outcome="refused")
+    _write_run(tmp_path, "999", "2027-01-01T09:00:00Z", outcome="published")
+    reason = label_refusal(tmp_path, "petitions", now=NOW)
+    assert reason is not None and "dated after this round's plan" in reason
+    # The other frame's records are not read for it.
+    assert label_refusal(tmp_path, "applications", now=NOW) is None
+
+
+def test_a_published_batch_on_the_open_pr_keeps_a_label_round_held(tmp_path: Path) -> None:
+    _write_run(tmp_path, "100", "2026-10-01T09:00:00Z", outcome="published")
+    _write_run(tmp_path, "200", "2026-10-08T09:00:00Z", outcome="refused", frame="applications")
+    carried = ["data/qp-topics/spend/200-1.json"]
+    # A carried refusal of the other frame is no pending batch of this one.
+    assert label_pending(tmp_path, "petitions", carried) is None
+    # A record already on main is not pending; only a carried one is.
+    assert label_pending(tmp_path, "petitions", []) is None
+    reason = label_pending(tmp_path, "petitions", ["data/qp-topics/spend/100-1.json", ""])
+    assert reason is not None and "unmerged published batch (run 100)" in reason
+    unreadable = label_pending(tmp_path, "petitions", ["data/qp-topics/spend/404-1.json"])
+    assert unreadable is not None and "could not be read" in unreadable
+
+
+@pytest.mark.parametrize("frame", [None, "", "dockets", 7])
+def test_a_label_plan_naming_no_frame_keeps_the_hold(tmp_path: Path, frame: object) -> None:
+    plan = tmp_path / "label-plan.json"
+    body = _label_plan()
+    if frame is None:
+        del body["frame"]
+    else:
+        body["frame"] = frame
+    plan.write_text(json.dumps(body))
+    subjects = tmp_path / "subjects.txt"
+    subjects.write_text("")
+    result = runner.invoke(
+        app,
+        [
+            "hold-decision",
+            "--plan-file",
+            str(plan),
+            "--seam",
+            "label",
+            "--deployments-released",
+            "0",
+            "--main-subjects-file",
+            str(subjects),
+        ],
+        env=_cmd_env(tmp_path),
+    )
+    assert result.exit_code == 0, result.output
+    decision = json.loads(result.stdout)
+    assert decision["auto_release"] is False
+    assert decision["auto_release_reason"] == "the plan names no labeling frame"
+
+
+def test_the_command_holds_a_label_round_while_its_batch_awaits_review(tmp_path: Path) -> None:
+    plan = tmp_path / "label-plan.json"
+    plan.write_text(json.dumps(_label_plan()))
+    subjects = tmp_path / "subjects.txt"
+    subjects.write_text("")
+    carried = tmp_path / "carried.txt"
+    carried.write_text("")
+    args = [
+        "hold-decision",
+        "--plan-file",
+        str(plan),
+        "--seam",
+        "label",
+        "--deployments-released",
+        "0",
+        "--main-subjects-file",
+        str(subjects),
+        "--carried-file",
+        str(carried),
+    ]
+    env = _cmd_env(tmp_path)
+    assert json.loads(runner.invoke(app, args, env=env).stdout)["auto_release"] is True
+    _write_run(tmp_path / "data", "300", "2026-10-28T09:00:00Z", outcome="published")
+    carried.write_text("data/qp-topics/spend/300-1.json\n")
+    held = json.loads(runner.invoke(app, args, env=env).stdout)
+    assert held["auto_release"] is False
+    assert "unmerged published batch" in held["auto_release_reason"]
+    pending = runner.invoke(
+        app,
+        ["qp-topic-pending", "--frame", "petitions", "--carried-file", str(carried)],
+        env=env,
+    )
+    assert pending.exit_code == 0, pending.output
+    assert pending.stdout.strip() == "true"
+    other = runner.invoke(
+        app,
+        ["qp-topic-pending", "--frame", "applications", "--carried-file", str(carried)],
+        env=env,
+    )
+    assert other.stdout.strip() == "false"
+    missing = runner.invoke(
+        app,
+        ["qp-topic-pending", "--frame", "petitions", "--carried-file", str(tmp_path / "no")],
+        env=env,
+    )
+    assert missing.stdout.strip() == "true"
+    gone = tmp_path / "gone.txt"
+    held = json.loads(runner.invoke(app, [*args[:-1], str(gone)], env=env).stdout)
+    assert held["auto_release"] is False
+    assert "could not be read" in held["auto_release_reason"]

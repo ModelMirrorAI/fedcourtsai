@@ -477,6 +477,7 @@ from .release_sensitivity import (
 from .required_checks import produced_contexts
 from .review_hold import SEAMS as REVIEW_HOLD_SEAMS
 from .review_hold import decide_from_files as decide_hold_from_files
+from .review_hold import label_pending
 from .review_hold import render_summary as render_hold_summary
 from .ruleset_checks import Expected as RulesetExpected
 from .ruleset_checks import ruleset_problems
@@ -8322,10 +8323,15 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     the measurement that failed. A refused run spends as much as a published
     one, which is why this record, not the labels artifact, carries the spend.
 
+    A model with no rate in ``MODEL_RATES`` is priced at the entry that prices
+    these token counts dearest and named in ``priced_as``, so its spend is still
+    counted, and never under-counted.
+
     Exits 3 without writing when the execution file carries no usage, so the
     workflow step can say there was nothing to record rather than commit false
-    zeros; exits 2 on a model with no rate, an unreadable agreement file, or a
-    published run whose measurement says the gate refused.
+    zeros; exits 2 on an unreadable agreement file, a ``--recorded-at`` that is
+    not an ISO timestamp, or a published run whose measurement says the gate
+    refused.
     """
     settings = get_settings()
     counts = parse_claude_usage(execution_file)
@@ -8334,10 +8340,19 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "qp-topic-spend: no model usage in the execution file; nothing recorded", err=True
         )
         raise typer.Exit(code=3)
+    priced_as: str | None = None
     if model not in MODEL_RATES:
-        known = ", ".join(sorted(MODEL_RATES))
-        typer.echo(f"qp-topic-spend: no rate for model '{model}'; known models: {known}", err=True)
-        raise typer.Exit(code=2)
+        priced_as = max(sorted(MODEL_RATES), key=lambda known: estimate_cost_usd(known, counts))
+        typer.echo(
+            f"qp-topic-spend: no rate for model '{model}'; priced at the dearest entry, "
+            f"'{priced_as}'",
+            err=True,
+        )
+    try:
+        when = datetime.fromisoformat(recorded_at) if recorded_at else datetime.now(UTC)
+    except ValueError as exc:
+        typer.echo(f"qp-topic-spend: --recorded-at is not an ISO timestamp: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
     agreement: QpTopicAgreement | None = None
     if agreement_file is not None and agreement_file.is_file():
         try:
@@ -8357,7 +8372,6 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         outcome = "refused"
     else:
         outcome = "incomplete"
-    when = datetime.fromisoformat(recorded_at) if recorded_at else datetime.now(UTC)
     if when.tzinfo is None:
         when = when.replace(tzinfo=UTC)
     try:
@@ -8379,7 +8393,8 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             output_tokens=counts.output_tokens,
             cache_read_input_tokens=counts.cache_read_input_tokens,
             cache_creation_input_tokens=counts.cache_creation_input_tokens,
-            estimated_cost_usd=estimate_cost_usd(model, counts),
+            estimated_cost_usd=estimate_cost_usd(priced_as or model, counts),
+            priced_as=priced_as,
         )
     except ValueError as exc:
         typer.echo(f"qp-topic-spend: {exc}", err=True)
@@ -8425,6 +8440,41 @@ def qp_label_plan_cmd(
         f"qp-label-plan: {frame} {rows} row(s) by {model} at "
         f"${plan['rate_usd_per_row']:.2f}/row -> ${plan['estimated_cost_usd_high']:.2f} -> {out}"
     )
+
+
+@app.command("qp-topic-pending")
+def qp_topic_pending_cmd(
+    *,
+    frame: Annotated[
+        Literal["petitions", "applications"], typer.Option(help="The frame the round labels.")
+    ],
+    carried_file: Annotated[
+        Path,
+        typer.Option(
+            "--carried-file",
+            help="The run records carried from the frame's open labels PR, one path per line.",
+        ),
+    ],
+) -> None:
+    """Whether the frame's open labels PR holds an unmerged published batch.
+
+    Prints ``true`` or ``false`` on stdout, with the reason on stderr. A scheduled
+    labeling run stands down on ``true``: its batch would be cut from ``main``'s
+    labels file, so it would label that PR's rows again and replace the PR
+    (:func:`fedcourtsai.review_hold.label_pending`). A list or record that will
+    not read prints ``true`` too — the stand-down is the cheap side.
+    """
+    settings = get_settings()
+    try:
+        carried = carried_file.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        typer.echo(f"qp-topic-pending: cannot read {carried_file}: {exc}", err=True)
+        typer.echo("true")
+        return
+    reason = label_pending(settings.data_root, frame, carried)
+    if reason is not None:
+        typer.echo(f"qp-topic-pending: {reason}", err=True)
+    typer.echo("false" if reason is None else "true")
 
 
 @app.command("corpus-status")
@@ -23429,6 +23479,17 @@ def hold_decision_cmd(
             help="Also append the decision's step-summary block to this file.",
         ),
     ] = None,
+    carried_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--carried-file",
+            help=(
+                "Label only: the run records carried from the frame's open labels PR, one "
+                "path per line. A published one among them keeps the hold, since another "
+                "round would re-label that unmerged batch; unreadable keeps it too."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Decide whether a round skips the review hold, and whether a predict round chains another.
 
@@ -23442,7 +23503,8 @@ def hold_decision_cmd(
     the trailing budget) and `drain_more` (predict only: a cap stopped the round
     short of the backlog, so another round is owed as soon as this one's output
     lands). A label round also holds when its frame's last gated labeling run
-    was refused at the reference gate. Fails closed: a disabled knob, an
+    was refused at the reference gate, and while the frame's open labels PR
+    holds an unmerged published batch (`--carried-file`). Fails closed: a disabled knob, an
     unreadable count or ledger, a missing matrix or a plan with no estimate
     keeps the hold. Spends nothing and reads no corpus.
     """
@@ -23472,6 +23534,7 @@ def hold_decision_cmd(
         deployments_released=deployments_released,
         main_subjects_file=main_subjects_file,
         matrix_file=matrix_file,
+        carried_file=carried_file if seam == "label" else None,
     )
     if summary_file is not None:
         with summary_file.open("a", encoding="utf-8") as handle:

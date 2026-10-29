@@ -1031,7 +1031,7 @@ why publication keys on the label-line count rather than on the action's
 verdict (below).
 
 `qp-corpus` therefore enforces a ceiling (`LABEL_ROW_CEILING` in
-`fedcourtsai.pipeline.qp_topics`) and sizes each dispatch's extract to it. Its
+`fedcourtsai.pipeline.qp_topics`) and sizes each run's extract to it. Its
 value is a **declared budget, checked against an observed pace**: a
 ceiling-sized extract labeled in full at `claude-fable-5` took 35.7 minutes of
 the labeling step's 40-minute cap over **76 turns**, so on that run the clock
@@ -1066,7 +1066,11 @@ run whose frame has nothing new to label — converged, or a batch the reference
 set fills on its own — **stands down at the extract**: on a schedule
 `qp-corpus --converged-ok` writes no extract and exits 0, and every later job
 skips; a dispatch keeps the refusal, so an operator who asked for a batch hears
-why there is none.
+why there is none. A scheduled run also stands down while the frame's open
+labels PR still holds an unmerged published batch: the next batch is cut from
+`main`'s labels file, so it would label that PR's rows again, pay for them
+again, and replace the PR on its fixed branch (`fedcourts qp-topic-pending`); a
+dispatched round in that state waits on the hold instead.
 
 **Every run waits on the review hold**, the per-round spend gate the predict,
 evaluate and summarize lanes take (`src/fedcourtsai/review_hold.py`). The
@@ -1080,8 +1084,13 @@ automatically**: while the newest gated run of a frame (published or refused)
 was refused at the reference gate, the next round of that frame never
 auto-releases, whatever its price, and waits for a maintainer — the hold's
 summary names the refusal. The rule reads the frame's spend records below,
-including those on the frame's open, unmerged PR, so a refusal still under
-review counts.
+including those the frame's open, unmerged PR adds (from commits under a
+GitHub App's bot identity, which is what the publish job commits as), so a
+refusal still under review counts; a record dated after the round's plan keeps
+the hold. The held retry is largely the same batch — cut deterministically
+from the same committed state and scored on the same reference set — so
+releasing it calls for a stated change (*Re-running after a gate failure*,
+below).
 
 **Every run's spend is recorded, whatever the gate decided.** A run refused at
 the gate spends as much as one that publishes and writes no labels file, so the
@@ -1090,12 +1099,17 @@ whose engine left an execution file writes one record,
 `data/qp-topics/spend/<run_id>-<run_attempt>.json` (`fedcourts qp-topic-spend`,
 the `QpTopicRunSpend` model), carrying the engine's token counts priced by the
 rule every cell's `usage.json` is, the run's outcome (`published`, `refused`,
-or `incomplete` for a batch that was never measured), and its gate figures
-(agree, n, rate, floor). A published run's labels PR carries the record beside
+or `incomplete` for a batch that reached neither), and its gate figures
+(agree, n, rate, floor) wherever it was measured. A model with no rate in
+`pricing.MODEL_RATES` is priced at the entry that prices its token counts
+dearest and named in `priced_as`, so no run's spend is dropped. A published run's labels PR carries the record beside
 the labels file; a refused or incomplete run's record lands alone on the same
 fixed branch, in a PR titled as a spend record of a run that published no
 labels, with the gate figures in its body — onto the frame's open PR where one
-is open, so a pending batch is kept. Neither is ever auto-merged. A run whose
+is open, so a pending batch is kept. Neither is ever auto-merged, and both
+must be **merged, not closed**: closing either drops its spend records from
+the measured total, and a refused run's record from the hold's refusal rule,
+which the PR body says. A run whose
 labeling step left no execution file (the step-cap kill) has nothing to record,
 and its step summary says so. These records are one of the three sources the
 **measured spend total** sums — with the agent cells and the case summaries,
@@ -1256,8 +1270,11 @@ shape worth stating rather than leaving to inference:
   against the identical threshold. That is the repository's own "tuned on the
   measurement set" warning, one level up: say what changed between attempts.
   Which is why nothing retries a refused batch on its own: the next weekly
-  run cuts its batch against a frame that has grown since, and it waits on a
-  maintainer's release while the frame's last gated run stands refused.
+  run's batch is cut by the same deterministic rule against the same
+  reference set from a frame that may have grown since, so it is largely the
+  same rows scored the same way, and it waits on a maintainer's release while
+  the frame's last gated run stands refused. Releasing it calls for a stated
+  change.
 - **Convergence ends measurement.** Once the frame is clear no further batch
   runs, so the last batch's rate is the figure the whole artifact carries.
 

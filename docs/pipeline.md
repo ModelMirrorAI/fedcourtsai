@@ -573,7 +573,11 @@ queues behind the production run of the same mode. The modes:
   job lands as `data/qp-topics/spend/<run_id>-<run_attempt>.json`: beside the
   labels file on a published run, alone on the same fixed branch in a PR titled
   as a spend record on a refused or short one — onto the open labels PR where
-  there is one. Nothing retries a refused batch ([qp-topic.md](qp-topic.md)).
+  there is one; either PR must be merged, not closed, or its records leave the
+  measured total. Nothing retries a refused batch, and a scheduled run stands
+  down while the frame's open labels PR holds an unmerged published batch
+  ([qp-topic.md](qp-topic.md)). The three label jobs queue in per-frame
+  concurrency groups, so one frame's run never displaces the other's.
   It is the only mode that runs an agent, and therefore the only one **split
   across jobs**.
   The PR is opened by a later job, `qp-topic-publish`, which runs no agent and
@@ -2675,10 +2679,11 @@ double-spends the overlap. The two plan reports make the overlap visible
 before either release, each on its own run's step summary.
 
 **Auto-release.** A predict, evaluate, summarize or topic-label round can skip the wait;
-the back-test cannot. Its plan job runs `fedcourts hold-decision --seam
-<lane>` over the plan document the report renders, the matrix the round minted
-(predict and evaluate; a summarize or label run has none, because its
-generate or label job runs the plan itself) and the committed spend ledger in its checkout. A round
+the back-test cannot. Its plan job (for a label round, the extract job) runs `fedcourts
+hold-decision --seam <lane>` over the plan document the report renders, the
+matrix the round minted (predict and evaluate; a summarize or label run has
+none, because its generate or label job runs the plan itself) and the
+committed spend ledger in its checkout. A round
 auto-releases, binding the reviewer-less `review-auto` environment instead of
 `review`, when four things hold:
 - the matrix holds exactly the plan's would-mint cells, so the price is the
@@ -2699,10 +2704,14 @@ auto-releases, binding the reviewer-less `review-auto` environment instead of
   per-round cap, standing in for released spend whose collect PR has not
   landed yet. The run's summary prints the sum term by term.
 
-A label round has one more condition: it never auto-releases while the newest
+A label round has two more conditions. It never auto-releases while the newest
 gated run of its frame (published or refused, by its spend record, including
-those on the frame's open labels PR) was refused at the reference gate. The
-summary names that reason, and the retry waits for a maintainer's release.
+those the frame's open labels PR adds under a GitHub App's bot identity) was
+refused at the reference gate, or while a record of the frame is dated after
+the round's plan; and it never auto-releases while that open PR holds an
+unmerged published batch, which a scheduled round stands down on instead
+(`fedcourts qp-topic-pending`). The summary names the reason, and the round
+waits for a maintainer's release.
 
 The daily count is the larger of two records: the round's deployment to
 `review-auto`, which the lanes share, and its commit on `main`, which
@@ -2719,7 +2728,8 @@ collect PR has not landed, an auto-released round whose collect PR is still
 open more than 24 hours on, a summaries PR still open (except to the summarize
 plan, which carries that PR's summaries and counts them), a rejected
 summary response's tokens, and an unmerged labels or spend-record PR (except to
-the label plan, which carries its spend records) are all invisible to it. That is why the budget must sit
+that frame's next label round, whose extract job carries its spend records in)
+are all invisible to it. That is why the budget must sit
 below the `spend` backstop's ceiling (`tracking.yaml`): the backstop stops
 minting outright, and the budget stops only the *unattended* release, leaving
 the gap between the two for rounds a maintainer chooses to release. A budget at

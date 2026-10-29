@@ -17,7 +17,7 @@ from typer.testing import CliRunner
 from fedcourtsai.cli import app
 from fedcourtsai.pipeline.qp_topics import build_label_plan, render_label_plan, run_spend_path
 from fedcourtsai.planning_rates import LABEL_RATES_USD_PER_ROW, label_rate_usd_per_row
-from fedcourtsai.pricing import TokenCounts, estimate_cost_usd
+from fedcourtsai.pricing import MODEL_RATES, TokenCounts, estimate_cost_usd
 from fedcourtsai.schemas import QpTopicAgreement, QpTopicRunSpend
 from fedcourtsai.serialize import write_json
 from fedcourtsai.validate import validate_ledger
@@ -208,6 +208,9 @@ def test_the_validator_holds_a_record_to_the_name_it_sits_under(tmp_path: Path) 
         {"outcome": "refused", "agree": None, "n": None},  # refused carries its figures
         {"agree": 101},  # agree over n
         {"outcome": "published", "label_lines": 3},  # a published run labeled every row
+        {"rate": 0.9},  # rate is agree / n
+        {"rate": None},  # a measured run carries its rate
+        {"outcome": "incomplete", "agree": None, "n": None},  # a rate without agree and n
     ],
 )
 def test_the_record_model_refuses_an_inconsistent_record(
@@ -261,3 +264,28 @@ def test_the_label_rates_sit_at_or_above_the_measured_batches() -> None:
     # The measured ceiling-sized batches: $10.01 (opus) and $37.48 / $60.16 (fable).
     assert label_rate_usd_per_row("claude-opus-5-5") * 1200 >= 10.01
     assert label_rate_usd_per_row("claude-fable-5") * 1200 >= 60.16
+
+
+def test_an_unpriced_model_is_recorded_at_the_dearest_rate(tmp_path: Path) -> None:
+    # The plan prices an unknown model at the top per-row rate, so the record
+    # must never drop that run's spend: it prices at the dearest table entry
+    # for these counts and names it.
+    code, output, out = _spend(tmp_path, "--model", "claude-new-6")
+    assert code == 0, output
+    record = QpTopicRunSpend.model_validate_json(out.read_text())
+    counts = TokenCounts(**dict(USAGE.items()))
+    dearest = max(estimate_cost_usd(model, counts) for model in MODEL_RATES)
+    assert record.model == "claude-new-6"
+    assert record.priced_as is not None and record.priced_as in MODEL_RATES
+    assert record.estimated_cost_usd == dearest
+    known_code, _, known = _spend(tmp_path)
+    assert known_code == 0
+    assert QpTopicRunSpend.model_validate_json(known.read_text()).priced_as is None
+
+
+def test_a_bad_recorded_at_exits_2_and_writes_nothing(tmp_path: Path) -> None:
+    out = tmp_path / "spend.json"
+    code, output, _ = _spend(tmp_path, "--recorded-at", "last tuesday")
+    assert code == 2
+    assert "not an ISO timestamp" in output
+    assert not out.exists()

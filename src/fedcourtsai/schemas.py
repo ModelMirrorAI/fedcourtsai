@@ -9555,8 +9555,9 @@ class QpTopicRunSpend(_Strict):
     outcome: QpTopicRunOutcome = Field(
         description="published: the batch cleared the reference gate and its labels were "
         "handed to the publish job; refused: it was measured and fell below the gate; "
-        "incomplete: it was never measured (a labels file short of the batch, or a check "
-        "ahead of the measurement that failed)"
+        "incomplete: it reached neither (a labels file short of the batch, a check ahead of "
+        "the measurement that failed, or a measurement that cleared the gate but did not "
+        "reach publication), its gate figures carried wherever it was measured"
     )
     batch_rows: int = Field(ge=0, description="Rows in the extract the labeler was handed")
     label_lines: int = Field(ge=0, description="Label lines the run left behind")
@@ -9590,7 +9591,15 @@ class QpTopicRunSpend(_Strict):
     estimated_cost_usd: float = Field(
         ge=0.0,
         allow_inf_nan=False,
-        description="The run's on-demand cost at `pricing.MODEL_RATES` for `model`",
+        description="The run's on-demand cost at `pricing.MODEL_RATES` for `model`, or for "
+        "`priced_as` where `model` has no rate",
+    )
+    priced_as: str | None = Field(
+        default=None,
+        min_length=1,
+        description="The `pricing.MODEL_RATES` entry the run was priced at when `model` has "
+        "none: the one that prices these token counts dearest, so an unpriced model's spend "
+        "is still counted and never under-counted; null when priced at `model`'s own rate",
     )
 
     @model_validator(mode="after")
@@ -9606,6 +9615,13 @@ class QpTopicRunSpend(_Strict):
             raise ValueError(f"a {self.outcome} run carries its gate figures")
         if self.outcome == "published" and self.label_lines != self.batch_rows:
             raise ValueError("a published run labeled every row of its batch")
+        if self.rate is not None and not measured:
+            raise ValueError("a rate is recorded only beside its agree and n")
+        if self.agree is not None and self.n is not None:
+            if self.n == 0 and self.rate is not None:
+                raise ValueError("nothing was compared, so there is no rate")
+            if self.n > 0 and (self.rate is None or abs(self.rate - self.agree / self.n) > 1e-9):
+                raise ValueError("rate is agree / n")
         return self
 
 

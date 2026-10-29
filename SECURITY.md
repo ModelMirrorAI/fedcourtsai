@@ -572,6 +572,17 @@ runbook, [docs/security.md](docs/security.md).
   which includes the agent account interactive sessions act as, can prune the
   deployment list or edit an unmerged collect PR, so each record alone is
   tamperable; `main`'s history is not, once a round's commit has landed.
+  The topic-label lane's two extra hold rules (a refused gate holds the
+  frame's next round; a published batch on the frame's open labels PR holds
+  or stands it down) also read that unmerged, unprotected branch, which any
+  write holder can force-push. What limits it: only spend records the branch
+  adds, from commits whose author is a GitHub App's bot identity, are carried
+  — an attribution filter, not an authentication, since a commit's author is
+  whatever its pusher wrote — and a record dated after the round's plan keeps
+  the hold. So a forged refusal or pending batch only holds rounds (fail
+  safe), and a dropped or masked refusal can buy one retry that is still
+  bounded by the per-round cap, the daily count and the budget, and that lands
+  only through the frame's reviewed PR.
   The claude/codex agent steps on `run-predict` / `run-evaluate` allow exactly
   two bot logins through their own actor checks (the claude action's
   `allowed_bots`, the codex action's `allow-bot-users`), pinned to the data
@@ -661,14 +672,15 @@ runbook, [docs/security.md](docs/security.md).
   `main` and `staging`; beyond that its content is a required-reviewer rule,
   and it exists only as the audit-logged hold
   between a plan that would spend and the spend — run-predict, run-evaluate,
-  run-backtest and summarize all bind it; one environment serves every spend
+  run-backtest, summarize and run-analytics's topic-label lane
+  (`qp-topic-approval`) all bind it; one environment serves every spend
   hold rather than each minting its own. What each hold covers differs by what
-  the trigger already gates: the two fan-outs and summarize put every run
-  behind it, scheduled or dispatched — except a round auto-released within
-  the auto-release caps and budget, which binds the reviewer-less
-  `review-auto`, whose deployments are one of the shared daily cap's two
-  counts (a summarize staging rehearsal never does: `review-auto` admits
-  `main` alone) — while run-backtest
+  the trigger already gates: the two fan-outs, summarize and the topic-label
+  lane put every run behind it, scheduled or dispatched — except a round
+  auto-released within the auto-release caps and budget, which binds the
+  reviewer-less `review-auto`, whose deployments are one of the shared daily
+  cap's two counts (a summarize or topic-label staging rehearsal never does:
+  `review-auto` admits `main` alone) — while run-backtest
   holds its **scheduled** fortnight and lets a `workflow_dispatch` through, since
   a dispatch is a human choosing the parameters and its `engine` input defaults
   to the free offline stub. The promotion gate's

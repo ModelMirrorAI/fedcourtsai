@@ -14,8 +14,9 @@ routes on their answers:
   ledger, a missing estimate, a matrix that disagrees with the plan, a budget
   that does not sit below the spend backstop's ceiling, or a disabled knob all
   keep the hold. A label round also keeps it when the newest gated labeling
-  run of its frame was refused at the reference gate: a retry of a refused
-  batch waits for a maintainer's release.
+  run of its frame was refused at the reference gate — a retry of a refused
+  batch waits for a maintainer's release — and while the frame's open labels
+  PR holds an unmerged published batch, which another round would re-label.
 - **Drain.** A predict round that left owed work behind because a cap stopped
   it — the per-round cell cap, or the reconciliation's case cap — asks for
   another round as soon as its own output has landed, rather than waiting for
@@ -39,11 +40,11 @@ flight, an auto-released round whose collect PR is still open more than 24
 hours on, a summary run whose review PR has not merged (outside the summarize
 plan, which carries the open refresh PR's summaries and so counts them), and a
 rejected summary response's tokens, and a labeler run's record whose
-reviewed PR has not merged (outside the label plan, which carries the open
-PR's records and so counts them) are all invisible to it — so the budget sits
-below the backstop's ceiling, which stops minting outright, and a budget at or
-above that ceiling keeps every round on the hold rather than being adopted
-silently.
+reviewed PR has not merged (outside that frame's next label round, whose
+extract job carries the open PR's records in and so counts them) are all
+invisible to it — so the budget sits below the backstop's ceiling, which
+stops minting outright, and a budget at or above that ceiling keeps every
+round on the hold rather than being adopted silently.
 
 **What is priced is what runs.** A predict or evaluate plan document is a
 second walk of the backlog; the cells that actually spend are the matrix the
@@ -78,7 +79,7 @@ import math
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, get_args
 
@@ -87,7 +88,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from .collect import AUTO_RELEASED_MARKER
 from .config import SpendConfig, load_spend_config
+from .pipeline.qp_topics import run_spend_dir
 from .planning_rates import price_cells
+from .schemas import QpTopicRunSpend
+from .serialize import read_model
 from .spend import MeasuredSpend, iter_labeler_runs
 from .spend import measured_spend as _measured_spend
 
@@ -260,20 +264,28 @@ def measured_spend(
     return measured
 
 
-def label_refusal(data_root: Path, frame: str) -> str | None:
+def label_refusal(data_root: Path, frame: str, *, now: datetime | None = None) -> str | None:
     """Why a label round of ``frame`` keeps the hold after a refusal, or ``None``.
 
     Reads the labeler's run records (``data/qp-topics/spend/``, with any the
-    plan job carried from the frame's open, unmerged PR): when the newest gated
-    run of the frame — ``published`` or ``refused``, by ``recorded_at`` — was
-    refused, a retry waits for a maintainer. An ``incomplete`` run was never
+    extract job carried from the frame's open, unmerged PR): when the newest
+    gated run of the frame — ``published`` or ``refused``, by ``recorded_at`` —
+    was refused, a retry waits for a maintainer. An ``incomplete`` run was never
     gated, so it neither sets nor clears the refusal. A record that will not
-    read keeps the hold too.
+    read keeps the hold, and so does one of the frame's records dated after
+    ``now`` (this round's plan): a record from the future is not one a run
+    wrote, and a forged ``published`` one would otherwise mask a refusal.
     """
     try:
         runs = iter_labeler_runs(data_root)
     except (OSError, ValueError):
         return "the labeler's run records could not be read"
+    moment = now if now is not None else datetime.now(UTC)
+    if any(run.frame == frame and run.recorded_at > moment for run in runs):
+        return (
+            f"a {frame} labeling run record is dated after this round's plan, so the records "
+            "cannot be trusted to name the last gated run"
+        )
     gated = [run for run in runs if run.frame == frame and run.outcome != "incomplete"]
     if not gated:
         return None
@@ -283,6 +295,33 @@ def label_refusal(data_root: Path, frame: str) -> str | None:
             f"the last {frame} labeling run was refused at the reference gate; a retry waits "
             "for a maintainer's release"
         )
+    return None
+
+
+def label_pending(data_root: Path, frame: str, carried: Iterable[str]) -> str | None:
+    """Why a label round of ``frame`` keeps the hold while a batch awaits review, or ``None``.
+
+    ``carried`` names the run records the extract job carried in from the
+    frame's open, unmerged labels PR. When one of them is a ``published`` run of
+    the frame, that PR holds a batch ``main`` has not merged: the next batch is
+    cut from ``main``'s labels file, so it would label the same rows again, pay
+    for them again, and replace the PR on its fixed branch. A carried record
+    that will not read keeps the hold too.
+    """
+    for entry in carried:
+        name = Path(entry.strip()).name
+        if not name:
+            continue
+        try:
+            run = read_model(run_spend_dir(data_root) / name, QpTopicRunSpend)
+        except (OSError, ValueError):
+            return "a run record carried from the open labels PR could not be read"
+        if run.frame == frame and run.outcome == "published":
+            return (
+                f"the open {frame} labels PR holds an unmerged published batch (run "
+                f"{run.run_id}); another round would re-label it and replace that PR, so it "
+                "waits for a maintainer's release"
+            )
     return None
 
 
@@ -639,7 +678,7 @@ def _read_backstop(config_root: Path) -> SpendConfig | None:
         return None
 
 
-def decide_from_files(
+def decide_from_files(  # noqa: PLR0913 - one argument per file the plan job read
     plan: Mapping[str, Any],
     config_root: Path,
     data_root: Path,
@@ -648,6 +687,7 @@ def decide_from_files(
     deployments_released: int | None,
     main_subjects_file: Path | None,
     matrix_file: Path | None,
+    carried_file: Path | None = None,
     now: datetime | None = None,
 ) -> HoldDecision:
     """:func:`decide` over what the plan job read: the caps, the counts, the matrix, the ledger.
@@ -657,7 +697,9 @@ def decide_from_files(
     ``config_root/review-hold.yaml``, the backstop's ceiling and window from
     ``config_root/tracking.yaml``, and the measured spend from the committed
     ledger under ``data_root``. A label round's frame is the plan's ``frame``,
-    and the refusal rule reads that frame's run records there too.
+    and the refusal rule reads that frame's run records there too;
+    ``carried_file`` lists the records carried from the frame's open labels PR,
+    one path per line, which the pending-batch rule reads (:func:`label_pending`).
     """
     backstop = _read_backstop(config_root)
     measured = (
@@ -675,13 +717,35 @@ def decide_from_files(
         matrix=None if seam in _PLAN_PRICED else _read_matrix(matrix_file),
         backstop=backstop,
         measured=measured,
-        label_refusal=_label_refusal_for(plan, data_root) if seam == "label" else None,
+        label_refusal=(
+            _label_refusal_for(plan, data_root, carried_file=carried_file, now=now)
+            if seam == "label"
+            else None
+        ),
     )
 
 
-def _label_refusal_for(plan: Mapping[str, Any], data_root: Path) -> str | None:
-    """:func:`label_refusal` for the frame a label plan names; no frame keeps the hold."""
+def _label_refusal_for(
+    plan: Mapping[str, Any],
+    data_root: Path,
+    *,
+    carried_file: Path | None = None,
+    now: datetime | None = None,
+) -> str | None:
+    """Why a label plan's round keeps the hold on its frame's records, or ``None``.
+
+    No frame keeps the hold; then a pending batch on the frame's open PR
+    (:func:`label_pending`), then a refusal (:func:`label_refusal`).
+    """
     frame = plan.get("frame")
     if frame not in ("petitions", "applications"):
         return "the plan names no labeling frame"
-    return label_refusal(data_root, str(frame))
+    if carried_file is not None:
+        try:
+            carried = carried_file.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return "the list of run records carried from the open labels PR could not be read"
+        pending = label_pending(data_root, str(frame), carried)
+        if pending is not None:
+            return pending
+    return label_refusal(data_root, str(frame), now=now)

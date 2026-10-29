@@ -161,9 +161,13 @@ on:
     # and of run-predict's 14:12. Each is its own minute on the repo's grid.
     # A run prices its batch and waits on the review hold unless it
     # auto-releases (`config/review-hold.yaml`), and a frame with nothing new
-    # to label stands down at the extract. A refused batch is not retried: the
-    # next week's run cuts the next batch against the grown frame, and it too
-    # waits on a maintainer while the frame's last gated run stands refused.
+    # to label stands down at the extract, as does one whose open labels PR
+    # still holds an unmerged batch. A refused batch is not retried on its own:
+    # the next week's batch is cut deterministically from committed state
+    # against the same reference set, so unless the frame has grown it is
+    # largely the same rows scored the same way, and it waits on a maintainer
+    # while the frame's last gated run stands refused — releasing it calls for
+    # a stated change.
     - cron: "8 9 * * 2"
     - cron: "4 9 * * 3"
   workflow_dispatch:
@@ -1156,7 +1160,7 @@ jobs:
     timeout-minutes: 15
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
-      group: run-analytics-qp-topic-extract-${{ github.ref_name }}
+      group: run-analytics-qp-topic-extract-${{ needs.qp-topic-resolve.outputs.frame }}-${{ github.ref_name }}
       cancel-in-progress: false
     outputs:
       # The one number that crosses to the labeling job besides the extract
@@ -1213,6 +1217,64 @@ jobs:
         with:
           restore-cache: "false"
 
+      # The open, unmerged PR on this frame's fixed branch carries the spend
+      # records of runs that have not reached `main`, a refused run's and a
+      # published batch's among them. Carried into this checkout's `data/` so
+      # the hold's measured spend counts them, the refusal rule sees a refusal
+      # still awaiting review, and a batch still awaiting review is not cut and
+      # paid for again: the next batch is derived from `main`'s labels file, so
+      # while that PR holds a published batch a scheduled run stands down and a
+      # dispatched one waits on the hold (`fedcourts qp-topic-pending`). Only
+      # spend records are carried, only files the branch adds, only from this
+      # repository's own branch (the owner-qualified head), and only from
+      # commits authored under a GitHub App's bot identity, which is what the
+      # publish job commits as — an attribution filter, not an authentication
+      # (SECURITY.md). A record dated after this run is refused by the hold
+      # itself. On main only — a rehearsal plans against its own ref and never
+      # reaches the auto-release.
+      - name: Count the open labels PR's spend records
+        id: carry
+        if: ${{ github.ref == 'refs/heads/main' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          BRANCH: >-
+            ${{ needs.qp-topic-resolve.outputs.frame == 'applications'
+            && 'qp-topics/applications-refresh' || 'qp-topics/refresh' }}
+        run: |
+          set -euo pipefail
+          : > "$RUNNER_TEMP/carried-spend.txt"
+          open=$(gh api "repos/${REPO}/pulls?state=open&base=main&head=${OWNER}:${BRANCH}" \
+            --jq 'length')
+          if [ "$open" = "0" ]; then
+            echo "no open ${BRANCH} PR; deciding against main alone"
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags -q origin "$BRANCH"
+          git diff --name-only --diff-filter=A HEAD...FETCH_HEAD -- data/qp-topics/spend/ \
+            > "$RUNNER_TEMP/added-spend.txt"
+          skipped=0
+          while IFS= read -r path; do
+            case "$path" in
+              data/qp-topics/spend/*.json) ;;
+              *) continue ;;
+            esac
+            author=$(git log -1 --diff-filter=A --format=%ae HEAD..FETCH_HEAD -- "$path")
+            case "$author" in
+              *"[bot]@users.noreply.github.com")
+                git checkout FETCH_HEAD -- "$path"
+                echo "$path" >> "$RUNNER_TEMP/carried-spend.txt"
+                ;;
+              *) skipped=$((skipped + 1)) ;;
+            esac
+          done < "$RUNNER_TEMP/added-spend.txt"
+          echo "carried $(wc -l < "$RUNNER_TEMP/carried-spend.txt") spend record(s) from the open ${BRANCH} PR; skipped ${skipped} not authored by an App"
+          pending=$(uv run fedcourts qp-topic-pending --frame "$QP_FRAME" \
+            --carried-file "$RUNNER_TEMP/carried-spend.txt")
+          echo "pending=${pending}" >> "$GITHUB_OUTPUT"
+
       # The extract reads the stored document text, so the corpus must be on
       # disk. No contents:write, no App token: this job cannot touch git.
       - uses: ./.github/actions/corpus-readonly
@@ -1247,8 +1309,18 @@ jobs:
           # declares no corpus address at all.)
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
           SCHEDULED: ${{ needs.qp-topic-resolve.outputs.scheduled }}
+          PENDING: ${{ steps.carry.outputs.pending }}
         run: |
           set -euo pipefail
+          # A scheduled run stands down while the frame's open labels PR holds
+          # an unmerged published batch: this batch would be cut from main's
+          # labels file and label those rows again.
+          if [ "$SCHEDULED" = true ] && [ "$PENDING" = true ]; then
+            echo "owed=false" >> "$GITHUB_OUTPUT"
+            echo "The open ${QP_FRAME} labels PR holds an unmerged batch; this scheduled run stands down until it merges." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           # A scheduled run stands down cleanly on a frame with nothing new to
           # label — converged, or a batch the reference set fills alone — and
           # writes no extract; a dispatch keeps the refusal, so an operator who
@@ -1352,46 +1424,13 @@ jobs:
             --out "$RUNNER_TEMP/label-plan.json" --report "$RUNNER_TEMP/label-plan.md"
           cat "$RUNNER_TEMP/label-plan.md" >> "$GITHUB_STEP_SUMMARY"
 
-      # The open, unmerged PR on this frame's fixed branch carries the spend
-      # records of runs that have not reached `main`, a refused run's among
-      # them. Carried into this checkout's `data/` so the hold's measured spend
-      # counts them and the refusal rule sees a refusal still awaiting review.
-      # Only spend records are carried, only from this repository's own branch
-      # (the owner-qualified head), and only on main — a rehearsal plans
-      # against its own ref and never reaches the auto-release.
-      - name: Count the open labels PR's spend records
-        if: ${{ steps.extract.outputs.owed == 'true' && github.ref == 'refs/heads/main' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          OWNER: ${{ github.repository_owner }}
-          BRANCH: >-
-            ${{ needs.qp-topic-resolve.outputs.frame == 'applications'
-            && 'qp-topics/applications-refresh' || 'qp-topics/refresh' }}
-        run: |
-          set -euo pipefail
-          open=$(gh api "repos/${REPO}/pulls?state=open&base=main&head=${OWNER}:${BRANCH}" \
-            --jq 'length')
-          if [ "$open" = "0" ]; then
-            echo "no open ${BRANCH} PR; deciding against main alone"
-            exit 0
-          fi
-          git fetch --no-tags -q origin "$BRANCH"
-          git diff --name-only --diff-filter=A HEAD...FETCH_HEAD -- data/qp-topics/spend/ \
-            > "$RUNNER_TEMP/carried-spend.txt"
-          while IFS= read -r path; do
-            case "$path" in
-              data/qp-topics/spend/*.json) git checkout FETCH_HEAD -- "$path" ;;
-            esac
-          done < "$RUNNER_TEMP/carried-spend.txt"
-          echo "carried $(wc -l < "$RUNNER_TEMP/carried-spend.txt") spend record(s) from the open ${BRANCH} PR"
-
       # Whether this round waits on the hold: `fedcourts hold-decision --seam
       # label` over the plan above (priced at its upper estimate — a label
       # round has no matrix), `config/review-hold.yaml`'s caps and trailing
       # budget, and the committed spend ledger in this checkout's `data/` (the
       # open PR's carried spend records included). A label round also holds
-      # when its frame's newest gated run was refused at the reference gate. It
+      # when its frame's newest gated run was refused at the reference gate,
+      # and while the open PR holds an unmerged published batch. It
       # fails closed: with any knob at 0, an unreadable ledger, or a 24-hour
       # count this step cannot read, the round waits on the `review` hold. The
       # count is the summarize lane's, read the same two ways. On `main` only:
@@ -1408,8 +1447,11 @@ jobs:
           set -euo pipefail
           since=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
           count_args=()
+          # One page, newest first: a full page whose oldest entry is still
+          # inside the window may be truncated, so it prints no number and the
+          # round holds rather than under-counting.
           if released=$(gh api "repos/${REPO}/deployments?environment=review-auto&per_page=100" \
-                --jq "[.[] | select(.created_at >= \"${since}\")] | length" 2>"$RUNNER_TEMP/deploy-read.err") \
+                --jq "if length == 100 and (.[-1].created_at >= \"${since}\") then \"truncated\" else ([.[] | select(.created_at >= \"${since}\")] | length) end" 2>"$RUNNER_TEMP/deploy-read.err") \
              && [[ "$released" =~ ^[0-9]+$ ]]; then
             count_args+=(--deployments-released "$released")
           else
@@ -1421,9 +1463,14 @@ jobs:
           else
             echo "::warning::could not read main's commits from the last 24h ($(head -c 300 "$RUNNER_TEMP/subjects-read.err" | tr -s '\n:' '  ')); this run waits on the hold"
           fi
+          carried_args=()
+          if [ -f "$RUNNER_TEMP/carried-spend.txt" ]; then
+            carried_args+=(--carried-file "$RUNNER_TEMP/carried-spend.txt")
+          fi
           decision=$(uv run fedcourts hold-decision --seam label \
             --plan-file "$RUNNER_TEMP/label-plan.json" \
-            --summary-file "$GITHUB_STEP_SUMMARY" "${count_args[@]}")
+            --summary-file "$GITHUB_STEP_SUMMARY" "${count_args[@]}" \
+            "${carried_args[@]+"${carried_args[@]}"}")
           echo "auto_release=$(jq -r '.auto_release' <<<"$decision")" >> "$GITHUB_OUTPUT"
 
       - name: Upload the extract
@@ -1473,7 +1520,8 @@ jobs:
   qp-topic-rejected:
     needs: [authorize, qp-topic-resolve, qp-topic-extract, qp-topic-approval]
     if: >-
-      ${{ (always() && needs.qp-topic-extract.outputs.owed == 'true'
+      ${{ (always() && needs.qp-topic-extract.result == 'success'
+      && needs.qp-topic-extract.outputs.owed == 'true'
       && needs.qp-topic-approval.result != 'success')
       && needs.authorize.result == 'success'
       && (needs.authorize.outputs.attempt == github.run_attempt
@@ -1525,7 +1573,7 @@ jobs:
     timeout-minutes: 78
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
-      group: run-analytics-qp-topic-label-${{ github.ref_name }}
+      group: run-analytics-qp-topic-label-${{ needs.qp-topic-resolve.outputs.frame }}-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -2467,7 +2515,7 @@ jobs:
     timeout-minutes: 15
     environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
     concurrency:
-      group: run-analytics-qp-topic-publish-${{ github.ref_name }}
+      group: run-analytics-qp-topic-publish-${{ needs.qp-topic-resolve.outputs.frame }}-${{ github.ref_name }}
       cancel-in-progress: false
     permissions:
       contents: read
@@ -2652,7 +2700,7 @@ jobs:
             frame_word=$([ "$QP_FRAME" = applications ] && echo application || echo petition)
             title="data(qp-topics): spend record of a ${outcome} ${frame_word} labeling run, no labels published (run ${GITHUB_RUN_ID})${mark}"
             {
-              printf '%s\n\n' "A \`${QP_FRAME}\` labeling run by \`${LABELER}\` that published no labels: outcome \`${outcome}\`. ${spend_line} A refused or short run spends as much as one that publishes, so its spend is recorded and counted toward the measured spend total all the same (\`docs/qp-topic.md\`). The batch is not retried; the next scheduled run cuts the next batch against the grown frame, and while this frame's last gated run stands refused that run waits on a maintainer's release."
+              printf '%s\n\n' "A \`${QP_FRAME}\` labeling run by \`${LABELER}\` that published no labels: outcome \`${outcome}\`. ${spend_line} A refused or short run spends as much as one that publishes, so its spend is recorded and counted toward the measured spend total all the same (\`docs/qp-topic.md\`). The batch is not retried on its own: the next run's batch is cut deterministically from the same committed state against the same reference set, so unless the frame has grown it is largely the same rows scored the same way, and while this frame's last gated run stands refused that run waits on a maintainer's release, which calls for a stated change. **Merge this PR; do not close it.** It touches only \`data/qp-topics/spend/\`, and closing it drops the run's spend from the measured total and, for a refused run, the refusal the hold reads."
               if [ -f "$MEASURED_FILE" ]; then
                 printf '%s\n' "The gate figures, as the measure step rendered them:"
                 printf '%s\n' '```'
@@ -2836,6 +2884,7 @@ jobs:
             printf '%s\n' '```'
             if [ -n "$spend_line" ]; then
               printf '\n%s\n' "$spend_line"
+              printf '\n%s\n' "This PR also carries the labeling runs' spend records under \`data/qp-topics/spend/\`. Closing it rather than merging drops them from the measured spend total, and any refusal among them from the hold."
             fi
             printf '\n%s\n' "Run: ${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}"
           } > pr-body.md

@@ -35,7 +35,7 @@
       "type": "integer"
     },
     "estimated_cost_usd": {
-      "description": "The run's on-demand cost at `pricing.MODEL_RATES` for `model`",
+      "description": "The run's on-demand cost at `pricing.MODEL_RATES` for `model`, or for `priced_as` where `model` has no rate",
       "minimum": 0.0,
       "title": "Estimated Cost Usd",
       "type": "number"
@@ -110,7 +110,7 @@
       "title": "N"
     },
     "outcome": {
-      "description": "published: the batch cleared the reference gate and its labels were handed to the publish job; refused: it was measured and fell below the gate; incomplete: it was never measured (a labels file short of the batch, or a check ahead of the measurement that failed)",
+      "description": "published: the batch cleared the reference gate and its labels were handed to the publish job; refused: it was measured and fell below the gate; incomplete: it reached neither (a labels file short of the batch, a check ahead of the measurement that failed, or a measurement that cleared the gate but did not reach publication), its gate figures carried wherever it was measured",
       "enum": [
         "published",
         "refused",
@@ -124,6 +124,20 @@
       "minimum": 0,
       "title": "Output Tokens",
       "type": "integer"
+    },
+    "priced_as": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The `pricing.MODEL_RATES` entry the run was priced at when `model` has none: the one that prices these token counts dearest, so an unpriced model's spend is still counted and never under-counted; null when priced at `model`'s own rate",
+      "title": "Priced As"
     },
     "rate": {
       "anyOf": [
