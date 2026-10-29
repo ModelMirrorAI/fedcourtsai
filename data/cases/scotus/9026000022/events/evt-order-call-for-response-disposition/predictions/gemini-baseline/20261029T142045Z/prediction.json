@@ -1,0 +1,94 @@
+{
+  "big_case_rationale": "If granted, the case would address how federal courts handle Rule 60(b)(5) motions to vacate decades-old Roe-era injunctions after Dobbs and the interplay between federal equity, Article III mootness, and local implied-repeal doctrine, though its broader doctrinal reach is cabined by the territory-specific history of Guam P.L. 20-134.",
+  "big_case_score": 0.55,
+  "case_id": "scotus/9026000022",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.15,
+        "Barrett": 0.01,
+        "Gorsuch": 0.05,
+        "Jackson": 0.01,
+        "Kagan": 0.005,
+        "Kavanaugh": 0.02,
+        "Roberts": 0.005,
+        "Sotomayor": 0.01,
+        "Thomas": 0.18
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.14
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.354
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.25
+    }
+  ],
+  "confidence": 0.75,
+  "context": {
+    "amicus_briefs": null,
+    "band": "state",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-08-27",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-08-27",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-29T15:52:43.967099Z",
+  "engine": "gemini",
+  "event_id": "evt-order-call-for-response-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-08-27.json",
+  "judgment": null,
+  "model": "gemini-4-argon",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.14,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
+    "label": "proc-v14",
+    "pipeline_sha": "f2a4da6f8f2ad46633e5bc703649b2f84c4730da",
+    "stamped_at": "2026-10-29T15:52:43.967099Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

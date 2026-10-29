@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500250",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["Salience band table with bracketed reached rates"],
+  "gaps": ["No statpack cut conditioning on a called-for response (overall, and split by US-as-respondent)", "fedcourts query has no subject filter to find § 242 priors on SCOTUS rows"],
+  "notes": "Response-requested moment with the United States as respondent is common for paid criminal petitions; a conditional base rate would help."
+}

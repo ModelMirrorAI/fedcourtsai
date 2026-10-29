@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000238",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebFetch (supremecourt.gov docket)"],
+  "helpful": ["--docket-number lookup of the companion case RiseandShine (24-1016) gave its grant date directly"],
+  "gaps": ["No statpack cut conditions on a called-for response, which is the defining signal of this moment", "No hold-then-GVR rate for petitions held for a granted companion"],
+  "notes": "The first --docket-number query failed without --court; the usage message made the fix obvious."
+}

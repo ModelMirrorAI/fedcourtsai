@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000060",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["shell", "fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search", "web search/open/find", "read-only record-review subagent"],
+  "helpful": ["The moment-cut snapshot distinguishes a requested response from a substantive relist.", "The petition's bound-in appellate opinion exposed vehicle weaknesses not apparent from the question presented.", "Full-precision prior-Term reached rates permit a correctly pooled band anchor."],
+  "gaps": ["CourtListener MCP was throttled with HTTP 429.", "Web attempts returned no usable text.", "The default uv cache path was read-only; an explicit /tmp cache resolved the CLI failure."],
+  "notes": "Completed from provisioned evidence and committed historical rates. No response brief is expected at this moment. Appendix truncation was disclosed; no target outcome or later docket was retrieved. The generic grant-filtered corpus rows were not used as a frequency estimator."
+}

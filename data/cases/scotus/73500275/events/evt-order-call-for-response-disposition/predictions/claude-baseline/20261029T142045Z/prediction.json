@@ -1,0 +1,94 @@
+{
+  "big_case_rationale": "Recurring Section 11 omissions/risk-disclosure questions affecting IPO issuers and underwriters nationally, but a fact-bound unpublished Ninth Circuit memorandum disposition.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/73500275",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.02,
+        "Barrett": 0.02,
+        "Gorsuch": 0.03,
+        "Jackson": 0.03,
+        "Kagan": 0.02,
+        "Kavanaugh": 0.02,
+        "Roberts": 0.02,
+        "Sotomayor": 0.03,
+        "Thomas": 0.03
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.52
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.03
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.8
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.05
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-07-23",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-07-22",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-29T15:33:20.558480Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-call-for-response-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-07-22.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "gvr",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.52,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
+    "label": "proc-v14",
+    "pipeline_sha": "f2a4da6f8f2ad46633e5bc703649b2f84c4730da",
+    "stamped_at": "2026-10-29T15:33:20.558480Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

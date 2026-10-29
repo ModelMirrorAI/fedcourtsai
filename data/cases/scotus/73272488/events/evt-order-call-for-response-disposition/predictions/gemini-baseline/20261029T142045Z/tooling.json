@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/73272488",
+  "gaps": [
+    "Filter flags on fedcourts query for originating_court or counsel would be useful for pulling circuit- or advocate-specific cert priors."
+  ],
+  "helpful": [
+    "metrics/statpack.md (sal-v4 reached base rates and signal cuts)",
+    "fedcourts query --docket-number (for checking related petition No. 25-6344, Tovar v. United States)",
+    "provisioned petition.txt and questions-presented.txt"
+  ],
+  "notes": "Used fedcourts query to look up recent SCOTUS priors and specifically No. 25-6344 (Tovar v. United States), which raised the same Rule 29 preservation split and was denied on May 18, 2026.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

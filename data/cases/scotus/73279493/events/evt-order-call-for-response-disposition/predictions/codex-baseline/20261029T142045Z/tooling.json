@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73279493",
+  "gaps": [
+    "CourtListener MCP was unavailable because of its daily rate limit.",
+    "No committed base rate specifically conditions on a cert response request.",
+    "corpus-info cannot report corpus vintage through the service backend."
+  ],
+  "helpful": [
+    "Moment-bounded snapshot and frozen sal-v4 conditioning.",
+    "Petition appendix included the actual appellate reasoning.",
+    "Exact JSON risk-set rates permitted prior-Term pooling."
+  ],
+  "notes": "The corpus CLI worked after moving the uv cache to /tmp. Broad grant priors were not close analogues; the Geiger citation lookup exposed sparse metadata rather than a negative precedent finding. External split verification remained unavailable. No outcome retrieval was attempted.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (failed)",
+    "CourtListener MCP search (throttled)",
+    "web search (no usable results)",
+    "committed statpack"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The Court will most likely **deny the petition**, without a separate writing. The probability of any grant is **18%**. The Court's request for a response will lead to consideration of adversarial briefing, not necessarily to review of the lower court's decision.
+
+The baseline records **one distribution**, for the September 28, 2026 conference, and **no CVSG**. From that state, expect **at least one additional distribution** after the response arrives or its deadline passes; the probability of an increase beyond one is 98%. The modal path is one further distribution followed by denial at the first fully briefed consideration. A redistribution before the petition is actually considered is not a true relist, although it increases the recorded count. One or more genuine relists, or a hold while the en banc copyright case identified in the petition develops, are plausible alternatives.
+
+The Court will probably **not invite the Solicitor General's views**; the chance of a new invitation is 15%. If an invitation issues, expect it after the response cycle and conference consideration, with a substantially longer wait for disposition. Without an invitation or extended hold, expect a disposition in late 2026 or early 2027. A hold for the en banc proceeding could extend that horizon. These timing statements predict future resolution; they do not assert that any later docket entries have been observed.
+
+**If review is granted**, expect the Court primarily to take the petition's substantial-similarity question, possibly narrowed to how courts evaluate original selection and arrangement at summary judgment. It is less likely to take a freestanding question about termination of the original film license or contractual credit. The likely legal inquiry would reconcile filtration of facts and ideas with protection for expressive combinations; a grant would not itself establish infringement or require judgment for the Yonays.
+
+**Conditional on a grant**, plenary briefing and argument are more likely than disposition in the cert order; the latter has probability 20%. A later GVR could follow a relevant intervening development, including the en banc litigation mentioned in the petition. No staged ruling presently establishes that path, and summary reversal is not the leading scenario.
+
+**Conditional on denial**, the chance of a noted dissent or statement respecting denial is 7%. The leading prediction is no such writing and no publicly ascertainable vote lineup. No individual Justice is affirmatively predicted to write; the small unconditional probabilities in `order-writers` preserve the possibility without converting it into an expected opinion.

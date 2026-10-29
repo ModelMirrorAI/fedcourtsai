@@ -1,0 +1,94 @@
+{
+  "big_case_rationale": "A constitutional challenge to how the federal judiciary handles its own employees' harassment claims; institutionally sensitive and closely watched, but a fact-bound post-trial record with no circuit split.",
+  "big_case_score": 0.45,
+  "case_id": "scotus/73377829",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.005,
+        "Barrett": 0.01,
+        "Gorsuch": 0.02,
+        "Jackson": 0.07,
+        "Kagan": 0.01,
+        "Kavanaugh": 0.005,
+        "Roberts": 0.005,
+        "Sotomayor": 0.05,
+        "Thomas": 0.01
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.97
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.1
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.12
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-06-16",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-06-16",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-29T14:48:41.515963Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-call-for-response-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-06-16.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.05,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
+    "label": "proc-v14",
+    "pipeline_sha": "f2a4da6f8f2ad46633e5bc703649b2f84c4730da",
+    "stamped_at": "2026-10-29T14:48:41.515963Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

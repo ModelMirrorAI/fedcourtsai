@@ -1,0 +1,96 @@
+{
+  "big_case_rationale": "If granted, a Supreme Court ruling standardizing the substantial-similarity test and summary-judgment filtering across circuits in a high-profile dispute over Top Gun: Maverick would be a major copyright decision for the entertainment and publishing industries, though it lacks constitutional or broad political salience.",
+  "big_case_score": 0.42,
+  "case_id": "scotus/9026000061",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.004,
+        "Barrett": 0.001,
+        "Gorsuch": 0.008,
+        "Jackson": 0.002,
+        "Kagan": 0.002,
+        "Kavanaugh": 0.001,
+        "Roberts": 0.001,
+        "Sotomayor": 0.003,
+        "Thomas": 0.01
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.06
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.98
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.08
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.03
+    }
+  ],
+  "confidence": 0.85,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-08-18",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 6,
+      "sides": [
+        "Other"
+      ]
+    },
+    "snapshot_date": "2026-08-17",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-29T15:56:29.531375Z",
+  "engine": "gemini",
+  "event_id": "evt-order-call-for-response-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-08-17.json",
+  "judgment": null,
+  "model": "gemini-4-argon",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.06,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
+    "label": "proc-v14",
+    "pipeline_sha": "f2a4da6f8f2ad46633e5bc703649b2f84c4730da",
+    "stamped_at": "2026-10-29T15:56:29.531375Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

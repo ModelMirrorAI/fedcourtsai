@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000240",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (throttled HTTP 429)"
+  ],
+  "helpful": [
+    "provisioned petition.txt with appendix opinions and orders",
+    "metrics/statpack.md salience-band and amicus/circuit base-rate cuts",
+    "fedcourts query --docket-number for companion petition 26-193"
+  ],
+  "gaps": [
+    "CourtListener MCP hit daily 1400/day rate limit (HTTP 429)",
+    "Companion docket 26-193 not staged in record/related/ despite VIDED amicus entries on 26-240"
+  ],
+  "notes": "Provisioned petition.txt and questions-presented.txt were comprehensive and included the district court's March 31, 2026 opinion and Fourth Circuit's May 18, 2026 order in the appendix, allowing a complete analysis despite the CourtListener MCP 429 throttle."
+}
