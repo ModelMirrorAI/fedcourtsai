@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
 
 from fedcourtsai import cert_backtest, provision
 from fedcourtsai.pipeline import cell_context, ingest, liveprobe, outcome, salience
@@ -33,6 +34,7 @@ from fedcourtsai.pipeline.documents import (
     scrub_snapshot_contacts,
     unrepresented_sides,
 )
+from fedcourtsai.schemas import SnapshotContactScrub
 
 WITHHELD_KEYS = (*SNAPSHOT_CONTACT_FIELDS, "PrisonerId")
 
@@ -543,3 +545,20 @@ def test_no_code_outside_the_scrub_names_a_withheld_key() -> None:
         if named:
             offenders[rel] = named
     assert offenders == {}
+
+
+@pytest.mark.parametrize(
+    ("sides", "blocks", "fields"),
+    [([], 1, 1), ([], 0, 2), (["Petitioner"], 2, 1)],
+)
+def test_the_scrub_record_refuses_counts_its_trigger_cannot_have_produced(
+    sides: list[str], blocks: int, fields: int
+) -> None:
+    with pytest.raises(ValidationError):
+        SnapshotContactScrub.model_validate({"sides": sides, "blocks": blocks, "fields": fields})
+
+
+def test_the_scrub_record_reads_ran_and_clean_apart_from_never_ran() -> None:
+    ran = SnapshotContactScrub(sides=["Other"], blocks=0, fields=0)
+    never = SnapshotContactScrub(sides=[], blocks=0, fields=0)
+    assert ran != never

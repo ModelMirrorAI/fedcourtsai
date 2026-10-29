@@ -782,6 +782,47 @@ class ProcessVersion(_Strict):
     )
 
 
+class SnapshotContactScrub(_Strict):
+    """What the contact scrub withheld from the cell's staged snapshot.
+
+    **Harness-owned.** The staged snapshot carries the scrub only as inline
+    placeholders, and a snapshot with none reads the same whether the scrub ran
+    and found nothing or never ran. This record is the difference: ``sides``
+    names the counsel-block lists the docket was read as self-represented on,
+    which is the scrub's trigger, so an empty list says it did not run and a
+    non-empty one with zero counts says it ran and withheld nothing. Counts
+    only, never a withheld value.
+    """
+
+    sides: list[Literal["Petitioner", "Respondent", "Other"]] = Field(
+        description="The counsel-block lists on which some served block names "
+        "nobody to write to but the filer itself, in petitioner, respondent, "
+        "`Other` order. The scrub runs over the snapshot exactly where this is "
+        "non-empty; empty means the docket was read as represented throughout "
+        "and the staged snapshot is the payload as served"
+    )
+    blocks: int = Field(
+        ge=0,
+        description="Counsel blocks that had at least one value withheld. Zero "
+        "where `sides` is empty",
+    )
+    fields: int = Field(
+        ge=0,
+        description="Values withheld across those blocks, each replaced by "
+        "`[contact detail withheld]` or, for a party's prison register number, "
+        "`[register number withheld]`. Zero where `sides` is empty",
+    )
+
+    @model_validator(mode="after")
+    def _counts_follow_the_trigger(self) -> SnapshotContactScrub:
+        """A scrub that did not run withheld nothing, and a block counts its values."""
+        if not self.sides and (self.blocks or self.fields):
+            raise ValueError("`blocks` and `fields` are zero where `sides` is empty")
+        if self.blocks > self.fields:
+            raise ValueError("`blocks` cannot exceed `fields`: a counted block withheld a value")
+        return self
+
+
 class PredictionContext(_Strict):
     """The conditioning state a predict cell actually ran against.
 
@@ -1046,6 +1087,15 @@ class PredictionContext(_Strict):
         "False where the proceedings carry neither entry or the lift follows; null "
         "where the payload carries no live `ProceedingsandOrder` list (the REST "
         "shape, or a cut that dropped it)",
+    )
+    snapshot_contact_scrub: SnapshotContactScrub | None = Field(
+        default=None,
+        description="What the contact scrub withheld from the staged snapshot "
+        "this cell reads: the self-represented sides it keyed on and the blocks "
+        "and values it replaced with placeholders. A placeholder in "
+        "`record/snapshot` is the pipeline's, not the docket's. Null where the "
+        "provisioner runs no snapshot contact scrub (the cert back-test, which "
+        "redacts its snapshot by its own rule) or the cell predates the record",
     )
 
     @model_validator(mode="after")
