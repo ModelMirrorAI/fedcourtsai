@@ -539,6 +539,18 @@ salience:
   # predicted slice is a ladder-ordered subsample. Raising it widens interim
   # coverage and narrows the cert rank fill one-for-one.
   interim_reserve_slots: 5
+  # Age-out horizon for a reserve slot, in days from the application's filing
+  # date to the selection pass's own date (docs/salience.md "The interim
+  # docket"). A still-pending occupant filed more than this many days before
+  # the pass keeps its latch but gives up its slot, and a pending application
+  # past it does not contend for one, so an upstream docket that never records
+  # a disposition cannot hold a slot indefinitely. Sized against decided
+  # substantive applications (filing to decision: median 5 days, p99 167), so
+  # about 1% of them were still pending at the horizon and would have been
+  # de-funded before their outcome. 0 disables the age-out. A change moves which
+  # applications and which cert petitions are selected, so it takes a dated
+  # membership-rule entry in docs/freeze-record.md.
+  interim_reserve_age_out_days: 180
 
 # statpack = publication knobs for `metrics/statpack.md`
 # (src/fedcourtsai/analytics.py). The JSON artifact always carries every Term and
