@@ -1234,8 +1234,9 @@ def conference_sat_since(
 
     The bound on a cert moment whose information set lasts only until the next
     conference considers the petition: the first relist, forecast against the
-    conference it was relisted for, and the Solicitor General's invited brief,
-    forecast against the first conference after it. Once such a conference has
+    conference it was relisted for, the Solicitor General's invited brief,
+    forecast against the first conference after it, and the Court's call for a
+    response, forecast against the first conference after the response. Once such a conference has
     sat on the petition by ``run_day`` and left it undecided, the petition has
     been relisted or held, and a cell placed back at ``trigger`` would be
     forecasting a population it has already left.

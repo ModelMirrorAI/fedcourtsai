@@ -79,6 +79,7 @@ from ..schemas import (
     InterimResolutionSignals,
     Judgment,
     MeritsDecisionMethod,
+    MeritsTermination,
     Moment,
     Outcome,
     PredictableEvent,
@@ -1915,7 +1916,7 @@ def arrival_event_for(
 
 
 def briefed_merits_event_for(
-    row: MeritsMintRow, open_event_ids: list[str]
+    row: MeritsMintRow, open_event_ids: list[str], brief_on_lead: date | None = None
 ) -> corpus.CorpusEvent | None:
     """The merits stage's **second** forecast moment, or ``None``.
 
@@ -1936,8 +1937,15 @@ def briefed_merits_event_for(
     because of the **open-first-moment** guard: without it, a brief on a docket
     whose judgment has already landed would mint a permanently open phantom
     event that nothing could ever resolve.
+
+    A consolidated member's respondent files on the group's lead docket, so its
+    own ``merits_brief_filed`` stays empty; ``brief_on_lead`` is that filing's
+    date, latched on the stored row (``merits_brief_on_lead``) by the live poll
+    after its ingest, so a member's moment mints at the case's next poll after
+    the latch. The member's own brief, where it has one, wins.
     """
-    if row.merits_brief_filed is None or row.merits_judgment is not None:
+    briefed_at = row.merits_brief_filed or brief_on_lead
+    if briefed_at is None or row.merits_judgment is not None:
         return None
     spec = moments.moments_for(Stage.merits)[1]
     if not corpus.opens_merits_proceeding(row):
@@ -1956,7 +1964,7 @@ def briefed_merits_event_for(
         moment=spec.moment,
         title=row.case_name or row.docket_number or row.case_id,
         description=spec.description,
-        opened_at=row.merits_brief_filed,
+        opened_at=briefed_at,
         decision_target=spec.decision_target,
         resolved=False,
     )
@@ -2025,13 +2033,17 @@ def mint_moment_events(
     shape ``materialize-event`` provisions for the agent cells).
     """
     opens = list(open_event_ids or [])
-    transcript_at = _stored_transcript_at(corpus_db_path, row, opens)
+    stored = _stored_merits_row(corpus_db_path, row, opens)
     minted = [
         event
         for event in (
             merits_event_for(row, resolution),
-            briefed_merits_event_for(row, opens),
-            argued_merits_event_for(row, opens, transcript_at),
+            briefed_merits_event_for(
+                row, opens, None if stored is None else stored.merits_brief_on_lead
+            ),
+            argued_merits_event_for(
+                row, opens, None if stored is None else stored.argument_transcript_at
+            ),
             cvsg_event_for(row, opens),
             sg_brief_event_for(row, opens),
             call_for_response_event_for(row, opens),
@@ -2049,22 +2061,23 @@ def mint_moment_events(
         return persist_moment_events(conn, data_root, court_id, docket_id, minted)
 
 
-def _stored_transcript_at(
+def _stored_merits_row(
     corpus_db_path: Path, row: CorpusRow, open_event_ids: list[str]
-) -> date | None:
-    """The stored row's ``argument_transcript_at``, read only where it could mint.
+) -> corpus.CorpusRow | None:
+    """The stored corpus row, read only where a merits moment could mint off it.
 
     The ingestion row is built from the docket payload, which links no
-    transcript, so the post-argument trigger is read off the corpus row the
-    transcript pass latched it on. Read only while the grant moment is open and
-    no judgment is recorded, the two conditions without which the moment cannot
-    mint, so a cert or interim poll opens no extra read.
+    transcript and, on a consolidated member, carries no respondent brief, so
+    the post-argument trigger (``argument_transcript_at``) and a member's
+    briefed trigger (``merits_brief_on_lead``) are read off the corpus row the
+    live passes latched them on. Read only while the grant moment is open and
+    no judgment is recorded, the two conditions without which neither moment
+    can mint, so a cert or interim poll opens no extra read.
     """
     if MERITS_EVENT_ID not in open_event_ids or row.merits_judgment is not None:
         return None
     with corpus.connect(corpus_db_path) as conn:
-        stored = corpus.get_row(conn, row.case_id)
-    return None if stored is None else stored.argument_transcript_at
+        return corpus.get_row(conn, row.case_id)
 
 
 def _without_terminated_merits(
@@ -2117,11 +2130,11 @@ def persist_moment_events(
     story: the corpus upsert is keyed on ``(case_id, event_id)`` and
     ``resolved`` MAX-latches, so a re-mint can neither duplicate an event nor
     reopen one a later judgment closed — and the ledger ``event.yaml`` is
-    written from the **post-upsert** row, so the committed definition honours
-    the same latch. Corpus first, ledger second: the ledger file is derived
-    from the corpus row, so an interruption leaves the corpus authoritative
-    and the next run converges the ledger. ``events`` must all belong to the
-    case ``(court_id, docket_id)`` names.
+    written from the **post-upsert** row (its title excepted, below), so the
+    committed definition honours the same latch. Corpus first, ledger second:
+    the ledger file is derived from the corpus row, so an interruption leaves
+    the corpus authoritative and the next run converges the ledger.
+    ``events`` must all belong to the case ``(court_id, docket_id)`` names.
 
     **When each half of an event is owed.** A stage's case-level *baseline* —
     the cert petition's ``evt-petition-disposition``, the interim application's
@@ -2136,13 +2149,25 @@ def persist_moment_events(
     asymmetry is what makes a baseline row without a ledger file ordinary and a
     minted row without one a defect, which is the line
     ``validate-corpus``'s corpus→ledger check draws.
+
+    **A re-mint keeps the committed caption.** A moment mint re-fires on every
+    poll that still sees its trigger (the CVSG, SG brief, call-for-response,
+    relist, interim response and later merits moments), and each re-fire
+    restamps the corpus title from the row's current caption. The ledger ``event.yaml``
+    keeps the title it was first written with, so it stays the caption a
+    prediction on the moment was made under — the witness the re-docketing
+    check (:mod:`fedcourtsai.pipeline.redocket`) reads when the corpus title
+    has re-tracked a re-entered number. A committed file the check could not
+    read as a witness (:func:`ledger_identities`) is rewritten whole.
     """
     if not events:
         return []
     corpus.upsert_events(conn, events)
     stored_all = {e.event_id: e for e in corpus.events_for_case(conn, events[0].case_id)}
+    committed = ledger_identities(data_root, court_id, docket_id, (e.event_id for e in events))
     for event in events:
         stored = stored_all[event.event_id]
+        prior = committed.get(event.event_id)
         write_yaml(
             CasePaths(data_root, court_id, docket_id).event(event.event_id).event_file,
             PredictableEvent(
@@ -2151,7 +2176,7 @@ def persist_moment_events(
                 kind=stored.kind,
                 stage=stored.stage,
                 moment=stored.moment,
-                title=stored.title,
+                title=prior.title if prior is not None else stored.title,
                 description=stored.description,
                 docket_entry_id=stored.docket_entry_id,
                 opened_at=stored.opened_at,
@@ -2405,6 +2430,26 @@ def _gap_events(
     return gaps
 
 
+def _closed_by_termination(event: corpus.CorpusEvent, row: corpus.CorpusRow) -> bool:
+    """Whether a merits moment is closed because its proceeding ended undecided.
+
+    The merits backfill closes an open merits moment on a terminated row
+    without an outcome (``merits-terminated``). It is no gap while the row
+    stays terminated: there is no decision to attribute and no date to window
+    it by, and filing it with the undated residue would overwrite its reason.
+    Once a judgment parses on the row, the termination is cleared and the
+    moment is an ordinary dated gap again, recorded over the mark. A row
+    re-read as the bare mandate notation (a decided docket) is a gap again
+    too, as the backfill would have left it open.
+    """
+    return (
+        event.resolved_without_outcome_reason == corpus.NO_OUTCOME_MERITS_TERMINATED
+        and row.merits_terminated is not None
+        and row.merits_terminated != MeritsTermination.judgment_issued.value
+        and row.merits_judgment is None
+    )
+
+
 def _due_cases(
     conn: sqlite3.Connection,
     data_root: Path,
@@ -2418,12 +2463,14 @@ def _due_cases(
     whose stage the row records decided, with no complete ledger pair: either
     the corpus records it resolved (a closure with no ground truth), or it is
     still open (detection declined it on the poll that saw the decision, and
-    re-extraction never closes it). It is due when its stage was decided on or
-    after ``floor``, or at any age when the case holds a committed prediction
-    at that stage; ``floor=None`` takes every gap at any age. A gap whose stage
-    the row carries no decision date for is appended to ``undated_out`` rather
-    than dropped: there is no date to window it by and none for
-    ``resolved_at``, so it cannot be recorded, but it must not vanish either.
+    re-extraction never closes it). A merits moment the backfill closed on a
+    terminated row is no gap (:func:`_closed_by_termination`). It is due when
+    its stage was decided on or after ``floor``, or at any age when the case
+    holds a committed prediction at that stage; ``floor=None`` takes every gap
+    at any age. A gap whose stage the row carries no decision date for is
+    appended to ``undated_out`` rather than dropped: there is no date to
+    window it by and none for ``resolved_at``, so it cannot be recorded, but
+    it must not vanish either.
     """
     due: list[_DueCase] = []
     for case_id, gap_events in _gap_events(conn, data_root).items():
@@ -2437,8 +2484,12 @@ def _due_cases(
         newest: date | None = None
         undated: list[str] = []
         for event, stage in gap_events:
-            if not event.resolved and not _stage_shows_decided(row, stage):
-                continue  # an open moment of an undecided stage is simply pending
+            if (not event.resolved and not _stage_shows_decided(row, stage)) or (
+                _closed_by_termination(event, row)
+            ):
+                # An open moment of an undecided stage is simply pending; one
+                # closed by its termination has nothing decided to record.
+                continue
             decided = _stage_decided(row, stage)
             if decided is None:
                 undated.append(event.event_id)

@@ -14300,3 +14300,552 @@ freeze commit is recorded here.
   merge as at its first parent.
 
   Carried to `main` by `promotion/2026-10-28-2` (merge commit `62581773890b273861da9a6ce22f24d2183b6b3c`, merged `2026-10-28T20:36:01Z`).
+
+- **A re-fired moment mint keeps the committed caption, so the re-docketing
+  check keeps its ledger witness; recorded 2026-10-28.** An **attribution**
+  entry under the 2026-10-17 re-docketing rule above, closing the limit it
+  listed as *Rewritten witnesses*. It moves no digest: no prompt template,
+  neither agent config and not `src/fedcourtsai/process_version.py` changes,
+  and `uv run fedcourts process-digest --all` at this commit prints what it
+  prints at its parent on `staging`: `proc-v13` and the six digests
+  `6a176c28…` (claude-baseline), `2827480e…` (codex-baseline), `b69b2b3a…`
+  (gemini-baseline), `167b7d71…` (claude-judge), `a8610eec…` (codex-judge)
+  and `6a88d3dc…` (gemini-judge).
+
+  **What changes.** `pipeline.outcome.persist_moment_events`, the one write
+  path for a minted moment, writes a definition whose committed `event.yaml`
+  already exists with that file's `title` kept, where it took the corpus
+  row's. The corpus event's title still re-tracks the row on every re-mint.
+  A moment mint re-fires on every poll that still sees its trigger (the
+  CVSG, SG brief, call-for-response, relist, interim response and later merits
+  moments), so from this entry's carrying merge a minted moment's committed
+  file keeps the caption the moment was first minted under, which is the caption a prediction on it was made under,
+  and the check reads it as it reads a baseline's. A committed file the check
+  could not read as a witness is rewritten whole, as before. Every other field
+  is still written from the post-upsert corpus row.
+
+  **What moves.** Nothing at this commit: the change acts on the next re-mint,
+  and no committed file is rewritten by it. Every committed minted-moment
+  definition at the parent (among them 91 call-for-response, 21 response
+  requested, 19 relist, 17 CVSG, 4 SG brief, and 52, 22 and 6 order, brief
+  and argument merits definitions, by directory count) keeps what it carries
+  now. The 2026-10-17 census found no moment on a re-docketed number beyond
+  the one already voided, so **0 scored outcomes move**. After a later
+  re-docketing, a predicted minted moment on the number is refused with the re-docketing reason where
+  it was graded against the other petition's disposition.
+
+  **What the rule still misses.** A re-docketing that falls before a moment's
+  first mint is invisible to its definition, as for a baseline before its
+  first touch; nothing was predicted on it. A caption the Court changes on the
+  same petition (a substituted party) is kept at its first-mint rendering in
+  the committed file; the rule reads party words, so a substitution with an
+  office word still overlaps.
+
+  The runnable effect check once it is live: `uv run pytest
+  tests/test_outcome.py -k "re_fired_mint or re_mint_over"` is green, and `uv
+  run python scripts/checks/redocketed_numbers.py` reports the same refusal
+  counts at the carrying merge as at its first parent.
+
+- **Gemini rows carry the call's logged outcome, and codex logs gain the
+  cell's subagent sessions, 2026-10-28.** Two **capture** changes of the
+  masking-surface class, in one PR. No digest, constant, window, boundary or
+  membership rule moves, and `uv run fedcourts process-digest --all` prints the
+  same `proc-v13` digests at the change as at its base.
+
+  **Gemini.** Gemini CLI 0.49's `gemini_cli.tool_call` record carries the
+  call's `success` bit, a failed call's message, and, with prompt logging on
+  as the cell workflows set it, a shell command's non-zero exit in `metadata`.
+  Capture now reads them. Every gemini row is `result_capture` `outcome_only`
+  where it was `unobserved`, with `result_status` `error` where the CLI marked
+  the call failed (its `success` false, an error message logged, or a shell
+  command's non-zero exit), `throttled` where a manifest call's failure message
+  carries the 429 shape (read after the CLI's `with response:` wrapper where it
+  quotes the call's own arguments, else the whole message), and `ok` otherwise. Digests and
+  document dates stay null, because the payload is still not logged.
+  - **What it reaches through the blinded log.** The mask passes both markers
+    through, so every evaluator now sees, on a gemini candidate, which calls
+    the engine marked failed. That is the point: a judge reading a
+    `fedcourts query` row against a `retrieval.md` that reports no retrieval
+    can tell a failed attempt from an undisclosed one. The evaluate prompt
+    describes `captured` and `unobserved` only; it is not edited here, so an
+    `outcome_only` row reaches a judge described by its own name and the
+    field's schema description until a re-bless adds a line for it. A judge
+    applying the prompt literally may read an `outcome_only` row's null digest
+    as "returned nothing", so blinded leakage grades of gemini candidates sit
+    on a capture seam across the merge. An all-`outcome_only` log identifies
+    the gemini candidate as surely as an all-`unobserved` one did.
+  - **What it moves on published surfaces.** Gemini manifest calls enter the
+    throttle denominator for the first time: the log's `throttled_calls`, the
+    run PR's throttle note, and the tool-usage report's per-engine throttle
+    cut. Gemini's figure sees a 429 the server raised as a tool error and never
+    the citation tools' note on a successful result, so it is a narrower floor
+    than claude's or codex's. Gemini logs captured before the carrying merge
+    stay `unobserved` and add nothing to it, so a gemini throttle figure is
+    scoped to logs captured after the merge, and a move across it is a capture
+    change. `result_capture_coverage` does not move: it counts `captured` rows
+    only.
+
+  **Codex.** Capture read the newest `rollout-*.jsonl` under the cell's
+  sessions directory, and a subagent session started after the parent's last
+  write is the newest file. It now reads the parent session (the newest
+  rollout whose `session_meta` names no parent thread and no subagent source),
+  every subagent session descending from it, and any subagent session in the
+  cell's directory that names no parent: calls merge in timestamp order, and
+  token counts sum. A subagent forked with its parent's history copies the
+  parent's token events and continues its running total, so only what it adds
+  past the inherited total counts; the fork copies no tool call, so no row
+  repeats. A tree with no top-level `session_meta` reads the newest rollout
+  alone.
+  - **What it reaches.** A codex candidate's staged log can gain rows a
+    subagent made, which is retrieval the cell did and which the judge
+    previously could not see. A codex cell's `usage.json` tokens and estimated
+    cost rise by the subagent's use, so measured spend moves with them, under
+    the same process version: a codex $/cell measured across the carrying
+    merge pools two capture regimes that no digest separates, and earlier
+    codex measurements leave subagent spend out, so a re-anchor of codex's
+    planning rate reads cells after the merge only. Subagent tokens are priced
+    at the parent's requested model, and `served_models` reads the parent
+    session alone, so a subagent on another model is priced as the parent.
+  - **What it does not repair.** The 10 of 675 committed codex logs (counted
+    2026-10-16) that looked like a subagent's session keep what they carry,
+    and so do the same cells' `usage.json`, which count the subagent's tokens
+    rather than the parent's: capture runs once, and those rollouts are gone.
+
+  The parsers were built against the Gemini CLI 0.49 and Codex 0.144.1 sources
+  and exercised on fixtures shaped from them; no real engine log was read for
+  this entry, so both readings are unverified until the first round after the
+  carrying merge. The runnable effect check once it is live, on the first
+  predict round after the carrying merge: across its gemini
+  `retrieval_log.json` files, `jq '[.calls[].result_status] | unique'` prints
+  more than `["ok"]` on at least one cell (a status read from a real
+  `success` or error field, not the residual), and across its `usage.json`
+  files `jq .served_models` is non-null on each engine's cells; on the first
+  evaluate round, each cell directory carries a `blinding.json`; and `uv run
+  fedcourts process-digest --all` prints the same label and six digests at
+  the carrying merge as at its first parent.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+- **A merits event on a proceeding that ended with nothing decided closes
+  without an outcome, `merits-terminated`; recorded 2026-10-28.** A
+  **membership** entry: it states the terminal state of a forecast that can
+  never be graded, and moves no scored figure. It moves no digest: no prompt
+  template, neither agent config and not `src/fedcourtsai/process_version.py`
+  changes, and `uv run fedcourts process-digest --all` at this commit prints
+  `proc-v13` and the six digests the entries above list.
+
+  **What changes.** `pipeline.judgment.backfill_merits_judgments`, the
+  run-seed step that stamps `merits_terminated`, now also closes every open
+  merits-stage event on a row whose termination says the proceeding ended
+  with nothing decided (a Rule 46 dismissal, a dismissal as moot, an
+  abatement, a grant the Court vacated). Each is marked
+  `resolved_without_outcome` with the new reason `merits-terminated`. No
+  outcome is written, and the termination is never read as an undisturbed
+  judgment. A row whose only terminal entry is the bare mandate notation
+  (`judgment-issued`) is a decided docket the parser missed, and its events
+  stay open. The outcome passes leave a `merits-terminated` event alone while
+  its row stays terminated; if a judgment later parses, the parse clears the
+  termination and the convergence records the outcome over the mark.
+
+  **What a closed event owes.** Nothing. The evaluate backlog
+  (`pipeline.pull.derive_evaluate_backlog`) and `store.resolved_events` leave
+  out a `merits-terminated` event: with no `outcome.json` there is no ground
+  truth to grade, and a cell minted on one could only fail at model cost. The missed-forecast scan leaves out a
+  `merits-terminated` event, which was never decided: it is neither a missed
+  forecast nor a missing outcome record.
+
+  **What moves**, read 2026-10-28 from the production corpus under
+  `origin/main`'s pointer (`5e42eb35…`, latest pull 2026-10-28) and the
+  ledger at `origin/main`. Twelve open merits events on nine dockets carry a
+  termination other than the mandate notation: 19-825 (`grant-vacated`) and
+  20-429, 20-454, 20-539, 20-794, 20-1374, 20-1541, 24-413 and 25-886
+  (`voluntary-dismissal`). Only 25-886 (`scotus/73280386`,
+  `evt-order-judgment`) carries committed predictions: three forward cells
+  of run `20260816T111104Z`, one per predictor. They were never graded and
+  now never will be, and no evaluate cell is minted on them. The other cells
+  on these events are failed attempts.
+  **0 scored outcomes move**, and no base rate re-prices: a terminated row
+  was already outside the merits pool's `parsed` slice.
+
+  The runnable effect check once it is live: run-seed's merits backfill step
+  (its daily scheduled window, or a dispatch) prints `closed 12 open merits
+  event(s) without an outcome` on its first run after the carrying promotion
+  and `closed 0` after; `uv run fedcourts backfill-merits-judgments` (a dry
+  run, where the corpus is pulled) prints `would close 12` before it; and `uv
+  run pytest tests/test_judgment.py tests/test_outcome.py
+  tests/test_evaluate_backlog.py tests/test_missed_forecasts.py -k
+  "terminat or without_an_outcome"` is green.
+
+- **`proc-v14`: the predict and evaluate prompts take the flag vocabulary,
+  the harness clock and the call-for-response moment; recorded 2026-10-28.**
+  Carried to `main` by `<FILL: promotion tag>` (merge `<FILL: merge sha>`,
+  `<FILL: merged-at>`), to be tagged **`prereg/proc-v14`**. Registered under
+  the merge-stamped rule, so its counting instant, its six bless moments and
+  every window edge it moves are the carrying merge's committer time. It is
+  the first label to move all six digests at once, so it takes two
+  supersession shapes together
+  ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  `.github/prompts/predict.md` changes, so each predictor's open `proc-v13`
+  window **closes** at this label's instant and a `proc-v14` window opens
+  there for each new digest (the third shape); and
+  `.github/prompts/evaluate.md` changes, so the three judges' blessings are
+  replaced (the second shape). Nothing is de-counted and nothing is re-owed:
+  every cell counted in a closed window keeps counting under its own label.
+  Until the carrying merge stamps the six new blessings, the carried bless map
+  is empty while `FROZEN_SINCE` stays at `proc-v13`'s instant; every board
+  built in that interval counts nothing of this label, the safe direction.
+
+  **What moved, in the predict prompt.**
+  - *Sources.* The CourtListener tools are for lower-court records; the
+    docket's own state comes from the snapshot and the Court's site. A
+    forward cell that meets a claimed outcome of its own case checks it
+    against the docket and, where it cannot, flags it unverified.
+  - *The replay boundary* is stated as the context's `cutoff`, with the
+    docket's decided-before Term named as the coarser bound it is; a replay
+    cell's disclosure of outcome-revealing material is written under the
+    `leakage-disclosure` category.
+  - *Flags.* The prompt lists the category vocabulary (`provisioning`,
+    `capture-gap`, `leakage-disclosure` among them), defines each severity,
+    offers the optional `issue` field, and tells the cell never to write
+    `source` or `normalised`. `blocked` is no longer offered; a cell that
+    could not finish writes the category that names why, at severity
+    `blocker`. The "good hygiene" note is dropped: a decisive signal belongs
+    in `reasoning.md`.
+  - *Corpus commands* are spelled `uv run fedcourts query` and `uv run
+    fedcourts open-events`, with a note on `PATH`, `--help`, and at least one
+    filtered query.
+  - *The distribution moment* is placed at no cut (`cutoff: null`), so its
+    snapshot is the docket as last stored, and the prompt says so.
+  - *The vote block* is scored only against a complete record over the whole
+    bench.
+  - *`created_at`* may be any timestamp: the stamp overwrites it.
+  - *`retrieval.md`* lists every call the cell attempted, a failed or refused
+    one included, since the harness log records them all.
+  - *Paper-only filings* in the context are named.
+  - *`prediction_summary.md`*: every predict cell writes a plain-language
+    summary of about 80 words beside its other files (the stamp warns past
+    160). It is display material, read by no scorer and staged to no judge
+    (the blinded staging copies only allowlisted files); the stamp warns on a
+    missing or overlong one and refuses nothing.
+  - *The cert call-for-response moment* (`moment: response-requested`, event
+    `evt-order-call-for-response-disposition`) is named, so a cell placed on
+    it knows what it is.
+
+  **What moved, in the evaluate prompt.** The same `created_at`, corpus
+  command, flag vocabulary and `cutoff: null` lines; what an `outcome_only`
+  retrieval-log row means (a call whose ending the log carried but not its
+  result); the `vote_accuracy`
+  completeness rule in both places it is described; and the claim-set names,
+  which now read `interim-v2` and `merits-v2`. That pays the amendment debt
+  the `proc-v12` entry left for the next label to move the judges.
+
+  **What the harness releases with this label.**
+  - *The cert call-for-response moment is forecastable.* It was declared,
+    parsed and minted (92 committed definitions at `origin/main` `a0a526439`) but filed no
+    cell. A cell on it is admitted only until a conference the petition was
+    distributed for on or after the call has sat
+    (`store._CONFERENCE_BOUNDED_MOMENTS`, the bound the relist and sg-brief
+    moments already carry), so the events minted for petitions called on long
+    before the switch-on should never be filed: a conference has already sat
+    on them. That is read from the code and the store tests, not from a
+    dry-run over the corpus; the `predict-plan` effect check below settles
+    it. The moment is not in `REPREDICT_MOMENTS`. It is scored separately
+    and never pooled with another cert moment. No committed table conditions
+    on a called-for response, so the prompt anchors the cell on its band and
+    asks it to say how far the call moves it.
+  - *`relist-increment` is masked as vacuous on that moment*
+    (`pipeline.claims._MOMENT_VACUOUS`): a petition the Court called for a
+    response on is distributed again once the response is in or its time
+    runs out, so the count is all but certain to rise. The claim has no
+    baseline today and scores nowhere, so the mask moves no scored figure;
+    it keeps a resolved `1` from standing beside a certain forecast once a
+    baseline lands.
+  - *A consolidated member's briefed moment* opens on the lead docket's
+    merits brief where the member's own row records none
+    (`merits_brief_on_lead`). The member latch is written after ingest, so
+    the moment mints one poll after the lead's brief.
+  - *The flag roll-up* names the untracked issue a row cites.
+
+  **What scored figures move.** None in the headline: no baseline, rate or
+  membership rule moves, and the call-for-response cells are a new
+  population with no prior cell to compare against, whose own block's skill
+  is not claimable until a floor conditioned on the call is registered
+  ([metrics/README.md](../metrics/README.md)). Headline *membership* can
+  still move through the judges: the leakage exclusion drops a grading with
+  `leakage_suspected` from every scored figure, the ranked
+  `cert@distribution` arm included, and the evaluate prompt now reads a
+  distribution cell's later docket entries as provisioned input (the
+  evaluator half below). At `a0a526439`, 23 committed gradings carry
+  `leakage_suspected: true`, 18 of them on `evt-petition-disposition`, so an
+  exclusion count on that arm reads per rubric. One diagnostic moves in
+  definition: the back-tests' `outcome_exposure_candidate` bit is set on any
+  flag written under `leakage-disclosure` as well as on the message
+  heuristic, so a candidate count read across this boundary, the cert
+  back-test's and the merits back-test's `exposure_candidates` alike,
+  compares two rules ([metrics/README.md](../metrics/README.md)).
+
+  **The retiring evaluator digests, and what was graded under them.**
+  `sha256:167b7d71…` (`claude-judge`), `sha256:a8610eec…` (`codex-judge`) and
+  `sha256:6a88d3dc…` (`gemini-judge`) leave the blessed set. At `origin/main`
+  `a0a526439` they stamp **174**, **87** and **87** committed evaluations, and
+  `store.stratify` over that ledger keeps **156**, **84** and **84** of them
+  in scope, **324** counted cells in all. Each keeps counting on its timing
+  (`graded_in_window`); only the constant stops naming the digest, so this
+  entry is where the grading process behind them stays recorded. Because an
+  evaluator digest records and never partitions, every judge's grading series
+  pools across this rubric boundary, and a judge-dependent figure that spans
+  it reads per rubric ([metrics/README.md](../metrics/README.md)). Two
+  grading criteria moved with the rubric text. The judge reads a
+  distribution cell's later docket entries as provisioned input, not
+  retrieval, so a leakage call on such a cell can differ across the boundary;
+  `leakage_suspected` series on distribution cells read per rubric. And
+  `vote_accuracy` is written only against a complete vote record, which no
+  committed merits outcome carries yet, so no grade moves on it today.
+
+  **Digests** (`uv run fedcourts process-digest --all`, at `staging`
+  `cd3500993` before this change and at it):
+
+  | Actor | Before | `proc-v14` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d` (`proc-v13`) | `sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf` (new) |
+  | `codex-baseline` | `sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354` (`proc-v13`) | `sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6` (new) |
+  | `gemini-baseline` | `sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745` (`proc-v13`) | `sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583` (new) |
+  | `claude-judge` | `sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12` | `sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec` (new) |
+  | `codex-judge` | `sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac` | `sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30` (new) |
+  | `gemini-judge` | `sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4` | `sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9` (new) |
+
+  **Step 0.** At `origin/main` `a0a526439` (`2026-10-28T21:01:15Z`), `git grep
+  -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
+  the six newly blessed digests, and `git grep -l '"process_version": {'
+  origin/main -- data/cases | wc -l` is **3107** stamped cells.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`6a176c28…`) | `proc-v13` | `2026-10-26T19:00:50Z` | this label's instant (was open) |
+  | `codex-baseline` (`2827480e…`) | `proc-v13` | `2026-10-26T19:00:50Z` | this label's instant (was open) |
+  | `gemini-baseline` (`b69b2b3a…`) | `proc-v13` | `2026-10-26T19:00:50Z` | this label's instant (was open) |
+  | `claude-baseline` (`641ede79…`) | `proc-v14` | this label's instant | open (new) |
+  | `codex-baseline` (`231b2fd0…`) | `proc-v14` | this label's instant | open (new) |
+  | `gemini-baseline` (`725538ea…`) | `proc-v14` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** This was run with this commit's
+  pending rows stamped by hand at a provisional instant,
+  `2026-10-29T00:00:00Z`, in a scratch copy of the registry, over
+  `origin/main`'s ledger at `a0a526439`. `uv run fedcourts
+  successor-disclosures --closed proc-v13 --successor proc-v14`:
+
+  ```
+  successor proc-v14 closes proc-v13 at 2026-10-29T00:00:00+00:00
+    closed proc-v13 codex-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    closed proc-v13 claude-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    closed proc-v13 gemini-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v13` window figure is quoted outside the committed
+  board.
+
+  **Evidence for the change other than the closed windows' boards.** None:
+  the prompt lines answer what the agents' own flags and the maintainer's
+  review of cells reported, not a score.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; print(L)"` prints `proc-v14`, and `uv run
+    fedcourts process-digest --all` prints the six digests above;
+  - `uv run python -c "from fedcourtsai.pipeline.moments import spec_for;
+    print(spec_for('evt-order-call-for-response-disposition').forecastable)"`
+    prints `True`, and `uv run fedcourts predict-plan` names a
+    call-for-response cell only for a petition no conference has sat on
+    since its call;
+  - the first predict round after the carrying merge writes a
+    `prediction_summary.md` in every cell (the stamp's warning lines count
+    the misses), and `fedcourts validate data` stays green on its run PR.
+
+- **A cell's context records what the snapshot contact scrub withheld;
+  recorded 2026-10-29.** A record change with no reading rule and no scored
+  figure.
+
+  **Why.** On a docket read as self-represented, provisioning stages the
+  snapshot with that filer's contact keys replaced by placeholders. The only
+  record of it was the placeholders themselves and the run log's counts, and
+  the log expires. A staged snapshot with no placeholder therefore read the
+  same whether the scrub ran and found nothing or never ran. The document
+  scrub already says this per file in `documents.json`; the snapshot scrub
+  said nothing.
+
+  **The record.** `PredictionContext` gains `snapshot_contact_scrub`:
+  - `sides`, the counsel-block lists the docket was read as self-represented
+    on, which is the scrub's trigger; empty where it did not run;
+  - `blocks` and `fields`, the blocks that had a value withheld and the
+    values withheld, both zero where `sides` is empty.
+
+  It is written on every cell `write_cell_record` provisions, forward and
+  replay alike. It is null on the cert back-test's replay contexts, whose
+  provisioner redacts the snapshot by its own rule and runs no contact scrub,
+  and on every cell provisioned before the carrying merge. The cell reads
+  `record/context.json`, so the field joins its information set. It adds
+  nothing the cell could not already see, since the placeholders are in the
+  staged snapshot, and it carries counts only, never a withheld value. No
+  prompt text or other digest input changes, so no digest moves. The summary
+  prompt, which is outside every digest, gains a line telling the summary
+  writer the placeholders are the pipeline's and not to be repeated.
+  - **The registry row.** The boundary is `context-snapshot-contact-scrub`.
+    It applies to every predictor, with reach `all`, and is not gradual:
+    every cell provisioned after the carrying merge carries the record. It is
+    registered **pending** in this change's own PR
+    (`fedcourts register-boundary`). Its `merge` and `at` stay null until the
+    promotion merge that carries it to `main` stamps them
+    (`promotion-record`).
+  - **Expected population.** Every newly provisioned cell carries the record.
+    A non-empty `sides` appears exactly where the run log's existing
+    snapshot-scrub line appears, so the record changes no cell's staged
+    snapshot or documents. No corpus count was taken for this entry.
+
+  **What it moves.** No scored figure. Once cells sit on both sides of the
+  stamped boundary, each pooled entry's and each paired engine's `boundaries`
+  list gains a `context-snapshot-contact-scrub` row. That row is composition,
+  not a cut. The field is no cut, exclusion or rank key on any board. A later
+  dated entry must register one before any figure reads it.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live:
+  - `uv run pytest tests/test_snapshot_scrub.py -k scrub_record` and `uv run
+    pytest tests/test_cli_provision.py -k snapshot_scrub_ran` are green;
+  - on the first predict run's collect PR after the carrying merge, `jq -c
+    '.context.snapshot_contact_scrub'
+    data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json`
+    prints an object, never `null`, for every file;
+  - on `main`, `uv run python -c
+    "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('context-snapshot-contact-scrub' in {b.name for b in H})"` prints
+    `True` once the promotion record has stamped the row.
+
+- **A bare `fedcourts` resolves in every agent's shell, and each cell's
+  retrieval log counts the requests its corpus sidecar answered; recorded
+  2026-10-29.** An environment change with no reading rule and no scored
+  figure, and a harness record beside it.
+
+  **Why.** The agent shell had `uv` but not the project's own `fedcourts` on
+  its PATH, so a cell that ran `fedcourts query` without the `uv run` prefix
+  got "command not found" and either retried or dropped the corpus. Cells of
+  every engine did both, gemini's most often, in the predict run diagnosed on
+  2026-09-28 (23 gemini cells compared against their sidecar logs). The
+  prompts now spell `uv run fedcourts`; this makes the bare form work too.
+  Separately, whether a cell's query reached the corpus service could only be
+  read from the engine's transcript and the cell's own report, which differ by
+  engine in what they show.
+
+  **The environment half.** The predict and evaluate cell jobs symlink the
+  project venv's `fedcourts` into `/usr/local/bin` after the venv is built.
+  It is the same binary `uv run fedcourts` runs, so a command that worked
+  before gives the same answer; what changes is that the bare spelling now
+  runs instead of failing. `/usr/local/bin` is on codex's `secure_path`, so
+  codex's separate account reaches it too. No prompt text or other digest
+  input changes, so no digest moves.
+  - **The registry row.** The boundary is `agent-shell-fedcourts-on-path`. It
+    applies to every predictor, with reach `all`, and is not gradual: every
+    cell run after the carrying merge has the bare command. It is registered
+    **pending** in this change's own PR (`fedcourts register-boundary`). Its
+    `merge` and `at` stay null until the promotion merge that carries it to
+    `main` stamps them (`promotion-record`).
+  - **Expected population.** Every cell after the carrying merge. Only a cell
+    that types the bare command is affected, and its transcript shows it.
+
+  **The record half.** `retrieval_log.json` gains `corpus_service`, the
+  `/v1/query` and `/v1/open-events` requests the cell's corpus sidecar logged
+  and how many it answered 200, counted by the capture step off the sidecar's
+  request log. The collect job's prior-availability note gains a line naming,
+  per actor, the cells whose sidecar logged no query. It changes nothing a
+  cell reads, and the blinding mask drops it, so it reaches no grader. It
+  needs no boundary.
+
+  **What it moves.** No scored figure. Once cells sit on both sides of the
+  stamped boundary, each pooled entry's and each paired engine's `boundaries`
+  list gains an `agent-shell-fedcourts-on-path` row. That row is composition,
+  not a cut. Neither the boundary nor `corpus_service` is a cut, exclusion or
+  rank key on any board. A later dated entry must register one before any
+  figure reads either.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live:
+  - on the first predict run after the carrying merge, a cell job's log shows
+    the "Put the project CLI on the agent shell's PATH" step green, and `jq -c
+    '.corpus_service'
+    data/cases/scotus/*/events/*/predictions/*/<run_id>/retrieval_log.json`
+    prints an object, never `null`, for every file;
+  - the run PR's body carries the sidecar line only where some cell's sidecar
+    logged no query, naming that actor's count against its own cells;
+  - on `main`, `uv run python -c
+    "from fedcourtsai.process_version import HARNESS_BOUNDARIES as H;
+    print('agent-shell-fedcourts-on-path' in {b.name for b in H})"` prints
+    `True` once the promotion record has stamped the row.
+
+- **The live-duplicate dedupe merges a pair that a caption-only CourtListener
+  row sits beside, and nine cert-stage dispositions stop counting twice;
+  recorded 2026-10-29.** A corpus convergence under an unchanged digest that
+  moves published statpack counts.
+
+  **Why.** `dedupe-live-rows` merges a SCOTUS number held under both a
+  CourtListener docket id and a live-minted reserved-range id, but it took only
+  exact two-row groups. Nine numbers carry a third CourtListener row that
+  asserts no disposition, filing, decision, cert or live-poll date: `17-1107`,
+  `17-9572`, `18-1109`, `19-1302`, `20-1009`, `20-1084`, `21-439`, `21-511`
+  and `21-846`. Read ranged from the blob at `main` `d8b560718` (latest pull
+  2026-10-28, latest snapshot 2026-07-13), the CourtListener row and the live
+  twin agree on filing date, cert-grant date and disposition for all nine
+  (eight `granted`, one `gvr`), both rows carry `last_live_polled`, and for
+  the eight grants both carry the same `merits_judgment` and
+  `merits_decided`. So each of the nine is two rows in every figure that
+  counts rows. The 2026-10-18 entry above named eight of them as this
+  pattern; `17-9572` is the ninth.
+
+  **The change.** The candidate rule sets aside any CourtListener row
+  asserting none of `disposition`, `date_filed`, `date_decided`,
+  `date_cert_granted`, `date_cert_denied` or `last_live_polled` before
+  counting the group, provided every such row's docket id sits above the
+  survivor's. In all nine groups the caption-only row's id is the highest.
+  The merge then runs as for any pair, and the caption-only row stays in
+  place, untouched. It runs in run-seed's dedupe step, which runs in the daily
+  02:31 UTC window, so the nine converge in the first such window after the
+  carrying promotion with no dispatch.
+
+  **What it moves.** Every row-counting statpack figure that reads these rows
+  loses one row per number:
+  - the pack-level `corpus_rows` and the court and era sections, by nine;
+  - the live-slice totals and the live-slice cert-stage sections (the relist,
+    CVSG and amicus cuts among them);
+  - the per-Term cert-stage figures for OT2017 to OT2021: eight grants and one
+    GVR, in the paid or IFP class each serial falls in;
+  - the merits section, from the Term of each grant: `granted`, `parsed` and
+    the judgment counts lose the eight grants: two `affirmed` (`17-1107`,
+    `18-1109`), five `reversed` (`17-9572`, `20-1009`, `20-1084`, `21-439`,
+    `21-511`) and one `vacated` (`21-846`). The GVR enters no merits row.
+
+  No committed prediction, evaluation or graded figure sits under a dropped
+  live id. Eight keep a baseline `event.yaml` and `outcome.json` under the
+  dropped id, by the dedupe's design, and one carries nothing; no rate or
+  census reads them. Baselines pooled from a statpack refreshed after the
+  merge read the deduplicated counts: the cert band rates and the merits
+  disturbed rate, whose ten-Term windows cover OT2017 to OT2021, so a stamp,
+  re-grade or merits grading after that refresh draws on them.
+
+  **The boundary.** An OT2017 to OT2021 per-Term cert-stage or merits figure,
+  or a baseline pooled over those Terms, from a statpack refreshed before the
+  carrying merge is not compared or pooled with one refreshed after it.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live: the first 02:31 UTC run-seed
+  window after the carrying merge drops the nine live ids in its "Dedupe
+  live-minted duplicate rows" step, and
+  `uv run fedcourts dedupe-live-rows` on a freshly pulled corpus then prints
+  `would drop 0 live-minted row(s)`.

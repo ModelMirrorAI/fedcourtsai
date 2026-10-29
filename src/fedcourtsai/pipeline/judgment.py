@@ -75,7 +75,7 @@ from typing import Any, NamedTuple
 from pydantic import BaseModel, ConfigDict, Field
 
 from .. import corpus
-from ..schemas import Judgment, MeritsTermination
+from ..schemas import Judgment, MeritsTermination, Stage
 from .cert_signals import entry_date, proceedings_entries
 from .justices import resolve_surname
 from .prefetch import prefetch_by_case
@@ -897,6 +897,15 @@ class MeritsBackfillResult(BaseModel):
         "never clears a stored value, so this is the visibility a retracted "
         "parse gets; a persistent count is the maintainer's triage signal",
     )
+    terminated_events_closed: int = Field(
+        default=0,
+        ge=0,
+        description="Open merits-stage events on rows that ended with nothing "
+        "decided (every termination but `judgment-issued`) that the pass "
+        "closed (apply) or would close (dry-run) without an outcome, marked "
+        "`resolved_without_outcome` with the reason `merits-terminated`: the "
+        "proceeding ended with nothing decided, so there is no outcome to record",
+    )
     parsed: int = Field(ge=0, description="Rows with a parsed merits judgment")
     unchanged: int = Field(
         ge=0, description="Parsed rows whose stored columns already carry the parse"
@@ -924,6 +933,23 @@ class MeritsBackfillResult(BaseModel):
     )
 
 
+def _closed_by_termination(
+    conn: sqlite3.Connection, case_id: str, termination: MeritsTermination
+) -> list[tuple[str, str]]:
+    """The open merits events a termination closes without an outcome, as ``(case, event)``.
+
+    None for the bare mandate notation: that docket was decided and the parser
+    missed the entry, so its events wait for the parse.
+    """
+    if termination is MeritsTermination.judgment_issued:
+        return []
+    return [
+        (case_id, event.event_id)
+        for event in corpus.events_for_case(conn, case_id)
+        if event.stage == Stage.merits and not event.resolved
+    ]
+
+
 def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> MeritsBackfillResult:
     """Parse each merits-bound SCOTUS row's stored snapshot for its judgment.
 
@@ -949,7 +975,15 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
     pendency without asserting a disposition it does not have. The reverse
     holds too: a row carrying a termination whose snapshot now parses a
     judgment is written, and the write clears the termination, because a read
-    disposition supersedes the no-disposition record. A stored
+    disposition supersedes the no-disposition record. Every open merits-stage
+    event on a row that ended with nothing decided (a termination other than
+    ``judgment-issued``) is closed without an outcome, marked
+    ``resolved_without_outcome`` with the reason ``merits-terminated``, so it
+    stops reading as pending: nothing would ever resolve it. A
+    ``judgment-issued`` row is left open, because the docket was decided and
+    the parser missed the entry, so its events wait for the parse. Should a judgment
+    later parse on the row, the outcome convergence records it over the mark
+    (:func:`fedcourtsai.pipeline.outcome.converge_ledger_outcomes`). A stored
     judgment the pass can no longer re-derive is never cleared but is counted
     (``stale``), so a parser tightening that retracts a reading stays visible
     instead of silently persisting in the statpack. Dry-run unless ``apply``.
@@ -959,6 +993,7 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
     terminations_found: Counter[str] = Counter()
     updates: list[tuple[str, Judgment, date | None]] = []
     terminations: list[tuple[str, MeritsTermination]] = []
+    closing: list[tuple[str, str]] = []
     # Materialized before the prefetch, not walked beside it: `iter_rows` is a
     # lazily consumed cursor on `conn`, and stepping it while the prefetch's
     # workers read would put two readers on one connection. The rows are
@@ -1018,6 +1053,7 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
                 terminations_found[termination.value] += 1
                 if row.merits_terminated != termination.value:
                     terminations.append((row.case_id, termination))
+                closing.extend(_closed_by_termination(conn, row.case_id, termination))
                 continue
             judgment, decided = entry
             parsed += 1
@@ -1035,6 +1071,10 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
             corpus.set_merits_judgment(conn, case_id, judgment, decided)
         for case_id, termination in terminations:
             corpus.set_merits_termination(conn, case_id, termination)
+        for case_id, event_id in closing:
+            corpus.mark_resolved_without_outcome(
+                conn, case_id, event_id, corpus.NO_OUTCOME_MERITS_TERMINATED
+            )
     return MeritsBackfillResult(
         applied=apply,
         eligible=eligible,
@@ -1042,6 +1082,7 @@ def backfill_merits_judgments(conn: sqlite3.Connection, *, apply: bool) -> Merit
         no_match=no_match,
         terminated=terminated,
         terminations_written=len(terminations),
+        terminated_events_closed=len(closing),
         stale=stale,
         parsed=parsed,
         unchanged=unchanged,

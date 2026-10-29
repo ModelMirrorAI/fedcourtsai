@@ -31,6 +31,7 @@ data/cases/<court_id>/<docket_id>/events/<event_id>/predictions/<predictor_id>/<
   prediction.json          # the quantitative judgment
   predicted_reasoning.md   # what the Court will do
   reasoning.md             # why this number
+  prediction_summary.md    # the call in plain language, for a lay reader
   retrieval.md             # what was consulted beyond the provisioned inputs
   flags.json               # optional: a durable note for a maintainer
   tooling.json             # a short self-report on the tooling the cell had
@@ -47,7 +48,9 @@ fields that mean the same thing at every stage:
 
 - **Identity** — `case_id` (`<court_id>/<docket_id>`), `event_id`,
   `predictor_id`, `run_id`, `created_at`, and `engine` / `model`: which engine
-  ran and which resolved model produced the answer.
+  ran and which resolved model produced the answer. `stamp-cell` overwrites
+  `created_at` with its own stamp time (the `process_version.stamped_at`), so
+  the dataset export never publishes a time an agent invented.
 - **`input_snapshot`** — the provisioned snapshot the cell read, which lives at
   `data/cases/<court_id>/<docket_id>/record/snapshots/<YYYY-MM-DD>.json`. That
   `record/` is **case-level** — a sibling of `events/`, not a child of it — so
@@ -59,7 +62,8 @@ fields that mean the same thing at every stage:
   brief now;
   [document-provisioning.md](document-provisioning.md)); the post-argument
   merits cell's `authorship-tally.json` is held back on the same rule
-  (`provision.AUTHORSHIP_TALLY_WITHHELD`). `argument-features.json` is the
+  (`provision.AUTHORSHIP_TALLY_WITHHELD`), as is a cert cell's
+  `same-question.json` (`provision.SAME_QUESTION_WITHHELD`). `argument-features.json` is the
   deterministic parse of the transcript the cell was staged. The staged documents carry a
   `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
@@ -253,7 +257,8 @@ absent optional field as null.
     "amicus_briefs": null,
     "term": 2025,
     "vide_links": [],
-    "paper_only_filings": false
+    "paper_only_filings": false,
+    "snapshot_contact_scrub": {"sides": [], "blocks": 0, "fields": 0}
   },
   "process_version": {
     "label": "proc-v8",
@@ -450,6 +455,15 @@ neither can be read for what it is, and the forecast cannot be scored because
 it cannot be separated from the rationale. The evaluator's `reasoning_quality`
 grades `reasoning.md` and that document only.
 
+## `prediction_summary.md`
+
+One paragraph of about 80 words for a reader with no legal training: the call,
+its probability in words, and the main reason, with the predicted judgment and
+vote split at the merits stage. It restates `prediction.json` and must agree
+with it; it is not a second prediction. Blinded staging copies only the files a
+grade needs, so no judge reads it, and nothing scores it. `stamp-cell` warns,
+and only warns, where a cell left none or one over 160 words.
+
 ## `retrieval.md`
 
 Free-form markdown, not schema-validated: what the cell consulted beyond the
@@ -466,12 +480,25 @@ capture in `retrieval_log.json`.
 
 Written **only** when the cell has something durable to surface — a
 data-quality problem, a scope question, an ambiguous event, or the reason it
-was blocked. It validates against the `AgentFlags` model, and the `collect` job
+could not finish. It validates against the `AgentFlags` model, and the `collect` job
 rolls every cell's flags into the run PR body, the Actions summary, and one
 long-lived agent-feedback tracking issue, so the note survives the trigger
 issue's closure and a maintainer sees it without reading every `reasoning.md`.
-`category` is one of `data-quality` / `scope` / `ambiguous-event` / `blocked` /
-`other`, and `severity` one of `info` / `warning` / `blocker`.
+`category` is one of `data-quality` / `scope` / `ambiguous-event` /
+`provisioning` / `capture-gap` / `leakage-disclosure` / `other`, and `severity`
+one of `info` / `warning` / `blocker`. `provisioning` is a record missing
+something the pipeline should have staged, `capture-gap` an outcome or docket
+record that cannot show what the forecast or grading needed, and
+`leakage-disclosure` a note that outcome material about the case reached the
+cell or a candidate it grades (on a replay cell, material postdating its
+`context.cutoff`); the cert back-test marks every note filed
+there as an exposure candidate, whatever its wording. `blocked` also
+validates; `severity: blocker` is what says a cell could not finish. An
+optional `issue` names the repository issue that already tracks the problem,
+so a cell can cite it instead of re-describing it. Written as a number it
+places the flag in that issue's tracked theme; written as text (`"#123"`) it
+is read the same, but the coercion marks the flag `normalised`, so it is
+listed rather than counted.
 
 **A flag never fails a predict or evaluate cell.** The cell's judgment is its
 output and its flags are advisory. So `stamp-cell` normalises a `flags.json`
@@ -486,7 +513,12 @@ note discard the output beside it. (This section spells the verb the way the
   becomes `warning`, loud enough to be read. Nothing is ever coerced to
   `blocker`.
 - An off-vocabulary `category` becomes `other`, after the same insensitive
-  match, so `"data_quality"` keeps its meaning.
+  match (so `"data_quality"` keeps its meaning) and a short synonym table:
+  `outcome-exposure`, `leakage`, `leak` and `outcome-leakage` read as
+  `leakage-disclosure`; `capture` and `data-capture` as `capture-gap`;
+  `provision`, `mis-provisioning` and `missing-document` as `provisioning`.
+- An `issue` written as `"#123"`, `"123"` or `"gh-123"` reads as 123; one that
+  is not an issue number is dropped.
 - An over-long message continues in further flags of the same category,
   severity and event, so its text is never cut.
 - An unknown key is dropped, and a missing envelope field is filled from the
@@ -528,9 +560,11 @@ shows depends on how its engine logs it, so the note is engine-shaped: counts
 of it per engine compare logging as much as behaviour.
 
 The roll-up groups flags by case, event, source and theme. The theme is the
-tracked theme a flag's message matches in `src/fedcourtsai/flag_themes.json`
-(a theme-to-issue map), and otherwise the flag's category. So sibling actors'
-notes on one event read as one row naming every actor. An agent flag on a
+tracked theme a flag cites by `issue` or its message matches in
+`src/fedcourtsai/flag_themes.json` (a theme-to-issue map), then the untracked
+issue a flag cites, and otherwise the flag's category. So sibling actors'
+notes on one event read as one row naming every actor, and a row grouped by
+an untracked issue names it beside its notes. An agent flag on a
 tracked theme is counted against its issue rather than listed, so a new theme
 stands out. A `blocker` and a `normalised` flag are listed whether tracked or
 not, and a harness note is never counted as tracked. Nothing checks that a
@@ -605,7 +639,14 @@ Part of what a prediction consists of is not the agent's word, and reading the
 directory without knowing which part is which invites trusting the wrong half.
 
 - **`usage.json`** — measured token counts and the estimated cost for the cell,
-  written by a post-run harness step from the engine log. On a forward predict
+  written by a post-run harness step from the engine log. `model` is the model
+  requested and priced; `served_models` is what the engine log names for the
+  cell's main-agent calls, so a cell that ran on something else shows, and the
+  run PR names each one. The engines differ in how close that value sits to
+  the provider: claude's is the model each API response named, gemini's the
+  response's own version string (else the model the CLI asked for), and
+  codex's the model the CLI addressed, which never shows a provider-side reroute.
+  Null means the log named no model: unknown, not a match. On a forward predict
   cell it also carries the docket bracket: `pre_mint_poll`, taken just before the
   cell was minted, and `post_run_poll`, taken after its engine stopped, each with
   `polled_at` (when the fetch began), the docket number polled, and a state.
@@ -635,15 +676,23 @@ directory without knowing which part is which invites trusting the wrong half.
   agent does not write it; credential-shaped runs are redacted at capture. Each
   call also states whether capture saw its result at all — `result_capture` is
   `captured` when the log carried the call's result, whether in a paired result
-  item or on the call item itself for an engine that settles it there, and
-  `unobserved` when nothing came back to capture or capture found no result to
-  pair with the call, with `result_capture_coverage` the log-level share. Read
+  item or on the call item itself for an engine that settles it there,
+  `outcome_only` when the log carried how the call ended but not what it
+  returned (every gemini row: its telemetry records the call's success bit, a
+  failed call's message and a shell command's non-zero exit, never the payload),
+  and `unobserved` when nothing came back to capture or capture found no result
+  to pair with the call, with `result_capture_coverage` the log-level share of
+  `captured` rows. Read
   it before reading the digests: a null `result_digest` is what a
   captured-but-empty result and a never-captured one both leave behind, so
   "this call surfaced nothing" is a claim only the marker can support. Where a
   result *was* captured, `result_status` says what came back in it — `ok`,
   `error` (the engine's own structural failure marker), or `throttled`, the
-  shape the pinned CourtListener MCP server renders an upstream HTTP 429 as.
+  shape the pinned CourtListener MCP server renders an upstream HTTP 429 as. On
+  an `outcome_only` row it is read from the logged outcome instead: `error`
+  where the engine marked the call failed, `throttled` where that failure's
+  message carries the 429 shape, `ok` otherwise — so it can see a refusal the
+  server raised as an error, never a throttle note on a successful result.
   `throttled` is the state that changes how the cell reads: the shared daily
   quota turned the call away, so it retrieved nothing and the cell is not
   comparable with a well-fed one. Only a **manifest-tool** call can carry it —
@@ -665,7 +714,7 @@ directory without knowing which part is which invites trusting the wrong half.
   read, so those rows count as builtins and their results were never checked
   for a throttle. `throttled_calls` is the log-level count over
   that same gated set, null where no manifest result was legible, because a
-  throttle is only countable where one reached the transcript. Both are floors
+  throttle is only countable where a result or outcome reached the log. Both are floors
   — the predicate is anchored on the server's own rate-limit phrasing, biased
   to miss rather than invent, and baked at parse time, since the raw 429 text is
   digested away one line after it is read and can never be re-examined.
@@ -771,6 +820,18 @@ directory without knowing which part is which invites trusting the wrong half.
   construction, and the grading reads the rows rather than any summary over
   them. So it never reaches an evaluator, and the staged file's field set is
   exactly what it was.
+  `corpus_service` is the one corpus-use reading that does not come from the
+  engine's transcript: the `/v1/query` and `/v1/open-events` requests the
+  cell's corpus sidecar logged, each with how many it answered 200, counted
+  off the sidecar's request log by the capture step after the agent finished.
+  The sidecar answers every engine's `fedcourts query` alike, so a cell whose
+  transcript holds a well-formed query and whose count is zero sent nothing
+  the service received. **Descriptive only**: no score or rank key reads it.
+  The log sits in the cell's workspace, where the agent could alter it; a
+  request line carries only the route constant and the status, and only a line
+  in that shape is counted. The blinding mask drops it on the same ground as
+  `self_provisioned_fetches`. Null where no sidecar log was read: a job with no
+  sidecar, a log that was missing, or a record written before the field.
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
   prediction, written by the `collect` job, which is the only observer of that.
   One path removes a committed one: the `include-failed-attempts` widening on
@@ -794,7 +855,7 @@ directory without knowing which part is which invites trusting the wrong half.
   cutoff** (`cut_kind`, with `cut_anchor_index` beside it), and the
   conditioning state frozen at provisioning: the
   salience band, the distribution count and CVSG date as at that cutoff (as at
-  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), whether the docket puts its filings on paper only under Rule 34.6, so nothing is posted to stage (`paper_only_filings`), and — on an
+  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), whether the docket puts its filings on paper only under Rule 34.6, so nothing is posted to stage (`paper_only_filings`), what the contact scrub withheld from the staged snapshot (`snapshot_contact_scrub`: the self-represented sides it keyed on, empty where it did not run, and the blocks and values it replaced), and — on an
   application cell only — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would
@@ -891,7 +952,14 @@ harness stages each predictor's latest prediction under an opaque alias with its
 identity masked (`fedcourtsai.blinding`), the evaluator reads those and keys its
 output on the alias, and a post-run step renames the directories onto the real
 predictor ids before the stamp. The committed layout above is what un-aliasing
-produces. What a blinded grade may be read as is in
+produces, plus the cell's `blinding.json`: per file, how many aliases the
+harness rewrote to which predictor id, and which identity terms the judge's own
+text already named before it did. The judge was staged text with every such
+name redacted, so a non-empty `names_present` is a name the judge wrote itself,
+and the stamp says so in the cell's `flags.json`. Read the term and file before
+reading it as a broken blind: a family word in its ordinary sense (`codex` for a
+manuscript) counts too, and so does the judge's own family word, since only its
+id, engine and model are left out. What a blinded grade may be read as is in
 [outcome-decomposition.md](outcome-decomposition.md); which files are staged and
 which are dropped is in [cli.md](cli.md), under
 `provision-blinded-predictions`. Briefly: a candidate's

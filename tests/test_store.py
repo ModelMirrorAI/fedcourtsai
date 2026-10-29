@@ -1083,8 +1083,9 @@ def test_every_declared_forecastable_moment_is_admitted_somewhere(tmp_path: Path
                 )
             ],
         )
-        # The sg-brief and first-relist moments, minted on the same pending
-        # petition: the generic cert arm admits them as it does the arrival one.
+        # The sg-brief, first-relist and call-for-response moments, minted on
+        # the same pending petition: the generic cert arm admits them as it does
+        # the arrival one.
         corpus.upsert_events(
             conn,
             [
@@ -1099,11 +1100,13 @@ def test_every_declared_forecastable_moment_is_admitted_somewhere(tmp_path: Path
                 for event_id, kind in (
                     ("evt-brief-sg-disposition", EventKind.brief),
                     ("evt-order-relist-disposition", EventKind.order),
+                    ("evt-order-call-for-response-disposition", EventKind.order),
                 )
             ],
         )
-        # Both are bounded by the next conference, read off the live payload: the
-        # relist entry names a conference still ahead, so both stay open.
+        # All three are bounded by the next conference, read off the live
+        # payload: the relist entry names a conference still ahead, so all stay
+        # open.
         corpus.upsert_snapshot(
             conn,
             "scotus/81",
@@ -2250,12 +2253,36 @@ _RELISTED = [
         ),
         # The first conference after the brief has sat: closed.
         ("evt-brief-sg-disposition", EventKind.brief, _RELISTED, date(2026, 10, 19), False),
+        # A call for a response takes the petition off the conference it was
+        # distributed for before the call, which never counts: open.
+        (
+            "evt-order-call-for-response-disposition",
+            EventKind.order,
+            [
+                {"Date": "Sep 15 2026", "Text": "DISTRIBUTED for Conference of 10/16/2026."},
+                {"Date": "Oct 05 2026", "Text": "Response Requested. (Due November 4, 2026)"},
+            ],
+            date(2026, 10, 19),
+            True,
+        ),
+        # Redistributed after the call, for a conference that has since sat: closed.
+        (
+            "evt-order-call-for-response-disposition",
+            EventKind.order,
+            [
+                {"Date": "Sep 15 2026", "Text": "DISTRIBUTED for Conference of 10/2/2026."},
+                {"Date": "Oct 05 2026", "Text": "Response Requested. (Due October 9, 2026)"},
+                {"Date": "Oct 06 2026", "Text": "DISTRIBUTED for Conference of 10/16/2026."},
+            ],
+            date(2026, 10, 19),
+            False,
+        ),
         # A relist whose own distribution entry does not parse: the docket was not
         # read as the trigger was, so the cell waits.
         ("evt-order-relist-disposition", EventKind.order, _RELISTED[:1], date(2026, 10, 12), False),
     ],
 )
-def test_a_relist_or_sg_brief_cell_closes_once_the_next_conference_sits(
+def test_a_conference_bounded_cert_cell_closes_once_the_next_conference_sits(
     tmp_path: Path,
     event_id: str,
     kind: EventKind,

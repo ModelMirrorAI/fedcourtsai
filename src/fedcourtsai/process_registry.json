@@ -49,72 +49,80 @@
         "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       }
+    },
+    {
+      "label": "proc-v14",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
     }
   ],
   "blessings": [
     {
-      "digest": "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
+      "digest": "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
       "role": "predictor",
       "actor_id": "claude-baseline",
-      "label": "proc-v13",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-26T19:00:50Z",
-        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
+      "digest": "sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6",
       "role": "predictor",
       "actor_id": "codex-baseline",
-      "label": "proc-v13",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-26T19:00:50Z",
-        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745",
+      "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
       "role": "predictor",
       "actor_id": "gemini-baseline",
-      "label": "proc-v13",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-26T19:00:50Z",
-        "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
+      "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
       "role": "evaluator",
       "actor_id": "claude-judge",
-      "label": "proc-v9",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-11T00:12:02Z",
-        "merge": "6460e93061a0f4d6a06c14b5b1526346aba7a353",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
+      "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
       "role": "evaluator",
       "actor_id": "codex-judge",
-      "label": "proc-v10",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-20T15:24:42Z",
-        "merge": "7d4f2c6c58e01b22f17adb850b5203418f71925e",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
+      "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
       "role": "evaluator",
       "actor_id": "gemini-judge",
-      "label": "proc-v10",
+      "label": "proc-v14",
       "blessed": {
-        "at": "2026-10-20T15:24:42Z",
-        "merge": "7d4f2c6c58e01b22f17adb850b5203418f71925e",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     }
@@ -321,7 +329,11 @@
         "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -333,7 +345,11 @@
         "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -343,6 +359,46 @@
       "opens": {
         "at": "2026-10-26T19:00:50Z",
         "merge": "728efab06a9ad44bf39523c7181827d4eade70de",
+        "source": "merge"
+      },
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v14",
+      "digest": "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v14",
+      "digest": "sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v14",
+      "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
         "source": "merge"
       },
       "closes": null,
@@ -383,6 +439,15 @@
       "proc-v11",
       "proc-v12",
       "proc-v13"
+    ],
+    "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec": [
+      "proc-v14"
+    ],
+    "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30": [
+      "proc-v14"
+    ],
+    "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9": [
+      "proc-v14"
     ]
   },
   "harness_boundaries": [
@@ -634,6 +699,22 @@
       "predictors": null,
       "reach": "all",
       "gradual": true
+    },
+    {
+      "name": "context-snapshot-contact-scrub",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
+    },
+    {
+      "name": "agent-shell-fedcourts-on-path",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
     }
   ]
 }

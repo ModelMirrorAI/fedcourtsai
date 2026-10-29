@@ -298,6 +298,143 @@ def test_a_date_inside_the_settling_window_is_not_read(
     assert _stamp_orders(data_root, conn, [], today=settled, apply=False).stamps
 
 
+class _RedatedFetcher(OrderFetcher):
+    """Serves OT2025's listing with every document re-dated to ``day``, and OT2026's empty."""
+
+    def __init__(self, client: SupremeCourtClient, day: date, asked: list[int]) -> None:
+        super().__init__(client)
+        self._day = day
+        self._asked = asked
+
+    def listed(self, term: int) -> list[order_lineups.OrderDocumentRef]:
+        self._asked.append(term)
+        if term != 25:
+            return []
+        return [dataclasses.replace(ref, day=self._day) for ref in super().listed(term)]
+
+
+def test_an_early_october_order_is_read_from_the_outgoing_terms_listing(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # The Court's listing pages roll over on the first Monday in October, so an
+    # order of 2026-10-01 (OT2026 by the calendar) is listed on OT2025's page.
+    _stub_extraction(monkeypatch, order_lineups)
+    early = date(2026, 10, 1)
+    data_root = tmp_path / "data"
+    _outcome(data_root, 1, resolved_at=early)
+    conn = _corpus(tmp_path, {1: "25-885"})
+    asked: list[int] = []
+    with _client(_orders_handler([])) as client:
+        result = stamp_order_votes(
+            conn,
+            data_root,
+            _RedatedFetcher(client, early, asked),
+            today=LATER.replace(month=12),
+            terms=(2026,),
+            apply=False,
+        )
+    assert asked == [26, 25]
+    # The outgoing Term's documents are read and name the docket. The fixture
+    # documents print their own date, which the re-dated listing contradicts,
+    # so the reading holds the record back rather than stamping it.
+    assert not result.skipped and not result.stamps
+    ((ref, why),) = result.held_back
+    assert ref == "scotus/1/evt-petition-disposition"
+    assert "printed date 2026-06-22 is not the listing's 2026-10-01" in why
+
+
+def test_an_unreadable_outgoing_listing_skips_the_october_day(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    _outcome(data_root, 4, resolved_at=date(2026, 10, 1))
+    conn = _corpus(tmp_path, {4: "25-9999"})
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/26"):
+            return httpx.Response(200, text="<html></html>")
+        return httpx.Response(503)
+
+    with _client(handle) as client:
+        result = stamp_order_votes(
+            conn,
+            data_root,
+            OrderFetcher(client),
+            today=date(2026, 12, 1),
+            terms=(2026,),
+            apply=False,
+        )
+    assert len(result.failures) == 1 and result.failures[0].startswith("OT25")
+    assert result.skipped == [
+        (
+            "scotus/4/evt-petition-disposition",
+            "the orders listings could not be read: OT25",
+        )
+    ]
+
+
+def test_listing_terms_add_the_outgoing_term_only_in_october() -> None:
+    assert order_lineups.listing_terms(date(2026, 10, 1)) == (26, 25)
+    assert order_lineups.listing_terms(date(2026, 10, 30)) == (26, 25)
+    assert order_lineups.listing_terms(date(2026, 9, 30)) == (25,)
+    assert order_lineups.listing_terms(date(2027, 1, 5)) == (26,)
+    assert order_lineups.listing_terms(date(2000, 10, 2)) == (0, 99)
+
+
+def test_refs_for_day_reads_every_term_once_per_document() -> None:
+    day = date(2026, 10, 1)
+    ref = order_lineups.OrderDocumentRef(
+        url="https://www.supremecourt.gov/orders/courtorders/100126zr_a.pdf",
+        day=day,
+        kind="miscellaneous-order",
+        label="Miscellaneous Order",
+    )
+    other = dataclasses.replace(ref, day=date(2026, 9, 30))
+    assert order_lineups.refs_for_day(day, {25: [ref, other], 26: [ref]}) == [ref]
+
+
+@pytest.mark.parametrize(
+    ("stage", "disposition", "referred", "expected"),
+    [
+        (Stage.cert, Disposition.dismissed, None, vote_writer.NO_ORDER_TEXT_DISMISSED),
+        (Stage.interim, Disposition.withdrawn, True, vote_writer.NO_ORDER_TEXT_WITHDRAWN),
+        (Stage.interim, Disposition.granted, False, vote_writer.NO_ORDER_TEXT_IN_CHAMBERS),
+        (Stage.interim, Disposition.denied, True, None),
+        (Stage.cert, Disposition.denied, None, None),
+    ],
+)
+def test_an_outcome_with_no_order_text_by_design_is_skipped_under_its_own_reason(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    stage: Stage,
+    disposition: Disposition,
+    referred: bool | None,
+    expected: str | None,
+) -> None:
+    # A Rule 46 dismissal, a withdrawn application and an in-chambers act are
+    # disposed of without a listed order naming the docket; an application the
+    # full Court decided is not excused, and stays an unexplained skip.
+    _stub_extraction(monkeypatch, order_lineups)
+    data_root = tmp_path / "data"
+    event_id = "evt-petition-disposition" if stage is Stage.cert else "evt-motion-disposition"
+    path = _outcome(data_root, 4, event_id=event_id, stage=stage)
+    outcome = read_model(path, Outcome)
+    update: dict[str, Any] = {"actual_disposition": disposition}
+    if referred is not None:
+        update["interim_signals"] = {
+            "response_requested": False,
+            "referred_to_court": referred,
+            "amicus_briefs": 0,
+        }
+    write_json(path, Outcome.model_validate(outcome.model_dump() | update))
+    conn = _corpus(tmp_path, {4: "25-9999"})
+    result = _stamp_orders(data_root, conn, [], apply=False)
+    ((_, reason),) = result.skipped
+    if expected is None:
+        assert reason.startswith("not named in the date's documents")
+    else:
+        assert reason == f"{expected}: {DAY}"
+        assert vote_writer.reason_counts(result.skipped) == {expected: 1}
+
+
 def test_a_stage_less_cert_baseline_takes_its_declared_stage(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

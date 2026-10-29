@@ -69,6 +69,8 @@ from .schemas import (
     ArgumentFeatures,
     AuthorshipTally,
     Moment,
+    SameQuestionList,
+    SnapshotContactScrub,
     Stage,
     StagedDecision,
     StagedWriting,
@@ -641,6 +643,29 @@ no tally is read, so a cell's provisioning spends nothing on it.
 """
 
 
+SAME_QUESTION_WITHHELD = True
+"""Whether a cell's record goes without its same-question petition list.
+
+The list (:func:`fedcourtsai.pipeline.same_question.cell_lists`) is part of a
+cert cell's information set, which the process digest does not see, so it is
+held back as the authorship tally is (:data:`AUTHORSHIP_TALLY_WITHHELD`) until
+the re-bless whose prompt tells cells about it, which flips this and registers
+the harness boundary. While held, no list file is read.
+"""
+
+
+def carries_same_question(event_id: str) -> bool:
+    """Whether a cell for ``event_id`` is given its same-question petition list.
+
+    The cert stage's moments alone: a granted petition on the same question
+    predicts a hold, and several pending ones suggest a split, both cert
+    signals. An application carries no questions presented to match on, and a
+    merits cell's case is past the stage the signals bear on.
+    """
+    spec = moments.spec_for(event_id)
+    return spec is not None and spec.stage == Stage.cert
+
+
 def carries_authorship_tally(event_id: str) -> bool:
     """Whether a cell for ``event_id`` is given the Term's authorship tally.
 
@@ -1047,6 +1072,7 @@ class RecordWrite:
     staged: tuple[tuple[CaseDocument, ScrubbedText | None], ...]
     related: tuple[RelatedPlacement, ...] = ()
     authorship_tally: AuthorshipTally | None = None
+    same_question: SameQuestionList | None = None
 
 
 def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keyword
@@ -1059,6 +1085,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     snapshot_dest: Path | None = None,
     related: Sequence[RelatedPlacement] = (),
     authorship_tally: AuthorshipTally | None = None,
+    same_question: SameQuestionList | None = None,
     decided_before: str | None = None,
 ) -> RecordWrite:
     """Materialize one cell's whole ``record/`` from its placement.
@@ -1071,11 +1098,12 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     :func:`place_related` placed and its ``related.json``, and, where
     ``authorship_tally`` is given and not held back
     (:data:`AUTHORSHIP_TALLY_WITHHELD`), ``authorship-tally.json``, and, where
-    a transcript is staged, ``argument-features.json`` parsed from it
-    (:func:`staged_argument_features`). A caller that wrote
-    only the first would hand an agent a snapshot with no frozen mode, band or
-    cutoff beside it — the cell would then have to guess its own posture, which
-    is the one thing provisioning exists to settle.
+    ``same_question`` is given and not held back (:data:`SAME_QUESTION_WITHHELD`),
+    ``same-question.json``, and, where a transcript is staged,
+    ``argument-features.json`` parsed from it (:func:`staged_argument_features`).
+    A caller that wrote only the first would hand an agent a snapshot with no
+    frozen mode, band or cutoff beside it — the cell would then have to guess
+    its own posture, which is the one thing provisioning exists to settle.
 
     Every document kind is screened **before the first write**, so a refusal
     cannot leave a half-provisioned record that ``assert-cell-record`` reads as
@@ -1107,6 +1135,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
         _clear_dir(paths.documents_dir)
         _clear_dir(paths.related_dir)
         paths.authorship_tally.unlink(missing_ok=True)
+        paths.same_question.unlink(missing_ok=True)
         paths.argument_features.unlink(missing_ok=True)
         clear_opinion_slot(paths)
     payload = placement.payload
@@ -1141,7 +1170,21 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
             cutoff=cutoff,
             boundary=placement.boundary,
             decided_before=decided_before,
-        ).model_dump(mode="json"),
+        )
+        # The one field not read off the payload: the scrub above ran over a
+        # copy of it, so only this writer can say what it withheld. Stated
+        # beside the trigger it keyed on, so a snapshot with no placeholder
+        # reads as scrubbed and clean or as never scrubbed, not as either.
+        .model_copy(
+            update={
+                "snapshot_contact_scrub": SnapshotContactScrub(
+                    sides=list(unrepresented),
+                    blocks=0 if snapshot_scrub is None else snapshot_scrub.blocks,
+                    fields=0 if snapshot_scrub is None else snapshot_scrub.fields,
+                )
+            }
+        )
+        .model_dump(mode="json"),
     )
     staged: list[tuple[CaseDocument, ScrubbedText | None]] = []
     if placement.documents:
@@ -1191,6 +1234,11 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     )
     if tally_written and authorship_tally is not None:
         write_raw_json(paths.authorship_tally, authorship_tally.model_dump(mode="json"))
+    same_question_written = (
+        same_question is not None and snapshot_dest is None and not SAME_QUESTION_WITHHELD
+    )
+    if same_question_written and same_question is not None:
+        write_raw_json(paths.same_question, same_question.model_dump(mode="json"))
     return RecordWrite(
         snapshot=dest,
         unrepresented=unrepresented,
@@ -1198,6 +1246,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
         staged=tuple(staged),
         related=tuple(related) if snapshot_dest is None else (),
         authorship_tally=authorship_tally if tally_written else None,
+        same_question=same_question if same_question_written else None,
     )
 
 

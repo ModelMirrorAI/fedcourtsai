@@ -457,8 +457,16 @@ def _decided_events(
     ``no_outcome_record`` — and the declined shapes (unreadable, undated, GVR
     and dismissal orders) are outcome-correlated, so the drop would not be
     neutral.
+
+    A merits event closed because its proceeding ended with nothing decided
+    (``merits-terminated``) is left out: its question was never decided, so it
+    is neither a missed forecast nor a missing outcome, and with no decision
+    date it would be dated from the row's newest observation, which moves
+    forward on every re-pull.
     """
-    yield from corpus.iter_resolved_events(conn, court="scotus")
+    for event in corpus.iter_resolved_events(conn, court="scotus"):
+        if event.resolved_without_outcome_reason != corpus.NO_OUTCOME_MERITS_TERMINATED:
+            yield event
     for event in corpus.open_events_on_decided_rows(conn, court="scotus"):
         spec = moments.spec_for(event.event_id)
         if spec is None:

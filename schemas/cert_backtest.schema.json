@@ -591,7 +591,7 @@
           "$ref": "#/$defs/FlagCategory"
         },
         "outcome_exposure_candidate": {
-          "description": "True where a deliberately simple text rule (`fedcourtsai.cert_backtest.outcome_exposure_candidate`) reads the note's message as possibly disclosing that the cell saw its own petition's outcome. A triage highlighter over free text, not a judgment: it over-calls on some shapes (a retrieved prior's GVR, for one) and misses others, so an unmarked note is not a cleared one \u2014 and it never changes which cells are scored",
+          "description": "True where the note is filed under `leakage-disclosure`, or where a deliberately simple text rule (`fedcourtsai.cert_backtest.outcome_exposure_candidate`) reads the note's message as possibly disclosing that the cell saw its own petition's outcome. A triage highlighter, not a judgment: it over-calls on some shapes (a retrieved prior's GVR, a disclosure note reporting nothing) and misses others, so an unmarked note is not a cleared one \u2014 and it never changes which cells are scored",
           "title": "Outcome Exposure Candidate",
           "type": "boolean"
         },
@@ -796,11 +796,14 @@
       "type": "object"
     },
     "FlagCategory": {
-      "description": "What kind of thing an agent flag is about, for maintainer triage.",
+      "description": "What kind of thing an agent flag is about, for maintainer triage.\n\n``provisioning`` is a cell's record that lacks something the pipeline should\nhave staged; ``capture-gap`` an outcome or docket record that cannot show\nwhat a forecast or grading needed; ``leakage-disclosure`` a note that\noutcome material about the case reached the cell or a candidate it grades\n(on a replay cell, material postdating its ``context.cutoff``).\n``blocked`` stays valid for every file that carries it; severity ``blocker``\nis what says a cell could not finish, under whatever category.",
       "enum": [
         "data-quality",
         "scope",
         "ambiguous-event",
+        "provisioning",
+        "capture-gap",
+        "leakage-disclosure",
         "blocked",
         "other"
       ],

@@ -458,11 +458,23 @@ class UsageRole(StrEnum):
 
 
 class FlagCategory(StrEnum):
-    """What kind of thing an agent flag is about, for maintainer triage."""
+    """What kind of thing an agent flag is about, for maintainer triage.
+
+    ``provisioning`` is a cell's record that lacks something the pipeline should
+    have staged; ``capture-gap`` an outcome or docket record that cannot show
+    what a forecast or grading needed; ``leakage-disclosure`` a note that
+    outcome material about the case reached the cell or a candidate it grades
+    (on a replay cell, material postdating its ``context.cutoff``).
+    ``blocked`` stays valid for every file that carries it; severity ``blocker``
+    is what says a cell could not finish, under whatever category.
+    """
 
     data_quality = "data-quality"
     scope = "scope"
     ambiguous_event = "ambiguous-event"
+    provisioning = "provisioning"
+    capture_gap = "capture-gap"
+    leakage_disclosure = "leakage-disclosure"
     blocked = "blocked"
     other = "other"
 
@@ -770,6 +782,47 @@ class ProcessVersion(_Strict):
     )
 
 
+class SnapshotContactScrub(_Strict):
+    """What the contact scrub withheld from the cell's staged snapshot.
+
+    **Harness-owned.** The staged snapshot carries the scrub only as inline
+    placeholders, and a snapshot with none reads the same whether the scrub ran
+    and found nothing or never ran. This record is the difference: ``sides``
+    names the counsel-block lists the docket was read as self-represented on,
+    which is the scrub's trigger, so an empty list says it did not run and a
+    non-empty one with zero counts says it ran and withheld nothing. Counts
+    only, never a withheld value.
+    """
+
+    sides: list[Literal["Petitioner", "Respondent", "Other"]] = Field(
+        description="The counsel-block lists on which some served block names "
+        "nobody to write to but the filer itself, in petitioner, respondent, "
+        "`Other` order. The scrub runs over the snapshot exactly where this is "
+        "non-empty; empty means the docket was read as represented throughout "
+        "and the staged snapshot is the payload as served"
+    )
+    blocks: int = Field(
+        ge=0,
+        description="Counsel blocks that had at least one value withheld. Zero "
+        "where `sides` is empty",
+    )
+    fields: int = Field(
+        ge=0,
+        description="Values withheld across those blocks, each replaced by "
+        "`[contact detail withheld]` or, for a party's prison register number, "
+        "`[register number withheld]`. Zero where `sides` is empty",
+    )
+
+    @model_validator(mode="after")
+    def _counts_follow_the_trigger(self) -> SnapshotContactScrub:
+        """A scrub that did not run withheld nothing, and a block counts its values."""
+        if not self.sides and (self.blocks or self.fields):
+            raise ValueError("`blocks` and `fields` are zero where `sides` is empty")
+        if self.blocks > self.fields:
+            raise ValueError("`blocks` cannot exceed `fields`: a counted block withheld a value")
+        return self
+
+
 class PredictionContext(_Strict):
     """The conditioning state a predict cell actually ran against.
 
@@ -1034,6 +1087,15 @@ class PredictionContext(_Strict):
         "False where the proceedings carry neither entry or the lift follows; null "
         "where the payload carries no live `ProceedingsandOrder` list (the REST "
         "shape, or a cut that dropped it)",
+    )
+    snapshot_contact_scrub: SnapshotContactScrub | None = Field(
+        default=None,
+        description="What the contact scrub withheld from the staged snapshot "
+        "this cell reads: the self-represented sides it keyed on and the blocks "
+        "and values it replaced with placeholders. A placeholder in "
+        "`record/snapshot` is the pipeline's, not the docket's. Null where the "
+        "provisioner runs no snapshot contact scrub (the cert back-test, which "
+        "redacts its snapshot by its own rule) or the cell predates the record",
     )
 
     @model_validator(mode="after")
@@ -2059,7 +2121,9 @@ class ClaimScore(_Strict):
         "discloses no increment, a context whose signals were unobservable "
         "fixes no prediction-time value, and a CVSG already on the docket at "
         "prediction time, or a federal party named in the case's caption, makes "
-        "the cvsg-increment claim vacuous. Also None, with `mask_reason` saying so, "
+        "the cvsg-increment claim vacuous; on the cert call-for-response moment, "
+        "whose petition is all but certain to be distributed again, the "
+        "relist-increment claim is vacuous. Also None, with `mask_reason` saying so, "
         "where the run-timing mask applies",
     )
     mask_reason: Literal["signal-before-run"] | None = Field(
@@ -2770,6 +2834,22 @@ class ModelUsage(_Strict):
     actor_id: str = Field(description="The predictor_id (predict) or evaluator_id (evaluate)")
     engine: Engine
     model: str = Field(description="Model the cost rates were applied to (resolved, never null)")
+    served_models: list[str] | None = Field(
+        default=None,
+        description="The models the engine's own log names for the cell's main-agent "
+        "calls, distinct and in first-seen order — harness-read from the log, never the "
+        "agent's word, and kept beside the requested `model` so a cell that ran on "
+        "something else shows in the record. How close each engine's value sits to the "
+        "provider differs, and that is the reading: claude-code's is the model each "
+        "main-thread API response named; gemini's is each main-role response's own "
+        "`modelVersion` where the API sent one, else the model the CLI requested, so it "
+        "shows the CLI's own fallback too and spells a version the way the provider does; "
+        "codex's is the model each turn context addressed, which shows a client-side "
+        "switch and never a provider substitution, since Codex does not persist a reroute "
+        "to its rollout. Subagent and utility calls are left out on every engine: they run "
+        "on helper models by design. Pricing stays on `model`. Null when the log names "
+        "no model, or on a record written before the field existed: unknown, not a match.",
+    )
     created_at: datetime
     pipeline_sha: str | None = Field(
         default=None,
@@ -2828,6 +2908,64 @@ class ModelUsage(_Strict):
     )
 
 
+class BlindingCount(_Strict):
+    """One term's occurrences in one file of an evaluate cell's output."""
+
+    file: str = Field(
+        description="The file, relative to the evaluator's own directory for the event "
+        "(`<predictor_id>/<run_id>/evaluation.md`, `<run_id>/flags.json`)"
+    )
+    term: str = Field(
+        description="What was counted, lowercase: the predictor id an alias resolved to "
+        "(`replaced`), or the identity text as the judge wrote it (`names_present`)"
+    )
+    count: int = Field(ge=1)
+
+
+class BlindingRecord(_Strict):
+    """``blinding.json`` — what un-aliasing did to one evaluate cell's output.
+
+    Written by the harness beside the cell's ``usage.json`` when it renames the
+    judge's alias-keyed output onto the real predictor ids
+    (:func:`fedcourtsai.blinding.unblind_evaluations`). The rewrite resolves
+    every alias the judge wrote to a predictor id, so the committed text names
+    predictors; this record is what tells a name the harness substituted from
+    one the judge wrote itself.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    case_id: str
+    event_id: str
+    run_id: str
+    evaluator_id: str
+    scanned_files: list[str] = Field(
+        description="Every file of the judge's own output the counts were taken over, "
+        "relative to the evaluator's directory: the renamed per-candidate directories and "
+        "the cell's own run-keyed directory, less the harness-written files "
+        "(`usage.json`, `retrieval_log.json`, `blinding.json`), which carry the "
+        "evaluator's own id and engine by construction. A file not listed was not read"
+    )
+    replaced: list[BlindingCount] = Field(
+        description="Alias occurrences the harness rewrote, per file, keyed by the "
+        "predictor id each resolved to — counted over every file it rewrites, the "
+        "harness-written retrieval log included"
+    )
+    names_present: list[BlindingCount] = Field(
+        description="Identity terms already in the judge's own text BEFORE un-aliasing: predictor "
+        "and evaluator ids, engine names, model ids and the bare family words the "
+        "staging scrub masks (`fedcourtsai.blinding.identity_terms`), less the "
+        "evaluator's own id, engine and model, which its `evaluation.json` carries "
+        "about itself — so a candidate that shares the judge's engine or model is not "
+        "counted under that shared term, only under its own id. The judge was staged "
+        "text with every such term redacted, so one here is a name the judge wrote "
+        "itself — recognising a candidate's style, or breaking the blind through a "
+        "route the scrub cannot close. Empty is the expected case. A count is a match "
+        "of the same case-insensitive pattern the scrub uses, so a family word used in "
+        "its ordinary sense (`codex` for a manuscript) counts too: read the term and "
+        "file before reading it as a broken blind"
+    )
+
+
 class AgentFlag(_Strict):
     """One structured note a headless agent surfaces for maintainer triage.
 
@@ -2844,6 +2982,13 @@ class AgentFlag(_Strict):
     )
     event_id: str | None = Field(
         default=None, description="The specific event this flag is about, if narrower than the cell"
+    )
+    issue: int | None = Field(
+        default=None,
+        gt=0,
+        description="The repository issue that already tracks this problem, when the agent "
+        "cites one instead of re-describing it; the roll-up counts a cited tracked theme "
+        "against its issue",
     )
     source: FlagSource = Field(
         default=FlagSource.agent,
@@ -3076,21 +3221,28 @@ class RetrievalCall(_Strict):
         description="A document/decision date parsed from the result, where one is legible "
         "— the leakage grading's timing signal",
     )
-    # Two named states rather than a bool: `false` would read as "returned
+    # Named states rather than a bool: `false` would read as "returned
     # nothing", which is the very conflation this field exists to end, and the
     # legacy null then sits one typo away from it in any `if not …` test. No
-    # third `not_applicable` state, because no call class the parsers emit has
-    # a structurally meaningless result — the provider-side ones have results
-    # nobody captured, which is what `unobserved` says.
-    result_capture: Literal["captured", "unobserved"] | None = Field(
+    # `not_applicable` state, because no call class the parsers emit has a
+    # structurally meaningless result — the provider-side ones have results
+    # nobody captured, which is what `unobserved` says. `outcome_only` is the
+    # one in-between an engine log produces: how the call ended, without what
+    # it returned.
+    result_capture: Literal["captured", "outcome_only", "unobserved"] | None = Field(
         default=None,
         description="Whether capture saw this call's result at all. `captured` means the "
         "engine log carried the call's result, in a paired result item or on the call "
         "item itself for an engine that settles it there; it does NOT mean the result had "
-        "content — an empty result, or a failed one, is still captured. `unobserved` "
-        "means no result reached the log: the engine logs none (Gemini's telemetry), "
-        "the call ran provider-side and echoed nothing back (a Codex hosted "
-        "`web_search_call`), or capture found no result to pair with the call — "
+        "content — an empty result, or a failed one, is still captured. `outcome_only` "
+        "means the engine logged how the call ENDED but not what it returned: Gemini's "
+        "telemetry records each call's success bit and a failed call's error message, "
+        "so `result_status` is legible on such a row while `result_digest` and "
+        "`retrieved_doc_date` are null by construction — grade the call on its query, "
+        "as for an unobserved one, but a `result_status` of `error` there is the engine "
+        "saying the call failed. `unobserved` means no result reached the log: the call "
+        "ran provider-side and echoed nothing back (a Codex hosted `web_search_call`), "
+        "or capture found no result to pair with the call — "
         "the parsers derive the marker from a pairing rule, so a call the engine "
         "logged without a pairing id, and one whose result sits past a truncated "
         "transcript, both land here for a capture-side reason. A row lifted out of a "
@@ -3127,13 +3279,18 @@ class RetrievalCall(_Strict):
         "number besides. Biased to miss a throttle rather than invent one, so read "
         "`throttled` as a floor. `error` is the engine's OWN structural marker on the "
         "result (a Claude `tool_result` `is_error`, a Codex MCP item's inline `error`) with "
-        "no throttle shape. It is NOT gated on the tool name — it is a flag the engine set, "
+        "no throttle shape, or on an `outcome_only` row the engine's logged failure (Gemini's "
+        "`success` false, or a shell command's non-zero exit in its `metadata`). It is "
+        "NOT gated on the tool name — it is a flag the engine set, "
         "not text a payload can forge, so a failed builtin is honestly an error — and it is "
         "a floor too, since only some engines set one. `ok` is the residual, and it is "
         "wide: captured, no engine error marker, and either not a manifest-tool call at all "
         "or a manifest result with no throttle shape. It is not proof the call succeeded. "
-        "`unobserved` mirrors `result_capture` exactly: no result reached the log, so no "
-        "condition could be read, which is every Gemini call. Null on records written "
+        "On an `outcome_only` row `throttled` reads the logged error message alone, so it "
+        "sees a 429 the server raised as a tool error and never the citation tools' note "
+        "on a successful result: a narrower floor than a captured row's. "
+        "`unobserved` mirrors `result_capture` exactly: no result or outcome reached the "
+        "log, so no condition could be read. Null on records written "
         "before the field existed: condition-unknown, not `ok`. Every status is BAKED AT "
         "PARSE TIME and never recomputed, so a later recalibration of the predicate reaches "
         "only new logs; any rollup pools whatever predicate each log was minted under.",
@@ -3182,15 +3339,16 @@ class RetrievalCall(_Strict):
 
     @model_validator(mode="after")
     def _status_agrees_with_capture(self) -> RetrievalCall:
-        """Reject a row whose two result markers disagree about capture.
+        """Reject a row whose result markers disagree about capture.
 
         The states are one fact read twice — a condition can be read exactly
-        when a result was captured — so `unobserved` must appear in both fields
+        when a result or an outcome was captured — so `unobserved` must appear in both fields
         or in neither. Checked rather than derived, because each field is
         written by the same parser pass and a disagreement means that pass is
         broken, not that one field needs refreshing. Only when both are
         present: a null in either is the legacy record's capture-unknown, which
-        constrains nothing.
+        constrains nothing. An ``outcome_only`` row is held to its name as well:
+        no result reached the log, so nothing can have been digested or dated.
         """
         if self.result_capture is None or self.result_status is None:
             return self
@@ -3199,6 +3357,13 @@ class RetrievalCall(_Strict):
                 f"result_capture={self.result_capture!r} and "
                 f"result_status={self.result_status!r} disagree about whether this call's "
                 f"result was captured; `unobserved` belongs in both or neither"
+            )
+        if self.result_capture == "outcome_only" and (
+            self.result_digest is not None or self.retrieved_doc_date is not None
+        ):
+            raise ValueError(
+                "an `outcome_only` row carries no result, so it can carry neither a "
+                "result_digest nor a retrieved_doc_date"
             )
         return self
 
@@ -3249,8 +3414,9 @@ def _throttled_calls(calls: Sequence[RetrievalCall]) -> int | None:
 
     ``None`` when :func:`observed_mcp_conditions` is empty — an empty log, one
     written before the field existed, one whose every result was ``unobserved``
-    (a whole Gemini cell), or one that called no manifest tool at all. A
-    throttle is only countable where a manifest result reached the transcript,
+    (a Gemini cell captured before its rows carried the logged outcome), or one
+    that called no manifest tool at all. A throttle is only countable where a
+    manifest result or outcome reached the log,
     so a ``0`` from such a log would assert a clean run out of a blind one; the
     null says the question could not be asked instead.
     """
@@ -3545,6 +3711,32 @@ record to a parse error.
 """
 
 
+class CorpusServiceRequests(_Strict):
+    """What the cell's corpus sidecar logged answering, read off its request log.
+
+    The engine-agnostic half of the corpus-prior channel. Every other reading of
+    whether a cell reached the corpus comes from the engine's own transcript
+    (an attempt) or the cell's own ``tooling.json`` (a report), and both differ
+    by engine in what they can see. The sidecar sits behind every engine's
+    ``fedcourts query`` alike, so a count of the requests it answered says
+    whether a query arrived, whatever the transcript shows.
+    """
+
+    queries: int = Field(ge=0, description="`/v1/query` requests the sidecar logged")
+    queries_ok: int = Field(
+        ge=0, description="Of `queries`, those answered 200: a query that returned rows or none"
+    )
+    open_events: int = Field(ge=0, description="`/v1/open-events` requests the sidecar logged")
+    open_events_ok: int = Field(ge=0, description="Of `open_events`, those answered 200")
+
+    @model_validator(mode="after")
+    def _answered_within_asked(self) -> CorpusServiceRequests:
+        """An answered count is a subset of the requests it counts."""
+        if self.queries_ok > self.queries or self.open_events_ok > self.open_events:
+            raise ValueError("an `_ok` count cannot exceed the requests it is a subset of")
+        return self
+
+
 class RetrievalLog(_Strict):
     """``retrieval_log.json`` — the cell's tool-call transcript, harness-captured.
 
@@ -3598,7 +3790,8 @@ class RetrievalLog(_Strict):
         "the code-mode lift scans, not every call the cell made. Null when no call "
         "carries the marker: an empty log, or one written "
         "before the marker existed. A 0.0 is a real and different fact — every call ran "
-        "with its result unobserved, which is the standing shape of a Gemini cell. "
+        "with its result unseen, which is the standing shape of a Gemini cell, whose rows "
+        "are `outcome_only`: an outcome is not a result, so it does not count here. "
         "A code-mode cell reads low here BY CONSTRUCTION: every row lifted from a "
         "program's source (`call_source` `code_mode_source`) is unobserved, because the "
         "freeform call returns one combined output for the whole program and nothing "
@@ -3692,6 +3885,22 @@ class RetrievalLog(_Strict):
         "records written before the field existed: "
         "unasked, not zero — a real 0 is the stronger claim that the rows were read and "
         "carried no such call.",
+    )
+    corpus_service: CorpusServiceRequests | None = Field(
+        default=None,
+        description="The requests the cell's corpus sidecar logged, counted off its "
+        "request log after the agent finished. The sidecar answers every engine's "
+        "`fedcourts query` and `open-events` alike, so this is the one corpus-use "
+        "reading that does not depend on what an engine's transcript shows: a cell "
+        "whose transcript holds a well-formed query and whose count is zero sent "
+        "nothing the service received. DESCRIPTIVE ONLY: no score or rank key reads "
+        "it. The log sits in the cell's workspace, so like `record/context.json` it "
+        "is a file the agent could have altered. A request line carries only the "
+        "route constant and the status, and only a line in that shape counts. Counts "
+        "the whole job, which is one cell. Dropped by the blinding mask, since how "
+        "often a cell queries is engine-shaped. Null where no sidecar log was read: "
+        "a job with no sidecar, a log that was missing, or a record written before "
+        "the field existed",
     )
 
     # Derives and replaces where `_check_coverage_denominator` raises, because
@@ -6835,7 +7044,7 @@ class ToolUsageEngine(_Strict):
     The throttle fields sit here for the same reason and inherit the same limit:
     a call the upstream quota turned away retrieved nothing, so a run starved of
     it is not comparable with a well-fed one — but only an engine whose results
-    reach the transcript can be seen being starved, which is why the rate
+    or call outcomes reach its log can be seen being starved, which is why the rate
     denominates on observed conditions rather than on calls. They are cut per
     engine because that is the grain the ledger has, not because throttling is
     an engine trait: the quota is one bucket every cell of a run draws from, so
@@ -6893,10 +7102,11 @@ class ToolUsageEngine(_Strict):
         default=0,
         ge=0,
         description="MCP calls whose per-call `result_status` records an observed "
-        "condition — captured, and so legible as throttled or not. The throttle rate's "
-        "denominator, and NOT `calls`: an engine whose transcript drops every result "
-        "scores 0 here, which is what keeps its throttle count from reading as a "
-        "throttle-free engine. 0 also on every log written before the field existed",
+        "condition — a captured result or a logged outcome, and so legible as throttled "
+        "or not. The throttle rate's denominator, and NOT `calls`: an engine whose log "
+        "carries neither scores 0 here, which is what keeps its throttle count from "
+        "reading as a throttle-free engine. 0 also on every log written before the field "
+        "existed",
     )
     mcp_throttled_calls: int | None = Field(
         default=None,
@@ -7670,11 +7880,13 @@ class CertBacktestFlag(_Strict):
     category: FlagCategory
     severity: FlagSeverity
     outcome_exposure_candidate: bool = Field(
-        description="True where a deliberately simple text rule "
+        description="True where the note is filed under `leakage-disclosure`, or where a "
+        "deliberately simple text rule "
         "(`fedcourtsai.cert_backtest.outcome_exposure_candidate`) reads the note's "
         "message as possibly disclosing that the cell saw its own petition's outcome. "
-        "A triage highlighter over free text, not a judgment: it over-calls on some "
-        "shapes (a retrieved prior's GVR, for one) and misses others, so an unmarked note "
+        "A triage highlighter, not a judgment: it over-calls on some "
+        "shapes (a retrieved prior's GVR, a disclosure note reporting nothing) and "
+        "misses others, so an unmarked note "
         "is not a cleared one — and it never changes which cells are scored"
     )
 
@@ -10207,6 +10419,45 @@ class AuthorshipTallySitting(_Strict):
     cases: list[AuthorshipTallyCase] = Field(
         description="The sitting's cases, by argument day then key"
     )
+
+
+class SameQuestionEntry(_Strict):
+    """One petition on a same-question list: identifiers and status, no text."""
+
+    docket_number: str
+    case_id: str
+    score: float = Field(ge=0, le=1, description="The TF-IDF cosine with the listing petition")
+    docketed: date | None
+    status: str = Field(
+        description="`pending` as of the cutoff, or the disposition once resolved before it"
+    )
+
+
+class SameQuestionList(_Strict):
+    """One cell's same-question petitions, staged as its ``record/same-question.json``."""
+
+    case_id: str = Field(description="The listing petition's case id")
+    event_id: str = Field(description="The cell's event, whose moment set the cutoff")
+    cutoff: date = Field(
+        description="Exclusive: only petitions docketed before this day are listed or "
+        "weighted, and a status reads resolved only where its date falls before it"
+    )
+    threshold: float = Field(
+        ge=0, le=1, description="The least score a petition had to reach to be listed"
+    )
+    indexed: int = Field(
+        ge=0, description="Petitions docketed before the cutoff with a stored questions presented"
+    )
+    petitions: list[SameQuestionEntry] | None = Field(
+        description="Best first, at most the match limit; `null` where the listing petition has no "
+        "stored questions presented docketed before the cutoff to match on"
+    )
+
+
+class SameQuestionLists(_Strict):
+    """A round's same-question lists, one per cert-stage cell, as the plan job writes them."""
+
+    lists: list[SameQuestionList]
 
 
 class AuthorshipTally(_Strict):
@@ -13548,8 +13799,9 @@ class ExportPredictionRow(_Strict):
         description="The prediction's run id (a UTC timestamp), as its ledger path spells it"
     )
     created_at: datetime = Field(
-        description="When the predictor says it wrote the prediction (agent-written; the "
-        "harness clock is `stamped_at`)"
+        description="When the harness ran the cell: the process stamp's `stamped_at`, or "
+        "the record's own `created_at` on a shakedown cell the harness never stamped "
+        "(`fedcourtsai.integrity.cell_clock`)"
     )
     probability: float = Field(
         description="The forecast probability of the positive outcome (a grant, at the cert stage)"
@@ -13850,6 +14102,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "tooling.json": AgentToolingFeedback,
     "attempt.json": CellFailure,
     "retrieval_log.json": RetrievalLog,
+    "blinding.json": BlindingRecord,
     "scope.json": ScopeManifest,
     "schedule.json": Schedule,
     "qp-topic-reference.json": QpTopicReference,
@@ -13884,6 +14137,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "analytics_report": AnalyticsReport,
     "statpack": StatPack,
     "authorship_tally": AuthorshipTally,
+    "same_question_list": SameQuestionList,
     "argument_features": ArgumentFeatures,
     "docket": DocketPack,
     "big_case_board": BigCaseBoard,
@@ -13892,6 +14146,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "cell_failure": CellFailure,
     "mcp_server_config": McpServerConfig,
     "retrieval_log": RetrievalLog,
+    "blinding_record": BlindingRecord,
     "qp_topic_reference": QpTopicReference,
     "qp_topic_application_reference": QpTopicApplicationReference,
     "qp_topics": QpTopicLabels,

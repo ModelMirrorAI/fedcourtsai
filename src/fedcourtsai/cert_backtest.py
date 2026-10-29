@@ -102,6 +102,7 @@ from .schemas import (
     CertBacktestSegment,
     Disposition,
     EventKind,
+    FlagCategory,
     FlagSource,
     PredictableEvent,
     Prediction,
@@ -657,9 +658,9 @@ def outcome_exposure_candidate(message: str) -> bool:
     misses a disclosure worded outside its cues, one whose only clause also
     carries its denial, and one whose cue and outcome term a comma puts in
     different clauses ("surfaced, in a snippet, that cert was denied"). So an
-    unmarked note is not a cleared one. The frozen prompt reserves no category
-    for a replay cell's exposure note, which is why the rule reads the message
-    at all.
+    unmarked note is not a cleared one. A note filed under
+    ``leakage-disclosure`` is a candidate whatever its wording; the rule reads
+    the message for the notes filed under any other category.
     """
     for clause in _CLAUSE_BREAK.split(message.casefold()):
         if (
@@ -727,7 +728,9 @@ def _read_replayed_flags(
     flags: list[CertBacktestFlag] = []
     for flag in raised:
         message = redact_credentials(flag.message)
-        candidate = outcome_exposure_candidate(message)
+        candidate = flag.category == FlagCategory.leakage_disclosure or outcome_exposure_candidate(
+            message
+        )
         flags.append(
             CertBacktestFlag(
                 category=flag.category,

@@ -45,6 +45,7 @@ from fedcourtsai.pipeline.redocket import REDOCKETED_REASON
 from fedcourtsai.schemas import (
     Disposition,
     EventKind,
+    Judgment,
     MeritsTermination,
     Moment,
     Outcome,
@@ -3259,6 +3260,61 @@ def test_the_poll_reads_the_committed_caption_a_baseline_was_predicted_under(
     assert not CasePaths(tmp_path, "scotus", 9526000325).event(event.event_id).outcome.exists()
 
 
+def test_a_re_fired_mint_keeps_the_committed_caption_so_the_poll_refuses_it(
+    tmp_path: Path,
+) -> None:
+    # The response moment was minted under the earlier petition; the number was
+    # then re-entered, and the mint re-fires on the poll with the row's new
+    # caption. The corpus title re-tracks the row, so only the committed
+    # event.yaml still names the petition the moment opened under.
+    response = _interim_event("evt-order-response-requested-disposition", resolved=False)
+    db = _seed_application(
+        tmp_path,
+        [_interim_event("evt-motion-disposition", resolved=False)],
+        row=_redocketed_row(),
+    )
+    case = CasePaths(tmp_path, "scotus", 9526000325)
+    with corpus.connect(db) as conn:
+        outcome_module.persist_moment_events(
+            conn,
+            tmp_path,
+            "scotus",
+            9526000325,
+            [response.model_copy(update={"title": _EARLIER_PETITION})],
+        )
+        outcome_module.persist_moment_events(
+            conn,
+            tmp_path,
+            "scotus",
+            9526000325,
+            [response.model_copy(update={"title": _REDOCKETED_CAPTION})],
+        )
+        stored = {e.event_id: e for e in corpus.events_for_case(conn, "scotus/9526000325")}
+    assert stored[response.event_id].title == _REDOCKETED_CAPTION
+    committed = read_model(case.event(response.event_id).event_file, PredictableEvent)
+    assert committed.title == _EARLIER_PETITION
+    seed_prediction(tmp_path, "scotus", 9526000325, response.event_id)
+    resolution = resolve_case(db, tmp_path, _redocketed_poll_row(), "scotus", 9526000325)
+    assert list(resolution.outcomes) == ["evt-motion-disposition"]
+    (refused,) = resolution.unrecorded
+    assert refused.event_id == response.event_id
+    assert refused.reason == REDOCKETED_REASON
+    assert not case.event(response.event_id).outcome.exists()
+
+
+def test_a_re_mint_over_an_unreadable_definition_rewrites_it_whole(tmp_path: Path) -> None:
+    # A committed file the re-docketing check cannot read is no witness, so the
+    # re-mint writes the definition from the corpus row.
+    response = _interim_event("evt-order-response-requested-disposition", resolved=False)
+    db = _seed_application(tmp_path, [], row=_redocketed_row())
+    path = CasePaths(tmp_path, "scotus", 9526000325).event(response.event_id).event_file
+    path.parent.mkdir(parents=True)
+    path.write_text("title: [unclosed\n", encoding="utf-8")
+    with corpus.connect(db) as conn:
+        outcome_module.persist_moment_events(conn, tmp_path, "scotus", 9526000325, [response])
+    assert read_model(path, PredictableEvent).title == response.title
+
+
 def test_the_outcome_pass_marks_a_redocketed_moment(tmp_path: Path) -> None:
     db = _seed_application(
         tmp_path,
@@ -3516,6 +3572,40 @@ def test_a_lost_grant_on_a_decided_or_stale_merits_case_records_without_minting(
     assert not case.event(MERITS_EVENT_ID).base.exists()
     again = outcome_module.record_lost_outcomes(db, tmp_path, today=today)
     assert (again.population, again.recorded) == (0, {})
+
+
+def test_a_merits_moment_closed_by_its_termination_is_no_gap_until_a_judgment_parses(
+    tmp_path: Path,
+) -> None:
+    # The merits backfill closes the open merits moment of a terminated
+    # proceeding as `merits-terminated`. The outcome pass leaves it alone, so
+    # the reason is never overwritten as `undated`; a judgment that later
+    # parses clears the termination, and the convergence records it.
+    db = _seed_cert_gap(tmp_path, disposition=Disposition.granted, payload=_PLAIN_GRANT)
+    converge_ledger_outcomes(db, tmp_path, today=date(2026, 9, 28))
+    case_id = "scotus/9026000100"
+    with corpus.connect(db) as conn:
+        corpus.set_merits_termination(conn, case_id, MeritsTermination.voluntary_dismissal)
+        corpus.mark_resolved_without_outcome(
+            conn, case_id, MERITS_EVENT_ID, corpus.NO_OUTCOME_MERITS_TERMINATED
+        )
+    seed_prediction(tmp_path, "scotus", 9026000100, MERITS_EVENT_ID)
+    applied = outcome_module.record_lost_outcomes(
+        db, tmp_path, apply=True, max_cases=1, today=date(2027, 2, 1)
+    )
+    assert (applied.population, applied.residue, applied.held_predicted) == (0, {}, [])
+    assert not converge_ledger_outcomes(db, tmp_path, today=date(2027, 2, 1)).recorded
+    with corpus.connect(db) as conn:
+        (merits,) = [e for e in corpus.events_for_case(conn, case_id) if e.stage == Stage.merits]
+    assert merits.resolved_without_outcome_reason == corpus.NO_OUTCOME_MERITS_TERMINATED
+
+    with corpus.connect(db) as conn:
+        corpus.set_merits_judgment(conn, case_id, Judgment.reversed, date(2027, 3, 1))
+    result = converge_ledger_outcomes(db, tmp_path, today=date(2027, 3, 5))
+    assert result.recorded == {case_id: [MERITS_EVENT_ID]}
+    with corpus.connect(db) as conn:
+        (merits,) = [e for e in corpus.events_for_case(conn, case_id) if e.stage == Stage.merits]
+    assert merits.resolved and not merits.resolved_without_outcome
 
 
 def test_the_outcome_pass_holds_back_a_predicted_undated_gap(tmp_path: Path) -> None:

@@ -17,7 +17,7 @@ from typer.testing import CliRunner
 from fedcourtsai import retrieval
 from fedcourtsai.agent_flags import FlagTheme
 from fedcourtsai.blinding import neutral_tool_class
-from fedcourtsai.cli import app
+from fedcourtsai.cli import _add_prior_cell, app
 from fedcourtsai.collect import (
     AUTO_RELEASED_MARKER,
     CODE_MODE_PARENT_TOOL,
@@ -58,10 +58,12 @@ from fedcourtsai.review_hold import count_auto_released
 from fedcourtsai.schemas import (
     AgentFlag,
     AgentFlags,
+    CorpusServiceRequests,
     FlagCategory,
     FlagSeverity,
     FlagSource,
     RetrievalCall,
+    RetrievalLog,
     UsageRole,
 )
 
@@ -787,6 +789,16 @@ def test_render_flags_lists_harness_notes_apart_from_the_agents() -> None:
     assert "2 flag(s) in 2 row(s); 1 flag(s) written by the harness" in md
     harness_row = next(line for line in md.splitlines() if "harness says" in line)
     assert "| harness |" in harness_row and "agent says" not in harness_row
+
+
+def test_render_flags_names_the_untracked_issue_a_row_cites() -> None:
+    md = render_flags(
+        [_flagset("a", AgentFlag(category=FlagCategory.scope, message="see it", issue=4242))],
+        themes=(_THEME,),
+    )
+    row = next(line for line in md.splitlines() if "see it" in line)
+    assert "_cites #4242_" in row
+    assert "tracked in" not in row
 
 
 def test_render_flags_counts_a_tracked_theme_instead_of_listing_it() -> None:
@@ -1957,3 +1969,51 @@ def test_the_self_provisioning_record_stays_off_the_facts_only_pr() -> None:
     assert "Cells reached outside" not in plan.facts_only.body
     # It still leaves the process on the plan, for the surface that echoes it.
     assert plan.self_provisioned_markdown
+
+
+def test_the_sidecar_note_names_each_actor_with_a_quiet_cell() -> None:
+    # The one corpus-use reading that is the same for every engine, so it
+    # names actors with their own denominators rather than one pooled rate.
+    note = render_prior_availability_note(
+        PriorAvailabilityRollup(
+            sidecar_by_actor=(("claude-baseline", 0, 20), ("gemini-baseline", 11, 23))
+        )
+    )
+    assert "Cells whose corpus sidecar logged no query" in note
+    assert "`gemini-baseline` 11 of 23" in note
+    assert "claude-baseline" not in note
+    # Every counted cell queried: silent, like the other prior paragraphs.
+    assert (
+        render_prior_availability_note(
+            PriorAvailabilityRollup(sidecar_by_actor=(("claude-baseline", 0, 20),))
+        )
+        == ""
+    )
+
+
+def test_the_sidecar_tally_folds_each_actor_against_its_own_cells(tmp_path: Path) -> None:
+    def log(actor: str, queries: int | None) -> RetrievalLog:
+        return RetrievalLog(
+            case_id="scotus/1",
+            run_id="R",
+            role="predictor",
+            actor_id=actor,
+            engine="gemini" if actor.startswith("gemini") else "claude-code",
+            corpus_service=None
+            if queries is None
+            else CorpusServiceRequests(
+                queries=queries, queries_ok=queries, open_events=0, open_events_ok=0
+            ),
+        )
+
+    rollup = PriorAvailabilityRollup()
+    for actor, queries in [
+        ("gemini-baseline", 0),
+        ("claude-baseline", 2),
+        ("gemini-baseline", 1),
+        ("gemini-baseline", 0),
+        # No sidecar log read: outside the denominator, not a quiet cell.
+        ("claude-baseline", None),
+    ]:
+        rollup = _add_prior_cell(rollup, log(actor, queries), tmp_path / "retrieval_log.json")
+    assert rollup.sidecar_by_actor == (("claude-baseline", 0, 1), ("gemini-baseline", 2, 3))

@@ -1050,7 +1050,9 @@ def _render_throttling(usage: ToolUsage) -> list[str]:
         + "Every count here is a **floor**: the parse-time predicate is anchored on the "
         + "server's own rate-limit phrasing and biased to miss a throttle rather than "
         + "invent one, it is read only from manifest-tool results (a builtin echoing prose "
-        + "about rate limits is not this cell being refused), and calls the cell gave up on "
+        + "about rate limits is not this cell being refused), a gemini call is read from its "
+        + "logged outcome alone and so shows only a 429 the server raised as an error, never "
+        + "a throttle note on a successful result, and calls the cell gave up on "
         + "making are not in the ledger at all._",
         "",
         "_**The per-engine cut is descriptive, not a comparison.** The quota is one bucket "
@@ -1066,9 +1068,10 @@ def _render_throttling(usage: ToolUsage) -> list[str]:
             "",
             f"**{', '.join(blind)}**: made MCP calls and not one of their result conditions "
             + "was legible, so there is no denominator and the figure is an em dash rather "
-            + "than 0%. Read that as **capture-blind, not throttle-free** — Gemini's "
-            + "telemetry logs no result payload by construction, and a log written before "
-            + "the per-call condition marker existed carries none either. A code-mode "
+            + "than 0%. Read that as **capture-blind, not throttle-free** — a Gemini log "
+            + "captured before its rows carried the logged call outcome has none, and a "
+            + "log written before the per-call condition marker existed carries none "
+            + "either. A code-mode "
             + "engine reaching its manifest tools from inside a freeform builtin call is a "
             + "third way to land here: only the program's combined output is captured, and "
             + "no part of it is attributable to an individual call inside the program, so "

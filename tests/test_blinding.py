@@ -17,14 +17,17 @@ case-insensitive substrings, in file bodies *and* in filenames.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import blinding, tool_usage
+from fedcourtsai.agent_flags import CellCoordinates
 from fedcourtsai.blinding import (
     ALIAS_PREFIX,
     ENGINE_TERMS,
@@ -33,7 +36,7 @@ from fedcourtsai.blinding import (
     provision_blinded_predictions,
     unblind_evaluations,
 )
-from fedcourtsai.cli import app
+from fedcourtsai.cli import _flag_names_the_judge_wrote, app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pricing import DEFAULT_MODELS, MODEL_RATES
 from fedcourtsai.registry import load_evaluators, load_predictors
@@ -54,6 +57,7 @@ from fedcourtsai.schemas import (
     RetrievalLog,
     SemanticClaim,
     Stage,
+    UsageRole,
 )
 from fedcourtsai.serialize import read_model, write_json, write_text, write_yaml
 from fedcourtsai.validate import (
@@ -262,6 +266,7 @@ def _blind(data_root: Path, *, run_id: str = EVALUATE_RUN) -> blinding.BlindingR
 def _unblind(data_root: Path) -> tuple[tuple[str, str], ...]:
     return unblind_evaluations(
         data_root=data_root,
+        config_root=CONFIG_ROOT,
         court=COURT,
         docket=DOCKET,
         event_id=EVENT,
@@ -1354,3 +1359,112 @@ def test_the_restore_command_exits_non_zero_with_no_manifest(
 
     assert result.exit_code == 1
     assert "restoring failed" in result.output
+
+
+def _blinding_record(data_root: Path) -> dict[str, Any]:
+    path = (
+        CasePaths(data_root, COURT, DOCKET)
+        .event(EVENT)
+        .evaluation_blinding(EVALUATOR, EVALUATE_RUN)
+    )
+    record: dict[str, Any] = json.loads(path.read_text())
+    return record
+
+
+def test_unblinding_records_what_it_replaced_and_finds_no_name_the_judge_wrote(
+    ledger: Path,
+) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _unblind(ledger)
+    record = _blinding_record(ledger)
+    first = result.candidates[0]
+    replaced = {(row["file"], row["term"]): row["count"] for row in record["replaced"]}
+    for candidate in result.candidates:
+        prefix = f"{candidate.predictor_id}/{EVALUATE_RUN}"
+        assert replaced[(f"{prefix}/evaluation.md", candidate.predictor_id)] == 1
+        assert replaced[(f"{prefix}/evaluation.json", candidate.predictor_id)] == 1
+        assert f"{prefix}/evaluation.md" in record["scanned_files"]
+    assert replaced[(f"{EVALUATE_RUN}/flags.json", first.predictor_id)] == 1
+    # The judge's own id, engine and model sit in its evaluation.json about
+    # itself; nothing it was staged named a candidate, so nothing is present.
+    assert record["names_present"] == []
+    # The record validates where the gate reads it.
+    verdict = validate_ledger(ledger)
+    assert verdict.ok, verdict.problems
+
+
+def test_unblinding_counts_a_name_the_judge_wrote_itself(ledger: Path) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    first = result.candidates[0]
+    other = next(c for c in result.candidates if c.predictor_id != first.predictor_id)
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    notes = event_paths.evaluation_dir(EVALUATOR, first.alias, EVALUATE_RUN) / "evaluation.md"
+    notes.write_text(
+        f"{first.alias} reads like {other.predictor_id}; GPT5-style hedging throughout.\n"
+    )
+    _unblind(ledger)
+    record = _blinding_record(ledger)
+    present = {(row["file"], row["term"]): row["count"] for row in record["names_present"]}
+    where = f"{first.predictor_id}/{EVALUATE_RUN}/evaluation.md"
+    assert present == {(where, other.predictor_id): 1, (where, "gpt"): 1}
+    # The substituted name and the judge's own are told apart in the record,
+    # though the committed prose now reads the same for both.
+    replaced = {(row["file"], row["term"]) for row in record["replaced"]}
+    assert (where, first.predictor_id) in replaced
+
+
+def test_a_second_unblinding_keeps_the_first_runs_record(ledger: Path) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    _unblind(ledger)
+    first = _blinding_record(ledger)
+    assert _unblind(ledger) == ()
+    assert _blinding_record(ledger) == first
+
+
+def test_the_stamp_notes_a_name_the_judge_wrote_in_its_flags(ledger: Path) -> None:
+    result = _blind(ledger)
+    _seed_evaluations(ledger, result)
+    first = result.candidates[0]
+    event_paths = CasePaths(ledger, COURT, DOCKET).event(EVENT)
+    notes = event_paths.evaluation_dir(EVALUATOR, first.alias, EVALUATE_RUN) / "evaluation.md"
+    notes.write_text("Reads like Gemini to me.\n")
+    _unblind(ledger)
+    where = CellCoordinates(
+        case_id=f"{COURT}/{DOCKET}",
+        run_id=EVALUATE_RUN,
+        role=UsageRole.evaluator,
+        actor_id=EVALUATOR,
+    )
+    _flag_names_the_judge_wrote(event_paths, where, EVENT)
+    _flag_names_the_judge_wrote(event_paths, where, EVENT)  # a re-stamp adds nothing
+    flags = json.loads(event_paths.evaluation_flags(EVALUATOR, EVALUATE_RUN).read_text())
+    harness = [flag for flag in flags["flags"] if flag["source"] == "harness"]
+    assert len(harness) == 1
+    assert harness[0]["severity"] == "warning"
+    assert (
+        f"`gemini` x1 in `{first.predictor_id}/{EVALUATE_RUN}/evaluation.md`"
+        in (harness[0]["message"])
+    )
+
+
+def test_the_sidecar_request_count_does_not_reach_the_grader() -> None:
+    # How often a cell queried is an engine habit, and the grading reads rows.
+    masked = blinding.mask_retrieval_log(
+        {
+            "actor_id": "gemini-baseline",
+            "engine": "gemini",
+            "calls": [],
+            "corpus_service": {
+                "queries": 3,
+                "queries_ok": 3,
+                "open_events": 0,
+                "open_events_ok": 0,
+            },
+        },
+        alias="candidate-a",
+        pattern=re.compile("gemini"),
+    )
+    assert "corpus_service" not in masked

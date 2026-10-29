@@ -519,6 +519,11 @@ def derive_evaluate_backlog(
     # backend that fetches by range.
     resolved_by_case: dict[str, list[str]] = {}
     for event in corpus.iter_resolved_events(conn, court="scotus"):
+        # A merits event closed because its proceeding ended with nothing
+        # decided has no outcome to grade against, whatever predictions it
+        # holds; it owes no grading.
+        if event.resolved_without_outcome_reason == corpus.NO_OUTCOME_MERITS_TERMINATED:
+            continue
         resolved_by_case.setdefault(event.case_id, []).append(event.event_id)
     candidates: list[corpus.CorpusRow] = []
     for case_id in resolved_by_case:
@@ -702,13 +707,13 @@ def _last_observed(row: corpus.CorpusRow) -> date | None:
 #:   because a merits re-predict is spend now for a board population that
 #:   arrives a Term later, which is a funding decision rather than a correctness
 #:   one. Adding a pair here is the whole change needed to take it.
-#: * **cert / relist, sg_brief** — each forecasts the next conference, and the
-#:   fan-out stops admitting a first cell once that conference has sat
+#: * **cert / relist, sg_brief, response_requested** — each forecasts the next
+#:   conference, and the fan-out stops admitting a first cell once that
+#:   conference has sat
 #:   (:func:`fedcourtsai.store._conference_bounded_cell_closed`). A re-predict
 #:   would be spend on a cohort that has not yet run under any process version,
 #:   and would need that bound in :func:`_reopenable_moment` too; adding the
 #:   pairs and the bound is the whole change once one has.
-#: * **cert / response_requested** — switched off, so no cell exists to re-owe.
 REPREDICT_MOMENTS: frozenset[tuple[Stage, Moment]] = frozenset(
     {
         (Stage.cert, Moment.distribution),

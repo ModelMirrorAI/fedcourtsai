@@ -47,6 +47,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import re
 import sqlite3
 import time
 from collections.abc import Callable, Iterator
@@ -60,6 +61,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from . import corpus, corpus_ranged, store
+from .schemas import CorpusServiceRequests
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +98,32 @@ MAX_QUERY_LIMIT = 500
 # The served routes, shared by the dispatcher and the request log (which logs
 # the matched constant, never the raw client path).
 _ROUTES = ("/healthz", "/v1/query", "/v1/open-events")
+
+# The per-request line `log_request` writes, read back by `count_requests`:
+# the matched route constant and the status code, after the client address.
+_REQUEST_LINE = re.compile(
+    r"^INFO:[\w.]+:\S+ - (/v1/query|/v1/open-events) -> (\d{3})\b", re.MULTILINE
+)
+
+
+def count_requests(log_text: str) -> CorpusServiceRequests:
+    """The ``/v1/query`` and ``/v1/open-events`` requests a sidecar log records.
+
+    Reads only the line shape :meth:`_Handler.log_request` writes, so a
+    traceback or a startup note never counts. A request the server failed is
+    still a request: it is counted in the total and not in the ``_ok`` count.
+    """
+    totals = {"/v1/query": [0, 0], "/v1/open-events": [0, 0]}
+    for match in _REQUEST_LINE.finditer(log_text):
+        counts = totals[match.group(1)]
+        counts[0] += 1
+        counts[1] += match.group(2) == "200"
+    return CorpusServiceRequests(
+        queries=totals["/v1/query"][0],
+        queries_ok=totals["/v1/query"][1],
+        open_events=totals["/v1/open-events"][0],
+        open_events_ok=totals["/v1/open-events"][1],
+    )
 
 
 class CorpusServiceError(RuntimeError):

@@ -17,15 +17,17 @@
   strict: a committed ``flags.json`` is schema law like any other artifact.
 * **Collapse re-reports.** The roll-up (:func:`roll_up`) groups flags by
   ``(case, event, source, theme)``, where the theme is the tracked theme a flag
-  matches or else its category, and shows one row per group with the actors
-  who raised it, instead of one row per actor per run.
+  cites or matches, else the issue it cites, else its category, and shows one
+  row per group with the actors who raised it, instead of one row per actor per
+  run.
 * **Mark tracked themes.** A committed map (``flag_themes.json``,
   :func:`load_flag_themes`) names the themes an open issue already tracks. An
   agent flag matching one is counted against its issue instead of re-listed in
-  full, so a new theme stands out. A ``blocker`` and a ``normalised`` flag are
-  always listed, tracked or not, and a harness note is never counted as
-  tracked. Nothing checks that the issue is still open: a theme is retired
-  from the map when its issue closes.
+  full, so a new theme stands out. A flag may cite the issue itself
+  (``issue``), which places it in that issue's theme whatever its wording. A
+  ``blocker`` and a ``normalised`` flag are always listed, tracked or not, and
+  a harness note is never counted as tracked. Nothing checks that the issue is
+  still open: a theme is retired from the map when its issue closes.
 """
 
 from __future__ import annotations
@@ -79,6 +81,21 @@ _SEVERITY_SYNONYMS: dict[str, FlagSeverity] = {
         FlagSeverity.warning,
     ),
 }
+
+#: Off-vocabulary categories with an unambiguous reading: the names the cells
+#: reached for before the vocabulary had a place for them.
+_CATEGORY_SYNONYMS: dict[str, FlagCategory] = {
+    **dict.fromkeys(
+        ("outcome-exposure", "leakage", "leak", "outcome-leakage"),
+        FlagCategory.leakage_disclosure,
+    ),
+    **dict.fromkeys(("capture", "data-capture"), FlagCategory.capture_gap),
+    **dict.fromkeys(
+        ("provision", "mis-provisioning", "missing-document"), FlagCategory.provisioning
+    ),
+}
+
+_ISSUE_REFERENCE = re.compile(r"^\s*(?:#|gh-)?(\d+)\s*$", re.IGNORECASE)
 
 _FLAG_KEYS = frozenset(AgentFlag.model_fields)
 _ENVELOPE_KEYS = frozenset(AgentFlags.model_fields)
@@ -137,6 +154,21 @@ def _parts(text: str) -> list[str]:
     return [text[i : i + FLAG_MESSAGE_LIMIT] for i in range(0, len(text), FLAG_MESSAGE_LIMIT)]
 
 
+def _coerce_issue(value: object, changes: list[str]) -> int | None:
+    """An ``issue`` citation as a positive number, reading ``"#123"`` as 123; else dropped."""
+    if value is None:
+        return None
+    if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+        return value
+    if isinstance(value, str):
+        match = _ISSUE_REFERENCE.match(value)
+        if match and int(match.group(1)) > 0:
+            changes.append(f"issue {_quote(value)} read as {int(match.group(1))}")
+            return int(match.group(1))
+    changes.append(f"issue {_quote(value)} is not an issue number; dropped")
+    return None
+
+
 def _coerce_flag(raw: object, index: int, changes: list[str]) -> list[AgentFlag]:
     """One flag item coerced into :class:`AgentFlag` s — one, or several if it overflows.
 
@@ -168,8 +200,14 @@ def _coerce_flag(raw: object, index: int, changes: list[str]) -> list[AgentFlag]
         _SEVERITY_SYNONYMS,
     )
     category = _coerce_enum(
-        raw.get("category"), FlagCategory, FlagCategory.other, "category", local
+        raw.get("category"),
+        FlagCategory,
+        FlagCategory.other,
+        "category",
+        local,
+        _CATEGORY_SYNONYMS,
     )
+    issue = _coerce_issue(raw.get("issue"), local)
     event_id = raw.get("event_id")
     if event_id is not None and not isinstance(event_id, str):
         local.append(f"event_id {_quote(event_id)} is not a string; read as text")
@@ -193,6 +231,7 @@ def _coerce_flag(raw: object, index: int, changes: list[str]) -> list[AgentFlag]
             severity=severity,
             message=part,
             event_id=event_id,
+            issue=issue,
             source=_SOURCES[source],
             normalised=marked,
         )
@@ -280,7 +319,11 @@ def normalise_flags(text: str, where: CellCoordinates) -> Normalised:
     * an off-vocabulary ``severity`` is matched case- and underscore-insensitively,
       then through a small synonym table (``low`` reads as ``info``, ``high`` or
       ``critical`` as ``warning``), and is otherwise ``warning`` — loud enough to
-      be read, never ``blocker``; an off-vocabulary ``category`` becomes ``other``;
+      be read, never ``blocker``; an off-vocabulary ``category`` is matched the
+      same way, then through its own synonyms (``outcome-exposure`` reads as
+      ``leakage-disclosure``), and is otherwise ``other``;
+    * an ``issue`` written as ``"#123"`` reads as 123; one that is not an issue
+      number is dropped;
     * a message over the schema's cap continues in further flags, never cut;
     * an unknown key is dropped and its value quoted (bounded) in the note;
     * a missing envelope field (case, run, role, actor) is filled from the
@@ -441,7 +484,14 @@ def _packaged_themes() -> tuple[FlagTheme, ...]:
 
 
 def theme_of(flag: AgentFlag, themes: Sequence[FlagTheme]) -> FlagTheme | None:
-    """The first tracked theme a flag's message matches, or ``None``."""
+    """The tracked theme a flag cites by ``issue``, else the first its message matches.
+
+    ``None`` when neither holds.
+    """
+    if flag.issue is not None:
+        cited = next((theme for theme in themes if theme.issue == flag.issue), None)
+        if cited is not None:
+            return cited
     return next((theme for theme in themes if theme.matches(flag.message)), None)
 
 
@@ -455,8 +505,9 @@ SEVERITY_RANK = {FlagSeverity.blocker: 0, FlagSeverity.warning: 1, FlagSeverity.
 class FlagGroup:
     """Every flag one ``(case, event, source, theme)`` key collected.
 
-    ``theme`` is the tracked theme's id where one matched, else the category,
-    so sibling actors' notes on one event land in one row.
+    The theme key is the tracked theme's id where one matched, else ``#<issue>``
+    where the flag cites an untracked issue, else the category, so sibling
+    actors' notes on one event land in one row.
     """
 
     case_id: str
@@ -465,6 +516,8 @@ class FlagGroup:
     category: str
     theme: FlagTheme | None
     severity: FlagSeverity = FlagSeverity.info
+    #: The untracked issue every flag in the group cites, where the group is keyed on one.
+    issue: int | None = None
     count: int = 0
     actors: list[str] = field(default_factory=list)
     runs: set[str] = field(default_factory=set)
@@ -536,7 +589,12 @@ def roll_up(
                 tracked[theme.id] = (theme, count + 1, actors | {fs.actor_id}, cases | {fs.case_id})
                 continue
             event = flag.event_id or ""
-            theme_key = theme.id if theme is not None else str(flag.category)
+            if theme is not None:
+                theme_key = theme.id
+            elif flag.issue is not None:
+                theme_key = f"#{flag.issue}"
+            else:
+                theme_key = str(flag.category)
             key = (fs.case_id, event, source.value, theme_key)
             group = groups.get(key)
             if group is None:
@@ -547,6 +605,7 @@ def roll_up(
                     category=str(flag.category),
                     theme=theme,
                     severity=FlagSeverity(flag.severity),
+                    issue=flag.issue if theme is None else None,
                 )
             group.add(fs.actor_id, fs.run_id, flag)
     ordered = sorted(

@@ -1,5 +1,43 @@
 {
   "$defs": {
+    "CorpusServiceRequests": {
+      "additionalProperties": false,
+      "description": "What the cell's corpus sidecar logged answering, read off its request log.\n\nThe engine-agnostic half of the corpus-prior channel. Every other reading of\nwhether a cell reached the corpus comes from the engine's own transcript\n(an attempt) or the cell's own ``tooling.json`` (a report), and both differ\nby engine in what they can see. The sidecar sits behind every engine's\n``fedcourts query`` alike, so a count of the requests it answered says\nwhether a query arrived, whatever the transcript shows.",
+      "properties": {
+        "open_events": {
+          "description": "`/v1/open-events` requests the sidecar logged",
+          "minimum": 0,
+          "title": "Open Events",
+          "type": "integer"
+        },
+        "open_events_ok": {
+          "description": "Of `open_events`, those answered 200",
+          "minimum": 0,
+          "title": "Open Events Ok",
+          "type": "integer"
+        },
+        "queries": {
+          "description": "`/v1/query` requests the sidecar logged",
+          "minimum": 0,
+          "title": "Queries",
+          "type": "integer"
+        },
+        "queries_ok": {
+          "description": "Of `queries`, those answered 200: a query that returned rows or none",
+          "minimum": 0,
+          "title": "Queries Ok",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "queries",
+        "queries_ok",
+        "open_events",
+        "open_events_ok"
+      ],
+      "title": "CorpusServiceRequests",
+      "type": "object"
+    },
     "Engine": {
       "description": "Agentic coding engine that produced an artifact.",
       "enum": [
@@ -63,6 +101,7 @@
             {
               "enum": [
                 "captured",
+                "outcome_only",
                 "unobserved"
               ],
               "type": "string"
@@ -72,7 +111,7 @@
             }
           ],
           "default": null,
-          "description": "Whether capture saw this call's result at all. `captured` means the engine log carried the call's result, in a paired result item or on the call item itself for an engine that settles it there; it does NOT mean the result had content \u2014 an empty result, or a failed one, is still captured. `unobserved` means no result reached the log: the engine logs none (Gemini's telemetry), the call ran provider-side and echoed nothing back (a Codex hosted `web_search_call`), or capture found no result to pair with the call \u2014 the parsers derive the marker from a pairing rule, so a call the engine logged without a pairing id, and one whose result sits past a truncated transcript, both land here for a capture-side reason. A row lifted out of a code-mode program (`call_source` `code_mode_source`) is unobserved by construction, and on such a log it is the commonest reason of all: the one combined output belongs to the program, not to any call inside it. The digests cannot make that distinction on their own \u2014 `result_digest` is null both for a captured-empty result and for one never captured, and so is `retrieved_doc_date` \u2014 which is why a reader who treats a null digest as `returned nothing` silently mis-grades every unobserved call. Null on records written before the field existed: capture-unknown, not unobserved.",
+          "description": "Whether capture saw this call's result at all. `captured` means the engine log carried the call's result, in a paired result item or on the call item itself for an engine that settles it there; it does NOT mean the result had content \u2014 an empty result, or a failed one, is still captured. `outcome_only` means the engine logged how the call ENDED but not what it returned: Gemini's telemetry records each call's success bit and a failed call's error message, so `result_status` is legible on such a row while `result_digest` and `retrieved_doc_date` are null by construction \u2014 grade the call on its query, as for an unobserved one, but a `result_status` of `error` there is the engine saying the call failed. `unobserved` means no result reached the log: the call ran provider-side and echoed nothing back (a Codex hosted `web_search_call`), or capture found no result to pair with the call \u2014 the parsers derive the marker from a pairing rule, so a call the engine logged without a pairing id, and one whose result sits past a truncated transcript, both land here for a capture-side reason. A row lifted out of a code-mode program (`call_source` `code_mode_source`) is unobserved by construction, and on such a log it is the commonest reason of all: the one combined output belongs to the program, not to any call inside it. The digests cannot make that distinction on their own \u2014 `result_digest` is null both for a captured-empty result and for one never captured, and so is `retrieved_doc_date` \u2014 which is why a reader who treats a null digest as `returned nothing` silently mis-grades every unobserved call. Null on records written before the field existed: capture-unknown, not unobserved.",
           "title": "Result Capture"
         },
         "result_digest": {
@@ -104,7 +143,7 @@
             }
           ],
           "default": null,
-          "description": "What capture read IN this call's result \u2014 decided at parse time from the captured payload, never the agent's word, and never a judgment about whether the call was useful. `throttled` means the payload carries the shape the pinned CourtListener MCP server renders an upstream HTTP 429 as: its tool handler raises `Rate limit exceeded: HTTP 429: \u2026`, and its citation tools append a `Rate limited by the upstream API` note to a result the throttle cut short. That is the shared daily quota turning the cell away rather than the corpus being empty, which is the one condition a starved run cannot otherwise be told apart from a well-fed one by. ONLY a manifest-tool (MCP) call can carry it: the text predicate is gated on the tool name, because the same phrases occur constantly in what a BUILTIN reads \u2014 a cell's own `reasoning.md` describing a throttle it hit, this repository's source, an evaluator reading the predictor's artifacts \u2014 and a builtin echoing prose about throttling is not the upstream refusing this cell. That gate narrows the text scanned; it does not make the rest of it safe, because a manifest search tool returns documents for a living and an opinion may discuss a rate limitation or too many requests for admission. So each phrase is quoted to something this server actually emits \u2014 the note to its subject (`\u2026by the upstream API`), the reason phrase to its status code (`429 Too Many Requests`) \u2014 and none is a bare `429`, which inside a legal payload is an ordinary U.S. Reports volume and a docket number besides. Biased to miss a throttle rather than invent one, so read `throttled` as a floor. `error` is the engine's OWN structural marker on the result (a Claude `tool_result` `is_error`, a Codex MCP item's inline `error`) with no throttle shape. It is NOT gated on the tool name \u2014 it is a flag the engine set, not text a payload can forge, so a failed builtin is honestly an error \u2014 and it is a floor too, since only some engines set one. `ok` is the residual, and it is wide: captured, no engine error marker, and either not a manifest-tool call at all or a manifest result with no throttle shape. It is not proof the call succeeded. `unobserved` mirrors `result_capture` exactly: no result reached the log, so no condition could be read, which is every Gemini call. Null on records written before the field existed: condition-unknown, not `ok`. Every status is BAKED AT PARSE TIME and never recomputed, so a later recalibration of the predicate reaches only new logs; any rollup pools whatever predicate each log was minted under.",
+          "description": "What capture read IN this call's result \u2014 decided at parse time from the captured payload, never the agent's word, and never a judgment about whether the call was useful. `throttled` means the payload carries the shape the pinned CourtListener MCP server renders an upstream HTTP 429 as: its tool handler raises `Rate limit exceeded: HTTP 429: \u2026`, and its citation tools append a `Rate limited by the upstream API` note to a result the throttle cut short. That is the shared daily quota turning the cell away rather than the corpus being empty, which is the one condition a starved run cannot otherwise be told apart from a well-fed one by. ONLY a manifest-tool (MCP) call can carry it: the text predicate is gated on the tool name, because the same phrases occur constantly in what a BUILTIN reads \u2014 a cell's own `reasoning.md` describing a throttle it hit, this repository's source, an evaluator reading the predictor's artifacts \u2014 and a builtin echoing prose about throttling is not the upstream refusing this cell. That gate narrows the text scanned; it does not make the rest of it safe, because a manifest search tool returns documents for a living and an opinion may discuss a rate limitation or too many requests for admission. So each phrase is quoted to something this server actually emits \u2014 the note to its subject (`\u2026by the upstream API`), the reason phrase to its status code (`429 Too Many Requests`) \u2014 and none is a bare `429`, which inside a legal payload is an ordinary U.S. Reports volume and a docket number besides. Biased to miss a throttle rather than invent one, so read `throttled` as a floor. `error` is the engine's OWN structural marker on the result (a Claude `tool_result` `is_error`, a Codex MCP item's inline `error`) with no throttle shape, or on an `outcome_only` row the engine's logged failure (Gemini's `success` false, or a shell command's non-zero exit in its `metadata`). It is NOT gated on the tool name \u2014 it is a flag the engine set, not text a payload can forge, so a failed builtin is honestly an error \u2014 and it is a floor too, since only some engines set one. `ok` is the residual, and it is wide: captured, no engine error marker, and either not a manifest-tool call at all or a manifest result with no throttle shape. It is not proof the call succeeded. On an `outcome_only` row `throttled` reads the logged error message alone, so it sees a 429 the server raised as a tool error and never the citation tools' note on a successful result: a narrower floor than a captured row's. `unobserved` mirrors `result_capture` exactly: no result or outcome reached the log, so no condition could be read. Null on records written before the field existed: condition-unknown, not `ok`. Every status is BAKED AT PARSE TIME and never recomputed, so a later recalibration of the predicate reaches only new logs; any rollup pools whatever predicate each log was minted under.",
           "title": "Result Status"
         },
         "retrieved_doc_date": {
@@ -176,6 +215,18 @@
       "title": "Case Id",
       "type": "string"
     },
+    "corpus_service": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CorpusServiceRequests"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The requests the cell's corpus sidecar logged, counted off its request log after the agent finished. The sidecar answers every engine's `fedcourts query` and `open-events` alike, so this is the one corpus-use reading that does not depend on what an engine's transcript shows: a cell whose transcript holds a well-formed query and whose count is zero sent nothing the service received. DESCRIPTIVE ONLY: no score or rank key reads it. The log sits in the cell's workspace, so like `record/context.json` it is a file the agent could have altered. A request line carries only the route constant and the status, and only a line in that shape counts. Counts the whole job, which is one cell. Dropped by the blinding mask, since how often a cell queries is engine-shaped. Null where no sidecar log was read: a job with no sidecar, a log that was missing, or a record written before the field existed"
+    },
     "engine": {
       "$ref": "#/$defs/Engine"
     },
@@ -224,7 +275,7 @@
         }
       ],
       "default": null,
-      "description": "Share of this log's marker-carrying calls whose `result_capture` is `captured` \u2014 the log-level reading of what the grader could see. Derived from `calls`, never asserted independently, so the rate and the rows cannot disagree; its denominator is therefore the calls this log *retained*, after capture's head-cut at the schema's 500-call maximum and after the 16 KiB window the code-mode lift scans, not every call the cell made. Null when no call carries the marker: an empty log, or one written before the marker existed. A 0.0 is a real and different fact \u2014 every call ran with its result unobserved, which is the standing shape of a Gemini cell. A code-mode cell reads low here BY CONSTRUCTION: every row lifted from a program's source (`call_source` `code_mode_source`) is unobserved, because the freeform call returns one combined output for the whole program and nothing says which part of it belongs to a call inside. That is the honest answer to the question this field asks \u2014 what share of the cell's calls could a reader see an answer for \u2014 so the whole-log rate is the one to compare. What does NOT carry across engines is reading it as capture QUALITY: for a program-driven cell the rate is dominated by call shape, and the quantity that separates such a cell from one calling the same tools as items is its `transcript_item` SHARE, which belongs beside the rate rather than in place of its denominator. Restricting the rate to `transcript_item` rows measures something else entirely \u2014 whether the engine's own log paired an output to each item it emitted, a plumbing check that returns a code-mode cell to 1.0 over its program wrappers alone. Two more reasons it is not the restriction to make: `call_source` is null on every row predating the marker, so the filter reads unknown provenance as excluded; and the blinding mask drops `call_source` while passing this rate through, so on the one surface where the number reaches a grader the restriction cannot be performed at all.",
+      "description": "Share of this log's marker-carrying calls whose `result_capture` is `captured` \u2014 the log-level reading of what the grader could see. Derived from `calls`, never asserted independently, so the rate and the rows cannot disagree; its denominator is therefore the calls this log *retained*, after capture's head-cut at the schema's 500-call maximum and after the 16 KiB window the code-mode lift scans, not every call the cell made. Null when no call carries the marker: an empty log, or one written before the marker existed. A 0.0 is a real and different fact \u2014 every call ran with its result unseen, which is the standing shape of a Gemini cell, whose rows are `outcome_only`: an outcome is not a result, so it does not count here. A code-mode cell reads low here BY CONSTRUCTION: every row lifted from a program's source (`call_source` `code_mode_source`) is unobserved, because the freeform call returns one combined output for the whole program and nothing says which part of it belongs to a call inside. That is the honest answer to the question this field asks \u2014 what share of the cell's calls could a reader see an answer for \u2014 so the whole-log rate is the one to compare. What does NOT carry across engines is reading it as capture QUALITY: for a program-driven cell the rate is dominated by call shape, and the quantity that separates such a cell from one calling the same tools as items is its `transcript_item` SHARE, which belongs beside the rate rather than in place of its denominator. Restricting the rate to `transcript_item` rows measures something else entirely \u2014 whether the engine's own log paired an output to each item it emitted, a plumbing check that returns a code-mode cell to 1.0 over its program wrappers alone. Two more reasons it is not the restriction to make: `call_source` is null on every row predating the marker, so the filter reads unknown provenance as excluded; and the blinding mask drops `call_source` while passing this rate through, so on the one surface where the number reaches a grader the restriction cannot be performed at all.",
       "title": "Result Capture Coverage"
     },
     "role": {

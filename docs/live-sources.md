@@ -603,9 +603,9 @@ docket does not yield is taken from the lead's selection. The rules:
   dates the first respondent brief the attribution reads as the member's, after
   both the member's grant and the lead's (`documents.member_respondent_brief_date`),
   into `merits_brief_on_lead`. A lead the corpus does not hold dates nothing. A self-represented party on the lead does not refuse
-  it, since a date carries no contact details. No mint reads the column: the
-  briefed moment's dating is registered, so opening it for members is a
-  re-bless decision, and the column accrues until then.
+  it, since a date carries no contact details. The member's briefed moment
+  opens on the column at the member's next poll, exactly as on
+  `merits_brief_filed` (the member's own date wins where it has one).
 
 The **lead's own** selection reads the same attribution the other way round. A
 lead docket — one whose consolidation entry names its own number — carries
@@ -1340,9 +1340,10 @@ dispatched pass stays the route for a maintainer-read slice of the whole class.
 ### Contract for the recovery pass
 
 What the pass holds to. It is `fedcourts ocr-recover-petitions`, dispatched as
-`run-repair`'s `ocr-recovery` selector value, whose step installs its two
-binaries: tesseract, and poppler's `pdftoppm` for the page raster it reads —
-shelled to the same way, so the pass adds no Python dependency on either side.
+`run-repair`'s `ocr-recovery` selector value, whose credential-free parse job
+installs its two binaries: tesseract, and poppler's `pdftoppm` for the page
+raster it reads — shelled to the same way, so the pass adds no Python
+dependency on either side.
 
 - **Where it runs.** As a pass on `run-repair` — a `repair` selector value, not
   a workflow of its own. The writer jobs are the only place a production corpus
@@ -1354,17 +1355,18 @@ shelled to the same way, so the pass adds no Python dependency on either side.
   for. It is one of the three passes there that fetch — the document back-fill
   and the re-cut below are the others — and the fetch is what keeps them in that lane rather than
   the pullers': supremecourt.gov is free and politeness-capped, so no budget is
-  governed and no window's schedule is implicated. Both binaries are installed by that step and by
-  the OCR sweep's credential-free parse job only, so no *scheduled* job
-  holding a credential has them. This dispatched step does: it installs and
-  runs them inside the job that holds the read-write corpus role and the data
-  App token. Dry run by
+  governed and no window's schedule is implicated. Both binaries are installed
+  by the two credential-free parse jobs only, this pass's and the OCR sweep's,
+  so no job holding a credential has them: the fetch and the recognition run
+  in a job holding none, and the writer that lands what they read fetches
+  nothing (*Maintenance passes* in [data-pipeline.md](data-pipeline.md)). Dry run by
   default, and bounded through `repair_bound` so a backlog clears in slices
   rather than in one long job; runner minutes are the whole cost. That bound is
-  the *spend* cap. What keeps a slice inside the step's own wall clock is a
-  **slice deadline** the step passes with it, sized from everything that must
-  still fit inside that cap once the pass stops taking work — the writes it has
-  in flight, the witness re-read, the blob push and the pointer commit. Before
+  the *spend* cap. What keeps a slice inside the parse step's own wall clock
+  is a **slice deadline** the step passes with it, sized from everything that
+  must still fit inside that cap once the pass stops taking work — a started
+  candidate's overshoot and the plan write; the witness re-read, the blob push
+  and the pointer commit are the writer's. Before
   each candidate the pass estimates its cost from the stored page count and
   stops taking new ones once what is left will not hold it. Page counts across
   the class vary several-fold, so a fixed bound cannot do that job — a slice
@@ -1527,10 +1529,16 @@ corpus row rather than off a poll.
   the same free, politeness-capped supremecourt.gov requests — no budget is
   governed and no window's schedule is implicated. Dry run by default, bounded
   through `repair_bound` so a backlog clears in slices, and bounded again by a
-  **slice deadline** the step passes, sized from everything that must still fit
-  inside the step's cap once the pass stops taking work. The bound applies to
-  the dry run as well, which is the one way this pass's contract differs from
-  the recovery's: its dry run is not free.
+  **slice deadline** the parse step passes, sized from everything that must
+  still fit inside the step's cap once the pass stops taking work. The bound
+  applies to the dry run as well, which is the one way this pass's contract
+  differs from the recovery's: its dry run is not free. It runs on the bench's
+  credential split: every fetch, and every parse of a fetched filing, happens
+  in the parse job, which holds no credential. Its dry run stops at the docket
+  JSON and is read whole there; an apply's parse fetches the filings too and
+  hands its plan to the `documents` writer, which lands it under the lock
+  through the same ledger the pass runs in one job, so the ledger reads the
+  same.
 - **What it reads.** Live-slice SCOTUS rows that are **predict-relevant** —
   queued for prediction, or selected by the salience gate and not yet queued.
   The selected arm is not redundant — a reserve-selected application has no
@@ -1619,7 +1627,7 @@ corpus row rather than off a poll.
   body-less `case.json` over a stored opinion — and they are durable only once
   the lane pushes the blob, where the documents are already banked per case.
   Because the documents' durable write is the content store's rather than the
-  pointer's, the step re-walks the class afterwards on an **empty slice** —
+  pointer's, the writer re-walks the class afterwards on an **empty slice** —
   which costs no round trip — and requires exactly what the apply's ledger said
   it would leave behind.
 - **Terms.** Unchanged. These filings are the Court's own public records, fetched
@@ -1644,7 +1652,14 @@ the same link.
   host before the request and across every redirect, and a body past the
   recovery's size ceiling refused as not-a-filing. Dry run by default, bounded
   through `repair_bound` on an apply and on a dry run that sets it, and bounded
-  again by a **slice deadline** the step passes.
+  again by a **slice deadline** the parse step passes. It runs on the bench's
+  credential split: the fetch and the re-cut happen in the parse job, which
+  holds no credential, and settles what the served PDF alone shows (a failed
+  fetch, unparseable bytes, another page count, an empty re-cut); the rest of
+  each outcome reads the stored text, which never crosses into a public
+  artifact, so it is judged on the corpus side — in the writer on an apply, in
+  a read-only reader job on a dry run — in the same order as in one job, so
+  the ledger reads the same.
 - **What it reads.** Stored rows of the three appendix-bearing kinds that are
   `truncated`, not `ocr_derived`, carry no `[pipeline note:` line, and whose
   stored URL is one Court link, over the **predict-relevant** live-slice rows
@@ -1684,13 +1699,15 @@ the same link.
   back-fill has converged, and is left to `backfill-questions-presented`.
 - **The ledger.** The class and each outcome — `recut`, `unchanged`,
   `pages-changed`, `head-changed`, `unreadable`, `empty-after-recut`,
-  `fetch-failed`, `unreached` — cut by
-  kind, then one `<case_id> <kind>` line per candidate the slice reached. An
+  `fetch-failed`, `left-the-class` (the writer or reader found the stored row
+  out of the class, or holding another filing, since the projection read it),
+  `unreached` — cut by kind, then one `<case_id> <kind>` line per candidate
+  the slice reached. An
   apply's re-cut lines are the record of which stored rows it replaced. A
   re-cut row carries a cut note or fits under the cap, and either way leaves
   the class, so successive dispatches drain it; the skipped outcomes stay at
   its head, and a bounded slice that re-cuts nothing warns that it is reading
-  only that residue. The step re-walks the class
+  only that residue. The writer re-walks the class
   on an **empty slice** afterwards and requires exactly what the apply's ledger
   said it would leave behind.
 - **Terms.** Unchanged, as for the two passes above.

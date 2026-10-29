@@ -144,13 +144,17 @@ def test_a_severity_synonym_maps_by_table_and_an_unknown_one_to_warning(
         ("severity", "critical", FlagSeverity.warning),
         ("severity", "Warning", FlagSeverity.warning),
         ("severity", 3, FlagSeverity.warning),
-        ("category", "capture-gap", FlagCategory.other),
+        ("category", "unfiled", FlagCategory.other),
+        ("category", "outcome-exposure", FlagCategory.leakage_disclosure),
+        ("category", "Capture Gap", FlagCategory.capture_gap),
+        ("issue", "#1858", 1858),
+        ("issue", "soon", None),
         ("category", "data_quality", FlagCategory.data_quality),
         ("category", "Ambiguous Event", FlagCategory.ambiguous_event),
     ],
 )
 def test_an_off_vocabulary_value_is_coerced_and_quoted(
-    field: str, value: object, expected: str
+    field: str, value: object, expected: object
 ) -> None:
     item = {"category": "other", "severity": "info", "message": "keep me", field: value}
     result = normalise_flags(_envelope(item), _WHERE)
@@ -325,3 +329,33 @@ def test_roll_up_counts_repeats_across_runs_into_one_group() -> None:
     rollup = roll_up(sets, themes=(FlagTheme(id="x", issue=1, summary="s", all_of=("nomatch",)),))
     (group,) = rollup.groups
     assert (group.count, group.actors, group.runs) == (2, ["a"], {"R1", "R2"})
+
+
+def test_a_flag_citing_a_tracked_issue_counts_against_its_theme_whatever_its_wording() -> None:
+    theme = FlagTheme(id="relists", issue=1858, summary="s", all_of=("distribution count",))
+    flags = AgentFlags(
+        case_id="scotus/1",
+        run_id="R",
+        role=UsageRole.predictor,
+        actor_id="a",
+        flags=[AgentFlag(category=FlagCategory.data_quality, message="as tracked", issue=1858)],
+    )
+    rollup = roll_up([flags], themes=(theme,))
+    assert rollup.groups == ()
+    (count,) = rollup.tracked
+    assert (count.theme.id, count.flags) == ("relists", 1)
+
+
+def test_flags_citing_one_untracked_issue_collapse_into_one_group() -> None:
+    sets = [
+        AgentFlags(
+            case_id="scotus/1",
+            run_id="R",
+            role=UsageRole.predictor,
+            actor_id=actor,
+            flags=[AgentFlag(category=category, message=f"{actor} saw it", issue=42)],
+        )
+        for actor, category in (("a", FlagCategory.provisioning), ("b", FlagCategory.other))
+    ]
+    (group,) = roll_up(sets, themes=()).groups
+    assert group.actors == ["a", "b"]

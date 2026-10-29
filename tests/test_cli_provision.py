@@ -2847,6 +2847,26 @@ def test_a_pro_se_dockets_staged_snapshot_withholds_the_filers_contact_keys(
     assert stored[1]["Petitioner"][0]["Email"] == "jane.doe@example.com"
 
 
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        # Self-represented, but the block serves no contact value: the scrub
+        # ran and withheld nothing, which is not the same record as never ran.
+        (_PRO_SE_DOCKET, {"sides": ["Petitioner"], "blocks": 0, "fields": 0}),
+        (_REPRESENTED_DOCKET, {"sides": [], "blocks": 0, "fields": 0}),
+    ],
+)
+def test_the_context_says_whether_the_snapshot_scrub_ran(
+    fixture_corpus: FixtureCorpus, payload: dict[str, Any], expected: dict[str, Any]
+) -> None:
+    _seed_snapshot(fixture_corpus, date(2026, 7, 20), payload)
+
+    result = _provision_cell()
+
+    assert result.exit_code == 0, result.output
+    assert _context(fixture_corpus)["snapshot_contact_scrub"] == expected
+
+
 def test_the_value_pass_keys_on_the_payload_as_served_not_the_scrubbed_snapshot(
     fixture_corpus: FixtureCorpus,
 ) -> None:
@@ -2894,6 +2914,13 @@ def test_the_value_pass_keys_on_the_payload_as_served_not_the_scrubbed_snapshot(
     assert block["Email"] == "[contact detail withheld]"
     assert block["Address"] == "[contact detail withheld]"
     assert block["PrisonerId"] == "[register number withheld]"
+    # The context records what the snapshot scrub withheld: five contact keys
+    # and the register number, on the one block it keyed on.
+    assert _context(fixture_corpus)["snapshot_contact_scrub"] == {
+        "sides": ["Petitioner"],
+        "blocks": 1,
+        "fields": 6,
+    }
     staged = paths.document("petition").read_text()
     assert "jdoe.petitioner" not in staged
     assert "9365550147" not in staged

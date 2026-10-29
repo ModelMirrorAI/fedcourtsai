@@ -1,0 +1,93 @@
+{
+  "$defs": {
+    "BlindingCount": {
+      "additionalProperties": false,
+      "description": "One term's occurrences in one file of an evaluate cell's output.",
+      "properties": {
+        "count": {
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        },
+        "file": {
+          "description": "The file, relative to the evaluator's own directory for the event (`<predictor_id>/<run_id>/evaluation.md`, `<run_id>/flags.json`)",
+          "title": "File",
+          "type": "string"
+        },
+        "term": {
+          "description": "What was counted, lowercase: the predictor id an alias resolved to (`replaced`), or the identity text as the judge wrote it (`names_present`)",
+          "title": "Term",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file",
+        "term",
+        "count"
+      ],
+      "title": "BlindingCount",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``blinding.json`` \u2014 what un-aliasing did to one evaluate cell's output.\n\nWritten by the harness beside the cell's ``usage.json`` when it renames the\njudge's alias-keyed output onto the real predictor ids\n(:func:`fedcourtsai.blinding.unblind_evaluations`). The rewrite resolves\nevery alias the judge wrote to a predictor id, so the committed text names\npredictors; this record is what tells a name the harness substituted from\none the judge wrote itself.",
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "evaluator_id": {
+      "title": "Evaluator Id",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "names_present": {
+      "description": "Identity terms already in the judge's own text BEFORE un-aliasing: predictor and evaluator ids, engine names, model ids and the bare family words the staging scrub masks (`fedcourtsai.blinding.identity_terms`), less the evaluator's own id, engine and model, which its `evaluation.json` carries about itself \u2014 so a candidate that shares the judge's engine or model is not counted under that shared term, only under its own id. The judge was staged text with every such term redacted, so one here is a name the judge wrote itself \u2014 recognising a candidate's style, or breaking the blind through a route the scrub cannot close. Empty is the expected case. A count is a match of the same case-insensitive pattern the scrub uses, so a family word used in its ordinary sense (`codex` for a manuscript) counts too: read the term and file before reading it as a broken blind",
+      "items": {
+        "$ref": "#/$defs/BlindingCount"
+      },
+      "title": "Names Present",
+      "type": "array"
+    },
+    "replaced": {
+      "description": "Alias occurrences the harness rewrote, per file, keyed by the predictor id each resolved to \u2014 counted over every file it rewrites, the harness-written retrieval log included",
+      "items": {
+        "$ref": "#/$defs/BlindingCount"
+      },
+      "title": "Replaced",
+      "type": "array"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "scanned_files": {
+      "description": "Every file of the judge's own output the counts were taken over, relative to the evaluator's directory: the renamed per-candidate directories and the cell's own run-keyed directory, less the harness-written files (`usage.json`, `retrieval_log.json`, `blinding.json`), which carry the evaluator's own id and engine by construction. A file not listed was not read",
+      "items": {
+        "type": "string"
+      },
+      "title": "Scanned Files",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "event_id",
+    "run_id",
+    "evaluator_id",
+    "scanned_files",
+    "replaced",
+    "names_present"
+  ],
+  "title": "BlindingRecord",
+  "type": "object"
+}

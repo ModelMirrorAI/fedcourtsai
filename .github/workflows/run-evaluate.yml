@@ -616,6 +616,16 @@ jobs:
         with:
           restore-cache: "false"
 
+      # A bare `fedcourts` resolves in every agent's shell, the same binary
+      # `uv run fedcourts` runs: a cell that drops the `uv run` prefix still
+      # reaches the CLI rather than losing a turn to "command not found". A
+      # symlink in /usr/local/bin rather than the venv's `bin` on PATH, so no
+      # workspace directory is put ahead of the system tools for the steps
+      # after the agent, and so codex's account finds it too: its `sudo -u`
+      # hop resets PATH to `secure_path`, which keeps /usr/local/bin.
+      - name: Put the project CLI on the agent shell's PATH
+        run: sudo ln -sf "$GITHUB_WORKSPACE/.venv/bin/fedcourts" /usr/local/bin/fedcourts
+
       # Read-only corpus access (OIDC role; no static keys). The session this
       # step assumes is the read-only role's. By design it is the one corpus
       # role whose trust names `prod`: the read-write role's trust names
@@ -1607,6 +1617,9 @@ jobs:
           elif [ "$ENGINE" = "codex" ]; then
             args+=(--codex-sessions-dir "$CODEX_HOME/sessions")
           fi
+          # The sidecar's own request log, counted into the retrieval log as
+          # the corpus-use reading that is the same for every engine.
+          args+=(--corpus-sidecar-log "$GITHUB_WORKSPACE/corpus-sidecar.log")
           uv run fedcourts "${args[@]}" \
             || echo "::warning::no retrieval log captured for ${EVENT_ID}"
 

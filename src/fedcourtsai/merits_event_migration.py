@@ -22,8 +22,9 @@ grant leaves nothing to forecast, so it gets no event — minting one would open
 a row the next detection pass immediately resolves, manufacturing a resolved
 event no forecast ever attached to. The grant-moment event opens at the row's
 ``date_cert_granted``; where the respondent's merits brief is latched
-(``merits_brief_filed``), the briefed moment is minted beside it, opened at the
-brief date. A case already carrying an **open** grant event is topped up with
+(``merits_brief_filed``, or ``merits_brief_on_lead`` on a consolidated member
+whose respondent filed on the lead docket), the briefed moment is minted beside
+it, opened at the brief date. A case already carrying an **open** grant event is topped up with
 just the owed briefed moment (the brief can latch after the grant event was
 minted, by this sweep or the live path); one whose grant event is *resolved*
 is converged — the merits question is closed, whatever else the row reads.
@@ -261,7 +262,7 @@ def _plan_case(
     # requires is either the one this sweep is about to mint or the stored,
     # still-open row — so a case already carrying its grant event is topped up
     # with just the owed briefed moment.
-    briefed = briefed_merits_event_for(row, [MERITS_EVENT_ID])
+    briefed = briefed_merits_event_for(row, [MERITS_EVENT_ID], row.merits_brief_on_lead)
     if briefed is not None:
         conflict = _target_conflict(
             events, data_root, court_id, docket_id, BRIEFED_MERITS_EVENT_ID, "briefed"

@@ -29,7 +29,8 @@ lane never calls writes it.
             event.yaml
             outcome.json
             predictions/<predictor_id>/<run_id>/{prediction.json,reasoning.md,
-                                                predicted_reasoning.md?,flags.json?}
+                                                predicted_reasoning.md?,prediction_summary.md?,
+                                                flags.json?}
             evaluations/<evaluator_id>/<predictor_id>/<run_id>/{evaluation.json,evaluation.md}
             evaluations/<evaluator_id>/<run_id>/flags.json?
 
@@ -139,6 +140,11 @@ class EventPaths:
         # The predictor's rationale for its own numbers (`reasoning_doc`).
         return self.prediction_dir(predictor_id, run_id) / "reasoning.md"
 
+    def prediction_summary(self, predictor_id: str, run_id: str) -> Path:
+        # A plain-language paragraph restating the prediction for a lay reader;
+        # never staged for a judge and never scored.
+        return self.prediction_dir(predictor_id, run_id) / "prediction_summary.md"
+
     def predicted_reasoning(self, predictor_id: str, run_id: str) -> Path:
         # The forecast of the Court's own reasoning (`predicted_reasoning_doc`) —
         # claims that resolve against the docket, kept out of the rationale above
@@ -191,6 +197,10 @@ class EventPaths:
 
     def evaluation_usage(self, evaluator_id: str, run_id: str) -> Path:
         return self.evaluation_cell_dir(evaluator_id, run_id) / "usage.json"
+
+    def evaluation_blinding(self, evaluator_id: str, run_id: str) -> Path:
+        # The harness's record of what un-aliasing replaced, keyed like its usage.
+        return self.evaluation_cell_dir(evaluator_id, run_id) / "blinding.json"
 
     def evaluation_retrieval_log(self, evaluator_id: str, run_id: str) -> Path:
         # The harness-captured tool-call transcript, keyed like its usage.
@@ -322,6 +332,13 @@ class CasePaths:
         # the Term, as of the day before its cutoff (`provision.authorship_tally_for`).
         # Gitignored with the rest of record/.
         return self.record / "authorship-tally.json"
+
+    @property
+    def same_question(self) -> Path:
+        # A cert cell's list of other petitions raising the same question, cut
+        # to its moment (`pipeline.same_question.cell_lists`). Gitignored with
+        # the rest of record/.
+        return self.record / "same-question.json"
 
     @property
     def argument_features(self) -> Path:
