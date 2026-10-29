@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000240",
+  "gaps": [
+    "CourtListener precedent search exhausted its daily quota (HTTP 429)",
+    "General official-source web retrieval returned no readable content",
+    "No published response-requested conditional grant rate"
+  ],
+  "helpful": [
+    "Moment-cut snapshot and explicit sal-v4 context",
+    "Usable petition and questions-presented text",
+    "Statpack JSON permits exact pooling of prior-Term reached rates"
+  ],
+  "notes": "Forecast completed from provisioned inputs and committed statpack. Invalid era token was corrected to 2020s. Default uv cache was read-only; redirected it to /tmp. Corpus priors were grant-selected and non-topical, so not used as an empirical anchor. No target outcome was retrieved.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search",
+    "web search",
+    "web open",
+    "jq",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

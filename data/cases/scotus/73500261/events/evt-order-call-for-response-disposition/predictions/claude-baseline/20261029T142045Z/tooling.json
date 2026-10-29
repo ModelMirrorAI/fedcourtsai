@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/73500261",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "metrics/statpack.md", "WebSearch", "WebFetch (supremecourt.gov dockets)"],
+  "helpful": ["--docket-number lookup for the unlinked companion petition", "state-band reached rates"],
+  "gaps": ["Companion/conditional petitions not linked by a Vide entry are not staged under record/related/", "No base-rate cut for conditional cross-petitions or for petitions after a called-for response"]
+}

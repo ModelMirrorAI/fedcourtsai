@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73277388",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "provisioned petition.txt and appendix.txt",
+    "metrics/statpack.md per-Term sal-v4 band table",
+    "provisioned snapshot 2025-11-07.json"
+  ],
+  "gaps": [
+    "CourtListener MCP server returned HTTP 429 rate limit exceeded (1400/day)",
+    "fedcourts query --docket-number does not return open/as-of state of a companion docket at a cutoff date without --decided-before 0"
+  ],
+  "notes": "Provisioned documents (petition, appendix, party letter, snapshot) and statpack.md were complete and sufficient for full analysis. CourtListener MCP hit the daily 1400-request rate limit."
+}

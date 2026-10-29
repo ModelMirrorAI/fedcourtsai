@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000208",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "Retrieval degraded but prediction completed: CourtListener MCP search returned daily-limit HTTP 429, all five web calls returned no visible usable text, and corpus-info cannot expose vintage through the service backend. Used the provisioned record and committed statpack, plus successful historical corpus queries. Circuit-split authorities outside the appendix are characterized from the petition, not independently verified. No outcome leakage encountered.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0"
+}

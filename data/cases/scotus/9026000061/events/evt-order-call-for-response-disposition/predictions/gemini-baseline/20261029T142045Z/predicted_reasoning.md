@@ -1,0 +1,21 @@
+# Predicted Reasoning: *Shosh Yonay, et al. v. Paramount Pictures Corporation* (No. 26-61)
+
+## Procedural Trajectory: Further Distributions and CVSG
+
+The docket as of the August 17, 2026 snapshot records **one distribution** (`distribution_count: 1`, distributed on July 29, 2026 for the September 29, 2026 conference after Respondent Paramount Pictures Corporation waived its response on July 23, 2026). Because the Court called for a response on August 17, 2026 (setting a response deadline of September 16, 2026), the petition will be taken off the September 29 conference list and **distributed at least once more** after Respondent files its brief in opposition (likely following one or more routine extensions of time) and Petitioners file their reply brief. Once re-distributed with full cert-stage briefing, the Court will resolve the petition at its first post-briefing conference without a further relist—meaning **one additional distribution** beyond the one already recorded on the snapshot (`relist-increment` = 0.98).
+
+The Court **will not call for the views of the Solicitor General (CVSG)** (`cvsg-increment` = 0.02). This is a private copyright-infringement and contract dispute between a journalist's heirs and a motion-picture studio turning on how federal courts apply substantial-similarity filtering under *Feist Publications, Inc. v. Rural Telephone Service Co.*, 499 U.S. 340 (1991), at summary judgment. No federal statute's validity, Register of Copyrights registration policy, or international copyright treaty obligation is directly implicated.
+
+## Disposition and Summary-Disposition Route
+
+The Court will **deny** the petition for a writ of certiorari (`disposition` = 0.06, `predicted_disposition` = `denied`). Although Petitioners frame a methodological circuit split between the Ninth Circuit's objective "extrinsic test" and the Second Circuit's "more discerning ordinary observer" / "total concept and feel" approach, the Ninth Circuit's opinion expressly evaluated both individual expressive categories and Petitioners' holistic "selection-and-arrangement" theory across protectable and unprotectable elements, concluding that the 1983 non-fiction magazine article *"Top Guns"* and the 2022 fictional sequel *Top Gun: Maverick* overlap only in unprotectable historical facts about the Navy's real Fighter Weapons School, F-14 aircraft, and stock themes. Once Respondent's brief in opposition demonstrates that the Second Circuit likewise regularly grants summary judgment where works share only historical facts and *scènes à faire*, the Court will deny review.
+
+Conditional on a grant, the Court would set the case for **plenary briefing and oral argument** rather than entering a summary disposition (`summary-disposition-route` = 0.08). There is no intervening Supreme Court precedent on which to grant, vacate, and remand (GVR), and the methodological question Petitioners raise could not be resolved by a summary per curiam reversal.
+
+## Scope of Review If Granted
+
+If the Court were to grant certiorari, it would take the single question presented as framed—whether a court evaluating substantial similarity on summary judgment may filter out unprotectable elements and grant judgment for the defendant under an objective extrinsic test without assessing how an ordinary observer would perceive the works' selection and arrangement as a whole. On the merits, if granted, the Court would likely affirm the Ninth Circuit on the ground that *Feist* and 17 U.S.C. § 102(b) require courts to ensure that copyright liability rests on substantial similarity in original expression—including an original selection and arrangement—rather than allowing a jury to find infringement from shared historical facts and stock themes in a non-fiction work.
+
+## Separate Writings on the Disposition Order
+
+When the Court denies the petition, **no Justice will author a dissent from or statement respecting the denial of certiorari** (`dissent-from-denial` = 0.03). While Justices Thomas and Gorsuch occasionally show interest in copyright doctrine and summary-judgment standards, the wide factual gulf between the 1983 magazine article and the 2022 film sequel makes this petition an unattractive vehicle for a separate statement.

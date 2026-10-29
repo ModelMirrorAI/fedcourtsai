@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73522552",
+  "gaps": [
+    "CourtListener exhausted its daily quota before returning an opinion.",
+    "corpus-info cannot report vintage through the provisioned query service.",
+    "No committed cert call-for-response-conditioned disposition rate is available."
+  ],
+  "helpful": [
+    "The staged question, petition, and appended opinions make the disagreement and finality assessable.",
+    "Exact reached-band counts permit a strictly-prior weighted anchor.",
+    "Two older official docket pages provide a response-requested analogue without seeking the target outcome."
+  ],
+  "notes": "Used only the provisioned moment for target-case facts. No opposition is expected in this response-requested baseline. The corpus sample was grant-filtered and was not used to estimate a rate. uv required a writable temporary cache. Search site restrictions did not prevent an unrelated non-primary prediction snippet; it was not opened or used.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and filings",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search (throttled)",
+    "web search and official Supreme Court prior dockets",
+    "fedcourts corpus-info (unsupported service backend)",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

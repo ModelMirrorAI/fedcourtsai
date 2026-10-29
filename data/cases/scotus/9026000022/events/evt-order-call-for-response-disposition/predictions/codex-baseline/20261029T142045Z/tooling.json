@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000022",
+  "gaps": [
+    "CourtListener MCP daily quota exhausted; Horne lookup returned HTTP 429.",
+    "Web searches and the official-report PDF request returned no readable output.",
+    "No published response-call-conditioned base rate; adjustment from the state band remains judgmental."
+  ],
+  "helpful": [
+    "Moment-cut snapshot and frozen sal-v4 band",
+    "Petition appendices exposing the operative mootness reasoning",
+    "Strictly-prior reached-band denominators in the statpack JSON"
+  ],
+  "notes": "One successful structured corpus query supplied unrelated GVR rows, not substantive analogues. The initial uv cache permission error was resolved using /tmp/uv-cache. No response text is expected at this cert moment; no missing-input flag is warranted.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-input reads",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search (throttled)",
+    "web search and open (no readable results)",
+    "read-only independent assessment"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

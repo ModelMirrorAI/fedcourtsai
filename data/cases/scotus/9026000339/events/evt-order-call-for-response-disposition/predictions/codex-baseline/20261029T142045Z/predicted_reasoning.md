@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will most likely deny certiorari after receiving the requested response and considering the petition at a later conference. The probability of any grant, including a summary disposition, is 35%.
+
+The provisioned docket records one distribution, on September 30 for the October 16 conference, followed by the October 6 request for a response due November 5. It records no filed response and no CVSG. Expect at least one additional distribution once response briefing is complete: P(distribution count increases beyond one) = 99.5%. The modal path is one such redistribution followed by denial. That administrative return to conference is not itself evidence that the Court considered the petition and then substantively relisted it. If the Court grants review, one or two additional conference distributions after that return are plausible. Expect disposition in late 2026 or early 2027, with a response extension moving that timetable later.
+
+No CVSG is expected: P(a new invitation) = 4%. The issue concerns the allocation of private commercial litigation between state and federal courts, rather than a federal program whose administration obviously requires the Solicitor General's views.
+
+If the Court grants review, expect it to take the petition's single question substantially as presented: whether section 1332(a)(3) permits a sole LLC plaintiff with both domestic and foreign citizenship to sue domestic and foreign defendants when the opposing state citizenships are completely diverse. The principal reason for review would be a conflict over that jurisdictional rule, especially with the Seventh Circuit's Tango Music decision. Conditional on a grant, plenary briefing and argument are much more likely than disposition in the cert order: P(summary-disposition route | grant) = 8%. No intervening controlling decision or concrete hold-for-companion basis is identified in the provisioned record.
+
+Expect no dissent from denial or statement respecting denial: P(any such recorded dissent or statement | denial) = 4.5%. No individual Justice is affirmatively predicted to write. The separate order-writer probabilities in prediction.json are small, unconditional chances, not predicted cert votes. A denial is likely to carry no explanation and would not endorse the Fourth Circuit's statutory reasoning.
