@@ -1012,7 +1012,10 @@ backfill-salience-cert-columns`, `pipeline.salience_cert_backfill`), which reads
 each cert-form live-slice row's newest stored live snapshot through the ingest
 parser (`cert_signals.call_for_response_date`,
 `cert_signals.distributions_after_call`, `cert_signals.opening_writ`) and writes
-each reading under the fill-in latch, leaving a stored value alone. It fills
+each reading into a NULL only, leaving a stored value alone (stricter than
+ingest's upsert, where a fresh reading replaces it); a count whose snapshot dates
+the call differently from the stored `call_for_response_at` is reported as
+`pair_mismatch` and not filled. It fills
 `call_for_response_at` on the same rows, the call the relist rule's supersession
 is dated by. The pass is a value on the maintainer-owned `run-repair` selector
 (`src/fedcourtsai/repair_passes.py`), applied only after its dry run is read:

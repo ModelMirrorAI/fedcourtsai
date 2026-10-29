@@ -22,15 +22,27 @@ poll applies before a cert fetch — the rows ingest writes these columns on.
 :func:`~fedcourtsai.pipeline.cert_signals.call_for_response_date`,
 :func:`~fedcourtsai.pipeline.cert_signals.distributions_after_call` and
 :func:`~fedcourtsai.pipeline.cert_signals.opening_writ`, each over the snapshot's
-whole payload, so a filled row and a polled row cannot disagree.
+whole payload, so a NULL this pass fills holds what a poll of the same snapshot
+would have written there.
 
-**The write keeps the fill-in latch.** A column already holding a value is
-``already_set`` and never written, whatever the snapshot now reads — the latch
-ingest's own upsert applies (:func:`fedcourtsai.corpus._update_clause`), and the
-statement here is the same ``COALESCE`` so a value that landed between the read
-and the write survives too. Only a NULL is filled.
+**The write fills NULLs only, and is stricter than ingest.** Ingest's upsert
+latches these columns as ``COALESCE(excluded.col, cases.col)``
+(:func:`fedcourtsai.corpus._update_clause`): a fresh non-NULL reading replaces
+the stored one, and only a NULL reading keeps it. This pass never replaces
+anything. A column already holding a value is ``already_set`` and never written
+or compared, whatever the snapshot now reads, and the statement is
+``COALESCE(cases.col, new)``, so a value a poll stamps between the read and the
+write is kept rather than overwritten. A stored value that disagrees with the
+newest snapshot is the next poll's to correct, not this pass's.
 
-Per column a NULL row is otherwise one of two things: ``unparseable`` — the row
+**The call-for-response pair stays consistent.** ``distributed_after_call``
+counts conferences after the call the payload itself dates. Where
+``call_for_response_at`` is already stored and the newest snapshot dates the call
+differently, a count filled from that snapshot would hang off a call the row does
+not record, so the row is counted ``pair_mismatch`` and the count is not filled.
+
+Per column a NULL row is otherwise one of two things (three, for
+``distributed_after_call``, with ``pair_mismatch`` above): ``unparseable`` — the row
 has no live-shaped snapshot, or its snapshot discloses no proceedings, so no
 reading could be taken — or ``no_reading`` — the proceedings were read and name
 no call for response, or no opening petition entry, so the reading is NULL and
@@ -86,7 +98,7 @@ _READERS: Mapping[Column, Callable[[Mapping[str, Any]], str | int | None]] = {
 
 
 class ColumnLedger(BaseModel):
-    """One column's classification over the walked rows. The four counts sum to ``eligible``."""
+    """One column's classification over the walked rows. The five counts sum to ``eligible``."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -109,6 +121,13 @@ class ColumnLedger(BaseModel):
         ge=0,
         description="NULL rows with no live-shaped snapshot, or one disclosing no "
         "proceedings: no reading could be taken, left untouched",
+    )
+    pair_mismatch: int = Field(
+        default=0,
+        ge=0,
+        description="`distributed_after_call` only: NULL rows whose stored "
+        "`call_for_response_at` differs from the call date the newest snapshot reads, so "
+        "the snapshot's count would hang off a call the row does not record — not filled",
     )
     filled_values: dict[str, int] = Field(
         default_factory=dict,
@@ -197,6 +216,68 @@ def _value_key(column: Column, value: str | int) -> str:
     return str(value)[:4] if column == "call_for_response_at" else str(value)
 
 
+def _readings(
+    payload: Mapping[str, Any],
+    stored: Mapping[Column, object],
+    ledgers: Mapping[Column, ColumnLedger],
+) -> dict[str, str | int]:
+    """Classify one read row's NULL columns into ``ledgers``; return the fills."""
+    stored_call = stored["call_for_response_at"]
+    readings: dict[str, str | int] = {}
+    for column in COLUMNS:
+        if stored[column] is not None:
+            continue
+        if (
+            column == "distributed_after_call"
+            and stored_call is not None
+            and (snapshot_call := call_for_response_date(payload)) is not None
+            and snapshot_call != stored_call
+        ):
+            ledgers[column].pair_mismatch += 1
+            continue
+        value = _READERS[column](payload)
+        if value is None:
+            ledgers[column].no_reading += 1
+            continue
+        ledgers[column].would_fill += 1
+        key = _value_key(column, value)
+        ledgers[column].filled_values[key] = ledgers[column].filled_values.get(key, 0) + 1
+        readings[column] = value
+    return readings
+
+
+def _write(conn: sqlite3.Connection, fills: list[CertColumnFill]) -> None:
+    """Land the planned fills in one transaction, or raise and roll back."""
+    # Stored values win in the statement itself: a value stamped between the
+    # read and the write is kept, not overwritten.
+    written = 0
+    with conn:
+        for fill in fills:
+            cursor = conn.execute(
+                "UPDATE cases SET "
+                "call_for_response_at = COALESCE(call_for_response_at, ?), "
+                "distributed_after_call = COALESCE(distributed_after_call, ?), "
+                "opening_writ = COALESCE(opening_writ, ?) WHERE case_id = ?",
+                (
+                    fill.call_for_response_at,
+                    fill.distributed_after_call,
+                    fill.opening_writ,
+                    fill.case_id,
+                ),
+            )
+            written += cursor.rowcount
+        if written != len(fills):
+            # A planned row no longer exists: the plan and the corpus disagree.
+            # Raised inside the transaction, so the batch rolls back; in the
+            # writer lane the step runs under `set -euo pipefail`, so this also
+            # stops the job before `corpus-push` and the runner's blob is
+            # discarded with it.
+            raise RuntimeError(
+                f"planned {len(fills)} sal-v5 cert row write(s) but the UPDATE "
+                f"touched {written} row(s) — the plan and the corpus disagree"
+            )
+
+
 def backfill_salience_cert_columns(
     conn: sqlite3.Connection,
     *,
@@ -211,7 +292,7 @@ def backfill_salience_cert_columns(
     blast-radius bound over :attr:`SalienceCertBackfillResult.total_fills`; above it
     nothing is written and ``refused`` comes back true. ``None`` is unbounded, and a
     dry run never consults it. See the module docstring for the population, the
-    readings, and the latch.
+    readings, and why only NULLs are filled.
     """
     result = SalienceCertBackfillResult(applied=apply, corpus_sha256=corpus_sha256)
     ledgers = {column: ColumnLedger() for column in COLUMNS}
@@ -248,16 +329,7 @@ def backfill_salience_cert_columns(
                     ledgers[column].unparseable += 1
                 continue
             result.read += 1
-            readings: dict[str, str | int] = {}
-            for column in missing:
-                value = _READERS[column](found[1])
-                if value is None:
-                    ledgers[column].no_reading += 1
-                    continue
-                ledgers[column].would_fill += 1
-                key = _value_key(column, value)
-                ledgers[column].filled_values[key] = ledgers[column].filled_values.get(key, 0) + 1
-                readings[column] = value
+            readings = _readings(found[1], stored[case_id], ledgers)
             if readings:
                 result.fills.append(CertColumnFill.model_validate({"case_id": case_id, **readings}))
     for ledger in ledgers.values():
@@ -270,22 +342,5 @@ def backfill_salience_cert_columns(
     if max_fills is not None and result.total_fills > max_fills:
         result.refused = True
         return result
-    # The fill-in latch in the statement itself: a value stamped between the
-    # read and the write is kept, as the upsert would keep it.
-    with conn:
-        conn.executemany(
-            "UPDATE cases SET "
-            "call_for_response_at = COALESCE(call_for_response_at, ?), "
-            "distributed_after_call = COALESCE(distributed_after_call, ?), "
-            "opening_writ = COALESCE(opening_writ, ?) WHERE case_id = ?",
-            [
-                (
-                    fill.call_for_response_at,
-                    fill.distributed_after_call,
-                    fill.opening_writ,
-                    fill.case_id,
-                )
-                for fill in result.fills
-            ],
-        )
+    _write(conn, result.fills)
     return result

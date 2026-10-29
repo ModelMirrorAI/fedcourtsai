@@ -9,6 +9,8 @@ What the pass owes and nothing else pins:
   fill, and a row carrying all three is not read at all.
 - A missing or proceedings-less snapshot is `unparseable` and untouched; a
   parsed docket with no call or no petition entry is `no_reading`.
+- A count whose snapshot dates the call differently from the stored call is a
+  `pair_mismatch` and stays NULL; a planned row gone before the write raises.
 - The dry run writes nothing; the bound refuses whole; a re-run after an apply
   is a no-op; the population is the cert live slice.
 """
@@ -125,13 +127,13 @@ def test_the_pass_fills_nulls_and_keeps_every_latched_value(tmp_path: Path) -> N
         assert (result.eligible, result.all_set, result.read, result.unobservable) == (6, 1, 3, 2)
         ledger = {column: result.columns[column] for column in COLUMNS}
         counts = {
-            column: (c.would_fill, c.already_set, c.no_reading, c.unparseable)
+            column: (c.would_fill, c.already_set, c.no_reading, c.unparseable, c.pair_mismatch)
             for column, c in ledger.items()
         }
         assert counts == {
-            "call_for_response_at": (2, 1, 1, 2),
-            "distributed_after_call": (2, 1, 1, 2),
-            "opening_writ": (2, 2, 0, 2),
+            "call_for_response_at": (2, 1, 1, 2, 0),
+            "distributed_after_call": (2, 1, 1, 2, 0),
+            "opening_writ": (2, 2, 0, 2, 0),
         }
         assert ledger["opening_writ"].filled_values == {"certiorari": 1, "rule-20": 1}
         assert ledger["distributed_after_call"].filled_values == {"2": 2}
@@ -228,3 +230,44 @@ def test_the_command_prints_the_per_column_ledger_and_requires_a_bound(seeded_ro
     assert applied.exit_code == 0, applied.output
     with corpus.connect(corpus.corpus_db_path(seeded_root)) as conn:
         assert _stored(conn, "scotus/700") == (date(2026, 2, 20), 2, "certiorari")
+
+
+def test_a_count_off_a_differently_dated_call_is_a_pair_mismatch(tmp_path: Path) -> None:
+    """A stored call the snapshot dates differently keeps the count NULL."""
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row("scotus/900", "25-900", called=date(2026, 1, 5)),  # differs
+                _row("scotus/901", "25-901", called=date(2026, 2, 20)),  # agrees
+            ],
+        )
+        for case_id in ("scotus/900", "scotus/901"):
+            corpus.upsert_snapshot(conn, case_id, date(2026, 5, 18), _CALLED_TWICE)
+        result = backfill_salience_cert_columns(conn, apply=True, max_fills=10)
+        after = result.columns["distributed_after_call"]
+        assert (after.would_fill, after.pair_mismatch, after.already_set) == (1, 1, 0)
+        assert result.columns["call_for_response_at"].already_set == 2
+        assert _stored(conn, "scotus/900") == (date(2026, 1, 5), None, "certiorari")
+        assert _stored(conn, "scotus/901") == (date(2026, 2, 20), 2, "certiorari")
+
+
+def test_a_planned_row_gone_before_the_write_stops_the_apply(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Rows written must equal rows planned; a shortfall raises and rolls back."""
+    real = corpus.latest_live_snapshot
+
+    def row_removed(conn: sqlite3.Connection, case_id: str) -> object:
+        found = real(conn, case_id)
+        if case_id == "scotus/700":
+            with conn:
+                conn.execute("DELETE FROM cases WHERE case_id = ?", (case_id,))
+        return found
+
+    monkeypatch.setattr(corpus, "latest_live_snapshot", row_removed)
+    with corpus.connect(tmp_path / "c.db") as conn:
+        _seed(conn)
+        with pytest.raises(RuntimeError, match="the plan and the corpus disagree"):
+            backfill_salience_cert_columns(conn, apply=True, max_fills=6)
+        assert _stored(conn, "scotus/5001") == (None, None, None)

@@ -1474,13 +1474,15 @@ whole slice from the content store each window to find that. The stat pack's
 amicus cut reads the column, so before the pass has applied that cut is almost
 all `(unknown)`.
 
-`salience-cert-backfill` is corpus-only too, and the same shape under the
-fill-in latch: it fills the three withheld cert columns `sal-v5` reads —
+`salience-cert-backfill` is corpus-only too: it fills the three withheld cert columns `sal-v5` reads —
 `call_for_response_at`, `distributed_after_call` and `opening_writ` — on the
 cert live slice the poll no longer reaches (`fedcourts
 backfill-salience-cert-columns`), re-parsing each row's newest live-shaped
 snapshot with the functions ingest's cert branch calls. Only a NULL is filled; a
-stored value is never compared or overwritten. It is dispatched rather than
+stored value is never compared or overwritten, which is stricter than ingest's
+upsert, where a fresh reading replaces it. A NULL count whose snapshot dates the
+call differently from the stored `call_for_response_at` is reported as
+`pair_mismatch` and left NULL. It is dispatched rather than
 swept for the same reason: every poll writes the three columns on the row it
 reads, so the class does not regrow once the history is filled.
 

@@ -1534,14 +1534,18 @@ def backfill_salience_cert_columns_cmd(
     re-parses every cert-form live-slice SCOTUS row's newest live-shaped snapshot
     with the functions ingest calls (`cert_signals.call_for_response_date`,
     `cert_signals.distributions_after_call`, `cert_signals.opening_writ`) and
-    fills each NULL the snapshot yields a reading for. A column already holding a
-    value is `already_set` and never written (the fill-in latch, kept in the
-    statement as a `COALESCE`); a NULL whose snapshot is missing or discloses no
-    proceedings is `unparseable`; one whose proceedings name no call, or no
-    opening petition entry, is `no_reading`. Corpus only, index only.
+    fills each NULL the snapshot yields a reading for. Only NULLs are filled,
+    which is stricter than ingest's upsert, where a fresh reading replaces the
+    stored one: a column already holding a value is `already_set` and never
+    written, and the statement keeps a stored value (`COALESCE(stored, new)`). A
+    NULL `distributed_after_call` whose stored `call_for_response_at` differs
+    from the snapshot's call date is `pair_mismatch` and not filled; a NULL
+    whose snapshot is missing or discloses no proceedings is `unparseable`; one
+    whose proceedings name no call, or no opening petition entry, is
+    `no_reading`. Corpus only, index only.
 
-    Prints, per column, `would_fill`, `already_set`, `no_reading` and
-    `unparseable` with the filled values' distribution, then the
+    Prints, per column, `would_fill`, `already_set`, `no_reading`,
+    `unparseable` and `pair_mismatch` with the filled values' distribution, then the
     `SalienceCertBackfillResult` as JSON. **Read `unobservable` first**: against an
     index-only pull with no content store addressed every fetched row lands there
     and the empty ledger reads like a filled corpus. One pass per invocation (the
@@ -1590,7 +1594,8 @@ def backfill_salience_cert_columns_cmd(
         typer.echo(
             f"  {column}: {ledger.would_fill} would fill, {ledger.already_set} already set "
             f"(latched, untouched), {ledger.no_reading} no reading, {ledger.unparseable} "
-            f"unparseable; filled values: {ledger.filled_values}"
+            f"unparseable, {ledger.pair_mismatch} pair-mismatch; "
+            f"filled values: {ledger.filled_values}"
         )
     if not apply and max_fills is not None and result.total_fills > max_fills:
         typer.echo(

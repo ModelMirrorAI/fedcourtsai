@@ -1419,8 +1419,10 @@ jobs:
       # `call_for_response_at`, `distributed_after_call`, `opening_writ` — on
       # the cert live slice the poll no longer reaches. Each row is re-parsed
       # from its newest live-shaped snapshot by the functions ingest calls, and
-      # only a NULL is filled: a column already holding a value is latched and
-      # never written, as the upsert's fill-in latch keeps it.
+      # only a NULL is filled: a column already holding a value is never
+      # written, which is stricter than the upsert (there a fresh reading
+      # replaces the stored one). A count whose snapshot dates the call
+      # differently from the stored call is reported, not filled.
       #
       # Corpus-only: no committed artifact carries these columns, so a
       # pointer-only commit, and no fetch/ff-only ahead of it. Re-dispatching in

@@ -2278,8 +2278,11 @@ gh workflow run run-repair.yml --ref main \
 # The sal-v5 cert-column back-fill fills `call_for_response_at`,
 # `distributed_after_call` and `opening_writ` on the cert live slice the poll no
 # longer reaches, re-parsing each row's newest live snapshot with the functions
-# ingest calls. Fill-in latched: a column already holding a value is
-# `already_set` and never written, whatever the snapshot now reads. Corpus only.
+# ingest calls. NULLs only, stricter than ingest's upsert (where a fresh reading
+# replaces the stored one): a column already holding a value is `already_set`
+# and never written, whatever the snapshot now reads, and a count whose snapshot
+# dates the call differently from the stored call is `pair_mismatch`, not
+# filled. Corpus only.
 # Read `unobservable` first — a ledger where every fetched row is unobservable
 # read a blob with no content store behind it. Per column the ledger reads
 # `would_fill`, `already_set`, `no_reading` (no call, no petition entry) and
