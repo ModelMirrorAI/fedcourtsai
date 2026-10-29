@@ -2113,7 +2113,6 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("repair", "Re-derive the distribution counts", ()),
     ("repair", "Converge stored docket markings", ()),
     ("repair", "Backfill the dated response signals", ()),
-    ("repair", "Backfill missing primary documents", ("apply did not converge",)),
     ("repair", "Backfill the interim arrival stamps", ()),
     ("repair", "Remove ungranted merits phantoms", ()),
     ("repair", "Converge disposition labels", ()),
@@ -2123,6 +2122,7 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("handoff-projection", "Write the application back-fill projection", ()),
     ("handoff-projection", "Write the OCR worklist", ()),
     ("handoff-projection", "Write the re-cut worklist", ()),
+    ("handoff-projection", "Write the document back-fill worklist", ()),
     ("handoff-parse", "Read the vote records", ()),
     ("handoff-parse", "Walk the application back-fill", ()),
     ("votes", "Stamp the planned vote records", ()),
@@ -2147,6 +2147,11 @@ REPAIR_PASS_STEPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         "documents",
         "Write the re-cut filings",
         ("recut-documents wrote nothing", "apply did not converge"),
+    ),
+    (
+        "documents",
+        "Write the back-filled documents",
+        ("backfill-documents wrote nothing", "apply did not converge"),
     ),
 )
 
@@ -4458,6 +4463,7 @@ SPLIT_PASSES = (
     "opinion-record",
     "ocr-recovery",
     "recut",
+    "document-backfill",
 )
 
 
@@ -4498,6 +4504,7 @@ def test_the_parse_job_holds_no_credential_of_any_kind() -> None:
         "Read the opinion record",
         "Read the scanned filings",
         "Re-cut the head-cut filings",
+        "Fetch the missing documents",
     ):
         assert names.index(name) > names.index("Assert no credential reaches the parse"), name
     setup = next(s for s in steps if s.get("uses") == "./.github/actions/setup-python-env")
@@ -4538,7 +4545,7 @@ def test_the_split_passes_run_projection_then_parse_then_an_apply_only_writer() 
             for argv in command_argv(run, ("uv", "run", "fedcourts")):
                 if argv[0] == "ocr-recover-petitions":
                     assert "--from-plan" in argv or "--probe=0" in argv, f"{writer}: {argv}"
-                if argv[0] == "recut-documents":
+                if argv[0] in ("recut-documents", "backfill-documents"):
                     witness = argv[argv.index("--max-cases") + 1] == "0"
                     assert "--from-plan" in argv or witness, f"{writer}: {argv}"
         token = names.index("Mint app token")
@@ -4902,9 +4909,11 @@ def test_the_ocr_plan_text_is_only_ever_a_cli_argument() -> None:
     for job, name in (
         ("handoff-parse", "Read the scanned filings"),
         ("handoff-parse", "Re-cut the head-cut filings"),
+        ("handoff-parse", "Fetch the missing documents"),
         ("documents", "Check the downloaded plan"),
         ("documents", "Write the recovered filings"),
         ("documents", "Write the re-cut filings"),
+        ("documents", "Write the back-filled documents"),
         ("documents-dry-run", "Check the downloaded plan"),
         ("documents-dry-run", "Read the re-cut plan against the stored filings"),
     ):
@@ -4915,6 +4924,12 @@ def test_the_ocr_plan_text_is_only_ever_a_cli_argument() -> None:
     for job, name, printed in (
         ("documents", "Write the recovered filings", "summarize /tmp/ocr-apply.txt"),
         ("documents", "Write the re-cut filings", "summarize /tmp/recut-apply.txt"),
+        ("documents", "Write the back-filled documents", "summarize /tmp/document-apply.txt"),
+        (
+            "handoff-parse",
+            "Fetch the missing documents",
+            'head -c 300000 /tmp/document-parse.txt >> "$GITHUB_STEP_SUMMARY"',
+        ),
         (
             "documents-dry-run",
             "Read the re-cut plan against the stored filings",
@@ -4937,7 +4952,11 @@ def test_the_documents_writer_mints_its_app_token_only_after_the_push() -> None:
     """No GitHub write credential exists while the plan is being landed."""
     steps = _repair_steps("documents")
     names = _step_names(steps)
-    for landing in ("Write the recovered filings", "Write the re-cut filings"):
+    for landing in (
+        "Write the recovered filings",
+        "Write the re-cut filings",
+        "Write the back-filled documents",
+    ):
         land = names.index(landing)
         assert "uv run fedcourts corpus-push" in str(steps[land]["run"]), landing
         assert names.index("Mint app token") > land, landing
@@ -5172,3 +5191,16 @@ def test_the_application_labeling_mode_reads_its_frame_off_the_mode_alone() -> N
     )
     branch = _norm(publish["env"]["BRANCH"])
     assert "'qp-topics/applications-refresh'" in branch and "'qp-topics/refresh'" in branch
+
+
+def test_the_documents_writer_rereads_the_tip_around_its_dedupe() -> None:
+    """The dedupe's refusal guard reads committed `data/`, which a collect PR can
+    move under it: the writer fast-forwards before the merge, and its commit
+    refuses output that landed since under a case the merge moved away from."""
+    steps = {str(step.get("name")): step for step in _repair_steps("documents")}
+    dedupe = str(steps["Dedupe live-minted duplicate rows"]["run"])
+    assert dedupe.index("git merge --ff-only FETCH_HEAD") < dedupe.index("dedupe-live-rows --apply")
+    commit = str(steps["Commit the documents pointer"]["run"])
+    # Without `--no-renames` a moved directory reads as renamed, not deleted.
+    assert "--no-renames --name-only --diff-filter=D HEAD -- data/cases" in commit
+    assert commit.index("merged away since it ran") < commit.index("git commit -m")

@@ -333,9 +333,8 @@ def test_every_corpus_pass_is_persisted_once() -> None:
     corpus = {name for name, p in PASSES.items() if p.jobs == ("repair",)}
     # The split passes whose writer commits from the pass table's record.
     recorded = {name for name, p in PASSES.items() if "documents" in p.jobs}
-    assert recorded == {"ocr-recovery", "recut"}
-    assert set(repair_passes.PERSIST).isdisjoint(repair_passes.SELF_PERSISTING)
-    assert set(repair_passes.PERSIST) | repair_passes.SELF_PERSISTING == corpus | recorded
+    assert recorded == {"ocr-recovery", "recut", "document-backfill"}
+    assert set(repair_passes.PERSIST) == corpus | recorded
     commit = next(
         s
         for s in _workflow()["jobs"]["documents"]["steps"]
@@ -344,10 +343,9 @@ def test_every_corpus_pass_is_persisted_once() -> None:
     assert "python3 -I -S src/fedcourtsai/repair_passes.py persist" in commit["run"]
     for name in corpus:
         run = str(_pass_step(name)["run"])
-        commits = "push_with_retry.sh" in run or "corpus-push" in run
-        assert commits == (name in repair_passes.SELF_PERSISTING), (
-            f"{name}: its pass step {'does not commit' if not commits else 'commits'} its "
-            "own write, which the pass table's persist record says otherwise"
+        assert "push_with_retry.sh" not in run and "corpus-push" not in run, (
+            f"{name}: its pass step commits its own write, which the pass table's "
+            "persist record says the persist step does"
         )
 
 
@@ -380,7 +378,16 @@ def test_the_persist_step_follows_every_pass_and_precedes_the_verdict() -> None:
                 "No lost outcomes left to record; nothing to persist.",
             ],
         ),
-        ("document-backfill", 0, []),
+        (
+            "document-backfill",
+            0,
+            [
+                "pointer+data",
+                "repair: provision missing primary documents",
+                "document backfill pointer",
+                "Recovered documents are in the content store; the index pointer is unchanged.",
+            ],
+        ),
         ("regrade-stale", 1, ["::error::repair=regrade-stale has no persist record"]),
     ],
 )

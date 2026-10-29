@@ -1529,10 +1529,16 @@ corpus row rather than off a poll.
   the same free, politeness-capped supremecourt.gov requests — no budget is
   governed and no window's schedule is implicated. Dry run by default, bounded
   through `repair_bound` so a backlog clears in slices, and bounded again by a
-  **slice deadline** the step passes, sized from everything that must still fit
-  inside the step's cap once the pass stops taking work. The bound applies to
-  the dry run as well, which is the one way this pass's contract differs from
-  the recovery's: its dry run is not free.
+  **slice deadline** the parse step passes, sized from everything that must
+  still fit inside the step's cap once the pass stops taking work. The bound
+  applies to the dry run as well, which is the one way this pass's contract
+  differs from the recovery's: its dry run is not free. It runs on the bench's
+  credential split: every fetch, and every parse of a fetched filing, happens
+  in the parse job, which holds no credential. Its dry run stops at the docket
+  JSON and is read whole there; an apply's parse fetches the filings too and
+  hands its plan to the `documents` writer, which lands it under the lock
+  through the same ledger the pass runs in one job, so the ledger reads the
+  same.
 - **What it reads.** Live-slice SCOTUS rows that are **predict-relevant** —
   queued for prediction, or selected by the salience gate and not yet queued.
   The selected arm is not redundant — a reserve-selected application has no
@@ -1621,7 +1627,7 @@ corpus row rather than off a poll.
   body-less `case.json` over a stored opinion — and they are durable only once
   the lane pushes the blob, where the documents are already banked per case.
   Because the documents' durable write is the content store's rather than the
-  pointer's, the step re-walks the class afterwards on an **empty slice** —
+  pointer's, the writer re-walks the class afterwards on an **empty slice** —
   which costs no round trip — and requires exactly what the apply's ledger said
   it would leave behind.
 - **Terms.** Unchanged. These filings are the Court's own public records, fetched

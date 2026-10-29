@@ -319,7 +319,15 @@ from .pipeline.decision_dates import converge_decision_dates
 from .pipeline.decision_record import backfill_decision_record, decision_census
 from .pipeline.discover import discover_cases
 from .pipeline.distribution_rederive import rederive_distribution_counts
-from .pipeline.document_backfill import backfill_documents
+from .pipeline.document_backfill import DocumentBackfillResult, backfill_documents
+from .pipeline.document_backfill_split import (
+    BackfillPlan,
+    BackfillWorklist,
+    apply_backfill_plan,
+    backfill_worklist,
+    dry_run_ledger,
+    plan_backfill_worklist,
+)
 from .pipeline.document_recut import (
     SCOPE_ALL_LIVE as RECUT_SCOPE_ALL_LIVE,
 )
@@ -6902,6 +6910,43 @@ def backfill_documents_cmd(
             "taking work. Omit for no deadline.",
         ),
     ] = None,
+    emit_worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--emit-worklist",
+            help="The credential split's projection: walk the class, print its ledger "
+            "and write the slice the parse fetches for (with --max-cases, the first N "
+            "candidates; without, the whole class). Fetches nothing.",
+        ),
+    ] = None,
+    worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--worklist",
+            help="The split's parse: fetch for this worklist's items with no corpus. "
+            "Alone, it is the dry run and prints its ledger; with --plan-out, the "
+            "apply's parse, which fetches the filings too and writes the plan.",
+        ),
+    ] = None,
+    plan_out: Annotated[
+        Path | None,
+        typer.Option("--plan-out", help="Where the apply's parse writes its plan."),
+    ] = None,
+    from_plan: Annotated[
+        Path | None,
+        typer.Option(
+            "--from-plan",
+            help="The split's writer: land this plan, with --apply and the --max-cases "
+            "the worklist was cut for. Takes --bind-worklist.",
+        ),
+    ] = None,
+    bind_worklist: Annotated[
+        Path | None,
+        typer.Option(
+            "--bind-worklist",
+            help="The projection's own worklist, which the plan must account for exactly.",
+        ),
+    ] = None,
 ) -> None:
     """Provision the queued cases that hold a document gap, a slice at a time.
 
@@ -6960,10 +7005,36 @@ def backfill_documents_cmd(
     half is a writer-lane pass by construction, since the corpus-write
     credentials exist only there, and the lane invocation is run-repair's
     `document-backfill` pass. Fails loud if the corpus is absent.
+
+    run-repair runs the pass split at the credential boundary, in three jobs:
+    `--emit-worklist` (the projection, read-only), `--worklist` (the parse, which
+    fetches with no corpus and no credential: alone the dry run, with
+    `--plan-out` the apply's) and `--from-plan --bind-worklist --apply` (the
+    writer). The plain mode with `--max-cases 0` is the writer's witness re-read.
     """
     # Taken before any other work, so the population walk this command opens with
     # is charged to the budget the caller sized.
     started = time.monotonic()
+    if worklist is not None or plan_out is not None:
+        if worklist is None:
+            _backfill_refuse("the parse takes --worklist (and, on an apply, --plan-out).")
+        if apply or max_cases is not None or emit_worklist or from_plan or bind_worklist:
+            _backfill_refuse(
+                "the parse takes --worklist, --plan-out and --deadline-seconds only; it "
+                "opens no corpus and writes none."
+            )
+        _backfill_parse(started, worklist, plan_out, deadline_seconds=deadline_seconds)
+        return
+    if emit_worklist is not None or from_plan is not None or bind_worklist is not None:
+        _backfill_split(
+            apply=apply,
+            max_cases=_slice_bound(max_cases, command="backfill-documents"),
+            deadline_seconds=deadline_seconds,
+            emit_worklist=emit_worklist,
+            from_plan=from_plan,
+            bind_worklist=bind_worklist,
+        )
+        return
     settings = get_settings()
     if apply and max_cases is None:
         typer.echo(
@@ -7003,12 +7074,19 @@ def backfill_documents_cmd(
             max_cases=max_cases,
             deadline=deadline,
         )
+    _echo_backfill(result, str(db_path), apply=apply)
+    if apply:
+        _ensure_corpus_layout(db_path)
+
+
+def _echo_backfill(result: DocumentBackfillResult, source: str, *, apply: bool) -> None:
+    """The pass's ledger, in prose and then as JSON, as every mode of it prints it."""
     if not result.cases_seen:
         # Zero candidates has two causes and they are not the same run: a corpus
         # whose queued population is fully provisioned, and one this process
         # cannot read at all. The denominator is what tells them apart.
         typer.echo(
-            f"backfill-documents: no predict-relevant live-slice rows in {db_path} "
+            f"backfill-documents: no predict-relevant live-slice rows in {source} "
             "— wrong blob for this command?",
             err=True,
         )
@@ -7083,9 +7161,180 @@ def backfill_documents_cmd(
             "modern docket (selector regression; the log names the kind)"
         )
     _echo_unreached(result.unreached)
-    if apply:
-        _ensure_corpus_layout(db_path)
+    if result.left_class:
+        typer.echo(
+            f"  {result.left_class} candidate(s) had left the class since the projection; "
+            "nothing written for them"
+        )
     typer.echo(result.model_dump_json())
+
+
+def _backfill_refuse(message: str) -> NoReturn:
+    typer.echo(f"backfill-documents: {message}", err=True)
+    raise typer.Exit(code=2)
+
+
+def _backfill_parse(
+    started: float, worklist_path: Path, plan_out: Path | None, *, deadline_seconds: float | None
+) -> None:
+    """The credential-free parse: the worklist in, the dry run's ledger or the plan out."""
+    command = "backfill-documents"
+    deadline = _slice_deadline(started, deadline_seconds, command=command)
+    cfg = load_historical_config(get_settings().config_root)
+    handed = _read_handoff_or_exit(command, worklist_path, BackfillWorklist)
+    try:
+        with SupremeCourtClient(throttle_seconds=cfg.throttle_seconds) as client:
+            if plan_out is None:
+                result = dry_run_ledger(
+                    client,
+                    handed,
+                    char_cap=cfg.document_text_cap,
+                    today=date.today(),
+                    deadline=deadline,
+                )
+            else:
+                plan = plan_backfill_worklist(
+                    client,
+                    handed,
+                    char_cap=cfg.document_text_cap,
+                    today=date.today(),
+                    deadline=deadline,
+                )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    if plan_out is None:
+        _echo_backfill(result, str(worklist_path), apply=False)
+        return
+    # Counts and identifiers only: the plan's text is the filings' own, and a
+    # self-represented filer's contact details are in it.
+    fetched = [reading for reading in plan.readings if reading.documents]
+    typer.echo(
+        f"backfill parse: {len(handed.items)} item(s) "
+        f"(bound {'none' if handed.bound is None else handed.bound}); "
+        f"fetched for {len(fetched)}; "
+        f"floors {sum(1 for r in plan.readings if r.floor is not None)}; "
+        f"docket losses {sum(1 for r in plan.readings if r.loss is not None)}; "
+        f"unreached {len(plan.unreached)}"
+    )
+    for reading in plan.readings:
+        if reading.loss is not None:
+            typer.echo(f"  {reading.case_id}: {reading.loss}")
+        elif reading.floor is not None:
+            alarm = " (selector alarm)" if reading.alarmed else ""
+            typer.echo(f"  {reading.case_id}: floor {reading.floor}{alarm}")
+        else:
+            typer.echo(
+                f"  {reading.case_id}: fetched "
+                + (
+                    ", ".join(
+                        f"{document.kind} chars={len(document.text)}"
+                        for document in reading.documents
+                    )
+                    or "nothing (a fetch loss)"
+                )
+            )
+    _echo_unreached(plan.unreached)
+    write_handoff(plan_out, plan)
+
+
+def _backfill_split(  # noqa: PLR0912, PLR0915 - keyword-only; one refusal per split mode
+    *,
+    apply: bool,
+    max_cases: int | None,
+    deadline_seconds: float | None,
+    emit_worklist: Path | None,
+    from_plan: Path | None,
+    bind_worklist: Path | None,
+) -> None:
+    """The split's projection and writer, run-repair's credential split for the back-fill.
+
+    The projection (``--emit-worklist``) prints the class ledger and writes the
+    worklist; the writer (``--from-plan --bind-worklist --apply``) lands the
+    plan and prints the pass's ledger. Neither fetches: the parse between them
+    is the ``--worklist`` mode.
+    """
+    command = "backfill-documents"
+    if emit_worklist is not None and from_plan is not None:
+        _backfill_refuse(
+            "--emit-worklist (the projection) and --from-plan (the writer) are separate "
+            "jobs; pass one."
+        )
+    if (from_plan is None) != (bind_worklist is None):
+        _backfill_refuse("--from-plan and --bind-worklist go together (the writer).")
+    if deadline_seconds is not None:
+        _backfill_refuse("--deadline-seconds bounds the parse (--worklist) only.")
+    if max_cases == 0:
+        _backfill_refuse(
+            "a split slice of 0 hands the parse nothing; the walk-only reading is the "
+            "plain mode's --max-cases 0."
+        )
+    if emit_worklist is not None and apply:
+        _backfill_refuse("the projection writes nothing; the apply is the writer's (--from-plan).")
+    if from_plan is not None and (not apply or max_cases is None):
+        _backfill_refuse(
+            "the writer takes --apply and an explicit --max-cases, the bound the worklist "
+            "was cut for; the dry run is read whole in the parse (--worklist)."
+        )
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before running the document back-fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if emit_worklist is not None:
+        try:
+            with corpus.connect_maintenance(db_path, apply=False) as conn:
+                handed, reading = backfill_worklist(conn, bound=max_cases)
+        except HandoffRefused as exc:
+            typer.echo(f"{command}: refusing the worklist — {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        if not reading.cases_seen:
+            typer.echo(
+                f"{command}: no predict-relevant live-slice rows in {db_path} "
+                "— wrong blob for this command?",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+        typer.echo(
+            f"{command} (projection): {reading.candidates} addressable candidate(s) in a "
+            f"population of {reading.cases_seen} predict-relevant row(s) "
+            f"({reading.cases_with_documents} holding any stored document); "
+            f"{reading.unaddressable} unaddressable, {reading.standing_floors} held out "
+            "by a standing floor probe"
+        )
+        what = "the apply's slice" if max_cases is not None else "the whole class"
+        typer.echo(f"  worklist: {len(handed.items)} item(s), {what}")
+        typer.echo(reading.model_dump_json())
+        write_handoff(emit_worklist, handed)
+        return
+    assert from_plan is not None and bind_worklist is not None  # narrowed above
+    plan = _read_handoff_or_exit(command, from_plan, BackfillPlan)
+    bound = _read_handoff_or_exit(command, bind_worklist, BackfillWorklist)
+    if bound.bound != max_cases:
+        typer.echo(
+            f"{command}: refusing the worklist — it was cut for a bound of "
+            f"{'none' if bound.bound is None else bound.bound}, not this dispatch's {max_cases}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    ref = db_path.parent / (db_path.name + ".ref")
+    if ref.is_file():
+        typer.echo(f"pre-apply corpus pointer: {ref.read_text().strip()}", err=True)
+    cfg = load_historical_config(settings.config_root)
+    try:
+        with corpus.connect_maintenance(db_path, apply=True) as conn:
+            result = apply_backfill_plan(
+                conn, plan, bound, char_cap=cfg.document_text_cap, today=date.today()
+            )
+    except HandoffRefused as exc:
+        typer.echo(f"{command}: refusing the plan — {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    _echo_backfill(result, str(db_path), apply=True)
+    _ensure_corpus_layout(db_path)
 
 
 @app.command("scope-manifest")

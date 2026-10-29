@@ -660,8 +660,9 @@ court-record identifiers, the same footing as the Court identifiers the
 `run-repair` handoffs carry. `run-repair`'s one-day handoff artifacts ride
 the same channel with public Court identifiers and supremecourt.gov content
 only, never a corpus row, snapshot or stored document; the application back-fill's plan, whose served
-docket JSON carries counsel blocks, and the OCR and re-cut plans, whose filing
-text can carry a self-represented filer's contact details, cross under the
+docket JSON carries counsel blocks, and the OCR, re-cut and document back-fill
+plans, whose filing text can carry a self-represented filer's contact details,
+cross under the
 carve-outs recorded in *PII stance* below. Prediction reasoning may quote or summarize
 public-record docket facts in the course of explaining a prediction, and may
 characterize what a provisioned filing argues — a petition, its separately
@@ -929,6 +930,40 @@ material**:
   - *Unchanged:* the corpus and the content store stay access-gated, nothing
     under this carve-out reaches `data/`, and the contact scrubs below run
     over a re-cut text as over any other stored text.
+- **A fourth carve-out: the document back-fill's plan artifact** (proposed;
+  promoting the split of run-repair's `document-backfill` pass to `main`
+  decides it). Every byte it admits is a filing the Court serves openly at
+  supremecourt.gov, read off its text layer, and none of it comes from our
+  private stores.
+  - *What:* for each item of one applied dispatch's worklist that the parse
+    reached, either a docket loss, a floor reading, or the documents the
+    fetching lanes' own `fetch_case_documents` produced for it — each one's
+    kind, Court URL, entry date, page count and text cut at the document cap,
+    the derived questions-presented row among them. A self-represented filer's
+    petition or application carries a home address, telephone or prisoner
+    register number in that text. Nothing read from the corpus, the content
+    store or any stored snapshot: the job that writes the plan holds no corpus
+    credential, and the worklist it reads carries case ids, missing kinds, the
+    upstream docket address and Term, and the Court URLs of each case's stored
+    documents only.
+  - *Where:* one workflow artifact, `repair-plan-<run_id>`, on an applied
+    dispatch only — the dry run is read whole in the parse and hands nothing
+    on — kept one day and consumed by the `documents` writer in the same run.
+    It is never committed to git and never printed to a log or step summary;
+    the summary carries each item's identifiers, each document's kind and
+    character count, and its floor or loss. The writer refuses a plan whole if
+    it is off its shape, names anything not on the projection's own worklist
+    (downloaded by artifact id), does not account for every worklist item
+    exactly once, or carries a document of another case, a second of one kind
+    or a text above the document cap, and writes nothing for a candidate whose
+    gap has changed since the projection. Its worklist is at most
+    `repair_bound` items; the parse's slice deadline and a byte budget below
+    the hand-off cap end the slice early where the filings run long.
+  - *Who can read it:* as above, any signed-in GitHub user, for a day, on
+    each applied `document-backfill` dispatch.
+  - *Unchanged:* the corpus and the content store stay access-gated, nothing
+    under this carve-out reaches `data/`, and the contact scrubs below run
+    over a back-filled text as over any other stored text.
 - **A filing made in person is scrubbed before a cell reads it.** Where the
   provisioned snapshot serves a counsel block on either party side — petitioner
   or respondent — naming nobody but the party to write to — no attorney, the

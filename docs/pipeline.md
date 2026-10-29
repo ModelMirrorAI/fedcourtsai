@@ -1154,11 +1154,14 @@ version rather than one per dispatch and a bounded slice reaches the tail of the
 class. `standing_floors` on the ledger is that held-out balance, beside
 `candidates`; a floor the selector-regression alarm fired on is never stamped.
 Like the OCR recovery it writes documents,
-which under the corpus split live in the content store, so the step re-walks the
+which under the corpus split live in the content store, so the writer re-walks the
 class afterwards — an empty slice, which costs no round trip — and requires
 exactly what the apply's ledger said it would leave behind. The stamps are its
 one index write, so an applied slice that read any floor also moves the
-pointer.
+pointer. It runs as a credential split (below): the dry run is read whole in the
+parse, which fetches each docket and hands nothing on, and an apply's parse
+fetches the filings too and writes the plan the `documents` writer lands, after
+applying the dedupe prerequisite under the lock.
 
 `recut` re-cuts the petitions, applications and appendices stored under the
 plain head cut. Those three kinds are cut the appendix-aware way at ingest —
@@ -1323,22 +1326,21 @@ file carries the docketing date. The summary carries the ledger: the counts,
 each fill shape with its count, every `opened_at` rewrite and every held field.
 The per-file list is in the step log. Its bound is the dry run's file count.
 
-Six of the passes that fetch and parse the Court's content — `opinion-votes`,
-`order-votes`, `application-backfill`, `opinion-record`, `ocr-recovery` and
-`recut` — run as a **credential split** of three jobs (`document-backfill`
-also parses fetched PDFs, inside the corpus job, and is not split yet;
-run-seed's OCR sweep is the split, scheduled route to the OCR recovery). `handoff-projection` holds the read-only
+Every pass that fetches and parses the Court's content — `opinion-votes`,
+`order-votes`, `application-backfill`, `opinion-record`, `ocr-recovery`,
+`recut` and `document-backfill` — runs as a **credential split** of three jobs
+(run-seed's OCR sweep is the split, scheduled route to the OCR recovery). `handoff-projection` holds the read-only
 role, pulls the corpus and writes the few public facts the parse needs;
 `handoff-parse` holds no credential at all (no environment, no `id-token`, no
 secret), fetches and parses, prints the dry-run ledger, and on an apply writes
 the plan; and on an apply only, a writer job takes `corpus-write`, re-validates
 the plan whole as untrusted input and applies it, fetching nothing. The OCR
-recovery's and the re-cut's writer (`documents`) also binds the plan to the
+recovery's, the re-cut's and the document back-fill's writer (`documents`) also binds the plan to the
 projection's own worklist, which it downloads by artifact id, as does the
 re-cut's dry-run reader, which holds the read-only role and writes nothing. The
 two files cross as one-day run artifacts carrying public Court data only
-([security.md](security.md), *S3 / the private stores*); the application, OCR
-and re-cut plans each cross under their own PII carve-out
+([security.md](security.md), *S3 / the private stores*); the application, OCR,
+re-cut and document back-fill plans each cross under their own PII carve-out
 ([data-sources.md](data-sources.md), *PII stance*). A job boundary is
 what does the separating: in a job holding `id-token: write` the runner hands
 every step the OIDC request pair after the step's own `env:`, so no step there

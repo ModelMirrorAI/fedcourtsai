@@ -204,7 +204,12 @@ PASSES: Mapping[str, RepairPass] = {
         _bounded("normalize-docket-markings", "--max-rewrites"),
         _bounded("response-backfill", "--max-fills"),
         _bounded("ocr-recovery", "--max-cases", (*_HANDOFF, "documents")),
-        _bounded("document-backfill", "--max-cases", bound_read_on_dry_run=True),
+        _bounded(
+            "document-backfill",
+            "--max-cases",
+            (*_HANDOFF, "documents"),
+            bound_read_on_dry_run=True,
+        ),
         _bounded(
             "recut",
             "--max-cases",
@@ -253,12 +258,7 @@ class Persist:
     stages_data: bool = False
 
 
-#: The corpus pass that commits its own write inside the pass step, because
-#: the step's slice deadline is computed against its own cap with the push and
-#: the commit charged to it.
-SELF_PERSISTING = frozenset({"document-backfill"})
-
-#: Every other corpus pass's commit. A pass whose durable write is the content
+#: Every corpus pass's commit. A pass whose durable write is the content
 #: store's (the questions-presented back-fill) can leave the blob
 #: byte-identical, so an unmoved pointer there is the converged outcome its own
 #: step verified, not a missing write.
@@ -294,6 +294,15 @@ PERSIST: Mapping[str, Persist] = {
         message="repair: recover scanned filings (OCR)",
         label="OCR recovery pointer",
         unchanged="Recovered text is in the content store; the index pointer is unchanged.",
+    ),
+    # Stages `data/` for the dedupe prerequisite its writer applies first, whose
+    # merge moves minted-event directories with the re-keyed rows; the pass
+    # itself writes no ledger path.
+    "document-backfill": Persist(
+        message="repair: provision missing primary documents",
+        label="document backfill pointer",
+        unchanged="Recovered documents are in the content store; the index pointer is unchanged.",
+        stages_data=True,
     ),
     "recut": Persist(
         message="repair: re-cut head-cut filings",
@@ -459,14 +468,11 @@ def validate(
 
 
 def persist_record(repair: str) -> tuple[str, ...]:
-    """The four lines a pass's persist step reads, or none.
+    """The four lines a pass's persist step reads.
 
     Stage (``pointer`` or ``pointer+data``), commit message, push label, and
-    the line printed when nothing moved. A self-persisting pass has no record:
-    its own step committed its write.
+    the line printed when nothing moved.
     """
-    if repair in SELF_PERSISTING:
-        return ()
     record = PERSIST[repair]
     stage = "pointer+data" if record.stages_data else "pointer"
     return (stage, record.message, record.label, record.unchanged)
@@ -484,7 +490,7 @@ def main(environ: Mapping[str, str] | None = None, argv: Sequence[str] | None = 
     args = list(sys.argv[1:] if argv is None else argv)
     repair = env.get("REPAIR", "")
     if args == ["persist"]:
-        if repair not in PERSIST and repair not in SELF_PERSISTING:
+        if repair not in PERSIST:
             # stderr: the workflow redirects stdout into the record file.
             print(
                 f"::error::repair={repair} has no persist record in the pass table.",

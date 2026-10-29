@@ -128,7 +128,9 @@ BENIGN_REFUSALS: dict[str, str | tuple[str, ...]] = {
     # the salience gate, so the document back-fill has no denominator to walk.
     # Reaching it is also what keeps this pass's argv offline here — the refusal
     # fires on the walk, before a candidate, a docket fetch or a client exists.
-    "backfill-documents": "no predict-relevant live-slice rows",
+    # Its projection refuses on that before writing the worklist, so the parse
+    # and the writer after it find no file to read, as the OCR recovery's do.
+    "backfill-documents": ("no predict-relevant live-slice rows", "refusing the handoff file"),
     # And for the re-cut, on the documents again: the fixture stores no petition,
     # application or appendix, so the walk has no denominator, and the refusal
     # fires before a candidate or a fetch. Its projection refuses on that before
@@ -489,20 +491,16 @@ def test_the_ocr_slice_deadline_keeps_its_reserve_under_the_steps_own_cap() -> N
     assert deadline > ESTIMATED_CANDIDATE_OVERHEAD_SECONDS + DOCUMENT_BUDGET_SECONDS
 
 
-#: What the document back-fill's apply holds back between the slice deadline it
-#: passes and its own `timeout-minutes`: the walk-only witness re-read, the blob
-#: push, the pointer commit, and the work a started candidate can run past the
-#: deadline. The push term is double the OCR recovery's, because this pass's
-#: floor probes are index columns: the index moves on any applied slice that
-#: read a floor, so the push is the ordinary path rather than a reserved one,
-#: and the exclusions are durable only once it lands (the documents are already
-#: banked per case in the content store). As with the OCR reserve above, the
-#: arithmetic is stated beside the invocation and repeated here so the two
-#: halves cannot move apart.
-DOCUMENT_BACKFILL_DEADLINE_RESERVE_SECONDS = 600
+#: What the document back-fill's apply parse holds back between the slice
+#: deadline it passes and its step's `timeout-minutes`: the work a started
+#: candidate can run past the deadline, and the plan write. The class walk is the
+#: projection's and the write, the witness, the push and the commit are the
+#: writer's. As with the OCR reserve above, the arithmetic is stated beside the
+#: invocation and repeated here so the two halves cannot move apart.
+DOCUMENT_BACKFILL_DEADLINE_RESERVE_SECONDS = 300
 
-#: And what its *dry run* holds back, which is smaller because a dry run commits
-#: and pushes nothing: only a started candidate's own docket fetch follows it.
+#: And what its *dry run* holds back, which is smaller because a dry run writes
+#: no plan: only a started candidate's own docket fetch follows it.
 DOCUMENT_BACKFILL_DRY_RESERVE_SECONDS = 120
 
 
@@ -523,7 +521,7 @@ def test_the_document_backfill_deadlines_keep_their_reserve_under_the_step_cap(
     upstream round trips — the dry run fetches every candidate's docket JSON —
     so neither is free to run to the step's kill. The two reserves differ only
     in what still has to happen after the pass stops taking work: a dry run
-    writes nothing, so it holds back the overshoot alone.
+    writes no plan, so it holds back the overshoot alone. Both are the parse's.
     """
     (step,) = [
         step
@@ -534,8 +532,9 @@ def test_the_document_backfill_deadlines_keep_their_reserve_under_the_step_cap(
     (argv,) = [
         invocation
         for invocation in command_argv(str(step["run"]), FEDCOURTS)
-        if "--deadline-seconds" in invocation and ("--apply" in invocation) == apply
+        if "--deadline-seconds" in invocation and ("--plan-out" in invocation) == apply
     ]
+    assert "--worklist" in argv, "the document back-fill's deadlines are the parse's"
     deadline = float(argv[argv.index("--deadline-seconds") + 1])
     assert deadline == cap - reserve, (
         f"the document back-fill's {'apply' if apply else 'dry-run'} deadline "
@@ -555,12 +554,17 @@ def test_the_document_backfills_witness_reads_the_ledger_fields_its_pass_writes(
     the witness into a `KeyError` on the run that was going to prove the write
     landed, which is the one run where a silent failure costs the most.
     """
-    (step,) = [
-        step
+    runs = [
+        str(step["run"])
         for step in _steps_for("document-backfill")
         if "ledger_field" in str(step.get("run", ""))
     ]
-    read = set(re.findall(r"ledger_field /tmp/[a-z-]+\.txt ([a-z_]+)", str(step["run"])))
+    assert len(runs) == 2, "the parse's alarm and the writer's witness read the ledger"
+    read = {
+        field
+        for run in runs
+        for field in re.findall(r"ledger_field /tmp/[a-z-]+\.txt ([a-z_]+)", run)
+    }
     assert read, "the witness reads no ledger field; this test now covers nothing"
     assert read <= set(DocumentBackfillResult.model_fields), (
         f"the witness reads ledger field(s) the pass does not write: "
