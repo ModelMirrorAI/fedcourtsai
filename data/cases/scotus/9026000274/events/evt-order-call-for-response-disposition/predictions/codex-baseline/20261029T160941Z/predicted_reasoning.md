@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+The Court will most likely deny the petition after obtaining the United States' response, without a separate writing. The probability of any grant, including a grant followed immediately by a summary disposition, is 10%.
+
+The baseline contains one distribution, for the October 9, 2026 conference, followed by an October 1 request for a response due November 2. Expect at least one more distribution after the response and any reply: P(distribution-count increment) is 98%. The modal path is one additional distribution followed by denial, not a prolonged series of genuine post-conference relists. A second distribution needed to resume consideration after obtaining a response is not itself evidence of sustained interest. Expect disposition in late November 2026 through January 2027, allowing for response extensions and scheduling; this is a forecast, not information from a later docket.
+
+No CVSG is on the baseline. Expect none: the United States is already the respondent, and its requested response supplies its position without an invitation to participate as a nonparty. P(a new CVSG) is 0.1%.
+
+If review is granted, the likeliest question is the first question presented, narrowed to whether a Section 2251(a) production offense, used as the predicate for a Section 2422(b) enticement conviction, is a lesser-included offense that cannot sustain a second conviction. The predicate-as-element question would be subsidiary to that inquiry, rather than a free-standing examination of all offenses using similar language. References to Section 2442(b) in the petition's second question are read as referring to Section 2422(b), the actual statute litigated below.
+
+Conditional on a grant, plenary briefing and argument are more likely than disposition in the grant order: P(summary-disposition route | grant) is 12%. The proposed relationship between the two statutes needs an answer beyond the general double-jeopardy framework; the supplied opinion already discusses the Barrett precedent the petition invokes. A remand for reconsideration in light of that already-considered authority is therefore not the principal grant route.
+
+Conditional on denial, P(a noted dissent or statement respecting denial) is 6%. The modal outcome remains an unsigned denial with no separate writing. If someone does write, Gorsuch is the leading candidate, reflecting the double-jeopardy concerns attributed to his Barrett concurrence in the petition; Thomas is a secondary possibility. The structured order-writer probabilities are small, independent, unconditional probabilities of authorship, not a predicted vote lineup.

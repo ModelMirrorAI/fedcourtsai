@@ -1,0 +1,24 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000184",
+  "gaps": [
+    "A statpack table conditioning cert base rates on a Call for a Response (CFR) within the sal-v4 paid scored segment would directly anchor moment: response-requested cells."
+  ],
+  "helpful": [
+    "record/documents/petition.txt and appendix.txt",
+    "metrics/statpack.md",
+    "record/context.json",
+    "fedcourts query"
+  ],
+  "notes": "Provisioned petition.txt and appendix.txt contained the full Third Circuit and Fifth Circuit opinions and district court transfer orders, providing complete record context without needing external CourtListener calls.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

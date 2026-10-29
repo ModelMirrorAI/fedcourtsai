@@ -1,0 +1,94 @@
+{
+  "big_case_rationale": "Resolves a multi-circuit split on whether Equal Access to Justice Act fee-shifting under 28 U.S.C. 2412(d)(1)(A) applies to 28 U.S.C. 2241 immigration habeas proceedings, though this petition is a follow-on hold behind the already-granted lead case Montoya Palacios v. Liggins (No. 25-1223).",
+  "big_case_score": 0.55,
+  "case_id": "scotus/9026000146",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.015,
+        "Barrett": 0.002,
+        "Gorsuch": 0.015,
+        "Jackson": 0.008,
+        "Kagan": 0.002,
+        "Kavanaugh": 0.003,
+        "Roberts": 0.001,
+        "Sotomayor": 0.01,
+        "Thomas": 0.02
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.62
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.85
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.94
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.06
+    }
+  ],
+  "confidence": 0.68,
+  "context": {
+    "amicus_briefs": null,
+    "band": "state",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-09-23",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": true,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-09-23",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-29T17:35:03.474495Z",
+  "engine": "gemini",
+  "event_id": "evt-order-call-for-response-disposition",
+  "granted": 1,
+  "input_snapshot": "2026-09-23.json",
+  "judgment": null,
+  "model": "gemini-4-argon",
+  "predicted_disposition": "gvr",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.62,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
+    "label": "proc-v14",
+    "pipeline_sha": "1b197495a1c7b86ca8cb852433253767f07489b4",
+    "stamped_at": "2026-10-29T17:35:03.474495Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

@@ -1,0 +1,31 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000328",
+  "gaps": [
+    "CourtListener daily rate limit prevented independent lower-court opinion retrieval",
+    "corpus-info does not support the cell service backend, leaving corpus-wide freshness unverified",
+    "No committed response-request-conditioned cert base rate",
+    "Default uv cache is read-only; commands require UV_CACHE_DIR=/tmp/uv-cache"
+  ],
+  "helpful": [
+    "Provisioned full petition and operative appellate appendix decisions",
+    "Same-cutoff companion docket snapshot",
+    "Exact sal-v4 reached-rate denominators in statpack.json",
+    "Corpus query transfer accounting"
+  ],
+  "notes": "Forecast completed from provisioned inputs and committed prior-Term rates. Appendix truncation prevents complete independent preservation review. No opposition exists in the provisioned response-requested record; none was inferred. Failed retrieval calls yielded no outcome material. No credentials or alternate CourtListener transport were sought.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "exec_command",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (failed)",
+    "CourtListener MCP search (throttled)",
+    "web search (empty responses)",
+    "read-only appendix sidecar"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

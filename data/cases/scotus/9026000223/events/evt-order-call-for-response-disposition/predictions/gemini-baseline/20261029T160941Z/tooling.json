@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000223",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "fedcourts paths",
+    "metrics/statpack.md",
+    "mcp:courtlistener (throttled HTTP 429)"
+  ],
+  "helpful": [
+    "metrics/statpack.md salience band and originating circuit base-rate tables",
+    "provisioned petition.txt with full lower-court opinions in Appendices A-D",
+    "fedcourts query by docket-number"
+  ],
+  "gaps": [
+    "CourtListener MCP server hit daily rate limit (HTTP 429: 1400/day)"
+  ],
+  "notes": "Provisioned petition.txt included the complete Eleventh Circuit opinion and district court orders in the appendix, so the CourtListener MCP 429 rate limit did not impair analysis."
+}

@@ -1,0 +1,11 @@
+{
+  "case_id": "scotus/9026000328",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "metrics/statpack.md", "WebFetch supremecourt.gov docket"],
+  "helpful": ["--docket-number lookup made it quick to read the other side of the split"],
+  "gaps": ["No statpack cut conditions on a called-for response", "Petition text for non-Vide companions (e.g. the other side of a split) is not staged"]
+}

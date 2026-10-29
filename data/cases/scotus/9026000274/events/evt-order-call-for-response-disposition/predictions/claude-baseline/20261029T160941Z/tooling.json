@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000274",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["salience band table with reached risk-set rates"],
+  "gaps": ["no statpack cut conditioned on a called-for response after waiver", "query cannot filter by subject matter for SCOTUS rows, so topical priors are unavailable"],
+  "notes": "The era vocabulary is decade tokens; the help text says so but it is easy to miss."
+}

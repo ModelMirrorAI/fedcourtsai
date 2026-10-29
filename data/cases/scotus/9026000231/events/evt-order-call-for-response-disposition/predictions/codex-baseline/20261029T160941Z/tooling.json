@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000231",
+  "gaps": [
+    "CourtListener MCP returned HTTP 429 at the daily request limit, preventing independent verification of Delligatti.",
+    "General-precedent web searches returned no usable results.",
+    "The committed statpack has no base rate conditional on a cert response request."
+  ],
+  "helpful": [
+    "The dated snapshot and frozen context clearly identify the response-requested vantage and matching salience version.",
+    "The complete petition and relevant lower-court appendix permit assessment of both the claimed split and the lower court's distinction.",
+    "Exact JSON risk-set denominators permit pooling all strictly prior rendered Terms."
+  ],
+  "notes": "Used the provisioned September 5 snapshot rather than seeking the target's subsequent docket. A temporary uv cache override resolved the read-only default-cache error. The corpus query worked, but its broad disposition-selected examples did not provide a substantive analogy or rate estimate.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell read-only input inspection",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed metrics/statpack.md and metrics/statpack.json",
+    "web.run search attempts",
+    "CourtListener MCP search attempt"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
