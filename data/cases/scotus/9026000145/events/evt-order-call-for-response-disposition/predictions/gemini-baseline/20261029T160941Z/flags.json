@@ -1,0 +1,20 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000145",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "record/context.json assigns band='baseline' rather than 'federal' under sal-v4 because the lead petitioner string 'Warden, Moshannon Valley Correctional Center, et al.' lacks an explicit federal token, even though the petition was filed by the Solicitor General of the United States on behalf of the Warden, ICE officials, the Secretary of Homeland Security, and the Attorney General. I anchored on the frozen 'baseline' band as instructed and adjusted upward for the Solicitor General hold posture.",
+      "severity": "info"
+    },
+    {
+      "category": "leakage-disclosure",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "While running grep_search on metrics/ and data/cases/scotus/ to find the docket number of the companion Tenth Circuit EAJA habeas case (Baltazar v. Daley, No. 26-146), the search output matched lines in metrics/big-cases.json, metrics/big-cases.md, metrics/updates/2026-W42.md, and data/cases/scotus/*/summaries/*.md containing earlier evt-petition-disposition forecast figures for Nos. 26-145 and 26-146. Those figures were completely disregarded in forming this prediction.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T160941Z"
+}

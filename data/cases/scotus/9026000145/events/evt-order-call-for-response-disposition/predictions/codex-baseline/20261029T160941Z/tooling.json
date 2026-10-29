@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000145",
+  "gaps": [
+    "CourtListener MCP was unavailable because of its daily HTTP 429 limit.",
+    "No published reference rate conditions on a response request or a hold for a granted lead case.",
+    "The default uv cache directory was read-only; a temporary cache override was necessary."
+  ],
+  "helpful": [
+    "The petition's intact short body explicitly identifies the granted lead case and requests a hold.",
+    "The docket-number corpus lookup corroborated the related case's grant without retrieving this petition's outcome.",
+    "Statpack JSON enabled exact prior-Term reached-band pooling."
+  ],
+  "notes": "Forecast relies on the provisioned record and corpus. No opposition is expected in the response-requested baseline. The truncated appendix did not remove the petition's dispositive hold request. No pipeline files were changed.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search (throttled)",
+    "web search (no results)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

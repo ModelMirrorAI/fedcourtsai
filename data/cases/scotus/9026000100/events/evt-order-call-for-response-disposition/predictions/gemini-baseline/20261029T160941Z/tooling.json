@@ -1,0 +1,27 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000100",
+  "gaps": [
+    "CourtListener MCP search returned HTTP 429 daily rate limit exceeded (1400/day)"
+  ],
+  "helpful": [
+    "provisioned petition.txt with full lower-court opinions and declarations in the appendix",
+    "metrics/statpack.md salience-band risk-set (reached) and circuit base-rate tables",
+    "fedcourts query --docket-number for Hittle (24-427) and Ames (23-1039)"
+  ],
+  "notes": "CourtListener MCP hit its upstream daily rate limit (HTTP 429), but fedcourts query --docket-number retrieved the exact SCOTUS comparator dockets (Hittle 24-427 and Ames 23-1039) and petition.txt contained the complete Ninth Circuit and District Court decisions.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

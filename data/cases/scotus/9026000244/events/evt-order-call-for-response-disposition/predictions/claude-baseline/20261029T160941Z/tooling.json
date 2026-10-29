@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/9026000244",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "supremecourt.gov docket (WebFetch)",
+    "WebSearch"
+  ],
+  "helpful": [
+    "Provisioned petition and QP text",
+    "Statpack per-Term salience band table"
+  ],
+  "gaps": [
+    "No committed base rate conditioned on a called-for response (the moment this cell forecasts)",
+    "No way to find other pending/held petitions raising the same question presented"
+  ],
+  "notes": "Corpus query has no free-text/topic filter for SCOTUS rows, so finding same-QP petitions (e.g. the Takeda denial the petition cites) wasn't possible."
+}

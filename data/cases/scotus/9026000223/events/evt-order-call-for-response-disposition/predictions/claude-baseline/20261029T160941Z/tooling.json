@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000223",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["Salience-band reached-rate table gave a clear anchor", "Provisioned petition text and QP section"],
+  "gaps": ["No statpack cut conditioned on a called-for response, the defining signal of this moment"],
+  "notes": "Query --era takes a decade token (e.g. 2020s); the usage error made that clear."
+}

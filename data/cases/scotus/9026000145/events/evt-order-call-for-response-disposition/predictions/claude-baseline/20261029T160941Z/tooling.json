@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000145",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query --docket-number",
+    "fedcourts query --disposition",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "--docket-number lookup surfaced the companion case Montoya Palacios (25-1223) with its grant date and originating circuit"
+  ],
+  "gaps": [
+    "No 'Vide' link or related/ staging for a held-pending companion named only in the petition text; a hold-for relation extracted from the petition would let the cell read the companion without a query",
+    "No statpack cut for SG hold petitions (GVR vs deny after the lead case)"
+  ],
+  "notes": "The first --docket-number query failed for lack of --court and an --era token was rejected; both re-issued successfully."
+}

@@ -1,0 +1,52 @@
+### Summary of Prediction
+- **`probability` / `disposition`**: `0.25` (`granted: 0`, `predicted_disposition: "denied"`)
+- **`relist-increment`**: `0.96`
+- **`cvsg-increment`**: `0.03`
+- **`summary-disposition-route`**: `0.08`
+- **`dissent-from-denial`**: `0.14`
+- **`big_case_score`**: `0.72`
+
+### Provisioned Inputs and Conditioning State
+I read the provisioned snapshot `data/cases/scotus/9026000244/record/snapshots/2026-09-04.json` (`input_snapshot: "2026-09-04.json"`), `record/context.json`, and all three provisioned document files listed in `record/documents/documents.json`: `questions-presented.txt`, `petition.txt` (43 pages, `truncated: false`, `ocr_derived: false`), and `appendix.txt` (68 pages, `truncated: false`, `ocr_derived: false`).
+
+In `record/context.json`, the cell is in `forward` mode at `moment: response-requested` (`cutoff: "2026-09-04"`, `cut_kind: "date"`), with `term: 2026`, `band: "baseline"`, `salience_version: "sal-v4"`, `distribution_count: 1`, and `cvsg_date: null`. The snapshot records four proceedings entries up to September 3, 2026: (1) the petition filed on August 17, 2026; (2) respondents' waiver of the right to respond on August 31, 2026; (3) distribution on September 2, 2026 for the Conference of September 28, 2026; and (4) `Response Requested. (Due October 5, 2026)` on September 3, 2026. The snapshot also records two amicus curiae parties (`Other`): The Retail Litigation Center, Inc. (represented by Ephraim Alexander McDowell of Cooley LLP) and the Chamber of Commerce of the United States of America, American Tort Reform Association, and Business Roundtable (represented by Candice C. Wong of Fried, Frank, Harris, Shriver & Jacobson LLP), although their amicus brief docket entries do not appear in the truncated `ProceedingsandOrder` array as of September 4, 2026.
+
+In forward mode, I also checked the current docket state via `uv run fedcourts query --court scotus --docket-number 26-244` and public docket information on supremecourt.gov. As of October 29, 2026, the petition remains genuinely pending and undecided (respondents' brief in opposition deadline was extended to November 4, 2026). Note: both CourtListener MCP search calls attempted during retrieval returned HTTP 429 rate-limit errors (`1400/day` limit exceeded), so I degraded gracefully to the provisioned record and corpus tooling per the prompt instructions.
+
+### Base-Rate Anchoring (`metrics/statpack.md`)
+Per the cert-stage anchoring rules, I anchor on the **"Segment base rate by salience band (sal-v4)"** table in `metrics/statpack.md` for `band: "baseline"`, using the bracketed `reached` figures pooled across the 9 rendered Terms strictly preceding `term: 2026` (OT2017–OT2025):
+- **OT2025**: 4.0% (`n=1314`, 53 grants)
+- **OT2024**: 5.9% (`n=1274`, 75 grants)
+- **OT2023**: 5.9% (`n=1312`, 78 grants)
+- **OT2022**: 5.9% (`n=1196`, 70 grants)
+- **OT2021**: 5.7% (`n=1500`, 85 grants)
+- **OT2020**: 4.5% (`n=1740`, 79 grants)
+- **OT2019**: 4.7% (`n=1399`, 66 grants)
+- **OT2018**: 4.8% (`n=1529`, 74 grants)
+- **OT2017**: 4.9% (`n=1649`, 80 grants)
+
+Pooling across OT2017–OT2025 yields **660 grants out of 12,913 weighted resolved baseline-reached petitions (`5.11%`)**.
+
+Cross-checking the other paid scored-segment cuts in `metrics/statpack.md`:
+- **Modern discretionary-cert petitions overall**: granted 692, gvr 590 out of 44,777 resolved (`2.86%` grant family).
+- **Originating circuit (`ca9`)**: in the denial-reweighted modern cert cut, `ca9` resolves as denied 94.8%, granted 2.1%, dismissed 1.9%, gvr 1.1% (`n=5577`, `3.2%` grant family).
+- **Amicus-brief count (paid scored segment)**: petitions with `0` amicus briefs resolve at 2.0% granted / 1.8% gvr (`3.8%` grant family, `n=11109`), `1` amicus brief at 10.3% granted / 4.8% gvr (`15.1%` grant family, `n=1162`), and `2+` amicus briefs at 18.4% granted / 4.5% gvr (`22.9%` grant family, `n=1449`).
+
+### Adjustments from the Anchor
+Starting from the **5.11%** pooled `baseline` reached rate, several strong upward factors and significant vehicle counter-weights shape the final **0.25** probability:
+
+1. **Prior Grant on the Identical Question Presented (`+`)**: The Question Presented in `questions-presented.txt` is word-for-word identical to the question the Court granted in *Laboratory Corp. of America Holdings v. Davis*, 145 S. Ct. 1133 (2025), and then dismissed as improvidently granted (DIG) on June 5, 2025 (605 U.S. 327) due to an intervening amended class certification order in the district court. The Court had also previously granted a closely related question in *Tyson Foods, Inc. v. Bouaphakeo*, 577 U.S. 442 (2016). Moreover, the circuit split has only deepened in 2025–2026, with the Ninth Circuit in *Healy v. Milliman, Inc.*, 164 F.4th 701 (9th Cir. 2026), and *Olean Wholesale Grocery Coop., Inc. v. Bumble Bee Foods LLC*, 31 F.4th 651 (9th Cir. 2022) (en banc), openly rejecting both the Second/Eighth Circuit Article III rule (*Denney*) and the First/D.C./Third/Fourth Circuit Rule 23(b)(3) *de minimis* rule (*Asacol*, *Rail Freight*, *Mr. Dee's*).
+2. **Call for a Response After Waiver and Business Amicus Support (`+`)**: Respondents waived a response on August 31, 2026, and the Court called for a response on September 3, 2026—the day after initial distribution. While most called-for-response petitions are still denied once the brief in opposition arrives, here the call is combined with two heavyweight repeat-player amicus groups (the U.S. Chamber of Commerce / ATRA / Business Roundtable, represented by Fried Frank, and the Retail Litigation Center, represented by Cooley) and an experienced Supreme Court and appellate practice representing Kroger (Davis Wright Tremaine).
+3. **Clean Interlocutory Posture (`+`)**: Unlike *Laboratory Corp.*, where ongoing district court proceedings produced a superseding certification order that mooted the initial order under review, `petition.txt` (at 4, 10, 31) and `appendix.txt` show that this case comes directly on a Rule 23(f) interlocutory appeal from the September 27, 2024 certification order (`App. 8a–10a`), and the district court has stayed all proceedings throughout the appellate process.
+4. **Serious Vehicle and Record Complications in `appendix.txt` (`-`)**: Reading the Magistrate Judge's Findings and Recommendation (`App. 11a–51a`, adopted in full by the district court at `App. 8a–10a`) and the Ninth Circuit's unpublished 5-page memorandum (`App. 1a–5a`) reveals substantial factual and state-law obstacles that respondents will highlight in their Brief in Opposition:
+   - **Alternative point-of-sale injury ruling below**: The district court did not merely rely on the permissive rule that a class can include uninjured members; it expressly ruled (`App. 21a–28a, 42a–43a`) that under Oregon's UTPA and a "diminished value theory of ascertainable loss," *every* class member suffered a complete, concrete injury at the point of sale when paying the 10-cent deposit on a non-redeemable carton, and that Fred Meyer's post-transaction refunds in store went at most to an offset of *damages*, not to eliminating *liability* or Article III standing (`App. 43a`). If the injury question turns on when ascertainable loss accrues under Oregon law or whether an ad hoc customer-service refund moots a statutory-damages claim prior to suit, the Court could find the premise of the Question Presented (that the 1,275 refunded customers "lack any Article III injury") contested and entangled with Oregon law.
+   - **Disputed factual record on the 1,275 refunds**: The district court found (`App. 25a–28a`) and the Ninth Circuit noted (`App. 3a–4a`) that Fred Meyer never issued a recall or notified customers of the erroneous charge, and that its count of 1,275 refunds included roughly 765 generic "I Can Make It Right" returns for which Fred Meyer kept no customer-identifying records and which could have occurred for reasons unrelated to the 10-cent Bottle Bill charge (such as spoiled juice).
+   - **Competing OT2026 vehicles on the same question**: Because *Laboratory Corp.* was DIG'd in June 2025, multiple defendants from the Ninth Circuit and other circuits (e.g., *Drake v. Bayer Healthcare LLC*, *Nestlé USA, Inc. v. Falcone*) are petitioning the Court in OT2026 on the same Rule 23(b)(3) uninjured-class-member question. Even if the Court chooses to re-grant the *Laboratory Corp.* question this Term, it may prefer a published opinion or a vehicle where the existence of uninjured class members does not turn on unrecorded post-purchase store refunds.
+
+Weighing the high salience of the *Laboratory Corp.* sequel question and the business amicus support against the vehicle vulnerabilities in the district court's alternative point-of-sale injury rationale and competing OT2026 petitions, I place `probability` at **0.25**.
+
+### Secondary Claims and Distribution Rationales
+- **`relist-increment` (`0.96`)**: As noted in the prompt, on a `response-requested` cell where `distribution_count` is 1 because the call for a response happened right after the initial distribution (`Sep 02 2026` distribution, `Sep 03 2026` response requested), the petition is virtually certain to be distributed again once the Brief in Opposition is filed (the harness masks this claim on `response-requested` cells for that reason, though a probability must still be stated).
+- **`cvsg-increment` (`0.03`)**: Purely private state-law consumer dispute over Rule 23(b)(3) and Article III; the Court did not invite the SG at the cert stage in *Laboratory Corp.*
+- **`summary-disposition-route` (`0.08`)**: Conditional on a grant, the Court would almost certainly set the case for full briefing and oral argument to resolve the three-way circuit split left open in *Laboratory Corp.*, with the ~8% tail representing a GVR if the Court grants a companion Rule 23 petition first and remands this case in light of that decision.
+- **`dissent-from-denial` (`0.14`) and `order-writers`**: Conditional on a denial, Justice Kavanaugh (`0.08`) is the primary candidate to author a dissent from denial or statement respecting denial, given his solo dissent in *Laboratory Corp.*, 605 U.S. at 328–33, where he wrote on the merits of the Rule 23(b)(3) question. Justices Thomas (`0.05`), Alito (`0.04`), and Gorsuch (`0.03`) also occasionally author dissents from denial in class-action and Article III standing cases, while the remaining five Justices rarely author cert-denial writings (`0.005` each).
