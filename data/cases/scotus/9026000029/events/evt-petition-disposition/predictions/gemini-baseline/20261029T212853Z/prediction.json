@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000029",
+  "event_id": "evt-petition-disposition",
+  "predictor_id": "gemini-baseline",
+  "engine": "gemini",
+  "model": "gemini-4-argon",
+  "run_id": "20261029T212853Z",
+  "created_at": "2026-10-29T21:34:00Z",
+  "input_snapshot": "2026-10-29.json",
+  "blinded": false,
+  "granted": false,
+  "probability": 0.89,
+  "predicted_disposition": "denied",
+  "disposition_probabilities": {
+    "denied": 0.89,
+    "granted": 0.07,
+    "summary-reversal": 0.03,
+    "gvr": 0.005,
+    "dismissed": 0.003,
+    "withdrawn": 0.002
+  },
+  "outcome_forecast": null,
+  "votes": null,
+  "majority_author": null
+}
