@@ -5191,3 +5191,16 @@ def test_the_application_labeling_mode_reads_its_frame_off_the_mode_alone() -> N
     )
     branch = _norm(publish["env"]["BRANCH"])
     assert "'qp-topics/applications-refresh'" in branch and "'qp-topics/refresh'" in branch
+
+
+def test_the_documents_writer_rereads_the_tip_around_its_dedupe() -> None:
+    """The dedupe's refusal guard reads committed `data/`, which a collect PR can
+    move under it: the writer fast-forwards before the merge, and its commit
+    refuses output that landed since under a case the merge moved away from."""
+    steps = {str(step.get("name")): step for step in _repair_steps("documents")}
+    dedupe = str(steps["Dedupe live-minted duplicate rows"]["run"])
+    assert dedupe.index("git merge --ff-only FETCH_HEAD") < dedupe.index("dedupe-live-rows --apply")
+    commit = str(steps["Commit the documents pointer"]["run"])
+    # Without `--no-renames` a moved directory reads as renamed, not deleted.
+    assert "--no-renames --name-only --diff-filter=D HEAD -- data/cases" in commit
+    assert commit.index("merged away since it ran") < commit.index("git commit -m")

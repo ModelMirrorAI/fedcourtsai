@@ -1772,7 +1772,10 @@ jobs:
       # the dedupe prerequisite, applied to this runner's copy alone. The role
       # is read-only and the remote-writes switch is off, so nothing it merges
       # leaves the runner; the writer applies the same dedupe under the lock
-      # before it walks, so the two walk the same class.
+      # before it walks. The two can still read a merged pair apart (this
+      # copy's merge mirrors no moved payload, so the walk here may not see a
+      # survivor's moved documents), and the writer then writes nothing for it:
+      # a candidate whose gap differs from its worklist item is `left_class`.
       - name: Dedupe live-minted duplicate rows
         id: dedupe-live-rows
         if: ${{ inputs.repair == 'document-backfill' }}
@@ -3578,8 +3581,11 @@ jobs:
       # worklist from. Applied here under the lock; the merge's re-keyed rows
       # ride the blob push below and its moved minted-event directories the
       # commit step's `data/`, so nothing lands until both do. The merge reads
-      # committed `data/` as a refusal guard, which the sync step brought to
-      # the default branch's tip.
+      # committed `data/` as a refusal guard (a twin whose events carry
+      # committed cell output must not merge), so it fast-forwards to the
+      # remote tip first, as the corpus job's dedupe does: a collect PR, which
+      # takes no corpus-write lock, can land output since the sync step. One
+      # landing after this step is the commit step's refusal.
       - name: Dedupe live-minted duplicate rows
         id: dedupe-live-rows
         if: ${{ inputs.repair == 'document-backfill' }}
@@ -3588,6 +3594,9 @@ jobs:
           FEDCOURTS_CORPUS_BASE_URL: ${{ vars.CORPUS_BASE_URL }}
         run: |
           set -euo pipefail
+          # The repo is public, so this read-only fetch needs no credentials.
+          git fetch origin "${GITHUB_REF_NAME}"
+          git merge --ff-only FETCH_HEAD
           # Dry-run first, into the summary: the merge moves ledger event
           # directories with the re-keyed rows, and the would-move ledger must
           # outlive the step log.
@@ -3732,6 +3741,21 @@ jobs:
           git add corpus/corpus.db.ref
           if [ "${stage}" = "pointer+data" ] && [ -d data ]; then
             git add data/
+            # The dedupe's guard read `data/` as it stood when it ran. A case
+            # directory it moved away from that has gained committed output on
+            # the default branch since would land that output under a row the
+            # merge removed, and the push's rebase would not conflict on it, so
+            # it is refused here; the next dispatch's dedupe reads it.
+            git fetch origin "${GITHUB_REF_NAME}"
+            moved="$(git diff --cached --no-renames --name-only --diff-filter=D HEAD -- data/cases \
+              | cut -d/ -f1-4 | sort -u)"
+            arrived="$(git diff --name-only HEAD FETCH_HEAD -- data/cases \
+              | cut -d/ -f1-4 | sort -u)"
+            if [ -n "${moved}" ] && [ -n "${arrived}" ] \
+              && [ -n "$(comm -12 <(printf '%s\n' "${moved}") <(printf '%s\n' "${arrived}"))" ]; then
+              echo "::error::the default branch gained output under a case the dedupe merged away since it ran; nothing committed. Re-dispatch the pass."
+              exit 1
+            fi
           fi
           if git diff --cached --quiet; then
             echo "${unchanged}"

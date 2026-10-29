@@ -65,6 +65,7 @@ from .documents import (
     KIND_APPLICATION,
     KIND_DESCRIPTIONS,
     KIND_PETITION,
+    KIND_QUESTIONS_PRESENTED,
     document_fetch_losses,
     reset_document_fetch_losses,
 )
@@ -147,7 +148,7 @@ class BackfillWorkItem(BaseModel):
     case_id: _CaseId
     kinds: list[_GapKind] = Field(min_length=1, max_length=len(_GAP_KINDS))
     term: int = Field(strict=True, ge=0, le=9999)
-    serial: int = Field(strict=True, ge=1, le=99_999_999)
+    serial: int = Field(strict=True, ge=0, le=10**12)
     form: Literal["cert", "application"]
     term_year: int | None = Field(default=None, strict=True, ge=1789, le=9999)
     stored_urls: dict[_DocumentKind, _StoredUrl] = Field(
@@ -281,6 +282,10 @@ def backfill_worklist(
     class. The ledger is the walk-only reading: nothing reached, the whole class
     remaining.
     """
+    if bound is not None and bound > MAX_BACKFILL_ITEMS:
+        raise HandoffRefused(
+            f"a bound of {bound} is above the {MAX_BACKFILL_ITEMS} items one worklist may carry"
+        )
     scan, candidates, unaddressable = _scan_and_candidates(conn)
     picked = candidates if bound is None else candidates[:bound]
     if len(picked) > MAX_BACKFILL_ITEMS:
@@ -480,9 +485,10 @@ def check_backfill_plan(plan: BackfillPlan, worklist: BackfillWorklist, *, char_
     replace); unreached items that are not the worklist's tail in its order (the
     parse ends its slice, it never skips ahead); a reading of more than one
     shape, or an alarm on no floor or on a docket older than the alarm's Term; a
-    document of another case, two of one kind, or a text longer than the
-    configured document cap; and loss counts under any reason but the fetch's
-    own.
+    document of another case, two of one kind, a text longer than the
+    configured document cap, or a filing at the URL its item already holds it
+    at (the fetch never re-fetches one, so only a forged plan writes over it);
+    and loss counts under any reason but the fetch's own.
 
     What the writer cannot check is that a reading is what the Court served:
     it holds no docket and no PDF, so a document's text, and a floor's reading,
@@ -521,6 +527,14 @@ def _check_reading(reading: BackfillReading, item: BackfillWorkItem, *, char_cap
         if document.case_id != reading.case_id:
             raise HandoffRefused(
                 f"the plan files a document of another case under {reading.case_id}"
+            )
+        if (
+            document.kind != KIND_QUESTIONS_PRESENTED
+            and item.stored_urls.get(document.kind) == document.url
+        ):
+            raise HandoffRefused(
+                f"the plan re-files {reading.case_id}'s stored {document.kind} at its "
+                "unchanged URL, which the fetch never re-fetches"
             )
         if len(document.text) > char_cap:
             raise HandoffRefused(

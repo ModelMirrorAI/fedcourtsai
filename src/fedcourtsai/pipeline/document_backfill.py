@@ -413,9 +413,10 @@ class DocumentBackfillResult(BaseModel):
         ge=0,
         default=0,
         description="Candidates the split's writer found no longer in the class "
-        "when it came to write what the parse read for them — recovered, stamped "
-        "or no longer predict-relevant since the projection cut the worklist — and "
-        "so wrote nothing for (the credential split's writer alone; the pass in one "
+        "as the parse read them — recovered, stamped, no longer predict-relevant, "
+        "or missing other kinds or holding other links since the projection cut "
+        "the worklist — and so "
+        "wrote nothing for (the credential split's writer alone; the pass in one "
         "job reads and writes the same class)",
     )
     refused: bool = Field(

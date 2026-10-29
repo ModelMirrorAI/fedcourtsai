@@ -237,12 +237,14 @@ def test_the_parse_ends_its_slice_before_its_plan_outgrows_the_byte_budget(
     worklist = _worklist(db, 3)
     with _client(dockets, pdfs=pdfs, errors=errors) as client:
         whole = plan_backfill_worklist(client, worklist, char_cap=_CAP, today=_TODAY)
-        first = len(whole.readings[0].model_dump_json().encode())
+        # Room for the first two readings, so the one discarded is scotus/3's,
+        # the reading that records a fetch loss.
+        first, second = (len(r.model_dump_json().encode()) for r in whole.readings[:2])
         plan = plan_backfill_worklist(
-            client, worklist, char_cap=_CAP, today=_TODAY, byte_budget=first
+            client, worklist, char_cap=_CAP, today=_TODAY, byte_budget=first + second
         )
-    assert [reading.case_id for reading in plan.readings] == ["scotus/1"]
-    assert plan.unreached == ["scotus/2", "scotus/3"]
+    assert [reading.case_id for reading in plan.readings] == ["scotus/1", "scotus/2"]
+    assert plan.unreached == ["scotus/3"]
     # The discarded reading's losses are not the plan's.
     assert whole.fetch_losses["unavailable"] == 1
     assert not any(plan.fetch_losses.values())
@@ -344,6 +346,23 @@ def test_the_writer_refuses_a_document_off_its_reading(tmp_path: Path) -> None:
     _refused(db, _with(plan, 0, documents=[first, first]), worklist, "names .* twice")
     long = first.model_copy(update={"text": "x" * (_CAP + 1)})
     _refused(db, _with(plan, 0, documents=[long]), worklist, "document cap")
+
+
+def test_the_writer_refuses_a_filing_over_its_stored_url(tmp_path: Path) -> None:
+    db, dockets, pdfs, errors = _mixed(tmp_path)
+    worklist = _worklist(db, None)
+    with _client(dockets, pdfs=pdfs, errors=errors) as client:
+        plan = plan_backfill_worklist(client, worklist, char_cap=_CAP, today=_TODAY)
+    index = [reading.case_id for reading in plan.readings].index("scotus/9")
+    reading = plan.readings[index]
+    # scotus/9 already holds its petition at this URL, which the fetch never
+    # re-fetches: only a forged plan could carry a text for it.
+    forged = reading.documents[0].model_copy(
+        update={"kind": KIND_PETITION, "url": f"{_COURT}/9-pet.pdf", "text": "forged"}
+    )
+    _refused(
+        db, _with(plan, index, documents=[*reading.documents, forged]), worklist, "unchanged URL"
+    )
 
 
 def test_the_writer_refuses_losses_under_another_reason(tmp_path: Path) -> None:

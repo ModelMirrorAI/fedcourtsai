@@ -2035,13 +2035,18 @@ of each reached item's docket loss, floor or fetched documents, the filings'
 text among them, under its own carve-out there; its dry run is read whole in
 the parse and hands nothing on. The writer reads both back by artifact id,
 refuses a reading of more than one shape, an alarm no floor on a modern docket
-can carry, a document of another case, a second of one kind, or a text above
-the cap, and writes nothing for a candidate whose gap has changed since the
+can carry, a document of another case, a second of one kind, a text above the
+cap, or a filing at the URL its item already holds it at (which the fetch never
+re-fetches), and writes nothing for a candidate whose gap has changed since the
 projection. It holds no docket and no PDF, so what it cannot check is what the
 Court served: a hostile parse could hand in text of its own at a Court URL for
 an item of the slice, or a floor that stamps the candidate out of the class
-until the live channel next polls its docket — the same trust model as the
-OCR split, where the parser used to share a job with the read-write role.
+until the live channel next polls its docket. The stamp is a fill-in latch no
+writer clears, so on a docket the live rotation has left, a forged floor holds
+its candidate out for good; the slice bound caps how many one dispatch can
+stamp. That is the same trust model as the OCR split: the parse holds no
+credential, and what it can still forge is bounded by the worklist and the
+writer's checks.
 The recovered text also meets the contact scrub, whose shapes OCR output does
 not always match. The residual detector records such a document as not
 scrubbed and keeps it out of the summary stage, but the cell is still staged

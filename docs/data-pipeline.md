@@ -1991,7 +1991,9 @@ could have produced; the cache path is stated in
 take: the projection applies it to its own copy before cutting the worklist, so
 the class it reads is the one the writer, which applies it again under the lock
 before landing the plan, walks. Its apply commits `data/` beside the pointer,
-since the dedupe moves case directories.
+since the dedupe moves case directories, and refuses the commit where the
+default branch has gained output under a case the dedupe merged away since it
+ran, which the push's rebase would not conflict on.
 `application-backfill` takes no dedupe prerequisite: it writes exactly as
 frontier discovery does, which runs without one, and the identity join it
 shares picks the lowest docket id of a twin pair deterministically, while a
