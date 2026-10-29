@@ -485,10 +485,11 @@ Three things about the artifact's shape decide what may be read off it:
   from the conference count and a pending docket has had fewer conferences —
   band and maturity are correlated by construction.
 
-It is produced by running the command where the corpus is pulled, read-only:
-a dev checkout or the corpus environment, or the corpus-check lane for a pull
-request without corpus access (`distribution-census` is on its auto allowlist).
-The review is conducted over the JSON, which carries a `corpus_sha256`, so it
+It is produced by running the command where the corpus is pulled, read-only
+(a dev checkout or the corpus environment), with the content store wired: a
+checkout without it observes a few percent of the frame, as the replay note
+below measures. A full census is a walk of up to two hours, so it does not fit
+the corpus-check lane's 30-minute check limit. The review is conducted over the JSON, which carries a `corpus_sha256`, so it
 says which corpus state it is re-derivable against. Both parse labels are
 arguments, so once a further reading is registered it is argued with no code
 change. The band function defaults to the active scorer, and `--version` names
@@ -872,8 +873,8 @@ naming precisely because `corpus_sha256` invites the opposite reading: that hash
 identifies the SQLite **index**, while the snapshot payloads the replay
 reconstructs from live in the per-case content store. A checkout without the
 store wired reads only the snapshots the blob itself carries — the same census
-re-run in that state observes a few percent of the frame where the `run-analytics`
-census reached 99.993%. On so small a read almost no conference cohort is
+re-run in that state observes a few percent of the frame where the store-wired
+census of record reached 99.993%. On so small a read almost no conference cohort is
 capacity-bound, so the rank contest has hardly any opportunity to drop a demoted
 petition and an observed zero disruption is consistent with any amount of it at
 full coverage. The instrument that would settle the question is the same replay

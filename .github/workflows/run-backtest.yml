@@ -77,6 +77,8 @@ on:
         type: choice
         options: [stub, auto]
         default: stub
+      # cert takes the N most recently decided petitions, or a random draw
+      # under `spread`. merits caps at 20 because a larger draw outlasts the job.
       limit:
         description: "cert: N petitions, one cell per predictor each. merits: N random cases, 1 to 20, two cells per predictor each. Spend scales with N."
         type: string

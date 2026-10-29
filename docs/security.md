@@ -1571,8 +1571,8 @@ pair the third one writes:
   head, and its `run-auto` job, whose pull serves an allowlisted query run at
   `main`'s own commit. Two operational facts ride this role. Its IAM **maximum
   session duration** must allow the sessions its callers request —
-  `run-backtest`'s replay job asks for 21600 s (6 h), `run-analytics`' text-coverage job for 8100 s —
-  because a
+  `run-backtest`'s replay job asks for 21600 s (6 h), `run-analytics`'
+  text-coverage job for 8100 s — because a
   re-provisioned role at the AWS default hour fails both at their first
   credentialed step. (`run-backtest` calls the composite twice: its cadence
   `plan` job pulls the index at the composite's default hour and reads it
@@ -1928,7 +1928,7 @@ stripping mechanism, since the summary tees the command's stderr verbatim; and
 the labeling job's label-line count, which is arithmetic computed from the
 file rather than anything read out of it, and is therefore the one record that
 needs no scan ahead of it. A fourth run artifact rides the same one-day
-window on the same terms: the `text-coverage` report,
+window: the `text-coverage` report,
 which also republishes no document text — counts, kinds, and three untruncated
 case-id ledgers, the empty-text documents (fetch-conditioned membership whose
 extent tracks corpus growth), the queued cert-form cases holding no petition row

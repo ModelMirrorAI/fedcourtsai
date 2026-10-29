@@ -63,7 +63,7 @@ on:
       refresh_streams:
         description: >-
           Stream refresh_terms re-opens. IFP is ~70% of the probe cost and
-          feeds no scored segment, so prefer paid.
+          feeds no scored segment, so prefer paid for the predicted population.
         required: false
         default: historical-paid
         type: choice

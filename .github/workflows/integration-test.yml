@@ -243,6 +243,7 @@ on:
           - claude-code
           - codex
           - gemini
+      # An event id belongs to one case, so a resolved case may not carry it.
       event:
         description: >-
           Event id to narrow the cascade scenarios to; empty runs every event.

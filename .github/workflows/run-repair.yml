@@ -85,6 +85,8 @@ on:
           - application-backfill
           - decision-record
           - opinion-record
+      # A dry run still applies the pass's prerequisites, to the runner's copy
+      # only; an apply runs the prerequisites and the pass, then pushes.
       repair_mode:
         description: "dry-run prints the ledger and writes nothing off the runner; apply runs the pass and pushes."
         required: false
@@ -94,7 +96,7 @@ on:
           - dry-run
           - apply
       repair_bound:
-        description: "apply: the bound read off the dry-run ledger, where the pass takes one."
+        description: "apply: required where the pass takes one; the bound read off the dry-run ledger."
         required: false
         default: ""
         type: string

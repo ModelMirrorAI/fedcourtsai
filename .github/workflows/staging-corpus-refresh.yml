@@ -65,6 +65,8 @@ on:
           petitions with an open event and a stored snapshot.
         required: true
         type: string
+      # Read a previous dispatch's census first: an apply run's own census is a
+      # receipt, not a reading, since nobody reads it before the write.
       apply:
         description: >-
           Seed the staging stores. Unset (default) is a dry-run census that

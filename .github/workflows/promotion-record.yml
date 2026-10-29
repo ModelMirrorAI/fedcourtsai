@@ -31,6 +31,8 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      # Recovery is not a bypass: the commit must pass the same
+      # promotion-merge checks as a merge recorded on its own.
       merge:
         description: "Recovery: the promotion merge commit (40-hex SHA) to record again."
         required: true
