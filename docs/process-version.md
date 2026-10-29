@@ -108,7 +108,12 @@ The cert stage's own record changes author at a label rather than a digest:
 `HARNESS_CERT_ANCHOR_FROM` in `process_version.py` names `proc-v9`, so the
 commit that sets `CURRENT_PROCESS_LABEL` to that label also switches a
 frozen-band cert grading's rate, Brier and skill from the evaluator's
-transcription to the stamp, and its freeze-record entry says so. A
+transcription to the stamp, and its freeze-record entry says so.
+`PINNED_CERT_ANCHOR_FROM` names `proc-v15` the same way: from that label a
+grading whose scored prediction froze an anchor at provisioning
+(`context.cert_anchor`) stamps that anchor, pooled over the statpack in force
+when the forecast was placed, instead of pooling the statpack checked out at
+grading. A
 change there moves how a number was produced without moving
 any actor's digest, and belongs in the freeze record beside the window. This is
 the standard's own trigger case rather than an aside: the same prompt, the same

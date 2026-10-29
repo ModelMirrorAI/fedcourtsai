@@ -10699,11 +10699,14 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     leaves no population to choose, so the harness pools the risk-set anchor
     through the scorer's own pooler and stamps the Brier, the rate, the skill,
     both halves of the basis record, and the statpack build it read
-    (``base_rate_statpack_digest``). Every other cert cell — an earlier label's
-    grading, and a prediction that froze no band, whose terminal fallback
-    re-derives a band from the corpus row — keeps the evaluator's three
-    numbers, and the leaderboard's coherence check is what holds that
-    arithmetic to its record. The label is the stamp's own: the one this
+    (``base_rate_statpack_digest``) — from
+    :data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM` on, the anchor
+    the prediction's context froze at provisioning where it carries one, so the
+    build is the one in force when the forecast was placed. Every other cert
+    cell — an earlier label's grading, and a prediction that froze no band,
+    whose terminal fallback re-derives a band from the corpus row — keeps the
+    evaluator's three numbers, and the leaderboard's coherence check is what
+    holds that arithmetic to its record. The label is the stamp's own: the one this
     invocation writes, or on a re-grade the one the record carries, so a
     re-grade never moves a grading onto a rule its label did not register.
 
@@ -12258,7 +12261,7 @@ def _skill_record_for(
             # Narrowing only: the predicate requires a scored prediction.
             assert latest is not None
             fields, basis, version = _cert_skill_record_for(
-                event_paths, evaluation, settings, outcome, latest, regrade=regrade
+                event_paths, evaluation, settings, outcome, latest, label=label, regrade=regrade
             )
             return {"correct": correct} | fields, (basis, version, latest)
         context = latest.context if latest is not None else None
@@ -12322,6 +12325,7 @@ def _cert_skill_record_for(
     outcome: Outcome | None,
     scored: Prediction,
     *,
+    label: str | None,
     regrade: bool,
 ) -> tuple[dict[str, object], str | None, str | None]:
     """The harness's whole cert skill record, for a cell :func:`_harness_owns_cert_record` admits.
@@ -12347,6 +12351,16 @@ def _cert_skill_record_for(
     was pooled under, so the board can re-pool the same pool; both are null
     beside a null rate.
 
+    **From** :data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM` **on,
+    the anchor is the one frozen at provisioning** wherever the scored
+    prediction's context carries it (``context.cert_anchor``): the same pooler
+    over the same frozen triple, run against the statpack in force when the
+    forecast was placed, so a metrics refresh landing between forecast and
+    grading does not move it. The stamp copies its rate, build and window
+    rather than re-pooling. A context with no frozen anchor — a cell placed
+    before the record, or with no readable statpack — and a grading stamped
+    under an earlier label pool the statpack checked out now, as above.
+
     **A re-grade keeps the anchor as stamped.** It recomputes the Brier and the
     skill against the corrected outcome, but the rate, its build, its window
     and its basis pair are the ones the grading was first stamped with: the
@@ -12368,7 +12382,7 @@ def _cert_skill_record_for(
         basis = evaluation.base_rate_basis
         version = evaluation.base_rate_salience_version
     else:
-        rate, digest, lookback = _pool_cert_anchor(scored, settings)
+        rate, digest, lookback = _cert_anchor_for(scored, settings, label)
         _warn_on_discarded_number(
             evaluation, "segment_base_rate", evaluation.segment_base_rate, rate
         )
@@ -12397,6 +12411,51 @@ def _cert_skill_record_for(
         "base_rate_lookback_terms": lookback,
     }
     return fields, basis, version
+
+
+def _cert_anchor_for(
+    scored: Prediction, settings: Settings, label: str | None
+) -> tuple[float | None, str | None, int | None]:
+    """The cert anchor this grading stamps: ``(rate, statpack build, lookback window)``.
+
+    The provisioning-time anchor where the grading's ``label`` pins it
+    (:func:`fedcourtsai.process_version.pins_cert_anchor`) and the scored
+    context froze one; otherwise :func:`_pool_cert_anchor` over the statpack
+    checked out now. A frozen record with a null rate yields all three ``None``,
+    as an empty pool does, so a build and a window are only ever named beside
+    the rate they produced.
+    """
+    frozen = scored.context.cert_anchor if scored.context is not None else None
+    if frozen is None or not process_version.pins_cert_anchor(label):
+        return _pool_cert_anchor(scored, settings)
+    if frozen.rate is None:
+        return None, None, None
+    return frozen.rate, frozen.statpack_digest, frozen.lookback_terms
+
+
+def _cert_anchor_pool(
+    settings: Settings, paths: CasePaths, event: str
+) -> provision.AnchorPool | None:
+    """The statpack build and window a cert cell's anchor is frozen from, or ``None``.
+
+    ``None`` for a cell that names no event (an evaluate cell, which forecasts
+    nothing) and for an event of any stage but cert
+    (:func:`fedcourtsai.provision.freezes_cert_anchor`). ``None`` too, with a
+    warning, where no statpack is readable: the cell then carries no frozen
+    anchor and its grading pools at stamp time. The window is the configured
+    ``salience.base_rate_lookback_terms``, the one :func:`_pool_cert_anchor`
+    reads at grading.
+    """
+    if not provision.freezes_cert_anchor(paths.event(event).event_file, event):
+        return None
+    pool = provision.read_anchor_pool(settings.metrics_root, settings.config_root)
+    if pool is None:
+        typer.echo(
+            "::warning::provision: no readable metrics/statpack.json — this cert cell's "
+            "anchor is not frozen and its grading pools the statpack read at stamp time.",
+            err=True,
+        )
+    return pool
 
 
 def _pool_cert_anchor(
@@ -17968,6 +18027,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             related=related,
             authorship_tally=tally,
             same_question=listed,
+            anchor_pool=_cert_anchor_pool(settings, paths, event),
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)
@@ -19100,6 +19160,7 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
             corpus_db_path=corpus.corpus_db_path(settings.corpus_root),
             data_root=settings.data_root,
             config_root=settings.config_root,
+            metrics_root=settings.metrics_root,
             court=court,
             docket=docket,
             event=event or None,

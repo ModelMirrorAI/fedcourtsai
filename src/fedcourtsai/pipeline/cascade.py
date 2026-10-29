@@ -253,6 +253,7 @@ def _provision_record(  # noqa: PLR0913
     *,
     authorship_tally: AuthorshipTally | None = None,
     same_question_list: SameQuestionList | None = None,
+    anchor_pool: provision.AnchorPool | None = None,
 ) -> _Record:
     """Write one cell's ``record/`` exactly as the workflow's provisioning step does.
 
@@ -260,10 +261,10 @@ def _provision_record(  # noqa: PLR0913
     mode and conditioning, and the documents cut with the snapshot — through the
     same placement and writer ``provision-snapshot`` uses, contact scrubs,
     the ``Vide``-linked companions under ``record/related/``, a merits cell's
-    authorship tally and a cert cell's same-question list included. A
-    cascade that wrote only the snapshot would hand the agent no frozen mode,
-    band or cutoff, and the cell would have to guess the posture that
-    provisioning exists to settle.
+    authorship tally, a cert cell's same-question list and its frozen anchor
+    included. A cascade that wrote only the snapshot would hand the agent no
+    frozen mode, band or cutoff, and the cell would have to guess the posture
+    that provisioning exists to settle.
     """
     try:
         written = provision.write_cell_record(
@@ -284,6 +285,7 @@ def _provision_record(  # noqa: PLR0913
             ],
             authorship_tally=authorship_tally,
             same_question=same_question_list,
+            anchor_pool=anchor_pool,
         )
     except provision.ProvisionError as exc:
         raise CascadeError(str(exc)) from exc
@@ -717,6 +719,7 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     corpus_db_path: Path,
     data_root: Path,
     config_root: Path,
+    metrics_root: Path = Path("metrics"),
     court: str,
     docket: int,
     event: str | None = None,
@@ -756,8 +759,11 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
     ambient env) while these in-process reads — which the service surface
     deliberately does not serve, and :func:`~fedcourtsai.corpus.connect_readonly`
     therefore rejects — go straight to the blob via ``ranged``.
+    ``metrics_root`` is where the committed statpack a cert cell's anchor is
+    frozen from is read, as ``provision-snapshot`` reads it.
     """
     runner = get_runner(engine)
+    anchor_pool = provision.read_anchor_pool(metrics_root, config_root)
     case_id = ids.case_id(court, docket)
     case_paths = CasePaths(data_root, court, docket)
 
@@ -822,6 +828,11 @@ def run_cascade(  # noqa: PLR0913 - the cell contract's independent knobs, one a
             related.get(event_id, ()),
             authorship_tally=tallies.get(event_id),
             same_question_list=same_question_lists.get(event_id),
+            anchor_pool=(
+                anchor_pool
+                if provision.freezes_cert_anchor(case_paths.event(event_id).event_file, event_id)
+                else None
+            ),
         )
         placements.append(record.placement)
 

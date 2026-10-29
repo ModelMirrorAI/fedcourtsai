@@ -39,13 +39,17 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal
 
+import yaml
+
 from . import casestore
+from .config import load_salience_config
 from .corpus import CaseDocument, CorpusEvent, CorpusRow, ReadConnection
 from .paths import CasePaths
 from .pipeline import (
     argument_features,
     arrival_cut,
     authorship,
+    base_rates,
     cell_context,
     cert_signals,
     interim_signals,
@@ -69,14 +73,16 @@ from .schemas import (
     ArgumentFeatures,
     AuthorshipTally,
     Moment,
+    PredictableEvent,
     SameQuestionList,
     SnapshotContactScrub,
     Stage,
     StagedDecision,
     StagedWriting,
     StagedWritings,
+    StatPack,
 )
-from .serialize import write_json, write_raw_json, write_text
+from .serialize import read_model, write_json, write_raw_json, write_text
 from .supremecourt import october_term_year
 
 
@@ -1056,6 +1062,57 @@ def staged_scrub(text: str, values: tuple[str, ...], sides: tuple[str, ...]) -> 
 
 
 @dataclass(frozen=True)
+class AnchorPool:
+    """The statpack build and lookback window a cert cell's anchor is frozen from.
+
+    Handed to :func:`write_cell_record` for a **cert** cell only, by a caller
+    that read the committed ``metrics/statpack.json`` and the configured
+    ``salience.base_rate_lookback_terms`` — the two inputs the evaluator stamp
+    would otherwise read at grading time.
+    """
+
+    statpack: StatPack
+    lookback_terms: int
+
+
+def read_anchor_pool(metrics_root: Path, config_root: Path) -> AnchorPool | None:
+    """The committed statpack and the configured lookback window, or ``None``.
+
+    ``None`` where ``metrics_root/statpack.json`` is absent or does not parse
+    as the current :class:`~fedcourtsai.schemas.StatPack`: the cell then
+    carries no frozen anchor, and its grading pools at stamp time.
+    """
+    path = metrics_root / "statpack.json"
+    if not path.is_file():
+        return None
+    try:
+        statpack = StatPack.model_validate_json(path.read_text())
+    except (OSError, ValueError):
+        return None
+    lookback = load_salience_config(config_root).base_rate_lookback_terms
+    return AnchorPool(statpack=statpack, lookback_terms=lookback)
+
+
+def freezes_cert_anchor(event_file: Path, event_id: str) -> bool:
+    """Whether a predict cell on ``event_id`` is a cert cell, whose anchor is frozen.
+
+    The stage the committed ``event.yaml`` records where it records one, else
+    the stage the id declares (:func:`fedcourtsai.pipeline.moments.event_stage`),
+    since a case-level baseline's definition may not exist yet when its first
+    cell is placed. An unreadable definition falls back to the id.
+    """
+    if not event_id:
+        return False
+    recorded: Stage | None = None
+    if event_file.is_file():
+        try:
+            recorded = read_model(event_file, PredictableEvent).stage
+        except (OSError, ValueError, yaml.YAMLError):
+            recorded = None
+    return moments.event_stage(recorded, event_id) == Stage.cert
+
+
+@dataclass(frozen=True)
 class RecordWrite:
     """What :func:`write_cell_record` put on disk, for the caller to report.
 
@@ -1087,6 +1144,7 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     authorship_tally: AuthorshipTally | None = None,
     same_question: SameQuestionList | None = None,
     decided_before: str | None = None,
+    anchor_pool: AnchorPool | None = None,
 ) -> RecordWrite:
     """Materialize one cell's whole ``record/`` from its placement.
 
@@ -1128,6 +1186,12 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
 
     ``decided_before`` is a replay cell's Term clock, stated in ``context.json``
     beside the cutoff; a forward cell has none.
+
+    ``anchor_pool``, given for a cert cell, freezes the cert skill anchor into
+    ``context.json`` (``cert_anchor``, :func:`fedcourtsai.pipeline.base_rates.freeze_cert_anchor`)
+    over the band the context froze, so the grading reads the pool of the build
+    in force when the forecast was placed. Without it, or over a context that
+    froze no band, ``cert_anchor`` is null.
     """
     kinds = screen_document_kinds(placement.documents)
     if snapshot_dest is None:
@@ -1159,32 +1223,40 @@ def write_cell_record(  # noqa: PLR0913 - one record, each optional part a keywo
     # cutoff rides along as the cohort marker: a forward cell whose `cutoff` is
     # non-null was placed at its moment, and a figure that pools it with one
     # provisioned from the latest snapshot pools two information sets.
+    context = cell_context.build(
+        case_id,
+        placement.snapshot_date,
+        payload,
+        mode,
+        provenance=placement.provenance,
+        cutoff=cutoff,
+        boundary=placement.boundary,
+        decided_before=decided_before,
+    )
     write_raw_json(
         paths.cell_context,
-        cell_context.build(
-            case_id,
-            placement.snapshot_date,
-            payload,
-            mode,
-            provenance=placement.provenance,
-            cutoff=cutoff,
-            boundary=placement.boundary,
-            decided_before=decided_before,
-        )
-        # The one field not read off the payload: the scrub above ran over a
-        # copy of it, so only this writer can say what it withheld. Stated
+        # The two fields not read off the payload. The scrub above ran over a
+        # copy of it, so only this writer can say what it withheld — stated
         # beside the trigger it keyed on, so a snapshot with no placeholder
-        # reads as scrubbed and clean or as never scrubbed, not as either.
-        .model_copy(
+        # reads as scrubbed and clean or as never scrubbed, not as either. The
+        # cert anchor is pooled over the band just frozen and the statpack the
+        # caller read, so the grading scores against the build in force now.
+        context.model_copy(
             update={
                 "snapshot_contact_scrub": SnapshotContactScrub(
                     sides=list(unrepresented),
                     blocks=0 if snapshot_scrub is None else snapshot_scrub.blocks,
                     fields=0 if snapshot_scrub is None else snapshot_scrub.fields,
-                )
+                ),
+                "cert_anchor": (
+                    None
+                    if anchor_pool is None
+                    else base_rates.freeze_cert_anchor(
+                        context, anchor_pool.statpack, lookback_terms=anchor_pool.lookback_terms
+                    )
+                ),
             }
-        )
-        .model_dump(mode="json"),
+        ).model_dump(mode="json"),
     )
     staged: list[tuple[CaseDocument, ScrubbedText | None]] = []
     if placement.documents:

@@ -11,11 +11,21 @@ from fedcourtsai import casestore, corpus, provision
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest, opinion_record
+from fedcourtsai.pipeline.base_rates import statpack_digest
 from fedcourtsai.pipeline.cascade import CascadeError, run_cascade
 from fedcourtsai.pipeline.lineup import WritingKind
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.provision import stage_writings
-from fedcourtsai.schemas import EventKind, Moment, Stage
+from fedcourtsai.schemas import (
+    BaseRateBucket,
+    EventKind,
+    Moment,
+    Stage,
+    StatPack,
+    StatPackTerm,
+    StatPackTermSegment,
+)
+from fedcourtsai.serialize import write_json
 from tests.conftest import FixtureCorpus
 
 runner = CliRunner()
@@ -3534,3 +3544,82 @@ def test_the_cascade_refuses_a_moment_whose_trigger_no_payload_carries(
         )
     assert not list(data_root.rglob("prediction.json"))
     assert not CasePaths(data_root, "scotus", 306).cell_context.exists()
+
+
+def _anchor_statpack(rate: float) -> StatPack:
+    """A pack whose one prior Term carries `high` under the live version at ``rate``."""
+    segment = StatPackTermSegment(
+        band="high",
+        prefix_est_grant_rate=rate,
+        prefix_weighted_resolved=200,
+        est_grant_rate=rate,
+        weighted_resolved=200,
+    )
+    return StatPack(
+        corpus_rows=1,
+        terms=[
+            StatPackTerm(
+                term=2023,
+                base_rates=BaseRateBucket(),
+                salience_version=SALIENCE_VERSION,
+                segments=[segment],
+            )
+        ],
+    )
+
+
+def _provision_event(
+    fixture_corpus: FixtureCorpus, event_id: str, metrics_root: Path
+) -> tuple[Result, dict[str, Any]]:
+    _seed_snapshot(fixture_corpus, date(2026, 7, 14), _DISTRIBUTED_PAYLOAD)
+    result = runner.invoke(
+        app,
+        ["provision-snapshot", "--court", "scotus", "--docket", "305", "--event", event_id],
+        env={"FEDCOURTS_METRICS_ROOT": str(metrics_root)},
+    )
+    assert result.exit_code == 0, result.output
+    context: dict[str, Any] = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 305).cell_context.read_text()
+    )
+    return result, context
+
+
+def test_a_cert_cell_freezes_its_anchor_against_the_statpack_in_force(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    """The anchor is pooled at placement over the band just frozen, and names
+    the build and window it was pooled under, so a later grading reads it
+    rather than whatever statpack is checked out by then."""
+    pack = _anchor_statpack(0.18)
+    write_json(tmp_path / "metrics" / "statpack.json", pack)
+
+    _, context = _provision_event(fixture_corpus, "evt-petition-disposition", tmp_path / "metrics")
+
+    assert context["band"] == "high"
+    assert context["cert_anchor"] == {
+        "rate": pytest.approx(0.18),
+        "statpack_digest": statpack_digest(pack),
+        "lookback_terms": 10,  # config/tracking.yaml
+    }
+
+
+def test_a_cert_cell_with_no_readable_statpack_freezes_no_anchor_out_loud(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    result, context = _provision_event(
+        fixture_corpus, "evt-petition-disposition", tmp_path / "no-metrics"
+    )
+
+    assert context["band"] == "high"
+    assert context["cert_anchor"] is None
+    assert "no readable metrics/statpack.json" in result.output
+
+
+def test_a_cell_of_another_stage_freezes_no_cert_anchor(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    write_json(tmp_path / "metrics" / "statpack.json", _anchor_statpack(0.18))
+
+    _, context = _provision_event(fixture_corpus, "evt-order-judgment", tmp_path / "metrics")
+
+    assert context["cert_anchor"] is None

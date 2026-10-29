@@ -5,7 +5,10 @@ grading whose scored prediction froze a band takes its whole skill record from
 ``stamp-cell``: the risk-set anchor pooled through the scorer's own pooler over
 the frozen ``(band, salience_version, term)``, the Brier, the skill, the basis
 pair, and the statpack build it read. An earlier label's grading keeps the
-evaluator's transcription. These run the real command over seeded cells.
+evaluator's transcription. From
+:data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM` on, the anchor is
+the one the prediction's context froze at provisioning, wherever it carries
+one. These run the real command over seeded cells.
 """
 
 from __future__ import annotations
@@ -21,10 +24,11 @@ from fedcourtsai import process_version
 from fedcourtsai.cli import app
 from fedcourtsai.leaderboard import _anchor_reproduces
 from fedcourtsai.paths import CasePaths, EventPaths
-from fedcourtsai.pipeline.base_rates import statpack_digest
+from fedcourtsai.pipeline.base_rates import freeze_cert_anchor, statpack_digest
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.schemas import (
     BaseRateBucket,
+    CertAnchor,
     Disposition,
     Evaluation,
     EventKind,
@@ -455,3 +459,170 @@ def test_a_regrade_recomputes_a_harness_owned_cert_record_rather_than_refusing(
     assert stamped["base_rate_statpack_digest"] == first["base_rate_statpack_digest"]
     assert stamped["base_rate_lookback_terms"] == first["base_rate_lookback_terms"]
     assert stamped["process_version"]["label"] == "proc-v9"  # type: ignore[index]
+
+
+def _refreshed() -> StatPack:
+    """A later build: the prior Term's rate moves, so a grading-time pool moves."""
+    return _statpack().model_copy(
+        update={"terms": [_term(2026, 0.5, 1000), _term(2025, 0.3, 200), _term(2024, 0.06, 100)]}
+    )
+
+
+def _pinned(pack: StatPack | None = None) -> PredictionContext:
+    """A frozen band carrying the anchor provisioning would have pooled from ``pack``."""
+    context = _frozen()
+    anchor = freeze_cert_anchor(context, pack or _statpack(), lookback_terms=10)
+    return context.model_copy(update={"cert_anchor": anchor})
+
+
+def test_the_pin_gate_opens_at_proc_v15() -> None:
+    assert process_version.PINNED_CERT_ANCHOR_FROM == "proc-v15"
+    assert not process_version.pins_cert_anchor("proc-v14")
+    assert process_version.pins_cert_anchor("proc-v15")
+    assert process_version.pins_cert_anchor("proc-v100"), "numeric, not lexical"
+    assert not process_version.pins_cert_anchor(None)
+    assert not process_version.pins_cert_anchor("proc-v15-draft")
+
+
+def test_freezing_names_the_build_and_window_beside_the_pool() -> None:
+    pack = _statpack()
+    anchor = freeze_cert_anchor(_frozen(), pack, lookback_terms=10)
+    assert anchor is not None
+    assert anchor.rate == pytest.approx(_EXACT_POOL)
+    assert anchor.statpack_digest == statpack_digest(pack)
+    assert anchor.lookback_terms == 10
+    # An empty pool keeps the build it came up empty against; no band, no record.
+    empty = freeze_cert_anchor(_frozen().model_copy(update={"term": 2024}), pack, lookback_terms=10)
+    assert empty is not None
+    assert empty.rate is None
+    assert freeze_cert_anchor(_frozen(band=None), pack, lookback_terms=10) is None
+
+
+def test_from_proc_v15_a_refresh_after_provisioning_does_not_move_the_anchor(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The cell froze its anchor against the build in force at placement; a
+    refresh lands before grading; the stamp copies the frozen anchor and its
+    build rather than re-pooling the pack now checked out."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    placed = _statpack()
+    event_paths = _seed(_roots, 11, context=_pinned(placed))
+    write_json(tmp_path / "metrics" / "statpack.json", _refreshed())
+
+    result = _stamp(11)
+
+    assert result.exit_code == 0, result.output
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] == pytest.approx(_EXACT_POOL)
+    assert stamped["brier_skill_score"] == pytest.approx(1 - 0.04 / _EXACT_POOL**2)
+    assert stamped["base_rate_basis"] == "risk_set"
+    assert stamped["base_rate_salience_version"] == _OLD_VERSION
+    assert stamped["base_rate_statpack_digest"] == statpack_digest(placed)
+    assert stamped["base_rate_statpack_digest"] != statpack_digest(_refreshed())
+    assert stamped["base_rate_lookback_terms"] == 10
+
+
+def test_the_stamp_copies_the_frozen_anchor_rather_than_re_pooling_it(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The frozen record is read as written: a rate and build no statpack on
+    disk could produce are the ones stamped."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    anchor = CertAnchor(rate=0.25, statpack_digest="sha256:placed", lookback_terms=7)
+    event_paths = _seed(_roots, 12, context=_frozen().model_copy(update={"cert_anchor": anchor}))
+
+    assert _stamp(12).exit_code == 0
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] == pytest.approx(0.25)
+    assert stamped["base_rate_statpack_digest"] == "sha256:placed"
+    assert stamped["base_rate_lookback_terms"] == 7
+    assert stamped["brier_skill_score"] == pytest.approx(1 - 0.04 / 0.25**2)
+
+
+def test_a_frozen_empty_pool_clears_the_anchor(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    anchor = CertAnchor(rate=None, statpack_digest="sha256:placed", lookback_terms=10)
+    event_paths = _seed(_roots, 13, context=_frozen().model_copy(update={"cert_anchor": anchor}))
+
+    assert _stamp(13).exit_code == 0
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] is None
+    assert stamped["base_rate_basis"] is None
+    assert stamped["base_rate_statpack_digest"] is None
+    assert stamped["base_rate_lookback_terms"] is None
+    assert stamped["brier_skill_score"] is None
+
+
+def test_before_proc_v15_a_frozen_anchor_is_ignored_and_the_stamp_pools_now(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An earlier label keeps the grading-time pool even over a context that
+    carries a frozen anchor, so nothing stamped before the pin moves."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v14")
+    event_paths = _seed(_roots, 14, context=_pinned(_statpack()))
+    refreshed = _refreshed()
+    write_json(tmp_path / "metrics" / "statpack.json", refreshed)
+
+    assert _stamp(14).exit_code == 0
+    stamped = _stamped(event_paths)
+    # (0.3 * 200 + 0.06 * 100) / 300, the refreshed pack's pool.
+    assert stamped["segment_base_rate"] == pytest.approx(0.22)
+    assert stamped["base_rate_statpack_digest"] == statpack_digest(refreshed)
+
+
+def test_from_proc_v15_a_context_with_no_frozen_anchor_pools_now(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    event_paths = _seed(_roots, 15, context=_frozen())
+
+    assert _stamp(15).exit_code == 0
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] == pytest.approx(_EXACT_POOL)
+    pack = read_model(tmp_path / "metrics" / "statpack.json", StatPack)
+    assert stamped["base_rate_statpack_digest"] == statpack_digest(pack)
+
+
+def test_the_board_accepts_a_pinned_anchor_across_a_refresh_and_drops_a_mismatch(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A grading that records its prediction's pin passes whatever the board's
+    build; one that disagrees with the pin — rate, build, or window — is
+    dropped, even where the board's own build would not re-pool it."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    placed = _statpack()
+    event_paths = _seed(_roots, 16, context=_pinned(placed))
+    assert _stamp(16).exit_code == 0
+    record = read_model(
+        event_paths.evaluation("claude-judge", "claude-baseline", "RID"), Evaluation
+    )
+    cases = _roots / "cases"
+    refreshed = _refreshed()
+
+    def reproduces(evaluation: Evaluation, pack: StatPack | None) -> bool:
+        digest = statpack_digest(pack) if pack is not None else None
+        return _anchor_reproduces(cases, evaluation, Stage.cert, pack, digest)
+
+    assert reproduces(record, placed)
+    assert reproduces(record, refreshed)
+    assert reproduces(record, None)
+    for update in (
+        {"segment_base_rate": 0.22},
+        {"base_rate_statpack_digest": statpack_digest(refreshed)},
+        {"base_rate_lookback_terms": 1},
+    ):
+        mismatched = record.model_copy(update=update)
+        assert not reproduces(mismatched, refreshed), update
+        assert not reproduces(mismatched, None), update
+    # An earlier label's grading over the same pinned prediction is read as
+    # before the pin: a recorded build the board does not hold stands.
+    assert record.process_version is not None
+    earlier = record.model_copy(
+        update={
+            "process_version": record.process_version.model_copy(update={"label": "proc-v14"}),
+            "segment_base_rate": 0.22,
+        }
+    )
+    assert reproduces(earlier, refreshed)

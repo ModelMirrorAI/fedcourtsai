@@ -823,6 +823,37 @@ class SnapshotContactScrub(_Strict):
         return self
 
 
+class CertAnchor(_Strict):
+    """The cert skill anchor frozen at provisioning: one pool of one statpack build.
+
+    **Harness-owned.** ``provision-snapshot`` pools it for a cert cell whose
+    context froze a band, with the scorer's own pooler
+    (:func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`) over the
+    frozen ``(band, salience_version, term)`` and the ``metrics/statpack.json``
+    checked out when the cell was placed. The evaluator stamp reads it in place
+    of re-pooling, so a statpack refresh landing between forecast and grading
+    does not move the baseline the forecast is scored against.
+    """
+
+    rate: float | None = Field(
+        ge=0.0,
+        le=1.0,
+        description="The risk-set band rate pooled at provisioning. Null where no "
+        "strictly-prior Term inside the window carries the frozen band under its "
+        "version, or the context froze no version or Term beside the band: the "
+        "cell then has no baseline, which the stamp records as a null rate",
+    )
+    statpack_digest: str = Field(
+        description="`pipeline.base_rates.statpack_digest` of the statpack build "
+        "the rate was pooled from (`sha256:` over the parsed pack's canonical JSON)"
+    )
+    lookback_terms: int = Field(
+        ge=0,
+        description="The `salience.base_rate_lookback_terms` window the rate was "
+        "pooled under (0 = no window)",
+    )
+
+
 class PredictionContext(_Strict):
     """The conditioning state a predict cell actually ran against.
 
@@ -1096,6 +1127,18 @@ class PredictionContext(_Strict):
         "`record/snapshot` is the pipeline's, not the docket's. Null where the "
         "provisioner runs no snapshot contact scrub (the cert back-test, which "
         "redacts its snapshot by its own rule) or the cell predates the record",
+    )
+    cert_anchor: CertAnchor | None = Field(
+        default=None,
+        description="The cert skill anchor pooled when the cell was placed: the "
+        "risk-set rate over the frozen band, version and Term, and the statpack "
+        "build and lookback window it was pooled under. A cert grading stamped from "
+        "proc-v15 on takes its segment_base_rate, base_rate_statpack_digest and "
+        "base_rate_lookback_terms from here rather than from the statpack checked "
+        "out at grading, so a metrics refresh between forecast and grading leaves "
+        "the anchor where it was. Null on a cell of any other stage, on a cert cell "
+        "that froze no band, where no statpack was readable at provisioning, and "
+        "on cells placed before the record",
     )
 
     @model_validator(mode="after")
@@ -2639,9 +2682,12 @@ class Evaluation(_Strict):
         "`sha256:` over the parsed statpack's canonical JSON) of the statpack build a "
         "harness-stamped cert segment_base_rate was pooled from. Written by "
         "`stamp-cell --role evaluator` beside every cert anchor it stamps (proc-v9 "
-        "and later, where the scored prediction froze a band); the leaderboard "
-        "re-pools the anchor wherever its own statpack carries the same digest and "
-        "drops a cell whose recorded rate does not reproduce. Null wherever the rate "
+        "and later, where the scored prediction froze a band). From proc-v15, where "
+        "the scored prediction's context carries a cert_anchor, it is that anchor's "
+        "build — the statpack in force when the forecast was placed — and the "
+        "leaderboard drops a cell that does not record its pin; otherwise the "
+        "leaderboard re-pools the anchor wherever its own statpack carries the same "
+        "digest and drops a cell whose recorded rate does not reproduce. Null wherever the rate "
         "is not a harness-stamped cert anchor — every merits and interim cell, an "
         "earlier label's cert grading, a cert cell on the terminal fallback — and "
         "on records written before the field existed.",

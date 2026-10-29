@@ -1,5 +1,43 @@
 {
   "$defs": {
+    "CertAnchor": {
+      "additionalProperties": false,
+      "description": "The cert skill anchor frozen at provisioning: one pool of one statpack build.\n\n**Harness-owned.** ``provision-snapshot`` pools it for a cert cell whose\ncontext froze a band, with the scorer's own pooler\n(:func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`) over the\nfrozen ``(band, salience_version, term)`` and the ``metrics/statpack.json``\nchecked out when the cell was placed. The evaluator stamp reads it in place\nof re-pooling, so a statpack refresh landing between forecast and grading\ndoes not move the baseline the forecast is scored against.",
+      "properties": {
+        "lookback_terms": {
+          "description": "The `salience.base_rate_lookback_terms` window the rate was pooled under (0 = no window)",
+          "minimum": 0,
+          "title": "Lookback Terms",
+          "type": "integer"
+        },
+        "rate": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "The risk-set band rate pooled at provisioning. Null where no strictly-prior Term inside the window carries the frozen band under its version, or the context froze no version or Term beside the band: the cell then has no baseline, which the stamp records as a null rate",
+          "title": "Rate"
+        },
+        "statpack_digest": {
+          "description": "`pipeline.base_rates.statpack_digest` of the statpack build the rate was pooled from (`sha256:` over the parsed pack's canonical JSON)",
+          "title": "Statpack Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rate",
+        "statpack_digest",
+        "lookback_terms"
+      ],
+      "title": "CertAnchor",
+      "type": "object"
+    },
     "ClaimDistribution": {
       "additionalProperties": false,
       "description": "One declared distribution claim's probabilities, in ``Prediction.claim_distributions``.\n\nThe form a claim over the bench takes, where one probability cannot carry\nthe forecast: a label per Justice (the roster's spelling), and for the\nmajority-author claim the ``per-curiam`` label beside them. Whether the\nprobabilities are one distribution summing to 1 or an independent\nprobability per Justice is the declared claim's kind, fixed by the harness\nin ``fedcourtsai.pipeline.claims`` and checked there; this record carries\nonly the predictor's numbers, as :class:`ClaimProbability` does.",
@@ -152,6 +190,18 @@
           "default": null,
           "description": "The active scorer's salience band as at prediction, derived from the signals above. None when they were unobservable, which is the honest answer for a cell whose snapshot carried no proceedings \u2014 the evaluator then scores against the terminal band it can derive rather than guessing a frozen one. A band is readable only beside the `salience_version` below, which is what the risk-set basis keys on: a band with no version names a population nothing pins down",
           "title": "Band"
+        },
+        "cert_anchor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CertAnchor"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The cert skill anchor pooled when the cell was placed: the risk-set rate over the frozen band, version and Term, and the statpack build and lookback window it was pooled under. A cert grading stamped from proc-v15 on takes its segment_base_rate, base_rate_statpack_digest and base_rate_lookback_terms from here rather than from the statpack checked out at grading, so a metrics refresh between forecast and grading leaves the anchor where it was. Null on a cell of any other stage, on a cert cell that froze no band, where no statpack was readable at provisioning, and on cells placed before the record"
         },
         "cut_anchor_index": {
           "anyOf": [
