@@ -101,7 +101,9 @@ _ROUTES = ("/healthz", "/v1/query", "/v1/open-events")
 
 # The per-request line `log_request` writes, read back by `count_requests`:
 # the matched route constant and the status code, after the client address.
-_REQUEST_LINE = re.compile(r" - (/v1/query|/v1/open-events) -> (\d{3})\b")
+_REQUEST_LINE = re.compile(
+    r"^INFO:[\w.]+:\S+ - (/v1/query|/v1/open-events) -> (\d{3})\b", re.MULTILINE
+)
 
 
 def count_requests(log_text: str) -> CorpusServiceRequests:

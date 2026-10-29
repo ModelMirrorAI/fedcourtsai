@@ -3326,9 +3326,8 @@ transcript or the cell's report: for each actor, how many of its cells' sidecars
 logged no `/v1/query` at all, over the cells whose retrieval log carries that
 count (`corpus_service` in [predicted-artifacts.md](predicted-artifacts.md)).
 The sidecar answers every engine's `fedcourts query` alike, so this is the one
-corpus-use reading that is the same for every engine, and its denominator is
-every cell whose job ran a sidecar, whatever capture could read of its
-commands. A quiet cell sent nothing the service received, whether it had no
+corpus-use reading that is the same for every engine, and its denominator
+does not depend on what capture could read of a cell's commands. A quiet cell sent nothing the service received, whether it had no
 need to query, never tried, or its command failed before reaching the service;
 the cell's own `retrieval.md` and `tooling.json` say which. It stays silent where every
 counted cell queried.

@@ -1204,8 +1204,8 @@ class PriorAvailabilityRollup:
     actor with a cell whose log carries the sidecar's request count, a quiet
     cell being one whose sidecar logged no ``/v1/query`` at all. It is beside
     the attempt and report channels rather than reconciled with them, because
-    its denominator is different: every cell whose job ran a sidecar, whatever
-    capture could read of its commands.
+    its denominator is different: every cell whose log carries the count,
+    whatever capture could read of its commands.
     """
 
     cells: int = 0

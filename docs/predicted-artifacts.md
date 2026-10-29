@@ -826,9 +826,9 @@ directory without knowing which part is which invites trusting the wrong half.
   The sidecar answers every engine's `fedcourts query` alike, so a cell whose
   transcript holds a well-formed query and whose count is zero sent nothing
   the service received. **Descriptive only**: no score or rank key reads it.
-  The log sits in the cell's workspace, where the agent could alter it, though
-  a request cannot forge a line, since the sidecar logs only the route and the
-  status. The blinding mask drops it on the same ground as
+  The log sits in the cell's workspace, where the agent could alter it; a
+  request line carries only the route constant and the status, and only a line
+  in that shape is counted. The blinding mask drops it on the same ground as
   `self_provisioned_fetches`. Null where no sidecar log was read: a job with no
   sidecar, a log that was missing, or a record written before the field.
 - **`attempt.json`** — the durable fact that a cell ran and produced no usable
