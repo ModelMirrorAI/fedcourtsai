@@ -1,0 +1,94 @@
+{
+  "big_case_rationale": "High-stakes statutory question affecting mandatory detention of unadmitted noncitizens nationwide under 8 U.S.C. 1225(b)(2)(A), though postures as a follow-on SG hold petition behind lead case Rhoney v. Barbosa da Cunha (No. 26-104).",
+  "big_case_score": 0.72,
+  "case_id": "scotus/9026000568",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "alito": 0.01,
+        "barrett": 0.002,
+        "gorsuch": 0.005,
+        "jackson": 0.005,
+        "kagan": 0.002,
+        "kavanaugh": 0.003,
+        "roberts": 0.002,
+        "sotomayor": 0.006,
+        "thomas": 0.01
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.58
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.92
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.0
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.98
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.03
+    }
+  ],
+  "confidence": 0.78,
+  "context": {
+    "amicus_briefs": null,
+    "band": "federal",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-30",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-30",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-29T19:18:37.787407Z",
+  "engine": "gemini",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 1,
+  "input_snapshot": "data/cases/scotus/9026000568/record/snapshots/2026-10-30.json",
+  "judgment": null,
+  "model": "gemini-4-argon",
+  "predicted_disposition": "gvr",
+  "predicted_reasoning_doc": null,
+  "predictor_id": "gemini-baseline",
+  "probability": 0.58,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
+    "label": "proc-v14",
+    "pipeline_sha": "7f699960e6061ade4ec112c824469ee422480a64",
+    "stamped_at": "2026-10-29T19:18:37.787407Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261029T184840Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

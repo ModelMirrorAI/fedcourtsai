@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000568",
+  "run_id": "20261029T184840Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP search"
+  ],
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "helpful": [
+    "provisioned petition.txt with full Ninth Circuit majority and dissenting opinions",
+    "fedcourts query --docket-number 26-104 to confirm lead case Rhoney v. Barbosa da Cunha",
+    "metrics/statpack.md base rates",
+    "courtlistener search for cluster verification"
+  ],
+  "gaps": [
+    "Initial parallel CourtListener search calls hit HTTP 429 burst throttling (180s cooldown) before succeeding on sequential retry."
+  ],
+  "notes": "Corpus query for docket 26-104 immediately located lead granted case Rhoney v. Barbosa da Cunha (scotus/9026000104), which the Solicitor General asks the Court to hold this petition for."
+}
