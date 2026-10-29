@@ -1352,9 +1352,13 @@ or network.
   [pipeline.md](pipeline.md).
 - **Budget governor:** a per-run cap (`max_cases_per_run`) with
   **oldest-`last_pulled`-first rotation** and skip-closed/resolved, sized to
-  the active CourtListener tier's ceilings; a slice of each run
-  (`eligible_refresh_reserve`) is reserved for the stalest SCOTUS dockets, so
-  the in-scope set rotates ahead of the much larger active set.
+  the active CourtListener tier's ceilings; the run's slots
+  (`eligible_refresh_reserve`, set to the whole cap) are reserved for the
+  stalest SCOTUS dockets, so the in-scope set rotates ahead of the much larger
+  active set and the general rotation takes only slots the SCOTUS-open pool
+  leaves empty. A refresh pages every entry of a docket, so a bulk-loaded
+  circuit docket with hundreds of entry pages would otherwise spend a window's
+  hourly budget on one case outside the prediction scope.
 - **Two forward jobs over the shared core:**
   1. **Refresh** active known cases (`pull_case`), routing changed cases with
      open case-baseline events onto the predict queue — a `predict_queued_at`
