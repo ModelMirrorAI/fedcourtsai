@@ -1,0 +1,14 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000285",
+  "gaps": [],
+  "helpful": [],
+  "notes": "Provisioned petition.txt included the complete First Circuit opinion (171 F.4th 507) and District Court orders, allowing full verification of preservation and vehicle issues.\n[harness] tooling.json did not validate; normalised: unknown key 'engine' = \"gemini\" dropped; unknown key 'event_id' = \"evt-order-call-for-response-disposition\" dropped; unknown key 'friction' = \"CourtListener MCP search returned HTTP 429 (daily rate limit 1400/day exceed... dropped; unknown key 'queries_run' = [\"--court scotus --era 2020s --disposition granted --limit 10\", \"--court scot... dropped; unknown key 'query_helped' = true dropped; unknown key 'wanted_filter' = null dropped",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tool_manifest": null,
+  "tools_used": [],
+  "used_base_rates": false,
+  "used_corpus_query": true
+}

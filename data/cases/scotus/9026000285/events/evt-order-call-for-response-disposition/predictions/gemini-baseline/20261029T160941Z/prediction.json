@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000285",
+  "event_id": "evt-order-call-for-response-disposition",
+  "predictor_id": "gemini-baseline",
+  "engine": "gemini",
+  "model_id": "gemini-4-argon",
+  "run_id": "20261029T160941Z",
+  "created_at": "2026-10-29T16:15:00Z",
+  "input_snapshot": "data/cases/scotus/9026000285/record/snapshots/2026-09-18.json",
+  "granted": false,
+  "probability": 0.87,
+  "predicted_disposition": "denied",
+  "outcome_probabilities": {
+    "denied": 0.87,
+    "granted": 0.12,
+    "gvr": 0.01
+  },
+  "winner": null,
+  "judgment": null,
+  "vote_margin": null,
+  "unanimous": null,
+  "majority_author": null,
+  "justice_votes": null,
+  "question_outcomes": null,
+  "signals": [
+    "cert_stage_response_requested_after_sg_waiver",
+    "mcintosh_footnote_5_reserved_question_rule_32_2_b_4_b",
+    "post_mcIntosh_circuit_alignment_ca1_ca6_harmless_error",
+    "vehicle_flaw_no_contemporaneous_objection_at_sentencing",
+    "forfeiture_amount_disclosed_in_sentencing_memo_and_hearing",
+    "waiver_of_evidentiary_hearing_request_below",
+    "no_amicus_support_at_cutoff"
+  ]
+}

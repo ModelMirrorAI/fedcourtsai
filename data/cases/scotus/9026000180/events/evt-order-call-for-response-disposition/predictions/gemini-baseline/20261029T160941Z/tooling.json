@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000180",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts segment-anchors",
+    "fedcourts query",
+    "fedcourts validate"
+  ],
+  "helpful": [
+    "Provisioned petition.txt with lower-court opinions in appendix and questions-presented.txt",
+    "Provisioned 2026-09-18.json docket snapshot and context.json",
+    "fedcourts segment-anchors --term 2026 for exact sal-v4 risk-set and terminal band base rates",
+    "fedcourts query by docket number for comparable parental-rights dockets (25-77, 23-1280, 25A810, 23-477)"
+  ],
+  "gaps": [
+    "CourtListener MCP search hit daily HTTP 429 rate limit (1400/day), though local provisioned documents and corpus queries covered all needed context"
+  ],
+  "notes": "All needed case filings, lower-court opinions, and comparable SCOTUS dockets were available locally via record/documents/ and fedcourts query."
+}
