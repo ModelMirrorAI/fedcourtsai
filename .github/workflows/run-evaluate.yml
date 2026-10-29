@@ -73,10 +73,10 @@ on:
     inputs:
       mode:
         description: >-
-          backlog = grade what committed state still owes; reasoning-pilot =
-          the predicted_reasoning_quality pilot over its seeded sample (commits
-          nothing; always held for review); reasoning-pilot-merits = the same
-          pilot over the newest merits back-test's kept forecasts.
+          backlog = grade what is owed; reasoning-pilot = the reasoning-quality
+          pilot over its seeded sample (commits nothing, always held for
+          review); reasoning-pilot-merits = the same pilot over the newest
+          merits back-test.
         type: choice
         options:
           - backlog

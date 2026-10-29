@@ -32,7 +32,7 @@ on:
   workflow_dispatch:
     inputs:
       merge:
-        description: "Recovery: the promotion merge commit (40-hex SHA) to record again. It must pass the same promotion-merge checks."
+        description: "Recovery: the promotion merge commit (40-hex SHA) to record again."
         required: true
         type: string
 

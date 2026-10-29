@@ -171,7 +171,7 @@ on:
           - decision-below
         default: corpus-stats
       label_model:
-        description: "qp-topic-label and qp-topic-label-applications: the model the Claude Code labeler runs (ignored by the other modes)."
+        description: "qp-topic-label modes only: the labeler's model."
         # A choice, not a free string: the value is spliced into the agent's own
         # `claude_args` block, where a newline would append flags the mode's
         # contract withholds (an `--mcp-config` line would hand a text-only
@@ -191,19 +191,19 @@ on:
         type: string
         default: ""
       topic:
-        description: "corpus-stats: restrict to one exact nature-of-suit / topic. Empty = all."
+        description: "corpus-stats: restrict to one exact topic (nature of suit). Empty = all."
         type: string
         default: ""
       disposition:
-        description: "corpus-stats: restrict to one realized outcome label (e.g. granted). Empty = all."
+        description: "corpus-stats: restrict to one outcome label (e.g. granted). Empty = all."
         type: string
         default: ""
       group_by:
-        description: "corpus-stats: break base-rates down by court / topic / judge / term_year / disposition / originating_court / era / relist_bucket / cvsg / fee_class / capital_case / salience_band. Empty = overall only."
+        description: "corpus-stats: group base rates by court, topic, judge, term_year, disposition, originating_court, era, relist_bucket, cvsg, fee_class, capital_case or salience_band. Empty = overall."
         type: string
         default: ""
       term:
-        description: "corpus-stats: restrict to one SCOTUS October-Term year, e.g. 2024. Empty = all Terms."
+        description: "corpus-stats: restrict to one October Term (e.g. 2024). Empty = all."
         type: string
         default: ""
       # census inputs (ignored by every other mode). Both name a distribution

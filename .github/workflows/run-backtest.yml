@@ -68,34 +68,34 @@ on:
   workflow_dispatch:
     inputs:
       replay:
-        description: "What to replay: cert = predictors over decided petitions (may spend tokens per `engine`); merits = predictors over decided argued cases at two moments (may spend tokens per `engine`); salience-gate = the deterministic salience gate over past Terms (free, token-free)."
+        description: "cert = predictors over decided petitions; merits = predictors over decided argued cases at two moments; salience-gate = the salience gate over past Terms (token-free). cert and merits spend per `engine`."
         type: choice
         options: [cert, merits, salience-gate]
         default: cert
       engine:
-        description: "cert and merits. Replay backend: auto = each predictor's real engine (SPENDS TOKENS); stub = free offline dry run."
+        description: "cert and merits: stub = free offline dry run; auto = each predictor's real engine (SPENDS TOKENS)."
         type: choice
         options: [stub, auto]
         default: stub
       limit:
-        description: "cert: replay N petitions, the most recently decided or drawn at random under spread (~one cell per predictor each). merits: draw N cases at random, 1 to 20 (two cells per predictor each; a larger draw outlasts the job). Model spend scales linearly."
+        description: "cert: N petitions, one cell per predictor each. merits: N random cases, 1 to 20, two cells per predictor each. Spend scales with N."
         type: string
         default: "25"
       terms:
-        description: "salience-gate and merits. Comma-separated October Terms to replay (merits: the argued Terms, e.g. 2025,2024)."
+        description: "salience-gate and merits: comma-separated October Terms (merits: the argued Terms)."
         type: string
         default: "2022,2023,2024"
       skip_engines:
-        description: "Comma-separated engines to opt out of the replay (e.g. 'gemini'); empty runs all three."
+        description: "Comma-separated engines to leave out (e.g. gemini). Empty runs all three."
         type: string
         default: ""
       scope:
-        description: "Population: all = every modern-cert petition; paid = drops IFP; selected = the salience gate's carve-out core (live-comparable)."
+        description: "cert population: all = every modern-cert petition; paid = no IFP; selected = the salience gate's live-comparable core."
         type: choice
         options: [all, paid, selected]
         default: all
       spread:
-        description: "Draw a salted-hash random sample of the population instead of the most recently decided N."
+        description: "cert: draw a random sample instead of the most recently decided N."
         type: boolean
         default: false
 
