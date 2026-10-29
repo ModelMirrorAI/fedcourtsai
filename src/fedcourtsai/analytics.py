@@ -86,14 +86,17 @@ from .schemas import (
     Disposition,
     DispositionShare,
     DocketPack,
+    DocketPackApplicationTopics,
     DocketPackQpTopics,
     DocketPackTerm,
+    DocketPackTopicMix,
     FeeClass,
     GroupBy,
     Judgment,
     Moment,
     Outcome,
     PredictableEvent,
+    QpTopicApplicationLabels,
     QpTopicLabel,
     QpTopicLabels,
     QpTopicSupport,
@@ -113,6 +116,8 @@ from .schemas import (
     StatPackTermSegment,
     StatPackTermVersionSegments,
     TimingStats,
+    TopicMixShare,
+    TopicMixStage,
 )
 from .serialize import load_yaml, read_model
 from .short_caption import AGENCY_ACRONYMS, MAX_ORGANISATION_WORDS, MAX_PERSON_WORDS, short_caption
@@ -609,7 +614,11 @@ class _SectionSpec:
     overrides the dimension's stock key function where a section wants richer
     keys under the same ``group_by``. ``row_filter`` narrows the population
     beyond the court/live/cert flags (the salience-band section restricts to the
-    paid scored segment) — a row failing it joins no bucket.
+    paid scored segment) — a row failing it joins no bucket. ``population``
+    narrows the section's *scope* instead: a row failing it is not counted in
+    ``scoped`` either, so a section whose population is not one of the
+    court/live/cert flags (the application frame) still states its coverage
+    against its own denominator.
     """
 
     title: str
@@ -621,6 +630,7 @@ class _SectionSpec:
     key_fn: Callable[[CorpusRow], str | None] | None = None
     row_filter: Callable[[CorpusRow], bool] | None = None
     scope_note: str | None = None
+    population: Callable[[CorpusRow], bool] | None = None
 
 
 # The curated breakdowns, named individually so the two published artifacts
@@ -934,6 +944,57 @@ def _qp_topic_reference_spec(labels: QpTopicLabels) -> _SectionSpec:
     )
 
 
+_APPLICATION_TOPIC_TITLE = "Emergency applications by topic (`qp-topic-v1`)"
+
+
+def _in_application_frame(row: CorpusRow) -> bool:
+    """Whether ``row`` is in the application labeling frame's population.
+
+    An application-form docket that is not an extension: the population
+    ``qp-corpus --frame applications`` cuts its batches from
+    (``fedcourtsai.pipeline.application_topics.application_frame``), so the
+    section's ``scoped`` count is the frame's own denominator rather than every
+    live-slice row. The frame's docket-number de-duplication is left out — it
+    drops a few dozen twin rows, and a twin carries no label of its own to join.
+    """
+    return (
+        corpus.is_scotus_application_form(row.docket_number)
+        and row.application_kind != ApplicationKind.extension.value
+    )
+
+
+def _application_topic_specs(
+    labels: QpTopicApplicationLabels,
+) -> tuple[_SectionSpec, _SectionSpec, _SectionSpec]:
+    """The application topic cut and two counters over the rows it matched.
+
+    Live slice, SCOTUS, reweighted like every section in the pack, over the
+    application frame, bucketed on the primary ``qp-topic-v1`` label. The second
+    spec counts the reference-sourced rows the cut matched, per bucket, as the
+    petition pair's does; the third the docket-only ones, so the scope note's
+    docket-only count is over the same matched rows as its labeled count.
+    """
+    primaries = {entry.case_id: entry.label for entry in labels.entries}
+    members = {entry.case_id for entry in labels.entries if entry.source == "reference"}
+    docket_only = {entry.case_id for entry in labels.entries if entry.input_kind == "docket-only"}
+    cut = _SectionSpec(
+        _APPLICATION_TOPIC_TITLE,
+        "scotus",
+        False,
+        True,
+        True,
+        GroupBy.qp_topic,
+        key_fn=lambda row: primaries.get(row.case_id),
+        row_filter=lambda row: row.case_id in primaries,
+        population=_in_application_frame,
+    )
+    return (
+        cut,
+        replace(cut, row_filter=lambda row: row.case_id in members),
+        replace(cut, row_filter=lambda row: row.case_id in docket_only),
+    )
+
+
 class _QpFrame(NamedTuple):
     """One labeling batch's own count of the frame it was cut from, and what it held.
 
@@ -965,7 +1026,7 @@ class _QpFrame(NamedTuple):
     reference: int
 
 
-def _qp_frame(labels: QpTopicLabels) -> _QpFrame | None:
+def _qp_frame(labels: QpTopicLabels | QpTopicApplicationLabels) -> _QpFrame | None:
     """The newest batch's frame measurement, or ``None`` where it cannot be used.
 
     ``None`` on three states, each of which leaves the scope note on its bound:
@@ -1164,6 +1225,70 @@ def _qp_topic_scope_note(
         f"{over}, and this mix is not the frame's until every QP-bearing row is labeled. A "
         "naive share partly counts coordinated filing campaigns rather than subjects; no "
         "de-duplicated companion is published."
+    )
+
+
+def _application_topic_scope_note(
+    rows: _SectionRows, reference_rows: int, docket_only: int, frame: _QpFrame | None
+) -> str:
+    """The coverage caveat beside every published application topic share.
+
+    The application frame's counterpart to :func:`_qp_topic_scope_note`, and
+    shorter because the frame is different in the ways that matter. An
+    application carries no questions presented, so there is no fetch gap to
+    size: every application in the frame is labelable, and the gap between the
+    two counts is batching alone. What takes the fetch gap's place is the input
+    shape. A labeler reads the stored application where the store holds one and
+    the caption, court below and pre-decision docket entries otherwise, and a
+    docket-only row that names no subject is ``unclassifiable`` by rule — so that
+    bucket measures how thin the dockets are as much as what the applications
+    are about, and the note says how many rows were read that way.
+
+    The batch structure is the petition frame's: the reference block rides in
+    every batch, so it is over-represented by the ratio of the two inclusion
+    rates until the frame is clear, measured from the newest batch's own frame
+    count where it recorded one and stated as unmeasured otherwise. The counts
+    in the leading string are this pack's raw rows; the frame figures are the
+    batch's, at its own vintage, and read as a ceiling on the labeled share of
+    the frame as it now stands.
+    """
+    drawn = max(rows.kept - reference_rows, 0)
+    if frame is None:
+        batch = (
+            "The labels artifact records no frame count for its newest batch, so the labeled "
+            "share of the frame and the reference block's over-representation are not "
+            "numbers this cut can state."
+        )
+    else:
+        share = frame.labeled / frame.rows
+        frame_pool = frame.rows - frame.reference
+        frame_drawn = frame.labeled - frame.reference
+        over = (
+            "no factor — the frame was fully labeled when that batch landed"
+            if frame.labeled >= frame.rows
+            else f"about {frame_pool / frame_drawn:.1f}x"
+        )
+        batch = (
+            f"Batch {frame.batch}'s extract counted {frame.rows} application(s) in the frame it "
+            f"cut from, of which the artifact held {frame.labeled} labeled ({share:.1%}); read "
+            "that share as a ceiling on the share of the frame as it now stands, since the "
+            "frame grows with every pull. The reference block rides in every batch, so its "
+            f"{frame.reference} row(s) are over-represented against the {frame_drawn} drawn "
+            f"from the {frame_pool} outside it by {over}, and this mix is not the frame's until "
+            "every application is labeled."
+        )
+    return (
+        f"Labeled applications only — {rows.kept} of {rows.scoped} in-frame live-slice "
+        f"applications labeled, {docket_only} of the labeled read from the docket alone; "
+        "primaries only; not docket-representative. Those counts are raw rows (the second "
+        "includes the few duplicate rows the labeling frame folds into one per docket "
+        "number); the bucket counts are reweighted like every section here. The frame is "
+        "the live slice's non-extension application dockets, substantive asks and asks "
+        "whose kind was never read alike, read from different inputs than the petition "
+        "cut, so the two are never pooled. A docket-only row whose caption and entries name "
+        "no subject is `unclassifiable` by rule, so that bucket tracks how thin the dockets "
+        f"are as much as what the applications are about. {batch} Of the labeled rows "
+        f"here, {reference_rows} are reference-block members and {drawn} were drawn."
     )
 
 
@@ -1864,6 +1989,8 @@ def _scan_corpus(corpus_db_path: Path, specs: tuple[_SectionSpec, ...]) -> _Corp
                     continue
                 if spec.cert_stage and not corpus.is_modern_cert(row):
                     continue
+                if spec.population is not None and not spec.population(row):
+                    continue
                 # Counted before the row filter: `scoped` is the section's whole
                 # population, the denominator a narrowed section states its
                 # coverage against.
@@ -2049,7 +2176,242 @@ def _docket_term_entry(
     )
 
 
-def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = None) -> DocketPack:
+def _topic_support(scan: _CorpusScan, index: int) -> list[QpTopicSupport]:
+    """Raw rows per bucket of the topic cut at ``index``, reference-sourced beside them.
+
+    The cut's reference-only counter is the spec right after it. Raw rows come
+    from the same pass as the table: the reweighted `est. n=` the table prints is
+    a population estimate, and on a bucket built from a handful of sampled
+    denials the two differ by an order of magnitude. The reference-sourced share
+    rides along per bucket because it is not uniform across them.
+    """
+    reference_slices = scan.sections[index + 1]
+    return [
+        QpTopicSupport(
+            label=cast(QpTopicLabel, key),
+            rows=entry.cases,
+            reference_rows=(reference_slices[key].cases if key in reference_slices else 0),
+        )
+        for key, entry in sorted(
+            scan.sections[index].items(), key=lambda item: (-item[1].cases, item[0])
+        )
+        if key != _NONE_KEY
+    ]
+
+
+def _docket_qp_topics(
+    labels: QpTopicLabels, scan: _CorpusScan, built: list[StatPackSection], index: int
+) -> DocketPackQpTopics | None:
+    """The petition topic cut at ``index``, with its provenance, or ``None`` if it matched no row.
+
+    A cut that matched no row publishes nothing: labels produced against a
+    different corpus vintage would otherwise render an empty table *and* drop
+    the gap bullet, which is the one state a reader most needs it in.
+    """
+    rows = scan.section_rows[index]
+    if not rows.kept:
+        return None
+    reference_rows = scan.section_rows[index + 1].kept
+    frame = _qp_frame(labels)
+    return DocketPackQpTopics(
+        labeler=labels.labeler,
+        batches=len(labels.batches),
+        reference_rows=reference_rows,
+        # The newest batch's frame, beside the prose that divides by it.
+        frame_rows=frame.rows if frame is not None else None,
+        agree=labels.agreement.overall_agree,
+        n=labels.agreement.overall_n,
+        floor=labels.agreement.floor,
+        uncovered=labels.agreement.uncovered,
+        labeled_cases=labels.cases,
+        matched_cases=rows.kept,
+        # A rate the artifact withheld is a label the reference set cannot
+        # measure, so the bucket it names is uncertified by the headline
+        # figure — the one thing the table itself cannot show.
+        unmeasured_labels=[row.label for row in labels.agreement.per_label if row.rate is None],
+        support=_topic_support(scan, index),
+        # The scope note is set here rather than on the spec because its numbers
+        # are the scan's: how many rows carry a label is not known until the rows
+        # have been walked. With a frame the note measures the labeled share of
+        # it, without one it bounds it.
+        section=built[index].model_copy(
+            update={"scope_note": _qp_topic_scope_note(rows, reference_rows, frame)}
+        ),
+    )
+
+
+def _docket_application_topics(
+    labels: QpTopicApplicationLabels,
+    scan: _CorpusScan,
+    built: list[StatPackSection],
+    index: int,
+) -> DocketPackApplicationTopics | None:
+    """The application topic cut at ``index``, on the petition cut's terms."""
+    rows = scan.section_rows[index]
+    if not rows.kept:
+        return None
+    reference_rows = scan.section_rows[index + 1].kept
+    frame = _qp_frame(labels)
+    docket_only = scan.section_rows[index + 2].kept
+    return DocketPackApplicationTopics(
+        labeler=labels.labeler,
+        batches=len(labels.batches),
+        reference_rows=reference_rows,
+        frame_rows=frame.rows if frame is not None else None,
+        agree=labels.agreement.overall_agree,
+        n=labels.agreement.overall_n,
+        floor=labels.agreement.floor,
+        uncovered=labels.agreement.uncovered,
+        labeled_cases=labels.cases,
+        matched_cases=rows.kept,
+        docket_only_cases=docket_only,
+        unmeasured_labels=[row.label for row in labels.agreement.per_label if row.rate is None],
+        support=_topic_support(scan, index),
+        section=built[index].model_copy(
+            update={
+                "scope_note": _application_topic_scope_note(
+                    rows, reference_rows, docket_only, frame
+                )
+            }
+        ),
+    )
+
+
+def _mix_stage(
+    stage: Literal["cert", "merits", "interim"],
+    vocabulary: Literal["qp-topic-v0", "qp-topic-v1"],
+    counts: Mapping[str, tuple[int, int]],
+    scope_note: str,
+) -> TopicMixStage | None:
+    """One stage of the topic mix from per-label (counted, raw) pairs, or ``None`` if empty.
+
+    ``classified_share`` divides by the stage's cases outside ``unclassifiable``.
+    It is a companion to ``share``, never a replacement: whether a row names a
+    subject at all depends on what the labeler had to read, so the classified
+    mix is no closer to the docket's subject mix than the full one.
+    """
+    total = sum(cases for cases, _ in counts.values())
+    if total == 0:
+        return None
+    classified = sum(cases for label, (cases, _) in counts.items() if label != "unclassifiable")
+    shares = [
+        TopicMixShare(
+            label=cast(QpTopicLabel, label),
+            cases=cases,
+            share=cases / total,
+            classified_share=(
+                cases / classified if classified and label != "unclassifiable" else None
+            ),
+            rows=raw,
+        )
+        for label, (cases, raw) in sorted(counts.items(), key=lambda item: (-item[1][0], item[0]))
+        if cases > 0
+    ]
+    return TopicMixStage(
+        stage=stage,
+        vocabulary=vocabulary,
+        cases=total,
+        rows=sum(raw for _, raw in counts.values()),
+        shares=shares,
+        scope_note=scope_note,
+    )
+
+
+def _merits_scope_note(rows: int, granted: int, frame: _QpFrame | None) -> str:
+    """The caveat beside the merits column: labeled grants, of every plenary grant in scope.
+
+    The reference block holds every questions-presented-bearing grant it could
+    reach, so while the petition frame accrues the labeled grants are mostly
+    reference rows and the drawn ones wait on their batch; once the frame is
+    labeled out, what is missing is the grants with no stored
+    questions-presented text, which is concentrated in the Terms before
+    coverage begins. The note says which of the two states it is in.
+    """
+    complete = frame is not None and frame.labeled >= frame.rows
+    gap = (
+        "The labeling frame was fully labeled when its newest batch landed, so the missing "
+        "grants are those with no stored questions-presented text."
+        if complete
+        else "The petition frame is still being labeled, so the missing grants are both those "
+        "with no stored questions-presented text and those whose batch has not come up; "
+        "reference-set grants are in every batch, so they are over-represented until it clears."
+    )
+    return (
+        f"Granted QP-bearing petitions only — {rows} labeled grant(s) of the {granted} plenary "
+        "grant(s) in the cert scope; primaries only; not docket-representative. Plenary review "
+        "here is the `granted` disposition, which takes in probable jurisdiction noted on a "
+        "direct appeal and leaves out GVRs recorded as such (a few older merits GVRs still "
+        f"carry `granted`). {gap} Questions-presented coverage is zero before Term 2023 and "
+        "uneven after, so this mix is weighted toward the Terms with stored texts and is not "
+        "the merits docket's."
+    )
+
+
+def _topic_mix(
+    qp_topics: DocketPackQpTopics | None,
+    application_topics: DocketPackApplicationTopics | None,
+    scan: _CorpusScan,
+    *,
+    qp_index: int | None,
+    application_index: int | None,
+    frame: _QpFrame | None,
+    by_disposition: StatPackSection,
+) -> DocketPackTopicMix | None:
+    """The share of labeled cases in each topic, stage by stage, off the cuts already built.
+
+    ``qp_index`` and ``application_index`` are each cut's position in the scan,
+    passed explicitly because a gate-passing artifact can still publish no cut.
+    Every count is the count its own section publishes — reweighted, as every
+    section here is — so a stage's share can be checked against the table it
+    summarizes, and each stage carries the raw rows beside it. Cert is every
+    labeled petition; merits is the subset the Court granted plenary review;
+    interim is every labeled application. Each stage carries its own section's
+    whole scope string, because a share lifted from the summary must keep its
+    caveat with it.
+    """
+    stages: list[TopicMixStage] = []
+    if qp_topics is not None and qp_index is not None:
+        slices = scan.sections[qp_index]
+        cert = {
+            key: (entry.weighted_cases, entry.cases)
+            for key, entry in slices.items()
+            if key != _NONE_KEY
+        }
+        merits = {
+            key: (entry.weighted_labels["granted"], entry.labels["granted"])
+            for key, entry in slices.items()
+            if key != _NONE_KEY
+        }
+        granted = next((b.cases for b in by_disposition.buckets if b.key == "granted"), 0)
+        merits_rows = sum(raw for _, raw in merits.values())
+        candidates = (
+            _mix_stage("cert", "qp-topic-v0", cert, qp_topics.section.scope_note or ""),
+            _mix_stage(
+                "merits", "qp-topic-v0", merits, _merits_scope_note(merits_rows, granted, frame)
+            ),
+        )
+        stages += [stage for stage in candidates if stage is not None]
+    if application_topics is not None and application_index is not None:
+        slices = scan.sections[application_index]
+        interim = {
+            key: (entry.weighted_cases, entry.cases)
+            for key, entry in slices.items()
+            if key != _NONE_KEY
+        }
+        interim_stage = _mix_stage(
+            "interim", "qp-topic-v1", interim, application_topics.section.scope_note or ""
+        )
+        if interim_stage is not None:
+            stages.append(interim_stage)
+    return DocketPackTopicMix(stages=stages) if stages else None
+
+
+def build_docket_pack(
+    *,
+    corpus_db_path: Path,
+    qp_topics_path: Path | None = None,
+    qp_topics_applications_path: Path | None = None,
+) -> DocketPack:
     """Roll the corpus into the court-facing docket pack, or the empty pack if absent.
 
     The same streamed pass and the same section machinery as
@@ -2072,7 +2434,13 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
     denial- and GVR-stratified supplement block exists and has been covered by a
     scored labeling run, which is a property of the reference set that nothing in
     the labels artifact records — a run's ``uncovered`` count is over whatever
-    reference set it was handed, not over a named block. The
+    reference set it was handed, not over a named block.
+
+    ``qp_topics_applications_path`` names the ``qp-topic-v1`` application labels
+    artifact, read on the same terms: a gate-passing one adds the emergency
+    application topic cut, measured against the application reference block and
+    published apart from the petition cut. Whichever of the two backs a cut,
+    :func:`_topic_mix` summarizes it stage by stage. The
     cell workflows also delete ``data/qp-topics/`` before an agent starts, so a
     pack regenerated inside a cell's checkout omits the cut by construction rather
     than by regression.
@@ -2088,75 +2456,52 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
     )
     if labels is not None and not labels.agreement.gate_passed:
         labels = None
-    # The QP cut and its reference-only counterpart are appended last, so the
-    # scan's per-spec parallel arrays keep the docket sections at their own
-    # indices and the two QP specs at the end. The second is a counter, not a
-    # section: it is dropped before the pack is assembled.
-    specs = (
-        _DOCKET_SECTIONS
-        if labels is None
-        else (*_DOCKET_SECTIONS, _qp_topic_spec(labels), _qp_topic_reference_spec(labels))
+    application_labels = (
+        read_model(qp_topics_applications_path, QpTopicApplicationLabels)
+        if qp_topics_applications_path is not None and qp_topics_applications_path.is_file()
+        else None
     )
+    if application_labels is not None and not application_labels.agreement.gate_passed:
+        application_labels = None
+    # Each topic cut and its reference-only counter are appended after the docket
+    # sections, so the scan's per-spec parallel arrays keep the docket sections at
+    # their own indices. The counters are not sections: they are dropped before
+    # the pack is assembled.
+    topic_specs: list[_SectionSpec] = []
+    if labels is not None:
+        topic_specs += [_qp_topic_spec(labels), _qp_topic_reference_spec(labels)]
+    if application_labels is not None:
+        topic_specs += list(_application_topic_specs(application_labels))
+    specs = (*_DOCKET_SECTIONS, *topic_specs)
     scan = _scan_corpus(corpus_db_path, specs)
+    built = _sections(specs, scan)
+    sections = built[: len(_DOCKET_SECTIONS)]
     qp_topics: DocketPackQpTopics | None = None
-    if labels is None:
-        sections = _sections(specs, scan)
-    else:
-        *sections, qp_section, _reference_only = _sections(specs, scan)
-        rows = scan.section_rows[-2]
-        # A cut that matched no row publishes nothing: labels produced against a
-        # different corpus vintage would otherwise render an empty table *and*
-        # drop the gap bullet, which is the one state a reader most needs it in.
-        if rows.kept:
-            reference_rows = scan.section_rows[-1].kept
-            # Raw rows per bucket, from the same pass: the reweighted `est. n=`
-            # the table prints is a population estimate, and on a bucket built
-            # from a handful of sampled denials the two differ by an order of
-            # magnitude. The reference-sourced share rides along per bucket
-            # because it is not uniform across them.
-            reference_slices = scan.sections[-1]
-            support = [
-                QpTopicSupport(
-                    label=cast(QpTopicLabel, key),
-                    rows=entry.cases,
-                    reference_rows=(reference_slices[key].cases if key in reference_slices else 0),
-                )
-                for key, entry in sorted(
-                    scan.sections[-2].items(), key=lambda item: (-item[1].cases, item[0])
-                )
-                if key != _NONE_KEY
-            ]
-            frame = _qp_frame(labels)
-            qp_topics = DocketPackQpTopics(
-                labeler=labels.labeler,
-                batches=len(labels.batches),
-                reference_rows=reference_rows,
-                # The newest batch's frame, beside the prose that divides by it.
-                frame_rows=frame.rows if frame is not None else None,
-                agree=labels.agreement.overall_agree,
-                n=labels.agreement.overall_n,
-                floor=labels.agreement.floor,
-                uncovered=labels.agreement.uncovered,
-                labeled_cases=labels.cases,
-                matched_cases=rows.kept,
-                # A rate the artifact withheld is a label the reference set cannot
-                # measure, so the bucket it names is uncertified by the headline
-                # figure — the one thing the table itself cannot show.
-                unmeasured_labels=[
-                    row.label for row in labels.agreement.per_label if row.rate is None
-                ],
-                support=support,
-                # The scope note is set here rather than on the spec because its
-                # numbers are the scan's: how many rows carry a label is not known
-                # until the rows have been walked.
-                section=qp_section.model_copy(
-                    update={
-                        # With a frame the note measures the labeled share of it,
-                        # without one it bounds it.
-                        "scope_note": _qp_topic_scope_note(rows, reference_rows, frame)
-                    }
-                ),
-            )
+    application_topics: DocketPackApplicationTopics | None = None
+    # Each cut's position in the scan, fixed by which artifacts passed their gate
+    # rather than by which cuts published: a gate-passing artifact that matches
+    # no row still holds its two slots.
+    qp_index = len(_DOCKET_SECTIONS) if labels is not None else None
+    application_index = (
+        len(_DOCKET_SECTIONS) + (2 if labels is not None else 0)
+        if application_labels is not None
+        else None
+    )
+    if labels is not None and qp_index is not None:
+        qp_topics = _docket_qp_topics(labels, scan, built, qp_index)
+    if application_labels is not None and application_index is not None:
+        application_topics = _docket_application_topics(
+            application_labels, scan, built, application_index
+        )
+    topic_mix = _topic_mix(
+        qp_topics,
+        application_topics,
+        scan,
+        qp_index=qp_index,
+        application_index=application_index,
+        frame=_qp_frame(labels) if labels is not None else None,
+        by_disposition=sections[_DOCKET_SECTIONS.index(_CERT_BY_DISPOSITION)],
+    )
     census = _census(scan.cursor_rows)
     term_years = sorted({*scan.terms, *(term for term, _ in census)}, reverse=True)
     total = scan.overall.bucket("")
@@ -2175,6 +2520,8 @@ def build_docket_pack(*, corpus_db_path: Path, qp_topics_path: Path | None = Non
         sections=sections,
         terms=[_docket_term_entry(year, scan.terms.get(year), census) for year in term_years],
         qp_topics=qp_topics,
+        application_topics=application_topics,
+        topic_mix=topic_mix,
     )
 
 
@@ -2814,6 +3161,131 @@ def _qp_topic_support_lines(topics: DocketPackQpTopics) -> list[str]:
     return lines
 
 
+def _application_topic_provenance(topics: DocketPackApplicationTopics) -> list[str]:
+    """The lines that make the application topic table readable, under it.
+
+    The petition cut's provenance claims, on the application block: the
+    agreement figure beside its ``n``, the constant-labeler floor and the word
+    *agreement*, the latest batch named as what it certifies, the labels the
+    block cannot measure, and the raw rows behind each bucket with the
+    reference-sourced share of them.
+    """
+    floor = "unmeasured" if topics.floor is None else _pct(topics.floor)
+    rate = _pct(topics.agree / topics.n) if topics.n else "—"
+    spans = (
+        "one labeling batch"
+        if topics.batches == 1
+        else f"{topics.batches} labeling batches, whose labelers may differ"
+    )
+    counts = ", ".join(
+        f"`{entry.label}` {entry.rows} [{entry.reference_rows}]" for entry in topics.support
+    )
+    lines = [
+        "",
+        f"_Accrued over {spans}. The most recent was labeled by {topics.labeler}, whose "
+        + "primaries matched the application reference block's adjudicated labels on "
+        + f"{topics.agree} of {topics.n} reference case(s) ({rate}), against the {floor} a "
+        + "constant labeler scores on the same entries — **agreement, not accuracy**, and "
+        + "**not yet quotable**: the block was adjudicated, and its routing rules written, by "
+        + "one non-blind agent session, so the figure measures agreement with those rules as "
+        + "that session applied them, and a held-out blind pass is owed before an application "
+        + "agreement figure is quoted. It is the publication gate's reading, printed so the "
+        + "gate can be audited. That rate certifies the batch that produced it, not every row "
+        + "in the table above; the per-batch figures are in the labels artifact. "
+        + f"{topics.uncovered} reference entr(ies) went uncovered. "
+        + f"{topics.matched_cases} of {topics.labeled_cases} labeled application(s) joined a "
+        + "row in this section's population._",
+    ]
+    if topics.unmeasured_labels:
+        lines += [
+            "",
+            "_Per-label agreement is **unmeasured** for "
+            + ", ".join(f"`{label}`" for label in topics.unmeasured_labels)
+            + " — fewer reference examples than the support floor. The figure above certifies "
+            + "none of those rows._",
+        ]
+    if counts:
+        lines += [
+            "",
+            f"_Rows on hand behind each bucket, reference-sourced in brackets: {counts}._",
+        ]
+    return lines
+
+
+def _topic_mix_lines(mix: DocketPackTopicMix) -> list[str]:
+    """The stage-by-stage topic shares, one column per stage, each stage's caveat under it.
+
+    One table so the stages read side by side, with a dash where a stage holds
+    no case under a label; the scope strings follow the table, one per stage,
+    because a share lifted from any column must be quotable with its own.
+    """
+    labels: list[str] = []
+    for stage in mix.stages:
+        for share in stage.shares:
+            if share.label not in labels:
+                labels.append(share.label)
+    by_stage = [{share.label: share for share in stage.shares} for stage in mix.stages]
+    # A stage whose counts are its rows states `n=`; one whose counts are
+    # reweighted states `est. n=` and the rows beside it, the pack's convention.
+    header = " | ".join(
+        f"{stage.stage} (n={stage.cases})"
+        if stage.cases == stage.rows
+        else f"{stage.stage} (est. n={stage.cases}; {stage.rows} rows)"
+        for stage in mix.stages
+    )
+    interim = next((stage for stage in mix.stages if stage.stage == "interim"), None)
+    interim_shares: dict[str, TopicMixShare] = (
+        {} if interim is None else {share.label: share for share in interim.shares}
+    )
+    companion = " interim, subject-bearing only |" if interim is not None else ""
+    lines = [
+        "",
+        "## Topic mix by stage",
+        "_The share of each stage's **labeled** cases under each primary topic, read off the "
+        + "topic cuts above: cert is every labeled cert-form petition, merits the labeled "
+        + "petitions granted plenary review, interim every labeled emergency application. "
+        + "Each column is a share of its own stage, never of the docket, and carries the scope "
+        + "string under the table. The columns are **not stages of one funnel**: cert is a "
+        + "denial-reweighted share of a grant-enriched set, merits a share of the labeled "
+        + "grants, and interim another frame read from other inputs, so a difference between "
+        + "columns is not a grant propensity — the petition topic section's base-rate column "
+        + "is where that is read._",
+        "",
+        f"| topic | {header} |{companion}",
+        "| --- |" + " --: |" * (len(mix.stages) + (1 if interim is not None else 0)),
+    ]
+    for label in labels:
+        cells = " | ".join(
+            f"{_pct(shares[label].share)} ({shares[label].rows})" if label in shares else "—"
+            for shares in by_stage
+        )
+        if interim is not None:
+            entry = interim_shares.get(label)
+            cells += " | " + (
+                _pct(entry.classified_share)
+                if entry is not None and entry.classified_share is not None
+                else "—"
+            )
+        lines.append(f"| {label} | {cells} |")
+    lines += [
+        "",
+        "_Rows on hand in parentheses; each header's count is the stage's count as its section "
+        + "publishes it, `est. n=` where that section reweights._",
+    ]
+    if interim is not None:
+        lines += [
+            "",
+            "_The subject-bearing column divides the interim counts by the applications outside "
+            + "`unclassifiable`. It sits beside the full share, never in place of it: whether a "
+            + "row names a subject at all depends on whether the labeler read a stored "
+            + "application or only the docket, so this column is no closer to what the "
+            + "applications are about than the full one._",
+        ]
+    for stage in mix.stages:
+        lines += ["", f"_{stage.stage}: {stage.scope_note}_"]
+    return lines
+
+
 def render_docket_markdown(pack: DocketPack) -> str:
     """Render a :class:`DocketPack` as a publishable Markdown document.
 
@@ -2916,6 +3388,11 @@ def render_docket_markdown(pack: DocketPack) -> str:
     if pack.qp_topics is not None:
         lines += _section_tables([pack.qp_topics.section], sample_size=True)
         lines += _qp_topic_provenance(pack.qp_topics)
+    if pack.application_topics is not None:
+        lines += _section_tables([pack.application_topics.section], sample_size=True)
+        lines += _application_topic_provenance(pack.application_topics)
+    if pack.topic_mix is not None:
+        lines += _topic_mix_lines(pack.topic_mix)
     if pack.terms:
         lines += [
             "",
