@@ -1,0 +1,32 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000019",
+  "gaps": [
+    "No committed base-rate cut conditions on a called-for cert response.",
+    "The corpus reporter-citation lookup returned no row and warned of sparse citation coverage.",
+    "Web-search calls returned no visible result content."
+  ],
+  "helpful": [
+    "Dated snapshot and frozen conditioning context",
+    "Readable petition and separate lower-court appendix",
+    "Prior-Term sal-v4 reached rates with exact JSON denominators",
+    "CourtListener primary-opinion retrieval and passage search"
+  ],
+  "notes": "The one corpus query was attempted successfully but supplied no prior; primary legal context came from MCP instead. A temporary uv cache resolved the initial read-only-cache error. No response text was expected at this moment. No current case docket or outcome was retrieved.",
+  "role": "predictor",
+  "run_id": "20261029T212853Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "Local provisioned-input reads",
+    "Committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "CourtListener MCP search_document",
+    "CourtListener MCP get_endpoint_item",
+    "web.run searches (no visible results)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
