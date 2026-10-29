@@ -14910,3 +14910,48 @@ freeze commit is recorded here.
   the OT2017 row gone from its table, or holding only rows whose poll failed
   in transit, which the live cycle's failed queue names; its total falls with
   each later run until it reaches zero.
+
+- **Readings the `proc-v14` entry owes, recorded 2026-10-29.** No rule moves
+  here. The `proc-v14` entry (dated 2026-10-28), carried to `main` by
+  `promotion/2026-10-29` (merge `116bd569e`, registry stamped by `f2a4da6f8`)
+  and tagged `prereg/proc-v14`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v13` window is quoted
+  outside the committed board. This entry does not establish whether that
+  ordering held. That entry is not otherwise edited.
+
+  The run reads the ledger and registry at `origin/main`'s `1b197495a`
+  (`2026-10-29T16:08:11Z`), after the stamp and after the first `proc-v14`
+  predict round (run `20261029T142045Z`) landed.
+
+  **`proc-v14` closes `proc-v13`.** `uv run fedcourts successor-disclosures
+  --closed proc-v13 --successor proc-v14` prints:
+
+  ```
+  successor proc-v14 closes proc-v13 at 2026-10-29T14:16:26+00:00
+    closed proc-v13 codex-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    closed proc-v13 claude-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    closed proc-v13 gemini-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    claude-baseline: 24 successor-counted event(s); earlier window proc-v13: 0 failed, 0 uncounted cell, 0 missing, 24 not reached before the close
+    codex-baseline: 24 successor-counted event(s); earlier window proc-v13: 0 failed, 0 uncounted cell, 0 missing, 24 not reached before the close
+    gemini-baseline: 23 successor-counted event(s); earlier window proc-v13: 0 failed, 0 uncounted cell, 0 missing, 23 not reached before the close
+  ```
+
+  The closed lines match the provisional run's (7 counted events per engine,
+  none resolved), though the stamped instant, `2026-10-29T14:16:26Z`, fell
+  later than the provisional `2026-10-29T00:00:00Z`. Because the resolved
+  count is an upper bound (every outcome dated on or before the close's UTC
+  day), none of the closed windows' outcomes was visible when the close was
+  decided. Every successor-counted event falls in the not-reached bucket: no
+  engine left a failure fact or a cell on it in its earlier span, and no
+  predictor had committed a cell on it before the close. `gemini-baseline` counts one fewer than the other two
+  because its cell on `scotus/9026000187`
+  `evt-order-call-for-response-disposition` in that round failed inside the
+  `proc-v14` window, not the closed one. No grading of a closed-window cell
+  is committed, so no grading line prints.
+
+  The closed-window resolved counts can still move: an outcome dated on or
+  before the close's day may land late, and an event void de-counts what it
+  names. The split, partition and grading lines also move as cells, outcomes
+  and gradings land.
