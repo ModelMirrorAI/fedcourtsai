@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000187",
+  "run_id": "20261029T180303Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "provisioned appendix.txt with full Fifth Circuit and district court opinions",
+    "provisioned petition.txt and questions-presented.txt",
+    "metrics/statpack.md salience band and circuit base-rate tables",
+    "fedcourts query"
+  ],
+  "gaps": [
+    "CourtListener MCP server returned HTTP 429 daily rate limit exceeded (1400/day)",
+    "statpack base-rate cut conditioned specifically on call-for-response (CFR) petitions"
+  ],
+  "notes": "Provisioned documents (especially appendix.txt containing both opinions below) provided complete lower-court context despite the upstream CourtListener MCP 429 rate limit."
+}

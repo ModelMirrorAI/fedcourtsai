@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will most likely grant certiorari, vacate the judgment, and remand for further consideration in light of Montgomery v. Caribe Transport II, LLC. This GVR is a grant for this event's scoring purposes, but it does not decide whether Casarez ultimately recovers damages. P(any grant) is 0.88.
+
+The baseline records one distribution, on September 9 for the September 28 conference, followed by a September 10 response request. It records no completed relist and no CVSG. From that one-distribution state, expect at least one additional distribution after the response process, ordinarily one or two further distributions before disposition. P(the distribution count increases) is 0.99; this is principally administrative recirculation after a requested response, not a claim that a genuine merits relist is already present. Expect an order in November or December 2026 rather than a lengthy hold. Timing remains a forecast, not a retrieved calendar fact.
+
+Expect no invitation for the Solicitor General's views: P(a new CVSG) is 0.005. The immediate task is whether an existing Supreme Court decision warrants reconsideration below, not whether to solicit a federal position before taking a new statutory issue.
+
+Conditional on a grant, P(disposition in the cert order itself) is 0.97, overwhelmingly through GVR rather than summary reversal. The California decision's restrictive motor-vehicle nexus analysis is sufficiently implicated by Montgomery to warrant another look. The different roles of a broker, a grower, and a receiver, and the unresolved California-law defenses, make a final Supreme Court merits ruling less likely than remand.
+
+The Court will most likely use the first question's Montgomery issue as the basis for remand, without taking the second question about nonenumerated shippers and receivers for plenary review. The third question concerns the remedial route rather than a separate merits controversy. If plenary review is granted instead, the second question is the most plausible focus; if the Court reaches the safety exception itself, it is likely to reject an equipment-defect-only limitation without deciding the remaining state-law negligence issues.
+
+Expect an unsigned order without a separate writing. Conditional on denial, P(a dissent or statement respecting denial) is 0.05; no particular Justice is the modal expected author. The small per-Justice order-writer probabilities in prediction.json are unconditional probabilities of authoring a writing on the eventual disposing order, not conditional probabilities given denial or probabilities of joining another Justice's opinion.

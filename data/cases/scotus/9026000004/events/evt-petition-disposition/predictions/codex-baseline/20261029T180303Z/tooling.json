@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000004",
+  "gaps": [
+    "CourtListener daily quota exhausted; no independent precedent opinion retrieval.",
+    "corpus-info does not support the cell service backend for freshness reporting.",
+    "Submitted October 28 reply not provisioned; its preservation rebuttal could matter."
+  ],
+  "helpful": [
+    "Petition and opposition were both staged with extraction/truncation metadata.",
+    "Exact risk-set fields allowed a reproducible strictly-prior pooled anchor.",
+    "Docket-number lookup corroborated Cooper Tire without retrieving the target outcome."
+  ],
+  "notes": "Second distribution follows a requested response and need not be a considered relist. Retained the frozen elevated sal-v4 band. Redirecting uv cache to /tmp resolved the read-only cache error. No pipeline or other cell files changed.",
+  "role": "predictor",
+  "run_id": "20261029T180303Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "fedcourts corpus-info (failed)",
+    "CourtListener MCP search (429)",
+    "web search (no usable results)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
