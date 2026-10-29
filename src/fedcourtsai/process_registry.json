@@ -53,8 +53,8 @@
     {
       "label": "proc-v14",
       "since": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       }
     }
@@ -66,8 +66,8 @@
       "actor_id": "claude-baseline",
       "label": "proc-v14",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       }
     },
@@ -77,8 +77,8 @@
       "actor_id": "codex-baseline",
       "label": "proc-v14",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       }
     },
@@ -88,8 +88,8 @@
       "actor_id": "gemini-baseline",
       "label": "proc-v14",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       }
     },
@@ -99,8 +99,8 @@
       "actor_id": "claude-judge",
       "label": "proc-v14",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       }
     },
@@ -110,8 +110,8 @@
       "actor_id": "codex-judge",
       "label": "proc-v14",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       }
     },
@@ -121,8 +121,8 @@
       "actor_id": "gemini-judge",
       "label": "proc-v14",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       }
     }
@@ -330,8 +330,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       },
       "revoked_at": null
@@ -346,8 +346,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       },
       "revoked_at": null
@@ -362,8 +362,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       },
       "revoked_at": null
@@ -373,8 +373,8 @@
       "digest": "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
       "predictor_id": "claude-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       },
       "closes": null,
@@ -385,8 +385,8 @@
       "digest": "sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6",
       "predictor_id": "codex-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       },
       "closes": null,
@@ -397,8 +397,8 @@
       "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
       "predictor_id": "gemini-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-29T14:16:26Z",
+        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       },
       "closes": null,
@@ -702,16 +702,16 @@
     },
     {
       "name": "context-snapshot-contact-scrub",
-      "merge": null,
-      "at": null,
+      "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
+      "at": "2026-10-29T14:16:26Z",
       "predictors": null,
       "reach": "all",
       "gradual": false
     },
     {
       "name": "agent-shell-fedcourts-on-path",
-      "merge": null,
-      "at": null,
+      "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
+      "at": "2026-10-29T14:16:26Z",
       "predictors": null,
       "reach": "all",
       "gradual": false

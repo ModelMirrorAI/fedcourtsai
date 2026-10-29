@@ -14424,7 +14424,7 @@ freeze commit is recorded here.
   fedcourts process-digest --all` prints the same label and six digests at
   the carrying merge as at its first parent.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by `promotion/2026-10-29` (merge commit `116bd569e4d44e5d9ff2878bce34b4b903f206ba`, merged `2026-10-29T14:16:26Z`).
 
 - **A merits event on a proceeding that ended with nothing decided closes
   without an outcome, `merits-terminated`; recorded 2026-10-28.** A
@@ -14478,8 +14478,8 @@ freeze commit is recorded here.
 
 - **`proc-v14`: the predict and evaluate prompts take the flag vocabulary,
   the harness clock and the call-for-response moment; recorded 2026-10-28.**
-  Carried to `main` by `<FILL: promotion tag>` (merge `<FILL: merge sha>`,
-  `<FILL: merged-at>`), to be tagged **`prereg/proc-v14`**. Registered under
+  Carried to `main` by `promotion/2026-10-29` (merge `116bd569e4d44e5d9ff2878bce34b4b903f206ba`,
+  `2026-10-29T14:16:26Z`), to be tagged **`prereg/proc-v14`**. Registered under
   the merge-stamped rule, so its counting instant, its six bless moments and
   every window edge it moves are the carrying merge's committer time. It is
   the first label to move all six digests at once, so it takes two
@@ -14714,7 +14714,7 @@ freeze commit is recorded here.
   not a cut. The field is no cut, exclusion or rank key on any board. A later
   dated entry must register one before any figure reads it.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by `promotion/2026-10-29` (merge commit `116bd569e4d44e5d9ff2878bce34b4b903f206ba`, merged `2026-10-29T14:16:26Z`).
 
   The runnable effect check once it is live:
   - `uv run pytest tests/test_snapshot_scrub.py -k scrub_record` and `uv run
@@ -14774,7 +14774,7 @@ freeze commit is recorded here.
   rank key on any board. A later dated entry must register one before any
   figure reads either.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by `promotion/2026-10-29` (merge commit `116bd569e4d44e5d9ff2878bce34b4b903f206ba`, merged `2026-10-29T14:16:26Z`).
 
   The runnable effect check once it is live:
   - on the first predict run after the carrying merge, a cell job's log shows
@@ -14842,7 +14842,7 @@ freeze commit is recorded here.
   or a baseline pooled over those Terms, from a statpack refreshed before the
   carrying merge is not compared or pooled with one refreshed after it.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by `promotion/2026-10-29` (merge commit `116bd569e4d44e5d9ff2878bce34b4b903f206ba`, merged `2026-10-29T14:16:26Z`).
 
   The runnable effect check once it is live: the first 02:31 UTC run-seed
   window after the carrying merge drops the nine live ids in its "Dedupe
