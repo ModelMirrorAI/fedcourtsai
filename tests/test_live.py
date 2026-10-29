@@ -2529,6 +2529,53 @@ def test_from_live_docket_latches_the_call_for_response() -> None:
     assert first_undated.call_for_response_at is None
 
 
+@pytest.mark.parametrize(
+    ("opening", "writ"),
+    [
+        ("Petition for a writ of certiorari filed.", "certiorari"),
+        ("Petition for a writ of certiorari before judgment filed.", "certiorari"),
+        ("Petition for a writ of mandamus filed.", "rule-20"),
+        ("Petition for a writ of mandamus and/or prohibition filed.", "rule-20"),
+        ("Petition for writ of habeas corpus filed.", "rule-20"),
+        (
+            "Petition for a writ of habeas corpus or, in the alternative, certiorari filed.",
+            "ambiguous",
+        ),
+    ],
+)
+def test_from_live_docket_latches_the_opening_writ(opening: str, writ: str) -> None:
+    """The writ the opening petition entry names, read past an extension application."""
+    extension = {
+        "Date": "Mar 02 2026",
+        "Text": "Application (25A900) to extend the time to file a petition for a writ "
+        + "of mandamus from March 10, 2026 to May 9, 2026, submitted to Justice Kagan.",
+    }
+    row = from_live_docket(
+        _payload(proceedings=[extension, {"Date": "May 01 2026", "Text": opening}]),
+        live_docket_id(25, 120),
+    )
+    assert row.opening_writ == writ
+
+
+def test_a_sealed_in_re_certiorari_petition_reads_certiorari_by_its_entry() -> None:
+    """A sealed grand-jury petition is captioned "In re …" like a Rule 20 writ, and
+    is a certiorari petition all the same: the entry text, never the caption, classifies."""
+    payload = _payload(
+        proceedings=[{"Date": "Jun 01 2026", "Text": "Petition for a writ of certiorari filed."}]
+    )
+    payload["PetitionerTitle"] = "In re Grand Jury Subpoena"
+    row = from_live_docket(payload, live_docket_id(25, 121))
+    assert row.petitioner_title == "In re Grand Jury Subpoena"
+    assert row.opening_writ == "certiorari"
+
+
+def test_from_live_docket_reads_no_opening_writ_without_a_petition_entry() -> None:
+    distributed = from_live_docket(
+        _payload(proceedings=[_DISTRIBUTED_SEP]), live_docket_id(25, 122)
+    )
+    assert distributed.opening_writ is None
+
+
 def test_ingest_live_payload_lands_weight_one_and_observed_zero_signals(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     result = ingest_live_payload(

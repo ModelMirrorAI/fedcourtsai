@@ -67,8 +67,10 @@ def project_row(
     - **Time-invariant identity is copied** from the current row: the docket
       number (which fixes the Term and the paid/IFP fee class — assigned at
       filing, never changed), caption and structured petitioner title, filing
-      date, originating-court linkage, and the sampling ``sample_weight`` (a
-      property of how the corpus was built, not of the docket's progress).
+      date, originating-court linkage, the writ the opening petition entry
+      names (``opening_writ``, fixed at filing), and the sampling
+      ``sample_weight`` (a property of how the corpus was built, not of the
+      docket's progress).
       The caption invariance is measured, not assumed, at the *class* grain
       (the two measurements and their vintages: ``pipeline.caption``'s module
       docstring) — the residual concentrates in officer-title renderings,
@@ -78,7 +80,10 @@ def project_row(
       rather than a replay-validated claim.
     - **Docket-acquired signals are re-derived from the payload** via the same
       parsers the cell-context builder uses — the cert pair
-      (``distribution_count``, ``cvsg_date``) and the interim escalation trio
+      (``distribution_count``, ``cvsg_date``), the two dated cert signals a
+      relist count can be read against (``call_for_response_at``,
+      ``relisted_at``, through the ingest-time parsers), and the interim
+      escalation trio
       (``response_requested``, ``referred_to_court``, ``amicus_briefs``) — so
       they reflect the moment the payload represents rather than where the case
       ended up. Both families are monotone, which is exactly why re-deriving
@@ -142,9 +147,12 @@ def project_row(
             originating_court=base.originating_court,
             originating_court_name=base.originating_court_name,
             originating_docket_number=base.originating_docket_number,
+            opening_writ=base.opening_writ,
             sample_weight=base.sample_weight,
             distribution_count=cert_signals.snapshot_distribution_count(payload, parse=parse),
             cvsg_date=cert_signals.entry_date(cert_signals.snapshot_cvsg_date(payload)),
+            call_for_response_at=cert_signals.call_for_response_date(payload),
+            relisted_at=cert_signals.first_relist_date(payload),
             response_requested=requested,
             referred_to_court=referred,
             amicus_briefs=amicus,

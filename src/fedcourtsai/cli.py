@@ -1651,7 +1651,7 @@ def caption_census_cmd(
     rule_version: str = typer.Option(
         CAPTION_RULE_VERSION,
         "--rule-version",
-        help="Which registered caption rule cuts the frame (caption-v1, caption-v2).",
+        help="Which registered caption rule cuts the frame (caption-v1, caption-v2, caption-v3).",
     ),
 ) -> None:
     """The petitioner-class census: per-Term grant-family rates by caption class.

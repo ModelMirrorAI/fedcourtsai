@@ -351,7 +351,11 @@ the version the live pass scores with and stamps onto the corpus and onto every
 prediction's frozen context. A refit registers a new record beside the old
 rather than editing it, and `scorer(version)` raises on an unregistered label
 rather than falling back, so no consumer can silently receive output banded
-under a version it did not ask for.
+under a version it did not ask for. A version may also narrow the **segment** it
+scores (`SalienceScorer.admits`, read through `in_segment`): `sal-v5` leaves Rule
+20 writs out. Every reader of a version's bands — the selection pass, the gate
+replay, the statpack's per-version slices, the distribution census — applies
+it, so a row outside it is in none of that version's cohorts or pools.
 
 Three consequences are worth stating, because each is a place the discipline
 could otherwise leak:
@@ -703,8 +707,8 @@ say so.
 **The relist-tier cutpoints do not move, and the re-measure that would have
 moved them is published instead** — the next subsection. The cutpoints stay at
 `sal-v3`'s: moving a fitted constant under a stable version label is the exact
-edit the registry exists to forbid, and a refit is a `sal-v5`, argued from the
-re-measure as the census argued `sal-v4`.
+edit the registry exists to forbid, and a refit is a new registered version,
+argued from the re-measure as the census argued `sal-v4`.
 
 #### The relist tiers, re-measured
 
@@ -774,7 +778,7 @@ Whether that ~4–6% loss is real or sampling noise is not settled by 11 grants 
 124 rows, and it is not
 what the parse was argued for — `dist-v2` is a correctness claim about what the
 DISTRIBUTED phrase means, not a discrimination improvement. It is recorded here
-so a `sal-v5` refit starts from it rather than from the assumption that a
+so a refit starts from it rather than from the assumption that a
 narrower reading is a cleaner one. It inherits one caveat from how the re-measure
 was taken: the tier here is read off each case's **latest** live snapshot, its
 final count, while the score applies these constants to the count **as at
@@ -805,7 +809,7 @@ hundredths of a point, so a corpus that had drifted 14 points under the constant
 would have had to drift the published pack with it, and it did not. The cause is
 unidentified and is stated as unidentified.
 
-**This is recorded, not corrected.** The mis-fit is a `sal-v5` question and it
+**This is recorded, not corrected.** The mis-fit is a refit's question and it
 cannot be closed by editing one constant, because the always-include **floor**
 is entangled with it — and entangled *differently* under each vocabulary, which
 is the sharpest reason the refit has to be a registered version rather than an
@@ -884,6 +888,159 @@ petition and an observed zero disruption is consistent with any amount of it at
 full coverage. The instrument that would settle the question is the same replay
 run where the store is wired, which is `run-backtest`'s salience-gate replay
 ([metrics/README.md](../metrics/README.md)) — a dispatch, not a local command.
+
+### `sal-v5`: `caption-v3`, a call-for-response relist count, and Rule 20 writs out
+
+`sal-v5` is `sal-v4` with three changes and nothing else — the same `sal-v1`
+ranking constants, the same band cutpoints, the same five bands in the same
+order, the same `dist-v2` parse pin, the same carve-in shape and the same
+arrival draw. Each change is a new **input**, not a re-fitted constant, which is
+why the relist-tier mis-fit above stays a later version's question.
+
+`sal-v5` is **registered, not active**. `SALIENCE_VERSION` still names `sal-v4`,
+so the live pass scores, latches and stamps under `sal-v4`, every cell's frozen
+context carries a `sal-v4` band, and nothing the gate funds moves. What
+registration does is put `sal-v5` everywhere a registered version is read: its
+bands in every rendered pack's `alt_segments`, its cells in every
+`salience-replay`, and its frame in the distribution census. The flip is a
+separate registration step, with its own record in
+[freeze-record.md](freeze-record.md), and the prerequisites below come before
+it.
+
+**1. `caption-v3`.** The band and the carve-in read the petitioner class through
+`caption-v3` (`pipeline.caption.petitioner_class_v3`), registered in
+`CAPTION_RULES` beside `caption-v1` and `caption-v2`, which are unchanged. It is
+`caption-v2` with one check run first, ahead of every caption pattern: a
+petition whose petitioner-side counsel is the Solicitor General's office —
+`sg-office-v1`'s petitioner reading is `yes` (`pipeline.counsel`, its dated
+roster, read over the whole row with no cut) — reads `federal`. Because the
+check precedes the sub-national officer fallback, a Warden's or Sheriff's
+caption the office files for is federal, not state; because it precedes the
+qualified state markers too, it moves a state-officer caption the office appears
+for on the petitioner side, which is the predicate the census measured. A row it
+does not fire on reads exactly as `caption-v2` reads it, so the rule can only move
+a `private` or `state` read to `federal`. `CAPTION_RULES` registers every rule as
+a predicate on a **row**, since this one reads more than the caption string;
+`caption-census --rule-version caption-v3` cuts the same frame as the other two.
+
+What the counsel reading is safe for, and what it is not. Only the petitioner
+side is read; `sg-office-v1` never reads `other` (amici, invited briefs,
+intervenors), the side that accrues after a grant. The live pass reads a pending
+row as polled that day, so every entry it reads was on the docket at the
+selection moment and none can postdate an outcome that has not happened. A
+resolved row's list is its terminal one and the index dates no entry, so two
+things can reach a historical pool after the moment its band describes: a
+successor Solicitor General written after the resolution (which `sg-office-v1`
+admits only on a party string that reads federal), and the office's appearance
+on a companion petition consolidated with a government petition, which can
+date from the consolidation rather than the filing. The census names four such
+companions among the 16 resolved rows `caption-v3` moves (18-1587, 24-20,
+24-422, 19-1257); whether their petitioner-side entry predates the grant is a
+dated-snapshot check, not an index read, and it is owed before activation.
+
+**2. The relist count allows for a call for response.** A call for response
+takes the petition off the conference it was first distributed for, so the
+distribution after the response is the petition's first real conference — on
+the complete Terms OT2017–OT2024 a second distribution after a call grants at
+4% (1,026 rows) against 23% (1,257 rows) without one, the single-distribution
+level rather than the relist level. `sal-v5` counts relists as
+
+> `relists = max(0, distribution_count − 1 − s)`, where `s = 1` exactly when
+> `call_for_response_at` is set, `distribution_count ≥ 2`, and `relisted_at` is
+> unset or dated on or after `call_for_response_at`; otherwise `s = 0`.
+> `distribution_count` `NULL` stays the never-parsed sentinel.
+
+(`pipeline.salience.call_for_response_superseded`.) The maintainer's rule
+subtracts one where the call falls before the second distribution, and the
+index stores no date for a second distribution. It does store the first
+**relist** (`relisted_at`: a redistribution after a conference that sat on the
+petition, `cert_signals.first_relist_date`), which is what separates the two
+orders: a relist dated before the call means the first conference sat and the
+second distribution was a real relist, so nothing is subtracted; no relist, or
+one dated after the call, means the call came first. A relist on the call's own
+day cannot be ordered against it and is read as superseded. Reading `relisted_at`
+rather than subtracting on every call is also what keeps the band monotone over
+a petition's life, the premise the statpack's risk sets rest on: a call that
+follows a relist leaves that relist counted, where the plain "subtract whenever
+there is a call" reading would drop the petition a tier when the call arrived.
+The residual the rule cannot see is a second distribution entered before the
+call that is not a relist by `first_relist_date`'s reading (a redistribution
+more than two weeks after the conference), which reads as superseded. The
+ranking constants and the cutpoints are unchanged; only the bucket a petition's
+count lands in moves.
+
+**3. Rule 20 writs leave the scored segment.** A petition whose opening entry is
+a petition for a writ of mandamus, prohibition or habeas corpus (and/or one of
+them), naming no certiorari, is outside `sal-v5`'s segment
+(`SalienceScorer.admits`, `corpus.is_rule_20_writ`): it is not scored, not
+cohorted, not carved in, and enters none of `sal-v5`'s statpack slices, replay
+cells or census frame. A petition for a writ of certiorari — certiorari before
+judgment included — stays in, and so does an `ambiguous` entry naming both writs
+and a row whose writ was never read. The census counts 250 paid writs in the
+graded cert population with one grant-family outcome in 244 resolved (17-801,
+the government's own mandamus, a GVR).
+
+The classification is the opening entry's text, never the caption: a Rule 20
+petition is captioned "In re …", and so is a sealed certiorari petition (the
+census finds six, 21-1397 among them, granted). The entry lives in the snapshot
+payload, not in any index column, so the live poll latches it at ingest into a
+new withheld column, `opening_writ` (`cert_signals.opening_writ`: `certiorari`,
+`rule-20`, `ambiguous` or `other`, off the first "Petition for a writ of … filed"
+entry, read past an extension application), fill-in latched and kept off the
+`query` retrieval rows exactly as `call_for_response_at` is
+(`corpus.RETRIEVAL_WITHHELD_COLUMNS`). The release's sensitivity line reads the
+same entry through the same reader, so the two never disagree about which
+dockets are writs. The scope is `sal-v5`'s, not Tier 0: under the active `sal-v4`
+a writ is still in predict scope and still selected.
+
+**What is owed before the statpack can publish `sal-v5` honestly.** All three
+row inputs the two new rules read are latched by the live poll at ingest, and a
+decided row the rotation no longer polls keeps `NULL` in each column it predates:
+
+- `call_for_response_at` — empty on almost every decided historical row;
+- `relisted_at` — the same, since the column is younger than the call;
+- `opening_writ` — empty on every row polled before it existed, decided or not,
+  until its next poll.
+
+Each is filled by a **run-repair back-fill pass** that reads each scored-segment
+row's newest stored live snapshot through the ingest parser
+(`cert_signals.call_for_response_date`, `first_relist_date`, `opening_writ`) and
+writes the reading under the fill-in latch, leaving a stored value alone. That
+pass is a new value on the maintainer-owned `run-repair` selector
+(`src/fedcourtsai/repair_passes.py`) with its dry-run read first, and it is not
+part of this registration.
+
+Until it lands, read `sal-v5`'s `alt_segments` over past Terms as **not
+`sal-v5`'s pool**. On a row with the three columns empty `sal-v5` reads exactly as
+`sal-v4` reads, apart from `caption-v3`, which needs no back-fill because counsel
+is already stored: no call supersedes anything, so the call-for-response rows sit
+in `elevated` with their sal-v4 relist count; and no writ is excluded, so the 250
+paid writs (almost all denied) stay in the pools. Rows the live poll has read
+since each column existed do carry the readings, so a past-Term pool mixes two
+readings in proportions set by poll history rather than by any rule. A `sal-v5`
+pool from that pack is therefore neither the registered rule nor `sal-v4`, and
+nothing may quote it; `sal-v5` is inactive, so no cell does. The pack rendered
+after the back-fill is the first whose `sal-v5` block measures the registered
+rule.
+
+**The other activation prerequisites,** stated here so the flip does not
+rediscover them:
+
+- the dated companion-counsel check above;
+- the frozen cell band. `cell_context` bands a cell off the cell's own payload,
+  and the as-of projection behind it re-derives `call_for_response_at` and
+  `relisted_at` from that payload (so the relist rule is reproducible from what
+  the cell can read), but it carries no counsel, so a cell's frozen `sal-v5` band
+  would read `caption-v2`'s class where the live pass reads `caption-v3`'s. The
+  gate replay's projection carries no counsel either, so a `sal-v4` / `sal-v5`
+  replay comparison measures the relist rule and the writ scope, never
+  `caption-v3`. Activation needs the projection to read the payload's dated
+  counsel blocks, or the class read off the cell's own record;
+- a post-back-fill statpack refresh and the per-Term caption-v3 census, under the
+  same statistical bar `sal-v3`'s activation cleared — the moved rows were found
+  by a grant-ranked residual scan, so the recall gain is outcome-selected and the
+  evidential weight sits on the replication shape;
+- the census's numbers are on blob `251805e6…a982ef` (newest pull 2026-10-29).
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 

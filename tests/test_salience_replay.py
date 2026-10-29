@@ -18,6 +18,7 @@ from fedcourtsai.pipeline.salience import (
     SALIENCE_VERSION,
     SalienceScorer,
     registered_versions,
+    scorer,
 )
 from fedcourtsai.salience_replay import replay_gate, select_replay_population
 from fedcourtsai.schemas import Disposition, SalienceReplay
@@ -639,8 +640,9 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     attribute to the scorer.
 
     The parse is the one axis that splits the reconstruction rather than riding
-    it: the active sal-v4 pins `dist-v2` and is projected separately from the
-    four `dist-v1` versions. Its projection-derived counts still match theirs — a parse changes
+    it: the active sal-v4 and the registered sal-v5 pin `dist-v2` and share one
+    projection, apart from the four `dist-v1` versions. Its projection-derived
+    counts still match theirs — a parse changes
     the *count* read off a docket, never which dockets the frame holds or which
     of them disclosed a snapshot — so those figures are pinned across the parse
     split too, which is what makes a cross-parse band comparison legible.
@@ -648,20 +650,19 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     db = _seed_replay_corpus(tmp_path / "corpus")
     report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
 
-    assert report.salience_versions == [SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3"]
+    versions = [SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3", "sal-v5"]
+    assert report.salience_versions == versions
     assert report.salience_version == SALIENCE_VERSION  # the report names the ACTIVE one
-    assert report.cells_evaluated == 5  # one (term, policy) cell x 5 registered versions
+    assert report.cells_evaluated == 6  # one (term, policy) cell x 6 registered versions
     by_version = {cell.salience_version: cell for cell in report.cells}
-    assert set(by_version) == {SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3"}
-    active, toy, v1, v2, v3 = (
-        by_version[v] for v in (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3")
-    )
+    assert set(by_version) == set(versions)
+    active, toy, v1, v2, v3, v5 = (by_version[v] for v in versions)
     # Each cell records the parse its reconstruction was counted under.
-    assert active.distribution_parse == "dist-v2"
+    assert active.distribution_parse == v5.distribution_parse == "dist-v2"
     assert {c.distribution_parse for c in (toy, v1, v2, v3)} == {"dist-v1"}
 
     # The projection is shared, so every projection-derived figure matches.
-    for other in (toy, v1, v2, v3):
+    for other in (toy, v1, v2, v3, v5):
         assert active.eligible == other.eligible
         assert active.skipped_no_snapshot == other.skipped_no_snapshot
         assert active.provenance == other.provenance
@@ -672,6 +673,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
     assert set(active.bands) <= caption_bands
     assert set(v2.bands) <= caption_bands  # the caption-banded scorers share one vocabulary
     assert set(v3.bands) <= caption_bands  # the active sal-v4 shares sal-v3's vocabulary exactly
+    assert set(v5.bands) <= caption_bands
     assert set(toy.bands) <= {"hot", "cold", "unobservable"}
     assert set(v1.bands) <= {"high", "elevated", "baseline", "unobservable"}
     assert (
@@ -680,6 +682,7 @@ def test_a_second_version_doubles_the_cells_over_one_shared_projection(
         == sum(v1.bands.values())
         == sum(v2.bands.values())
         == sum(v3.bands.values())
+        == sum(v5.bands.values())
     )
 
 
@@ -730,3 +733,57 @@ def test_a_second_parse_gets_its_own_projection_and_bands_differently(tmp_path: 
     # And the banding differs, which only a second reconstruction can produce.
     assert v3.bands == {"high": 1}
     assert v4.bands == {"baseline": 1}
+
+
+def test_a_projection_reads_the_call_for_response_as_of_its_cutoff() -> None:
+    """sal-v5's relist rule reads the call for response and the first relist, so
+    the as-of projection re-derives both from the payload it was cut to — never
+    the row's terminal columns — and carries the fixed-at-filing writ across."""
+    row, payload = _petition(
+        "scotus/1",
+        "23-100",
+        disposition=Disposition.denied,
+        resolved=date(2024, 3, 4),
+        entries=(
+            ("Jan 5 2024", "Petition for a writ of certiorari filed."),
+            ("Jan 10 2024", "DISTRIBUTED for Conference of January 26, 2024."),
+            ("Jan 16 2024", "Response Requested. (Due February 15, 2024)"),
+            ("Feb 20 2024", "DISTRIBUTED for Conference of March 1, 2024."),
+        ),
+    )
+    row = row.model_copy(
+        update={"opening_writ": "certiorari", "call_for_response_at": date(2030, 1, 1)}
+    )
+    projected = asof.project_row(row, payload, cutoff=date(2024, 3, 4), provenance="dated")
+    assert projected.row.call_for_response_at == date(2024, 1, 16)
+    assert projected.row.relisted_at is None
+    assert projected.row.distribution_count == 2
+    assert projected.row.opening_writ == "certiorari"
+    assert scorer("sal-v5").band(projected.row) == "baseline"
+    assert scorer("sal-v4").band(projected.row) == "elevated"
+
+
+def test_the_replay_leaves_a_rule_20_writ_out_of_sal_v5_cells_only(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    row, payload = _petition(
+        "scotus/9",
+        "23-900",
+        disposition=Disposition.denied,
+        resolved=date(2024, 3, 4),
+        entries=(
+            ("Jan 5 2024", "Petition for a writ of mandamus filed."),
+            ("Feb 2 2024", "DISTRIBUTED for Conference of February 16, 2024."),
+            ("Mar 4 2024", "Petition DENIED."),
+        ),
+    )
+    row = row.model_copy(update={"opening_writ": "rule-20"})
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [row])
+        corpus.upsert_snapshot(conn, row.case_id, date(2024, 7, 1), payload)
+    report = replay_gate(db, terms=[2023], policies=[CutoffPolicy.resolution], config=_CONFIG)
+    cells = {cell.salience_version: cell for cell in report.cells}
+    assert cells["sal-v4"].eligible == 1
+    assert sum(cells["sal-v4"].bands.values()) == 1
+    assert cells["sal-v5"].eligible == 0
+    assert cells["sal-v5"].bands == {}
+    assert cells["sal-v5"].selected == 0

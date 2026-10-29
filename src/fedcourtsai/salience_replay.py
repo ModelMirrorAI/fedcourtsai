@@ -197,7 +197,10 @@ def _replay_cell(
     version: SalienceScorer,
 ) -> SalienceReplayCell:
     """One (Term, policy, version) cell: run the selection core and score the pick."""
-    projected = projection.rows
+    # A version that narrows its segment (sal-v5's Rule 20 writs) replays over
+    # the projected rows it admits only, so its cohorts, its carve-ins and its
+    # precision and recall denominators all leave the same rows out.
+    projected = [pair for pair in projection.rows if version.in_segment(pair[0])]
     provenance_mix = projection.provenance
     skipped = projection.skipped
 
@@ -347,7 +350,8 @@ def replay_gate(
                             conn, policy, rows, parse=active.distribution_parse
                         )
                         projections[active.distribution_parse] = projection
-                    cells.append(_replay_cell(term, policy, len(rows), projection, config, active))
+                    admitted = sum(1 for row in rows if active.in_segment(row))
+                    cells.append(_replay_cell(term, policy, admitted, projection, config, active))
     return SalienceReplay(
         salience_version=SALIENCE_VERSION,
         salience_versions=list(versions),

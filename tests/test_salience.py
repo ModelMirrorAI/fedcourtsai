@@ -194,6 +194,9 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
         # same one: the parse pin moves the count a band is read off, never the
         # always-include rule.
         "sal-v4": ("federal", "high"),
+        # sal-v5 carves with the same shape read through caption-v3; the
+        # call-for-response relist rule moves only the count a tier is read off.
+        "sal-v5": ("federal", "high"),
         # Indexed, never `.get` with a self-satisfying fallback: a prefix
         # compared against a prefix of its own length passes for any version,
         # so a new registration must state its carve prefix here or KeyError.
@@ -255,6 +258,7 @@ def test_sal_v4_is_sal_v3_with_the_parse_pin_moved_and_nothing_else() -> None:
     assert v4.band is v3.band
     assert v4.carve_out is v3.carve_out
     assert v4.reachable is v3.reachable
+    assert v4.admits is v3.admits is None
     assert v4.bands == v3.bands
     assert v4.selects_arrivals is v3.selects_arrivals
     # Every field but the version label and the parse, exhaustively — so a field
@@ -267,6 +271,7 @@ def test_sal_v4_is_sal_v3_with_the_parse_pin_moved_and_nothing_else() -> None:
         "carve_out",
         "selects_arrivals",
         "reachable",
+        "admits",
     }
 
 
@@ -291,6 +296,232 @@ def test_sal_v4_is_the_active_version_and_the_default_parse_moved_with_it() -> N
     # sal-v3 stays registered and unmoved: activation re-points the pointer, it
     # never edits the version it points away from.
     assert SCORERS["sal-v3"].distribution_parse == "dist-v1"
+
+
+# --- sal-v5: registered beside sal-v4, not active ------------------------------
+
+
+def _v5_row(
+    case_id: str = "scotus/v5",
+    *,
+    distribution_count: int | None = 2,
+    call_for_response_at: date | None = None,
+    relisted_at: date | None = None,
+    opening_writ: str | None = None,
+    petitioner_title: str | None = "John Doe",
+    counsel: list[corpus.CounselEntry] | None = None,
+    conference: date | None = REGULAR_CONFERENCE,
+) -> corpus.CorpusRow:
+    return corpus.CorpusRow(
+        case_id=case_id,
+        court="scotus",
+        docket_number="25-100",
+        petitioner_title=petitioner_title,
+        date_filed=date(2025, 10, 1),
+        distribution_count=distribution_count,
+        call_for_response_at=call_for_response_at,
+        relisted_at=relisted_at,
+        opening_writ=opening_writ,
+        counsel=counsel or [],
+        distributed_for_conference=conference,
+    )
+
+
+def test_sal_v5_is_registered_and_sal_v4_stays_active() -> None:
+    """Registration and activation are separate steps: sal-v5 is scored and
+    published beside the live scorer, and nothing the live pass stamps moves."""
+    assert "sal-v5" in SCORERS
+    assert SALIENCE_VERSION == "sal-v4"
+    assert scorer().version == "sal-v4"
+    assert registered_versions()[0] == "sal-v4"
+    v4, v5 = scorer("sal-v4"), scorer("sal-v5")
+    assert v5.bands == v4.bands
+    assert v5.distribution_parse == v4.distribution_parse == "dist-v2"
+    assert v5.selects_arrivals is v4.selects_arrivals is True
+
+
+def test_sal_v5_reads_as_sal_v4_without_any_of_its_three_inputs() -> None:
+    """No call for response, no Solicitor General counsel, no Rule 20 entry: the
+    three changes are the whole of sal-v5, so on such a row it scores, bands and
+    carves exactly as sal-v4 does — which is also what it reads on a decided row
+    whose new columns the back-fill has not reached."""
+    v4, v5 = scorer("sal-v4"), scorer("sal-v5")
+    floor = load_salience_config(Path("config")).floor
+    for count in (None, 0, 1, 2, 3, 4):
+        for title in ("United States", "State of Texas", "John Doe", "Michael Smith, Warden"):
+            row = _v5_row(distribution_count=count, petitioner_title=title)
+            assert v5.score(row) == v4.score(row), (count, title)
+            assert v5.band(row) == v4.band(row), (count, title)
+            assert v5.reachable_bands(row) == v4.reachable_bands(row), (count, title)
+            assert v5.carve_out(row, v5.score(row), floor) == v4.carve_out(
+                row, v4.score(row), floor
+            )
+            assert v5.in_segment(row) and v4.in_segment(row)
+
+
+def test_sal_v5_does_not_count_a_superseded_first_distribution_as_a_relist() -> None:
+    """A call for response takes the petition off its first conference, so the
+    distribution after the response is its first real conference."""
+    v4, v5 = scorer("sal-v4"), scorer("sal-v5")
+    called = date(2025, 11, 3)
+    once_more = _v5_row(distribution_count=2, call_for_response_at=called)
+    assert salience_module.call_for_response_superseded(once_more)
+    assert v4.band(once_more) == "elevated"  # sal-v4 reads the second trip as a relist
+    assert v5.band(once_more) == "baseline"  # sal-v5 reads it as the first conference
+    # A real relist after that first conference is a relist again.
+    relisted = _v5_row(
+        distribution_count=3, call_for_response_at=called, relisted_at=date(2026, 1, 12)
+    )
+    assert v4.band(relisted) == "high"
+    assert v5.band(relisted) == "elevated"
+    # One distribution: nothing to supersede, and nothing to subtract.
+    single = _v5_row(distribution_count=1, call_for_response_at=called)
+    assert not salience_module.call_for_response_superseded(single)
+    assert v5.score(single) == v4.score(single)
+    # Never parsed: still the unknown sentinel, call or no call.
+    unparsed = _v5_row(distribution_count=None, call_for_response_at=called)
+    assert v5.score(unparsed) == v4.score(unparsed)
+
+
+def test_sal_v5_keeps_the_relist_a_call_for_response_followed() -> None:
+    """A relist dated before the call means the first conference sat: the second
+    distribution was a real relist and the call superseded nothing. A relist on
+    the call's own day cannot be ordered against it and reads as superseded."""
+    v4, v5 = scorer("sal-v4"), scorer("sal-v5")
+    relist_first = _v5_row(
+        distribution_count=2,
+        relisted_at=date(2025, 11, 3),
+        call_for_response_at=date(2025, 11, 20),
+    )
+    assert not salience_module.call_for_response_superseded(relist_first)
+    assert v5.band(relist_first) == v4.band(relist_first) == "elevated"
+    same_day = _v5_row(
+        distribution_count=2,
+        relisted_at=date(2025, 11, 3),
+        call_for_response_at=date(2025, 11, 3),
+    )
+    assert salience_module.call_for_response_superseded(same_day)
+
+
+def test_sal_v5_band_never_falls_as_a_docket_accrues() -> None:
+    """The statpack's risk set reads a band as monotone over a petition's life.
+    The relist rule keeps that: a call that follows a relist leaves it counted,
+    and a call before the second distribution was already on the docket when
+    the count reached two."""
+    v5 = scorer("sal-v5")
+    rank = {band: index for index, band in enumerate(v5.bands)}
+    lives = [
+        # distributed, relisted, then a call for response
+        [
+            _v5_row(distribution_count=1),
+            _v5_row(distribution_count=2, relisted_at=date(2025, 11, 3)),
+            _v5_row(
+                distribution_count=2,
+                relisted_at=date(2025, 11, 3),
+                call_for_response_at=date(2025, 11, 20),
+            ),
+            _v5_row(
+                distribution_count=3,
+                relisted_at=date(2025, 11, 3),
+                call_for_response_at=date(2025, 11, 20),
+            ),
+        ],
+        # distributed, a call for response, back to conference, then relisted
+        [
+            _v5_row(distribution_count=1),
+            _v5_row(distribution_count=1, call_for_response_at=date(2025, 10, 20)),
+            _v5_row(distribution_count=2, call_for_response_at=date(2025, 10, 20)),
+            _v5_row(
+                distribution_count=3,
+                call_for_response_at=date(2025, 10, 20),
+                relisted_at=date(2026, 1, 12),
+            ),
+            _v5_row(
+                distribution_count=4,
+                call_for_response_at=date(2025, 10, 20),
+                relisted_at=date(2026, 1, 12),
+            ),
+        ],
+    ]
+    for life in lives:
+        ranks = [rank[v5.band(row)] for row in life]
+        assert ranks == sorted(ranks, reverse=True), [v5.band(row) for row in life]
+
+
+def test_sal_v5_bands_and_carves_an_sg_represented_warden_as_federal() -> None:
+    """caption-v3 under sal-v5: the Warden caption is state under sal-v4, and the
+    Solicitor General's appearance for the petitioner makes it federal — the
+    band and the arrival carve-in both — at a relist-0 trajectory."""
+    v4, v5 = scorer("sal-v4"), scorer("sal-v5")
+    floor = load_salience_config(Path("config")).floor
+    sg = corpus.CounselEntry(
+        party="Michael Smith",
+        attorney="D. John Sauer",
+        role=corpus.CounselRole.petitioner,
+        counsel_of_record=True,
+    )
+    row = _v5_row(distribution_count=1, petitioner_title="Michael Smith, Warden", counsel=[sg])
+    assert v4.band(row) == "state"
+    assert v4.carve_out(row, v4.score(row), floor) is False
+    assert v5.band(row) == "federal"
+    assert v5.reachable_bands(row) == ("federal",)
+    assert v5.carve_out(row, v5.score(row), floor) is True
+    # The same office opposing cert says nothing about who is asking.
+    opposing = sg.model_copy(update={"role": corpus.CounselRole.respondent})
+    respondent_side = _v5_row(
+        distribution_count=1, petitioner_title="Michael Smith, Warden", counsel=[opposing]
+    )
+    assert v5.band(respondent_side) == "state"
+
+
+def test_sal_v5_leaves_rule_20_writs_out_of_scoring_and_selection() -> None:
+    """A Rule 20 writ is outside sal-v5's segment: not scored, not cohorted, not
+    carved in. A sealed certiorari petition captioned "In re …" stays in, because
+    the opening entry, not the caption, classifies — and sal-v4 still scores both."""
+    config = SalienceConfig(per_conference_capacity=5, floor=0.28)
+    writ = _v5_row(
+        "scotus/writ",
+        distribution_count=3,  # relist-2: `high`, carved in under any version that sees it
+        opening_writ="rule-20",
+        petitioner_title="In re Smith",
+    )
+    sealed = _v5_row(
+        "scotus/sealed",
+        distribution_count=3,
+        opening_writ="certiorari",
+        petitioner_title="In re Grand Jury Subpoena",
+    )
+    unparsed = _v5_row("scotus/unparsed", distribution_count=3, opening_writ=None)
+    rows = [writ, sealed, unparsed]
+    v5 = scorer("sal-v5")
+    assert not v5.in_segment(writ)
+    assert v5.in_segment(sealed) and v5.in_segment(unparsed)
+    assert corpus.is_rule_20_writ(writ) and not corpus.is_rule_20_writ(sealed)
+
+    v5_scores, v5_pick, v5_eligible, _ = plan_cohorts(rows, config, version=v5)
+    assert v5_eligible == 2
+    assert set(v5_scores) == {"scotus/sealed", "scotus/unparsed"}
+    assert set(v5_pick) == {"scotus/sealed", "scotus/unparsed"}
+
+    v4_scores, v4_pick, v4_eligible, _ = plan_cohorts(rows, config, version=scorer("sal-v4"))
+    assert "scotus/writ" in v4_scores
+    assert v4_eligible == 3
+    assert set(v4_pick) == {"scotus/writ", "scotus/sealed", "scotus/unparsed"}
+
+
+def test_the_live_pass_still_selects_a_rule_20_writ_under_the_active_sal_v4(
+    tmp_path: Path,
+) -> None:
+    """sal-v5 is registered, not active: the live pass's scope is sal-v4's, so a
+    writ the inactive version leaves out is still scored and latched today."""
+    writ = _v5_row("scotus/writ", distribution_count=3, opening_writ="rule-20")
+    db = _seed(tmp_path, [writ])
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), SalienceConfig(per_conference_capacity=1), apply=True
+        )
+    assert result.version == "sal-v4"
+    assert _selected_ids(db) == {"scotus/writ"}
 
 
 def test_the_active_scorer_is_what_the_bare_helpers_dispatch_to() -> None:
@@ -1216,7 +1447,14 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
     two_versions: SalienceScorer,
 ) -> None:
     # active first, then the rest sorted
-    assert registered_versions() == (SALIENCE_VERSION, "sal-toy", "sal-v1", "sal-v2", "sal-v3")
+    assert registered_versions() == (
+        SALIENCE_VERSION,
+        "sal-toy",
+        "sal-v1",
+        "sal-v2",
+        "sal-v3",
+        "sal-v5",
+    )
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
     assert salience_band(row) == "high"  # the bare helpers still mean the ACTIVE scorer
@@ -1535,7 +1773,13 @@ def test_every_registered_scorer_pins_a_registered_distribution_parse(version: s
     alignment the *active* version must keep with that column is pinned by
     `test_the_active_scorers_parse_is_the_one_the_corpus_column_holds`.
     """
-    expected = {"sal-v1": "dist-v1", "sal-v2": "dist-v1", "sal-v3": "dist-v1", "sal-v4": "dist-v2"}
+    expected = {
+        "sal-v1": "dist-v1",
+        "sal-v2": "dist-v1",
+        "sal-v3": "dist-v1",
+        "sal-v4": "dist-v2",
+        "sal-v5": "dist-v2",
+    }
     assert SCORERS[version].distribution_parse in DISTRIBUTION_PARSES
     assert SCORERS[version].distribution_parse == expected[version]
 

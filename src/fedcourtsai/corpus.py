@@ -544,6 +544,20 @@ class CorpusRow(BaseModel):
         "(`rederive-cert-amicus-briefs`, a run-repair pass) fills it. Written by "
         "the live cert branch and that back-fill only.",
     )
+    opening_writ: str | None = Field(
+        default=None,
+        description="The writ the docket's opening petition entry names "
+        '(`pipeline.cert_signals.opening_writ`), read off the first "Petition for '
+        'a writ of … filed" entry: `certiorari` (certiorari before judgment '
+        "included), `rule-20` (mandamus, prohibition or habeas corpus, and no "
+        "certiorari), `ambiguous` (both) or `other` (neither). Classified by the "
+        'entry text, never by an "In re" caption, which a sealed certiorari '
+        "petition carries too. Fixed at filing. Written by the live cert branch at "
+        "ingest; fill-in latched. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = no opening petition entry "
+        "disclosed, or not parsed — on a decided row polled before the column "
+        "existed, never parsed.",
+    )
     sample_weight: int | None = Field(
         default=None,
         description="Inverse inclusion probability of this row under the corpus's "
@@ -1036,7 +1050,13 @@ CREATE TABLE IF NOT EXISTS cases (
     -- by the cert amicus back-fill (pipeline/cert_amicus_rederive.py);
     -- max-latched. Withheld from the retrieval surface. NULL = never
     -- cert-parsed since the column existed.
-    cert_amicus_briefs INTEGER
+    cert_amicus_briefs INTEGER,
+    -- The writ a cert-form docket's opening petition entry names (see
+    -- CorpusRow and pipeline/cert_signals.py): certiorari, rule-20, ambiguous
+    -- or other. Written by the live poll's cert branch at ingest; fill-in
+    -- latched. Withheld from the retrieval surface. NULL = no opening petition
+    -- entry disclosed, or not parsed.
+    opening_writ TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1217,6 +1237,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "relisted_at": "TEXT",
     "argument_transcript_at": "TEXT",
     "cert_amicus_briefs": "INTEGER",
+    "opening_writ": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -2056,6 +2077,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
             row.argument_transcript_at.isoformat() if row.argument_transcript_at else None
         ),
         "cert_amicus_briefs": row.cert_amicus_briefs,
+        "opening_writ": row.opening_writ,
         "capital_case": int(row.capital_case),
     }
 
@@ -2176,6 +2198,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         relisted_at=_optional_date(record, "relisted_at"),
         argument_transcript_at=_optional_date(record, "argument_transcript_at"),
         cert_amicus_briefs=_optional_int(record, "cert_amicus_briefs"),
+        opening_writ=_optional_str(record, "opening_writ"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -2190,10 +2213,11 @@ def _update_clause(column: str) -> str:
     the live-parsed signals — the conference, CVSG, invited-brief,
     call-for-response and first-relist dates, the dated interim/merits signals beside them (a
     consolidated member's lead-filed respondent brief and the post-argument
-    transcript's argument day among them), and the merits decision record)
-    only ever fill in, so a writer that does not carry the fact keeps what
-    another channel stamped; ``distribution_count``, the interim escalation
-    signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
+    transcript's argument day among them), the merits decision record, and the
+    writ the opening petition entry names) only ever fill in, so a writer that
+    does not carry the fact keeps what another channel stamped;
+    ``distribution_count``, the interim escalation signals
+    (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
     the cert-stage ``cert_amicus_briefs`` count,
     the ``has_opinion`` presence bit, and the ``capital_case`` marking
     are max-latches (proceedings are append-only and the signals monotone —
@@ -2238,6 +2262,7 @@ def _update_clause(column: str) -> str:
         "merits_brief_on_lead",
         "relisted_at",
         "argument_transcript_at",
+        "opening_writ",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -2907,6 +2932,20 @@ def is_modern_cert(row: CorpusRow) -> bool:
     historical merits-era labels.
     """
     return row.court == "scotus" and scotus_term_year(row.docket_number) is not None
+
+
+def is_rule_20_writ(row: CorpusRow) -> bool:
+    """Whether a docket's opening petition is a Rule 20 extraordinary writ.
+
+    Reads the ingest-latched ``opening_writ`` column: ``rule-20`` is a petition
+    for a writ of mandamus, prohibition or habeas corpus that names no
+    certiorari. A certiorari petition — certiorari before judgment and a sealed
+    petition captioned "In re …" included — is not one, and neither is an
+    ``ambiguous`` entry naming both writs. A row whose column was never parsed
+    (``None``) reads False: the predicate excludes only what the docket's own
+    opening entry shows.
+    """
+    return row.opening_writ == "rule-20"
 
 
 class MeritsProceedingRow(Protocol):
@@ -4195,7 +4234,8 @@ def opinion_body(row: CorpusRow) -> str | None:
 
 #: Columns a ``query`` prior never carries, though the row stores them. The
 #: invited-brief, call-for-response, first-relist, argument-transcript and a
-#: consolidated member's lead-filed respondent brief dates are mint triggers, and the
+#: consolidated member's lead-filed respondent brief dates are mint triggers, the
+#: opening petition's writ is a salience scope input, and the
 #: merits decision record and the cert-stage amicus count are analytics
 #: surfaces — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
@@ -4217,6 +4257,7 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "relisted_at",
         "argument_transcript_at",
         "cert_amicus_briefs",
+        "opening_writ",
     }
 )
 

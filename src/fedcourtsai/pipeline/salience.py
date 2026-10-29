@@ -374,6 +374,121 @@ def _sal_v3_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool
     return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class_v2(row) == "federal"
 
 
+# sal-v5: sal-v4 with three registered changes, each one a new input rather
+# than a re-fitted constant — the ranking constants, the band cutpoints, the
+# band vocabulary and order, the parse pin and the arrival draw are sal-v4's.
+#
+# - The caption predicate is `caption-v3`: caption-v2, with the Solicitor
+#   General's office as petitioner-side counsel (sg-office-v1) read as a
+#   federal petitioner ahead of every caption pattern. The class enters the band
+#   and the carve-in exactly as caption-v2's does under sal-v3.
+# - The relist count allows for a call for response (`_sal_v5_relists`). A
+#   call for response takes the petition off the conference it was first
+#   distributed for, so the next distribution is its first real conference,
+#   not a relist; the census reads that second distribution's grant-family
+#   rate at the single-distribution level, not the relist level.
+# - Rule 20 extraordinary writs leave the scored segment (`_sal_v5_admits`): a
+#   petition whose opening entry is a writ of mandamus, prohibition or habeas
+#   corpus is neither scored nor selected, and enters none of sal-v5's bands.
+#
+# The two row inputs the relist rule reads — `call_for_response_at` and
+# `relisted_at` — and the `opening_writ` column the scope reads are latched by
+# the live poll at ingest, so a decided row polled before each column existed
+# carries NULL until a back-fill reads its stored snapshot. On such a row sal-v5
+# reads as sal-v4 reads (no call, no relist date, no writ), which is what its
+# published pools over past Terms measure until that back-fill lands
+# (docs/salience.md).
+
+
+def call_for_response_superseded(row: corpus.CorpusRow) -> bool:
+    """Whether a call for response took the place of the petition's first conference.
+
+    The index carries no date for a petition's second distribution, so the
+    rule reads the two dated cert signals it does carry: a call for response
+    (``call_for_response_at``) on a petition distributed at least twice
+    supersedes the first distribution unless a **relist** (``relisted_at``,
+    the first redistribution after a conference that sat on the petition) is
+    dated strictly before the call. A relist before the call means the first
+    conference sat and the second distribution was a real relist; with no such
+    relist, the distribution after the call is the petition's first real
+    conference. A relist dated on the call's own day reads as superseded,
+    since the day alone cannot order the two entries.
+    """
+    called = row.call_for_response_at
+    if called is None or row.distribution_count is None or row.distribution_count < 2:
+        return False
+    return row.relisted_at is None or row.relisted_at >= called
+
+
+def _sal_v5_relists(row: corpus.CorpusRow) -> int | None:
+    """sal-v5's relist count: ``distribution_count - 1``, less a superseded first distribution.
+
+    ``None`` where the count was never live-parsed (the sentinel sal-v1 scores
+    as unknown); otherwise floored at 0.
+    """
+    if row.distribution_count is None:
+        return None
+    relists = row.distribution_count - 1 - int(call_for_response_superseded(row))
+    return max(0, relists)
+
+
+def _sal_v5_score(row: corpus.CorpusRow) -> float:
+    """sal-v1's ranking score with the relist bucket read off :func:`_sal_v5_relists`.
+
+    The same constants and the same shape — the stronger of the relist and CVSG
+    grant rates, nudged by the circuit — so a row without a superseding call
+    for response scores exactly as it does under sal-v4.
+    """
+    relists = _sal_v5_relists(row)
+    if relists is None:
+        primary = _RELIST_UNKNOWN_RATE
+    elif relists >= 2:
+        primary = _RELIST_HIGH_RATE
+    else:
+        primary = _RELIST_GRANT_RATE[relists]
+    if row.cvsg_date is not None:
+        primary = max(primary, _CVSG_GRANT_RATE)
+    circuit = _CIRCUIT_GRANT_RATE.get(row.originating_court or "", _CIRCUIT_DEFAULT_RATE)
+    return primary + _CIRCUIT_WEIGHT * circuit
+
+
+def _sal_v5_trajectory(row: corpus.CorpusRow) -> str:
+    """sal-v1's trajectory tier (:data:`_SALIENCE_BANDS`) over :func:`_sal_v5_score`."""
+    score = _sal_v5_score(row)
+    for band, lower in _SALIENCE_BANDS:
+        if score >= lower:
+            return band
+    return _SALIENCE_BANDS[-1][0]  # unreachable (the baseline cutpoint is 0.0); a guard
+
+
+def _sal_v5_band(row: corpus.CorpusRow) -> str:
+    """sal-v3's band rule, read through ``caption-v3`` and the call-for-response relist count."""
+    trajectory = _sal_v5_trajectory(row)
+    cls = caption.petitioner_class_v3(row)
+    if cls == "federal":
+        return "federal"
+    if cls == "state" and trajectory not in ("high",):
+        return "state"
+    return trajectory
+
+
+def _sal_v5_reachable(row: corpus.CorpusRow) -> tuple[str, ...]:
+    """``sal-v5``'s reachable ladder: the caption partition read through ``caption-v3``."""
+    return _caption_reachable_bands(caption.petitioner_class_v3(row))
+
+
+def _sal_v5_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """sal-v1's rule, plus the federal arrival carve-in read through ``caption-v3``."""
+    return (
+        row.cvsg_date is not None or score >= floor or caption.petitioner_class_v3(row) == "federal"
+    )
+
+
+def _sal_v5_admits(row: corpus.CorpusRow) -> bool:
+    """sal-v5's segment: every row but a Rule 20 extraordinary writ (``corpus.is_rule_20_writ``)."""
+    return not corpus.is_rule_20_writ(row)
+
+
 @dataclass(frozen=True)
 class SalienceScorer:
     """One frozen salience version: everything that makes a ranking reproducible.
@@ -434,6 +549,18 @@ class SalienceScorer:
     # partitions the vocabulary instead, and must say so here — see
     # `_caption_reachable_bands`. Read through `reachable_bands`, never directly.
     reachable: Callable[[corpus.CorpusRow], tuple[str, ...]] | None = None
+    # Which rows of the gate's scored segment this version scores, bands and
+    # selects at all. `None` means the whole segment, which is every version
+    # through sal-v4. A version that narrows its segment says so here, and every
+    # consumer of a version's bands — the selection pass, the gate replay, the
+    # statpack's per-version slices, the distribution census — reads it
+    # through `in_segment`, so a row outside it enters none of that version's
+    # cohorts, carve-ins or base-rate pools.
+    admits: Callable[[corpus.CorpusRow], bool] | None = None
+
+    def in_segment(self, row: corpus.CorpusRow) -> bool:
+        """Whether this version scores and selects ``row`` (:attr:`admits`; all rows if unset)."""
+        return True if self.admits is None else self.admits(row)
 
     def reachable_bands(self, row: corpus.CorpusRow) -> tuple[str, ...]:
         """The bands ``row`` could occupy over its life, strongest-first.
@@ -515,6 +642,23 @@ _SAL_V4 = SalienceScorer(
     distribution_parse="dist-v2",
 )
 
+# sal-v5: registered, NOT active. `SALIENCE_VERSION` still names sal-v4, so the
+# live pass, the corpus stamp and every cell's frozen context are sal-v4's;
+# sal-v5's bands are published beside it in the statpack's `alt_segments` and
+# scored in every gate replay. The flip to sal-v5 is a separate registration
+# step (docs/salience.md).
+_SAL_V5 = SalienceScorer(
+    version="sal-v5",
+    score=_sal_v5_score,
+    band=_sal_v5_band,
+    bands=_SAL_V2_BAND_ORDER,  # the same band vocabulary, in the same order
+    carve_out=_sal_v5_carve_out,
+    selects_arrivals=True,
+    reachable=_sal_v5_reachable,
+    distribution_parse="dist-v2",
+    admits=_sal_v5_admits,
+)
+
 # Every registered version, keyed by label. A past ranking replays against the
 # function that produced it, so a version is only ever added here — never edited
 # and never removed, whatever the live pass currently scores with.
@@ -524,6 +668,7 @@ SCORERS: Mapping[str, SalienceScorer] = MappingProxyType(
         _SAL_V2.version: _SAL_V2,
         _SAL_V3.version: _SAL_V3,
         _SAL_V4.version: _SAL_V4,
+        _SAL_V5.version: _SAL_V5,
     }
 )
 
@@ -714,7 +859,11 @@ def distribution_census(
     frame_pending = 0
     count_increased = 0
     for row in corpus.iter_rows(conn, court="scotus"):
-        if not corpus.is_live_slice(row) or not caption._scored_segment(row):
+        if (
+            not corpus.is_live_slice(row)
+            or not caption._scored_segment(row)
+            or not active.in_segment(row)
+        ):
             continue
         term = corpus.scotus_term_year(row.docket_number)
         if term is None:
@@ -982,6 +1131,10 @@ def plan_cohorts(
     already_selected: set[str] = set()
     eligible = 0
     for row in rows:
+        # A row outside the version's own segment (sal-v5's Rule 20 writs) is
+        # neither scored nor selected under it, exactly like a Tier-0 row.
+        if not active.in_segment(row):
+            continue
         eligible += 1
         scores[row.case_id] = active.score(row)
         if row.salience_selected:
@@ -1290,7 +1443,11 @@ def _unlatch_scan(
     spared_undistributed = 0
     for row in corpus.iter_rows(conn, court="scotus"):
         pending = corpus.resolution_date(row) is None
-        if corpus.is_ifp_petition(row) or corpus.out_of_scope_reason_full(conn, row) is not None:
+        if (
+            corpus.is_ifp_petition(row)
+            or corpus.out_of_scope_reason_full(conn, row) is not None
+            or not active.in_segment(row)
+        ):
             if row.salience_selected and pending:
                 spared_out_of_scope += 1
             continue
