@@ -113,8 +113,23 @@ transcription to the stamp, and its freeze-record entry says so.
 grading whose scored prediction froze an anchor at provisioning
 (`context.cert_anchor`) stamps that anchor, pooled over the statpack in force
 when the forecast was placed, instead of pooling the statpack checked out at
-grading, once the stamp has verified it against a committed statpack build.
-The label therefore covers two readings: under `proc-v15` and later, a grading
+grading, once the stamp has verified it. The trust boundary is the cell's
+workspace: `record/context.json` is reachable from it, so the conditioning it
+carries — `band`, `salience_version` and `cert_anchor` alike — is
+agent-reachable, and the stamp verifies `cert_anchor` against inputs the agent
+cannot touch: the predict cell's harness-minted run id (the UTC timestamp its
+ledger directory is named with, minted before the cell is provisioned, never
+the document's own `created_at`, which is stamped after the agent runs), the
+committed history of `metrics/statpack.json`, and `config/tracking.yaml` as
+committed. The anchor must name the newest statpack build committed at or
+before that run id, record the `salience.base_rate_lookback_terms` committed
+at that build's commit, and carry the rate that build pools to over the scored
+context; an earlier real build, another window or another rate is refused, the
+anchor and skill are cleared with a warning, and the stamp's summary counts
+the refusals. Two builds that publish identical figures share a digest and so
+count as one build. A statpack commit landing between a run id's minting and
+its checkout makes the cell's honest anchor name a build later than the bound,
+which is refused rather than trusted. The label therefore covers two readings: under `proc-v15` and later, a grading
 of a cell provisioned without `cert_anchor` — placed before provisioning wrote
 the record, or with no readable statpack — still pools the statpack checked
 out at grading, and the grading's `base_rate_statpack_digest` names whichever

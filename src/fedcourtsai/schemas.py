@@ -833,9 +833,10 @@ class CertAnchor(_Strict):
     checked out when the cell was placed. The evaluator stamp reads it in place
     of re-pooling, so a statpack refresh landing between forecast and grading
     does not move the baseline the forecast is scored against — once it has
-    found the build ``statpack_digest`` names in the statpack's committed
-    history and re-pooled the rate over it, since the file is reachable from
-    the cell's workspace.
+    checked the record against harness-side inputs, since the file is reachable
+    from the cell's workspace: ``statpack_digest`` must name the newest build
+    committed by the predict cell's run id, ``lookback_terms`` the window
+    configured at that commit, and ``rate`` what that build pools to.
     """
 
     rate: float | None = Field(

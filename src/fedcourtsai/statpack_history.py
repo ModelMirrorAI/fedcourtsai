@@ -1,72 +1,133 @@
-"""The committed statpack builds, read back from git, and the check a frozen anchor answers to.
+"""The statpack build in force at provisioning, and the check a frozen anchor answers to.
 
 A cert cell's ``context.cert_anchor`` is written at provisioning into
-``record/context.json``, a file the cell's own workspace can reach. The
-digest it names is therefore a claim, not a fact, until a committed build
-carries it: :func:`verify_cert_anchor` finds that build in the history of
-``metrics/statpack.json``, re-pools the anchor over it with the scorer's own
-pooler, and accepts the record only where the rate reproduces and the build
-was committed no later than the prediction it scores.
+``record/context.json``, a file the cell's own workspace can reach, so every
+field of it is a claim. Checking the record against itself proves nothing — an
+edited record can name any older real build, any window, and the rate that
+build pools to — so :func:`verify_cert_anchor` derives the anchor that was in
+force from inputs the agent cannot reach, and accepts the record only where it
+is that anchor:
 
-The history is read through an injectable :data:`StatpackHistory`, so a test
-hands in revisions directly; :func:`git_statpack_history` is the production
-reader. It walks ``git log`` from ``HEAD``, newest first, which needs the full
-history the evaluate and analytics checkouts fetch: a shallow clone sees only
-the revisions it holds, and a build it cannot see is refused rather than
-trusted.
+- the **bound** is the predict cell's run id, the UTC timestamp the harness
+  mints before the cell is provisioned and names its ledger directory with
+  (never the document's own ``run_id`` or ``created_at``, the second of which
+  is stamped after the agent has run);
+- the **build** is the newest committed revision of ``metrics/statpack.json``
+  at or before that bound, and the record must name its digest — an earlier
+  build is refused even where it is real;
+- the **window** is ``salience.base_rate_lookback_terms`` as committed in
+  ``config/tracking.yaml`` at that build's commit;
+- the **rate** is :func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`
+  over the scored context and that build under that window.
+
+Two builds that publish identical figures share a digest
+(:func:`fedcourtsai.pipeline.base_rates.statpack_digest`) and so verify as one.
+
+The history is read through an injectable :class:`StatpackHistory`, so a test
+hands in revisions directly; :class:`GitStatpackHistory` is the production
+reader. It needs the full history the evaluate and analytics checkouts fetch: a
+shallow clone sees only the revisions it holds, and an anchor its history
+cannot place is refused rather than trusted. Blobs are read with
+``cat-file blob`` under ``--no-replace-objects``, so a ``refs/replace`` entry
+cannot stand a different object in for a committed one.
 """
 
 from __future__ import annotations
 
 import math
 import subprocess
-from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Protocol
 
+import yaml
+from pydantic import ValidationError
+
+from .config import TRACKING_FILENAME, SalienceConfig
 from .pipeline.base_rates import prediction_base_rate, statpack_digest
 from .schemas import CertAnchor, PredictionContext, StatPack
 
-#: One committed revision of the statpack: when it was committed, and its text.
-StatpackRevision = tuple[datetime, str]
-
-#: The revisions of ``metrics_root/statpack.json``, newest first.
-StatpackHistory = Callable[[Path], Iterable[StatpackRevision]]
-
-#: How far a frozen rate may sit from its re-pool over the build it names. Float
+#: How far a frozen rate may sit from its re-pool over the build in force. Float
 #: noise only: both sides run one pooler over one build and one window.
 FROZEN_ANCHOR_TOLERANCE = 1e-9
 
 _GIT_TIMEOUT_SECONDS = 30
 
 
-def git_statpack_history(metrics_root: Path) -> Iterator[StatpackRevision]:
-    """Every committed revision of ``metrics_root/statpack.json`` reachable from ``HEAD``.
+@dataclass(frozen=True)
+class CommittedBuild:
+    """One committed revision of ``metrics/statpack.json``."""
 
-    Newest first, lazily, so a caller that stops at its match reads no older
-    revision. Yields nothing where git is missing, ``metrics_root`` is not in a
-    work tree, or a read fails: an unreadable history verifies no anchor.
-    """
-    log = _git(metrics_root, "log", "--format=%H %cI", "--", "statpack.json")
-    if log is None:
-        return
-    for line in log.splitlines():
-        sha, _, when = line.partition(" ")
-        text = _git(metrics_root, "show", f"{sha}:./statpack.json")
+    sha: str
+    committed_at: datetime
+    statpack: StatPack | None
+    """The parsed pack, or ``None`` where the blob does not parse as the current model."""
+
+
+class StatpackHistory(Protocol):
+    """The harness-side record a frozen anchor is checked against."""
+
+    def newest_build(self, bound: datetime) -> CommittedBuild | None:
+        """The newest committed statpack revision at or before ``bound``, or ``None``."""
+        ...
+
+    def lookback_terms_at(self, sha: str) -> int | None:
+        """``salience.base_rate_lookback_terms`` as committed at ``sha``, or ``None``."""
+        ...
+
+
+class GitStatpackHistory:
+    """:class:`StatpackHistory` over the repository ``metrics_root`` and ``config_root`` sit in."""
+
+    def __init__(self, metrics_root: Path, config_root: Path) -> None:
+        self._metrics_root = metrics_root
+        self._config_root = config_root
+
+    def newest_build(self, bound: datetime) -> CommittedBuild | None:
+        """By committer date, over every revision reachable from ``HEAD``.
+
+        ``None`` where git is missing, ``metrics_root`` is in no work tree, no
+        revision is that old, or the chosen blob cannot be read.
+        """
+        log = _git(self._metrics_root, "log", "--format=%H %cI", "--", "statpack.json")
+        if log is None:
+            return None
+        newest: tuple[datetime, str] | None = None
+        for line in log.splitlines():
+            sha, _, when = line.partition(" ")
+            try:
+                committed = datetime.fromisoformat(when)
+            except ValueError:
+                continue
+            if committed <= bound and (newest is None or committed > newest[0]):
+                newest = (committed, sha)
+        if newest is None:
+            return None
+        text = _git(self._metrics_root, "cat-file", "blob", f"{newest[1]}:./statpack.json")
         if text is None:
-            continue
+            return None
         try:
-            committed = datetime.fromisoformat(when)
+            pack: StatPack | None = StatPack.model_validate_json(text)
         except ValueError:
-            continue
-        yield committed, text
+            pack = None
+        return CommittedBuild(sha=newest[1], committed_at=newest[0], statpack=pack)
+
+    def lookback_terms_at(self, sha: str) -> int | None:
+        text = _git(self._config_root, "cat-file", "blob", f"{sha}:./{TRACKING_FILENAME}")
+        if text is None:
+            return None
+        try:
+            data = yaml.safe_load(text) or {}
+            return SalienceConfig.model_validate(data.get("salience", {})).base_rate_lookback_terms
+        except (yaml.YAMLError, ValidationError, AttributeError):
+            return None
 
 
 def _git(cwd: Path, *args: str) -> str | None:
     try:
         out = subprocess.run(
-            ["git", "-C", str(cwd), *args],
+            ["git", "--no-replace-objects", "-C", str(cwd), *args],
             capture_output=True,
             text=True,
             check=True,
@@ -77,60 +138,53 @@ def _git(cwd: Path, *args: str) -> str | None:
     return out.stdout
 
 
-@dataclass(frozen=True)
-class CommittedBuild:
-    """The committed statpack whose digest a frozen anchor names."""
-
-    committed_at: datetime
-    statpack: StatPack
-
-
-def find_statpack_build(
-    digest: str, revisions: Iterable[StatpackRevision]
-) -> CommittedBuild | None:
-    """The newest committed revision whose :func:`statpack_digest` is ``digest``, or ``None``.
-
-    A revision that does not parse as the current :class:`StatPack` is
-    skipped: its digest under this model is not the one any reader computes.
-    """
-    for committed_at, text in revisions:
-        try:
-            pack = StatPack.model_validate_json(text)
-        except ValueError:
-            continue
-        if statpack_digest(pack) == digest:
-            return CommittedBuild(committed_at=committed_at, statpack=pack)
-    return None
-
-
 def verify_cert_anchor(
     anchor: CertAnchor,
     context: PredictionContext,
-    predicted_at: datetime,
-    revisions: Iterable[StatpackRevision],
+    provisioned_by: datetime,
+    history: StatpackHistory,
 ) -> str | None:
-    """Why ``anchor`` cannot be trusted, or ``None`` where it verifies.
+    """Why ``anchor`` is not the anchor in force at ``provisioned_by``, or ``None``.
 
-    It verifies where a committed build carries the digest it names, that build
-    was committed no later than ``predicted_at`` (the forecast cannot have been
-    placed against a pack that did not exist yet), and
-    :func:`prediction_base_rate` over ``context`` and that build, under the
-    recorded window, yields the recorded rate — a null rate only where the pool
-    is empty too.
+    ``provisioned_by`` is the predict cell's harness-minted run-id time. The
+    anchor verifies where it names the digest of the newest statpack build
+    committed at or before it, records the lookback window configured at that
+    build's commit, and carries the rate that build pools to over ``context``
+    under that window — a null rate only where the pool is empty too.
     """
-    build = find_statpack_build(anchor.statpack_digest, revisions)
+    build = history.newest_build(provisioned_by)
     if build is None:
-        return f"no committed statpack build carries {anchor.statpack_digest}"
-    if build.committed_at > predicted_at:
-        return (
-            f"the statpack build {anchor.statpack_digest} was committed "
-            f"{build.committed_at.isoformat()}, after the prediction"
-        )
+        return f"no committed statpack build at or before {provisioned_by.isoformat()}"
+    if build.statpack is None:
+        return f"the statpack build in force ({build.sha[:12]}) does not parse"
+    refusal = _in_force_refusal(anchor, build.sha, build.statpack, history)
+    if refusal is not None:
+        return refusal
     expected = prediction_base_rate(context, build.statpack, lookback_terms=anchor.lookback_terms)
-    if expected is None or anchor.rate is None:
-        if expected is None and anchor.rate is None:
-            return None
-        return "the frozen rate does not re-pool from the build it names"
-    if not math.isclose(expected, anchor.rate, rel_tol=0.0, abs_tol=FROZEN_ANCHOR_TOLERANCE):
-        return "the frozen rate does not re-pool from the build it names"
+    reproduces = (
+        expected is None and anchor.rate is None
+        if expected is None or anchor.rate is None
+        else math.isclose(expected, anchor.rate, rel_tol=0.0, abs_tol=FROZEN_ANCHOR_TOLERANCE)
+    )
+    return None if reproduces else "the frozen rate does not re-pool from the build in force"
+
+
+def _in_force_refusal(
+    anchor: CertAnchor, sha: str, statpack: StatPack, history: StatpackHistory
+) -> str | None:
+    """Why ``anchor`` does not name the build and window in force at ``sha``, or ``None``."""
+    in_force = statpack_digest(statpack)
+    if anchor.statpack_digest != in_force:
+        return (
+            f"it names {anchor.statpack_digest}, not the build in force at provisioning "
+            f"({sha[:12]}, {in_force})"
+        )
+    lookback = history.lookback_terms_at(sha)
+    if lookback is None:
+        return f"no configured lookback window is readable at {sha[:12]}"
+    if anchor.lookback_terms != lookback:
+        return (
+            f"it records lookback_terms {anchor.lookback_terms}, not the {lookback} "
+            f"configured at {sha[:12]}"
+        )
     return None

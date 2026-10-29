@@ -14,7 +14,10 @@ one. These run the real command over seeded cells.
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime
+import os
+import subprocess
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -44,15 +47,14 @@ from fedcourtsai.schemas import (
     StatPackTermVersionSegments,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
-from fedcourtsai.statpack_history import (
-    StatpackRevision,
-    find_statpack_build,
-    git_statpack_history,
-)
+from fedcourtsai.statpack_history import CommittedBuild, GitStatpackHistory, verify_cert_anchor
 
 runner = CliRunner()
 
 _EVENT = "evt-petition-disposition"
+#: The seeded cells' run id: the harness-minted time a frozen anchor is bound by.
+_RUN = "20261001T120000Z"
+_PROVISIONED = datetime(2026, 10, 1, 12, tzinfo=UTC)
 #: A salience version the rendered statpack table no longer shows: it survives
 #: only in the Terms' `alt_segments`, which is the case a judge transcribing
 #: `metrics/statpack.md` could not pool and recorded null for.
@@ -130,13 +132,13 @@ def _seed(
         ),
     )
     write_json(
-        event_paths.prediction("claude-baseline", "RID"),
+        event_paths.prediction("claude-baseline", _RUN),
         Prediction(
             case_id=f"scotus/{docket}",
             event_id=_EVENT,
             predictor_id="claude-baseline",
             engine="claude-code",
-            run_id="RID",
+            run_id=_RUN,
             created_at=datetime(2026, 10, 1, tzinfo=UTC),
             input_snapshot="record/snapshots/2026-10-01.json",
             granted=0,
@@ -157,14 +159,14 @@ def _seed(
     )
     brier = 0.04
     write_json(
-        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        event_paths.evaluation("claude-judge", "claude-baseline", _RUN),
         Evaluation(
             case_id=f"scotus/{docket}",
             event_id=_EVENT,
             predictor_id="claude-baseline",
             evaluator_id="claude-judge",
             engine="claude-code",
-            run_id="RID",
+            run_id=_RUN,
             created_at=datetime(2026, 10, 7, tzinfo=UTC),
             correct=1,
             brier_score=brier,
@@ -201,7 +203,7 @@ def _stamp(docket: int) -> Result:
             "--event",
             _EVENT,
             "--run-id",
-            "RID",
+            _RUN,
             "--role",
             "evaluator",
             "--actor",
@@ -215,7 +217,7 @@ def _stamp(docket: int) -> Result:
 
 
 def _stamped(event_paths: EventPaths) -> dict[str, object]:
-    path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
     loaded: dict[str, object] = json.loads(path.read_text())
     return loaded
 
@@ -337,7 +339,7 @@ def test_a_terminal_relabel_of_a_frozen_band_is_overwritten_and_said(
     since a discarded basis is not a number the numeric echo would catch."""
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v9")
     event_paths = _seed(_roots, 9, context=_frozen())
-    path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
     write_json(
         path,
         read_model(path, Evaluation).model_copy(update={"base_rate_basis": "terminal"}),
@@ -359,7 +361,7 @@ def test_a_prediction_with_no_frozen_band_keeps_the_evaluators_terminal_record(
     stamp does not make, so that record stays the evaluator's even from proc-v9."""
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v9")
     event_paths = _seed(_roots, 4, context=None)
-    path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
     write_json(
         path,
         read_model(path, Evaluation).model_copy(update={"base_rate_basis": "terminal"}),
@@ -383,7 +385,7 @@ def test_the_board_re_pools_a_stamped_anchor_against_the_build_it_names(
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v9")
     event_paths = _seed(_roots, 5, context=_frozen())
     assert _stamp(5).exit_code == 0
-    path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
     record = read_model(path, Evaluation)
     pack = read_model(tmp_path / "metrics" / "statpack.json", StatPack)
     digest = statpack_digest(pack)
@@ -447,7 +449,7 @@ def test_a_regrade_recomputes_a_harness_owned_cert_record_rather_than_refusing(
             "--event",
             _EVENT,
             "--run-id",
-            "RID",
+            _RUN,
             "--role",
             "evaluator",
             "--actor",
@@ -473,18 +475,33 @@ def _refreshed() -> StatPack:
     )
 
 
-@pytest.fixture(autouse=True)
-def _history(monkeypatch: pytest.MonkeyPatch) -> list[StatpackRevision]:
-    """The statpack's committed history the frozen-anchor check walks, newest first.
+@dataclass
+class _History:
+    """The harness-side record the frozen-anchor check reads, held in memory."""
 
-    One build, `_statpack()`, committed before every seeded prediction
-    (`created_at` 2026-10-01); a test prepends later revisions.
-    """
-    revisions: list[StatpackRevision] = [
-        (datetime(2026, 9, 1, tzinfo=UTC), _statpack().model_dump_json())
-    ]
-    monkeypatch.setattr(cli, "_statpack_history", lambda _root: list(revisions))
-    return revisions
+    builds: list[CommittedBuild]
+    lookbacks: dict[str, int]
+
+    def newest_build(self, bound: datetime) -> CommittedBuild | None:
+        candidates = [build for build in self.builds if build.committed_at <= bound]
+        return max(candidates, key=lambda build: build.committed_at) if candidates else None
+
+    def lookback_terms_at(self, sha: str) -> int | None:
+        return self.lookbacks.get(sha)
+
+    def add(self, sha: str, committed_at: datetime, pack: StatPack, lookback: int = 10) -> None:
+        self.builds.append(CommittedBuild(sha=sha, committed_at=committed_at, statpack=pack))
+        self.lookbacks[sha] = lookback
+
+
+@pytest.fixture(autouse=True)
+def _history(monkeypatch: pytest.MonkeyPatch) -> _History:
+    """One build, `_statpack()`, committed before every seeded cell's run id with
+    the configured window of 10; a test adds later revisions."""
+    history = _History(builds=[], lookbacks={})
+    history.add("a" * 40, datetime(2026, 9, 1, tzinfo=UTC), _statpack())
+    monkeypatch.setattr(cli, "_statpack_history", lambda _settings: history)
+    return history
 
 
 def _pinned(pack: StatPack | None = None) -> PredictionContext:
@@ -521,16 +538,16 @@ def test_from_proc_v15_a_refresh_after_provisioning_does_not_move_the_anchor(
     _roots: Path,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
-    _history: list[StatpackRevision],
+    _history: _History,
 ) -> None:
     """The cell froze its anchor against the build in force at placement; a
-    refresh lands before grading; the stamp finds the past build in history,
-    verifies the frozen anchor against it, and copies it rather than
+    refresh lands before grading; the stamp finds the build newest at the cell's
+    run id, verifies the frozen anchor against it, and copies it rather than
     re-pooling the pack now checked out."""
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
     placed = _statpack()
     event_paths = _seed(_roots, 11, context=_pinned(placed))
-    _history.insert(0, (datetime(2026, 10, 5, tzinfo=UTC), _refreshed().model_dump_json()))
+    _history.add("b" * 40, datetime(2026, 10, 5, tzinfo=UTC), _refreshed())
     write_json(tmp_path / "metrics" / "statpack.json", _refreshed())
 
     result = _stamp(11)
@@ -555,10 +572,23 @@ def _assert_cleared(stamped: dict[str, object]) -> None:
     assert stamped["brier_score"] == pytest.approx(0.04)
 
 
+def _assert_refused(_roots: Path, docket: int, anchor: CertAnchor | None, reason: str) -> None:
+    context = _frozen().model_copy(update={"cert_anchor": anchor})
+    event_paths = _seed(_roots, docket, context=context)
+
+    result = _stamp(docket)
+
+    assert result.exit_code == 0, result.output
+    assert "frozen cert anchor does not verify" in result.output
+    assert reason in result.output
+    assert "refused 1 frozen cert anchor(s)" in result.output  # the summary's count
+    _assert_cleared(_stamped(event_paths))
+
+
 @pytest.mark.parametrize(
     ("anchor", "reason"),
     [
-        # A real build's digest beside a rate it does not pool to.
+        # The real build in force, beside a rate it does not pool to.
         (
             CertAnchor(rate=0.25, statpack_digest=statpack_digest(_statpack()), lookback_terms=10),
             "does not re-pool",
@@ -566,41 +596,46 @@ def _assert_cleared(stamped: dict[str, object]) -> None:
         # A digest no committed build carries.
         (
             CertAnchor(rate=0.25, statpack_digest="sha256:invented", lookback_terms=10),
-            "no committed",
+            "not the build in force",
+        ),
+        # The build in force and the rate it pools to, under a window the config
+        # at that commit does not name.
+        (
+            freeze_cert_anchor(_frozen(), _statpack(), lookback_terms=1),
+            "lookback_terms 1, not the 10",
         ),
     ],
-    ids=["tampered-rate", "unknown-digest"],
+    ids=["tampered-rate", "unknown-digest", "unconfigured-lookback"],
 )
 def test_a_frozen_anchor_that_does_not_verify_is_refused_out_loud(
     _roots: Path, monkeypatch: pytest.MonkeyPatch, anchor: CertAnchor, reason: str
 ) -> None:
     """`record/context.json` is reachable from the cell, so a frozen record is
-    copied only where a committed build backs it; otherwise the anchor is
-    cleared, never graded against."""
+    copied only where it is the anchor harness-side inputs say was in force;
+    otherwise it is cleared, warned, and counted."""
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
-    event_paths = _seed(_roots, 12, context=_frozen().model_copy(update={"cert_anchor": anchor}))
-
-    result = _stamp(12)
-
-    assert result.exit_code == 0, result.output
-    assert "frozen cert anchor does not verify" in result.output
-    assert reason in result.output
-    _assert_cleared(_stamped(event_paths))
+    _assert_refused(_roots, 12, anchor, reason)
 
 
-def test_a_build_committed_after_the_prediction_is_refused(
-    _roots: Path, monkeypatch: pytest.MonkeyPatch, _history: list[StatpackRevision]
+def test_an_older_real_build_is_refused(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _history: _History
 ) -> None:
+    """A self-consistent record over a real build that a later one had replaced
+    by provisioning: every internal check passes, and it is still refused."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    _history.add("c" * 40, datetime(2026, 9, 20, tzinfo=UTC), _refreshed())
+    _assert_refused(_roots, 18, _pinned(_statpack()).cert_anchor, "not the build in force")
+
+
+def test_a_build_committed_after_provisioning_is_refused(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _history: _History
+) -> None:
+    """Committed after the cell's run id but before the stamp — inside the run —
+    so no cell could have been placed against it."""
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
     later = _refreshed()
-    _history.insert(0, (datetime(2026, 10, 5, tzinfo=UTC), later.model_dump_json()))
-    event_paths = _seed(_roots, 17, context=_pinned(later))
-
-    result = _stamp(17)
-
-    assert result.exit_code == 0, result.output
-    assert "after the prediction" in result.output
-    _assert_cleared(_stamped(event_paths))
+    _history.add("d" * 40, datetime(2026, 10, 1, 12, 30, tzinfo=UTC), later)
+    _assert_refused(_roots, 17, _pinned(later).cert_anchor, "not the build in force")
 
 
 def test_a_verified_frozen_empty_pool_clears_the_anchor_quietly(
@@ -659,9 +694,7 @@ def test_the_board_accepts_a_pinned_anchor_across_a_refresh_and_drops_a_mismatch
     placed = _statpack()
     event_paths = _seed(_roots, 16, context=_pinned(placed))
     assert _stamp(16).exit_code == 0
-    record = read_model(
-        event_paths.evaluation("claude-judge", "claude-baseline", "RID"), Evaluation
-    )
+    record = read_model(event_paths.evaluation("claude-judge", "claude-baseline", _RUN), Evaluation)
     cases = _roots / "cases"
     refreshed = _refreshed()
 
@@ -692,19 +725,63 @@ def test_the_board_accepts_a_pinned_anchor_across_a_refresh_and_drops_a_mismatch
     assert reproduces(earlier, refreshed)
 
 
-def test_the_history_lookup_stops_at_the_newest_matching_build() -> None:
-    pack = _statpack()
-    revisions: list[StatpackRevision] = [
-        (datetime(2026, 10, 9, tzinfo=UTC), "{not a statpack"),
-        (datetime(2026, 10, 5, tzinfo=UTC), _refreshed().model_dump_json()),
-        (datetime(2026, 9, 1, tzinfo=UTC), pack.model_dump_json()),
-        (datetime(2026, 8, 1, tzinfo=UTC), pack.model_dump_json()),
-    ]
-    build = find_statpack_build(statpack_digest(pack), revisions)
-    assert build is not None
-    assert build.committed_at == datetime(2026, 9, 1, tzinfo=UTC)
-    assert find_statpack_build("sha256:invented", revisions) is None
+def test_the_check_binds_to_the_time_it_is_given() -> None:
+    """The stamp passes the run directory's run id; a build committed a second
+    after it is out of reach, and in reach from a bound a second later."""
+    history = _History(builds=[], lookbacks={})
+    history.add("a" * 40, datetime(2026, 9, 1, tzinfo=UTC), _statpack())
+    history.add("b" * 40, _PROVISIONED + timedelta(seconds=1), _refreshed())
+    anchor = _pinned(_statpack()).cert_anchor
+    later = _pinned(_refreshed()).cert_anchor
+    assert anchor is not None and later is not None
+    assert verify_cert_anchor(anchor, _frozen(), _PROVISIONED, history) is None
+    assert verify_cert_anchor(later, _frozen(), _PROVISIONED, history) is not None
+    later_bound = _PROVISIONED + timedelta(seconds=1)
+    assert verify_cert_anchor(later, _frozen(), later_bound, history) is None
 
 
-def test_a_metrics_root_outside_any_work_tree_has_no_history(tmp_path: Path) -> None:
-    assert list(git_statpack_history(tmp_path / "metrics")) == []
+def _run_git(repo: Path, *args: str, when: str | None = None) -> None:
+    env = dict(os.environ)
+    if when is not None:
+        env |= {"GIT_COMMITTER_DATE": when, "GIT_AUTHOR_DATE": when}
+    identity = ["-c", "user.name=t", "-c", "user.email=t@example.invalid"]
+    subprocess.run(
+        ["git", "-C", str(repo), *identity, *args],
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+
+
+def test_the_git_reader_returns_the_build_and_window_committed_together(tmp_path: Path) -> None:
+    """Newest revision at or before the bound by committer date, read as a blob,
+    with the lookback the config at that same commit names."""
+    repo = tmp_path / "repo"
+    (repo / "metrics").mkdir(parents=True)
+    (repo / "config").mkdir()
+    _run_git(repo, "init", "-q")
+    for pack, lookback, when in (
+        (_statpack(), 10, "2026-09-01T00:00:00Z"),
+        (_refreshed(), 7, "2026-10-05T00:00:00Z"),
+    ):
+        write_json(repo / "metrics" / "statpack.json", pack)
+        (repo / "config" / "tracking.yaml").write_text(
+            f"salience:\n  base_rate_lookback_terms: {lookback}\n"
+        )
+        _run_git(repo, "add", "-A")
+        _run_git(repo, "commit", "-q", "-m", "build", when=when)
+    history = GitStatpackHistory(repo / "metrics", repo / "config")
+
+    build = history.newest_build(_PROVISIONED)
+
+    assert build is not None and build.statpack is not None
+    assert statpack_digest(build.statpack) == statpack_digest(_statpack())
+    assert history.lookback_terms_at(build.sha) == 10
+    newest = history.newest_build(datetime(2026, 10, 6, tzinfo=UTC))
+    assert newest is not None and newest.statpack is not None
+    assert history.lookback_terms_at(newest.sha) == 7
+    assert history.newest_build(datetime(2026, 8, 1, tzinfo=UTC)) is None
+
+
+def test_a_metrics_root_outside_any_work_tree_has_no_build(tmp_path: Path) -> None:
+    assert GitStatpackHistory(tmp_path / "m", tmp_path / "c").newest_build(_PROVISIONED) is None

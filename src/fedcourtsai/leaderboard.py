@@ -1775,8 +1775,9 @@ def _anchor_reproduces(
     moved the board's own statpack; one that disagrees with its pin is dropped,
     as a non-reproducing re-pool is. A grading whose build is also the board's
     is then re-pooled besides. The stamp has already verified the pin itself —
-    it copies a frozen anchor only where a committed statpack build carries its
-    digest and re-pools to its rate
+    it copies a frozen anchor only where it names the newest statpack build
+    committed by the predict cell's run id, under the window configured at that
+    commit, and re-pools to its rate
     (:func:`fedcourtsai.statpack_history.verify_cert_anchor`) — so this check
     holds the grading to the pin rather than the pin to a build.
 

@@ -492,6 +492,7 @@ from .schemas import (
     BlindingRecord,
     CellFailure,
     CellMode,
+    CertAnchor,
     CertBacktest,
     CertBacktestCellClock,
     CertBacktestCellLoss,
@@ -577,6 +578,7 @@ from .store import (
     prediction_counts,
     resolved_events,
     scored_prediction,
+    scored_prediction_cell,
     stratify,
     unforecastable_listed_events,
 )
@@ -10838,6 +10840,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
 
     graded = 0
     basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
+    refusals: list[str] = []
     for path in targets:
         if not path.is_file():
             continue
@@ -10894,24 +10897,45 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
                 else process_version.CURRENT_PROCESS_LABEL
             )
             skill_fields, basis_records[path] = _skill_record_for(
-                event_paths, record, settings, label, regrade=regrade
+                event_paths, record, settings, label, regrade=regrade, anchor_refusals=refusals
             )
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
         graded += 1
 
-    if graded == 0:
-        _report_no_targets(regrade, role, actor)
-        return
     # Echoed before the guard so a failed cell's log still says how many stamps
     # landed; the guard is judged after every cell is written, so one
     # unresolvable record does not strand the run's remaining stamps.
+    if not _report_stamped(regrade, role, actor, digest, graded, refusals):
+        return
+    _fail_on_mispaired_basis(basis_records)
+
+
+def _report_stamped(
+    regrade: bool, role: str, actor: str, digest: str, graded: int, refusals: Sequence[str]
+) -> bool:
+    """The stamp's summary: what it wrote, and any frozen cert anchors it refused.
+
+    False, after :func:`_report_no_targets`, where nothing was stamped. The
+    refused anchors are counted as well as warned per cell, so a history that
+    stopped verifying them — a shallow checkout, a rewritten config — reads as
+    one visible line rather than as skill scores quietly cleared.
+    """
+    if graded == 0:
+        _report_no_targets(regrade, role, actor)
+        return False
     typer.echo(
         f"regrade: {actor} -> {graded} file(s); process_version left as stamped"
         if regrade
         else f"stamp: {actor} {digest} -> {graded} file(s)"
     )
-    _fail_on_mispaired_basis(basis_records)
+    if refusals:
+        typer.echo(
+            f"::warning::stamp: {actor} refused {len(refusals)} frozen cert anchor(s) that "
+            + "did not verify against the committed statpack history; their skill is cleared.",
+            err=True,
+        )
+    return True
 
 
 def _report_no_targets(regrade: bool, role: str, actor: str) -> None:
@@ -12191,6 +12215,7 @@ def _skill_record_for(
     label: str | None,
     *,
     regrade: bool = False,
+    anchor_refusals: list[str] | None = None,
 ) -> tuple[dict[str, object], tuple[str | None, str | None, Prediction | None]]:
     """This cell's ``correct`` and skill record as a stamp update, plus its basis trio.
 
@@ -12245,7 +12270,12 @@ def _skill_record_for(
     context the fallback declined to use. The prediction rides only on a
     **cert** cell: the frozen-band pairing is a cert-petition concept, so on a
     stage-less event a case-level frozen band must not reach the guard.
+
+    ``anchor_refusals`` collects each frozen cert anchor the stamp refused to
+    copy (:func:`_cert_anchor_for`), for the caller's summary.
     """
+    if anchor_refusals is None:
+        anchor_refusals = []
     outcome = _outcome_for(event_paths)
     correct = _harness_correct_for(event_paths, evaluation, outcome)
     # The one field the evaluate prompt requires of every cell, so a null is a
@@ -12262,7 +12292,14 @@ def _skill_record_for(
             # Narrowing only: the predicate requires a scored prediction.
             assert latest is not None
             fields, basis, version = _cert_skill_record_for(
-                event_paths, evaluation, settings, outcome, latest, label=label, regrade=regrade
+                event_paths,
+                evaluation,
+                settings,
+                outcome,
+                latest,
+                label=label,
+                regrade=regrade,
+                anchor_refusals=anchor_refusals,
             )
             return {"correct": correct} | fields, (basis, version, latest)
         context = latest.context if latest is not None else None
@@ -12328,6 +12365,7 @@ def _cert_skill_record_for(
     *,
     label: str | None,
     regrade: bool,
+    anchor_refusals: list[str],
 ) -> tuple[dict[str, object], str | None, str | None]:
     """The harness's whole cert skill record, for a cell :func:`_harness_owns_cert_record` admits.
 
@@ -12383,7 +12421,9 @@ def _cert_skill_record_for(
         basis = evaluation.base_rate_basis
         version = evaluation.base_rate_salience_version
     else:
-        rate, digest, lookback = _cert_anchor_for(scored, settings, label)
+        rate, digest, lookback = _cert_anchor_for(
+            event_paths, evaluation, scored, settings, label, anchor_refusals
+        )
         _warn_on_discarded_number(
             evaluation, "segment_base_rate", evaluation.segment_base_rate, rate
         )
@@ -12415,7 +12455,12 @@ def _cert_skill_record_for(
 
 
 def _cert_anchor_for(
-    scored: Prediction, settings: Settings, label: str | None
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    scored: Prediction,
+    settings: Settings,
+    label: str | None,
+    anchor_refusals: list[str],
 ) -> tuple[float | None, str | None, int | None]:
     """The cert anchor this grading stamps: ``(rate, statpack build, lookback window)``.
 
@@ -12427,25 +12472,29 @@ def _cert_anchor_for(
     the rate they produced.
 
     **A frozen anchor is verified before it is copied.** ``record/context.json``
-    is reachable from the cell's workspace, so the record is a claim until a
-    committed statpack build backs it
-    (:func:`fedcourtsai.statpack_history.verify_cert_anchor`): the build it
-    names must be in the history of ``metrics/statpack.json``, committed no
-    later than the prediction, and re-pool to the recorded rate. Where it does
-    not, the anchor is cleared with a warning — the cell is not graded against
-    a baseline nothing can reproduce, the same omission a missing statpack is.
+    is reachable from the cell's workspace, so every field of the record is a
+    claim, and it is checked against inputs the agent cannot reach
+    (:func:`fedcourtsai.statpack_history.verify_cert_anchor`): it must name the
+    newest statpack build committed at or before the scored predict cell's run
+    id — the UTC timestamp the harness mints before provisioning and names the
+    ledger directory with, read off that directory rather than the document —
+    record the lookback window configured at that build's commit, and carry the
+    rate that build pools to. Where it does not, the anchor is cleared with a
+    warning and the refusal is appended to ``anchor_refusals`` for the stamp's
+    summary — the cell is not graded against an anchor nothing harness-side
+    vouches for, the same omission a missing statpack is.
     """
     context = scored.context
     frozen = context.cert_anchor if context is not None else None
     if context is None or frozen is None or not process_version.pins_cert_anchor(label):
         return _pool_cert_anchor(scored, settings)
-    refusal = statpack_history.verify_cert_anchor(
-        frozen, context, scored.created_at, _statpack_history(settings.metrics_root)
-    )
+    refusal = _anchor_refusal(event_paths, evaluation, frozen, context, settings)
     if refusal is not None:
+        anchor_refusals.append(refusal)
         typer.echo(
-            f"::warning::stamp: the frozen cert anchor does not verify ({refusal}) — this "
-            + "cert cell's segment base rate and skill are cleared rather than copied.",
+            f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id}: the frozen "
+            + f"cert anchor does not verify ({refusal}) — this cert cell's segment base rate "
+            + "and skill are cleared rather than copied.",
             err=True,
         )
         return None, None, None
@@ -12454,9 +12503,41 @@ def _cert_anchor_for(
     return frozen.rate, frozen.statpack_digest, frozen.lookback_terms
 
 
-#: The reader the frozen-anchor check walks the statpack's history with: the
-#: log of ``metrics/statpack.json`` from ``HEAD``. A seam for tests.
-_statpack_history: statpack_history.StatpackHistory = statpack_history.git_statpack_history
+def _anchor_refusal(
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    frozen: CertAnchor,
+    context: PredictionContext,
+    settings: Settings,
+) -> str | None:
+    """Why the scored cell's frozen anchor does not verify, or ``None`` where it does.
+
+    The bound is the run id of the predict cell's ledger directory, the one
+    :func:`fedcourtsai.store.scored_prediction_cell` resolves the graded
+    prediction from — the harness's name for the run, never the document's own
+    ``run_id`` field.
+    """
+    cell = scored_prediction_cell(
+        event_paths.base, evaluation.predictor_id, evaluation.prediction_run_id
+    )
+    if cell is None:
+        return "the scored prediction's run directory does not resolve"
+    try:
+        provisioned_by = ids.parse_run_id(cell[0].name)
+    except ValueError:
+        return f"the scored run directory {cell[0].name!r} is not a run id"
+    return statpack_history.verify_cert_anchor(
+        frozen, context, provisioned_by, _statpack_history(settings)
+    )
+
+
+def _git_statpack_history(settings: Settings) -> statpack_history.StatpackHistory:
+    return statpack_history.GitStatpackHistory(settings.metrics_root, settings.config_root)
+
+
+#: The harness-side record the frozen-anchor check reads: the committed history
+#: of ``metrics/statpack.json`` and of the config beside it. A seam for tests.
+_statpack_history: Callable[[Settings], statpack_history.StatpackHistory] = _git_statpack_history
 
 
 def _cert_anchor_pool(

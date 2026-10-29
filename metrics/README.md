@@ -493,10 +493,12 @@ stays outside the gate:
   same pool over the statpack in force when the forecast was placed, with that
   build's digest and the window — and the stamp copies it, so a metrics
   refresh landing between forecast and grading does not move the anchor. The
-  stamp copies it only once verified: the build it names must be a committed
-  revision of `metrics/statpack.json`, committed no later than the
-  prediction, and re-pool to the frozen rate; otherwise the anchor and skill
-  are cleared with a warning. The board then holds such a grading to its pin
+  stamp copies it only once verified against harness-side inputs: it must
+  name the newest revision of `metrics/statpack.json` committed at or before
+  the predict cell's run id, record the lookback window `config/tracking.yaml`
+  names at that commit, and re-pool to the frozen rate; otherwise the anchor
+  and skill are cleared with a warning, and the stamp's summary counts the
+  refusals. The board then holds such a grading to its pin
   whatever its own build: one that records the pinned build, window and rate
   is accepted, one that disagrees with its pin is dropped. A grading that
   pools the statpack checked out at grading — an earlier label's, or one whose

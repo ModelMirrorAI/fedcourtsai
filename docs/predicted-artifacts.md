@@ -1039,10 +1039,11 @@ who writes the baseline on each:
   context carries a `cert_anchor`, those three are copied from it rather than
   pooled from the statpack checked out at grading, so a metrics refresh
   between forecast and grading does not move the anchor — once the stamp has
-  verified it: the build it names must be a committed revision of
-  `metrics/statpack.json`, committed no later than the prediction, and
-  re-pool to the frozen rate, or the anchor and skill are cleared with a
-  warning. A context with no `cert_anchor` pools the statpack checked out at
+  verified it: it must name the newest revision of `metrics/statpack.json`
+  committed at or before the predict cell's run id, record the lookback
+  window `config/tracking.yaml` names at that commit, and re-pool to the
+  frozen rate, or the anchor and skill are cleared with a warning
+  (`docs/process-version.md` states the trust boundary). A context with no `cert_anchor` pools the statpack checked out at
   grading. Before `proc-v9`,
   and on the terminal fallback, the evaluator transcribes the rate from
   `metrics/statpack.md`.
