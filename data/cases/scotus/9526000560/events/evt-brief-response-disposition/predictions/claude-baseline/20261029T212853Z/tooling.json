@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9526000560",
+  "run_id": "20261029T212853Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned application and response text"],
+  "helpful": ["Provisioned application and opposition text", "Per-Term interim substantive counts in the statpack"],
+  "gaps": ["No interim base rate conditioned on applicant identity (Solicitor General vs private)", "fedcourts query cannot filter applications by ask (stay vs extension), so recent priors were mostly extensions"],
+  "notes": "The SG-applicant grant rate, the dominant adjustment, had to come from general knowledge rather than a committed cut."
+}
