@@ -1628,8 +1628,8 @@ pass's ledger to the run summary and writes nothing off the runner, the maintain
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Ten passes skip it: the distribution re-derivation and the
-cert amicus back-fill, whose plans *are* their write sets, and the three fetching passes
+before the write. Eleven passes skip it: the distribution re-derivation, the
+cert amicus back-fill and the sal-v5 cert-column back-fill, whose plans *are* their write sets, and the three fetching passes
 (the OCR recovery, the document back-fill and the re-cut),
 whose apply ledgers already state the class they found before writing; the
 two vote-writer passes, the application back-fill and the opinion record, whose
@@ -1706,6 +1706,7 @@ passes, commits from the same record.
 | `event-definition-backfill` | `backfill-event-definitions` | `--max-rewrites` (`event.yaml` files rewritten: the dry run's "would rewrite N file(s)", not the field counts) | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `cert-amicus-rederive` | `rederive-cert-amicus-briefs` | `--max-changes` (rows written: the dry run's `total_changes`, fills plus raises) | — | — |
+| `salience-cert-backfill` | `backfill-salience-cert-columns` | `--max-fills` (column fills across the three columns: the dry run's `total_fills`, not rows) | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
@@ -2273,6 +2274,22 @@ gh workflow run run-repair.yml --ref main \
   -f repair=cert-amicus-rederive -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=cert-amicus-rederive -f repair_mode=apply -f repair_bound=<the ledger's total_changes>
+
+# The sal-v5 cert-column back-fill fills `call_for_response_at`,
+# `distributed_after_call` and `opening_writ` on the cert live slice the poll no
+# longer reaches, re-parsing each row's newest live snapshot with the functions
+# ingest calls. Fill-in latched: a column already holding a value is
+# `already_set` and never written, whatever the snapshot now reads. Corpus only.
+# Read `unobservable` first — a ledger where every fetched row is unobservable
+# read a blob with no content store behind it. Per column the ledger reads
+# `would_fill`, `already_set`, `no_reading` (no call, no petition entry) and
+# `unparseable` (no snapshot, or no proceedings). The bound is the ledger's
+# `total_fills` (column fills, not rows). Re-dispatching in `dry-run` after the
+# apply is the control: it must report `total_fills = 0`.
+gh workflow run run-repair.yml --ref main \
+  -f repair=salience-cert-backfill -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=salience-cert-backfill -f repair_mode=apply -f repair_bound=<the ledger's total_fills>
 
 # The vote writer stamps committed outcomes from the Court's documents; each
 # pass's bound is the dry run's "would stamp N", in the handoff-parse job's

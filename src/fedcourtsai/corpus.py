@@ -424,7 +424,8 @@ class CorpusRow(BaseModel):
         "the interim stage's request for a response to an application. Written by "
         "the live poll at ingest; fill-in latched. Withheld from the retrieval "
         "surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = no call, not yet, or not "
-        "parsed — on a decided row polled before the column existed, never parsed.",
+        "parsed — on a decided row polled before the column existed, never parsed "
+        "until the `salience-cert-backfill` run-repair pass reads its stored snapshot.",
     )
     relisted_at: date | None = Field(
         default=None,
@@ -555,7 +556,8 @@ class CorpusRow(BaseModel):
         "relist count's input. Written by the live cert branch at ingest; "
         "fill-in latched. Withheld from the retrieval surface "
         "(`RETRIEVAL_WITHHELD_COLUMNS`). None = no dated call for response, or not "
-        "parsed — on a decided row polled before the column existed, never parsed.",
+        "parsed — on a decided row polled before the column existed, never parsed "
+        "until the `salience-cert-backfill` run-repair pass reads its stored snapshot.",
     )
     opening_writ: str | None = Field(
         default=None,
@@ -569,7 +571,8 @@ class CorpusRow(BaseModel):
         "ingest; fill-in latched. Withheld from the retrieval surface "
         "(`RETRIEVAL_WITHHELD_COLUMNS`). None = no opening petition entry "
         "disclosed, or not parsed — on a decided row polled before the column "
-        "existed, never parsed.",
+        "existed, never parsed until the `salience-cert-backfill` run-repair pass "
+        "reads its stored snapshot.",
     )
     sample_weight: int | None = Field(
         default=None,

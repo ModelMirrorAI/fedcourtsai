@@ -1007,12 +1007,26 @@ the rotation no longer polls keeps `NULL` in each column it predates:
 - `opening_writ` — empty on every row polled before it existed, decided or not,
   until its next poll.
 
-Each is filled by a **run-repair back-fill pass** that reads each scored-segment
-row's newest stored live snapshot through the ingest parser
-(`cert_signals.distributions_after_call`, `cert_signals.opening_writ`) and writes
-the reading under the fill-in latch, leaving a stored value alone. That pass is
-a value on the maintainer-owned `run-repair` selector
-(`src/fedcourtsai/repair_passes.py`), run after its dry-run is read.
+Each is filled by run-repair's **`salience-cert-backfill`** pass (`fedcourts
+backfill-salience-cert-columns`, `pipeline.salience_cert_backfill`), which reads
+each cert-form live-slice row's newest stored live snapshot through the ingest
+parser (`cert_signals.call_for_response_date`,
+`cert_signals.distributions_after_call`, `cert_signals.opening_writ`) and writes
+each reading under the fill-in latch, leaving a stored value alone. It fills
+`call_for_response_at` on the same rows, the call the relist rule's supersession
+is dated by. The pass is a value on the maintainer-owned `run-repair` selector
+(`src/fedcourtsai/repair_passes.py`), applied only after its dry run is read:
+
+```bash
+gh workflow run run-repair.yml --ref main \
+  -f repair=salience-cert-backfill -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=salience-cert-backfill -f repair_mode=apply -f repair_bound=<the ledger's total_fills>
+```
+
+Read the dry run's `unobservable` first (a blob with no content store behind it
+reads every fetched row there), then each column's `would_fill`; a `dry-run`
+re-dispatch after the apply is the control and must report `total_fills = 0`.
 
 Until it lands, read `sal-v5`'s `alt_segments` over past Terms as **not
 `sal-v5`'s pool**. On a row with both columns empty `sal-v5` reads exactly as

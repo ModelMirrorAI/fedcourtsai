@@ -1474,6 +1474,16 @@ whole slice from the content store each window to find that. The stat pack's
 amicus cut reads the column, so before the pass has applied that cut is almost
 all `(unknown)`.
 
+`salience-cert-backfill` is corpus-only too, and the same shape under the
+fill-in latch: it fills the three withheld cert columns `sal-v5` reads —
+`call_for_response_at`, `distributed_after_call` and `opening_writ` — on the
+cert live slice the poll no longer reaches (`fedcourts
+backfill-salience-cert-columns`), re-parsing each row's newest live-shaped
+snapshot with the functions ingest's cert branch calls. Only a NULL is filled; a
+stored value is never compared or overwritten. It is dispatched rather than
+swept for the same reason: every poll writes the three columns on the row it
+reads, so the class does not regrow once the history is filled.
+
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
 evaluator cell's graded fields under the cell's original stamp and rewrites
