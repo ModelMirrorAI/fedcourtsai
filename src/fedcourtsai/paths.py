@@ -246,9 +246,14 @@ class EventPaths:
         return self.evaluation_dir(evaluator_id, predictor_id, run_id) / "evaluation.md"
 
 
+def court_cases_dir(data_root: Path, court_id: str) -> Path:
+    """The directory holding every committed case of one court."""
+    return data_root / "cases" / court_id
+
+
 class CasePaths:
     def __init__(self, data_root: Path, court_id: str, docket_id: int) -> None:
-        self.base = data_root / "cases" / court_id / str(docket_id)
+        self.base = court_cases_dir(data_root, court_id) / str(docket_id)
 
     @property
     def case_file(self) -> Path:
