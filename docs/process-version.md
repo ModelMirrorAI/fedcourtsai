@@ -46,6 +46,20 @@ The digest excludes documentation that does not change behaviour — the actor's
 `description` and the MCP manifest `description` are comments, not process inputs,
 so editing one does not re-version anything.
 
+**The prompt template is the only instruction file a cell reads.** The digest
+records what a cell was told only while the template is all it was told, so
+nothing else that instructs it may sit outside the hash. The kickoff line each
+engine receives names the actor's own template and no other file, the template
+names no other instruction file, and every job that starts an engine in a
+checkout takes the repository's development instructions (`AGENTS.md`,
+`CLAUDE.md` and the `.claude/` reviewer subagents, which Claude Code and Codex
+would otherwise load from the tree on their own) out of the tree before the engine starts. Each template carries a
+short *Cell contract* section instead, so the rules a cell keeps from the
+development instructions — its lane, the harness-owned fields, the leakage
+clock, `flags.json` as the channel, validation — are hashed with the rest of
+the template. `tests/test_cell_instructions.py` holds all three, over the
+name set the `data/` path jail refuses (`collect.AGENT_CONTEXT_FILENAMES`).
+
 ### Harness code is outside the digest, and one case of that has teeth
 
 Everything the harness *does* around the agent rides `pipeline_sha`, not the
@@ -108,8 +122,40 @@ The cert stage's own record changes author at a label rather than a digest:
 `HARNESS_CERT_ANCHOR_FROM` in `process_version.py` names `proc-v9`, so the
 commit that sets `CURRENT_PROCESS_LABEL` to that label also switches a
 frozen-band cert grading's rate, Brier and skill from the evaluator's
-transcription to the stamp, and its freeze-record entry says so. A
-change there moves how a number was produced without moving
+transcription to the stamp, and its freeze-record entry says so.
+`PINNED_CERT_ANCHOR_FROM` names `proc-v15` the same way: from that label a
+grading whose scored prediction froze an anchor at provisioning
+(`context.cert_anchor`) stamps that anchor, pooled over the statpack in force
+when the forecast was placed, instead of pooling the statpack checked out at
+grading, once the stamp has verified it. The trust boundary is the cell's
+workspace: `record/context.json` is reachable from it, so the conditioning it
+carries — `band`, `salience_version` and `cert_anchor` alike — is
+agent-reachable, and the stamp verifies `cert_anchor` against inputs the agent
+cannot touch: the predict cell's harness-minted run id (the UTC timestamp its
+ledger directory is named with, minted before the cell is provisioned, never
+the document's own `created_at`, which is stamped after the agent runs), the
+first-parent history of `metrics/statpack.json` on `main`, and
+`config/tracking.yaml` as committed. The history is a bare clone of `main` the
+evaluate workflow makes after the agent's step, so nothing the agent does to
+its checkout reaches it. The anchor must name the build in force on `main` at
+that run id — the newest first-parent landing of the statpack at or before it,
+dated by the landing commit, so a refresh merged through a branch counts from
+its merge — record the `salience.base_rate_lookback_terms` committed at that
+build's commit, and carry the rate that build pools to over the scored context;
+another window or another rate is refused, the anchor and skill are cleared
+with a warning, and the stamp's summary counts the refusals. Two builds that
+publish identical figures share a digest and so count as one build. A cell
+checks out the commit its run was triggered on *before* the plan job mints the
+run id, so a refresh landing between the two leaves the cell's honest anchor
+naming the build that refresh replaced. That one earlier build is accepted
+too, where the build in force landed within `CHECKOUT_SLACK` (six hours, sized
+from the measured trigger-to-mint gap, in
+`src/fedcourtsai/statpack_history.py`) before the bound; any older build is
+refused. The label therefore covers two readings: under `proc-v15` and later, a grading
+of a cell provisioned without `cert_anchor` — placed before provisioning wrote
+the record, or with no readable statpack — still pools the statpack checked
+out at grading, and the grading's `base_rate_statpack_digest` names whichever
+build it read. A change there moves how a number was produced without moving
 any actor's digest, and belongs in the freeze record beside the window. This is
 the standard's own trigger case rather than an aside: the same prompt, the same
 definition, the same digest, a different author for the number. The

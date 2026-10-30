@@ -33,6 +33,15 @@ inputs:
       the copy — only a leg that runs no real turn should skip it.
     required: false
     default: .codex/config.toml
+  require-rules:
+    description: >-
+      "true" for a leg that runs a real cell turn: the execpolicy rules beside
+      the config (the run-time install refusal) must be there, and the action
+      fails rather than starting codex without them. It then checks the
+      installed copy with the pinned codex CLI's own `execpolicy check`, and
+      fails unless `pip install` is forbidden and `uv run fedcourts` is not.
+    required: false
+    default: "false"
   codex-output-dir:
     description: >-
       The one path codexcell may write — the cell's output subtree
@@ -72,6 +81,7 @@ runs:
       env:
         CODEX_USER: ${{ inputs.codex-user }}
         CODEX_CONFIG: ${{ inputs.codex-config }}
+        REQUIRE_RULES: ${{ inputs.require-rules }}
       run: |
         set -euo pipefail
         # Idempotent, pinned to a known home so the derived CODEX_HOME and the
@@ -122,6 +132,64 @@ runs:
           fi
           sudo install -o "$CODEX_USER" -g "$CODEX_USER" -m 644 \
             "$GITHUB_WORKSPACE/$CODEX_CONFIG" "$home/.codex/config.toml"
+          # The execpolicy rules beside the config (`fedcourts cell-policy
+          # --engine codex`, the run-time install refusal) go where codex reads
+          # user rules, `$CODEX_HOME/rules/`. Root-owned, so the account the
+          # agent runs as can read them and cannot edit the files. Where the
+          # caller requires them, a missing rules file fails the step: a cell
+          # turn without them would install freely with every check green.
+          rules_dir="$(dirname "$GITHUB_WORKSPACE/$CODEX_CONFIG")/rules"
+          installed=0
+          if [ -d "$rules_dir" ]; then
+            sudo install -d -o root -g root -m 755 "$home/.codex/rules"
+            for rules in "$rules_dir"/*.rules; do
+              [ -f "$rules" ] || continue
+              sudo install -o root -g root -m 644 "$rules" "$home/.codex/rules/"
+              installed=$((installed + 1))
+            done
+          fi
+          if [ "$REQUIRE_RULES" = true ] && [ "$installed" -eq 0 ]; then
+            echo "::error::no codex execpolicy rules under $rules_dir; the cell's install refusal would be missing"
+            exit 1
+          fi
+        elif [ "$REQUIRE_RULES" = true ]; then
+          echo "::error::require-rules needs a codex-config whose rules sit beside it"
+          exit 1
+        fi
+
+    - name: Check the installed install refusal with the pinned codex CLI
+      if: inputs.require-rules == 'true'
+      shell: bash
+      env:
+        CODEX_USER: ${{ inputs.codex-user }}
+        PINS: ${{ github.action_path }}/../../engines/codex
+      run: |
+        set -euo pipefail
+        # codex itself is installed later, inside codex-action, so the check
+        # installs the same pinned package into a prefix of its own and asks
+        # it how the rules codex will load decide two commands: `pip install`
+        # must be forbidden and the cell's own `uv run fedcourts` must not be.
+        # A rules file that does not parse, or a rule shape the pinned version
+        # reads differently, fails here before any model spend.
+        prefix="$RUNNER_TEMP/codex-policy-check"
+        mkdir -p "$prefix"
+        cp "$PINS/package.json" "$PINS/package-lock.json" "$prefix/"
+        npm ci --prefix "$prefix" --ignore-scripts --no-audit --no-fund --silent
+        codex="$prefix/node_modules/.bin/codex"
+        args=()
+        for rules in "/home/$CODEX_USER/.codex/rules"/*.rules; do
+          [ "$(stat -c %U "$rules")" = root ] || {
+            echo "::error::$rules is not root-owned"
+            exit 1
+          }
+          args+=(-r "$rules")
+        done
+        refused="$("$codex" execpolicy check "${args[@]}" pip install x | jq -r '.decision // "allow"')"
+        allowed="$("$codex" execpolicy check "${args[@]}" uv run fedcourts query | jq -r '.decision // "allow"')"
+        echo "pip install x: $refused; uv run fedcourts query: $allowed"
+        if [ "$refused" != forbidden ] || [ "$allowed" = forbidden ]; then
+          echo "::error::the codex execpolicy rules do not refuse installs as fedcourtsai.cell_policy declares"
+          exit 1
         fi
 
     - name: Carry the non-secret cell environment across the sudo hop

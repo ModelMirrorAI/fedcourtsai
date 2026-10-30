@@ -95,7 +95,7 @@ from .schemas import (
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v14"
+CURRENT_PROCESS_LABEL = "proc-v15"
 
 #: The committed frozen-process registry the freeze constants below are built
 #: from: the labels and their counting instants, the digests the current label
@@ -214,6 +214,15 @@ _REGISTRY: Final[ProcessRegistry] = load_process_registry()
 # scoring rule never changes inside one label's life.
 HARNESS_CERT_ANCHOR_FROM = "proc-v9"
 
+# The first label whose harness-stamped cert anchor is the one **frozen at
+# provisioning** (`PredictionContext.cert_anchor`) wherever the scored
+# prediction carries it, rather than a pool of the statpack checked out at
+# grading. A metrics refresh landing between forecast and grading would
+# otherwise move the baseline a forecast is scored against. Keyed on the
+# grading's label like HARNESS_CERT_ANCHOR_FROM, so a grading stamped under an
+# earlier label keeps the grading-time pool through any re-grade.
+PINNED_CERT_ANCHOR_FROM = "proc-v15"
+
 # The first label whose predict prompt elicits the authorship forecast, the
 # label under which every declared moment names its authorship set
 # (`cert-v3`, `interim-v2`, `merits-v2`). A cell stamped under an earlier label
@@ -260,6 +269,18 @@ def harness_stamps_cert_anchor(label: str | None) -> bool:
     """
     ordinal = label_ordinal(label)
     threshold = label_ordinal(HARNESS_CERT_ANCHOR_FROM)
+    return ordinal is not None and threshold is not None and ordinal >= threshold
+
+
+def pins_cert_anchor(label: str | None) -> bool:
+    """Whether a cert grading stamped under ``label`` takes the provisioning-time anchor.
+
+    True from :data:`PINNED_CERT_ANCHOR_FROM` on. False for an earlier label,
+    for an unstamped record (``None``), and for a label that is not a
+    ``proc-vN`` at all, exactly as :func:`harness_stamps_cert_anchor` reads it.
+    """
+    ordinal = label_ordinal(label)
+    threshold = label_ordinal(PINNED_CERT_ANCHOR_FROM)
     return ordinal is not None and threshold is not None and ordinal >= threshold
 
 

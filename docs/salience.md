@@ -1670,7 +1670,11 @@ carries pools nothing, so rate, basis, version and skill are cleared together. T
 operational consequence is deliberate: after a salience version ships, forward
 cells scored under it have no skill baseline until the statpack re-renders
 under the same version, and that gap is visible instead of silently papered
-over.
+over. From `proc-v15` the anchor is pooled when a cert cell is placed
+(`context.cert_anchor`) and the grading copies it, so the gap is fixed at
+placement: a cell placed before the re-render keeps its empty pool through a
+grading stamped after it, rather than taking a baseline from a pack that did
+not exist when it forecast.
 
 The tension is bias against variance, and it has no free answer. Per-Term
 high-band samples are small (68–140 weighted-resolved petitions), so a short

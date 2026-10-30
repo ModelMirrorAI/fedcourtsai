@@ -23,6 +23,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
@@ -50,6 +51,7 @@ from . import (
     analytics,
     blinding,
     casestore,
+    cell_policy,
     cleanup,
     contexts_due,
     corpus,
@@ -79,6 +81,7 @@ from . import (
     scope_manifest,
     secretscan,
     site_status,
+    statpack_history,
     summaries,
     tool_usage,
     window_records,
@@ -496,6 +499,7 @@ from .schemas import (
     BlindingRecord,
     CellFailure,
     CellMode,
+    CertAnchor,
     CertBacktest,
     CertBacktestCellClock,
     CertBacktestCellLoss,
@@ -584,6 +588,7 @@ from .store import (
     prediction_counts,
     resolved_events,
     scored_prediction,
+    scored_prediction_cell,
     stratify,
     unforecastable_listed_events,
 )
@@ -11087,6 +11092,18 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             "existing process_version exactly as its producing run stamped it.",
         ),
     ] = False,
+    anchor_history: Annotated[
+        Path | None,
+        typer.Option(
+            help="Evaluator role only: the git repository (a bare clone of main) whose "
+            "first-parent history a frozen cert anchor is checked against; defaults to "
+            "the checkout.",
+        ),
+    ] = None,
+    anchor_ref: Annotated[
+        str,
+        typer.Option(help="The branch in --anchor-history whose landings count."),
+    ] = statpack_history.DEFAULT_REF,
 ) -> None:
     """Stamp a cell's ``prediction.json`` / ``evaluation.json`` with its process version.
 
@@ -11147,11 +11164,14 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     leaves no population to choose, so the harness pools the risk-set anchor
     through the scorer's own pooler and stamps the Brier, the rate, the skill,
     both halves of the basis record, and the statpack build it read
-    (``base_rate_statpack_digest``). Every other cert cell — an earlier label's
-    grading, and a prediction that froze no band, whose terminal fallback
-    re-derives a band from the corpus row — keeps the evaluator's three
-    numbers, and the leaderboard's coherence check is what holds that
-    arithmetic to its record. The label is the stamp's own: the one this
+    (``base_rate_statpack_digest``) — from
+    :data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM` on, the anchor
+    the prediction's context froze at provisioning where it carries one, so the
+    build is the one in force when the forecast was placed. Every other cert
+    cell — an earlier label's grading, and a prediction that froze no band,
+    whose terminal fallback re-derives a band from the corpus row — keeps the
+    evaluator's three numbers, and the leaderboard's coherence check is what
+    holds that arithmetic to its record. The label is the stamp's own: the one this
     invocation writes, or on a re-grade the one the record carries, so a
     re-grade never moves a grading onto a rule its label did not register.
 
@@ -11229,6 +11249,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     to age.
     """
     settings = get_settings()
+    _ANCHOR_HISTORY.set((anchor_history or Path.cwd(), anchor_ref))
     if role not in ("predictor", "evaluator"):
         typer.echo(f"role must be predictor or evaluator, not {role!r}", err=True)
         raise typer.Exit(code=2)
@@ -11282,6 +11303,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
 
     graded = 0
     basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
+    refusals: list[str] = []
     for path in targets:
         if not path.is_file():
             continue
@@ -11338,24 +11360,45 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
                 else process_version.CURRENT_PROCESS_LABEL
             )
             skill_fields, basis_records[path] = _skill_record_for(
-                event_paths, record, settings, label, regrade=regrade
+                event_paths, record, settings, label, regrade=regrade, anchor_refusals=refusals
             )
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
         graded += 1
 
-    if graded == 0:
-        _report_no_targets(regrade, role, actor)
-        return
     # Echoed before the guard so a failed cell's log still says how many stamps
     # landed; the guard is judged after every cell is written, so one
     # unresolvable record does not strand the run's remaining stamps.
+    if not _report_stamped(regrade, role, actor, digest, graded, refusals):
+        return
+    _fail_on_mispaired_basis(basis_records)
+
+
+def _report_stamped(
+    regrade: bool, role: str, actor: str, digest: str, graded: int, refusals: Sequence[str]
+) -> bool:
+    """The stamp's summary: what it wrote, and any frozen cert anchors it refused.
+
+    False, after :func:`_report_no_targets`, where nothing was stamped. The
+    refused anchors are counted as well as warned per cell, so a history that
+    stopped verifying them — a shallow checkout, a rewritten config — reads as
+    one visible line rather than as skill scores quietly cleared.
+    """
+    if graded == 0:
+        _report_no_targets(regrade, role, actor)
+        return False
     typer.echo(
         f"regrade: {actor} -> {graded} file(s); process_version left as stamped"
         if regrade
         else f"stamp: {actor} {digest} -> {graded} file(s)"
     )
-    _fail_on_mispaired_basis(basis_records)
+    if refusals:
+        typer.echo(
+            f"::warning::stamp: {actor} refused {len(refusals)} frozen cert anchor(s) that "
+            + "did not verify against the committed statpack history; their skill is cleared.",
+            err=True,
+        )
+    return True
 
 
 def _report_no_targets(regrade: bool, role: str, actor: str) -> None:
@@ -12635,6 +12678,7 @@ def _skill_record_for(
     label: str | None,
     *,
     regrade: bool = False,
+    anchor_refusals: list[str] | None = None,
 ) -> tuple[dict[str, object], tuple[str | None, str | None, Prediction | None]]:
     """This cell's ``correct`` and skill record as a stamp update, plus its basis trio.
 
@@ -12689,7 +12733,12 @@ def _skill_record_for(
     context the fallback declined to use. The prediction rides only on a
     **cert** cell: the frozen-band pairing is a cert-petition concept, so on a
     stage-less event a case-level frozen band must not reach the guard.
+
+    ``anchor_refusals`` collects each frozen cert anchor the stamp refused to
+    copy (:func:`_cert_anchor_for`), for the caller's summary.
     """
+    if anchor_refusals is None:
+        anchor_refusals = []
     outcome = _outcome_for(event_paths)
     correct = _harness_correct_for(event_paths, evaluation, outcome)
     # The one field the evaluate prompt requires of every cell, so a null is a
@@ -12706,7 +12755,14 @@ def _skill_record_for(
             # Narrowing only: the predicate requires a scored prediction.
             assert latest is not None
             fields, basis, version = _cert_skill_record_for(
-                event_paths, evaluation, settings, outcome, latest, regrade=regrade
+                event_paths,
+                evaluation,
+                settings,
+                outcome,
+                latest,
+                label=label,
+                regrade=regrade,
+                anchor_refusals=anchor_refusals,
             )
             return {"correct": correct} | fields, (basis, version, latest)
         context = latest.context if latest is not None else None
@@ -12770,7 +12826,9 @@ def _cert_skill_record_for(
     outcome: Outcome | None,
     scored: Prediction,
     *,
+    label: str | None,
     regrade: bool,
+    anchor_refusals: list[str],
 ) -> tuple[dict[str, object], str | None, str | None]:
     """The harness's whole cert skill record, for a cell :func:`_harness_owns_cert_record` admits.
 
@@ -12795,6 +12853,16 @@ def _cert_skill_record_for(
     was pooled under, so the board can re-pool the same pool; both are null
     beside a null rate.
 
+    **From** :data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM` **on,
+    the anchor is the one frozen at provisioning** wherever the scored
+    prediction's context carries it (``context.cert_anchor``): the same pooler
+    over the same frozen triple, run against the statpack in force when the
+    forecast was placed, so a metrics refresh landing between forecast and
+    grading does not move it. The stamp copies its rate, build and window
+    rather than re-pooling. A context with no frozen anchor — a cell placed
+    before the record, or with no readable statpack — and a grading stamped
+    under an earlier label pool the statpack checked out now, as above.
+
     **A re-grade keeps the anchor as stamped.** It recomputes the Brier and the
     skill against the corrected outcome, but the rate, its build, its window
     and its basis pair are the ones the grading was first stamped with: the
@@ -12816,7 +12884,9 @@ def _cert_skill_record_for(
         basis = evaluation.base_rate_basis
         version = evaluation.base_rate_salience_version
     else:
-        rate, digest, lookback = _pool_cert_anchor(scored, settings)
+        rate, digest, lookback = _cert_anchor_for(
+            event_paths, evaluation, scored, settings, label, anchor_refusals
+        )
         _warn_on_discarded_number(
             evaluation, "segment_base_rate", evaluation.segment_base_rate, rate
         )
@@ -12845,6 +12915,127 @@ def _cert_skill_record_for(
         "base_rate_lookback_terms": lookback,
     }
     return fields, basis, version
+
+
+def _cert_anchor_for(
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    scored: Prediction,
+    settings: Settings,
+    label: str | None,
+    anchor_refusals: list[str],
+) -> tuple[float | None, str | None, int | None]:
+    """The cert anchor this grading stamps: ``(rate, statpack build, lookback window)``.
+
+    The provisioning-time anchor where the grading's ``label`` pins it
+    (:func:`fedcourtsai.process_version.pins_cert_anchor`) and the scored
+    context froze one; otherwise :func:`_pool_cert_anchor` over the statpack
+    checked out now. A frozen record with a null rate yields all three ``None``,
+    as an empty pool does, so a build and a window are only ever named beside
+    the rate they produced.
+
+    **A frozen anchor is verified before it is copied.** ``record/context.json``
+    is reachable from the cell's workspace, so every field of the record is a
+    claim, and it is checked against ``main``'s first-parent history as read
+    from ``--anchor-history`` — in the evaluate workflow, a bare clone made
+    after the agent's step (:func:`fedcourtsai.statpack_history.verify_cert_anchor`):
+    it must name the statpack build in force on ``main`` at the scored predict
+    cell's run id — the UTC timestamp the harness mints before provisioning and
+    names the ledger directory with, read off that directory rather than the
+    document — or the one it replaced within
+    :data:`fedcourtsai.statpack_history.CHECKOUT_SLACK`, record the lookback
+    window configured at that build's commit, and carry the rate that build
+    pools to. Where it does not, the anchor is cleared with a
+    warning and the refusal is appended to ``anchor_refusals`` for the stamp's
+    summary — the cell is not graded against an anchor nothing harness-side
+    vouches for, the same omission a missing statpack is.
+    """
+    context = scored.context
+    frozen = context.cert_anchor if context is not None else None
+    if context is None or frozen is None or not process_version.pins_cert_anchor(label):
+        return _pool_cert_anchor(scored, settings)
+    refusal = _anchor_refusal(event_paths, evaluation, frozen, context, settings)
+    if refusal is not None:
+        anchor_refusals.append(refusal)
+        typer.echo(
+            f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id}: the frozen "
+            + f"cert anchor does not verify ({refusal}) — this cert cell's segment base rate "
+            + "and skill are cleared rather than copied.",
+            err=True,
+        )
+        return None, None, None
+    if frozen.rate is None:
+        return None, None, None
+    return frozen.rate, frozen.statpack_digest, frozen.lookback_terms
+
+
+def _anchor_refusal(
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    frozen: CertAnchor,
+    context: PredictionContext,
+    settings: Settings,
+) -> str | None:
+    """Why the scored cell's frozen anchor does not verify, or ``None`` where it does.
+
+    The bound is the run id of the predict cell's ledger directory, the one
+    :func:`fedcourtsai.store.scored_prediction_cell` resolves the graded
+    prediction from — the harness's name for the run, never the document's own
+    ``run_id`` field.
+    """
+    cell = scored_prediction_cell(
+        event_paths.base, evaluation.predictor_id, evaluation.prediction_run_id
+    )
+    if cell is None:
+        return "the scored prediction's run directory does not resolve"
+    try:
+        provisioned_by = ids.parse_run_id(cell[0].name)
+    except ValueError:
+        return f"the scored run directory {cell[0].name!r} is not a run id"
+    return statpack_history.verify_cert_anchor(
+        frozen, context, provisioned_by, _statpack_history(settings)
+    )
+
+
+#: The repository and branch the frozen-anchor check walks, set per stamp-cell
+#: invocation (``--anchor-history`` / ``--anchor-ref``).
+_ANCHOR_HISTORY: ContextVar[tuple[Path, str] | None] = ContextVar("_ANCHOR_HISTORY", default=None)
+
+
+def _git_statpack_history(settings: Settings) -> statpack_history.StatpackHistory:
+    repo, ref = _ANCHOR_HISTORY.get() or (Path.cwd(), statpack_history.DEFAULT_REF)
+    return statpack_history.GitStatpackHistory(repo, ref)
+
+
+#: The harness-side record the frozen-anchor check reads: the first-parent
+#: history of ``metrics/statpack.json`` and of the config beside it on ``main``.
+#: A seam for tests.
+_statpack_history: Callable[[Settings], statpack_history.StatpackHistory] = _git_statpack_history
+
+
+def _cert_anchor_pool(
+    settings: Settings, paths: CasePaths, event: str
+) -> provision.AnchorPool | None:
+    """The statpack build and window a cert cell's anchor is frozen from, or ``None``.
+
+    ``None`` for a cell that names no event (an evaluate cell, which forecasts
+    nothing) and for an event of any stage but cert
+    (:func:`fedcourtsai.provision.freezes_cert_anchor`). ``None`` too, with a
+    warning, where no statpack is readable: the cell then carries no frozen
+    anchor and its grading pools at stamp time. The window is the configured
+    ``salience.base_rate_lookback_terms``, the one :func:`_pool_cert_anchor`
+    reads at grading.
+    """
+    if not provision.freezes_cert_anchor(paths.event(event).event_file, event):
+        return None
+    pool = provision.read_anchor_pool(settings.metrics_root, settings.config_root)
+    if pool is None:
+        typer.echo(
+            "::warning::provision: no readable metrics/statpack.json — this cert cell's "
+            "anchor is not frozen and its grading pools the statpack read at stamp time.",
+            err=True,
+        )
+    return pool
 
 
 def _pool_cert_anchor(
@@ -17763,6 +17954,84 @@ def evaluators() -> None:
         typer.echo(f"{e.id}\t{e.engine}\t{e.model or '-'}{flag}")
 
 
+#: The default cap on `pdf-text`'s output: far past any filing a cell is staged
+#: (the stored texts are cut well below it), so a whole brief prints, while a
+#: pathological file cannot flood the agent's context unbounded.
+PDF_TEXT_DEFAULT_MAX_CHARS = 2_000_000
+
+#: The largest file ``pdf-text`` reads, in bytes. A SCOTUS filing with its
+#: appendix runs to tens of megabytes; past this the file is refused rather
+#: than read whole into the cell's memory.
+PDF_TEXT_DEFAULT_MAX_BYTES = 200_000_000
+
+
+@app.command("pdf-text")
+def pdf_text(
+    file: Annotated[Path, typer.Argument(help="The PDF file to read.")],
+    max_chars: Annotated[
+        int, typer.Option(min=1, help="Stop after this many characters (a truncation is reported).")
+    ] = PDF_TEXT_DEFAULT_MAX_CHARS,
+    max_bytes: Annotated[
+        int, typer.Option(min=1, help="Refuse a file larger than this many bytes.")
+    ] = PDF_TEXT_DEFAULT_MAX_BYTES,
+) -> None:
+    """Print a PDF's text to stdout, read with the project's pinned pypdf.
+
+    The cell's way to read a PDF it finds or fetches, since a cell installs
+    nothing: the same extractor (``pipeline.documents.extract_pdf_text``) that
+    stores filing text for the corpus, so a cell reads a PDF exactly as the
+    pipeline would. Pages are joined by newlines; the page count, and whether
+    the text was cut at ``--max-chars``, go to stderr. A scanned page yields no
+    text, so a PDF that prints nothing is reported as such rather than as an
+    error. Exits 1 where the file is missing, larger than ``--max-bytes``, or
+    not a readable PDF — any failure of the extractor included, since a
+    malformed file can raise from deep inside the parser.
+    """
+    if not file.is_file():
+        typer.echo(f"pdf-text: no file at {file}", err=True)
+        raise typer.Exit(code=1)
+    size = file.stat().st_size
+    if size > max_bytes:
+        typer.echo(f"pdf-text: {file} is {size} bytes, over --max-bytes {max_bytes}", err=True)
+        raise typer.Exit(code=1)
+    try:
+        extracted = extract_pdf_text(file.read_bytes(), char_cap=max_chars)
+    except Exception as exc:  # any parser failure is an unreadable PDF
+        typer.echo(f"pdf-text: {file} is not a readable PDF", err=True)
+        raise typer.Exit(code=1) from exc
+    if extracted.pages == 0:
+        typer.echo(f"pdf-text: {file} is not a readable PDF", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(extracted.text)
+    note = f"pdf-text: {extracted.pages} page(s), {len(extracted.text)} character(s)"
+    if extracted.truncated:
+        note += f", cut at --max-chars {max_chars}"
+    if not extracted.text.strip():
+        note += "; no extractable text (a scanned PDF carries none)"
+    typer.echo(note, err=True)
+
+
+@app.command("cell-policy")
+def cell_policy_cmd(
+    engine: Annotated[
+        str, typer.Option(help="claude-code (a JSON deny list), codex (rules) or gemini (policy).")
+    ],
+) -> None:
+    """Print the engine's refusal of run-time package installs, as its cell reads it.
+
+    One prefix list (:data:`fedcourtsai.cell_policy.INSTALL_COMMAND_PREFIXES`)
+    in each engine's own form: claude-code's ``permissions.deny`` entries as a
+    JSON list, codex's execpolicy rules file, gemini's policy file. The cell
+    workflows write the codex and gemini files from this command and carry the
+    claude list inline, which a test holds equal to it.
+    """
+    try:
+        typer.echo(cell_policy.render(engine), nl=False)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+
+
 @app.command()
 def paths(
     court: Annotated[str, typer.Option()],
@@ -18523,6 +18792,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             related=related,
             authorship_tally=tally,
             same_question=listed,
+            anchor_pool=_cert_anchor_pool(settings, paths, event),
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)
@@ -19655,6 +19925,7 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
             corpus_db_path=corpus.corpus_db_path(settings.corpus_root),
             data_root=settings.data_root,
             config_root=settings.config_root,
+            metrics_root=settings.metrics_root,
             court=court,
             docket=docket,
             event=event or None,

@@ -40,6 +40,7 @@ from fedcourtsai.schemas import (
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.store import iter_stratified_evaluations
 from tests.conftest import FixtureCorpus
+from tests.fixture_metrics import fixture_metrics_root
 
 CASSETTE = Path(__file__).resolve().parent / "cassettes" / "realistic-grant"
 
@@ -126,6 +127,7 @@ def test_cascade_over_recorded_prediction_scores_realistically(
         corpus_db_path=fixture_corpus.db_path,
         data_root=fixture_corpus.data_root,
         config_root=Path("config"),
+        metrics_root=fixture_metrics_root(fixture_corpus.data_root.parent),
         court="ca9",
         docket=101,
         engine="replay",
@@ -223,6 +225,7 @@ def test_leaderboard_rolls_up_recorded_evaluations(
         corpus_db_path=fixture_corpus.db_path,
         data_root=fixture_corpus.data_root,
         config_root=Path("config"),
+        metrics_root=fixture_metrics_root(fixture_corpus.data_root.parent),
         court="ca9",
         docket=101,
         engine="replay",

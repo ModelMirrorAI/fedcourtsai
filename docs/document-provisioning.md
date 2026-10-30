@@ -107,9 +107,9 @@ Each of these is stated, with its reason, where the code makes the choice:
   Only linked companions reach `record/related/`. `fedcourts same-question`
   lists the unlinked ones by questions-presented text similarity, cut to a date,
   and `fedcourts same-question-lists` builds a cert cell's list at its own
-  cutoff, which provisioning would stage as `record/same-question.json`; the
-  list is held back from every cell until a re-bless
-  (`provision.SAME_QUESTION_WITHHELD`, `pipeline/same_question.py`).
+  cutoff, which provisioning stages as a forward cert cell's
+  `record/same-question.json` (`pipeline/same_question.py`; the harness
+  boundary `cert-same-question-list`).
 
 - **A combined opposition is kept or dropped whole.** It is dated by its
   earliest brief, so a cutoff between two respondents' briefs admits the later

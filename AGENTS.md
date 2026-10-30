@@ -16,7 +16,11 @@ contributor; do **not** touch `data/`) or **data production** (a `run-pull`,
 `qp-topic-label` and `qp-topic-label-applications` labeling runs — produce or update the corpus
 and/or the derived artifacts under `data/`; do **not** change pipeline code to
 make your task easier, and never weaken validation, CI, lint, type, or
-security checks).
+security checks). A cell never reads this file: its job takes `AGENTS.md`,
+`CLAUDE.md` and `.claude/` out of the tree before the engine starts, and its prompt template,
+which the process digest hashes, is its whole contract
+(`docs/process-version.md`). The data-production rules below describe what
+those templates carry.
 
 ## Where you run: headless in CI
 

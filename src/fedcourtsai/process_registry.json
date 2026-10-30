@@ -57,72 +57,80 @@
         "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       }
+    },
+    {
+      "label": "proc-v15",
+      "since": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      }
     }
   ],
   "blessings": [
     {
-      "digest": "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
+      "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
       "role": "predictor",
       "actor_id": "claude-baseline",
-      "label": "proc-v14",
+      "label": "proc-v15",
       "blessed": {
-        "at": "2026-10-29T14:16:26Z",
-        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6",
+      "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
       "role": "predictor",
       "actor_id": "codex-baseline",
-      "label": "proc-v14",
+      "label": "proc-v15",
       "blessed": {
-        "at": "2026-10-29T14:16:26Z",
-        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
+      "digest": "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
       "role": "predictor",
       "actor_id": "gemini-baseline",
-      "label": "proc-v14",
+      "label": "proc-v15",
       "blessed": {
-        "at": "2026-10-29T14:16:26Z",
-        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+      "digest": "sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388",
       "role": "evaluator",
       "actor_id": "claude-judge",
-      "label": "proc-v14",
+      "label": "proc-v15",
       "blessed": {
-        "at": "2026-10-29T14:16:26Z",
-        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+      "digest": "sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0",
       "role": "evaluator",
       "actor_id": "codex-judge",
-      "label": "proc-v14",
+      "label": "proc-v15",
       "blessed": {
-        "at": "2026-10-29T14:16:26Z",
-        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     },
     {
-      "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+      "digest": "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c",
       "role": "evaluator",
       "actor_id": "gemini-judge",
-      "label": "proc-v14",
+      "label": "proc-v15",
       "blessed": {
-        "at": "2026-10-29T14:16:26Z",
-        "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
+        "at": null,
+        "merge": null,
         "source": "merge"
       }
     }
@@ -377,7 +385,11 @@
         "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -389,7 +401,11 @@
         "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
         "source": "merge"
       },
-      "closes": null,
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
       "revoked_at": null
     },
     {
@@ -399,6 +415,46 @@
       "opens": {
         "at": "2026-10-29T14:16:26Z",
         "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
+        "source": "merge"
+      },
+      "closes": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v15",
+      "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
+      "predictor_id": "claude-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v15",
+      "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
+      "predictor_id": "codex-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
+        "source": "merge"
+      },
+      "closes": null,
+      "revoked_at": null
+    },
+    {
+      "label": "proc-v15",
+      "digest": "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
+      "predictor_id": "gemini-baseline",
+      "opens": {
+        "at": null,
+        "merge": null,
         "source": "merge"
       },
       "closes": null,
@@ -448,6 +504,15 @@
     ],
     "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9": [
       "proc-v14"
+    ],
+    "sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388": [
+      "proc-v15"
+    ],
+    "sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0": [
+      "proc-v15"
+    ],
+    "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c": [
+      "proc-v15"
     ]
   },
   "harness_boundaries": [
@@ -712,6 +777,14 @@
       "name": "agent-shell-fedcourts-on-path",
       "merge": "116bd569e4d44e5d9ff2878bce34b4b903f206ba",
       "at": "2026-10-29T14:16:26Z",
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
+    },
+    {
+      "name": "cert-same-question-list",
+      "merge": null,
+      "at": null,
       "predictors": null,
       "reach": "all",
       "gradual": false

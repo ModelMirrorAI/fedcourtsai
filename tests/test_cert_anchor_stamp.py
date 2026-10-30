@@ -5,26 +5,34 @@ grading whose scored prediction froze a band takes its whole skill record from
 ``stamp-cell``: the risk-set anchor pooled through the scorer's own pooler over
 the frozen ``(band, salience_version, term)``, the Brier, the skill, the basis
 pair, and the statpack build it read. An earlier label's grading keeps the
-evaluator's transcription. These run the real command over seeded cells.
+evaluator's transcription. From
+:data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM` on, the anchor is
+the one the prediction's context froze at provisioning, wherever it carries
+one. These run the real command over seeded cells.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import UTC, date, datetime
+import os
+import subprocess
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner, Result
 
-from fedcourtsai import process_version
+from fedcourtsai import cli, process_version
 from fedcourtsai.cli import app
+from fedcourtsai.config import get_settings
 from fedcourtsai.leaderboard import _anchor_reproduces
 from fedcourtsai.paths import CasePaths, EventPaths
-from fedcourtsai.pipeline.base_rates import statpack_digest
+from fedcourtsai.pipeline.base_rates import freeze_cert_anchor, statpack_digest
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.schemas import (
     BaseRateBucket,
+    CertAnchor,
     Disposition,
     Evaluation,
     EventKind,
@@ -40,10 +48,19 @@ from fedcourtsai.schemas import (
     StatPackTermVersionSegments,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
+from fedcourtsai.statpack_history import (
+    CHECKOUT_SLACK,
+    CommittedBuild,
+    GitStatpackHistory,
+    verify_cert_anchor,
+)
 
 runner = CliRunner()
 
 _EVENT = "evt-petition-disposition"
+#: The seeded cells' run id: the harness-minted time a frozen anchor is bound by.
+_RUN = "20261001T120000Z"
+_PROVISIONED = datetime(2026, 10, 1, 12, tzinfo=UTC)
 #: A salience version the rendered statpack table no longer shows: it survives
 #: only in the Terms' `alt_segments`, which is the case a judge transcribing
 #: `metrics/statpack.md` could not pool and recorded null for.
@@ -121,13 +138,13 @@ def _seed(
         ),
     )
     write_json(
-        event_paths.prediction("claude-baseline", "RID"),
+        event_paths.prediction("claude-baseline", _RUN),
         Prediction(
             case_id=f"scotus/{docket}",
             event_id=_EVENT,
             predictor_id="claude-baseline",
             engine="claude-code",
-            run_id="RID",
+            run_id=_RUN,
             created_at=datetime(2026, 10, 1, tzinfo=UTC),
             input_snapshot="record/snapshots/2026-10-01.json",
             granted=0,
@@ -148,14 +165,14 @@ def _seed(
     )
     brier = 0.04
     write_json(
-        event_paths.evaluation("claude-judge", "claude-baseline", "RID"),
+        event_paths.evaluation("claude-judge", "claude-baseline", _RUN),
         Evaluation(
             case_id=f"scotus/{docket}",
             event_id=_EVENT,
             predictor_id="claude-baseline",
             evaluator_id="claude-judge",
             engine="claude-code",
-            run_id="RID",
+            run_id=_RUN,
             created_at=datetime(2026, 10, 7, tzinfo=UTC),
             correct=1,
             brier_score=brier,
@@ -192,7 +209,7 @@ def _stamp(docket: int) -> Result:
             "--event",
             _EVENT,
             "--run-id",
-            "RID",
+            _RUN,
             "--role",
             "evaluator",
             "--actor",
@@ -206,7 +223,7 @@ def _stamp(docket: int) -> Result:
 
 
 def _stamped(event_paths: EventPaths) -> dict[str, object]:
-    path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
     loaded: dict[str, object] = json.loads(path.read_text())
     return loaded
 
@@ -328,7 +345,7 @@ def test_a_terminal_relabel_of_a_frozen_band_is_overwritten_and_said(
     since a discarded basis is not a number the numeric echo would catch."""
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v9")
     event_paths = _seed(_roots, 9, context=_frozen())
-    path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
     write_json(
         path,
         read_model(path, Evaluation).model_copy(update={"base_rate_basis": "terminal"}),
@@ -350,7 +367,7 @@ def test_a_prediction_with_no_frozen_band_keeps_the_evaluators_terminal_record(
     stamp does not make, so that record stays the evaluator's even from proc-v9."""
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v9")
     event_paths = _seed(_roots, 4, context=None)
-    path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
     write_json(
         path,
         read_model(path, Evaluation).model_copy(update={"base_rate_basis": "terminal"}),
@@ -374,7 +391,7 @@ def test_the_board_re_pools_a_stamped_anchor_against_the_build_it_names(
     monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v9")
     event_paths = _seed(_roots, 5, context=_frozen())
     assert _stamp(5).exit_code == 0
-    path = event_paths.evaluation("claude-judge", "claude-baseline", "RID")
+    path = event_paths.evaluation("claude-judge", "claude-baseline", _RUN)
     record = read_model(path, Evaluation)
     pack = read_model(tmp_path / "metrics" / "statpack.json", StatPack)
     digest = statpack_digest(pack)
@@ -438,7 +455,7 @@ def test_a_regrade_recomputes_a_harness_owned_cert_record_rather_than_refusing(
             "--event",
             _EVENT,
             "--run-id",
-            "RID",
+            _RUN,
             "--role",
             "evaluator",
             "--actor",
@@ -455,3 +472,448 @@ def test_a_regrade_recomputes_a_harness_owned_cert_record_rather_than_refusing(
     assert stamped["base_rate_statpack_digest"] == first["base_rate_statpack_digest"]
     assert stamped["base_rate_lookback_terms"] == first["base_rate_lookback_terms"]
     assert stamped["process_version"]["label"] == "proc-v9"  # type: ignore[index]
+
+
+def _refreshed() -> StatPack:
+    """A later build: the prior Term's rate moves, so a grading-time pool moves."""
+    return _statpack().model_copy(
+        update={"terms": [_term(2026, 0.5, 1000), _term(2025, 0.3, 200), _term(2024, 0.06, 100)]}
+    )
+
+
+@dataclass
+class _History:
+    """The harness-side record the frozen-anchor check reads, held in memory."""
+
+    builds: list[CommittedBuild]
+    lookbacks: dict[str, int]
+
+    def newest_build(self, bound: datetime) -> CommittedBuild | None:
+        candidates = [build for build in self.builds if build.committed_at <= bound]
+        return max(candidates, key=lambda build: build.committed_at) if candidates else None
+
+    def build_before(self, build: CommittedBuild) -> CommittedBuild | None:
+        earlier = [each for each in self.builds if each.committed_at < build.committed_at]
+        return max(earlier, key=lambda each: each.committed_at) if earlier else None
+
+    def lookback_terms_at(self, sha: str) -> int | None:
+        return self.lookbacks.get(sha)
+
+    def add(self, sha: str, committed_at: datetime, pack: StatPack, lookback: int = 10) -> None:
+        self.builds.append(CommittedBuild(sha=sha, committed_at=committed_at, statpack=pack))
+        self.lookbacks[sha] = lookback
+
+
+@pytest.fixture(autouse=True)
+def _history(monkeypatch: pytest.MonkeyPatch) -> _History:
+    """One build, `_statpack()`, committed before every seeded cell's run id with
+    the configured window of 10; a test adds later revisions."""
+    history = _History(builds=[], lookbacks={})
+    history.add("a" * 40, datetime(2026, 9, 1, tzinfo=UTC), _statpack())
+    monkeypatch.setattr(cli, "_statpack_history", lambda _settings: history)
+    return history
+
+
+def _pinned(pack: StatPack | None = None) -> PredictionContext:
+    """A frozen band carrying the anchor provisioning would have pooled from ``pack``."""
+    context = _frozen()
+    anchor = freeze_cert_anchor(context, pack or _statpack(), lookback_terms=10)
+    return context.model_copy(update={"cert_anchor": anchor})
+
+
+def test_the_pin_gate_opens_at_proc_v15() -> None:
+    assert process_version.PINNED_CERT_ANCHOR_FROM == "proc-v15"
+    assert not process_version.pins_cert_anchor("proc-v14")
+    assert process_version.pins_cert_anchor("proc-v15")
+    assert process_version.pins_cert_anchor("proc-v100"), "numeric, not lexical"
+    assert not process_version.pins_cert_anchor(None)
+    assert not process_version.pins_cert_anchor("proc-v15-draft")
+
+
+def test_freezing_names_the_build_and_window_beside_the_pool() -> None:
+    pack = _statpack()
+    anchor = freeze_cert_anchor(_frozen(), pack, lookback_terms=10)
+    assert anchor is not None
+    assert anchor.rate == pytest.approx(_EXACT_POOL)
+    assert anchor.statpack_digest == statpack_digest(pack)
+    assert anchor.lookback_terms == 10
+    # An empty pool keeps the build it came up empty against; no band, no record.
+    empty = freeze_cert_anchor(_frozen().model_copy(update={"term": 2024}), pack, lookback_terms=10)
+    assert empty is not None
+    assert empty.rate is None
+    assert freeze_cert_anchor(_frozen(band=None), pack, lookback_terms=10) is None
+
+
+def test_from_proc_v15_a_refresh_after_provisioning_does_not_move_the_anchor(
+    _roots: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _history: _History,
+) -> None:
+    """The cell froze its anchor against the build in force at placement; a
+    refresh lands before grading; the stamp finds the build newest at the cell's
+    run id, verifies the frozen anchor against it, and copies it rather than
+    re-pooling the pack now checked out."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    placed = _statpack()
+    event_paths = _seed(_roots, 11, context=_pinned(placed))
+    _history.add("b" * 40, datetime(2026, 10, 5, tzinfo=UTC), _refreshed())
+    write_json(tmp_path / "metrics" / "statpack.json", _refreshed())
+
+    result = _stamp(11)
+
+    assert result.exit_code == 0, result.output
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] == pytest.approx(_EXACT_POOL)
+    assert stamped["brier_skill_score"] == pytest.approx(1 - 0.04 / _EXACT_POOL**2)
+    assert stamped["base_rate_basis"] == "risk_set"
+    assert stamped["base_rate_salience_version"] == _OLD_VERSION
+    assert stamped["base_rate_statpack_digest"] == statpack_digest(placed)
+    assert stamped["base_rate_statpack_digest"] != statpack_digest(_refreshed())
+    assert stamped["base_rate_lookback_terms"] == 10
+
+
+def _assert_cleared(stamped: dict[str, object]) -> None:
+    assert stamped["segment_base_rate"] is None
+    assert stamped["base_rate_basis"] is None
+    assert stamped["base_rate_statpack_digest"] is None
+    assert stamped["base_rate_lookback_terms"] is None
+    assert stamped["brier_skill_score"] is None
+    assert stamped["brier_score"] == pytest.approx(0.04)
+
+
+def _assert_refused(_roots: Path, docket: int, anchor: CertAnchor | None, reason: str) -> None:
+    context = _frozen().model_copy(update={"cert_anchor": anchor})
+    event_paths = _seed(_roots, docket, context=context)
+
+    result = _stamp(docket)
+
+    assert result.exit_code == 0, result.output
+    assert "frozen cert anchor does not verify" in result.output
+    assert reason in result.output
+    assert "refused 1 frozen cert anchor(s)" in result.output  # the summary's count
+    _assert_cleared(_stamped(event_paths))
+
+
+@pytest.mark.parametrize(
+    ("anchor", "reason"),
+    [
+        # The real build in force, beside a rate it does not pool to.
+        (
+            CertAnchor(rate=0.25, statpack_digest=statpack_digest(_statpack()), lookback_terms=10),
+            "does not re-pool",
+        ),
+        # A digest no committed build carries.
+        (
+            CertAnchor(rate=0.25, statpack_digest="sha256:invented", lookback_terms=10),
+            "not the build in force",
+        ),
+        # The build in force and the rate it pools to, under a window the config
+        # at that commit does not name.
+        (
+            freeze_cert_anchor(_frozen(), _statpack(), lookback_terms=1),
+            "lookback_terms 1, not the 10",
+        ),
+    ],
+    ids=["tampered-rate", "unknown-digest", "unconfigured-lookback"],
+)
+def test_a_frozen_anchor_that_does_not_verify_is_refused_out_loud(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, anchor: CertAnchor, reason: str
+) -> None:
+    """`record/context.json` is reachable from the cell, so a frozen record is
+    copied only where it is the anchor harness-side inputs say was in force;
+    otherwise it is cleared, warned, and counted."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    _assert_refused(_roots, 12, anchor, reason)
+
+
+def test_an_older_real_build_is_refused(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _history: _History
+) -> None:
+    """A self-consistent record over a real build that a later one had replaced
+    by provisioning: every internal check passes, and it is still refused."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    _history.add("c" * 40, datetime(2026, 9, 20, tzinfo=UTC), _refreshed())
+    _assert_refused(_roots, 18, _pinned(_statpack()).cert_anchor, "not the build in force")
+
+
+def test_a_build_committed_after_provisioning_is_refused(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch, _history: _History
+) -> None:
+    """Committed after the cell's run id but before the stamp — inside the run —
+    so no cell could have been placed against it."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    later = _refreshed()
+    _history.add("d" * 40, datetime(2026, 10, 1, 12, 30, tzinfo=UTC), later)
+    _assert_refused(_roots, 17, _pinned(later).cert_anchor, "not the build in force")
+
+
+def test_a_verified_frozen_empty_pool_clears_the_anchor_quietly(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    context = _frozen().model_copy(update={"term": 2024})
+    anchor = freeze_cert_anchor(context, _statpack(), lookback_terms=10)
+    assert anchor is not None and anchor.rate is None
+    event_paths = _seed(_roots, 13, context=context.model_copy(update={"cert_anchor": anchor}))
+
+    result = _stamp(13)
+
+    assert result.exit_code == 0, result.output
+    assert "does not verify" not in result.output
+    _assert_cleared(_stamped(event_paths))
+
+
+def test_before_proc_v15_a_frozen_anchor_is_ignored_and_the_stamp_pools_now(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An earlier label keeps the grading-time pool even over a context that
+    carries a frozen anchor, so nothing stamped before the pin moves."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v14")
+    event_paths = _seed(_roots, 14, context=_pinned(_statpack()))
+    refreshed = _refreshed()
+    write_json(tmp_path / "metrics" / "statpack.json", refreshed)
+
+    assert _stamp(14).exit_code == 0
+    stamped = _stamped(event_paths)
+    # (0.3 * 200 + 0.06 * 100) / 300, the refreshed pack's pool.
+    assert stamped["segment_base_rate"] == pytest.approx(0.22)
+    assert stamped["base_rate_statpack_digest"] == statpack_digest(refreshed)
+
+
+def test_from_proc_v15_a_context_with_no_frozen_anchor_pools_now(
+    _roots: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    event_paths = _seed(_roots, 15, context=_frozen())
+
+    assert _stamp(15).exit_code == 0
+    stamped = _stamped(event_paths)
+    assert stamped["segment_base_rate"] == pytest.approx(_EXACT_POOL)
+    pack = read_model(tmp_path / "metrics" / "statpack.json", StatPack)
+    assert stamped["base_rate_statpack_digest"] == statpack_digest(pack)
+
+
+def test_the_board_accepts_a_pinned_anchor_across_a_refresh_and_drops_a_mismatch(
+    _roots: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A grading that records its prediction's pin passes whatever the board's
+    build; one that disagrees with the pin — rate, build, or window — is
+    dropped, even where the board's own build would not re-pool it."""
+    monkeypatch.setattr(process_version, "CURRENT_PROCESS_LABEL", "proc-v15")
+    placed = _statpack()
+    event_paths = _seed(_roots, 16, context=_pinned(placed))
+    assert _stamp(16).exit_code == 0
+    record = read_model(event_paths.evaluation("claude-judge", "claude-baseline", _RUN), Evaluation)
+    cases = _roots / "cases"
+    refreshed = _refreshed()
+
+    def reproduces(evaluation: Evaluation, pack: StatPack | None) -> bool:
+        digest = statpack_digest(pack) if pack is not None else None
+        return _anchor_reproduces(cases, evaluation, Stage.cert, pack, digest)
+
+    assert reproduces(record, placed)
+    assert reproduces(record, refreshed)
+    assert reproduces(record, None)
+    for update in (
+        {"segment_base_rate": 0.22},
+        {"base_rate_statpack_digest": statpack_digest(refreshed)},
+        {"base_rate_lookback_terms": 1},
+    ):
+        mismatched = record.model_copy(update=update)
+        assert not reproduces(mismatched, refreshed), update
+        assert not reproduces(mismatched, None), update
+    # An earlier label's grading over the same pinned prediction is read as
+    # before the pin: a recorded build the board does not hold stands.
+    assert record.process_version is not None
+    earlier = record.model_copy(
+        update={
+            "process_version": record.process_version.model_copy(update={"label": "proc-v14"}),
+            "segment_base_rate": 0.22,
+        }
+    )
+    assert reproduces(earlier, refreshed)
+
+
+def test_the_check_binds_to_the_time_it_is_given() -> None:
+    """The stamp passes the run directory's run id; a build committed a second
+    after it is out of reach, and in reach from a bound a second later."""
+    history = _History(builds=[], lookbacks={})
+    history.add("a" * 40, datetime(2026, 9, 1, tzinfo=UTC), _statpack())
+    history.add("b" * 40, _PROVISIONED + timedelta(seconds=1), _refreshed())
+    anchor = _pinned(_statpack()).cert_anchor
+    later = _pinned(_refreshed()).cert_anchor
+    assert anchor is not None and later is not None
+    assert verify_cert_anchor(anchor, _frozen(), _PROVISIONED, history) is None
+    assert verify_cert_anchor(later, _frozen(), _PROVISIONED, history) is not None
+    later_bound = _PROVISIONED + timedelta(seconds=1)
+    assert verify_cert_anchor(later, _frozen(), later_bound, history) is None
+
+
+def _run_git(repo: Path, *args: str, when: str | None = None) -> None:
+    env = dict(os.environ)
+    if when is not None:
+        env |= {"GIT_COMMITTER_DATE": when, "GIT_AUTHOR_DATE": when}
+    identity = ["-c", "user.name=t", "-c", "user.email=t@example.invalid"]
+    subprocess.run(
+        ["git", "-C", str(repo), *identity, *args],
+        check=True,
+        capture_output=True,
+        env=env,
+    )
+
+
+def test_the_git_reader_returns_the_build_and_window_committed_together(tmp_path: Path) -> None:
+    """Newest revision at or before the bound by committer date, read as a blob,
+    with the lookback the config at that same commit names."""
+    repo = tmp_path / "repo"
+    (repo / "metrics").mkdir(parents=True)
+    (repo / "config").mkdir()
+    _run_git(repo, "init", "-q")
+    for pack, lookback, when in (
+        (_statpack(), 10, "2026-09-01T00:00:00Z"),
+        (_refreshed(), 7, "2026-10-05T00:00:00Z"),
+    ):
+        write_json(repo / "metrics" / "statpack.json", pack)
+        (repo / "config" / "tracking.yaml").write_text(
+            f"salience:\n  base_rate_lookback_terms: {lookback}\n"
+        )
+        _run_git(repo, "add", "-A")
+        _run_git(repo, "commit", "-q", "-m", "build", when=when)
+    history = GitStatpackHistory(repo, "HEAD")
+
+    build = history.newest_build(_PROVISIONED)
+
+    assert build is not None and build.statpack is not None
+    assert statpack_digest(build.statpack) == statpack_digest(_statpack())
+    assert history.lookback_terms_at(build.sha) == 10
+    newest = history.newest_build(datetime(2026, 10, 6, tzinfo=UTC))
+    assert newest is not None and newest.statpack is not None
+    assert history.lookback_terms_at(newest.sha) == 7
+    assert history.newest_build(datetime(2026, 8, 1, tzinfo=UTC)) is None
+
+
+def test_a_repo_that_is_not_one_has_no_build(tmp_path: Path) -> None:
+    assert GitStatpackHistory(tmp_path / "m", "main").newest_build(_PROVISIONED) is None
+
+
+def test_a_build_replaced_within_the_slack_still_verifies() -> None:
+    """A cell checks out its trigger commit before the plan job mints the run
+    id; a refresh landing in that gap is a build the cell never saw."""
+    landed = _PROVISIONED - CHECKOUT_SLACK
+    history = _History(builds=[], lookbacks={})
+    history.add("a" * 40, datetime(2026, 9, 1, tzinfo=UTC), _statpack())
+    history.add("b" * 40, landed, _refreshed())
+    anchor = _pinned(_statpack()).cert_anchor
+    assert anchor is not None
+    assert verify_cert_anchor(anchor, _frozen(), _PROVISIONED, history) is None
+    late = _PROVISIONED + timedelta(seconds=1)
+    refusal = verify_cert_anchor(anchor, _frozen(), late, history)
+    assert refusal is not None and "not the build in force" in refusal
+
+
+def test_the_slack_reaches_one_build_back_and_no_further() -> None:
+    history = _History(builds=[], lookbacks={})
+    history.add("a" * 40, datetime(2026, 9, 1, tzinfo=UTC), _statpack())
+    history.add("b" * 40, _PROVISIONED - timedelta(hours=2), _refreshed())
+    third = _refreshed().model_copy(
+        update={"terms": [_term(2026, 0.5, 1000), _term(2025, 0.4, 200), _term(2024, 0.06, 100)]}
+    )
+    history.add("c" * 40, _PROVISIONED - timedelta(hours=1), third)
+    oldest = _pinned(_statpack()).cert_anchor
+    replaced = _pinned(_refreshed()).cert_anchor
+    assert oldest is not None and replaced is not None
+    assert verify_cert_anchor(replaced, _frozen(), _PROVISIONED, history) is None
+    assert verify_cert_anchor(oldest, _frozen(), _PROVISIONED, history) is not None
+
+
+def _commit_build(repo: Path, pack: StatPack, when: str) -> None:
+    write_json(repo / "metrics" / "statpack.json", pack)
+    (repo / "config" / "tracking.yaml").write_text("salience:\n  base_rate_lookback_terms: 10\n")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "build", when=when)
+
+
+def test_a_merged_refresh_is_in_force_from_its_merge_not_its_branch_commit(
+    tmp_path: Path,
+) -> None:
+    """A refresh committed on a branch on 2026-09-20 and merged with a merge
+    commit on 2026-10-05 was never on main before the merge: a bound in the gap
+    finds the build it replaced, and the merge is a landing of its own."""
+    repo = tmp_path / "repo"
+    (repo / "metrics").mkdir(parents=True)
+    (repo / "config").mkdir()
+    _run_git(repo, "init", "-q", "-b", "main")
+    _commit_build(repo, _statpack(), "2026-09-01T00:00:00Z")
+    _run_git(repo, "switch", "-q", "-c", "refresh")
+    _commit_build(repo, _refreshed(), "2026-09-20T00:00:00Z")
+    _run_git(repo, "switch", "-q", "main")
+    (repo / "README").write_text("unrelated\n")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "other", when="2026-09-25T00:00:00Z")
+    _run_git(repo, "merge", "-q", "--no-ff", "-m", "merge", "refresh", when="2026-10-05T00:00:00Z")
+    history = GitStatpackHistory(repo, "main")
+
+    in_gap = history.newest_build(_PROVISIONED)
+    merged = history.newest_build(datetime(2026, 10, 6, tzinfo=UTC))
+
+    assert in_gap is not None and in_gap.statpack is not None
+    assert statpack_digest(in_gap.statpack) == statpack_digest(_statpack())
+    assert merged is not None and merged.statpack is not None
+    assert statpack_digest(merged.statpack) == statpack_digest(_refreshed())
+    assert merged.committed_at == datetime(2026, 10, 5, tzinfo=UTC)
+    assert history.build_before(merged) == in_gap
+    anchor = _pinned(_refreshed()).cert_anchor
+    assert anchor is not None
+    assert verify_cert_anchor(anchor, _frozen(), _PROVISIONED, history) is not None
+
+
+def test_a_bare_clone_reads_main_and_not_a_branch_the_checkout_added(tmp_path: Path) -> None:
+    """The stamp reads a bare clone of main: a back-dated commit on another
+    branch of the source repository is not a landing."""
+    repo = tmp_path / "repo"
+    (repo / "metrics").mkdir(parents=True)
+    (repo / "config").mkdir()
+    _run_git(repo, "init", "-q", "-b", "main")
+    _commit_build(repo, _statpack(), "2026-09-01T00:00:00Z")
+    _run_git(repo, "switch", "-q", "-c", "forged")
+    _commit_build(repo, _refreshed(), "2026-09-15T00:00:00Z")
+    bare = tmp_path / "history.git"
+    subprocess.run(
+        [
+            "git",
+            "clone",
+            "-q",
+            "--bare",
+            "--single-branch",
+            "--branch",
+            "main",
+            str(repo),
+            str(bare),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    build = GitStatpackHistory(bare, "main").newest_build(_PROVISIONED)
+    assert build is not None and build.statpack is not None
+    assert statpack_digest(build.statpack) == statpack_digest(_statpack())
+    assert GitStatpackHistory(bare, "forged").newest_build(_PROVISIONED) is None
+
+
+def test_stamp_cell_walks_the_history_it_is_handed(tmp_path: Path) -> None:
+    """``--anchor-history`` / ``--anchor-ref`` choose the repository the check
+    reads; the default is the checkout's ``origin/main``."""
+    seen: list[tuple[Path, str] | None] = []
+    token = cli._ANCHOR_HISTORY.set(None)
+    try:
+        default = cli._git_statpack_history(get_settings())
+        assert isinstance(default, GitStatpackHistory)
+        assert default._ref == "origin/main" and default._repo == Path.cwd()
+        cli._ANCHOR_HISTORY.set((tmp_path, "main"))
+        handed = cli._git_statpack_history(get_settings())
+        assert isinstance(handed, GitStatpackHistory)
+        assert (handed._repo, handed._ref) == (tmp_path, "main")
+        seen.append(cli._ANCHOR_HISTORY.get())
+    finally:
+        cli._ANCHOR_HISTORY.reset(token)
+    assert seen == [(tmp_path, "main")]

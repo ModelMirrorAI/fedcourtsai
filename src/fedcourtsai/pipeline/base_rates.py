@@ -35,6 +35,7 @@ from collections.abc import Sequence
 from ..schemas import (
     CERT_ORDER_DISPOSITIONS,
     GRANTED_DISPOSITIONS,
+    CertAnchor,
     FeeClass,
     PredictionContext,
     StatPack,
@@ -127,8 +128,9 @@ def statpack_digest(statpack: StatPack) -> str:
 
     Taken over the parsed model's canonical JSON (sorted keys, no whitespace),
     not the file's bytes, so a re-serialisation that changes no figure names
-    the same build and every reader — the evaluator stamp that records it
-    beside a cert anchor, and the board that re-pools that anchor — derives it
+    the same build and every reader — the provisioner that freezes it into a
+    cert cell's ``cert_anchor``, the evaluator stamp that records it beside a
+    cert anchor, and the board that re-pools that anchor — derives it
     the same way from the :class:`~fedcourtsai.schemas.StatPack` it already
     holds. The pack carries no build timestamp, so under one ``StatPack``
     model two builds share a digest exactly when every figure they publish
@@ -191,6 +193,28 @@ def prediction_base_rate(
         statpack,
         lookback_terms=lookback_terms,
         risk_set=True,
+    )
+
+
+def freeze_cert_anchor(
+    context: PredictionContext, statpack: StatPack, *, lookback_terms: int
+) -> CertAnchor | None:
+    """The cert anchor a cell faces as placed, pinned to the build it was pooled from.
+
+    :func:`prediction_base_rate` over ``context`` and ``statpack``, beside the
+    :func:`statpack_digest` of that build and the window, so a grading stamped
+    later reads the anchor the forecast was placed against rather than a pool of
+    whatever build is checked out by then. ``None`` where the context froze no
+    band: that cell takes the terminal fallback, which no provisioning-time pool
+    can stand in for. A frozen band whose pool is empty keeps its record with a
+    null rate, so the build it came up empty against is still named.
+    """
+    if context.band is None:
+        return None
+    return CertAnchor(
+        rate=prediction_base_rate(context, statpack, lookback_terms=lookback_terms),
+        statpack_digest=statpack_digest(statpack),
+        lookback_terms=lookback_terms,
     )
 
 

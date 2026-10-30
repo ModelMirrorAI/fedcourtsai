@@ -128,6 +128,7 @@ from .process_version import (
     graded_in_window,
     harness_stamps_cert_anchor,
     is_retired,
+    pins_cert_anchor,
     pooled_windows,
     refuse_shared_labels,
     rubric_listing,
@@ -146,6 +147,7 @@ from .schemas import (
     UNLINKED_KEY,
     BigCaseLeaderboard,
     BoundaryCount,
+    CertAnchor,
     CommonRecordEngine,
     CommonRecordReading,
     CountingWindow,
@@ -1762,20 +1764,56 @@ def _anchor_reproduces(
     record that names no build or no window, which the stamp never writes.
     Where the builds differ — a statpack refresh since the grading — the
     stamped rate stands: it was the exact pool of the build it names, and
-    re-pooling against another would move the anchor after the fact. The
-    committed board is built straight after a statpack refresh, so there the
-    check stands down for nearly every cell; it verifies an off-cycle build,
-    and becomes total only once a cohort's build is pinned.
+    re-pooling against another would move the anchor after the fact.
+
+    **A pinned anchor is checked against its pin, whatever the board's build.**
+    A grading stamped from :data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM`
+    on whose scored prediction's context froze an anchor at provisioning
+    (``context.cert_anchor``) must record that anchor: the same build, the same
+    window, and the same rate within :data:`ANCHOR_REPRODUCTION_TOLERANCE`. A
+    record that names the pinned build is accepted even after a refresh has
+    moved the board's own statpack; one that disagrees with its pin is dropped,
+    as a non-reproducing re-pool is. A grading whose build is also the board's
+    is then re-pooled besides. The stamp has already verified the pin itself —
+    it copies a frozen anchor only where it names the newest statpack build
+    committed by the predict cell's run id, under the window configured at that
+    commit, and re-pools to its rate
+    (:func:`fedcourtsai.statpack_history.verify_cert_anchor`) — so this check
+    holds the grading to the pin rather than the pin to a build.
+
+    A grading that pools the statpack checked out at grading has no pin, and
+    the committed board is built straight after a statpack refresh, so for it
+    the re-pool stands down for nearly every cell and verifies an off-cycle
+    build.
 
     Every other cell passes: an earlier label's cert grading keeps the
     registered reading (the coherence check alone), and a cert cell on the
     terminal fallback stays the evaluator's.
     """
-    if statpack is None or stage != Stage.cert:
+    if stage != Stage.cert:
         return True
     label = evaluation.process_version.label if evaluation.process_version is not None else None
     if not harness_stamps_cert_anchor(label) or evaluation.base_rate_basis != "risk_set":
         return True
+    if pins_cert_anchor(label):
+        scored = _scored_prediction(cases_dir, evaluation)
+        frozen = scored.context.cert_anchor if scored and scored.context else None
+        if frozen is not None and not _records_pinned_anchor(evaluation, frozen):
+            return False
+    if statpack is None:
+        return True
+    return _re_pool_reproduces(cases_dir, evaluation, statpack, pack_digest)
+
+
+def _re_pool_reproduces(
+    cases_dir: Path, evaluation: Evaluation, statpack: StatPack, pack_digest: str | None
+) -> bool:
+    """The re-pool half of :func:`_anchor_reproduces`, for a ``risk_set`` cert anchor.
+
+    False for a record naming no build or no window; True where its build is
+    not the board's; otherwise whether the stamp's pooler over the scored
+    prediction's frozen context and the recorded window yields the recorded rate.
+    """
     recorded_build = evaluation.base_rate_statpack_digest
     lookback_terms = evaluation.base_rate_lookback_terms
     if recorded_build is None or lookback_terms is None:
@@ -1790,6 +1828,24 @@ def _anchor_reproduces(
     if expected is None or recorded is None:
         return expected is None and recorded is None
     return math.isclose(expected, recorded, rel_tol=0.0, abs_tol=ANCHOR_REPRODUCTION_TOLERANCE)
+
+
+def _records_pinned_anchor(evaluation: Evaluation, frozen: CertAnchor) -> bool:
+    """Whether a grading records exactly the anchor its prediction froze.
+
+    The build and the window by equality and the rate within
+    :data:`ANCHOR_REPRODUCTION_TOLERANCE`. A pin whose rate is null stamps no
+    rate, build or window at all, so a ``risk_set`` record beside one is not
+    the stamp's.
+    """
+    recorded = evaluation.segment_base_rate
+    if frozen.rate is None or recorded is None:
+        return False
+    return (
+        evaluation.base_rate_statpack_digest == frozen.statpack_digest
+        and evaluation.base_rate_lookback_terms == frozen.lookback_terms
+        and math.isclose(frozen.rate, recorded, rel_tol=0.0, abs_tol=ANCHOR_REPRODUCTION_TOLERANCE)
+    )
 
 
 def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None:

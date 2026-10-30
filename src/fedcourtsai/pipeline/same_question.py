@@ -45,9 +45,9 @@ not from a precision estimate.
 **What a cell reads.** :func:`cell_lists` builds one :class:`SameQuestionList`
 per cert-stage cell of a round from one read of the frame, which is what the
 predict plan job runs (``fedcourts same-question-lists``); provisioning stages a
-cell's own list as ``record/same-question.json``. The list is held back from
-every cell (:data:`fedcourtsai.provision.SAME_QUESTION_WITHHELD`) until the
-re-bless whose prompt tells cells about it.
+cell's own list as ``record/same-question.json`` for a forward cell, behind the
+harness boundary ``cert-same-question-list``
+(:data:`fedcourtsai.provision.SAME_QUESTION_WITHHELD` holds it back when set).
 """
 
 from __future__ import annotations

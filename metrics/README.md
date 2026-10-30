@@ -488,11 +488,25 @@ stays outside the gate:
   re-pools the anchor only where its own statpack is the same build, and drops
   a cell whose recorded rate does not reproduce;
   where the build differs (a refresh since the grading) the stamped rate
-  stands. The committed board is built straight after a statpack refresh, so
-  there the re-pool stands down for nearly every cell: it verifies an
-  off-cycle build, and what holds the committed figure is the stamp itself
-  until a cohort's statpack build is pinned. A re-grade keeps the anchor it
-  was first stamped with. An
+  stands. From `proc-v15` on the build is pinned at provisioning: a cert cell
+  that froze a band also freezes its anchor in `context.cert_anchor` — the
+  same pool over the statpack in force when the forecast was placed, with that
+  build's digest and the window — and the stamp copies it, so a metrics
+  refresh landing between forecast and grading does not move the anchor. The
+  stamp copies it only once verified against harness-side inputs: it must
+  name the newest revision of `metrics/statpack.json` committed at or before
+  the predict cell's run id, record the lookback window `config/tracking.yaml`
+  names at that commit, and re-pool to the frozen rate; otherwise the anchor
+  and skill are cleared with a warning, and the stamp's summary counts the
+  refusals. The board then holds such a grading to its pin
+  whatever its own build: one that records the pinned build, window and rate
+  is accepted, one that disagrees with its pin is dropped. A grading that
+  pools the statpack checked out at grading — an earlier label's, or one whose
+  cell was provisioned without `cert_anchor` — carries no pin, and the
+  committed board is built straight after a statpack refresh, so for it the
+  re-pool stands down for nearly every cell: it verifies an off-cycle build,
+  and what holds the committed figure is the stamp itself. A re-grade keeps
+  the anchor it was first stamped with. An
   earlier label's cert grading, and a cert cell on the terminal fallback (no
   frozen band, so the band is re-derived from the corpus row), keep the
   evaluator's transcription, held by the coherence check alone.

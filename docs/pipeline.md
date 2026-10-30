@@ -3220,9 +3220,8 @@ the plan job's pulled index serves and a cell's ranged read could not. A failed
 build starts the round anyway, each cell provisioned without its list, and
 each cell job deletes the round's file once provisioning has read it, so an
 agent reads only what was staged for it.
-Provisioning holds every list back from its cell until a re-bless
-(`provision.SAME_QUESTION_WITHHELD`); until then the step's log is where the
-lists' size and cost are read.
+A forward cert cell gets its own list as `record/same-question.json`; the
+harness boundary `cert-same-question-list` dates the cells that read it.
 
 ### The evaluate cell grades blind
 
@@ -3269,6 +3268,20 @@ cell's `data/` *add-only* onto a freshly fetched clean `origin/main` checkout â€
 a file the checkout already carries is never overwritten, and a differing copy
 is refused with the checkout's kept â€” and `assert-paths` rejects any
 non-addition that slips past.
+
+The same step in both cells, and a step of its own in every other job that
+starts an engine in a checkout (the back-test, the qp-topic labeler and the
+integration-test jobs), takes `AGENTS.md`, `CLAUDE.md` and `.claude/` out of
+the tree, skip-worktree first, before the first engine step. They are the development
+instructions, which Claude Code and Codex load from the tree unasked, and no
+process digest hashes them; a cell's prompt template is its whole contract
+([process-version.md](process-version.md)). They are not restored: nothing
+after the agent reads them. The cells' engine configuration also carries the
+run-time install refusal (`fedcourts cell-policy`,
+[security.md](security.md)): the claude step's settings, the codex rules file
+the "Configure agent retrieval" step writes beside `.codex/config.toml`, which
+`codex-user-setup` copies root-owned into the codex account's home, and the
+gemini policy file that step names in `.gemini/settings.json`.
 
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored

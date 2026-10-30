@@ -11,12 +11,23 @@ from fedcourtsai import casestore, corpus, provision
 from fedcourtsai.cli import app
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import arrival_cut, cell_context, cert_signals, ingest, opinion_record
+from fedcourtsai.pipeline.base_rates import statpack_digest
 from fedcourtsai.pipeline.cascade import CascadeError, run_cascade
 from fedcourtsai.pipeline.lineup import WritingKind
 from fedcourtsai.pipeline.salience import SALIENCE_VERSION
 from fedcourtsai.provision import stage_writings
-from fedcourtsai.schemas import EventKind, Moment, Stage
+from fedcourtsai.schemas import (
+    BaseRateBucket,
+    EventKind,
+    Moment,
+    Stage,
+    StatPack,
+    StatPackTerm,
+    StatPackTermSegment,
+)
+from fedcourtsai.serialize import write_json
 from tests.conftest import FixtureCorpus
+from tests.fixture_metrics import FIXTURE_BAND_RATE, fixture_metrics_root
 
 runner = CliRunner()
 
@@ -3360,13 +3371,44 @@ def test_the_local_cascade_provisions_the_record_this_command_writes(
     # and this command hand a cell the same record. Both go through one placement
     # and one writer, and this pins the result rather than the wiring: on a
     # docket that trips both contact scrubs, every event's record — snapshot,
-    # context.json, documents and manifest — is byte-identical between the two.
+    # context.json, documents, manifest and a cert cell's same-question list —
+    # is byte-identical between the two. The command takes its lists from the
+    # file the plan job builds, built here on the snapshot's day as the
+    # cascade cuts an uncut cell.
     _seed_snapshot(fixture_corpus, date(2026, 7, 20), _PRO_SE_DOCKET)
     _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
     with corpus.connect(fixture_corpus.db_path) as conn:
         events = corpus.events_for_case(conn, "scotus/305")
     assert events
     assert not any(event.resolved for event in events)  # forward cells on both sides
+    # One fixture statpack read by both sides, so a cert cell's frozen anchor is
+    # part of what the two must agree on.
+    metrics_root = fixture_metrics_root(tmp_path)
+    matrix = tmp_path / "matrix.json"
+    matrix.write_text(
+        json.dumps(
+            {
+                "include": [
+                    {"court": "scotus", "docket": 305, "event_id": event.event_id}
+                    for event in events
+                ]
+            }
+        )
+    )
+    lists = tmp_path / "same-question-lists.json"
+    built = runner.invoke(
+        app,
+        [
+            "same-question-lists",
+            "--matrix-file",
+            str(matrix),
+            "--out",
+            str(lists),
+            "--today",
+            "2026-07-20",
+        ],
+    )
+    assert built.exit_code == 0, built.output
 
     for event in events:
         provisioned = tmp_path / "provisioned" / event.event_id
@@ -3381,14 +3423,20 @@ def test_the_local_cascade_provisions_the_record_this_command_writes(
                 "305",
                 "--event",
                 event.event_id,
+                "--same-question-file",
+                str(lists),
             ],
-            env={"FEDCOURTS_DATA_ROOT": str(provisioned)},
+            env={
+                "FEDCOURTS_DATA_ROOT": str(provisioned),
+                "FEDCOURTS_METRICS_ROOT": str(metrics_root),
+            },
         )
         assert result.exit_code == 0, result.output
         run_cascade(
             corpus_db_path=fixture_corpus.db_path,
             data_root=cascaded,
             config_root=Path("config"),
+            metrics_root=metrics_root,
             court="scotus",
             docket=305,
             event=event.event_id,
@@ -3398,6 +3446,9 @@ def test_the_local_cascade_provisions_the_record_this_command_writes(
         assert "documents/petition.txt" in expected
         assert b"jane.doe@example.com" not in expected["documents/petition.txt"]
         assert _record_bytes(cascaded, "scotus", 305) == expected, event.event_id
+        if event.event_id == "evt-petition-disposition":
+            context = json.loads(expected["context.json"])
+            assert context["cert_anchor"]["rate"] == pytest.approx(FIXTURE_BAND_RATE)
 
 
 def test_provisioning_clears_what_an_earlier_provisioning_left(
@@ -3499,6 +3550,7 @@ def test_the_cascade_refuses_an_unanchorable_moment_before_any_cell_runs(
             corpus_db_path=fixture_corpus.db_path,
             data_root=data_root,
             config_root=Path("config"),
+            metrics_root=fixture_metrics_root(tmp_path),
             court="scotus",
             docket=306,
             event="evt-motion-disposition",
@@ -3527,6 +3579,7 @@ def test_the_cascade_refuses_a_moment_whose_trigger_no_payload_carries(
             corpus_db_path=fixture_corpus.db_path,
             data_root=data_root,
             config_root=Path("config"),
+            metrics_root=fixture_metrics_root(tmp_path),
             court="scotus",
             docket=306,
             event="evt-order-response-requested-disposition",
@@ -3534,3 +3587,82 @@ def test_the_cascade_refuses_a_moment_whose_trigger_no_payload_carries(
         )
     assert not list(data_root.rglob("prediction.json"))
     assert not CasePaths(data_root, "scotus", 306).cell_context.exists()
+
+
+def _anchor_statpack(rate: float) -> StatPack:
+    """A pack whose one prior Term carries `high` under the live version at ``rate``."""
+    segment = StatPackTermSegment(
+        band="high",
+        prefix_est_grant_rate=rate,
+        prefix_weighted_resolved=200,
+        est_grant_rate=rate,
+        weighted_resolved=200,
+    )
+    return StatPack(
+        corpus_rows=1,
+        terms=[
+            StatPackTerm(
+                term=2023,
+                base_rates=BaseRateBucket(),
+                salience_version=SALIENCE_VERSION,
+                segments=[segment],
+            )
+        ],
+    )
+
+
+def _provision_event(
+    fixture_corpus: FixtureCorpus, event_id: str, metrics_root: Path
+) -> tuple[Result, dict[str, Any]]:
+    _seed_snapshot(fixture_corpus, date(2026, 7, 14), _DISTRIBUTED_PAYLOAD)
+    result = runner.invoke(
+        app,
+        ["provision-snapshot", "--court", "scotus", "--docket", "305", "--event", event_id],
+        env={"FEDCOURTS_METRICS_ROOT": str(metrics_root)},
+    )
+    assert result.exit_code == 0, result.output
+    context: dict[str, Any] = json.loads(
+        CasePaths(fixture_corpus.data_root, "scotus", 305).cell_context.read_text()
+    )
+    return result, context
+
+
+def test_a_cert_cell_freezes_its_anchor_against_the_statpack_in_force(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    """The anchor is pooled at placement over the band just frozen, and names
+    the build and window it was pooled under, so a later grading reads it
+    rather than whatever statpack is checked out by then."""
+    pack = _anchor_statpack(0.18)
+    write_json(tmp_path / "metrics" / "statpack.json", pack)
+
+    _, context = _provision_event(fixture_corpus, "evt-petition-disposition", tmp_path / "metrics")
+
+    assert context["band"] == "high"
+    assert context["cert_anchor"] == {
+        "rate": pytest.approx(0.18),
+        "statpack_digest": statpack_digest(pack),
+        "lookback_terms": 10,  # config/tracking.yaml
+    }
+
+
+def test_a_cert_cell_with_no_readable_statpack_freezes_no_anchor_out_loud(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    result, context = _provision_event(
+        fixture_corpus, "evt-petition-disposition", tmp_path / "no-metrics"
+    )
+
+    assert context["band"] == "high"
+    assert context["cert_anchor"] is None
+    assert "no readable metrics/statpack.json" in result.output
+
+
+def test_a_cell_of_another_stage_freezes_no_cert_anchor(
+    fixture_corpus: FixtureCorpus, tmp_path: Path
+) -> None:
+    write_json(tmp_path / "metrics" / "statpack.json", _anchor_statpack(0.18))
+
+    _, context = _provision_event(fixture_corpus, "evt-order-judgment", tmp_path / "metrics")
+
+    assert context["cert_anchor"] is None
