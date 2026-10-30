@@ -2529,6 +2529,86 @@ def test_from_live_docket_latches_the_call_for_response() -> None:
     assert first_undated.call_for_response_at is None
 
 
+@pytest.mark.parametrize(
+    ("opening", "writ"),
+    [
+        ("Petition for a writ of certiorari filed.", "certiorari"),
+        ("Petition for a writ of certiorari before judgment filed.", "certiorari"),
+        ("Petition for a writ of mandamus filed.", "rule-20"),
+        ("Petition for a writ of mandamus and/or prohibition filed.", "rule-20"),
+        ("Petition for writ of habeas corpus filed.", "rule-20"),
+        (
+            "Petition for a writ of habeas corpus or, in the alternative, certiorari filed.",
+            "ambiguous",
+        ),
+    ],
+)
+def test_from_live_docket_latches_the_opening_writ(opening: str, writ: str) -> None:
+    """The writ the opening petition entry names, read past an extension application."""
+    extension = {
+        "Date": "Mar 02 2026",
+        "Text": "Application (25A900) to extend the time to file a petition for a writ "
+        + "of mandamus from March 10, 2026 to May 9, 2026, submitted to Justice Kagan.",
+    }
+    row = from_live_docket(
+        _payload(proceedings=[extension, {"Date": "May 01 2026", "Text": opening}]),
+        live_docket_id(25, 120),
+    )
+    assert row.opening_writ == writ
+
+
+def test_a_sealed_in_re_certiorari_petition_reads_certiorari_by_its_entry() -> None:
+    """A sealed grand-jury petition is captioned "In re …" like a Rule 20 writ, and
+    is a certiorari petition all the same: the entry text, never the caption, classifies."""
+    payload = _payload(
+        proceedings=[{"Date": "Jun 01 2026", "Text": "Petition for a writ of certiorari filed."}]
+    )
+    payload["PetitionerTitle"] = "In re Grand Jury Subpoena"
+    row = from_live_docket(payload, live_docket_id(25, 121))
+    assert row.petitioner_title == "In re Grand Jury Subpoena"
+    assert row.opening_writ == "certiorari"
+
+
+def test_from_live_docket_reads_no_opening_writ_without_a_petition_entry() -> None:
+    distributed = from_live_docket(
+        _payload(proceedings=[_DISTRIBUTED_SEP]), live_docket_id(25, 122)
+    )
+    assert distributed.opening_writ is None
+
+
+def test_from_live_docket_latches_the_distributions_after_a_call() -> None:
+    """Conferences first named by a petition distribution filed after the call."""
+    filing = _payload()["ProceedingsandOrder"][0]
+    called = {"Date": "Sep 20 2026", "Text": "Response Requested. (Due October 20, 2026)"}
+    back = {"Date": "Oct 28 2026", "Text": "DISTRIBUTED for Conference of 11/14/2026."}
+    motion = {
+        "Date": "Oct 29 2026",
+        "Text": "Motion (26M10) DISTRIBUTED for Conference of 11/21/2026.",
+    }
+    row = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, called, back, motion]),
+        live_docket_id(25, 130),
+    )
+    assert row.distribution_count == 2
+    assert row.distributed_after_call == 1  # the motion's trip is not the petition's
+    # A call no distribution has followed yet: zero, not unknown.
+    waiting = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, called]), live_docket_id(25, 131)
+    )
+    assert waiting.distributed_after_call == 0
+    # A redistribution to a conference already named before the call is not new.
+    again = {"Date": "Oct 28 2026", "Text": "DISTRIBUTED for Conference of 9/29/2026."}
+    same = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP, called, again]), live_docket_id(25, 132)
+    )
+    assert same.distributed_after_call == 0
+    # No call: nothing to count.
+    none = from_live_docket(
+        _payload(proceedings=[filing, _DISTRIBUTED_SEP]), live_docket_id(25, 133)
+    )
+    assert none.distributed_after_call is None
+
+
 def test_ingest_live_payload_lands_weight_one_and_observed_zero_signals(tmp_path: Path) -> None:
     db = corpus.corpus_db_path(tmp_path / "corpus")
     result = ingest_live_payload(

@@ -278,6 +278,25 @@ petition: a later relist repeats the same signal. Live poll only, fill-in latche
 from the `query` rows, and null on a decided row polled before the column
 existed.
 
+`opening_writ` records which writ the docket's opening petition entry asks for
+(`cert_signals.opening_writ`): the first "Petition for a writ of … filed" entry,
+read past an extension application that precedes it, classified `certiorari`
+(certiorari before judgment included), `rule-20` (mandamus, prohibition or
+habeas corpus with no certiorari), `ambiguous` (both) or `other`. The entry
+text decides, never the caption: a Rule 20 petition is captioned "In re …", and
+so is a sealed certiorari petition. It is `sal-v5`'s scope input
+([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
+the `query` rows, and null on a row polled before the column existed.
+
+`distributed_after_call` counts the conferences a petition was first
+distributed for after the Court called for a response
+(`cert_signals.distributions_after_call`): the distinct conference dates named
+by petition distributions (the entry-initial `dist-v2` reading) filed after the
+first `Response Requested` entry, less any conference a distribution filed on or
+before the call, or undated, also names. It is `sal-v5`'s relist-count input.
+Cert branch only, fill-in latched, withheld from the `query` rows, and null where
+the docket shows no dated call or on a row polled before the column existed.
+
 On a granted docket the same parse also lands the **merits decision record**
 (`pipeline/decision_record.py`), over every grant — the GVR and the summary
 reversal included, where the merits pair (`merits_judgment` / `merits_decided`)

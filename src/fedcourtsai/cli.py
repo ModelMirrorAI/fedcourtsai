@@ -433,6 +433,8 @@ from .pipeline.salience import (
     registered_versions,
     unlatch_overselected,
 )
+from .pipeline.salience_cert_backfill import COLUMNS as SALIENCE_CERT_COLUMNS
+from .pipeline.salience_cert_backfill import backfill_salience_cert_columns
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
 from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
@@ -1510,6 +1512,113 @@ def rederive_cert_amicus_briefs_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command("backfill-salience-cert-columns")
+def backfill_salience_cert_columns_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the back-filled columns; omit for a dry-run plan."),
+    ] = False,
+    max_fills: Annotated[
+        int | None,
+        typer.Option(
+            "--max-fills",
+            help="Blast-radius bound: refuse to apply more column fills (across all three "
+            "columns) than this. Required with --apply.",
+        ),
+        # No default: the dry run is where the number comes from, and a default
+        # would stand in for the maintainer's reading of it.
+    ] = None,
+) -> None:
+    """Back-fill the three withheld cert columns `sal-v5` reads, over the cert live slice.
+
+    `call_for_response_at`, `distributed_after_call` and `opening_writ` are
+    written by the live poll's cert branch at ingest and fill-in latched, so a row
+    the rotation no longer polls keeps NULL in each column it predates. This pass
+    re-parses every cert-form live-slice SCOTUS row's newest live-shaped snapshot
+    with the functions ingest calls (`cert_signals.call_for_response_date`,
+    `cert_signals.distributions_after_call`, `cert_signals.opening_writ`) and
+    fills each NULL the snapshot yields a reading for. Only NULLs are filled,
+    which is stricter than ingest's upsert, where a fresh reading replaces the
+    stored one: a column already holding a value is `already_set` and never
+    written, and the statement keeps a stored value (`COALESCE(stored, new)`). A
+    NULL `distributed_after_call` whose stored `call_for_response_at` differs
+    from the snapshot's call date is `pair_mismatch` and not filled; a NULL
+    whose snapshot is missing or discloses no proceedings is `unparseable`; one
+    whose proceedings name no call, or no opening petition entry, is
+    `no_reading`. Corpus only, index only.
+
+    Prints, per column, `would_fill`, `already_set`, `no_reading`,
+    `unparseable` and `pair_mismatch` with the filled values' distribution, then the
+    `SalienceCertBackfillResult` as JSON. **Read `unobservable` first**: against an
+    index-only pull with no content store addressed every fetched row lands there
+    and the empty ledger reads like a filled corpus. One pass per invocation (the
+    plan is the write set), the batch in one transaction. `--apply` requires an
+    explicit `--max-fills` and refuses above it, printing the ledger first.
+    Idempotent: re-running after an apply reports `total_fills = 0`. Run where the
+    corpus is pulled (`run-repair`'s `salience-cert-backfill` pass in production; a
+    dev checkout serves the dry run). Exits 1 when the corpus is absent or the
+    apply is refused.
+    """
+    settings = get_settings()
+    if apply and max_fills is None:
+        typer.echo(
+            "backfill-salience-cert-columns: --apply requires an explicit --max-fills. "
+            "Read the dry run first and pass the total_fills you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before back-filling the sal-v5 cert columns.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    corpus_sha = _census_corpus_sha(settings, db_path)
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
+        result = backfill_salience_cert_columns(
+            conn, apply=apply, corpus_sha256=corpus_sha, max_fills=max_fills
+        )
+    verb = "wrote" if apply else "would write"
+    if result.refused:
+        verb = "refused to write"
+    typer.echo(
+        f"backfill-salience-cert-columns ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} cert-form live-slice row(s); {result.all_set} already carry all "
+        f"three columns (not read); {result.read} read, {result.unobservable} unobservable "
+        "(untouched). Read `unobservable` first: against an index-only pull every fetched "
+        "row lands there and the empty ledger below is a wrong-blob reading rather than a "
+        "filled corpus"
+    )
+    typer.echo(f"  {verb} {result.total_fills} column fill(s) on {len(result.fills)} row(s)")
+    for column in SALIENCE_CERT_COLUMNS:
+        ledger = result.columns[column]
+        typer.echo(
+            f"  {column}: {ledger.would_fill} would fill, {ledger.already_set} already set "
+            f"(latched, untouched), {ledger.no_reading} no reading, {ledger.unparseable} "
+            f"unparseable, {ledger.pair_mismatch} pair-mismatch; "
+            f"filled values: {ledger.filled_values}"
+        )
+    if not apply and max_fills is not None and result.total_fills > max_fills:
+        typer.echo(
+            f"note: {result.total_fills} total fills is above --max-fills {max_fills}; "
+            "an apply would refuse.",
+            err=True,
+        )
+    typer.echo(result.model_dump_json())
+    if result.refused:
+        typer.echo(
+            f"backfill-salience-cert-columns: refusing to apply {result.total_fills} "
+            f"fill(s) (--max-fills {max_fills}). Nothing was written. A row the poll read "
+            "since the dry run is already filled, so the total ordinarily falls between "
+            "the two dispatches; one above the dry run's means the population widened — "
+            "triage the ledger before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
 @app.command("interim-reading-census")
 def interim_reading_census_cmd() -> None:
     """Census the stored application rows the finer interim reading names partial or moot.
@@ -1654,7 +1763,7 @@ def caption_census_cmd(
     rule_version: str = typer.Option(
         CAPTION_RULE_VERSION,
         "--rule-version",
-        help="Which registered caption rule cuts the frame (caption-v1, caption-v2).",
+        help="Which registered caption rule cuts the frame (caption-v1, caption-v2, caption-v3).",
     ),
 ) -> None:
     """The petitioner-class census: per-Term grant-family rates by caption class.

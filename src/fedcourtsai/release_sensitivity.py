@@ -45,14 +45,13 @@ here writes anything, and no figure here reaches the board.
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Protocol
 
 import yaml
 
@@ -160,13 +159,6 @@ LARGE_DEVIATION = 0.01
 #: grading's checkout.
 STATPACK_PATH = "metrics/statpack.json"
 TRACKING_PATH = f"config/{TRACKING_FILENAME}"
-
-#: The docket's opening petition entry: "Petition for a writ of … filed".
-_PETITION_ENTRY_RE = re.compile(
-    r"^\s*petition\s+for\s+(?:an?\s+)?(?P<what>[^.(]*?\bwrit\b[^.(]*?)\s+filed\b", re.I
-)
-#: The extraordinary writs of the Court's Rule 20.
-RULE_20_WRITS: tuple[str, ...] = ("mandamus", "prohibition", "habeas corpus")
 
 #: A case's latest live payload and the day it was stored, or ``None``.
 PayloadReader = Callable[[str], tuple[date, Mapping[str, Any]] | None]
@@ -281,36 +273,22 @@ class OpeningPetition:
 
     filed: date | None
     text: str
-    writ: Literal["certiorari", "rule-20", "ambiguous", "other"]
+    writ: cert_signals.OpeningWrit
 
 
 def opening_petition(payload: Mapping[str, Any]) -> OpeningPetition | None:
     """The first "Petition for a writ of … filed" entry, classified by its writ.
 
-    The opening *petition* entry rather than the first entry of all: an
-    application to extend the time to file precedes the petition on many
-    dockets and names no writ of its own. ``rule-20`` names a writ of mandamus,
+    The shared reader (:func:`fedcourtsai.pipeline.cert_signals.opening_petition_entry`)
+    with the entry's date parsed: ``rule-20`` names a writ of mandamus,
     prohibition or habeas corpus and no certiorari; ``ambiguous`` names both;
     ``other`` names neither. ``None`` where no such entry is disclosed.
     """
-    for text, raw in cert_signals.proceedings_entries(payload):
-        match = _PETITION_ENTRY_RE.search(text)
-        if match is None:
-            continue
-        what = match.group("what").lower()
-        extraordinary = any(writ in what for writ in RULE_20_WRITS)
-        certiorari = "certiorari" in what
-        writ: Literal["certiorari", "rule-20", "ambiguous", "other"]
-        if extraordinary and certiorari:
-            writ = "ambiguous"
-        elif extraordinary:
-            writ = "rule-20"
-        elif certiorari:
-            writ = "certiorari"
-        else:
-            writ = "other"
-        return OpeningPetition(filed=cert_signals.entry_date(raw), text=text.strip(), writ=writ)
-    return None
+    found = cert_signals.opening_petition_entry(payload)
+    if found is None:
+        return None
+    text, raw, writ = found
+    return OpeningPetition(filed=cert_signals.entry_date(raw), text=text, writ=writ)
 
 
 def _docket_number(payload: Mapping[str, Any]) -> str | None:
