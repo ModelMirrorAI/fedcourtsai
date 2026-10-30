@@ -1,0 +1,91 @@
+{
+  "big_case_rationale": "Routine Texas capital stay application tied to a pending IFP cert petition from CA5 federal habeas; grave for the applicant but no sign of broad legal significance in the record provided.",
+  "big_case_score": 0.1,
+  "case_id": "scotus/72408073",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.01,
+        "Breyer": 0.04,
+        "Ginsburg": 0.02,
+        "Gorsuch": 0.005,
+        "Kagan": 0.01,
+        "Kennedy": 0.005,
+        "Roberts": 0.005,
+        "Sotomayor": 0.05,
+        "Thomas": 0.01
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.04
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.6
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.03
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "cert_anchor": null,
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2017-08-11",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": false,
+    "response_requested": false,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2017-08-11",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2017,
+    "vide_links": []
+  },
+  "created_at": "2026-10-30T23:15:56.184378Z",
+  "engine": "claude-code",
+  "event_id": "evt-brief-response-disposition",
+  "granted": 0,
+  "input_snapshot": "2017-08-11.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.04,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
+    "label": "proc-v15",
+    "pipeline_sha": "b9c108875b0e0d4bbc676b71cdf99f372cbf8529",
+    "stamped_at": "2026-10-30T23:15:56.184378Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261030T230229Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

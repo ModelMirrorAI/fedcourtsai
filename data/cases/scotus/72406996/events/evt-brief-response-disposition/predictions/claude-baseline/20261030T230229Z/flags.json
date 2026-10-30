@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/72406996",
+  "run_id": "20261030T230229Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "warning", "event_id": "evt-brief-response-disposition",
+     "message": "Cell is mode=forward, but the application (16A450, execution date 3 Nov 2016) was decided in 2016. The cell looks mis-provisioned as forward; it should be replay."},
+    {"category": "leakage-disclosure", "severity": "warning", "event_id": "evt-brief-response-disposition",
+     "message": "Predictor remembers from training how the Court disposed of this stay application. No retrieval of the outcome. The forecast was stated from the pre-decision record, but memory may have shaped the probability and the order-writers numbers. Discount the cell."},
+    {"category": "provisioning", "severity": "info", "event_id": "evt-brief-response-disposition",
+     "message": "No record/documents provisioned (no application.txt or application-response.txt) although paper_only_filings is false; forecast from the two-entry docket only."}
+  ]
+}

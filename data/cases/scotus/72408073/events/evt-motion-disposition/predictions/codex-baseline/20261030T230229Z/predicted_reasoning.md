@@ -1,0 +1,9 @@
+# Forecast
+
+The Court will most likely deny Steven Lynn Long's application, 17A145, for a stay of execution. The probability of an unqualified grant is 8%; a mixed grant-and-denial order would count as ungranted under this event's definition. The expected disposition is a short order rather than a reasoned merits decision.
+
+The baseline contains only the July 31, 2017 submission to Justice Alito. No response request, full-Court referral, or amicus entry has yet appeared. From that zero-rung state, I forecast a 55% probability of a response request, an 80% probability of referral to the full Court, and an 8% probability that the amicus-entry count increases above zero. These are separate increments: referral need not follow a response request, and referral is not itself evidence that relief will be granted. The most likely amicus outcome is no new entry, counting both Latin-form amicus entries and distinct submitted briefs as the contract requires.
+
+I expect disposition within several days to roughly two weeks after submission, rather than after a conference cycle. This timing prediction is low confidence because the record supplies no scheduled execution date. Execution presents irreversible harm, but that alone does not establish the prospects of review and reversal needed for a stay. If relief is granted, the likely immediate action is to preserve the status quo while the underlying challenge is considered, not to decide a constitutional question in the application order. The legal question and the nature of the Fifth Circuit proceeding cannot be identified from this docket entry alone.
+
+The order will probably have no separate writing. If someone writes, Breyer is my leading candidate, followed by Sotomayor; neither is more likely than not to write. These are writing forecasts, not predictions of how all nine Justices vote.

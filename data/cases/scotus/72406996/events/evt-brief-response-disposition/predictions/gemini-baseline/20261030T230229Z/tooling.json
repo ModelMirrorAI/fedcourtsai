@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/72406996",
+  "run_id": "20261030T230229Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "CourtListener MCP search and document reader provided the exact procedural posture of Arthur's concurrent November 2016 appeals (840 F.3d 1268 and 236 So. 3d 155) and the Alabama Supreme Court's September 30, 2016 decision in Ex parte Bohannon.",
+    "metrics/statpack.md interim docket table clearly showed that pre-2016 application Terms are unparsed (n=0), confirming the strictly-prior pool falls below the 50-case floor."
+  ],
+  "gaps": [
+    "No application.txt or application-response.txt was provisioned under record/documents/ for 16A450.",
+    "record/context.json carries mode='forward' with decided_before=null on a 2016 historical docket truncated at 2016-11-04."
+  ],
+  "notes": "Passed --decided-before 2016-11-03 manually on corpus queries and filed_before='2016-11-03' on CourtListener searches to respect the 2016-11-04 snapshot cutoff.",
+  "schema_version": "1.0"
+}

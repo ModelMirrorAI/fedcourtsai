@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000562",
+  "run_id": "20261030T230229Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "metrics/statpack.md"],
+  "helpful": ["Frozen cert_anchor in context.json", "Appendix text with the order below"],
+  "gaps": ["No pro-se-vs-counselled split of the baseline band in the statpack"],
+  "notes": "Posture (non-final mandamus denial) dominated; corpus priors added little."
+}

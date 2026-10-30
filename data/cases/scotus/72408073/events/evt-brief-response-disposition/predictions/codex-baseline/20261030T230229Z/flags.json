@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/72408073",
+  "run_id": "20261030T230229Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "The supplied context says mode=forward, but the event opened August 10, 2017 and the snapshot/cutoff is August 11, 2017, whereas this run is dated October 30, 2026. Please confirm that historical-forward provisioning is intentional. No actual disposition was sought, encountered, or inferred from the date mismatch; the prediction treats the application as undecided on the supplied historical record."
+    }
+  ]
+}
