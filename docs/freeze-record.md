@@ -15004,7 +15004,7 @@ freeze commit is recorded here.
   reserve's backlog drains, now starts at this entry's carrying merge rather
   than that entry's, since before it the reserve polled nothing in Term.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by `promotion/2026-10-30` (merge commit `a3b2daec8ba19b6c3b3aecb9316bd62c15d568df`, merged `2026-10-30T16:38:43Z`).
 
   The runnable effect check once it is live: a day after the carrying merge,
   `CHECK_SUMMARY=out.md uv run python scripts/checks/never_polled_reserve.py`
@@ -15066,7 +15066,7 @@ freeze commit is recorded here.
   is freed; so is the stuck occupant 25A622 (`scotus/73279700`, 338 days).
   26A163 (85 days), 26A458 (23) and 26A560 (8) keep their slots.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by `promotion/2026-10-30` (merge commit `a3b2daec8ba19b6c3b3aecb9316bd62c15d568df`, merged `2026-10-30T16:38:43Z`).
 
   The runnable effect check once it is live: where the corpus is pulled,
   `uv run fedcourts reconcile-salience-selection` (a dry run) prints an
@@ -15078,8 +15078,8 @@ freeze commit is recorded here.
 - **`proc-v15`: a cell's prompt template is its whole contract, the cert
   skill anchor is frozen at placement, forward cert cells read their
   same-question list, and run-time installs are refused; recorded
-  2026-10-30.** Carried to `main` by `<FILL: promotion tag>` (merge
-  `<FILL: merge sha>`, `<FILL: merged time utc>`), to be tagged
+  2026-10-30.** Carried to `main` by `promotion/2026-10-30` (merge
+  `a3b2daec8ba19b6c3b3aecb9316bd62c15d568df`, `2026-10-30T16:38:43Z`), to be tagged
   **`prereg/proc-v15`**. Registered under the merge-stamped rule, so its
   counting instant, its six bless moments and every window edge it moves are
   the carrying merge's committer time. Both prompts change, so it takes the

@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000435",
+  "run_id": "20261030T142128Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_search_document"
+  ],
+  "helpful": [
+    "Provisioned petition.txt (including full appendix with the Second Circuit Summary Order and NLRB decisions) and questions-presented.txt",
+    "Salience-band reached base-rate table in metrics/statpack.md",
+    "CourtListener MCP search and search_document confirming the Second Circuit's intervening published decision in Siren Retail Corp. v. NLRB (Sept. 2, 2026)"
+  ],
+  "gaps": [],
+  "notes": "All provisioned documents and MCP tools worked smoothly."
+}

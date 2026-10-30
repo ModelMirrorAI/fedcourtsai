@@ -1,0 +1,94 @@
+{
+  "big_case_rationale": "If granted and decided, the case would clarify whether general personal jurisdiction can rest on a corporation's historical headquarters at the time of injury and further police specific personal jurisdiction boundaries under Ford Motor Co. and Bristol-Myers Squibb in coordinated mass-tort product-liability litigation.",
+  "big_case_score": 0.35,
+  "case_id": "scotus/9026000029",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.005,
+        "Barrett": 0.001,
+        "Gorsuch": 0.005,
+        "Jackson": 0.001,
+        "Kagan": 0.001,
+        "Kavanaugh": 0.002,
+        "Roberts": 0.001,
+        "Sotomayor": 0.001,
+        "Thomas": 0.006
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.025
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.11
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.005
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.15
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.015
+    }
+  ],
+  "confidence": 0.85,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-30",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-30T15:56:57.717265Z",
+  "engine": "gemini",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-30.json",
+  "judgment": null,
+  "model": "gemini-4-argon",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "gemini-baseline",
+  "probability": 0.025,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
+    "label": "proc-v14",
+    "pipeline_sha": "e1446c35ea86223892862da4a6555f175dbab9a8",
+    "stamped_at": "2026-10-30T15:56:57.717265Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261030T142128Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
