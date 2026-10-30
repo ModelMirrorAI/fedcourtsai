@@ -13,11 +13,18 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus, dedupe
 from fedcourtsai.cli import app
+from fedcourtsai.ledger_events import remove_event_documents
 from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.ingest import UNSAMPLED_WEIGHT
-from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent
+from fedcourtsai.schemas import (
+    Disposition,
+    EventKind,
+    Outcome,
+    PredictableEvent,
+    ResolutionSignals,
+)
 from fedcourtsai.serialize import read_model, write_json, write_yaml
-from fedcourtsai.supremecourt import live_docket_id
+from fedcourtsai.supremecourt import live_application_id, live_docket_id
 
 runner = CliRunner()
 
@@ -595,6 +602,64 @@ def test_an_agreeing_survivor_baseline_retires_the_twins_copy(tmp_path: Path) ->
     assert new_paths.outcome.read_text() == before
 
 
+def _set_outcome(paths: EventPaths, **update: object) -> None:
+    write_json(paths.outcome, read_model(paths.outcome, Outcome).model_copy(update=update))
+
+
+def test_a_retirement_fills_the_twins_extra_facts_in_on_the_survivor(tmp_path: Path) -> None:
+    """Retiring the twin's copy must discard nothing only it carries: a field
+    the survivor lacks takes the twin's value, one it asserts keeps its own,
+    and a nested block fills field by field where nothing disagrees."""
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    new_paths = _write_ledger_event(data_root, _KEEP, _BASELINE)
+    _set_outcome(
+        old_paths,
+        disposition_route="plenary",
+        source="live",
+        signals=ResolutionSignals(distribution_count=2, distribution_parse="dist-v2"),
+    )
+    _set_outcome(new_paths, source="pull", signals=ResolutionSignals(distribution_count=2))
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.ledger_moves == [_move(_BASELINE, retire=True)]
+    assert not old_paths.base.exists()
+    survivor = read_model(new_paths.outcome, Outcome)
+    assert survivor.case_id == _KEEP
+    assert survivor.disposition_route == "plenary"
+    assert survivor.source == "pull"
+    assert survivor.signals == ResolutionSignals(distribution_count=2, distribution_parse="dist-v2")
+
+
+def test_a_disagreeing_nested_block_keeps_the_survivors_whole(tmp_path: Path) -> None:
+    """A parse stamp describes the values its parse produced; grafting the
+    twin's onto a survivor block whose count differs would misdescribe it."""
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    new_paths = _write_ledger_event(data_root, _KEEP, _BASELINE)
+    _set_outcome(
+        old_paths, signals=ResolutionSignals(distribution_count=2, distribution_parse="dist-v2")
+    )
+    _set_outcome(new_paths, signals=ResolutionSignals(distribution_count=3))
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
+        dedupe.dedupe_live_rows(conn, data_root, apply=True)
+    assert read_model(new_paths.outcome, Outcome).signals == ResolutionSignals(distribution_count=3)
+
+
+def test_an_unreadable_twin_document_sends_the_pair_to_triage(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    paths.outcome.write_text("{not json\n")
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == []
+        assert "could not be read" in result.skipped[0].conflicts[0]
+    assert paths.base.is_dir()
+
+
 def test_a_disagreeing_survivor_baseline_refuses_the_pair(tmp_path: Path) -> None:
     """Two committed baselines recording different resolutions are two
     definitions of one fact: a judgement call, so the pair goes to triage."""
@@ -694,6 +759,41 @@ def test_a_stranded_refusal_is_reported_and_left_in_place(tmp_path: Path) -> Non
         assert _DROP in result.stranded_skipped[0]
         assert "holds committed cell output" in result.stranded_skipped[0]
     assert paths.base.is_dir()
+
+
+def test_a_stranded_minted_collision_is_reported_and_left_in_place(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    paths = _write_ledger_event(data_root, _DROP, _MINTED)
+    _write_ledger_event(data_root, _KEEP, _MINTED)
+    with _seeded(tmp_path, _survivor_only()) as conn:
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.ledger_moves == []
+        assert "exist under both ids" in result.stranded_skipped[0]
+    assert paths.base.is_dir()
+
+
+def test_a_stranded_application_id_resolves_through_its_own_number(tmp_path: Path) -> None:
+    """The application range decodes to an `NNAnnn` number, so a stranded
+    application directory finds the upstream row carrying that number."""
+    data_root = tmp_path / "data"
+    drop = f"scotus/{live_application_id(25, 1099)}"
+    keep = "scotus/73300001"
+    event_id = "evt-motion-disposition"
+    old_paths = _write_ledger_event(data_root, drop, event_id)
+    with _seeded(tmp_path, [_row(keep, "25A1099")]) as conn:
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert [(m.from_case, m.to_case) for m in result.ledger_moves] == [(drop, keep)]
+    assert not old_paths.base.exists()
+    moved = read_model(_event_paths(data_root, keep, event_id).outcome, Outcome)
+    assert moved.case_id == keep
+
+
+def test_removing_event_documents_refuses_anything_beside_them(tmp_path: Path) -> None:
+    paths = _write_ledger_event(tmp_path / "data", _DROP, _BASELINE)
+    _write_cell_output(paths)
+    with pytest.raises(ValueError, match="more than its documents"):
+        remove_event_documents(paths)
+    assert paths.outcome.is_file()
 
 
 def test_only_the_stranded_shape_is_swept(tmp_path: Path) -> None:

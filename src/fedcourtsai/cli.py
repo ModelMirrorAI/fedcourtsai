@@ -2565,9 +2565,10 @@ def dedupe_live_rows_cmd(
     (`minted_moments_defined_in_ledger`) nor a baseline outcome naming a case
     the corpus no longer carries (`ledger_references_exist`); a baseline the
     survivor already defines with an agreeing outcome is retired rather than
-    moved. The ledger half goes first, so an interrupted pair converges on the
-    next run, and directories a landed merge stranded under a dropped live id
-    are re-found from the ledger side and carried the same way. A pair disagreeing
+    moved, its twin-only facts filled in on the survivor's outcome first. The
+    ledger half goes first, so an interrupted pair converges on the next run,
+    and directories a landed merge stranded under a dropped live id are
+    re-found from the ledger side and carried the same way. A pair disagreeing
     on `date_filed`, `date_decided`, or `disposition` is skipped and reported,
     never dropped — the dry-run output is the triage list — and so is one this
     merge cannot carry mechanically: committed cell output anywhere under the

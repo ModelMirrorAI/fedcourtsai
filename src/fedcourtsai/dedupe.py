@@ -43,8 +43,10 @@ its ``outcome.json`` names the dropped case, and the row delete orphans it into 
 ``ledger_references_exist`` failure. So a baseline directory moves with its row
 exactly as a minted moment's does, and where the survivor already commits its own
 definition of the baseline the twin's copy is retired instead, provided the two
-outcomes agree on the resolving facts (disposition, grant, resolution date); two
-disagreeing definitions are a judgement call and refuse the pair. Committed cell
+outcomes agree on the resolving facts (disposition, grant, resolution date); any
+other field only the twin's outcome asserts fills in on the survivor's first, so
+the retirement discards nothing. Two disagreeing definitions are a judgement call
+and refuse the pair. Committed cell
 output anywhere under the dropped id names that id inside `prediction.json` /
 `evaluation.json`, which no restamp here rewrites, so a dropped case carrying any
 such artifact refuses the whole pair.
@@ -99,7 +101,7 @@ from .paths import CasePaths, EventPaths, court_cases_dir
 from .pipeline import moments
 from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .schemas import Outcome, PredictableEvent
-from .serialize import read_model
+from .serialize import read_model, write_json
 from .supremecourt import is_live_docket_id, reserved_docket_number
 
 
@@ -458,6 +460,15 @@ def _apply_ledger_move(data_root: Path, move: LedgerMove, *, restamp_first: bool
     old = drop_paths.event(move.event_id)
     new = keep_paths.event(move.event_id)
     if move.retire:
+        # The survivor takes the twin's extra facts before the twin's copy goes,
+        # so a run cut off between the two re-plans the same retirement, whose
+        # fill-in then adds nothing.
+        _, old_outcome = _read_documents(old)
+        _, new_outcome = _read_documents(new)
+        if old_outcome is not None and new_outcome is not None:
+            filled = _filled_outcome(new_outcome, old_outcome)
+            if filled != new_outcome:
+                write_json(new.outcome, Outcome.model_validate(filled.model_dump()))
         remove_event_documents(old)
         return
     restamp = {"case_id": move.to_case}
@@ -498,8 +509,8 @@ def _committed_cell_output(case_paths: CasePaths) -> tuple[str, list[str]] | Non
 
     Scoped to the whole case, not to the moments this merge would move: the row
     delete is what orphans a prediction or an evaluation, and it deletes the
-    case id every event of the twin references — including the case-level
-    baselines, which no move carries. Returns ``(event_id, entries)`` for the
+    case id every event of the twin references, and a move carries only the
+    event documents, never what sits beside them. Returns ``(event_id, entries)`` for the
     first such directory, or ``None`` when the case carries none.
     """
     if not case_paths.events_dir.is_dir():
@@ -592,11 +603,12 @@ def _plan_event(
 ) -> tuple[LedgerMove | None, str | None]:
     """One event's step for :func:`_plan_ledger`: ``(step, None)`` or ``(None, reason)``.
 
-    ``(None, None)`` when the event owes nothing. Raises whatever a survivor-side
+    ``(None, None)`` when the event owes nothing. Raises whatever a document
     read raises, for the caller to report.
     """
     if old.base.is_dir():
         if not new.base.exists():
+            _read_documents(old)  # an unreadable twin document is triage, not a crash mid-apply
             return move, None
         if minted:
             return None, _LEDGER_COLLISION_REASON.format(event_id=move.event_id)
@@ -613,27 +625,80 @@ def _plan_event(
 #: twin's copy to be retired in favour of the survivor's.
 _RESOLVING_FACTS = ("actual_disposition", "actual_granted", "resolved_at")
 
+#: Identity fields the survivor's outcome never takes from the twin's.
+_OUTCOME_IDENTITY = frozenset({"schema_version", "case_id", "event_id"})
+
+
+def _read_documents(paths: EventPaths) -> tuple[PredictableEvent | None, Outcome | None]:
+    """The directory's parsed ``event.yaml`` and ``outcome.json``, either ``None`` if absent."""
+    event = read_model(paths.event_file, PredictableEvent) if paths.event_file.is_file() else None
+    outcome = read_model(paths.outcome, Outcome) if paths.outcome.is_file() else None
+    return event, outcome
+
 
 def _baseline_disagreement(old: EventPaths, new: EventPaths) -> str | None:
     """Why the twin's baseline copy cannot be retired, or ``None`` when it can.
 
     The survivor's definition stands when it records the same resolution as the
-    twin's, or when the twin records none. A twin outcome the survivor lacks is
-    a fact only the twin carries, so it is not discarded. Raises whatever the
-    read raises.
+    twin's (:data:`_RESOLVING_FACTS`), or when the twin records none; any other
+    field only the twin's outcome asserts fills in on the survivor's at the
+    retirement (:func:`_filled_outcome`), so nothing the twin alone carries is
+    discarded. A twin outcome the survivor lacks altogether is likewise not
+    discarded: that pair refuses. Raises whatever the read raises.
     """
-    if not old.outcome.is_file():
+    _, old_outcome = _read_documents(old)
+    _, new_outcome = _read_documents(new)
+    if old_outcome is None:
         return None
-    if not new.outcome.is_file():
+    if new_outcome is None:
         return "only the dropped id's directory records an outcome"
-    old_outcome = read_model(old.outcome, Outcome)
-    new_outcome = read_model(new.outcome, Outcome)
     differing = [
         field
         for field in _RESOLVING_FACTS
         if getattr(old_outcome, field) != getattr(new_outcome, field)
     ]
     return f"outcomes differ on {', '.join(differing)}" if differing else None
+
+
+def _filled_outcome(keep: Outcome, drop: Outcome) -> Outcome:
+    """The survivor's outcome with every field only the twin's asserts filled in.
+
+    Keep-side precedence, the rule the corpus merge applies to the rows: a field
+    the survivor asserts keeps its value, one it lacks takes the twin's. A nested
+    block both carry (``signals``, say) fills field by field only when no field
+    both assert disagrees — a stamp like a parse label describes its block's
+    values, so it is never grafted onto values it did not produce.
+    """
+    updates: dict[str, Any] = {}
+    for name in Outcome.model_fields:
+        if name in _OUTCOME_IDENTITY:
+            continue
+        keep_val = getattr(keep, name)
+        drop_val = getattr(drop, name)
+        if _lacks(drop_val):
+            continue
+        if _lacks(keep_val):
+            updates[name] = drop_val
+        elif isinstance(keep_val, BaseModel) and type(keep_val) is type(drop_val):
+            nested = _filled_block(keep_val, drop_val)
+            if nested is not None:
+                updates[name] = nested
+    return keep.model_copy(update=updates) if updates else keep
+
+
+def _filled_block(keep: BaseModel, drop: BaseModel) -> BaseModel | None:
+    """``keep`` with ``drop``'s fields filled in, or ``None`` if they disagree or add nothing."""
+    updates: dict[str, Any] = {}
+    for name in type(keep).model_fields:
+        keep_val = getattr(keep, name)
+        drop_val = getattr(drop, name)
+        if _lacks(drop_val):
+            continue
+        if _lacks(keep_val):
+            updates[name] = drop_val
+        elif keep_val != drop_val:
+            return None
+    return keep.model_copy(update=updates) if updates else None
 
 
 def _merged_row(keep: corpus.CorpusRow, drop: corpus.CorpusRow, weight: int) -> corpus.CorpusRow:
