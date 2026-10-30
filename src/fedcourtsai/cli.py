@@ -50,6 +50,7 @@ from . import (
     analytics,
     blinding,
     casestore,
+    cell_policy,
     cleanup,
     contexts_due,
     corpus,
@@ -17786,6 +17787,66 @@ def evaluators() -> None:
     for e in load_evaluators(settings.config_root / "evaluators.yaml"):
         flag = "" if e.enabled else " (disabled)"
         typer.echo(f"{e.id}\t{e.engine}\t{e.model or '-'}{flag}")
+
+
+#: The default cap on `pdf-text`'s output: far past any filing a cell is staged
+#: (the stored texts are cut well below it), so a whole brief prints, while a
+#: pathological file cannot flood the agent's context unbounded.
+PDF_TEXT_DEFAULT_MAX_CHARS = 2_000_000
+
+
+@app.command("pdf-text")
+def pdf_text(
+    file: Annotated[Path, typer.Argument(help="The PDF file to read.")],
+    max_chars: Annotated[
+        int, typer.Option(min=1, help="Stop after this many characters (a truncation is reported).")
+    ] = PDF_TEXT_DEFAULT_MAX_CHARS,
+) -> None:
+    """Print a PDF's text to stdout, read with the project's pinned pypdf.
+
+    The cell's way to read a PDF it finds or fetches, since a cell installs
+    nothing: the same extractor (``pipeline.documents.extract_pdf_text``) that
+    stores filing text for the corpus, so a cell reads a PDF exactly as the
+    pipeline would. Pages are joined by newlines; the page count, and whether
+    the text was cut at ``--max-chars``, go to stderr. A scanned page yields no
+    text, so a PDF that prints nothing is reported as such rather than as an
+    error. Exits 1 where the file is missing or is not a readable PDF.
+    """
+    if not file.is_file():
+        typer.echo(f"pdf-text: no file at {file}", err=True)
+        raise typer.Exit(code=1)
+    extracted = extract_pdf_text(file.read_bytes(), char_cap=max_chars)
+    if extracted.pages == 0:
+        typer.echo(f"pdf-text: {file} is not a readable PDF", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(extracted.text)
+    note = f"pdf-text: {extracted.pages} page(s), {len(extracted.text)} character(s)"
+    if extracted.truncated:
+        note += f", cut at --max-chars {max_chars}"
+    if not extracted.text.strip():
+        note += "; no extractable text (a scanned PDF carries none)"
+    typer.echo(note, err=True)
+
+
+@app.command("cell-policy")
+def cell_policy_cmd(
+    engine: Annotated[
+        str, typer.Option(help="claude-code (a JSON deny list), codex (rules) or gemini (policy).")
+    ],
+) -> None:
+    """Print the engine's refusal of run-time package installs, as its cell reads it.
+
+    One prefix list (:data:`fedcourtsai.cell_policy.INSTALL_COMMAND_PREFIXES`)
+    in each engine's own form: claude-code's ``permissions.deny`` entries as a
+    JSON list, codex's execpolicy rules file, gemini's policy file. The cell
+    workflows write the codex and gemini files from this command and carry the
+    claude list inline, which a test holds equal to it.
+    """
+    try:
+        typer.echo(cell_policy.render(engine), nl=False)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
 
 
 @app.command()

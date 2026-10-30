@@ -1482,6 +1482,31 @@ runner seam's scrubbed base environment strips every AWS variable and every
 credential-shaped name except the engine's own auth — the same posture as a
 back-test replay cell.
 
+### Run-time installs are refused in a cell
+
+A predict or evaluate cell has the open network, so a package installed
+mid-turn would be code no review saw, fetched from an index and run beside
+the cell's outputs and the post-agent steps. Its tooling is fixed before the
+engine starts instead (`fedcourts pdf-text` reads a PDF), and one prefix list,
+`fedcourtsai.cell_policy.INSTALL_COMMAND_PREFIXES` (`pip install`, `uv pip`,
+`uv add`, `npm install`, `npx`, `apt-get`, `sudo` and the rest), is refused in
+each engine's own surface, written by `fedcourts cell-policy --engine <engine>`:
+
+- **claude-code**: `permissions.deny` rules in the step's `settings`, which
+  hold under `bypassPermissions`.
+- **codex**: `forbidden` execpolicy prefix rules, copied root-owned into the
+  codex account's `$CODEX_HOME/rules/` by the `codex-user-setup` action.
+- **gemini**: a `deny` rule on `run_shell_command`, loaded through the
+  settings' `policyPaths` at the user tier, which outranks the CLI's `--yolo`
+  allow-all.
+
+What each refuses is a command prefix the engine parses out of the command,
+not an outcome: gemini and codex split `&&` and `;` chains, and gemini reads
+into `bash -c`, but a script the agent writes and then runs, or an installer
+under a name the list does not carry, is not seen. It closes the ordinary
+install path and is not a sandbox. The back-test and local cells, launched by
+`pipeline/runner.py`, do not carry it.
+
 ## The `website` environment
 
 `post-public-update` creates the weekly public update as a **draft** in

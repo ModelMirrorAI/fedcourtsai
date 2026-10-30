@@ -34,6 +34,10 @@ below says how:
   conservative reasonable call, and finish (*Rules*).
 - **Validate before you finish.** `uv run fedcourts validate data` must pass
   for your files.
+- **Install nothing.** The cell's tooling is fixed before you start, and a
+  package install (`pip install`, `uv pip`, `uv add`, `npm install`,
+  `apt-get` and the like) is refused. To read a PDF, run
+  `uv run fedcourts pdf-text <file>`, which prints its text.
 
 ## Your task
 
@@ -303,7 +307,7 @@ unless `--include-applications`, while a substantive stay or injunction
 application returns either way, being the interim predict scope) and
 `uv run fedcourts open-events` read it through your cell's local corpus service, which
 holds the ranged remote connection — your shell holds no cloud credentials.
-Spell both with `uv run`: a bare `fedcourts` is not on your shell's `PATH`.
+Spell both with `uv run`; a bare `fedcourts` runs the same binary.
 The surface is structured filters only, with no free-text search, so read
 `uv run fedcourts query --help` before your first query; a usage error names
 the flag it wanted, so re-issue the query with flags rather than giving up on

@@ -122,6 +122,18 @@ runs:
           fi
           sudo install -o "$CODEX_USER" -g "$CODEX_USER" -m 644 \
             "$GITHUB_WORKSPACE/$CODEX_CONFIG" "$home/.codex/config.toml"
+          # The execpolicy rules beside the config (`fedcourts cell-policy
+          # --engine codex`, the run-time install refusal) go where codex reads
+          # user rules, `$CODEX_HOME/rules/`. Root-owned, so the account the
+          # agent runs as can read them and never rewrite them.
+          rules_dir="$(dirname "$GITHUB_WORKSPACE/$CODEX_CONFIG")/rules"
+          if [ -d "$rules_dir" ]; then
+            sudo install -d -o root -g root -m 755 "$home/.codex/rules"
+            for rules in "$rules_dir"/*.rules; do
+              [ -f "$rules" ] || continue
+              sudo install -o root -g root -m 644 "$rules" "$home/.codex/rules/"
+            done
+          fi
         fi
 
     - name: Carry the non-secret cell environment across the sudo hop

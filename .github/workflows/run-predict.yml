@@ -937,6 +937,8 @@ jobs:
               uv run fedcourts mcp-config --engine codex \
                 --role predictor --actor "$PREDICTOR_ID" \
                 --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+              mkdir -p .codex/rules
+              uv run fedcourts cell-policy --engine codex > .codex/rules/fedcourts-cell.rules
               ;;
             gemini)
               # The Gemini settings file is (re)written whole here — telemetry
@@ -994,6 +996,14 @@ jobs:
                 --role predictor --actor "$PREDICTOR_ID" \
                 --base-settings .gemini/settings.json \
                 --http-url courtlistener=http://127.0.0.1:8378/mcp > .gemini/settings.json.new
+              mv .gemini/settings.json.new .gemini/settings.json
+              # The install refusal (`fedcourts cell-policy --engine gemini`): a deny
+              # rule on the shell tool, loaded through `policyPaths` at the user tier,
+              # which outranks the --yolo allow-all of the CLI's default tier.
+              mkdir -p .gemini/policies
+              uv run fedcourts cell-policy --engine gemini > .gemini/policies/fedcourts-cell.toml
+              jq --arg policy "$GITHUB_WORKSPACE/.gemini/policies/fedcourts-cell.toml" \
+                '.policyPaths = [$policy]' .gemini/settings.json > .gemini/settings.json.new
               mv .gemini/settings.json.new .gemini/settings.json
               ;;
           esac
@@ -1276,10 +1286,42 @@ jobs:
           # The API key's default cache TTL is only 5 minutes, which would expire
           # mid-run, so ENABLE_PROMPT_CACHING_1H below pins the 1-hour TTL (and the
           # cache-read discount priced in fedcourtsai.pricing).
+          # `permissions.deny` refuses a run-time package install: the rules are
+          # `fedcourts cell-policy --engine claude-code`, held equal to it by
+          # tests/test_cell_policy.py, and a deny rule holds under
+          # bypassPermissions.
           settings: |
             {
               "env": {
                 "ENABLE_PROMPT_CACHING_1H": "1"
+              },
+              "permissions": {
+                "deny": [
+                  "Bash(pip install *)",
+                  "Bash(pip3 install *)",
+                  "Bash(python -m pip *)",
+                  "Bash(python3 -m pip *)",
+                  "Bash(uv pip *)",
+                  "Bash(uv add *)",
+                  "Bash(uv tool *)",
+                  "Bash(uvx *)",
+                  "Bash(pipx *)",
+                  "Bash(conda *)",
+                  "Bash(mamba *)",
+                  "Bash(npm install *)",
+                  "Bash(npm i *)",
+                  "Bash(npm ci *)",
+                  "Bash(npm add *)",
+                  "Bash(npx *)",
+                  "Bash(pnpm *)",
+                  "Bash(yarn *)",
+                  "Bash(apt-get *)",
+                  "Bash(apt *)",
+                  "Bash(sudo *)",
+                  "Bash(gem install *)",
+                  "Bash(cargo install *)",
+                  "Bash(go install *)"
+                ]
               }
             }
           # The kickoff prompt is identical across the three engines and carries

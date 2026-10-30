@@ -1087,6 +1087,8 @@ jobs:
           uv run fedcourts mcp-config --engine codex \
             --role predictor --actor codex-baseline \
             --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+          mkdir -p .codex/rules
+          uv run fedcourts cell-policy --engine codex > .codex/rules/fedcourts-cell.rules
 
       # Gemini's sanitizer runs strict whenever GITHUB_SHA is set and strips
       # every custom var from the agent's shell, so the cell env contract and
@@ -1392,6 +1394,8 @@ jobs:
           uv run fedcourts mcp-config --engine codex \
             --role evaluator --actor "$EVALUATOR_ID" \
             --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+          mkdir -p .codex/rules
+          uv run fedcourts cell-policy --engine codex > .codex/rules/fedcourts-cell.rules
 
       # The cells' own tripwire, kept because this leg reproduces the cell
       # posture and not merely the cell prompt: the corpus sidecar hands its
@@ -1967,6 +1971,8 @@ jobs:
               uv run fedcourts mcp-config --engine codex \
                 --role predictor --actor "$PREDICTOR_ID" \
                 --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+              mkdir -p .codex/rules
+              uv run fedcourts cell-policy --engine codex > .codex/rules/fedcourts-cell.rules
               ;;
             gemini)
               # Merged over the settings file the allowlist step above wrote,
@@ -1975,6 +1981,14 @@ jobs:
                 --role predictor --actor "$PREDICTOR_ID" \
                 --base-settings .gemini/settings.json \
                 --http-url courtlistener=http://127.0.0.1:8378/mcp > .gemini/settings.json.new
+              mv .gemini/settings.json.new .gemini/settings.json
+              # The install refusal (`fedcourts cell-policy --engine gemini`): a deny
+              # rule on the shell tool, loaded through `policyPaths` at the user tier,
+              # which outranks the --yolo allow-all of the CLI's default tier.
+              mkdir -p .gemini/policies
+              uv run fedcourts cell-policy --engine gemini > .gemini/policies/fedcourts-cell.toml
+              jq --arg policy "$GITHUB_WORKSPACE/.gemini/policies/fedcourts-cell.toml" \
+                '.policyPaths = [$policy]' .gemini/settings.json > .gemini/settings.json.new
               mv .gemini/settings.json.new .gemini/settings.json
               ;;
           esac
@@ -2050,10 +2064,42 @@ jobs:
           # action falls back to an OIDC exchange that mints an installation
           # token defaulting to contents/issues/pull-requests *write*.
           github_token: ${{ github.token }}
+          # `permissions.deny` refuses a run-time package install: the rules are
+          # `fedcourts cell-policy --engine claude-code`, held equal to it by
+          # tests/test_cell_policy.py, and a deny rule holds under
+          # bypassPermissions.
           settings: |
             {
               "env": {
                 "ENABLE_PROMPT_CACHING_1H": "1"
+              },
+              "permissions": {
+                "deny": [
+                  "Bash(pip install *)",
+                  "Bash(pip3 install *)",
+                  "Bash(python -m pip *)",
+                  "Bash(python3 -m pip *)",
+                  "Bash(uv pip *)",
+                  "Bash(uv add *)",
+                  "Bash(uv tool *)",
+                  "Bash(uvx *)",
+                  "Bash(pipx *)",
+                  "Bash(conda *)",
+                  "Bash(mamba *)",
+                  "Bash(npm install *)",
+                  "Bash(npm i *)",
+                  "Bash(npm ci *)",
+                  "Bash(npm add *)",
+                  "Bash(npx *)",
+                  "Bash(pnpm *)",
+                  "Bash(yarn *)",
+                  "Bash(apt-get *)",
+                  "Bash(apt *)",
+                  "Bash(sudo *)",
+                  "Bash(gem install *)",
+                  "Bash(cargo install *)",
+                  "Bash(go install *)"
+                ]
               }
             }
           # DEVIATION, and the point of the leg: the cells' kickoff prompt
