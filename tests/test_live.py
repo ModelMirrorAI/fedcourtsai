@@ -16,6 +16,7 @@ from fedcourtsai import corpus, supremecourt
 from fedcourtsai.config import LiveConfig, PredictScope, SalienceConfig, load_live_config
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline import live as live_module
+from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.ingest import (
     CorpusSource,
     backfill_live_signals,
@@ -1897,6 +1898,36 @@ def test_reserve_selected_application_is_swept_into_the_predict_queue(tmp_path: 
         row = corpus.get_row(conn, "scotus/9525000001")
     assert row is not None and row.salience_selected  # the reserve latch
     assert row.predict_queued_at == date(2026, 7, 9)  # the sweep's stamp
+
+
+def test_the_cycle_passes_its_own_date_to_the_selection_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The interim reserve's age-out measures to the cycle's ``today``, never
+    the wall clock, so the cycle hands its date to the selection pass."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    seen: list[date] = []
+    real = salience_module.apply_salience_selection
+
+    def recording(
+        conn: sqlite3.Connection, data_root: Path, config: SalienceConfig, *, as_of: date
+    ) -> list[str]:
+        seen.append(as_of)
+        return real(conn, data_root, config, as_of=as_of)
+
+    monkeypatch.setattr(live_module, "apply_salience_selection", recording)
+    with _frontier_client({}) as client:
+        live_poll_all(
+            client,
+            db,
+            tmp_path / "data",
+            term=25,
+            config=LiveConfig(),
+            scope=_GATED,
+            salience_config=_sweep_config(interim_reserve_slots=1),
+            today=date(2026, 7, 9),
+        )
+    assert seen == [date(2026, 7, 9)]
 
 
 def test_changed_extension_application_never_queues_predict(tmp_path: Path) -> None:

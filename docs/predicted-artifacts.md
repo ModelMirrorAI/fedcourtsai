@@ -59,7 +59,7 @@ fields that mean the same thing at every stage:
   predicted. The staged `documents/` hold the kinds provisioning gives cells,
   never one the corpus stores but withholds from every cell until a re-bless
   (`provision.WITHHELD_KINDS`, which holds the Court-appointed amicus's merits
-  brief now;
+  brief and the two CourtListener kinds of the decision below now;
   [document-provisioning.md](document-provisioning.md)); the post-argument
   merits cell's `authorship-tally.json` is held back on the same rule
   (`provision.AUTHORSHIP_TALLY_WITHHELD`). A forward cert cell's

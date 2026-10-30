@@ -239,6 +239,7 @@ from .matrix import (
     opinion_hold,
     parse_cases,
     predict_matrix,
+    predicted_case_ids,
     read_collect_prs,
     read_stranded_census,
     reopened_for,
@@ -365,6 +366,7 @@ from .pipeline.documents import (
     document_fetch_losses,
     document_text_coverage,
     extract_pdf_text,
+    holds_docket_documents,
     questions_presented_extract,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
@@ -542,6 +544,7 @@ from .schemas import (
     QpTopicLabels,
     QpTopicReference,
     QpTopicRunSpend,
+    ReserveOccupant,
     RetrievalCall,
     RetrievalLog,
     SalienceReplay,
@@ -1678,6 +1681,15 @@ def interim_reading_census_cmd() -> None:
     typer.echo(result.model_dump_json())
 
 
+def _reserve_occupant_status(occupant: ReserveOccupant, horizon_days: int) -> str:
+    """One reserve occupant's slot status for the reconcile printout."""
+    if occupant.holds_slot:
+        return "holds a slot"
+    if occupant.aged_out:
+        return f"released: aged out past {horizon_days} day(s)"
+    return "released: snapshot reads disposed"
+
+
 @app.command("reconcile-salience-selection")
 def reconcile_salience_selection_cmd(
     apply: Annotated[
@@ -1686,6 +1698,16 @@ def reconcile_salience_selection_cmd(
             "--apply", help="Write the scores and selection latch; omit for a dry-run count."
         ),
     ] = False,
+    today: Annotated[
+        str,
+        typer.Option(
+            "--today",
+            help=(
+                "The pass's own date (YYYY-MM-DD), which the interim reserve's age-out "
+                "measures each application's filing date to; defaults to today (UTC)."
+            ),
+        ),
+    ] = "",
 ) -> None:
     """Score the in-scope cert petitions and latch the per-conference selected slice.
 
@@ -1696,8 +1718,10 @@ def reconcile_salience_selection_cmd(
     a re-run never de-selects a case that later drifts below the cap. Dry-run by
     default; `--apply` writes (the run-seed walk then pushes the corpus). Lists the
     interim reserve's occupants — each latched, still-pending application with its
-    filing date, the stored snapshot read, and whether it still holds a slot (one
-    whose snapshot already reads as an interim disposal does not). Prints a
+    filing date, its age at the pass's date, the stored snapshot read, and
+    whether it still holds a slot (one whose snapshot already reads as an interim
+    disposal does not, nor one filed more than
+    `salience.interim_reserve_age_out_days` before the pass). Prints a
     `SalienceSelectionResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
@@ -1709,24 +1733,34 @@ def reconcile_salience_selection_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+    try:
+        as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    except ValueError:
+        typer.echo(f"--today must be a date (YYYY-MM-DD), not {today!r}", err=True)
+        raise typer.Exit(code=2) from None
     config = load_salience_config(settings.config_root)
     with corpus.connect_maintenance(db_path, apply=apply) as conn:
-        result = reconcile_salience_selection(conn, settings.data_root, config, apply=apply)
+        result = reconcile_salience_selection(
+            conn, settings.data_root, config, apply=apply, as_of=as_of
+        )
     typer.echo(
         f"reconcile-salience-selection ({'applied' if apply else 'dry-run'}): "
         f"scored {result.scored}, newly selected {result.newly_selected} "
         f"across {result.conferences} conference(s)"
     )
     held = sum(o.holds_slot for o in result.reserve_occupants)
+    aged = sum(o.aged_out for o in result.reserve_occupants)
+    horizon = config.interim_reserve_age_out_days
+    age_out = f"{aged} aged out past {horizon} day(s)" if horizon else "age-out off"
     typer.echo(
-        f"interim reserve: {held} of {config.interim_reserve_slots} slot(s) held, "
-        f"{len(result.reserve_occupants) - held} occupant(s) released as disposed"
+        f"interim reserve as of {as_of}: {held} of {config.interim_reserve_slots} slot(s) held, "
+        f"{len(result.reserve_occupants) - held} occupant(s) released ({age_out})"
     )
     for occupant in result.reserve_occupants:
         typer.echo(
             f"  {occupant.case_id} {occupant.docket_number} filed {occupant.date_filed} "
-            f"snapshot {occupant.snapshot_date} "
-            f"{'holds a slot' if occupant.holds_slot else 'released: snapshot reads disposed'}"
+            f"age {occupant.age_days} day(s) snapshot {occupant.snapshot_date} "
+            f"{_reserve_occupant_status(occupant, horizon)}"
             f"{' (snapshot read failed)' if occupant.snapshot_read_failed else ''}"
         )
     typer.echo(result.model_dump_json())
@@ -15451,6 +15485,113 @@ def decision_below_command(
         )
 
 
+@app.command("enrich-decision-below")
+def enrich_decision_below_command(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Store the rows and stamp the cursor; default is a dry run."),
+    ] = False,
+    max_cases: Annotated[
+        int,
+        typer.Option(
+            help="Cases to walk (at most "
+            f"{decision_below.MAX_FILL_CASES}); ~4 REST requests a typical case."
+        ),
+    ] = decision_below.DEFAULT_FILL_CASES,
+    case: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--case",
+            help="Walk only this corpus case id (scotus/<docket_id>), whatever the "
+            "rotation says; repeatable.",
+        ),
+    ] = None,
+) -> None:
+    """Store the decision below for cert petitions from the federal courts of appeals.
+
+    Walks the rotation `fill_candidates` orders — the petitions the ledger
+    forecasts and the salience selection first, then never-attempted, then
+    newest — joins each to CourtListener as `decision-below` measures, and
+    stores what upstream holds: the opinion on the judgment date as a
+    `decision-below` document and the docket record as a `lower-court-docket`
+    document, then stamps `decision_below_attempted_at`. A dry run walks and
+    counts without writing. Both kinds are held back from every cell
+    (`provision.WITHHELD_KINDS`) until the re-bless whose prompt names them.
+    Spends CourtListener REST requests through the shared client and this
+    process's governor, never RECAP Fetch. Prints the per-case report as JSON on
+    stdout and the counts on stderr.
+    """
+    if not 1 <= max_cases <= decision_below.MAX_FILL_CASES:
+        typer.echo(
+            "enrich-decision-below: --max-cases must be between 1 and "
+            f"{decision_below.MAX_FILL_CASES}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    named = [value.strip() for value in case or [] if value.strip()]
+    try:
+        case_ids = corpus_seed.parse_case_ids(named) if named else []
+    except corpus_seed.SeedSliceError as exc:
+        typer.echo(f"enrich-decision-below: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    settings = get_settings()
+    if not settings.courtlistener_api_token:
+        typer.echo("enrich-decision-below: no CourtListener API token is configured", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts "
+            "corpus-pull) before running the decision-below fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    today = datetime.now(UTC).date()
+    char_cap = load_live_config(settings.config_root).document_text_cap
+    with corpus.connect_maintenance(db_path, apply=apply) as conn, _client() as client:
+        settled: list[str] = []
+        if case_ids:
+            rows: list[corpus.CorpusRow] = []
+            for case_id in case_ids:
+                row = corpus.get_row(conn, case_id)
+                if row is None:
+                    typer.echo(
+                        f"enrich-decision-below: the corpus holds no row {case_id}", err=True
+                    )
+                    raise typer.Exit(code=1)
+                rows.append(row)
+        else:
+            candidates = decision_below.fill_candidates(
+                conn,
+                today=today,
+                max_cases=max_cases,
+                priority=predicted_case_ids(settings.data_root),
+            )
+            rows, settled = candidates.rows, candidates.settled
+        report = decision_below.fill_decision_below(
+            conn, client, rows, apply=apply, today=today, char_cap=char_cap, settled=settled
+        )
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(report.model_dump_json(indent=2))
+    counts = ", ".join(f"{n} {status}" for status, n in sorted(report.counts.items()))
+    stored = ", ".join(f"{n} {kind}" for kind, n in report.stored.items())
+    verb = "stored" if apply else "would store"
+    typer.echo(
+        f"enrich-decision-below ({'applied' if apply else 'dry run'}): walked "
+        f"{len(report.matches)} ({counts or 'none'}); {verb} {stored or 'nothing'}; "
+        f"{report.requests} REST request(s)",
+        err=True,
+    )
+    if settled:
+        restamp = "re-stamped" if apply else "would re-stamp"
+        typer.echo(f"  {len(settled)} case(s) already hold their opinion; {restamp}", err=True)
+    if report.stopped:
+        typer.echo(
+            f"  stopped: {report.stopped} ({len(report.deferred)} case(s) deferred)", err=True
+        )
+
+
 @app.command("order-scan")
 def order_scan_command(
     config: Annotated[
@@ -20403,7 +20544,7 @@ def live_poll(
     salience_cfg = load_salience_config(settings.config_root)
     cap = live_cfg.max_cases_per_run if limit is None else min(limit, live_cfg.max_cases_per_run)
     deadline = time.monotonic() + max_run_seconds if max_run_seconds is not None else None
-    today = date.today()
+    today = datetime.now(UTC).date()
     probe_term = term if term is not None else current_docket_term(today)
     db = corpus.corpus_db_path(settings.corpus_root)
     with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
@@ -20686,7 +20827,7 @@ def live_frontier_cmd(
         return
     with corpus.connect_readonly(db) as conn:
         rows = corpus.conference_watchlist(conn)
-        provisioned = sum(1 for row in rows if corpus.documents_for_case(conn, row.case_id))
+        provisioned = sum(1 for row in rows if holds_docket_documents(conn, row.case_id))
     by_conference: dict[date, int] = {}
     for row in rows:
         assert row.distributed_for_conference is not None  # the query guarantees it

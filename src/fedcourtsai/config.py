@@ -757,6 +757,13 @@ class SalienceConfig(BaseModel):
     # conference cohort's rank-fill limit by the same number — which costs a cert
     # pick only where the cohort's non-carve-out remainder exceeds that limit.
     interim_reserve_slots: int = Field(default=5, ge=0)
+    # Age-out horizon for an interim reserve slot, in days from the application's
+    # filing date to the selection pass's own date (docs/salience.md, *The
+    # interim docket*). A pending occupant filed more than this many days before
+    # the pass keeps its latch but stops counting against
+    # ``interim_reserve_slots``, and a pending application past it does not
+    # contend for a slot. 0 disables the age-out.
+    interim_reserve_age_out_days: int = Field(default=180, ge=0)
 
     @model_validator(mode="after")
     def _long_conference_is_not_smaller(self) -> Self:

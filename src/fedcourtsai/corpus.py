@@ -384,6 +384,20 @@ class CorpusRow(BaseModel):
         "carrying no stamp preserves it — under the split the latch is the only "
         "thing that does, since the live channel's own upserts carry none.",
     )
+    decision_below_attempted_at: date | None = Field(
+        default=None,
+        description="Tracking state: date the decision-below fill "
+        "(`pipeline/decision_below.py`, `fedcourts enrich-decision-below`) last "
+        "joined this case's lower-court docket on CourtListener and got an answer "
+        "about it — a stored opinion, a docket with no opinion on the judgment "
+        "date, no docket at all; None until first attempted, and left alone where "
+        "the walk stopped at a throttle or a refused credential before reaching "
+        "the case. It is that fill's rotation key: never-attempted rows first, "
+        "then a stale stamp, so a docket CourtListener has not ingested yet is "
+        "asked again later rather than every run. Written through "
+        "`stamp_decision_below_attempt` rather than the row upsert, and a fill-in "
+        "latch like `document_floor_probed_at`.",
+    )
     last_live_polled: date | None = Field(
         default=None,
         description="Tracking state: date the SCOTUS live channel (supremecourt.gov "
@@ -1025,6 +1039,10 @@ CREATE TABLE IF NOT EXISTS cases (
     -- paced docket GET per poll of that docket rather than one per dispatch.
     -- NULL = never floored.
     document_floor_probed_at TEXT,
+    -- The decision-below fill's rotation key (see CorpusRow and
+    -- pipeline/decision_below.py): the date that pass last got an answer from
+    -- CourtListener about this case's lower-court docket. NULL = never attempted.
+    decision_below_attempted_at TEXT,
     -- The decision record beside the merits pair (see CorpusRow and
     -- pipeline/decision_record.py): the date of the docket's last argument
     -- on or after the grant, and how the case was decided (a `MeritsDecisionMethod`
@@ -1250,6 +1268,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "capital_case": "INTEGER NOT NULL DEFAULT 0",
     "opinion_enrich_attempted_at": "TEXT",
     "document_floor_probed_at": "TEXT",
+    "decision_below_attempted_at": "TEXT",
     "merits_argued": "TEXT",
     "merits_decision_method": "TEXT",
     "sg_brief_filed": "TEXT",
@@ -2045,6 +2064,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "document_floor_probed_at": (
             row.document_floor_probed_at.isoformat() if row.document_floor_probed_at else None
         ),
+        "decision_below_attempted_at": (
+            row.decision_below_attempted_at.isoformat() if row.decision_below_attempted_at else None
+        ),
         "predict_eligible": int(row.predict_eligible),
         "predict_excluded": int(row.predict_excluded),
         "originating_court": row.originating_court,
@@ -2185,6 +2207,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         last_pulled=(date.fromisoformat(record["last_pulled"]) if record["last_pulled"] else None),
         opinion_enrich_attempted_at=_optional_date(record, "opinion_enrich_attempted_at"),
         document_floor_probed_at=_optional_date(record, "document_floor_probed_at"),
+        decision_below_attempted_at=_optional_date(record, "decision_below_attempted_at"),
         predict_eligible=bool(record["predict_eligible"]),
         predict_excluded=bool(record["predict_excluded"]),
         originating_court=record["originating_court"],
@@ -2272,6 +2295,7 @@ def _update_clause(column: str) -> str:
         "last_pulled",
         "opinion_enrich_attempted_at",
         "document_floor_probed_at",
+        "decision_below_attempted_at",
         "last_live_polled",
         "distributed_for_conference",
         "cvsg_date",
@@ -2316,6 +2340,8 @@ def _update_clause(column: str) -> str:
         # the probe means something only when it is compared against
         # `last_live_polled`, so a live poll that wiped it would destroy the
         # comparison at exactly the moment it is supposed to settle it.
+        # `decision_below_attempted_at` is the enrichment cursor's shape again:
+        # only its own pass carries it.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column in (
         "distribution_count",
@@ -4068,6 +4094,24 @@ def stamp_document_floor_probe(conn: sqlite3.Connection, case_id: str, probed_at
         )
 
 
+def stamp_decision_below_attempt(
+    conn: sqlite3.Connection, case_id: str, attempted_at: date
+) -> None:
+    """Record the date the decision-below fill got an answer about this case.
+
+    That pass's sole writer of ``decision_below_attempted_at``, a direct
+    ``UPDATE`` for the reason :func:`stamp_document_floor_probe` gives: the pass
+    reads its population off the index, where an upsert of the row would
+    re-mirror a body-less ``case.json`` over the content store's. Overwrites
+    forward, so a re-attempt moves the case to the back of the rotation.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET decision_below_attempted_at = ? WHERE case_id = ?",
+            (attempted_at.isoformat(), case_id),
+        )
+
+
 def stamp_predict_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
     """Record that a channel routed each case at the predict seam on ``day``.
 
@@ -4392,7 +4436,8 @@ def _mask_post_clock_merits(
 #: however early the opinion issued, so it has no as-at-clock reading at all.
 #: The tracking stamps are the third kind: each dates when a pipeline channel
 #: last touched the row (``last_pulled``, ``last_live_polled``,
-#: ``opinion_enrich_attempted_at``, ``document_floor_probed_at``) or routed it
+#: ``opinion_enrich_attempted_at``, ``document_floor_probed_at``,
+#: ``decision_below_attempted_at``) or routed it
 #: (``predict_queued_at``, ``evaluate_queued_at``). They describe the corpus's
 #: activity, not the case, and every one of them is a pipeline date from after
 #: any clock a replay cell runs under; ``last_live_polled`` in particular keeps
@@ -4413,6 +4458,7 @@ REPLAY_MASKED_UNDATED_COLUMNS: frozenset[str] = frozenset(
         "last_live_polled",
         "opinion_enrich_attempted_at",
         "document_floor_probed_at",
+        "decision_below_attempted_at",
         "predict_queued_at",
         "evaluate_queued_at",
     }

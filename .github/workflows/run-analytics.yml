@@ -80,14 +80,14 @@ run-name: "run-analytics: ${{ github.event_name == 'workflow_dispatch' && inputs
 #                      than the corpus: it holds the CourtListener token and
 #                      no cloud role, spends a capped slice of the account's
 #                      REST budget, and leaves its report as a run artifact.
-#   - decision-below:  measure how many of the newest 35 cert petitions from a
-#                      federal court of appeals have their decision below on
-#                      CourtListener (`fedcourts decision-below --sample 35`),
-#                      the match rate the decision-below cell input waits on.
-#                      It reads both the corpus (the sample, via a full pull)
+#   - decision-below:  dry-run the decision-below fill over the next 25 cases
+#                      of its rotation (`fedcourts enrich-decision-below
+#                      --max-cases 25`): what a writer window would store, and
+#                      the match rate on the petitions the pipeline forecasts.
+#                      It reads both the corpus (the rotation, via a full pull)
 #                      and CourtListener (the read-only role and the token),
-#                      buys nothing (no RECAP Fetch), and leaves its report as
-#                      a run artifact.
+#                      writes nothing, buys nothing (no RECAP Fetch), and
+#                      leaves its report as a run artifact.
 #
 # The read-only analysis modes (corpus-stats, text-coverage, tool-usage, order-scan, decision-below) write neither the
 # corpus, `data/`, the corpus remote, nor git, open no PR, and file no issue — every
@@ -3106,16 +3106,19 @@ jobs:
 
   decision-below:
     needs: [authorize]
-    # The decision-below match rate: for the newest 35 cert petitions whose
-    # lower court is a federal court of appeals, whether CourtListener holds
-    # the lower court's docket and the opinion on the judgment date, and what
-    # its entries say about rehearing en banc (`fedcourts decision-below`,
-    # `pipeline/decision_below.py`). A measurement, not a store: nothing is
-    # written to the corpus, the content store, `data/` or git, nothing reaches
-    # a cell, and no request buys anything (no RECAP Fetch, so no PACER
-    # charge). The sample is chosen from the pulled index and each sampled
-    # case's newest snapshot is read from the content store, so the job holds
-    # the read-only role; the token rides the measuring step alone.
+    # The decision-below fill's dry run: for the next 25 cases of its rotation
+    # (cert petitions from a federal court of appeals, the ledger's predicted
+    # cases and the salience selection first), whether CourtListener holds the
+    # lower court's docket and the opinion on the judgment date, what its
+    # entries say about rehearing en banc, and which rows an applied window
+    # would store (`fedcourts enrich-decision-below`,
+    # `pipeline/decision_below.py`). A dry run, not a store: nothing is written
+    # to the corpus, the content store, `data/` or git, nothing reaches a cell,
+    # and no request buys anything (no RECAP Fetch, so no PACER charge). It is
+    # the bounded reading a maintainer takes before the writer step applies.
+    # The rotation is chosen from the pulled index and each case's newest
+    # snapshot is read from the content store, so the job holds the read-only
+    # role; the token rides the dry-run step alone.
     #
     # Its spend is the account's, shared with run-pull's windows: about four
     # REST requests a case, sixteen at worst. The run's governor is capped
@@ -3162,15 +3165,15 @@ jobs:
           # Forwarded only off `main`, as corpus-stats states.
           corpus-pointer: ${{ github.ref_name != 'main' && vars.FEDCOURTS_CORPUS_POINTER || '' }}
 
-      - name: Measure the decision-below match rate
+      - name: Dry-run the decision-below fill
         timeout-minutes: 35
         env:
           FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
           # The per-day window is the account's tier, as run-pull reads it.
           # The hourly window is this run's cap: the governor counts every
           # request this process sends, retries included, and the job ends
-          # inside the hour, so that window bounds the whole run. The sample
-          # is sized to it: 35 typical cases spend about 140.
+          # inside the hour, so that window bounds the whole run. The walk
+          # is sized to it: 25 typical cases spend about 100.
           FEDCOURTS_COURTLISTENER_RPM: "10"
           FEDCOURTS_COURTLISTENER_RPH: "150"
           FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
@@ -3179,9 +3182,9 @@ jobs:
           set -euo pipefail
           out="$RUNNER_TEMP/decision-below.json"
           summary="$RUNNER_TEMP/decision-below-summary.txt"
-          # The report JSON to the artifact file, the match rate (and why a
-          # walk stopped early) to stderr, which goes on the page.
-          uv run fedcourts decision-below --sample 35 > "$out" 2> "$summary" || status=$?
+          # The report JSON to the artifact file, the counts (and why a walk
+          # stopped early) to stderr, which goes on the page.
+          uv run fedcourts enrich-decision-below --max-cases 25 > "$out" 2> "$summary" || status=$?
           if [ ! -s "$out" ]; then
             rm -f "$out"
           fi
@@ -3216,7 +3219,7 @@ jobs:
           # Public court-record identifiers (dockets, clusters, opinion ids,
           # panel names, docket entry numbers and dates) and no opinion text;
           # the one-day window of the other analytics run artifacts
-          # (docs/security.md). The match rate itself is on the summary page.
+          # (docs/security.md). The counts themselves are on the summary page.
           retention-days: 1
 
   # The run gate's verdict on the run as a whole. A refused partial re-run
