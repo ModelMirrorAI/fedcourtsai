@@ -12,14 +12,16 @@ name: run-pull
 #   (docs/live-sources.md) — `fedcourts live-poll` probes supremecourt.gov
 #   docket JSON for newly docketed petitions (persisted per-Term cursor) and
 #   re-polls the pending watchlist, spending no API budget; the same
-#   corpus-writer plumbing (corpus push, pointer commit, queue routing). One
-#   bounded, failure-tolerant step after the poll is the exception: a scoped
+#   corpus-writer plumbing (corpus push, pointer commit, queue routing). Two
+#   bounded, failure-tolerant steps after the poll are the exception, the only
+#   steps in this job that hold the CourtListener token: a scoped
 #   `enrich-opinions --awaiting-grading` pass fetches the opinion body of a
-#   merits case decided within the evaluate lane's opinion-hold window (a few
-#   CourtListener requests a case, capped per window), the only step in this
-#   job that holds the CourtListener token. It runs on four of the twelve
-#   live windows a day (the `47 4,10,16,22` cron and every dispatch), never on
-#   the eight live-only ones, so the live cadence never multiplies that spend.
+#   merits case decided within the evaluate lane's opinion-hold window, and
+#   `enrich-decision-below` stores the decision below for a few pending cert
+#   petitions (a few CourtListener requests a case, capped per window). Both
+#   run on four of the twelve live windows a day (the `47 4,10,16,22` cron and
+#   every dispatch), never on the eight live-only ones, so the live cadence
+#   never multiplies that spend.
 # - `enrich` (dispatch mode=enrich-opinions only, never scheduled): walks
 #   granted SCOTUS rows to their published opinion cluster and lands the
 #   reporter citations and the opinion body (`fedcourts enrich-opinions`,
@@ -44,7 +46,7 @@ name: run-pull
 # shares its hour with a live window, and the two serialize on the lock in
 # whichever order they fire — the second waits rather than being evicted,
 # because the next scheduled writer is two hours out and even both at their job
-# caps (55 + 40 minutes) clear by then. The one exception is a pile-up: if the
+# caps (55 + 44 minutes) clear by then. The one exception is a pile-up: if the
 # preceding pull (or the live window before it) ran near its cap so the seed
 # window is itself still queued when the live window fires, the live run
 # supersedes it — the walk resumes next window, and the 02:31 window's daily
@@ -517,9 +519,9 @@ jobs:
     needs: [authorize]
     # The SCOTUS live channel (docs/live-sources.md): `fedcourts live-poll`
     # probes supremecourt.gov docket JSON for newly docketed petitions and
-    # re-polls the pending watchlist, spending no API budget — except the one
-    # bounded opinion-enrichment step after the poll, which alone holds the
-    # CourtListener token (see that step).
+    # re-polls the pending watchlist, spending no API budget — except the two
+    # bounded enrichment steps after the poll (an opinion and a decision
+    # below), which alone hold the CourtListener token (see those steps).
     # Same corpus-writer shape, privileges (App token + the read-write corpus
     # role) and trigger surface as `pull` — schedule and dispatch, both already
     # gated by the platform, so this job needs no authorization step either.
@@ -536,9 +538,9 @@ jobs:
     # to a soft wall-clock budget (`--max-run-seconds` below), committing progress
     # so far and resuming next cycle, so a big watchlist can never overrun this
     # hard cap — which stays above the soft budget with margin for the fixed
-    # setup (checkout + corpus-pull) before the poll, the opinion-enrichment
-    # step's own 6-minute cap after it, and the push.
-    timeout-minutes: 40
+    # setup (checkout + corpus-pull) before the poll, the two enrichment steps'
+    # own caps after it (6 and 4 minutes), and the push.
+    timeout-minutes: 44
     environment: corpus-write
     # Whether this window committed a forecast-relevant change, for the
     # `chain-predict` job.
@@ -627,8 +629,8 @@ jobs:
         # into the client; caps come from tracking.yaml's `live:` section.
         # --max-run-seconds is the soft wall-clock budget: the cycle stops
         # cleanly and commits progress so far when reached, so even a peak
-        # watchlist stays under the job's 40 min timeout-minutes with room for
-        # the fixed setup, the enrichment step below and the push (1500s = 25
+        # watchlist stays under the job's 44 min timeout-minutes with room for
+        # the fixed setup, the enrichment steps below and the push (1500s = 25
         # min; the next cycle resumes the rotation where it left off).
         run: |
           uv run fedcourts live-poll \
@@ -668,7 +670,7 @@ jobs:
       # it. A harder kill can still leave a hot journal, which `corpus-push`
       # settles (rolls back) before it publishes, refusing a journal that will
       # not clear. The step's own timeout is the outer backstop. The token is
-      # step-scoped: no other step in this job holds it.
+      # step-scoped: only this step and the decision-below step below hold it.
       - name: Enrich newly decided merits cases with their opinion
         id: enrich-awaiting
         if: github.event_name != 'schedule' || github.event.schedule == '47 4,10,16,22 * * *'
@@ -696,6 +698,54 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$status" -ne 0 ]; then
             echo "::warning::the awaiting-grading opinion enrichment failed (exit ${status}); the live pull carries on, and the next full live window retries"
+          fi
+          exit "$status"
+
+      # The decision below for a pending cert petition from a federal court of
+      # appeals (`fedcourts enrich-decision-below`; docs/data-pipeline.md):
+      # the lower court's opinion on its judgment date and a short record of
+      # its docket, stored in the corpus and withheld from every cell until a
+      # re-bless switches the two kinds on. The rotation puts the cases the
+      # ledger predicts first and re-attempts a case at most every 30 days.
+      #
+      # The same full windows, the same failure tolerance and the same
+      # two-layer wall-clock bound as the opinion step above, for the same
+      # reasons: `--max-cases 6` keeps a window to ~24 CourtListener requests
+      # (about four a typical case, sixteen at worst), and the 3-minute inner
+      # timeout at the tier's rate bounds even a worst-case window, so the
+      # step spends about a hundred a day; `continue-on-error` lets the push
+      # and commit steps below carry the poll's facts whatever happens here.
+      # The token is step-scoped.
+      - name: Store the decision below for pending cert petitions
+        id: enrich-decision-below
+        if: github.event_name != 'schedule' || github.event.schedule == '47 4,10,16,22 * * *'
+        continue-on-error: true
+        timeout-minutes: 4
+        env:
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          # Same tier knobs and fallbacks as the pull job's refresh step.
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '25' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '300' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
+        run: |
+          # No -e, as in the step above: the tally reaches the summary and the
+          # warning fires before the step exits with the pass's own status.
+          # The report JSON goes to the log; the one-line tally (stderr) to the
+          # summary.
+          set -uo pipefail
+          status=0
+          timeout --signal=INT --kill-after=30 180 \
+            .venv/bin/fedcourts enrich-decision-below --apply --max-cases 6 \
+            2> decision-below.txt || status=$?
+          cat decision-below.txt
+          {
+            echo "### Decision below for pending cert petitions"
+            echo '```'
+            cat decision-below.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" -ne 0 ]; then
+            echo "::warning::the decision-below fill failed (exit ${status}); the live pull carries on, and the next full live window retries"
           fi
           exit "$status"
 
@@ -755,6 +805,7 @@ jobs:
           # continue-on-error kept the job green — so a failing pass is a row
           # here on every window it fails, not only an annotation.
           ENRICH_OUTCOME: ${{ steps.enrich-awaiting.outcome }}
+          DECISION_BELOW_OUTCOME: ${{ steps.enrich-decision-below.outcome }}
         run: |
           set -euo pipefail
           count() {
@@ -784,6 +835,7 @@ jobs:
             echo "| evaluate backlog cases owed | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
             echo "| opinion enrichment (awaiting grading) | ${ENRICH_OUTCOME:-—} |"
+            echo "| decision below (pending cert petitions) | ${DECISION_BELOW_OUTCOME:-—} |"
           } >> "$GITHUB_STEP_SUMMARY"
           # Per-case triage list — see the pull job's copy for the rationale.
           triage=$(jq -r '.[] | "- `\(.court)/\(.docket)` — \(.reason)"' \

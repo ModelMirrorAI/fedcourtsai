@@ -4340,7 +4340,7 @@ def test_every_run_analytics_cron_is_claimed_by_exactly_one_job() -> None:
 
 
 def test_run_pull_polls_live_every_two_hours_and_enriches_on_four_windows() -> None:
-    """The live cadence and the one budgeted step inside it are set separately.
+    """The live cadence and the budgeted steps inside it are set separately.
 
     The live poll is budget-free, so it runs every two hours on two cron entries
     whose shared `47 ` minute selects the `live` job. Its awaiting-grading
