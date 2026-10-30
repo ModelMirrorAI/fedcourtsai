@@ -3268,8 +3268,8 @@ non-addition that slips past.
 
 The same step in both cells, and a step of its own in every other job that
 starts an engine in a checkout (the back-test, the qp-topic labeler and the
-integration-test jobs), takes `AGENTS.md` and `CLAUDE.md` out of the tree,
-skip-worktree first, before the first engine step. They are the development
+integration-test jobs), takes `AGENTS.md`, `CLAUDE.md` and `.claude/` out of
+the tree, skip-worktree first, before the first engine step. They are the development
 instructions, which Claude Code and Codex load from the tree unasked, and no
 process digest hashes them; a cell's prompt template is its whole contract
 ([process-version.md](process-version.md)). They are not restored: nothing

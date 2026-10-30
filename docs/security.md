@@ -1501,10 +1501,13 @@ each engine's own surface, written by `fedcourts cell-policy --engine <engine>`:
   allow-all.
 
 What each refuses is a command prefix the engine parses out of the command,
-not an outcome: gemini and codex split `&&` and `;` chains, and gemini reads
-into `bash -c`, but a script the agent writes and then runs, or an installer
-under a name the list does not carry, is not seen. It closes the ordinary
-install path and is not a sandbox. The back-test and local cells, launched by
+not an outcome: all three split `&&` and `;` chains, and gemini reads into
+`bash -c`, but a script the agent writes and then runs, or an installer under
+a name the list does not carry, is not seen. Where each lives differs too:
+codex's rules are root-owned and the agent cannot edit them, while
+claude-code's deny list and gemini's policy file sit in files the runner's own
+user, the one the agent runs as, can rewrite. It closes the ordinary install
+path and is not a sandbox. The back-test and local cells, launched by
 `pipeline/runner.py`, do not carry it.
 
 ## The `website` environment

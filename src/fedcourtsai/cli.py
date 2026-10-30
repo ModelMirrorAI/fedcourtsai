@@ -17818,6 +17818,11 @@ def evaluators() -> None:
 #: pathological file cannot flood the agent's context unbounded.
 PDF_TEXT_DEFAULT_MAX_CHARS = 2_000_000
 
+#: The largest file ``pdf-text`` reads, in bytes. A SCOTUS filing with its
+#: appendix runs to tens of megabytes; past this the file is refused rather
+#: than read whole into the cell's memory.
+PDF_TEXT_DEFAULT_MAX_BYTES = 200_000_000
+
 
 @app.command("pdf-text")
 def pdf_text(
@@ -17825,6 +17830,9 @@ def pdf_text(
     max_chars: Annotated[
         int, typer.Option(min=1, help="Stop after this many characters (a truncation is reported).")
     ] = PDF_TEXT_DEFAULT_MAX_CHARS,
+    max_bytes: Annotated[
+        int, typer.Option(min=1, help="Refuse a file larger than this many bytes.")
+    ] = PDF_TEXT_DEFAULT_MAX_BYTES,
 ) -> None:
     """Print a PDF's text to stdout, read with the project's pinned pypdf.
 
@@ -17834,12 +17842,22 @@ def pdf_text(
     pipeline would. Pages are joined by newlines; the page count, and whether
     the text was cut at ``--max-chars``, go to stderr. A scanned page yields no
     text, so a PDF that prints nothing is reported as such rather than as an
-    error. Exits 1 where the file is missing or is not a readable PDF.
+    error. Exits 1 where the file is missing, larger than ``--max-bytes``, or
+    not a readable PDF — any failure of the extractor included, since a
+    malformed file can raise from deep inside the parser.
     """
     if not file.is_file():
         typer.echo(f"pdf-text: no file at {file}", err=True)
         raise typer.Exit(code=1)
-    extracted = extract_pdf_text(file.read_bytes(), char_cap=max_chars)
+    size = file.stat().st_size
+    if size > max_bytes:
+        typer.echo(f"pdf-text: {file} is {size} bytes, over --max-bytes {max_bytes}", err=True)
+        raise typer.Exit(code=1)
+    try:
+        extracted = extract_pdf_text(file.read_bytes(), char_cap=max_chars)
+    except Exception as exc:  # any parser failure is an unreadable PDF
+        typer.echo(f"pdf-text: {file} is not a readable PDF", err=True)
+        raise typer.Exit(code=1) from exc
     if extracted.pages == 0:
         typer.echo(f"pdf-text: {file} is not a readable PDF", err=True)
         raise typer.Exit(code=1)

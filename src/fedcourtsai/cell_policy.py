@@ -19,7 +19,7 @@ own configuration surface:
   tier outranks the ``--yolo`` allow-all rule.
 
 What each refuses is a **command prefix**, not an outcome. A command the
-engine parses into one of these prefixes is refused — gemini and codex split
+engine parses into one of these prefixes is refused — every engine splits
 ``&&`` / ``;`` chains, and gemini reads into ``bash -c`` — but a script file
 the agent writes and then runs, or an installer invoked under a name not
 listed here, is not seen. The refusal closes the ordinary install path; it is
@@ -37,7 +37,11 @@ INSTALL_COMMAND_PREFIXES: Final[tuple[tuple[str, ...], ...]] = (
     ("pip3", "install"),
     ("python", "-m", "pip"),
     ("python3", "-m", "pip"),
+    ("python", "-m", "ensurepip"),
+    ("python3", "-m", "ensurepip"),
     ("uv", "pip"),
+    ("uv", "run", "--with"),
+    ("uv", "run", "pip"),
     ("uv", "add"),
     ("uv", "tool"),
     ("uvx",),

@@ -2,8 +2,10 @@
 
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
+from fedcourtsai import cli
 from fedcourtsai.cli import app
 from tests.test_documents import _pdf_pages
 
@@ -47,3 +49,26 @@ def test_a_missing_or_unreadable_file_exits_one(tmp_path: Path) -> None:
     unreadable = runner.invoke(app, ["pdf-text", str(junk)])
     assert unreadable.exit_code == 1
     assert "not a readable PDF" in unreadable.stderr
+
+
+def test_a_file_over_the_byte_cap_is_refused_unread(tmp_path: Path) -> None:
+    pdf = tmp_path / "brief.pdf"
+    pdf.write_bytes(_pdf_pages(["Question presented"]))
+    result = runner.invoke(app, ["pdf-text", str(pdf), "--max-bytes", "10"])
+    assert result.exit_code == 1
+    assert "over --max-bytes 10" in result.stderr
+    assert result.stdout == ""
+
+
+def test_an_extractor_failure_is_an_unreadable_pdf(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(_data: bytes, *, char_cap: int) -> object:
+        raise RecursionError(char_cap)
+
+    monkeypatch.setattr(cli, "extract_pdf_text", boom)
+    pdf = tmp_path / "brief.pdf"
+    pdf.write_bytes(_pdf_pages(["Question presented"]))
+    result = runner.invoke(app, ["pdf-text", str(pdf)])
+    assert result.exit_code == 1
+    assert "not a readable PDF" in result.stderr

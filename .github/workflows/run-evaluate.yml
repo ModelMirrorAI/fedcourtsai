@@ -922,9 +922,9 @@ jobs:
       #    record/blinded and needs neither tree. Runs after the staging step
       #    above, which reads the committed predictions to build the candidates;
       #    the trees come back the moment the agent stops.
-      # 3. AGENTS.md and CLAUDE.md are the repository's instructions for
-      #    development sessions, and Claude Code and Codex load them from the
-      #    tree on their own. No process digest hashes them, so a judge that
+      # 3. AGENTS.md, CLAUDE.md and .claude/ (the reviewer subagents) are the
+      #    repository's instructions for development sessions, and Claude Code
+      #    and Codex load them from the tree on their own. No process digest hashes them, so a judge that
       #    read them would be grading under instructions its stamp does not
       #    record; the prompt template is the cell's whole contract. They stay
       #    out for good — nothing after the agent reads them.
@@ -941,10 +941,11 @@ jobs:
           git ls-files -z -- data/qp-topics \
             ':(glob)data/cases/*/*/events/*/predictions/**' \
             ':(glob)data/cases/*/*/events/*/evaluations/**' \
-            AGENTS.md CLAUDE.md \
+            AGENTS.md CLAUDE.md .claude \
             | git update-index -z --skip-worktree --stdin
           rm -rf data/qp-topics
           rm -f AGENTS.md CLAUDE.md
+          rm -rf .claude
           uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
       # Install the engine's CLI at the version `.github/engines/<engine>/`
@@ -980,6 +981,7 @@ jobs:
           codex-user: codexcell
           codex-config: .codex/config.toml
           grant-workspace-read: "true"
+          require-rules: "true"
           codex-output-dir: data/cases/${{ matrix.court }}/${{ matrix.docket }}/events/${{ matrix.event_id }}/evaluations/${{ matrix.evaluator_id }}
 
       # The bracket around every engine step below. It carries two triggers: a
@@ -1154,7 +1156,11 @@ jobs:
                   "Bash(pip3 install *)",
                   "Bash(python -m pip *)",
                   "Bash(python3 -m pip *)",
+                  "Bash(python -m ensurepip *)",
+                  "Bash(python3 -m ensurepip *)",
                   "Bash(uv pip *)",
+                  "Bash(uv run --with *)",
+                  "Bash(uv run pip *)",
                   "Bash(uv add *)",
                   "Bash(uv tool *)",
                   "Bash(uvx *)",

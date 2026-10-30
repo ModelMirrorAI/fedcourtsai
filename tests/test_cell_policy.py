@@ -121,3 +121,34 @@ def test_the_codex_account_reads_the_rules_from_a_root_owned_copy() -> None:
     action = (REPO_ROOT / ".github" / "actions" / "codex-user-setup" / "action.yml").read_text()
     assert 'sudo install -d -o root -g root -m 755 "$home/.codex/rules"' in action
     assert 'sudo install -o root -g root -m 644 "$rules" "$home/.codex/rules/"' in action
+
+
+@pytest.mark.parametrize("name", CELL_WORKFLOWS)
+def test_every_codex_cell_account_requires_and_checks_its_rules(name: str) -> None:
+    """A codex leg that installs the account for a real turn requires the rules
+    file, so a dropped `cell-policy` write fails the leg rather than starting a
+    codex free to install."""
+    setups = [
+        s
+        for s in _steps(name)
+        if str(s.get("uses") or "") == "./.github/actions/codex-user-setup"
+        and (s.get("with") or {}).get("grant-workspace-read") == "true"
+    ]
+    assert setups, f"{name}: no codex account is provisioned for a turn"
+    for step in setups:
+        assert step["with"].get("require-rules") == "true", step.get("name")
+
+
+def test_the_codex_account_setup_fails_closed_and_probes_the_pinned_cli() -> None:
+    action = yaml.safe_load(
+        (REPO_ROOT / ".github" / "actions" / "codex-user-setup" / "action.yml").read_text()
+    )
+    steps = action["runs"]["steps"]
+    provision = str(steps[0]["run"])
+    assert '[ "$REQUIRE_RULES" = true ] && [ "$installed" -eq 0 ]' in provision
+    (probe,) = [s for s in steps if "execpolicy check" in str(s.get("run"))]
+    assert probe["if"] == "inputs.require-rules == 'true'"
+    run = str(probe["run"])
+    assert "execpolicy check" in run and "pip install x" in run
+    assert '[ "$refused" != forbidden ]' in run
+    assert steps.index(probe) == 1, "the probe runs right after the rules are installed"

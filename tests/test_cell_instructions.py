@@ -30,7 +30,7 @@ from typing import Any
 import pytest
 import yaml
 
-from fedcourtsai.collect import AGENT_CONTEXT_FILENAMES
+from fedcourtsai.collect import AGENT_CONFIG_DIRS, AGENT_CONTEXT_FILENAMES
 from fedcourtsai.pipeline.runner import RunRequest, _claude_instruction
 from fedcourtsai.registry import load_evaluators, load_predictors
 from fedcourtsai.schemas import UsageRole
@@ -48,8 +48,10 @@ AGENT_WORKFLOWS = (
     "integration-test.yml",
 )
 
-#: The tracked development instructions every agent job removes.
-DEVELOPMENT_INSTRUCTIONS = ("AGENTS.md", "CLAUDE.md")
+#: The tracked development instructions every agent job removes: the two
+#: instruction files and the `.claude` directory of reviewer subagents, which
+#: claude-code reads as project configuration.
+DEVELOPMENT_INSTRUCTIONS = ("AGENTS.md", "CLAUDE.md", ".claude")
 
 _PROMPT_PATH = re.compile(r"\.github/prompts/[\w./-]+\.md")
 
@@ -179,6 +181,10 @@ def _tracked_instruction_files() -> list[str]:
             continue
         if path.is_file() and path.name.lower() in AGENT_CONTEXT_FILENAMES:
             found.append(rel.as_posix())
+        # `.github` is the workflows' own home, not something an engine
+        # discovers as project configuration.
+        if path.is_dir() and path.name.lower() in AGENT_CONFIG_DIRS - {".github"}:
+            found.append(rel.as_posix())
     return sorted(found)
 
 
@@ -203,9 +209,12 @@ def test_every_agent_job_removes_the_development_instructions_first(name: str) -
             i
             for i, step in enumerate(steps)
             if all(f in str(step.get("run") or "") for f in DEVELOPMENT_INSTRUCTIONS)
-            and "rm -f" in str(step.get("run") or "")
+            and "rm -f AGENTS.md CLAUDE.md" in str(step.get("run") or "")
+            and "rm -rf .claude" in str(step.get("run") or "")
         ]
-        assert fences, f"{name}:{job_id} starts an engine with AGENTS.md and CLAUDE.md in its tree"
+        assert fences, (
+            f"{name}:{job_id} starts an engine with the development instructions in its tree"
+        )
         fence = fences[0]
         assert fence < engines[0], f"{name}:{job_id}: the removal runs after the first engine step"
         step = steps[fence]
@@ -214,7 +223,9 @@ def test_every_agent_job_removes_the_development_instructions_first(name: str) -
         assert "if" not in step, f"{name}:{job_id}: the removal must not carry an `if:`"
         run = str(step["run"])
         mark = run.index("--skip-worktree")
-        assert mark < run.index("rm -f"), f"{name}:{job_id}: skip-worktree must precede the removal"
+        assert mark < run.index("rm -f AGENTS.md"), (
+            f"{name}:{job_id}: skip-worktree must precede the removal"
+        )
         for file in DEVELOPMENT_INSTRUCTIONS:
             assert run.index(file) < mark, f"{name}:{job_id}: {file} is not marked skip-worktree"
     assert jobs, f"{name}: no job starts an engine — the scan would pass vacuously"
