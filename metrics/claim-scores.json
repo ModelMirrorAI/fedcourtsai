@@ -2,12 +2,12 @@
   "by_protocol": [
     {
       "forward": {
-        "cells": 381,
+        "cells": 384,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.030975984647532036,
-            "scored": 127
+            "mean_score": 0.03047236260552518,
+            "scored": 128
           },
           {
             "claim_id": "relist-increment",
@@ -33,13 +33,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 127,
+        "events": 128,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.740204397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.048419999956852186,
-        "mean_total": 0.048419999956852186,
-        "scored_events": 127
+        "mean_lift": 0.04778009654524126,
+        "mean_total": 0.04778009654524126,
+        "scored_events": 128
       },
       "predictor_id": "claude-baseline",
       "procedural": null,
@@ -94,12 +94,12 @@
     },
     {
       "forward": {
-        "cells": 384,
+        "cells": 387,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.032086991218958166,
-            "scored": 128
+            "mean_score": 0.03116083131238217,
+            "scored": 129
           },
           {
             "claim_id": "relist-increment",
@@ -125,13 +125,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 128,
+        "events": 129,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.821804397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.04678574078367425,
-        "mean_total": 0.04678574078367425,
-        "scored_events": 128
+        "mean_lift": 0.045745637082022936,
+        "mean_total": 0.045745637082022936,
+        "scored_events": 129
       },
       "predictor_id": "codex-baseline",
       "procedural": null,
@@ -140,12 +140,12 @@
     },
     {
       "forward": {
-        "cells": 384,
+        "cells": 387,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.003920608406458167,
-            "scored": 128
+            "mean_score": 0.0034259708472658915,
+            "scored": 129
           },
           {
             "claim_id": "relist-increment",
@@ -171,13 +171,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 128,
+        "events": 129,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.897704397731781,
         "mean_floor": 0.0,
-        "mean_lift": -5.603265382574639e-05,
-        "mean_total": -5.603265382574639e-05,
-        "scored_events": 128
+        "mean_lift": -0.0005198435381321004,
+        "mean_total": -0.0005198435381321004,
+        "scored_events": 129
       },
       "predictor_id": "gemini-baseline",
       "procedural": null,
@@ -185,16 +185,16 @@
       "retrospective": null
     }
   ],
-  "cells_with_claims": 1152,
+  "cells_with_claims": 1161,
   "entries": [
     {
       "forward": {
-        "cells": 384,
+        "cells": 387,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.030675670906458164,
-            "scored": 128
+            "mean_score": 0.030178280924785267,
+            "scored": 129
           },
           {
             "claim_id": "relist-increment",
@@ -220,13 +220,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 128,
+        "events": 129,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.740204397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.04798340484617425,
-        "mean_total": 0.04798340484617425,
-        "scored_events": 128
+        "mean_lift": 0.04735184638434852,
+        "mean_total": 0.04735184638434852,
+        "scored_events": 129
       },
       "predictor_id": "claude-baseline",
       "procedural": null,
@@ -234,7 +234,7 @@
       "retrospective": null,
       "windows": [
         {
-          "n": 381,
+          "n": 384,
           "opens": "2026-09-16T00:26:04Z",
           "process_window": "proc-v8"
         },
@@ -247,12 +247,12 @@
     },
     {
       "forward": {
-        "cells": 384,
+        "cells": 387,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.032086991218958166,
-            "scored": 128
+            "mean_score": 0.03116083131238217,
+            "scored": 129
           },
           {
             "claim_id": "relist-increment",
@@ -278,13 +278,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 128,
+        "events": 129,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.821804397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.04678574078367425,
-        "mean_total": 0.04678574078367425,
-        "scored_events": 128
+        "mean_lift": 0.045745637082022936,
+        "mean_total": 0.045745637082022936,
+        "scored_events": 129
       },
       "predictor_id": "codex-baseline",
       "procedural": null,
@@ -292,7 +292,7 @@
       "retrospective": null,
       "windows": [
         {
-          "n": 384,
+          "n": 387,
           "opens": "2026-09-16T00:26:04Z",
           "process_window": "proc-v8"
         }
@@ -300,12 +300,12 @@
     },
     {
       "forward": {
-        "cells": 384,
+        "cells": 387,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.003920608406458167,
-            "scored": 128
+            "mean_score": 0.0034259708472658915,
+            "scored": 129
           },
           {
             "claim_id": "relist-increment",
@@ -331,13 +331,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 128,
+        "events": 129,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.897704397731781,
         "mean_floor": 0.0,
-        "mean_lift": -5.603265382574639e-05,
-        "mean_total": -5.603265382574639e-05,
-        "scored_events": 128
+        "mean_lift": -0.0005198435381321004,
+        "mean_total": -0.0005198435381321004,
+        "scored_events": 129
       },
       "predictor_id": "gemini-baseline",
       "procedural": null,
@@ -345,22 +345,27 @@
       "retrospective": null,
       "windows": [
         {
-          "n": 384,
+          "n": 387,
           "opens": "2026-09-16T00:26:04Z",
           "process_window": "proc-v8"
         }
       ]
     }
   ],
-  "evaluations_total": 1152,
+  "evaluations_total": 1161,
   "forward_agreement": {
     "masked_claim_total": 0,
     "missing_claim_block": 0,
     "missing_reasoning_quality": 0,
-    "pair_events": 128,
-    "pairs": 1152,
-    "rank_agreement": 0.1272634483482485,
+    "pair_events": 129,
+    "pairs": 1161,
+    "rank_agreement": 0.12912029349894955,
     "rubrics": [
+      {
+        "digest": "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
+        "evaluator_id": "claude-judge",
+        "n": 3
+      },
       {
         "digest": "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
         "evaluator_id": "claude-judge",
@@ -370,6 +375,11 @@
         "digest": "sha256:fbc0e9c364d846c5701fed0d34727d4ea7c0f002ee9337fe98f791fbb0479d13",
         "evaluator_id": "claude-judge",
         "n": 273
+      },
+      {
+        "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+        "evaluator_id": "codex-judge",
+        "n": 3
       },
       {
         "digest": "sha256:18a76b9301aef6770b5c5f9965dd6fcabb2a929964a56be2151405ce878e0456",
@@ -392,6 +402,11 @@
         "n": 57
       },
       {
+        "digest": "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
+        "evaluator_id": "gemini-judge",
+        "n": 3
+      },
+      {
         "digest": "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
         "evaluator_id": "gemini-judge",
         "n": 54
@@ -405,7 +420,7 @@
     "suppressed": false,
     "windows": [
       {
-        "n": 381,
+        "n": 384,
         "predictor_id": "claude-baseline",
         "process_window": "proc-v8"
       },
@@ -415,12 +430,12 @@
         "process_window": "proc-v9"
       },
       {
-        "n": 384,
+        "n": 387,
         "predictor_id": "codex-baseline",
         "process_window": "proc-v8"
       },
       {
-        "n": 384,
+        "n": 387,
         "predictor_id": "gemini-baseline",
         "process_window": "proc-v8"
       }
@@ -428,20 +443,20 @@
   },
   "forward_claim": {
     "by_predictor": {},
-    "claimed_forward": 1491,
+    "claimed_forward": 1500,
     "excluded": 0,
     "policy": "exclude"
   },
   "frozen_process": {
     "digests": [
-      "sha256:167b7d71693168778880bf001df7e3a46c6d61d57061d8e66ecf6801d88ebd12",
-      "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
-      "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
-      "sha256:6a88d3dcf20acc9908a7ca956cd62ad956d273ad8a3cf2a747beafe3955873a4",
-      "sha256:a8610eecc95ddfab4763c4b2056b85e833dbe35bc9d90341fc3c90ee907261ac",
-      "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745"
+      "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
+      "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
+      "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
+      "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c",
+      "sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388",
+      "sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0"
     ],
-    "since": "2026-10-26T19:00:50Z",
+    "since": "2026-10-30T16:38:43Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -540,7 +555,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-29T14:16:26Z",
         "digest": "sha256:6a176c287cf54ff3c7de82a67dbbf153048d395193187e205f3c702afbdec40d",
         "label": "proc-v13",
         "opens": "2026-10-26T19:00:50Z",
@@ -548,7 +563,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-29T14:16:26Z",
         "digest": "sha256:2827480e4427976147d8ad3250fc8ca8c9495e0a5808fe47a872abc6d649d354",
         "label": "proc-v13",
         "opens": "2026-10-26T19:00:50Z",
@@ -556,17 +571,65 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-29T14:16:26Z",
         "digest": "sha256:b69b2b3af71da1fd0e4e736ddb5424dd331c8787bfdbe0f6d354cb7b12fa2745",
         "label": "proc-v13",
         "opens": "2026-10-26T19:00:50Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": "2026-10-30T16:38:43Z",
+        "digest": "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
+        "label": "proc-v14",
+        "opens": "2026-10-29T14:16:26Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": "2026-10-30T16:38:43Z",
+        "digest": "sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6",
+        "label": "proc-v14",
+        "opens": "2026-10-29T14:16:26Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": "2026-10-30T16:38:43Z",
+        "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
+        "label": "proc-v14",
+        "opens": "2026-10-29T14:16:26Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
+        "label": "proc-v15",
+        "opens": "2026-10-30T16:38:43Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
+        "label": "proc-v15",
+        "opens": "2026-10-30T16:38:43Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
+        "label": "proc-v15",
+        "opens": "2026-10-30T16:38:43Z",
         "predictor_id": "gemini-baseline",
         "revoked_at": null
       }
     ]
   },
   "leakage_exclusion": {
-    "assessed": 1491,
+    "assessed": 1500,
     "by_predictor": {
       "gemini-baseline": 3
     },
@@ -599,12 +662,12 @@
   "set_aside_sensitivity": [
     {
       "including": {
-        "cells": 405,
+        "cells": 408,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.026763509075134542,
-            "scored": 135
+            "mean_score": 0.02632048594421925,
+            "scored": 136
           },
           {
             "claim_id": "relist-increment",
@@ -630,13 +693,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 135,
+        "events": 136,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.740204397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.04393440015297333,
-        "mean_total": 0.04393440015297333,
-        "scored_events": 135
+        "mean_lift": 0.0433651204700151,
+        "mean_total": 0.0433651204700151,
+        "scored_events": 136
       },
       "predictor_id": "claude-baseline",
       "set_aside": 21,
@@ -644,12 +707,12 @@
     },
     {
       "including": {
-        "cells": 405,
+        "cells": 408,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.03060649426031973,
-            "scored": 135
+            "mean_score": 0.029738890355983955,
+            "scored": 136
           },
           {
             "claim_id": "relist-increment",
@@ -675,13 +738,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 135,
+        "events": 136,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.821804397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.04500738533815852,
-        "mean_total": 0.04500738533815852,
-        "scored_events": 135
+        "mean_lift": 0.04403389252883864,
+        "mean_total": 0.04403389252883864,
+        "scored_events": 136
       },
       "predictor_id": "codex-baseline",
       "set_aside": 21,
@@ -689,12 +752,12 @@
     },
     {
       "including": {
-        "cells": 405,
+        "cells": 408,
         "claims": [
           {
             "claim_id": "disposition",
-            "mean_score": 0.004115472038097508,
-            "scored": 135
+            "mean_score": 0.0036448609442192516,
+            "scored": 136
           },
           {
             "claim_id": "relist-increment",
@@ -720,13 +783,13 @@
         "declared_set_versions": [
           "cert-v2"
         ],
-        "events": 135,
+        "events": 136,
         "largest_claim_id": "disposition",
         "largest_claim_score": 0.897704397731781,
         "mean_floor": 0.0,
-        "mean_lift": 0.0012537705233437032,
-        "mean_total": 0.0012537705233437032,
-        "scored_events": 135
+        "mean_lift": 0.000804201352368048,
+        "mean_total": 0.000804201352368048,
+        "scored_events": 136
       },
       "predictor_id": "gemini-baseline",
       "set_aside": 21,
