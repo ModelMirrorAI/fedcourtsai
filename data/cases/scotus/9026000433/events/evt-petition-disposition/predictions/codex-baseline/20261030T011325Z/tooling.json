@@ -1,0 +1,31 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000433",
+  "gaps": [
+    "corpus-info does not support the cell's service backend, preventing verification of corpus-wide freshness.",
+    "No amicus text was staged; only its docket entry was available.",
+    "The default uv cache was not writable; a temporary cache override was necessary."
+  ],
+  "helpful": [
+    "Untruncated petition and staged appellate decision exposed the distinction between the constitutional question and qualified immunity.",
+    "Version-matched reached-band counts permitted exact strictly-prior pooling.",
+    "MCP opinion excerpts permitted a bounded primary-source check of a split authority."
+  ],
+  "notes": "Completed from the forward snapshot and selected primary-source context. Corrected an invalid era token from modern to 2020s. Broad granted-prior retrieval was not a close analogue and received no case-specific weight. No disposition for this petition was sought or encountered.",
+  "role": "predictor",
+  "run_id": "20261030T011325Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (failed)",
+    "committed statpack",
+    "CourtListener MCP search",
+    "CourtListener MCP search_document",
+    "CourtListener MCP read_document",
+    "web search (no usable response)",
+    "jq"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
