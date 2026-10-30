@@ -2660,3 +2660,55 @@ def test_a_cells_frozen_count_follows_the_active_scorers_parse(
     monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-test")
     widened = cell_context.build("scotus/1", date(2026, 8, 1), payload, "forward")
     assert widened.distribution_count == 2  # dist-v1: the motion's trip counts too
+
+
+# --- the frozen cell band under a version's segment -------------------------------
+
+
+def _warden_payload(
+    *, opening: str = "Petition for a writ of certiorari filed.", sg: bool = True
+) -> dict[str, object]:
+    """A live-shaped Warden's petition the Solicitor General's office files for, relist 0."""
+    payload: dict[str, object] = {
+        "CaseNumber": "25-100",
+        "DocketedDate": "September 16, 2025",
+        "PetitionerTitle": "Michael Smith, Warden, Petitioner",
+        "ProceedingsandOrder": [
+            {"Date": "Sep 12 2025", "Text": opening},
+            {"Date": "Oct 01 2025", "Text": "DISTRIBUTED for Conference of 10/17/2025."},
+        ],
+        "Respondent": [{"PartyName": "John Doe", "Attorney": "Jane Roe"}],
+        "Other": [{"PartyName": "Amicus Curiae", "Attorney": "D. John Sauer"}],
+    }
+    if sg:
+        payload["Petitioner"] = [
+            {"PartyName": "Michael Smith", "Attorney": "D. John Sauer", "IsCounselofRecord": True}
+        ]
+    return payload
+
+
+def _activate(monkeypatch: pytest.MonkeyPatch, version: str) -> None:
+    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", version)
+
+
+def test_the_band_freeze_refuses_a_rule_20_writ_only_under_a_version_that_excludes_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The segment is read off the payload's opening petition entry: a writ of
+    mandamus freezes no band under sal-v5, a sealed certiorari petition captioned
+    "In re" still does, and under the active sal-v4 the writ is banded as before."""
+    writ = _warden_payload(opening="Petition for a writ of mandamus filed.", sg=False)
+    sealed = {
+        **_warden_payload(sg=False),
+        "PetitionerTitle": "In re Grand Jury Subpoena, Petitioner",
+    }
+    as_v4 = cell_context.build("scotus/100", date(2025, 10, 2), writ, "forward")
+    assert as_v4.band == "state" and as_v4.salience_version == "sal-v4"
+
+    _activate(monkeypatch, "sal-v5")
+    refused = cell_context.build("scotus/100", date(2025, 10, 2), writ, "forward")
+    assert refused.signals_observable is True
+    assert refused.band is None
+    assert refused.distribution_count == 1  # the signals still freeze; only the band is refused
+    kept = cell_context.build("scotus/101", date(2025, 10, 2), sealed, "forward")
+    assert kept.band is not None

@@ -353,9 +353,10 @@ rather than editing it, and `scorer(version)` raises on an unregistered label
 rather than falling back, so no consumer can silently receive output banded
 under a version it did not ask for. A version may also narrow the **segment** it
 scores (`SalienceScorer.admits`, read through `in_segment`): `sal-v5` leaves Rule
-20 writs out. Every reader of a version's bands — the selection pass, the gate
-replay, the statpack's per-version slices, the distribution census — applies
-it, so a row outside it is in none of that version's cohorts or pools.
+20 writs out. Every reader of a version's bands — the selection pass, the
+frozen cell band, the gate replay, the statpack's per-version slices, the
+distribution census — applies it, so a row outside it is in none of that
+version's cohorts or pools.
 
 Three consequences are worth stating, because each is a place the discipline
 could otherwise leak:
@@ -1056,15 +1057,17 @@ rediscover them:
 - the frozen cell band and scope. `cell_context` bands a cell off the cell's own
   payload, and the as-of projection behind it re-derives
   `distributed_after_call` from that payload, so the relist rule is reproducible
-  from what the cell can read. It carries no counsel, so a cell's frozen `sal-v5`
-  band would read `caption-v2`'s class where the live pass reads `caption-v3`'s.
-  Its base row carries no `opening_writ` either, and `salience_band` never
-  consults `in_segment`, so a cell on a Rule 20 writ would still freeze a
-  `sal-v5` band. The gate replay's projection carries no counsel, so a `sal-v4` /
-  `sal-v5` replay comparison measures the relist rule and the writ scope, never
-  `caption-v3`. Activation needs the projection to read the payload's dated
-  counsel blocks, and the band freeze to refuse a row outside the active
-  version's segment;
+  from what the cell can read. The scope is too: the base row reads its
+  `opening_writ` off the payload (`cert_signals.opening_writ`, the reader ingest
+  and the back-fill use, on the cert form only), and the band freeze refuses a
+  row outside the active version's segment (`in_segment`), freezing a null band
+  with the signals still frozen, so a cell on a Rule 20 writ freezes no `sal-v5`
+  band. Under the active `sal-v4`, whose segment narrows nothing, the freeze
+  never refuses. The counsel half is not built: the projection carries no
+  counsel, so a cell's frozen `sal-v5` band would read `caption-v2`'s class
+  where the live pass reads `caption-v3`'s, and the gate replay's projection
+  carries none either, so a `sal-v4` / `sal-v5` replay comparison measures the
+  relist rule and the writ scope, never `caption-v3`;
 - the rule against the census's reading. The census classified a call as
   superseding from each snapshot's dated `petition_distributions`; the rule as
   built reads `distributed_after_call` instead. Before activation, measure over
