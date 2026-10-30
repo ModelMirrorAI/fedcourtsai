@@ -9,15 +9,17 @@
       "problems": []
     },
     {
-      "checked": 2153836,
-      "detail": "2153836 rows vs baseline 2153824",
-      "failures": 0,
+      "checked": 2153825,
+      "detail": "2153825 rows vs baseline 2153836",
+      "failures": 1,
       "name": "row_count_monotonic",
-      "passed": true,
-      "problems": []
+      "passed": false,
+      "problems": [
+        "row count 2153825 dropped below baseline 2153836"
+      ]
     },
     {
-      "checked": 4311091,
+      "checked": 4311069,
       "detail": "",
       "failures": 0,
       "name": "required_columns_non_empty",
@@ -25,7 +27,7 @@
       "problems": []
     },
     {
-      "checked": 2153836,
+      "checked": 2153825,
       "detail": "no marked docket numbers stored (1 ***-shaped string(s) are legitimate separators)",
       "failures": 0,
       "name": "docket_numbers_carry_no_capital_marking",
@@ -41,7 +43,7 @@
       "problems": []
     },
     {
-      "checked": 693,
+      "checked": 685,
       "detail": "granted before 2024-10-30 (730 days); 13 resolved by termination (1 abated, 1 grant-vacated, 2 judgment-issued, 9 voluntary-dismissal)",
       "failures": 0,
       "name": "no_stale_unparsed_grants",
@@ -49,7 +51,7 @@
       "problems": []
     },
     {
-      "checked": 2153836,
+      "checked": 2153825,
       "detail": "0 future-dated, 66 decided-before-filed (21 docket rows vs accepted baseline 30, 45 SCOTUS application rows vs accepted baseline 50; as of 2026-10-30); faithful upstream data \u2014 investigate the climb upstream before raising a baseline",
       "failures": 66,
       "name": "case_dates_ordered",
@@ -78,7 +80,7 @@
       ]
     },
     {
-      "checked": 4308018,
+      "checked": 4307996,
       "detail": "",
       "failures": 0,
       "name": "domain_values_valid",
@@ -86,7 +88,7 @@
       "problems": []
     },
     {
-      "checked": 4311091,
+      "checked": 4311069,
       "detail": "",
       "failures": 0,
       "name": "no_duplicate_cases_or_events",
@@ -94,12 +96,21 @@
       "problems": []
     },
     {
-      "checked": 17845,
+      "checked": 17857,
       "detail": "",
-      "failures": 0,
+      "failures": 8,
       "name": "ledger_references_exist",
-      "passed": true,
-      "problems": []
+      "passed": false,
+      "problems": [
+        "outcome data/cases/scotus/9017001107/events/evt-petition-disposition/outcome.json: case 'scotus/9017001107' is not in the corpus",
+        "outcome data/cases/scotus/9018001109/events/evt-petition-disposition/outcome.json: case 'scotus/9018001109' is not in the corpus",
+        "outcome data/cases/scotus/9019001302/events/evt-petition-disposition/outcome.json: case 'scotus/9019001302' is not in the corpus",
+        "outcome data/cases/scotus/9020001009/events/evt-petition-disposition/outcome.json: case 'scotus/9020001009' is not in the corpus",
+        "outcome data/cases/scotus/9020001084/events/evt-petition-disposition/outcome.json: case 'scotus/9020001084' is not in the corpus",
+        "outcome data/cases/scotus/9021000439/events/evt-petition-disposition/outcome.json: case 'scotus/9021000439' is not in the corpus",
+        "outcome data/cases/scotus/9021000511/events/evt-petition-disposition/outcome.json: case 'scotus/9021000511' is not in the corpus",
+        "outcome data/cases/scotus/9021000846/events/evt-petition-disposition/outcome.json: case 'scotus/9021000846' is not in the corpus"
+      ]
     },
     {
       "checked": 310,
@@ -110,7 +121,7 @@
       "problems": []
     },
     {
-      "checked": 29349,
+      "checked": 29357,
       "detail": "",
       "failures": 0,
       "name": "event_dirs_hold_only_ledger_entries",
@@ -134,7 +145,7 @@
       "problems": []
     },
     {
-      "checked": 3350,
+      "checked": 3376,
       "detail": "",
       "failures": 0,
       "name": "prediction_docs_exist",
@@ -142,7 +153,7 @@
       "problems": []
     },
     {
-      "checked": 1470,
+      "checked": 1483,
       "detail": "",
       "failures": 0,
       "name": "prediction_claims_scoreable",
@@ -190,7 +201,7 @@
       "problems": []
     },
     {
-      "checked": 14138,
+      "checked": 14137,
       "detail": "",
       "failures": 0,
       "name": "outcome_votes_await_a_registered_source",
@@ -206,7 +217,7 @@
       "problems": []
     },
     {
-      "checked": 14138,
+      "checked": 14137,
       "detail": "",
       "failures": 0,
       "name": "judgment_only_on_merits_outcomes",
@@ -214,9 +225,9 @@
       "problems": []
     }
   ],
-  "corpus_events": 2154182,
-  "corpus_rows": 2153836,
-  "ok": true,
+  "corpus_events": 2154171,
+  "corpus_rows": 2153825,
+  "ok": false,
   "schema_version": "1.0",
   "skipped": false
 }
