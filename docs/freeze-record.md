@@ -15039,8 +15039,8 @@ freeze commit is recorded here.
     instruction file. The kickoff lines name only the actor's template. Every
     job that starts an engine in a checkout — run-predict, run-evaluate,
     run-backtest, the run-analytics labeler and integration-test's scenario
-    and labeler-smoke jobs — marks the two files skip-worktree and deletes
-    them before its first engine step. `tests/test_cell_instructions.py`
+    and labeler-smoke jobs — marks the two files and the `.claude/` reviewer
+    subagents skip-worktree and deletes them before its first engine step. `tests/test_cell_instructions.py`
     holds all three. The labeling prompt is in no registered digest
     ([qp-topic.md](qp-topic.md)), so its edit moves no registration.
   - *PDFs and installs.* `fedcourts pdf-text <file>` prints a PDF's text
@@ -15048,16 +15048,19 @@ freeze commit is recorded here.
     installs are refused in each engine's own surface, from one prefix list
     (`fedcourtsai.cell_policy`, `fedcourts cell-policy`): claude-code
     `permissions.deny` rules, codex `forbidden` execpolicy rules in the codex
-    account's `$CODEX_HOME/rules/`, gemini a `run_shell_command` deny rule
-    through `policyPaths`. It refuses command prefixes the engine parses, not
+    account's `$CODEX_HOME/rules/` (a leg running a real turn fails without
+    them, and checks them with the pinned CLI's `execpolicy check` before
+    the turn), gemini a `run_shell_command` deny rule through `policyPaths`.
+    It refuses command prefixes the engine parses, not
     outcomes ([security.md](security.md)). The back-test and local cells
     launched by `pipeline/runner.py` do not carry it. Both prompts drop the
     line saying a bare `fedcourts` is not on the shell's `PATH`, which the
     `agent-shell-fedcourts-on-path` boundary made untrue for the live cells.
   - *The frozen cert anchor, named.* The predict prompt names
-    `record/context.json`'s `cert_anchor` — the risk-set rate over the cell's
-    frozen band, version and prior Terms, pooled from the statpack in force at
-    placement, with that build's digest and lookback window — as the baseline
+    `record/context.json`'s `cert_anchor` and its three keys — `rate`, pooled
+    over the cell's band, under its `salience_version`, from Terms strictly
+    before its own, out of the statpack in force at placement;
+    `statpack_digest`; `lookback_terms` — as the baseline
     its cert skill is scored against, and says what a null `rate` and a null
     record mean.
   - *The same-question list.* `provision.SAME_QUESTION_WITHHELD` is off: a
@@ -15070,9 +15073,13 @@ freeze commit is recorded here.
   - *The pinned cert anchor.* `PINNED_CERT_ANCHOR_FROM` names `proc-v15`, the
     label registered here: a cert grading stamped under it whose scored
     prediction froze `context.cert_anchor` stamps that anchor, once verified
-    against the predict cell's run id, the committed statpack history and
+    against the predict cell's run id, `main`'s first-parent statpack history
+    (read from a bare clone made after the judge's step) and
     `config/tracking.yaml`, instead of pooling the statpack checked out at
-    grading ([process-version.md](process-version.md)). A grading of a cell
+    grading ([process-version.md](process-version.md)). The anchor must name
+    the build in force at the run id, or the one it replaced where that build
+    landed within `CHECKOUT_SLACK` (six hours) before it, since a cell checks
+    out its trigger commit before the run id is minted. A grading of a cell
     placed without the record still pools at grading. This moves who fixes
     the baseline's build, not the quantity: the same pooler over the same
     frozen context.
@@ -15105,9 +15112,9 @@ freeze commit is recorded here.
 
   | Actor | Before | `proc-v15` |
   | --- | --- | --- |
-  | `claude-baseline` | `sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf` (`proc-v14`) | `sha256:72e10340d87fd761b82338c07ad11cf1460e1339b6f68d31d227f38124a90114` (new) |
-  | `codex-baseline` | `sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6` (`proc-v14`) | `sha256:60d842b23f2ec60f65a985e46b2da0c5e3ea1feb82a6d1f86815c9802ff70384` (new) |
-  | `gemini-baseline` | `sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583` (`proc-v14`) | `sha256:46e600ee7a3af2e59b65ea32392b24b709a826ee0dc483c54efc5a2dc0b04698` (new) |
+  | `claude-baseline` | `sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf` (`proc-v14`) | `sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a` (new) |
+  | `codex-baseline` | `sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6` (`proc-v14`) | `sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990` (new) |
+  | `gemini-baseline` | `sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583` (`proc-v14`) | `sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07` (new) |
   | `claude-judge` | `sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec` | `sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388` (new) |
   | `codex-judge` | `sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30` | `sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0` (new) |
   | `gemini-judge` | `sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9` | `sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c` (new) |
@@ -15124,9 +15131,9 @@ freeze commit is recorded here.
   | `claude-baseline` (`641ede79…`) | `proc-v14` | `2026-10-29T14:16:26Z` | this label's instant (was open) |
   | `codex-baseline` (`231b2fd0…`) | `proc-v14` | `2026-10-29T14:16:26Z` | this label's instant (was open) |
   | `gemini-baseline` (`725538ea…`) | `proc-v14` | `2026-10-29T14:16:26Z` | this label's instant (was open) |
-  | `claude-baseline` (`72e10340…`) | `proc-v15` | this label's instant | open (new) |
-  | `codex-baseline` (`60d842b2…`) | `proc-v15` | this label's instant | open (new) |
-  | `gemini-baseline` (`46e600ee…`) | `proc-v15` | this label's instant | open (new) |
+  | `claude-baseline` (`11ddd73a…`) | `proc-v15` | this label's instant | open (new) |
+  | `codex-baseline` (`3df3d7aa…`) | `proc-v15` | this label's instant | open (new) |
+  | `gemini-baseline` (`274fea05…`) | `proc-v15` | this label's instant | open (new) |
 
   Earlier windows keep the closes earlier labels gave them.
 
@@ -15162,10 +15169,13 @@ freeze commit is recorded here.
     prints the six digests above;
   - on the first predict run after the carrying merge, each cell job's log
     shows the removal step green and no engine transcript opens `AGENTS.md`
-    or `CLAUDE.md`; every forward cert cell's `record/context.json` carries
-    `cert_anchor` and its record carries `same-question.json`;
-  - `uv run fedcourts cell-policy --engine gemini` prints the deny rule, and
-    a cell whose transcript attempts `pip install` shows it refused;
+    or `CLAUDE.md`; every forward cert cell whose context froze a band carries
+    `cert_anchor` in its `record/context.json`, and every forward cert cell's
+    record carries `same-question.json`;
+  - `uv run fedcourts cell-policy --engine gemini` prints the deny rule, every
+    codex cell job's log shows the codex-user-setup check printing
+    `pip install x: forbidden`, and a cell whose transcript attempts `pip
+    install` shows it refused;
   - on `main`, `uv run python -c "from fedcourtsai.process_version import
     HARNESS_BOUNDARIES as H; print('cert-same-question-list' in {b.name for
     b in H})"` prints `True` once the promotion record has stamped the row.

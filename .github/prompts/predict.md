@@ -373,16 +373,17 @@ that *ended* there and assumes this petition never relists again —
 the base rate for the slice the salience gate actually predicts on, and the exact
 yardstick the evaluator scores your skill against. That yardstick is also pooled
 for you, once: on a cert cell whose context froze a band, `record/context.json`
-carries `cert_anchor` — `rate`, the reached rate over your frozen band,
-`salience_version` and Terms strictly before yours, pooled from the
-`metrics/statpack.json` in force when your cell was placed, beside that build's
-`statpack_digest` and the `lookback_terms` window it was pooled under. It is the
-baseline your cert skill is scored against, frozen at placement so a statpack
-refresh before grading cannot move it, and the harness checks it against the
-committed statpack history before scoring with it, so read it and never edit
-it. A null `rate` means no prior Term inside the window carries your band under
-its version — the same no-anchor case as below; a null `cert_anchor` (any
-other stage, or no band frozen) means read the table. The table's heading names the
+carries `cert_anchor` with three keys: `rate`, the reached rate pooled over
+your band, under your `salience_version`, from Terms strictly before yours, out
+of the `metrics/statpack.json` in force when your cell was placed;
+`statpack_digest`, that build's digest; and `lookback_terms`, the window it was
+pooled under. It is the baseline your cert skill is scored against, frozen at
+placement so a statpack refresh before grading cannot move it, and the harness
+checks it against the committed statpack history before scoring with it, so
+read it and never edit it. A null `rate` means no prior Term inside the window
+carries your band under its version — the same no-anchor case as below; a null
+`cert_anchor` (any other stage, no band frozen, or no readable statpack at
+placement) means read the table. The table's heading names the
 **salience version** its bands were computed under; where that does not match
 your context's `salience_version`, or your band does not appear among the
 table's columns, the table is no anchor for your band — a band name only means
