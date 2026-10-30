@@ -694,6 +694,19 @@ jobs:
       - name: Remove the labeling-measurement oracle from the agent's tree
         run: rm -rf data/qp-topics
 
+      # AGENTS.md, CLAUDE.md and .claude/ (the reviewer subagents) are the
+      # repository's instructions for development sessions, which Claude Code
+      # and Codex load from the tree on their own. No process digest hashes them, so they leave the agent's
+      # tree and the prompt template is its whole contract. Marked
+      # skip-worktree first, so `git status` stays clean and an agent tidying
+      # its checkout cannot write them back; nothing after the agent reads them.
+      - name: Remove the development instructions from the agent's tree
+        run: |
+          set -euo pipefail
+          git ls-files -z -- AGENTS.md CLAUDE.md .claude | git update-index -z --skip-worktree --stdin
+          rm -f AGENTS.md CLAUDE.md
+          rm -rf .claude
+
       - uses: ./.github/actions/setup-python-env
         with:
           restore-cache: "false"
@@ -1075,6 +1088,8 @@ jobs:
           uv run fedcourts mcp-config --engine codex \
             --role predictor --actor codex-baseline \
             --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+          mkdir -p .codex/rules
+          uv run fedcourts cell-policy --engine codex > .codex/rules/fedcourts-cell.rules
 
       # Gemini's sanitizer runs strict whenever GITHUB_SHA is set and strips
       # every custom var from the agent's shell, so the cell env contract and
@@ -1380,6 +1395,8 @@ jobs:
           uv run fedcourts mcp-config --engine codex \
             --role evaluator --actor "$EVALUATOR_ID" \
             --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+          mkdir -p .codex/rules
+          uv run fedcourts cell-policy --engine codex > .codex/rules/fedcourts-cell.rules
 
       # The cells' own tripwire, kept because this leg reproduces the cell
       # posture and not merely the cell prompt: the corpus sidecar hands its
@@ -1531,6 +1548,7 @@ jobs:
           codex-user: codexcell
           codex-config: .codex/config.toml
           grant-workspace-read: "true"
+          require-rules: "true"
           codex-output-dir: data/cases/${{ steps.repro.outputs.court }}/${{ steps.repro.outputs.docket }}/events/${{ steps.repro.outputs.event }}/evaluations/${{ steps.repro.outputs.evaluator }}
 
       - name: Evaluate the pinned application-lane record with Codex
@@ -1565,7 +1583,7 @@ jobs:
           allow-bot-users: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt: |
-            Read ${{ steps.repro.outputs.prompt }} and AGENTS.md, then score every predictor's
+            Read ${{ steps.repro.outputs.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
 
             COURT_ID=${{ steps.repro.outputs.court }}
@@ -1955,6 +1973,8 @@ jobs:
               uv run fedcourts mcp-config --engine codex \
                 --role predictor --actor "$PREDICTOR_ID" \
                 --http-url courtlistener=http://127.0.0.1:8378/mcp > .codex/config.toml
+              mkdir -p .codex/rules
+              uv run fedcourts cell-policy --engine codex > .codex/rules/fedcourts-cell.rules
               ;;
             gemini)
               # Merged over the settings file the allowlist step above wrote,
@@ -1963,6 +1983,14 @@ jobs:
                 --role predictor --actor "$PREDICTOR_ID" \
                 --base-settings .gemini/settings.json \
                 --http-url courtlistener=http://127.0.0.1:8378/mcp > .gemini/settings.json.new
+              mv .gemini/settings.json.new .gemini/settings.json
+              # The install refusal (`fedcourts cell-policy --engine gemini`): a deny
+              # rule on the shell tool, loaded through `policyPaths` at the user tier,
+              # which outranks the --yolo allow-all of the CLI's default tier.
+              mkdir -p .gemini/policies
+              uv run fedcourts cell-policy --engine gemini > .gemini/policies/fedcourts-cell.toml
+              jq --arg policy "$GITHUB_WORKSPACE/.gemini/policies/fedcourts-cell.toml" \
+                '.policyPaths = [$policy]' .gemini/settings.json > .gemini/settings.json.new
               mv .gemini/settings.json.new .gemini/settings.json
               ;;
           esac
@@ -1981,6 +2009,7 @@ jobs:
           codex-user: codexcell
           codex-config: .codex/config.toml
           grant-workspace-read: "true"
+          require-rules: "true"
 
       # The cells' engine-deadline bracket, around whichever invocation this
       # leg runs: the same watchdog script, armed the same way from the job's
@@ -2038,10 +2067,46 @@ jobs:
           # action falls back to an OIDC exchange that mints an installation
           # token defaulting to contents/issues/pull-requests *write*.
           github_token: ${{ github.token }}
+          # `permissions.deny` refuses a run-time package install: the rules are
+          # `fedcourts cell-policy --engine claude-code`, held equal to it by
+          # tests/test_cell_policy.py, and a deny rule holds under
+          # bypassPermissions.
           settings: |
             {
               "env": {
                 "ENABLE_PROMPT_CACHING_1H": "1"
+              },
+              "permissions": {
+                "deny": [
+                  "Bash(pip install *)",
+                  "Bash(pip3 install *)",
+                  "Bash(python -m pip *)",
+                  "Bash(python3 -m pip *)",
+                  "Bash(python -m ensurepip *)",
+                  "Bash(python3 -m ensurepip *)",
+                  "Bash(uv pip *)",
+                  "Bash(uv run --with *)",
+                  "Bash(uv run pip *)",
+                  "Bash(uv add *)",
+                  "Bash(uv tool *)",
+                  "Bash(uvx *)",
+                  "Bash(pipx *)",
+                  "Bash(conda *)",
+                  "Bash(mamba *)",
+                  "Bash(npm install *)",
+                  "Bash(npm i *)",
+                  "Bash(npm ci *)",
+                  "Bash(npm add *)",
+                  "Bash(npx *)",
+                  "Bash(pnpm *)",
+                  "Bash(yarn *)",
+                  "Bash(apt-get *)",
+                  "Bash(apt *)",
+                  "Bash(sudo *)",
+                  "Bash(gem install *)",
+                  "Bash(cargo install *)",
+                  "Bash(go install *)"
+                ]
               }
             }
           # DEVIATION, and the point of the leg: the cells' kickoff prompt
@@ -2885,6 +2950,19 @@ jobs:
       - name: Remove the labeling-measurement oracle from the agent's tree
         run: rm -rf data/qp-topics
 
+      # AGENTS.md, CLAUDE.md and .claude/ (the reviewer subagents) are the
+      # repository's instructions for development sessions, which Claude Code
+      # and Codex load from the tree on their own. No process digest hashes them, so they leave the agent's
+      # tree and the prompt template is its whole contract. Marked
+      # skip-worktree first, so `git status` stays clean and an agent tidying
+      # its checkout cannot write them back; nothing after the agent reads them.
+      - name: Remove the development instructions from the agent's tree
+        run: |
+          set -euo pipefail
+          git ls-files -z -- AGENTS.md CLAUDE.md .claude | git update-index -z --skip-worktree --stdin
+          rm -f AGENTS.md CLAUDE.md
+          rm -rf .claude
+
       - uses: ./.github/actions/setup-python-env
         with:
           restore-cache: "false"
@@ -2965,7 +3043,7 @@ jobs:
       - name: Run the labeler's invocation block over the synthetic extract
         id: smoke_label
         # 15 covers the block's fixed preamble — reading the labeling prompt
-        # and AGENTS.md — plus five short rows with margin; the job cap at 25
+        # and the vocabulary doc — plus five short rows with margin; the job cap at 25
         # holds the setup steps beside it.
         timeout-minutes: 15
         uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262
@@ -2984,7 +3062,7 @@ jobs:
               }
             }
           prompt: |
-            Read .github/prompts/qp-topic-label.md and AGENTS.md, then label every
+            Read .github/prompts/qp-topic-label.md, then label every
             row in the extract:
 
             QP_TEXTS=${{ runner.temp }}/qp-io/qp-texts.json

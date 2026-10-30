@@ -33,6 +33,7 @@ from fedcourtsai.fixture import FIXTURE_CASES, build_fixture_corpus
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.cascade import run_cascade
 from fedcourtsai.schemas import Disposition
+from tests.fixture_metrics import fixture_metrics_root
 
 REMOTE_URL = "s3://test-bucket/store"
 _SHA = "a" * 64
@@ -456,6 +457,7 @@ def test_stub_cascade_reads_via_ranged_backend(
         corpus_db_path=db,
         data_root=tmp_path / "data",
         config_root=Path("config"),
+        metrics_root=fixture_metrics_root(tmp_path),
         court="ca9",
         docket=103,
         run_id="20260628T120000Z",

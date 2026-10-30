@@ -23,6 +23,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
@@ -50,6 +51,7 @@ from . import (
     analytics,
     blinding,
     casestore,
+    cell_policy,
     cleanup,
     contexts_due,
     corpus,
@@ -79,6 +81,7 @@ from . import (
     scope_manifest,
     secretscan,
     site_status,
+    statpack_history,
     summaries,
     tool_usage,
     window_records,
@@ -236,6 +239,7 @@ from .matrix import (
     opinion_hold,
     parse_cases,
     predict_matrix,
+    predicted_case_ids,
     read_collect_prs,
     read_stranded_census,
     reopened_for,
@@ -362,6 +366,7 @@ from .pipeline.documents import (
     document_fetch_losses,
     document_text_coverage,
     extract_pdf_text,
+    holds_docket_documents,
     questions_presented_extract,
 )
 from .pipeline.evaluate import brier_score, brier_skill, is_correct
@@ -433,6 +438,8 @@ from .pipeline.salience import (
     registered_versions,
     unlatch_overselected,
 )
+from .pipeline.salience_cert_backfill import COLUMNS as SALIENCE_CERT_COLUMNS
+from .pipeline.salience_cert_backfill import backfill_salience_cert_columns
 from .pipeline.scope_reconcile import reconcile_predict_scope
 from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
 from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
@@ -477,6 +484,7 @@ from .release_sensitivity import (
 from .required_checks import produced_contexts
 from .review_hold import SEAMS as REVIEW_HOLD_SEAMS
 from .review_hold import decide_from_files as decide_hold_from_files
+from .review_hold import label_pending
 from .review_hold import render_summary as render_hold_summary
 from .ruleset_checks import Expected as RulesetExpected
 from .ruleset_checks import ruleset_problems
@@ -491,6 +499,7 @@ from .schemas import (
     BlindingRecord,
     CellFailure,
     CellMode,
+    CertAnchor,
     CertBacktest,
     CertBacktestCellClock,
     CertBacktestCellLoss,
@@ -529,10 +538,13 @@ from .schemas import (
     PredictionContext,
     PredictorConfig,
     ProcessVersion,
+    QpTopicAgreement,
     QpTopicApplicationLabels,
     QpTopicApplicationReference,
     QpTopicLabels,
     QpTopicReference,
+    QpTopicRunSpend,
+    ReserveOccupant,
     RetrievalCall,
     RetrievalLog,
     SalienceReplay,
@@ -576,6 +588,7 @@ from .store import (
     prediction_counts,
     resolved_events,
     scored_prediction,
+    scored_prediction_cell,
     stratify,
     unforecastable_listed_events,
 )
@@ -1507,6 +1520,113 @@ def rederive_cert_amicus_briefs_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command("backfill-salience-cert-columns")
+def backfill_salience_cert_columns_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the back-filled columns; omit for a dry-run plan."),
+    ] = False,
+    max_fills: Annotated[
+        int | None,
+        typer.Option(
+            "--max-fills",
+            help="Blast-radius bound: refuse to apply more column fills (across all three "
+            "columns) than this. Required with --apply.",
+        ),
+        # No default: the dry run is where the number comes from, and a default
+        # would stand in for the maintainer's reading of it.
+    ] = None,
+) -> None:
+    """Back-fill the three withheld cert columns `sal-v5` reads, over the cert live slice.
+
+    `call_for_response_at`, `distributed_after_call` and `opening_writ` are
+    written by the live poll's cert branch at ingest and fill-in latched, so a row
+    the rotation no longer polls keeps NULL in each column it predates. This pass
+    re-parses every cert-form live-slice SCOTUS row's newest live-shaped snapshot
+    with the functions ingest calls (`cert_signals.call_for_response_date`,
+    `cert_signals.distributions_after_call`, `cert_signals.opening_writ`) and
+    fills each NULL the snapshot yields a reading for. Only NULLs are filled,
+    which is stricter than ingest's upsert, where a fresh reading replaces the
+    stored one: a column already holding a value is `already_set` and never
+    written, and the statement keeps a stored value (`COALESCE(stored, new)`). A
+    NULL `distributed_after_call` whose stored `call_for_response_at` differs
+    from the snapshot's call date is `pair_mismatch` and not filled; a NULL
+    whose snapshot is missing or discloses no proceedings is `unparseable`; one
+    whose proceedings name no call, or no opening petition entry, is
+    `no_reading`. Corpus only, index only.
+
+    Prints, per column, `would_fill`, `already_set`, `no_reading`,
+    `unparseable` and `pair_mismatch` with the filled values' distribution, then the
+    `SalienceCertBackfillResult` as JSON. **Read `unobservable` first**: against an
+    index-only pull with no content store addressed every fetched row lands there
+    and the empty ledger reads like a filled corpus. One pass per invocation (the
+    plan is the write set), the batch in one transaction. `--apply` requires an
+    explicit `--max-fills` and refuses above it, printing the ledger first.
+    Idempotent: re-running after an apply reports `total_fills = 0`. Run where the
+    corpus is pulled (`run-repair`'s `salience-cert-backfill` pass in production; a
+    dev checkout serves the dry run). Exits 1 when the corpus is absent or the
+    apply is refused.
+    """
+    settings = get_settings()
+    if apply and max_fills is None:
+        typer.echo(
+            "backfill-salience-cert-columns: --apply requires an explicit --max-fills. "
+            "Read the dry run first and pass the total_fills you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before back-filling the sal-v5 cert columns.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    corpus_sha = _census_corpus_sha(settings, db_path)
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
+        result = backfill_salience_cert_columns(
+            conn, apply=apply, corpus_sha256=corpus_sha, max_fills=max_fills
+        )
+    verb = "wrote" if apply else "would write"
+    if result.refused:
+        verb = "refused to write"
+    typer.echo(
+        f"backfill-salience-cert-columns ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} cert-form live-slice row(s); {result.all_set} already carry all "
+        f"three columns (not read); {result.read} read, {result.unobservable} unobservable "
+        "(untouched). Read `unobservable` first: against an index-only pull every fetched "
+        "row lands there and the empty ledger below is a wrong-blob reading rather than a "
+        "filled corpus"
+    )
+    typer.echo(f"  {verb} {result.total_fills} column fill(s) on {len(result.fills)} row(s)")
+    for column in SALIENCE_CERT_COLUMNS:
+        ledger = result.columns[column]
+        typer.echo(
+            f"  {column}: {ledger.would_fill} would fill, {ledger.already_set} already set "
+            f"(latched, untouched), {ledger.no_reading} no reading, {ledger.unparseable} "
+            f"unparseable, {ledger.pair_mismatch} pair-mismatch; "
+            f"filled values: {ledger.filled_values}"
+        )
+    if not apply and max_fills is not None and result.total_fills > max_fills:
+        typer.echo(
+            f"note: {result.total_fills} total fills is above --max-fills {max_fills}; "
+            "an apply would refuse.",
+            err=True,
+        )
+    typer.echo(result.model_dump_json())
+    if result.refused:
+        typer.echo(
+            f"backfill-salience-cert-columns: refusing to apply {result.total_fills} "
+            f"fill(s) (--max-fills {max_fills}). Nothing was written. A row the poll read "
+            "since the dry run is already filled, so the total ordinarily falls between "
+            "the two dispatches; one above the dry run's means the population widened — "
+            "triage the ledger before raising the bound.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
 @app.command("interim-reading-census")
 def interim_reading_census_cmd() -> None:
     """Census the stored application rows the finer interim reading names partial or moot.
@@ -1561,6 +1681,15 @@ def interim_reading_census_cmd() -> None:
     typer.echo(result.model_dump_json())
 
 
+def _reserve_occupant_status(occupant: ReserveOccupant, horizon_days: int) -> str:
+    """One reserve occupant's slot status for the reconcile printout."""
+    if occupant.holds_slot:
+        return "holds a slot"
+    if occupant.aged_out:
+        return f"released: aged out past {horizon_days} day(s)"
+    return "released: snapshot reads disposed"
+
+
 @app.command("reconcile-salience-selection")
 def reconcile_salience_selection_cmd(
     apply: Annotated[
@@ -1569,6 +1698,16 @@ def reconcile_salience_selection_cmd(
             "--apply", help="Write the scores and selection latch; omit for a dry-run count."
         ),
     ] = False,
+    today: Annotated[
+        str,
+        typer.Option(
+            "--today",
+            help=(
+                "The pass's own date (YYYY-MM-DD), which the interim reserve's age-out "
+                "measures each application's filing date to; defaults to today (UTC)."
+            ),
+        ),
+    ] = "",
 ) -> None:
     """Score the in-scope cert petitions and latch the per-conference selected slice.
 
@@ -1579,8 +1718,10 @@ def reconcile_salience_selection_cmd(
     a re-run never de-selects a case that later drifts below the cap. Dry-run by
     default; `--apply` writes (the run-seed walk then pushes the corpus). Lists the
     interim reserve's occupants — each latched, still-pending application with its
-    filing date, the stored snapshot read, and whether it still holds a slot (one
-    whose snapshot already reads as an interim disposal does not). Prints a
+    filing date, its age at the pass's date, the stored snapshot read, and
+    whether it still holds a slot (one whose snapshot already reads as an interim
+    disposal does not, nor one filed more than
+    `salience.interim_reserve_age_out_days` before the pass). Prints a
     `SalienceSelectionResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
@@ -1592,24 +1733,34 @@ def reconcile_salience_selection_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+    try:
+        as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    except ValueError:
+        typer.echo(f"--today must be a date (YYYY-MM-DD), not {today!r}", err=True)
+        raise typer.Exit(code=2) from None
     config = load_salience_config(settings.config_root)
     with corpus.connect_maintenance(db_path, apply=apply) as conn:
-        result = reconcile_salience_selection(conn, settings.data_root, config, apply=apply)
+        result = reconcile_salience_selection(
+            conn, settings.data_root, config, apply=apply, as_of=as_of
+        )
     typer.echo(
         f"reconcile-salience-selection ({'applied' if apply else 'dry-run'}): "
         f"scored {result.scored}, newly selected {result.newly_selected} "
         f"across {result.conferences} conference(s)"
     )
     held = sum(o.holds_slot for o in result.reserve_occupants)
+    aged = sum(o.aged_out for o in result.reserve_occupants)
+    horizon = config.interim_reserve_age_out_days
+    age_out = f"{aged} aged out past {horizon} day(s)" if horizon else "age-out off"
     typer.echo(
-        f"interim reserve: {held} of {config.interim_reserve_slots} slot(s) held, "
-        f"{len(result.reserve_occupants) - held} occupant(s) released as disposed"
+        f"interim reserve as of {as_of}: {held} of {config.interim_reserve_slots} slot(s) held, "
+        f"{len(result.reserve_occupants) - held} occupant(s) released ({age_out})"
     )
     for occupant in result.reserve_occupants:
         typer.echo(
             f"  {occupant.case_id} {occupant.docket_number} filed {occupant.date_filed} "
-            f"snapshot {occupant.snapshot_date} "
-            f"{'holds a slot' if occupant.holds_slot else 'released: snapshot reads disposed'}"
+            f"age {occupant.age_days} day(s) snapshot {occupant.snapshot_date} "
+            f"{_reserve_occupant_status(occupant, horizon)}"
             f"{' (snapshot read failed)' if occupant.snapshot_read_failed else ''}"
         )
     typer.echo(result.model_dump_json())
@@ -1651,7 +1802,7 @@ def caption_census_cmd(
     rule_version: str = typer.Option(
         CAPTION_RULE_VERSION,
         "--rule-version",
-        help="Which registered caption rule cuts the frame (caption-v1, caption-v2).",
+        help="Which registered caption rule cuts the frame (caption-v1, caption-v2, caption-v3).",
     ),
 ) -> None:
     """The petitioner-class census: per-Term grant-family rates by caption class.
@@ -7451,7 +7602,8 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
     out: Path,
     scope: str,
     applications: bool = False,
-) -> list[Row]:
+    converged_ok: bool = False,
+) -> list[Row] | None:
     """The rows this dispatch labels, cut from the scoped frame by committed state.
 
     Reads the committed reference set and, where one exists, the committed labels
@@ -7465,6 +7617,11 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
     to stderr, and exits non-zero on the two states where a dispatch would spend
     a labeling run for nothing: a converged frame, and a frame holding too few of
     the reference set for the run to clear the publication gate's coverage floor.
+
+    ``converged_ok`` turns the converged frame and the no-fill batch — the two
+    states with nothing new to label — into a clean stand-down: ``None`` comes
+    back and the caller writes nothing and exits 0. The coverage refusal stays
+    a refusal either way, since it says the frame is broken rather than done.
 
     ``applications`` cuts the application frame's batch by the same rule, from
     the application reference block and the application labels artifact,
@@ -7555,6 +7712,8 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
             "with the next pull, when the frame grows.",
             err=True,
         )
+        if converged_ok:
+            return None
         raise typer.Exit(code=1)
     if not batch.fill:
         # Rows left to label, but no budget to label them with: the reference set
@@ -7570,6 +7729,8 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
             "publish nothing. Nothing was written.",
             err=True,
         )
+        if converged_ok:
+            return None
         raise typer.Exit(code=1)
     # Beside the extract, never inside it: the extract is the labeler's whole
     # evidentiary input and the contract is text-only, so the selection rule and
@@ -7788,6 +7949,15 @@ def qp_corpus(
             "(qp-topic-v1), pre-disposition text only. Both are batched.",
         ),
     ] = "petitions",
+    converged_ok: Annotated[
+        bool,
+        typer.Option(
+            "--converged-ok",
+            help="Stand down cleanly on a frame with nothing new to label (converged, or a "
+            "batch the reference set fills alone): write no extract and exit 0. The "
+            "scheduled labeling run passes it; a dispatch keeps the refusal.",
+        ),
+    ] = False,
 ) -> None:
     """Extract the stored ``questions-presented`` texts a topic labeler reads.
 
@@ -7845,7 +8015,10 @@ def qp_corpus(
     could not clear the publication gate whatever the labeler did: the batch
     carries every reference case the frame holds and the labeler labels every
     row, so that coverage is exact at extract time. Neither moves the gate; the
-    second enforces it earlier and more cheaply.
+    second enforces it earlier and more cheaply. Under ``--converged-ok`` the
+    first state, and the batch the reference set fills on its own, instead
+    write nothing and exit 0, so a scheduled run with nothing owed stands down
+    rather than failing; the coverage refusal is unchanged.
 
     **``--frame applications``** extracts the application frame a ``qp-topic-v1``
     labeler reads instead (:mod:`~fedcourtsai.pipeline.application_topics`):
@@ -7875,7 +8048,9 @@ def qp_corpus(
             )
             raise typer.Exit(code=2)
     if frame == "applications":
-        _qp_corpus_applications(settings, corpus_db, out, all_texts=all_texts)
+        _qp_corpus_applications(
+            settings, corpus_db, out, all_texts=all_texts, converged_ok=converged_ok
+        )
         return
     db_path = corpus_db if corpus_db is not None else corpus.corpus_db_path(settings.corpus_root)
     if not db_path.is_file():
@@ -7932,7 +8107,17 @@ def qp_corpus(
             )
             raise typer.Exit(code=1)
     else:
-        rows = _labeling_batch(extract.rows, data_root=settings.data_root, out=out, scope=scope)
+        batch_rows = _labeling_batch(
+            extract.rows,
+            data_root=settings.data_root,
+            out=out,
+            scope=scope,
+            converged_ok=converged_ok,
+        )
+        if batch_rows is None:
+            typer.echo("qp-corpus: nothing owed in this frame; standing down (--converged-ok)")
+            return
+        rows = batch_rows
     write_raw_json(
         out,
         [
@@ -7949,7 +8134,12 @@ def qp_corpus(
 
 
 def _qp_corpus_applications(
-    settings: Settings, corpus_db: Path | None, out: Path, *, all_texts: bool
+    settings: Settings,
+    corpus_db: Path | None,
+    out: Path,
+    *,
+    all_texts: bool,
+    converged_ok: bool = False,
 ) -> None:
     """``qp-corpus --frame applications``: the application extract, batched like the petitions'."""
     if all_texts:
@@ -7989,7 +8179,11 @@ def _qp_corpus_applications(
         out=out,
         scope="live-slice non-extension application dockets",
         applications=True,
+        converged_ok=converged_ok,
     )
+    if rows is None:
+        typer.echo("qp-corpus: nothing owed in this frame; standing down (--converged-ok)")
+        return
     write_raw_json(out, [row.as_json() for row in rows])
     typer.echo(f"qp-corpus: {len(rows)} application(s) -> {out}")
 
@@ -8031,6 +8225,14 @@ def qp_topics_cmd(
             "the application reference block and accrues qp-topics-applications.json.",
         ),
     ] = "petitions",
+    agreement_out: Annotated[
+        Path | None,
+        typer.Option(
+            "--agreement-out",
+            help="Also write the run's measured agreement (the gate figures) here as JSON, "
+            "whether or not the run clears the gate; `qp-topic-spend` records it.",
+        ),
+    ] = None,
 ) -> None:
     """Measure a topic labeler against the reference set and accrue its labels artifact.
 
@@ -8080,10 +8282,16 @@ def qp_topics_cmd(
     gate and floors, and accrues the application labels artifact
     (``data/qp-topics/qp-topics-applications.json``), each row stamped with the
     extract's ``input_kind``. ``--frame-rows`` there counts the application frame.
+
+    ``--agreement-out`` writes the measured agreement — the gate figures — to a
+    file of its own on either side of the gate, so a refused run's measurement
+    survives into its spend record (``fedcourts qp-topic-spend``). Nothing is
+    written there when the labels never reach a measurement (a mis-joined or
+    malformed labels file).
     """
     settings = get_settings()
     if frame == "applications":
-        _qp_topics_applications(settings, labels, texts, labeler, out, frame_rows)
+        _qp_topics_applications(settings, labels, texts, labeler, out, frame_rows, agreement_out)
         return
     reference_path = qp_topics.reference_path(settings.data_root)
     if not reference_path.is_file():
@@ -8106,6 +8314,8 @@ def qp_topics_cmd(
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
         raise typer.Exit(code=1) from exc
+    if agreement_out is not None:
+        write_json(agreement_out, artifact.agreement)
     _report_labels_run(artifact, reference_name="the reference set")
     destination = out if out is not None else qp_topics.labels_path(settings.data_root)
     write_json(destination, artifact)
@@ -8119,6 +8329,7 @@ def _qp_topics_applications(
     labeler: str,
     out: Path | None,
     frame_rows: int | None,
+    agreement_out: Path | None = None,
 ) -> None:
     """``qp-topics --frame applications``: measure an application batch and accrue its artifact."""
     reference_path = qp_topics.application_reference_path(settings.data_root)
@@ -8143,6 +8354,8 @@ def _qp_topics_applications(
     reference = read_model(reference_path, QpTopicApplicationReference)
     lines = {entry.case_id: entry.label for entry in qp_topics.read_label_lines(labels)}
     typer.echo(qp_topics.render_input_kind_split(lines, reference))
+    if agreement_out is not None:
+        write_json(agreement_out, artifact.agreement)
     _report_labels_run(artifact, reference_name="the application reference block")
     destination = out if out is not None else prior_path
     write_json(destination, artifact)
@@ -8193,6 +8406,223 @@ def _report_labels_run(
             err=True,
         )
         raise typer.Exit(code=1)
+
+
+@app.command("qp-topic-spend")
+def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+    *,
+    execution_file: Annotated[
+        Path,
+        typer.Option(
+            "--execution-file",
+            help="The labeling step's Claude Code execution_file, read for its token usage.",
+        ),
+    ],
+    frame: Annotated[
+        Literal["petitions", "applications"],
+        typer.Option(help="The frame the run labeled."),
+    ],
+    run_id: Annotated[str, typer.Option("--run-id", help="The Actions run id.")],
+    run_attempt: Annotated[
+        int, typer.Option("--run-attempt", min=1, help="The labeling job's run attempt.")
+    ],
+    model: Annotated[str, typer.Option(help="The labeler's model, priced at MODEL_RATES.")],
+    batch_rows: Annotated[
+        int, typer.Option("--batch-rows", min=0, help="Rows in the extract the run was handed.")
+    ],
+    label_lines: Annotated[
+        int, typer.Option("--label-lines", min=0, help="Label lines the run left behind.")
+    ],
+    published: Annotated[
+        bool,
+        typer.Option(
+            "--published/--not-published",
+            help="Whether the measure step cleared the gate and wrote the labels artifact.",
+        ),
+    ] = False,
+    agreement_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--agreement-file",
+            help="The measured agreement `qp-topics --agreement-out` wrote; absent or "
+            "missing means the run was never measured.",
+        ),
+    ] = None,
+    out: Annotated[
+        Path | None,
+        typer.Option(
+            help="Where to write the record (default: "
+            "<data_root>/qp-topics/spend/<run_id>-<run_attempt>.json)."
+        ),
+    ] = None,
+    recorded_at: Annotated[
+        str, typer.Option("--recorded-at", help="ISO timestamp; defaults to now (UTC).")
+    ] = "",
+) -> None:
+    """Record one topic-labeler run's measured spend, whatever became of its batch.
+
+    Reads the engine's execution file as every Claude cell's ``record-usage``
+    does (:func:`fedcourtsai.usage.parse_claude_usage`), prices it at the one
+    rate table (:func:`fedcourtsai.pricing.estimate_cost_usd`), and writes a
+    ``QpTopicRunSpend`` record with the run's outcome and gate figures. The
+    outcome is ``published`` when the measure step cleared the gate, ``refused``
+    when it measured the batch below the gate, and ``incomplete`` when no
+    measurement exists — a labels file short of the batch, or a check ahead of
+    the measurement that failed. A refused run spends as much as a published
+    one, which is why this record, not the labels artifact, carries the spend.
+
+    A model with no rate in ``MODEL_RATES`` is priced at the entry that prices
+    these token counts dearest and named in ``priced_as``, so its spend is still
+    counted, and never under-counted.
+
+    Exits 3 without writing when the execution file carries no usage, so the
+    workflow step can say there was nothing to record rather than commit false
+    zeros; exits 2 on an unreadable agreement file, a ``--recorded-at`` that is
+    not an ISO timestamp, or a published run whose measurement says the gate
+    refused.
+    """
+    settings = get_settings()
+    counts = parse_claude_usage(execution_file)
+    if counts is None or counts.total_tokens == 0:
+        typer.echo(
+            "qp-topic-spend: no model usage in the execution file; nothing recorded", err=True
+        )
+        raise typer.Exit(code=3)
+    priced_as: str | None = None
+    if model not in MODEL_RATES:
+        priced_as = max(sorted(MODEL_RATES), key=lambda known: estimate_cost_usd(known, counts))
+        typer.echo(
+            f"qp-topic-spend: no rate for model '{model}'; priced at the dearest entry, "
+            f"'{priced_as}'",
+            err=True,
+        )
+    try:
+        when = datetime.fromisoformat(recorded_at) if recorded_at else datetime.now(UTC)
+    except ValueError as exc:
+        typer.echo(f"qp-topic-spend: --recorded-at is not an ISO timestamp: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    agreement: QpTopicAgreement | None = None
+    if agreement_file is not None and agreement_file.is_file():
+        try:
+            agreement = read_model(agreement_file, QpTopicAgreement)
+        except (OSError, ValueError) as exc:
+            typer.echo(f"qp-topic-spend: cannot read {agreement_file}: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+    if published and (agreement is None or not agreement.gate_passed):
+        typer.echo(
+            "qp-topic-spend: --published needs a measurement that cleared the gate", err=True
+        )
+        raise typer.Exit(code=2)
+    outcome: Literal["published", "refused", "incomplete"]
+    if published:
+        outcome = "published"
+    elif agreement is not None and not agreement.gate_passed:
+        outcome = "refused"
+    else:
+        outcome = "incomplete"
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    try:
+        record = QpTopicRunSpend(
+            frame=frame,
+            run_id=run_id,
+            run_attempt=run_attempt,
+            labeler=f"claude-code/{model}",
+            model=model,
+            outcome=outcome,
+            batch_rows=batch_rows,
+            label_lines=label_lines,
+            agree=None if agreement is None else agreement.overall_agree,
+            n=None if agreement is None else agreement.overall_n,
+            rate=None if agreement is None else agreement.overall_rate,
+            floor=None if agreement is None else agreement.floor,
+            recorded_at=when,
+            input_tokens=counts.input_tokens,
+            output_tokens=counts.output_tokens,
+            cache_read_input_tokens=counts.cache_read_input_tokens,
+            cache_creation_input_tokens=counts.cache_creation_input_tokens,
+            estimated_cost_usd=estimate_cost_usd(priced_as or model, counts),
+            priced_as=priced_as,
+        )
+    except ValueError as exc:
+        typer.echo(f"qp-topic-spend: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    destination = (
+        out
+        if out is not None
+        else qp_topics.run_spend_path(settings.data_root, run_id, run_attempt)
+    )
+    write_json(destination, record)
+    typer.echo(
+        f"qp-topic-spend: {frame} run {run_id} attempt {run_attempt} {outcome}, "
+        f"{counts.total_tokens} tok ~${record.estimated_cost_usd:.2f} -> {destination}"
+    )
+
+
+@app.command("qp-label-plan")
+def qp_label_plan_cmd(
+    *,
+    rows: Annotated[int, typer.Option(min=1, help="Rows in the batch the extract cut.")],
+    model: Annotated[str, typer.Option(help="The labeler's model.")],
+    frame: Annotated[
+        Literal["petitions", "applications"], typer.Option(help="The frame the round labels.")
+    ],
+    out: Annotated[Path, typer.Option(help="Write the plan document here (JSON).")],
+    report: Annotated[
+        Path | None, typer.Option(help="Also write the plan's markdown report here.")
+    ] = None,
+) -> None:
+    """Price a topic-label round: the plan document the review hold judges it on.
+
+    The round's price is its batch's rows at the labeler's per-row planning
+    rate (:data:`fedcourtsai.planning_rates.LABEL_RATES_USD_PER_ROW`; a model the
+    table does not name prices at its highest rate), written as
+    ``estimated_cost_usd_high`` — the figure ``hold-decision --seam label``
+    compares against the per-round cap. Reads nothing and spends nothing.
+    """
+    plan = qp_topics.build_label_plan(frame=frame, model=model, rows=rows)
+    write_raw_json(out, plan)
+    if report is not None:
+        write_text(report, qp_topics.render_label_plan(plan))
+    typer.echo(
+        f"qp-label-plan: {frame} {rows} row(s) by {model} at "
+        f"${plan['rate_usd_per_row']:.2f}/row -> ${plan['estimated_cost_usd_high']:.2f} -> {out}"
+    )
+
+
+@app.command("qp-topic-pending")
+def qp_topic_pending_cmd(
+    *,
+    frame: Annotated[
+        Literal["petitions", "applications"], typer.Option(help="The frame the round labels.")
+    ],
+    carried_file: Annotated[
+        Path,
+        typer.Option(
+            "--carried-file",
+            help="The run records carried from the frame's open labels PR, one path per line.",
+        ),
+    ],
+) -> None:
+    """Whether the frame's open labels PR holds an unmerged published batch.
+
+    Prints ``true`` or ``false`` on stdout, with the reason on stderr. A scheduled
+    labeling run stands down on ``true``: its batch would be cut from ``main``'s
+    labels file, so it would label that PR's rows again and replace the PR
+    (:func:`fedcourtsai.review_hold.label_pending`). A list or record that will
+    not read prints ``true`` too — the stand-down is the cheap side.
+    """
+    settings = get_settings()
+    try:
+        carried = carried_file.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        typer.echo(f"qp-topic-pending: cannot read {carried_file}: {exc}", err=True)
+        typer.echo("true")
+        return
+    reason = label_pending(settings.data_root, frame, carried)
+    if reason is not None:
+        typer.echo(f"qp-topic-pending: {reason}", err=True)
+    typer.echo("false" if reason is None else "true")
 
 
 @app.command("corpus-status")
@@ -10662,6 +11092,18 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             "existing process_version exactly as its producing run stamped it.",
         ),
     ] = False,
+    anchor_history: Annotated[
+        Path | None,
+        typer.Option(
+            help="Evaluator role only: the git repository (a bare clone of main) whose "
+            "first-parent history a frozen cert anchor is checked against; defaults to "
+            "the checkout.",
+        ),
+    ] = None,
+    anchor_ref: Annotated[
+        str,
+        typer.Option(help="The branch in --anchor-history whose landings count."),
+    ] = statpack_history.DEFAULT_REF,
 ) -> None:
     """Stamp a cell's ``prediction.json`` / ``evaluation.json`` with its process version.
 
@@ -10722,11 +11164,14 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     leaves no population to choose, so the harness pools the risk-set anchor
     through the scorer's own pooler and stamps the Brier, the rate, the skill,
     both halves of the basis record, and the statpack build it read
-    (``base_rate_statpack_digest``). Every other cert cell — an earlier label's
-    grading, and a prediction that froze no band, whose terminal fallback
-    re-derives a band from the corpus row — keeps the evaluator's three
-    numbers, and the leaderboard's coherence check is what holds that
-    arithmetic to its record. The label is the stamp's own: the one this
+    (``base_rate_statpack_digest``) — from
+    :data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM` on, the anchor
+    the prediction's context froze at provisioning where it carries one, so the
+    build is the one in force when the forecast was placed. Every other cert
+    cell — an earlier label's grading, and a prediction that froze no band,
+    whose terminal fallback re-derives a band from the corpus row — keeps the
+    evaluator's three numbers, and the leaderboard's coherence check is what
+    holds that arithmetic to its record. The label is the stamp's own: the one this
     invocation writes, or on a re-grade the one the record carries, so a
     re-grade never moves a grading onto a rule its label did not register.
 
@@ -10804,6 +11249,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     to age.
     """
     settings = get_settings()
+    _ANCHOR_HISTORY.set((anchor_history or Path.cwd(), anchor_ref))
     if role not in ("predictor", "evaluator"):
         typer.echo(f"role must be predictor or evaluator, not {role!r}", err=True)
         raise typer.Exit(code=2)
@@ -10857,6 +11303,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
 
     graded = 0
     basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
+    refusals: list[str] = []
     for path in targets:
         if not path.is_file():
             continue
@@ -10913,24 +11360,45 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
                 else process_version.CURRENT_PROCESS_LABEL
             )
             skill_fields, basis_records[path] = _skill_record_for(
-                event_paths, record, settings, label, regrade=regrade
+                event_paths, record, settings, label, regrade=regrade, anchor_refusals=refusals
             )
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
         graded += 1
 
-    if graded == 0:
-        _report_no_targets(regrade, role, actor)
-        return
     # Echoed before the guard so a failed cell's log still says how many stamps
     # landed; the guard is judged after every cell is written, so one
     # unresolvable record does not strand the run's remaining stamps.
+    if not _report_stamped(regrade, role, actor, digest, graded, refusals):
+        return
+    _fail_on_mispaired_basis(basis_records)
+
+
+def _report_stamped(
+    regrade: bool, role: str, actor: str, digest: str, graded: int, refusals: Sequence[str]
+) -> bool:
+    """The stamp's summary: what it wrote, and any frozen cert anchors it refused.
+
+    False, after :func:`_report_no_targets`, where nothing was stamped. The
+    refused anchors are counted as well as warned per cell, so a history that
+    stopped verifying them — a shallow checkout, a rewritten config — reads as
+    one visible line rather than as skill scores quietly cleared.
+    """
+    if graded == 0:
+        _report_no_targets(regrade, role, actor)
+        return False
     typer.echo(
         f"regrade: {actor} -> {graded} file(s); process_version left as stamped"
         if regrade
         else f"stamp: {actor} {digest} -> {graded} file(s)"
     )
-    _fail_on_mispaired_basis(basis_records)
+    if refusals:
+        typer.echo(
+            f"::warning::stamp: {actor} refused {len(refusals)} frozen cert anchor(s) that "
+            + "did not verify against the committed statpack history; their skill is cleared.",
+            err=True,
+        )
+    return True
 
 
 def _report_no_targets(regrade: bool, role: str, actor: str) -> None:
@@ -12210,6 +12678,7 @@ def _skill_record_for(
     label: str | None,
     *,
     regrade: bool = False,
+    anchor_refusals: list[str] | None = None,
 ) -> tuple[dict[str, object], tuple[str | None, str | None, Prediction | None]]:
     """This cell's ``correct`` and skill record as a stamp update, plus its basis trio.
 
@@ -12264,7 +12733,12 @@ def _skill_record_for(
     context the fallback declined to use. The prediction rides only on a
     **cert** cell: the frozen-band pairing is a cert-petition concept, so on a
     stage-less event a case-level frozen band must not reach the guard.
+
+    ``anchor_refusals`` collects each frozen cert anchor the stamp refused to
+    copy (:func:`_cert_anchor_for`), for the caller's summary.
     """
+    if anchor_refusals is None:
+        anchor_refusals = []
     outcome = _outcome_for(event_paths)
     correct = _harness_correct_for(event_paths, evaluation, outcome)
     # The one field the evaluate prompt requires of every cell, so a null is a
@@ -12281,7 +12755,14 @@ def _skill_record_for(
             # Narrowing only: the predicate requires a scored prediction.
             assert latest is not None
             fields, basis, version = _cert_skill_record_for(
-                event_paths, evaluation, settings, outcome, latest, regrade=regrade
+                event_paths,
+                evaluation,
+                settings,
+                outcome,
+                latest,
+                label=label,
+                regrade=regrade,
+                anchor_refusals=anchor_refusals,
             )
             return {"correct": correct} | fields, (basis, version, latest)
         context = latest.context if latest is not None else None
@@ -12345,7 +12826,9 @@ def _cert_skill_record_for(
     outcome: Outcome | None,
     scored: Prediction,
     *,
+    label: str | None,
     regrade: bool,
+    anchor_refusals: list[str],
 ) -> tuple[dict[str, object], str | None, str | None]:
     """The harness's whole cert skill record, for a cell :func:`_harness_owns_cert_record` admits.
 
@@ -12370,6 +12853,16 @@ def _cert_skill_record_for(
     was pooled under, so the board can re-pool the same pool; both are null
     beside a null rate.
 
+    **From** :data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM` **on,
+    the anchor is the one frozen at provisioning** wherever the scored
+    prediction's context carries it (``context.cert_anchor``): the same pooler
+    over the same frozen triple, run against the statpack in force when the
+    forecast was placed, so a metrics refresh landing between forecast and
+    grading does not move it. The stamp copies its rate, build and window
+    rather than re-pooling. A context with no frozen anchor — a cell placed
+    before the record, or with no readable statpack — and a grading stamped
+    under an earlier label pool the statpack checked out now, as above.
+
     **A re-grade keeps the anchor as stamped.** It recomputes the Brier and the
     skill against the corrected outcome, but the rate, its build, its window
     and its basis pair are the ones the grading was first stamped with: the
@@ -12391,7 +12884,9 @@ def _cert_skill_record_for(
         basis = evaluation.base_rate_basis
         version = evaluation.base_rate_salience_version
     else:
-        rate, digest, lookback = _pool_cert_anchor(scored, settings)
+        rate, digest, lookback = _cert_anchor_for(
+            event_paths, evaluation, scored, settings, label, anchor_refusals
+        )
         _warn_on_discarded_number(
             evaluation, "segment_base_rate", evaluation.segment_base_rate, rate
         )
@@ -12420,6 +12915,127 @@ def _cert_skill_record_for(
         "base_rate_lookback_terms": lookback,
     }
     return fields, basis, version
+
+
+def _cert_anchor_for(
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    scored: Prediction,
+    settings: Settings,
+    label: str | None,
+    anchor_refusals: list[str],
+) -> tuple[float | None, str | None, int | None]:
+    """The cert anchor this grading stamps: ``(rate, statpack build, lookback window)``.
+
+    The provisioning-time anchor where the grading's ``label`` pins it
+    (:func:`fedcourtsai.process_version.pins_cert_anchor`) and the scored
+    context froze one; otherwise :func:`_pool_cert_anchor` over the statpack
+    checked out now. A frozen record with a null rate yields all three ``None``,
+    as an empty pool does, so a build and a window are only ever named beside
+    the rate they produced.
+
+    **A frozen anchor is verified before it is copied.** ``record/context.json``
+    is reachable from the cell's workspace, so every field of the record is a
+    claim, and it is checked against ``main``'s first-parent history as read
+    from ``--anchor-history`` — in the evaluate workflow, a bare clone made
+    after the agent's step (:func:`fedcourtsai.statpack_history.verify_cert_anchor`):
+    it must name the statpack build in force on ``main`` at the scored predict
+    cell's run id — the UTC timestamp the harness mints before provisioning and
+    names the ledger directory with, read off that directory rather than the
+    document — or the one it replaced within
+    :data:`fedcourtsai.statpack_history.CHECKOUT_SLACK`, record the lookback
+    window configured at that build's commit, and carry the rate that build
+    pools to. Where it does not, the anchor is cleared with a
+    warning and the refusal is appended to ``anchor_refusals`` for the stamp's
+    summary — the cell is not graded against an anchor nothing harness-side
+    vouches for, the same omission a missing statpack is.
+    """
+    context = scored.context
+    frozen = context.cert_anchor if context is not None else None
+    if context is None or frozen is None or not process_version.pins_cert_anchor(label):
+        return _pool_cert_anchor(scored, settings)
+    refusal = _anchor_refusal(event_paths, evaluation, frozen, context, settings)
+    if refusal is not None:
+        anchor_refusals.append(refusal)
+        typer.echo(
+            f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id}: the frozen "
+            + f"cert anchor does not verify ({refusal}) — this cert cell's segment base rate "
+            + "and skill are cleared rather than copied.",
+            err=True,
+        )
+        return None, None, None
+    if frozen.rate is None:
+        return None, None, None
+    return frozen.rate, frozen.statpack_digest, frozen.lookback_terms
+
+
+def _anchor_refusal(
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    frozen: CertAnchor,
+    context: PredictionContext,
+    settings: Settings,
+) -> str | None:
+    """Why the scored cell's frozen anchor does not verify, or ``None`` where it does.
+
+    The bound is the run id of the predict cell's ledger directory, the one
+    :func:`fedcourtsai.store.scored_prediction_cell` resolves the graded
+    prediction from — the harness's name for the run, never the document's own
+    ``run_id`` field.
+    """
+    cell = scored_prediction_cell(
+        event_paths.base, evaluation.predictor_id, evaluation.prediction_run_id
+    )
+    if cell is None:
+        return "the scored prediction's run directory does not resolve"
+    try:
+        provisioned_by = ids.parse_run_id(cell[0].name)
+    except ValueError:
+        return f"the scored run directory {cell[0].name!r} is not a run id"
+    return statpack_history.verify_cert_anchor(
+        frozen, context, provisioned_by, _statpack_history(settings)
+    )
+
+
+#: The repository and branch the frozen-anchor check walks, set per stamp-cell
+#: invocation (``--anchor-history`` / ``--anchor-ref``).
+_ANCHOR_HISTORY: ContextVar[tuple[Path, str] | None] = ContextVar("_ANCHOR_HISTORY", default=None)
+
+
+def _git_statpack_history(settings: Settings) -> statpack_history.StatpackHistory:
+    repo, ref = _ANCHOR_HISTORY.get() or (Path.cwd(), statpack_history.DEFAULT_REF)
+    return statpack_history.GitStatpackHistory(repo, ref)
+
+
+#: The harness-side record the frozen-anchor check reads: the first-parent
+#: history of ``metrics/statpack.json`` and of the config beside it on ``main``.
+#: A seam for tests.
+_statpack_history: Callable[[Settings], statpack_history.StatpackHistory] = _git_statpack_history
+
+
+def _cert_anchor_pool(
+    settings: Settings, paths: CasePaths, event: str
+) -> provision.AnchorPool | None:
+    """The statpack build and window a cert cell's anchor is frozen from, or ``None``.
+
+    ``None`` for a cell that names no event (an evaluate cell, which forecasts
+    nothing) and for an event of any stage but cert
+    (:func:`fedcourtsai.provision.freezes_cert_anchor`). ``None`` too, with a
+    warning, where no statpack is readable: the cell then carries no frozen
+    anchor and its grading pools at stamp time. The window is the configured
+    ``salience.base_rate_lookback_terms``, the one :func:`_pool_cert_anchor`
+    reads at grading.
+    """
+    if not provision.freezes_cert_anchor(paths.event(event).event_file, event):
+        return None
+    pool = provision.read_anchor_pool(settings.metrics_root, settings.config_root)
+    if pool is None:
+        typer.echo(
+            "::warning::provision: no readable metrics/statpack.json — this cert cell's "
+            "anchor is not frozen and its grading pools the statpack read at stamp time.",
+            err=True,
+        )
+    return pool
 
 
 def _pool_cert_anchor(
@@ -13563,7 +14179,7 @@ def _weekly_production(data_root: Path, config_root: Path, when: datetime) -> We
             since=term_start,
             term=term,
         ),
-        backstop=verdict_over(usage, spend_config, now=when),
+        backstop=verdict_over(usage, spend_config, data_root=data_root, now=when),
     )
 
 
@@ -14863,6 +15479,113 @@ def decision_below_command(
         f"({counts or 'none walked'}); {report.requests} REST request(s)",
         err=True,
     )
+    if report.stopped:
+        typer.echo(
+            f"  stopped: {report.stopped} ({len(report.deferred)} case(s) deferred)", err=True
+        )
+
+
+@app.command("enrich-decision-below")
+def enrich_decision_below_command(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Store the rows and stamp the cursor; default is a dry run."),
+    ] = False,
+    max_cases: Annotated[
+        int,
+        typer.Option(
+            help="Cases to walk (at most "
+            f"{decision_below.MAX_FILL_CASES}); ~4 REST requests a typical case."
+        ),
+    ] = decision_below.DEFAULT_FILL_CASES,
+    case: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--case",
+            help="Walk only this corpus case id (scotus/<docket_id>), whatever the "
+            "rotation says; repeatable.",
+        ),
+    ] = None,
+) -> None:
+    """Store the decision below for cert petitions from the federal courts of appeals.
+
+    Walks the rotation `fill_candidates` orders — the petitions the ledger
+    forecasts and the salience selection first, then never-attempted, then
+    newest — joins each to CourtListener as `decision-below` measures, and
+    stores what upstream holds: the opinion on the judgment date as a
+    `decision-below` document and the docket record as a `lower-court-docket`
+    document, then stamps `decision_below_attempted_at`. A dry run walks and
+    counts without writing. Both kinds are held back from every cell
+    (`provision.WITHHELD_KINDS`) until the re-bless whose prompt names them.
+    Spends CourtListener REST requests through the shared client and this
+    process's governor, never RECAP Fetch. Prints the per-case report as JSON on
+    stdout and the counts on stderr.
+    """
+    if not 1 <= max_cases <= decision_below.MAX_FILL_CASES:
+        typer.echo(
+            "enrich-decision-below: --max-cases must be between 1 and "
+            f"{decision_below.MAX_FILL_CASES}",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    named = [value.strip() for value in case or [] if value.strip()]
+    try:
+        case_ids = corpus_seed.parse_case_ids(named) if named else []
+    except corpus_seed.SeedSliceError as exc:
+        typer.echo(f"enrich-decision-below: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    settings = get_settings()
+    if not settings.courtlistener_api_token:
+        typer.echo("enrich-decision-below: no CourtListener API token is configured", err=True)
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts "
+            "corpus-pull) before running the decision-below fill.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    today = datetime.now(UTC).date()
+    char_cap = load_live_config(settings.config_root).document_text_cap
+    with corpus.connect_maintenance(db_path, apply=apply) as conn, _client() as client:
+        settled: list[str] = []
+        if case_ids:
+            rows: list[corpus.CorpusRow] = []
+            for case_id in case_ids:
+                row = corpus.get_row(conn, case_id)
+                if row is None:
+                    typer.echo(
+                        f"enrich-decision-below: the corpus holds no row {case_id}", err=True
+                    )
+                    raise typer.Exit(code=1)
+                rows.append(row)
+        else:
+            candidates = decision_below.fill_candidates(
+                conn,
+                today=today,
+                max_cases=max_cases,
+                priority=predicted_case_ids(settings.data_root),
+            )
+            rows, settled = candidates.rows, candidates.settled
+        report = decision_below.fill_decision_below(
+            conn, client, rows, apply=apply, today=today, char_cap=char_cap, settled=settled
+        )
+    if apply:
+        _ensure_corpus_layout(db_path)
+    typer.echo(report.model_dump_json(indent=2))
+    counts = ", ".join(f"{n} {status}" for status, n in sorted(report.counts.items()))
+    stored = ", ".join(f"{n} {kind}" for kind, n in report.stored.items())
+    verb = "stored" if apply else "would store"
+    typer.echo(
+        f"enrich-decision-below ({'applied' if apply else 'dry run'}): walked "
+        f"{len(report.matches)} ({counts or 'none'}); {verb} {stored or 'nothing'}; "
+        f"{report.requests} REST request(s)",
+        err=True,
+    )
+    if settled:
+        restamp = "re-stamped" if apply else "would re-stamp"
+        typer.echo(f"  {len(settled)} case(s) already hold their opinion; {restamp}", err=True)
     if report.stopped:
         typer.echo(
             f"  stopped: {report.stopped} ({len(report.deferred)} case(s) deferred)", err=True
@@ -17231,6 +17954,84 @@ def evaluators() -> None:
         typer.echo(f"{e.id}\t{e.engine}\t{e.model or '-'}{flag}")
 
 
+#: The default cap on `pdf-text`'s output: far past any filing a cell is staged
+#: (the stored texts are cut well below it), so a whole brief prints, while a
+#: pathological file cannot flood the agent's context unbounded.
+PDF_TEXT_DEFAULT_MAX_CHARS = 2_000_000
+
+#: The largest file ``pdf-text`` reads, in bytes. A SCOTUS filing with its
+#: appendix runs to tens of megabytes; past this the file is refused rather
+#: than read whole into the cell's memory.
+PDF_TEXT_DEFAULT_MAX_BYTES = 200_000_000
+
+
+@app.command("pdf-text")
+def pdf_text(
+    file: Annotated[Path, typer.Argument(help="The PDF file to read.")],
+    max_chars: Annotated[
+        int, typer.Option(min=1, help="Stop after this many characters (a truncation is reported).")
+    ] = PDF_TEXT_DEFAULT_MAX_CHARS,
+    max_bytes: Annotated[
+        int, typer.Option(min=1, help="Refuse a file larger than this many bytes.")
+    ] = PDF_TEXT_DEFAULT_MAX_BYTES,
+) -> None:
+    """Print a PDF's text to stdout, read with the project's pinned pypdf.
+
+    The cell's way to read a PDF it finds or fetches, since a cell installs
+    nothing: the same extractor (``pipeline.documents.extract_pdf_text``) that
+    stores filing text for the corpus, so a cell reads a PDF exactly as the
+    pipeline would. Pages are joined by newlines; the page count, and whether
+    the text was cut at ``--max-chars``, go to stderr. A scanned page yields no
+    text, so a PDF that prints nothing is reported as such rather than as an
+    error. Exits 1 where the file is missing, larger than ``--max-bytes``, or
+    not a readable PDF — any failure of the extractor included, since a
+    malformed file can raise from deep inside the parser.
+    """
+    if not file.is_file():
+        typer.echo(f"pdf-text: no file at {file}", err=True)
+        raise typer.Exit(code=1)
+    size = file.stat().st_size
+    if size > max_bytes:
+        typer.echo(f"pdf-text: {file} is {size} bytes, over --max-bytes {max_bytes}", err=True)
+        raise typer.Exit(code=1)
+    try:
+        extracted = extract_pdf_text(file.read_bytes(), char_cap=max_chars)
+    except Exception as exc:  # any parser failure is an unreadable PDF
+        typer.echo(f"pdf-text: {file} is not a readable PDF", err=True)
+        raise typer.Exit(code=1) from exc
+    if extracted.pages == 0:
+        typer.echo(f"pdf-text: {file} is not a readable PDF", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(extracted.text)
+    note = f"pdf-text: {extracted.pages} page(s), {len(extracted.text)} character(s)"
+    if extracted.truncated:
+        note += f", cut at --max-chars {max_chars}"
+    if not extracted.text.strip():
+        note += "; no extractable text (a scanned PDF carries none)"
+    typer.echo(note, err=True)
+
+
+@app.command("cell-policy")
+def cell_policy_cmd(
+    engine: Annotated[
+        str, typer.Option(help="claude-code (a JSON deny list), codex (rules) or gemini (policy).")
+    ],
+) -> None:
+    """Print the engine's refusal of run-time package installs, as its cell reads it.
+
+    One prefix list (:data:`fedcourtsai.cell_policy.INSTALL_COMMAND_PREFIXES`)
+    in each engine's own form: claude-code's ``permissions.deny`` entries as a
+    JSON list, codex's execpolicy rules file, gemini's policy file. The cell
+    workflows write the codex and gemini files from this command and carry the
+    claude list inline, which a test holds equal to it.
+    """
+    try:
+        typer.echo(cell_policy.render(engine), nl=False)
+    except ValueError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(code=2) from exc
+
+
 @app.command()
 def paths(
     court: Annotated[str, typer.Option()],
@@ -17991,6 +18792,7 @@ def provision_snapshot(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             related=related,
             authorship_tally=tally,
             same_question=listed,
+            anchor_pool=_cert_anchor_pool(settings, paths, event),
         )
     except provision.ProvisionError as exc:
         typer.echo(f"::error::{exc}", err=True)
@@ -19123,6 +19925,7 @@ def local_cascade(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1
             corpus_db_path=corpus.corpus_db_path(settings.corpus_root),
             data_root=settings.data_root,
             config_root=settings.config_root,
+            metrics_root=settings.metrics_root,
             court=court,
             docket=docket,
             event=event or None,
@@ -19741,7 +20544,7 @@ def live_poll(
     salience_cfg = load_salience_config(settings.config_root)
     cap = live_cfg.max_cases_per_run if limit is None else min(limit, live_cfg.max_cases_per_run)
     deadline = time.monotonic() + max_run_seconds if max_run_seconds is not None else None
-    today = date.today()
+    today = datetime.now(UTC).date()
     probe_term = term if term is not None else current_docket_term(today)
     db = corpus.corpus_db_path(settings.corpus_root)
     with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:
@@ -20024,7 +20827,7 @@ def live_frontier_cmd(
         return
     with corpus.connect_readonly(db) as conn:
         rows = corpus.conference_watchlist(conn)
-        provisioned = sum(1 for row in rows if corpus.documents_for_case(conn, row.case_id))
+        provisioned = sum(1 for row in rows if holds_docket_documents(conn, row.case_id))
     by_conference: dict[date, int] = {}
     for row in rows:
         assert row.distributed_for_conference is not None  # the query guarantees it
@@ -20950,10 +21753,11 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
         return verdict
     typer.echo(
         f"::error::{stage}: spend backstop reached — ${verdict.spent_usd:.2f} recorded over the "
-        f"trailing {verdict.window_days} day(s) across {verdict.cells} cell(s), at or above the "
+        f"trailing {verdict.window_days} day(s) ({verdict.cells} agent cell(s), plus case "
+        f"summaries and topic-labeler runs), at or above the "
         f"${verdict.ceiling_usd:.2f} ceiling, so no cells are minted this run. The queued work is "
         f"untouched and re-runs once the window rolls off or the ceiling is raised "
-        f"(spend.ceiling_usd). NOTE: the ledger only counts cells whose collect PR has merged, so "
+        f"(spend.ceiling_usd). NOTE: the ledger only counts records whose PR has merged, so "
         f"actual spend is at least this.",
         err=True,
     )
@@ -20963,10 +21767,11 @@ def _spend_gate_or_empty(stage: str) -> SpendVerdict:
             fh.write(
                 f"## {stage} — spend backstop reached, no cells minted\n"
                 f"Recorded **${verdict.spent_usd:.2f}** over the trailing "
-                f"{verdict.window_days} day(s) across {verdict.cells} cell(s), at or above the "
+                f"{verdict.window_days} day(s) ({verdict.cells} agent cell(s), plus case summaries "
+                f"and topic-labeler runs), at or above the "
                 f"**${verdict.ceiling_usd:.2f}** ceiling (`spend.ceiling_usd`). Queued work is "
                 f"deferred, not dropped — it re-runs once the window rolls off or the ceiling is "
-                f"raised. The ledger counts only cells whose collect PR has merged, so actual "
+                f"raised. The ledger counts only records whose PR has merged, so actual "
                 f"spend is at least this figure.\n"
             )
     return verdict
@@ -22274,8 +23079,11 @@ def _spend_verdict_json(verdict: SpendVerdict) -> dict[str, Any]:
         # claim about anything.
         "spent_usd_is_floor": True if enforced else None,
         "basis": (
-            "The ledger counts collected cells only — a cell's usage.json reaches data/ when "
-            "its run's collect PR merges — so spent_usd is a FLOOR on spend within the window, "
+            "The ledger counts committed spend only — a cell's usage.json reaches data/ when "
+            "its run's collect PR merges, a case summary's or a topic-labeler run's record "
+            "when its reviewed PR does — and `cells` counts the agent cells inside spent_usd, "
+            "which also sums those summaries and labeler runs; so spent_usd is a FLOOR on "
+            "spend within the window, "
             "never a live figure. Null where no ceiling is configured: the backstop returns "
             "before reading the ledger, so those figures are unmeasured, not zero."
         ),
@@ -23161,7 +23969,8 @@ def hold_decision_cmd(
         Path,
         typer.Option(
             "--plan-file",
-            help="The round's plan document: `predict-plan`, `evaluate-plan` or `summarize-plan`.",
+            help="The round's plan document: `predict-plan`, `evaluate-plan`, `summarize-plan` "
+            "or `qp-label-plan`.",
         ),
     ],
     seam: Annotated[
@@ -23169,8 +23978,8 @@ def hold_decision_cmd(
         typer.Option(
             "--seam",
             help=(
-                "The lane the round belongs to: predict, evaluate or summarize. It picks "
-                "how the plan is priced and whether a drain is considered."
+                "The lane the round belongs to: predict, evaluate, summarize or label. It "
+                "picks how the plan is priced and whether a drain is considered."
             ),
         ),
     ] = "predict",
@@ -23181,8 +23990,8 @@ def hold_decision_cmd(
             help=(
                 "The `predict-matrix` / `evaluate-matrix` document the round minted. "
                 "Auto-release needs it to hold exactly the plan's would-mint cells, and "
-                "prices it too; omitted or unreadable keeps the hold. A summarize round "
-                "has no matrix and ignores it."
+                "prices it too; omitted or unreadable keeps the hold. A summarize or "
+                "label round has no matrix and ignores it."
             ),
         ),
     ] = None,
@@ -23214,6 +24023,17 @@ def hold_decision_cmd(
             help="Also append the decision's step-summary block to this file.",
         ),
     ] = None,
+    carried_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--carried-file",
+            help=(
+                "Label only: the run records carried from the frame's open labels PR, one "
+                "path per line. A published one among them keeps the hold, since another "
+                "round would re-label that unmerged batch; unreadable keeps it too."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Decide whether a round skips the review hold, and whether a predict round chains another.
 
@@ -23226,9 +24046,11 @@ def hold_decision_cmd(
     trailing spend plus the in-flight bound plus this round's price is within
     the trailing budget) and `drain_more` (predict only: a cap stopped the round
     short of the backlog, so another round is owed as soon as this one's output
-    lands). Fails closed: a disabled knob, an unreadable count or ledger, a
-    missing matrix or a plan with no estimate keeps the hold. Spends nothing and
-    reads no corpus.
+    lands). A label round also holds when its frame's last gated labeling run
+    was refused at the reference gate, and while the frame's open labels PR
+    holds an unmerged published batch (`--carried-file`). Fails closed: a disabled knob, an
+    unreadable count or ledger, a missing matrix or a plan with no estimate
+    keeps the hold. Spends nothing and reads no corpus.
     """
     settings = get_settings()
     if seam not in REVIEW_HOLD_SEAMS:
@@ -23256,6 +24078,7 @@ def hold_decision_cmd(
         deployments_released=deployments_released,
         main_subjects_file=main_subjects_file,
         matrix_file=matrix_file,
+        carried_file=carried_file if seam == "label" else None,
     )
     if summary_file is not None:
         with summary_file.open("a", encoding="utf-8") as handle:

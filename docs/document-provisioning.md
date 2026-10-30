@@ -53,6 +53,8 @@ transcript, which only a post-argument cell is given.
 | `merits-amicus-united-states` | The United States' amicus brief on the merits, filed after the grant | Granted |
 | `merits-brief-appointed-amicus` | The merits brief of a Court-appointed amicus defending the judgment, filed after the grant; stored, staged for no cell yet | Granted |
 | `argument-transcript` | The oral argument transcript, from the Court's per-Term list rather than the docket | Argued |
+| `decision-below` | The federal court of appeals' opinion under review, read from CourtListener and dated by the judgment below; stored, staged for no cell yet | Cert, Granted |
+| `lower-court-docket` | A short record of that court's docket: panel, and whether rehearing en banc was sought, how it was disposed of and any dissent; stored, staged for no cell yet | Cert, Granted |
 | `application` | The application to a Justice or the Court | Application |
 | `application-response` | The first response to the application | Application |
 | `application-reply` | The applicant's reply to it | Application |
@@ -62,8 +64,9 @@ cell reads is part of its information set, and the process digest does not see
 it ([process-version.md](process-version.md)), so a kind is staged only in the
 re-bless whose prompt tells cells about it. Until then
 `provision.WITHHELD_KINDS` keeps it from every cell at every moment, and the
-case-summary plan leaves it out of the record it reads. One kind is held there
-now: `merits-brief-appointed-amicus`. One record input that is not a document is held back on the same rule:
+case-summary plan leaves it out of the record it reads. Three kinds are held
+there now: `merits-brief-appointed-amicus`, `decision-below` and
+`lower-court-docket`. One record input that is not a document is held back on the same rule:
 the post-argument merits cell's `record/authorship-tally.json`, the Term's
 tally of who has written from each argument sitting
 (`provision.AUTHORSHIP_TALLY_WITHHELD`).
@@ -104,9 +107,9 @@ Each of these is stated, with its reason, where the code makes the choice:
   Only linked companions reach `record/related/`. `fedcourts same-question`
   lists the unlinked ones by questions-presented text similarity, cut to a date,
   and `fedcourts same-question-lists` builds a cert cell's list at its own
-  cutoff, which provisioning would stage as `record/same-question.json`; the
-  list is held back from every cell until a re-bless
-  (`provision.SAME_QUESTION_WITHHELD`, `pipeline/same_question.py`).
+  cutoff, which provisioning stages as a forward cert cell's
+  `record/same-question.json` (`pipeline/same_question.py`; the harness
+  boundary `cert-same-question-list`).
 
 - **A combined opposition is kept or dropped whole.** It is dated by its
   earliest brief, so a cutoff between two respondents' briefs admits the later
@@ -139,16 +142,21 @@ Each of these is stated, with its reason, where the code makes the choice:
 - **A consolidated member is checked for freshness on its own docket.** A merits
   filing entered only on the lead is left to the selection sweep
   (live-sources.md, *Document freshness*).
-- **The decision below is provisioned to a cell only through the petition's
-  appendix.**
-  No kind stores the lower court's opinion or its docket: the panel, a petition
-  for rehearing en banc, its disposition and any dissent from it. A Rule 34.6
-  docket, which links no PDFs, gives its cell no decision below at all. The join
-  to CourtListener is measured, not stored: `fedcourts decision-below` reports
-  per case whether the lower court's docket and the opinion cluster on the
-  judgment date are there, and what the docket's entries say about rehearing
-  en banc ([cli.md](cli.md)). It covers the federal courts of appeals only and
-  buys nothing; a missing opinion is not fetched through RECAP Fetch.
+- **The decision below reaches a cell only through the petition's appendix
+  until a re-bless releases the two CourtListener kinds.**
+  `fedcourts enrich-decision-below` joins a petition from a federal court of
+  appeals to the lower court's docket on CourtListener and stores what upstream
+  holds: the opinion on the judgment date as `decision-below`, and the docket
+  record (panel, a petition for rehearing en banc, its disposition and any
+  dissent noted) as `lower-court-docket` (`pipeline/decision_below.py`,
+  [cli.md](cli.md)). The en banc reading is matched from entry text filed
+  before the SCOTUS docketing, so a petition on remand cannot leak back. Both
+  kinds are held in `provision.WITHHELD_KINDS`. A petition from a state court,
+  a district court or a specialized tribunal gets neither, and a missing
+  opinion is not bought through RECAP Fetch. `fedcourts decision-below`
+  measures the match rate without storing anything: 18 of the newest 35
+  circuit petitions matched an opinion in `run-analytics`'s `decision-below`
+  run of 2026-10-30, on the corpus blob that run pulled.
 
 ## Measuring coverage
 

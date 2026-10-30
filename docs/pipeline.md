@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates one Buttondown draft, never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) | script; the `qp-topic-label` and `qp-topic-label-applications` modes each run one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, behind the `review` hold) | script; the `qp-topic-label` and `qp-topic-label-applications` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -425,21 +425,23 @@ queues behind the production run of the same mode. The modes:
   staging environment holds no CourtListener token today, so a staging
   dispatch stops at the scan's no-token refusal; the first scan that reads
   upstream is a production one.
-- **`decision-below`** (dispatch) runs `fedcourts decision-below --sample 35`:
-  for the newest 35 cert petitions whose lower court is a federal court of
-  appeals, whether CourtListener holds the lower court's docket and the opinion
-  on the judgment date, and what its entries say about rehearing en banc — the
-  match rate the decision-below cell input waits on. It reads the corpus (a
-  full pull, for the sample, then each sampled case's newest snapshot from the
-  content store) and CourtListener, so it holds the read-only role
-  and the CourtListener token, the token on its measuring step alone, and
-  buys nothing (no RECAP Fetch). About four requests a case, sixteen at worst:
+- **`decision-below`** (dispatch) runs `fedcourts enrich-decision-below
+  --max-cases 25`, the decision-below fill's dry run: for the next 25 cases of
+  its rotation, whether CourtListener holds the lower court's docket and the
+  opinion on the judgment date, what its entries say about rehearing en banc,
+  and which `decision-below` and `lower-court-docket` rows an applied window
+  would store. It is the bounded reading a maintainer takes before a writer
+  step applies the fill, and its match count is the rate on the petitions the
+  pipeline forecasts. It writes nothing. It reads the corpus (a full pull, for
+  the rotation, then each case's newest snapshot from the content store) and
+  CourtListener, so it holds the read-only role and the CourtListener token,
+  the token on its dry-run step alone, and buys nothing (no RECAP Fetch). About four requests a case, sixteen at worst:
   the step runs the governor at 10 a minute with order-scan's 150 as its hourly
   limit, the cap that fits beside a pull window and a live window's enrichment,
   so a walk that would pass it stops with the rest reported deferred, and the
-  sample is sized to fit it. A refused credential fails the run. Dispatch it in
-  the quiet odd hours `run-pull`'s enrich job names. The match rate and the
-  per-status counts go on the step summary; the report (court-record
+  walk is sized to fit it. A refused credential fails the run. Dispatch it in
+  the quiet odd hours `run-pull`'s enrich job names. The counts, per status and
+  per stored kind, go on the step summary; the report (court-record
   identifiers, captions, panels and docket entry numbers and dates, no opinion
   text) is uploaded on the same one-day retention as text-coverage's. Its own
   never-cancelled, ref-suffixed concurrency group keeps two runs of one ref
@@ -454,7 +456,8 @@ queues behind the production run of the same mode. The modes:
   job below owns it, and the weekly tick regenerates it too so one refresh is a
   self-consistent tree state),
   and `metrics/backtest.json` / `metrics/statpack.{json,md}` /
-  `data/scope/scope.json`
+  `metrics/docket.{json,md}` (the docket pack, regenerated after the statpack it
+  reads, with the committed topic labels) / `data/scope/scope.json`
   (input: the corpus) are deterministic stage commands that otherwise change
   only when someone reruns them locally. It reruns those tested
   `fedcourts` commands and — only when an artifact actually changed (they are
@@ -540,26 +543,48 @@ queues behind the production run of the same mode. The modes:
   `data/` only — no corpus, no network — so it binds no
   environment and assumes no role, and the same `fedcourts tool-usage` runs
   locally and in the gate. Results go to the step summary; it commits nothing.
-- **`qp-topic-label`** (dispatch) runs the `qp-topic-v0` topic labeler over the
+- **`qp-topic-label`** (dispatch, or the weekly Tuesday cron) runs the `qp-topic-v0` topic labeler over the
   scoped extract of questions-presented texts (`fedcourts qp-corpus`, whose
   population, row ceiling, and batching rule are in [qp-topic.md](qp-topic.md))
   and lands the
   measured per-case labels file
   (`data/qp-topics/qp-topics.json`) as a **reviewed** PR to `main` — fixed
   branch `qp-topics/refresh`, force-pushed, never auto-merged. The frame outruns
-  one dispatch, so each run labels a batch derived from committed state and the
-  artifact **accrues**: dispatch it repeatedly to clear the frame, and dispatch
-  it **from the ref carrying the newest artifact** — the extract job reads the
+  one run, so each run labels a batch derived from committed state and the
+  artifact **accrues**: the weekly cron works the frame down a batch at a time,
+  and a dispatch adds one — dispatch it **from the ref carrying the newest
+  artifact** — the extract job reads the
   committed labels file from the dispatch ref while the PR is cut from
   `origin/main`, so a dispatch on a stale ref re-derives a stale batch (the PR
   step refuses to push one whose ledger is not an extension of main's). Two
   states stop the run in the extract job, before any model spend: a frame with
   nothing left to label outside the reference set, and one holding too little of
-  the reference set to clear the publication gate's coverage floor. It is the only
-  mode that runs an agent, and therefore the only one **split across jobs**.
-  The PR is opened by a third job, `qp-topic-publish`, which runs no agent and
-  takes only the measured labels file and the measured block, as a one-day
-  artifact: the dev App token that opens the PR also carries the App's bypass
+  the reference set to clear the publication gate's coverage floor. On the
+  schedule the first is a clean **stand-down** (`qp-corpus --converged-ok`: no
+  extract, exit 0, every later job skipped); a dispatch keeps it as a refusal.
+  A first job, `qp-topic-resolve`, reads the mode, frame, labels file and model
+  off the dispatch or the cron that fired, so a scheduled run takes the
+  dispatch defaults. **Every round waits on the `review` hold** before the
+  labeler spends: the extract job prices the batch (`fedcourts qp-label-plan`,
+  its rows at the model's per-row planning rate) and on `main` decides with
+  `hold-decision --seam label` (*Auto-release*, below); `qp-topic-approval`
+  binds `review` or `review-auto` accordingly, and `qp-topic-rejected` reports a
+  declined round. Each labeling attempt that leaves an engine execution file
+  writes a **spend record** (`fedcourts qp-topic-spend`, from the scanner's
+  isolated environment) with its outcome and gate figures, which the publish
+  job lands as `data/qp-topics/spend/<run_id>-<run_attempt>.json`: beside the
+  labels file on a published run, alone on the same fixed branch in a PR titled
+  as a spend record on a refused or short one — onto the open labels PR where
+  there is one; either PR must be merged, not closed, or its records leave the
+  measured total. Nothing retries a refused batch, and a scheduled run stands
+  down while the frame's open labels PR holds an unmerged published batch
+  ([qp-topic.md](qp-topic.md)). The three label jobs queue in per-frame
+  concurrency groups, so one frame's run never displaces the other's.
+  It is the only mode that runs an agent, and therefore the only one **split
+  across jobs**.
+  The PR is opened by a later job, `qp-topic-publish`, which runs no agent and
+  takes only the measured labels file, the measured block and the spend record,
+  as a one-day artifact: the dev App token that opens the PR also carries the App's bypass
   of `main`'s approval rule, and a process the labeler left behind could read
   any later step's environment in its own job. The first split is
   there because `corpus-readonly` exports the assumed role's credentials job-wide:
@@ -598,7 +623,8 @@ queues behind the production run of the same mode. The modes:
   partial file is captured for reading, never for publication: a labels file
   short of the batch is refused out loud, so a wasted run is red, and the
   measure step and the review PR run on the complete count alone — never on
-  the action's own verdict, which it can issue after the last row is written. It applies the same
+  the action's own verdict, which it can issue after the last row is written —
+  though its spend record still lands. It applies the same
   structural prohibition the cell workflows do — `data/qp-topics/` is moved out
   of the tree for the duration of the agent step, since reading the reference
   set would not improve the labels, only destroy the measurement — and restores
@@ -606,19 +632,21 @@ queues behind the production run of the same mode. The modes:
   (the gate constants live in the checkout too). After the agent, the
   tested `fedcourts qp-topics` measures the labels against the hand reference
   set and enforces the agreement/coverage gate — below it, nothing is written,
-  the measured block still reaches the step summary, and the job fails. The
-  `label_model` dispatch input picks the labeler's model. The default is
-  `claude-opus-5-5`, priced at two-fifths of `claude-fable-5`'s token rates,
-  with no measured pace or cost yet; `claude-fable-5` is the one tier measured
-  to finish a ceiling-sized run, and stays offered for one.
+  the measured block still reaches the step summary, the gate figures go into
+  the run's spend record, and the job fails. The `label_model` dispatch input
+  picks the labeler's model, and a scheduled run takes its default,
+  `claude-opus-5-5`, measured at $10.01 for a ceiling-sized batch;
+  `claude-fable-5` stays offered.
   See [qp-topic.md](qp-topic.md).
-- **`qp-topic-label-applications`** (dispatch) is the same three jobs over the
+- **`qp-topic-label-applications`** (dispatch, or the weekly Wednesday cron) is
+  the same jobs over the
   emergency-application frame under `qp-topic-v1`: the extract is `qp-corpus
   --frame applications`, the measurement is against the application reference
   block, and the PR lands `data/qp-topics/qp-topics-applications.json` on its
   own fixed branch, `qp-topics/applications-refresh`. The jobs read the frame
-  and the labels file's name off the mode (`QP_FRAME`, `LABELS_NAME`), so every
-  fence above holds unchanged. A mode value rather than a dispatch input,
+  and the labels file's name off `qp-topic-resolve`'s outputs, so every fence
+  above holds unchanged; its spend records share `data/qp-topics/spend/`, each
+  naming its frame. A mode value rather than a dispatch input,
   because the inputs are near GitHub's cap. Its first run belongs on a
   `staging` ref, where the publish job is fenced as for the petition mode.
 
@@ -1445,6 +1473,18 @@ filled there is nothing for a window to converge, and a sweep would re-read the
 whole slice from the content store each window to find that. The stat pack's
 amicus cut reads the column, so before the pass has applied that cut is almost
 all `(unknown)`.
+
+`salience-cert-backfill` is corpus-only too: it fills the three withheld cert columns `sal-v5` reads —
+`call_for_response_at`, `distributed_after_call` and `opening_writ` — on the
+cert live slice the poll no longer reaches (`fedcourts
+backfill-salience-cert-columns`), re-parsing each row's newest live-shaped
+snapshot with the functions ingest's cert branch calls. Only a NULL is filled; a
+stored value is never compared or overwritten, which is stricter than ingest's
+upsert, where a fresh reading replaces it. A NULL count whose snapshot dates the
+call differently from the stored `call_for_response_at` is reported as
+`pair_mismatch` and left NULL. It is dispatched rather than
+swept for the same reason: every poll writes the three columns on the row it
+reads, so the class does not regrow once the history is filled.
 
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
@@ -2652,44 +2692,58 @@ events were each minted before the other spent, and releasing both
 double-spends the overlap. The two plan reports make the overlap visible
 before either release, each on its own run's step summary.
 
-**Auto-release.** A predict, evaluate or summarize round can skip the wait;
-the back-test cannot. Its plan job runs `fedcourts hold-decision --seam
-<lane>` over the plan document the report renders, the matrix the round minted
-(predict and evaluate; a summarize run has none, because its generate job runs
-the plan itself) and the committed spend ledger in its checkout. A round
+**Auto-release.** A predict, evaluate, summarize or topic-label round can skip the wait;
+the back-test cannot. Its plan job (for a label round, the extract job) runs `fedcourts
+hold-decision --seam <lane>` over the plan document the report renders, the
+matrix the round minted (predict and evaluate; a summarize or label run has
+none, because its generate or label job runs the plan itself) and the
+committed spend ledger in its checkout. A round
 auto-releases, binding the reviewer-less `review-auto` environment instead of
 `review`, when four things hold:
 - the matrix holds exactly the plan's would-mint cells, so the price is the
   price of what runs (predict and evaluate);
 - the round's price is within `auto_release_usd_per_round`
   (`config/review-hold.yaml`): the larger of the plan's estimate and the
-  matrix's own cells at the planning rates for that seam, or a summarize
-  plan's upper estimate (`estimated_cost_usd_high`);
-- fewer than `auto_release_rounds_per_day` rounds, across the three lanes
+  matrix's own cells at the planning rates for that seam, or a summarize or
+  label plan's upper estimate (`estimated_cost_usd_high`);
+- fewer than `auto_release_rounds_per_day` rounds, across the lanes
   together, were auto-released in the trailing 24 hours;
 - measured spend over the `spend` backstop's trailing window, plus the
   in-flight bound, plus this round's price, is within
-  `auto_release_budget_usd`. Measured spend is every committed `usage.json`
-  plus the usage each committed case summary's front matter records; the
+  `auto_release_budget_usd`. Measured spend is every committed `usage.json`,
+  the usage each committed case summary's front matter records, and every
+  topic-labeler run's spend record under `data/qp-topics/spend/` — the same
+  total the `spend` backstop sums; the
   in-flight bound is the rounds auto-released in the last 24 hours times the
   per-round cap, standing in for released spend whose collect PR has not
   landed yet. The run's summary prints the sum term by term.
 
+A label round has two more conditions. It never auto-releases while the newest
+gated run of its frame (published or refused, by its spend record, including
+those the frame's open labels PR adds under a GitHub App's bot identity) was
+refused at the reference gate, or while a record of the frame is dated after
+the round's plan; and it never auto-releases while that open PR holds an
+unmerged published batch, which a scheduled round stands down on instead
+(`fedcourts qp-topic-pending`). The summary names the reason, and the round
+waits for a maintainer's release.
+
 The daily count is the larger of two records: the round's deployment to
-`review-auto`, which all three lanes share, and its commit on `main`, which
+`review-auto`, which the lanes share, and its commit on `main`, which
 carries the `[auto-released]` mark: collect marks a predict or evaluate
-round's ready commit, and summarize's publish step marks its commit, whose
-subject names the Actions run. A write holder could prune the first or edit an
+round's ready commit, and summarize's and the labeler's publish steps mark
+their commits, whose subjects name the Actions run. A write holder could prune the first or edit an
 unmerged PR, but not `main`'s history. The summaries branch is rebuilt each
-run and its PR merges only on a maintainer's review, so for that lane the
-committed record lags and the deployment count is what binds.
+run and its PR merges only on a maintainer's review, as is the labeler's, so
+for those lanes the committed record lags and the deployment count is what binds.
 
 The budget is a projection over a ledger that lags, so it is a floor on
 spend, not a live figure: a round a maintainer released by hand and whose
 collect PR has not landed, an auto-released round whose collect PR is still
 open more than 24 hours on, a summaries PR still open (except to the summarize
-plan, which carries that PR's summaries and counts them), and a rejected
-summary response's tokens are all invisible to it. That is why the budget must sit
+plan, which carries that PR's summaries and counts them), a rejected
+summary response's tokens, and an unmerged labels or spend-record PR (except to
+that frame's next label round, whose extract job carries its spend records in)
+are all invisible to it. That is why the budget must sit
 below the `spend` backstop's ceiling (`tracking.yaml`): the backstop stops
 minting outright, and the budget stops only the *unattended* release, leaving
 the gap between the two for rounds a maintainer chooses to release. A budget at
@@ -2889,7 +2943,8 @@ decision date the row carries (`date_decided`, `merits_decided`) is; the termina
 date, the merits-brief date and the conference-distribution date unless each
 is, and always `merits_terminated`, the citing count, the pipeline's tracking
 stamps (`last_pulled`, `last_live_polled`, `opinion_enrich_attempted_at`,
-`document_floor_probed_at`, `predict_queued_at`, `evaluate_queued_at`) and the
+`document_floor_probed_at`, `decision_below_attempted_at`, `predict_queued_at`,
+`evaluate_queued_at`) and the
 `counsel`, `parties` and `attorneys` lists, which accrue after a grant and
 carry no date to test. Which priors return, and in what order, does not move,
 except that a `--citation` filter matches only the cites a prior comes back
@@ -3165,9 +3220,8 @@ the plan job's pulled index serves and a cell's ranged read could not. A failed
 build starts the round anyway, each cell provisioned without its list, and
 each cell job deletes the round's file once provisioning has read it, so an
 agent reads only what was staged for it.
-Provisioning holds every list back from its cell until a re-bless
-(`provision.SAME_QUESTION_WITHHELD`); until then the step's log is where the
-lists' size and cost are read.
+A forward cert cell gets its own list as `record/same-question.json`; the
+harness boundary `cert-same-question-list` dates the cells that read it.
 
 ### The evaluate cell grades blind
 
@@ -3214,6 +3268,20 @@ cell's `data/` *add-only* onto a freshly fetched clean `origin/main` checkout �
 a file the checkout already carries is never overwritten, and a differing copy
 is refused with the checkout's kept — and `assert-paths` rejects any
 non-addition that slips past.
+
+The same step in both cells, and a step of its own in every other job that
+starts an engine in a checkout (the back-test, the qp-topic labeler and the
+integration-test jobs), takes `AGENTS.md`, `CLAUDE.md` and `.claude/` out of
+the tree, skip-worktree first, before the first engine step. They are the development
+instructions, which Claude Code and Codex load from the tree unasked, and no
+process digest hashes them; a cell's prompt template is its whole contract
+([process-version.md](process-version.md)). They are not restored: nothing
+after the agent reads them. The cells' engine configuration also carries the
+run-time install refusal (`fedcourts cell-policy`,
+[security.md](security.md)): the claude step's settings, the codex rules file
+the "Configure agent retrieval" step writes beside `.codex/config.toml`, which
+`codex-user-setup` copies root-owned into the codex account's home, and the
+gemini policy file that step names in `.gemini/settings.json`.
 
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored
@@ -4168,7 +4236,7 @@ backfill:
 **The hold, not the enable, is the spend gate.** A resuming round starts
 at the plan job, which renders a fresh plan report, and the matrix waits behind
 the approval job on the `review` environment's required reviewers — or, for a
-predict, evaluate or summarize round within the auto-release caps and budget,
+predict, evaluate, summarize or topic-label round within the auto-release caps and budget,
 binds `review-auto` at once. So a
 recovery cannot leak spend past the hold or those caps, and the fresh plan re-anchors the
 already-predicted gate and the stranded-run guard exactly as the review-hold

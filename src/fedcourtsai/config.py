@@ -353,8 +353,9 @@ class LiveConfig(BaseModel):
     # Slots of each cycle's cap kept for rows the channel has never polled,
     # oldest Term first. Inside the tiers the current Terms always fill the
     # cap, so without a reserve an older Term's never-polled row is never
-    # reached. Taken only from what the overdue and distributed rows leave;
-    # 0 disables it.
+    # reached. Yields only to the overdue tier, so it displaces the cycle's
+    # tail, the last-reached conference's most recently polled petitions while
+    # those fill the cap; at most half the cap; 0 disables it.
     never_polled_reserve_per_run: int = Field(default=0, ge=0)
     # Days after a conference by which its order list has issued (the Monday
     # after a Friday conference, Tuesday after a Monday holiday; the first
@@ -416,6 +417,20 @@ class LiveConfig(BaseModel):
     # observed late-filing tail; the `le` cap keeps it a *window*, since a value
     # past ~182 would make dual-Term probing year-round.
     outgoing_term_grace_days: int = Field(default=60, ge=0, le=182)
+
+    @model_validator(mode="after")
+    def _reserve_leaves_most_of_the_cycle(self) -> Self:
+        """Refuse a never-polled reserve over half the cycle's cap.
+
+        The reserve displaces distributed petitions once they fill the cap, so
+        one sized near the cap would starve the order-list re-reads.
+        """
+        if self.never_polled_reserve_per_run * 2 > self.max_cases_per_run:
+            raise ValueError(
+                f"never_polled_reserve_per_run ({self.never_polled_reserve_per_run}) "
+                f"exceeds half of max_cases_per_run ({self.max_cases_per_run})"
+            )
+        return self
 
 
 def load_live_config(config_root: Path) -> LiveConfig:
@@ -742,6 +757,13 @@ class SalienceConfig(BaseModel):
     # conference cohort's rank-fill limit by the same number — which costs a cert
     # pick only where the cohort's non-carve-out remainder exceeds that limit.
     interim_reserve_slots: int = Field(default=5, ge=0)
+    # Age-out horizon for an interim reserve slot, in days from the application's
+    # filing date to the selection pass's own date (docs/salience.md, *The
+    # interim docket*). A pending occupant filed more than this many days before
+    # the pass keeps its latch but stops counting against
+    # ``interim_reserve_slots``, and a pending application past it does not
+    # contend for a slot. 0 disables the age-out.
+    interim_reserve_age_out_days: int = Field(default=180, ge=0)
 
     @model_validator(mode="after")
     def _long_conference_is_not_smaller(self) -> Self:

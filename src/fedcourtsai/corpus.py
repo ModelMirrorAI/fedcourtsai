@@ -384,6 +384,20 @@ class CorpusRow(BaseModel):
         "carrying no stamp preserves it — under the split the latch is the only "
         "thing that does, since the live channel's own upserts carry none.",
     )
+    decision_below_attempted_at: date | None = Field(
+        default=None,
+        description="Tracking state: date the decision-below fill "
+        "(`pipeline/decision_below.py`, `fedcourts enrich-decision-below`) last "
+        "joined this case's lower-court docket on CourtListener and got an answer "
+        "about it — a stored opinion, a docket with no opinion on the judgment "
+        "date, no docket at all; None until first attempted, and left alone where "
+        "the walk stopped at a throttle or a refused credential before reaching "
+        "the case. It is that fill's rotation key: never-attempted rows first, "
+        "then a stale stamp, so a docket CourtListener has not ingested yet is "
+        "asked again later rather than every run. Written through "
+        "`stamp_decision_below_attempt` rather than the row upsert, and a fill-in "
+        "latch like `document_floor_probed_at`.",
+    )
     last_live_polled: date | None = Field(
         default=None,
         description="Tracking state: date the SCOTUS live channel (supremecourt.gov "
@@ -424,7 +438,8 @@ class CorpusRow(BaseModel):
         "the interim stage's request for a response to an application. Written by "
         "the live poll at ingest; fill-in latched. Withheld from the retrieval "
         "surface (`RETRIEVAL_WITHHELD_COLUMNS`). None = no call, not yet, or not "
-        "parsed — on a decided row polled before the column existed, never parsed.",
+        "parsed — on a decided row polled before the column existed, never parsed "
+        "until the `salience-cert-backfill` run-repair pass reads its stored snapshot.",
     )
     relisted_at: date | None = Field(
         default=None,
@@ -543,6 +558,35 @@ class CorpusRow(BaseModel):
         "row the poll rotation skips stays until the cert amicus back-fill "
         "(`rederive-cert-amicus-briefs`, a run-repair pass) fills it. Written by "
         "the live cert branch and that back-fill only.",
+    )
+    distributed_after_call: int | None = Field(
+        default=None,
+        description="How many conferences the petition was first distributed for "
+        "after the Court called for a response "
+        "(`pipeline.cert_signals.distributions_after_call`): distinct conference "
+        "dates named by petition distributions (the `dist-v2` reading "
+        "`distribution_count` holds) filed after `call_for_response_at`'s entry, "
+        "less any a distribution filed on or before it also names. The sal-v5 "
+        "relist count's input. Written by the live cert branch at ingest; "
+        "fill-in latched. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = no dated call for response, or not "
+        "parsed — on a decided row polled before the column existed, never parsed "
+        "until the `salience-cert-backfill` run-repair pass reads its stored snapshot.",
+    )
+    opening_writ: str | None = Field(
+        default=None,
+        description="The writ the docket's opening petition entry names "
+        '(`pipeline.cert_signals.opening_writ`), read off the first "Petition for '
+        'a writ of … filed" entry: `certiorari` (certiorari before judgment '
+        "included), `rule-20` (mandamus, prohibition or habeas corpus, and no "
+        "certiorari), `ambiguous` (both) or `other` (neither). Classified by the "
+        'entry text, never by an "In re" caption, which a sealed certiorari '
+        "petition carries too. Fixed at filing. Written by the live cert branch at "
+        "ingest; fill-in latched. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = no opening petition entry "
+        "disclosed, or not parsed — on a decided row polled before the column "
+        "existed, never parsed until the `salience-cert-backfill` run-repair pass "
+        "reads its stored snapshot.",
     )
     sample_weight: int | None = Field(
         default=None,
@@ -995,6 +1039,10 @@ CREATE TABLE IF NOT EXISTS cases (
     -- paced docket GET per poll of that docket rather than one per dispatch.
     -- NULL = never floored.
     document_floor_probed_at TEXT,
+    -- The decision-below fill's rotation key (see CorpusRow and
+    -- pipeline/decision_below.py): the date that pass last got an answer from
+    -- CourtListener about this case's lower-court docket. NULL = never attempted.
+    decision_below_attempted_at TEXT,
     -- The decision record beside the merits pair (see CorpusRow and
     -- pipeline/decision_record.py): the date of the docket's last argument
     -- on or after the grant, and how the case was decided (a `MeritsDecisionMethod`
@@ -1036,7 +1084,18 @@ CREATE TABLE IF NOT EXISTS cases (
     -- by the cert amicus back-fill (pipeline/cert_amicus_rederive.py);
     -- max-latched. Withheld from the retrieval surface. NULL = never
     -- cert-parsed since the column existed.
-    cert_amicus_briefs INTEGER
+    cert_amicus_briefs INTEGER,
+    -- The writ a cert-form docket's opening petition entry names (see
+    -- CorpusRow and pipeline/cert_signals.py): certiorari, rule-20, ambiguous
+    -- or other. Written by the live poll's cert branch at ingest; fill-in
+    -- latched. Withheld from the retrieval surface. NULL = no opening petition
+    -- entry disclosed, or not parsed.
+    opening_writ TEXT,
+    -- The conferences a cert petition was first distributed for after a call
+    -- for response (see CorpusRow and pipeline/cert_signals.py). Written by the
+    -- live poll's cert branch at ingest; fill-in latched. Withheld from the
+    -- retrieval surface. NULL = no dated call for response, or not parsed.
+    distributed_after_call INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1209,6 +1268,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "capital_case": "INTEGER NOT NULL DEFAULT 0",
     "opinion_enrich_attempted_at": "TEXT",
     "document_floor_probed_at": "TEXT",
+    "decision_below_attempted_at": "TEXT",
     "merits_argued": "TEXT",
     "merits_decision_method": "TEXT",
     "sg_brief_filed": "TEXT",
@@ -1217,6 +1277,8 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "relisted_at": "TEXT",
     "argument_transcript_at": "TEXT",
     "cert_amicus_briefs": "INTEGER",
+    "opening_writ": "TEXT",
+    "distributed_after_call": "INTEGER",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -2002,6 +2064,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "document_floor_probed_at": (
             row.document_floor_probed_at.isoformat() if row.document_floor_probed_at else None
         ),
+        "decision_below_attempted_at": (
+            row.decision_below_attempted_at.isoformat() if row.decision_below_attempted_at else None
+        ),
         "predict_eligible": int(row.predict_eligible),
         "predict_excluded": int(row.predict_excluded),
         "originating_court": row.originating_court,
@@ -2056,6 +2121,8 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
             row.argument_transcript_at.isoformat() if row.argument_transcript_at else None
         ),
         "cert_amicus_briefs": row.cert_amicus_briefs,
+        "opening_writ": row.opening_writ,
+        "distributed_after_call": row.distributed_after_call,
         "capital_case": int(row.capital_case),
     }
 
@@ -2140,6 +2207,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         last_pulled=(date.fromisoformat(record["last_pulled"]) if record["last_pulled"] else None),
         opinion_enrich_attempted_at=_optional_date(record, "opinion_enrich_attempted_at"),
         document_floor_probed_at=_optional_date(record, "document_floor_probed_at"),
+        decision_below_attempted_at=_optional_date(record, "decision_below_attempted_at"),
         predict_eligible=bool(record["predict_eligible"]),
         predict_excluded=bool(record["predict_excluded"]),
         originating_court=record["originating_court"],
@@ -2176,6 +2244,8 @@ def _from_record(record: RecordRow) -> CorpusRow:
         relisted_at=_optional_date(record, "relisted_at"),
         argument_transcript_at=_optional_date(record, "argument_transcript_at"),
         cert_amicus_briefs=_optional_int(record, "cert_amicus_briefs"),
+        opening_writ=_optional_str(record, "opening_writ"),
+        distributed_after_call=_optional_int(record, "distributed_after_call"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -2190,10 +2260,12 @@ def _update_clause(column: str) -> str:
     the live-parsed signals — the conference, CVSG, invited-brief,
     call-for-response and first-relist dates, the dated interim/merits signals beside them (a
     consolidated member's lead-filed respondent brief and the post-argument
-    transcript's argument day among them), and the merits decision record)
-    only ever fill in, so a writer that does not carry the fact keeps what
-    another channel stamped; ``distribution_count``, the interim escalation
-    signals (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
+    transcript's argument day among them), the merits decision record, and the
+    writ the opening petition entry names, and the conferences distributed
+    after a call for response) only ever fill in, so a writer that
+    does not carry the fact keeps what another channel stamped;
+    ``distribution_count``, the interim escalation signals
+    (``response_requested``, ``referred_to_court``, ``amicus_briefs``),
     the cert-stage ``cert_amicus_briefs`` count,
     the ``has_opinion`` presence bit, and the ``capital_case`` marking
     are max-latches (proceedings are append-only and the signals monotone —
@@ -2223,6 +2295,7 @@ def _update_clause(column: str) -> str:
         "last_pulled",
         "opinion_enrich_attempted_at",
         "document_floor_probed_at",
+        "decision_below_attempted_at",
         "last_live_polled",
         "distributed_for_conference",
         "cvsg_date",
@@ -2238,6 +2311,8 @@ def _update_clause(column: str) -> str:
         "merits_brief_on_lead",
         "relisted_at",
         "argument_transcript_at",
+        "opening_writ",
+        "distributed_after_call",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -2265,6 +2340,8 @@ def _update_clause(column: str) -> str:
         # the probe means something only when it is compared against
         # `last_live_polled`, so a live poll that wiped it would destroy the
         # comparison at exactly the moment it is supposed to settle it.
+        # `decision_below_attempted_at` is the enrichment cursor's shape again:
+        # only its own pass carries it.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column in (
         "distribution_count",
@@ -2907,6 +2984,20 @@ def is_modern_cert(row: CorpusRow) -> bool:
     historical merits-era labels.
     """
     return row.court == "scotus" and scotus_term_year(row.docket_number) is not None
+
+
+def is_rule_20_writ(row: CorpusRow) -> bool:
+    """Whether a docket's opening petition is a Rule 20 extraordinary writ.
+
+    Reads the ingest-latched ``opening_writ`` column: ``rule-20`` is a petition
+    for a writ of mandamus, prohibition or habeas corpus that names no
+    certiorari. A certiorari petition — certiorari before judgment and a sealed
+    petition captioned "In re …" included — is not one, and neither is an
+    ``ambiguous`` entry naming both writs. A row whose column was never parsed
+    (``None``) reads False: the predicate excludes only what the docket's own
+    opening entry shows.
+    """
+    return row.opening_writ == "rule-20"
 
 
 class MeritsProceedingRow(Protocol):
@@ -4003,6 +4094,24 @@ def stamp_document_floor_probe(conn: sqlite3.Connection, case_id: str, probed_at
         )
 
 
+def stamp_decision_below_attempt(
+    conn: sqlite3.Connection, case_id: str, attempted_at: date
+) -> None:
+    """Record the date the decision-below fill got an answer about this case.
+
+    That pass's sole writer of ``decision_below_attempted_at``, a direct
+    ``UPDATE`` for the reason :func:`stamp_document_floor_probe` gives: the pass
+    reads its population off the index, where an upsert of the row would
+    re-mirror a body-less ``case.json`` over the content store's. Overwrites
+    forward, so a re-attempt moves the case to the back of the rotation.
+    """
+    with conn:
+        conn.execute(
+            "UPDATE cases SET decision_below_attempted_at = ? WHERE case_id = ?",
+            (attempted_at.isoformat(), case_id),
+        )
+
+
 def stamp_predict_queued(conn: sqlite3.Connection, case_ids: Iterable[str], day: date) -> None:
     """Record that a channel routed each case at the predict seam on ``day``.
 
@@ -4195,7 +4304,9 @@ def opinion_body(row: CorpusRow) -> str | None:
 
 #: Columns a ``query`` prior never carries, though the row stores them. The
 #: invited-brief, call-for-response, first-relist, argument-transcript and a
-#: consolidated member's lead-filed respondent brief dates are mint triggers, and the
+#: consolidated member's lead-filed respondent brief dates are mint triggers, the
+#: opening petition's writ and the conferences distributed after a call for
+#: response are salience inputs, and the
 #: merits decision record and the cert-stage amicus count are analytics
 #: surfaces — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
@@ -4217,6 +4328,8 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "relisted_at",
         "argument_transcript_at",
         "cert_amicus_briefs",
+        "opening_writ",
+        "distributed_after_call",
     }
 )
 
@@ -4323,7 +4436,8 @@ def _mask_post_clock_merits(
 #: however early the opinion issued, so it has no as-at-clock reading at all.
 #: The tracking stamps are the third kind: each dates when a pipeline channel
 #: last touched the row (``last_pulled``, ``last_live_polled``,
-#: ``opinion_enrich_attempted_at``, ``document_floor_probed_at``) or routed it
+#: ``opinion_enrich_attempted_at``, ``document_floor_probed_at``,
+#: ``decision_below_attempted_at``) or routed it
 #: (``predict_queued_at``, ``evaluate_queued_at``). They describe the corpus's
 #: activity, not the case, and every one of them is a pipeline date from after
 #: any clock a replay cell runs under; ``last_live_polled`` in particular keeps
@@ -4344,6 +4458,7 @@ REPLAY_MASKED_UNDATED_COLUMNS: frozenset[str] = frozenset(
         "last_live_polled",
         "opinion_enrich_attempted_at",
         "document_floor_probed_at",
+        "decision_below_attempted_at",
         "predict_queued_at",
         "evaluate_queued_at",
     }
@@ -5240,11 +5355,13 @@ def live_rotation(
     current Terms always hold more than ``limit`` rows, so an older Term's
     never-polled row would otherwise never reach a cycle.
     ``never_polled_reserve`` slots go to such rows, oldest Term first (see
-    :func:`never_polled_rows`). The reserve takes only what the overdue
-    and distributed rows leave of ``limit``, so it never displaces either and
-    yields while an overdue backlog drains; it displaces the tail of the Term
-    tiers, which the overdue bound already keeps from going stale. 0 disables
-    it.
+    :func:`never_polled_rows`). The reserve takes its slots whatever the
+    distributed set's size and yields only to the overdue tier, so it shrinks
+    while an overdue backlog drains. It displaces the cycle's tail: the Term
+    tiers, or while the distributed petitions fill the cap, the most recently
+    polled petitions of the last conference the cycle reaches, which can be a
+    past conference's awaiting its order-list read; the next cycle reaches
+    them. Its rows are listed last. 0 disables it.
     """
     if limit <= 0:
         return []
@@ -5258,24 +5375,18 @@ def live_rotation(
     )
     if never_polled_reserve <= 0:
         return picked
-    conference = _pending_conference_sql(order_list_lag_days)
-    protected: set[str] = set()
-    if picked:
-        marks = ",".join("?" for _ in picked)
-        protected = {
-            str(record["case_id"])
-            for record in conn.execute(
-                f"SELECT case_id FROM cases WHERE case_id IN ({marks}) "
-                f"AND {conference} IS NOT NULL",
-                tuple(row.case_id for row in picked),
-            )
-        }
-    if overdue_before is not None:
-        protected |= {
+    # Only the overdue tier is held ahead of the reserve: the tiers lead with
+    # it, capped at ``overdue_limit``, so the first such stale rows are the tier.
+    overdue = (
+        [
             row.case_id
             for row in picked
             if row.last_live_polled is not None and row.last_live_polled < overdue_before
-        }
+        ]
+        if overdue_before is not None
+        else []
+    )
+    protected = set(overdue if overdue_limit is None else overdue[:overdue_limit])
     free = limit - len(protected)
     reserve = never_polled_rows(
         conn,
@@ -5288,7 +5399,9 @@ def live_rotation(
     reserved = {row.case_id for row in reserve}
     head = [row for row in picked if row.case_id in protected]
     tail = [row for row in picked if row.case_id not in protected and row.case_id not in reserved]
-    return (head + reserve + tail)[:limit]
+    # Listed last, so a cycle cut short by its wall-clock budget loses reserve
+    # rows before the conference petitions it displaced room from.
+    return head + tail[: limit - len(head) - len(reserve)] + reserve
 
 
 def never_polled_rows(

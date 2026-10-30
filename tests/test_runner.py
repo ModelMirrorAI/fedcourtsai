@@ -290,7 +290,7 @@ def test_the_predict_kickoff_names_the_case_level_record_directory(tmp_path: Pat
 # whole rather than by substring: the failure this guards against is an extra
 # line, and every substring assertion in this file would pass with one.
 _LEDGER_PREDICT_KICKOFF = """\
-Read .github/prompts/predict.md and AGENTS.md, then produce the prediction for this cell:
+Read .github/prompts/predict.md, then produce the prediction for this cell:
 
 COURT_ID={court}
 DOCKET_ID={docket}

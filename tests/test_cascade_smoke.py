@@ -58,6 +58,7 @@ from fedcourtsai.schemas import (
 )
 from fedcourtsai.serialize import read_model
 from fedcourtsai.store import iter_stratified_evaluations
+from tests.fixture_metrics import fixture_metrics_root
 
 #: The declared cert set, in reporting order — every cert moment carries it.
 _CERT_CLAIM_IDS = [
@@ -90,6 +91,7 @@ def test_stub_cascade_smoke(tmp_path: Path) -> None:
             corpus_db_path=db,
             data_root=data_root,
             config_root=CONFIG_ROOT,
+            metrics_root=fixture_metrics_root(tmp_path),
             court=court,
             docket=docket,
             run_id=RUN,
@@ -190,6 +192,7 @@ def test_stub_cascade_interim_application_smoke(tmp_path: Path) -> None:
         corpus_db_path=db,
         data_root=data_root,
         config_root=CONFIG_ROOT,
+        metrics_root=fixture_metrics_root(tmp_path),
         court="scotus",
         docket=306,
         run_id=RUN,
@@ -277,6 +280,7 @@ def test_stub_cascade_merits_smoke(tmp_path: Path) -> None:
         corpus_db_path=db,
         data_root=data_root,
         config_root=CONFIG_ROOT,
+        metrics_root=fixture_metrics_root(tmp_path),
         court="scotus",
         docket=308,
         event="evt-order-judgment",
@@ -388,6 +392,7 @@ def test_stub_cascade_cvsg_smoke(tmp_path: Path) -> None:
         corpus_db_path=db,
         data_root=data_root,
         config_root=CONFIG_ROOT,
+        metrics_root=fixture_metrics_root(tmp_path),
         court="scotus",
         docket=307,
         event="evt-order-cvsg-disposition",
@@ -444,6 +449,7 @@ def test_stub_cert_prediction_carries_the_declared_claims(tmp_path: Path) -> Non
         corpus_db_path=db,
         data_root=tmp_path / "data",
         config_root=CONFIG_ROOT,
+        metrics_root=fixture_metrics_root(tmp_path),
         court="scotus",
         docket=304,
         run_id=RUN,
@@ -544,6 +550,7 @@ def test_stub_scheduled_evaluate_round_smoke(
         corpus_db_path=db,
         data_root=data_root,
         config_root=CONFIG_ROOT,
+        metrics_root=fixture_metrics_root(tmp_path),
         court=court,
         docket=docket,
         run_id=RUN,

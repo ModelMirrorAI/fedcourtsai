@@ -561,6 +561,19 @@ jobs:
       - name: Remove the labeling-measurement oracle from the agent's tree
         run: rm -rf data/qp-topics
 
+      # AGENTS.md, CLAUDE.md and .claude/ (the reviewer subagents) are the
+      # repository's instructions for development sessions, which Claude Code
+      # and Codex load from the tree on their own. No process digest hashes them, so they leave the agent's
+      # tree and the prompt template is its whole contract. Marked
+      # skip-worktree first, so `git status` stays clean and an agent tidying
+      # its checkout cannot write them back; nothing after the agent reads them.
+      - name: Remove the development instructions from the agent's tree
+        run: |
+          set -euo pipefail
+          git ls-files -z -- AGENTS.md CLAUDE.md .claude | git update-index -z --skip-worktree --stdin
+          rm -f AGENTS.md CLAUDE.md
+          rm -rf .claude
+
       # The committed ledger is the other oracle this checkout carries, and the
       # larger one: a replayed petition is decided, so
       # `data/cases/<court>/<docket>/events/` can hold the very

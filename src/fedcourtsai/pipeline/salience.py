@@ -374,6 +374,122 @@ def _sal_v3_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool
     return _sal_v1_carve_out(row, score, floor) or caption.petitioner_class_v2(row) == "federal"
 
 
+# sal-v5: sal-v4 with three registered changes, each one a new input rather
+# than a re-fitted constant — the ranking constants, the band cutpoints, the
+# band vocabulary and order, the parse pin and the arrival draw are sal-v4's.
+#
+# - The caption predicate is `caption-v3`: caption-v2, with the Solicitor
+#   General's office as petitioner-side counsel (sg-office-v1) read as a
+#   federal petitioner ahead of every caption pattern. The class enters the band
+#   and the carve-in exactly as caption-v2's does under sal-v3.
+# - The relist count allows for a call for response (`_sal_v5_relists`). A
+#   call for response takes the petition off the conference it was first
+#   distributed for, so the next distribution is its first real conference,
+#   not a relist; the census reads that second distribution's grant-family
+#   rate at the single-distribution level, not the relist level.
+# - Rule 20 extraordinary writs leave the scored segment (`_sal_v5_admits`): a
+#   petition whose opening entry is a writ of mandamus, prohibition or habeas
+#   corpus is neither scored nor selected, and enters none of sal-v5's bands.
+#
+# The `distributed_after_call` column the relist rule reads and the
+# `opening_writ` column the scope reads are latched by the live poll at ingest,
+# so a decided row polled before each column existed carries NULL until a
+# back-fill reads its stored snapshot. On such a row sal-v5 reads as sal-v4
+# reads (no discounted call, no writ), which is what its
+# published pools over past Terms measure until that back-fill lands
+# (docs/salience.md).
+
+
+def call_for_response_superseded(row: corpus.CorpusRow) -> bool:
+    """Whether a call for response took the place of a conference the petition was distributed for.
+
+    True when the petition was distributed before the call and again after it:
+    ``distributed_after_call`` (the conferences first named by a distribution
+    filed after the call) is at least 1, and ``distribution_count`` less that
+    is at least 1. The distribution after the call is then the conference the
+    call deferred the petition to, not a relist.
+
+    Monotone over a petition's life by construction: a call arriving after the
+    petition's distributions has no later distribution yet, so it removes no
+    relist the petition already had, and the redistribution that turns the
+    rule on adds one conference to the count in the same poll, so the relist
+    count it discounts never falls.
+    """
+    after = row.distributed_after_call
+    if after is None or row.distribution_count is None:
+        return False
+    return after >= 1 and row.distribution_count - after >= 1
+
+
+def _sal_v5_relists(row: corpus.CorpusRow) -> int | None:
+    """sal-v5's relist count: ``distribution_count - 1``, less a superseded first distribution.
+
+    ``None`` where the count was never live-parsed (the sentinel sal-v1 scores
+    as unknown); otherwise floored at 0.
+    """
+    if row.distribution_count is None:
+        return None
+    relists = row.distribution_count - 1 - int(call_for_response_superseded(row))
+    return max(0, relists)
+
+
+def _sal_v5_score(row: corpus.CorpusRow) -> float:
+    """sal-v1's ranking score with the relist bucket read off :func:`_sal_v5_relists`.
+
+    The same constants and the same shape — the stronger of the relist and CVSG
+    grant rates, nudged by the circuit — so a row without a superseding call
+    for response scores exactly as it does under sal-v4.
+    """
+    relists = _sal_v5_relists(row)
+    if relists is None:
+        primary = _RELIST_UNKNOWN_RATE
+    elif relists >= 2:
+        primary = _RELIST_HIGH_RATE
+    else:
+        primary = _RELIST_GRANT_RATE[relists]
+    if row.cvsg_date is not None:
+        primary = max(primary, _CVSG_GRANT_RATE)
+    circuit = _CIRCUIT_GRANT_RATE.get(row.originating_court or "", _CIRCUIT_DEFAULT_RATE)
+    return primary + _CIRCUIT_WEIGHT * circuit
+
+
+def _sal_v5_trajectory(row: corpus.CorpusRow) -> str:
+    """sal-v1's trajectory tier (:data:`_SALIENCE_BANDS`) over :func:`_sal_v5_score`."""
+    score = _sal_v5_score(row)
+    for band, lower in _SALIENCE_BANDS:
+        if score >= lower:
+            return band
+    return _SALIENCE_BANDS[-1][0]  # unreachable (the baseline cutpoint is 0.0); a guard
+
+
+def _sal_v5_band(row: corpus.CorpusRow) -> str:
+    """sal-v3's band rule, read through ``caption-v3`` and the call-for-response relist count."""
+    trajectory = _sal_v5_trajectory(row)
+    cls = caption.petitioner_class_v3(row)
+    if cls == "federal":
+        return "federal"
+    if cls == "state" and trajectory not in ("high",):
+        return "state"
+    return trajectory
+
+
+def _sal_v5_reachable(row: corpus.CorpusRow) -> tuple[str, ...]:
+    """``sal-v5``'s reachable ladder: the caption partition read through ``caption-v3``."""
+    return _caption_reachable_bands(caption.petitioner_class_v3(row))
+
+
+def _sal_v5_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """sal-v1's rule, plus the federal arrival carve-in read through ``caption-v3``."""
+    return (
+        row.cvsg_date is not None or score >= floor or caption.petitioner_class_v3(row) == "federal"
+    )
+
+
+def _sal_v5_admits(row: corpus.CorpusRow) -> bool:
+    """sal-v5's segment: every row but a Rule 20 extraordinary writ (``corpus.is_rule_20_writ``)."""
+    return not corpus.is_rule_20_writ(row)
+
+
 @dataclass(frozen=True)
 class SalienceScorer:
     """One frozen salience version: everything that makes a ranking reproducible.
@@ -434,6 +550,18 @@ class SalienceScorer:
     # partitions the vocabulary instead, and must say so here — see
     # `_caption_reachable_bands`. Read through `reachable_bands`, never directly.
     reachable: Callable[[corpus.CorpusRow], tuple[str, ...]] | None = None
+    # Which rows of the gate's scored segment this version scores, bands and
+    # selects at all. `None` means the whole segment, which is every version
+    # through sal-v4. A version that narrows its segment says so here, and every
+    # consumer of a version's bands — the selection pass, the gate replay, the
+    # statpack's per-version slices, the distribution census — reads it
+    # through `in_segment`, so a row outside it enters none of that version's
+    # cohorts, carve-ins or base-rate pools.
+    admits: Callable[[corpus.CorpusRow], bool] | None = None
+
+    def in_segment(self, row: corpus.CorpusRow) -> bool:
+        """Whether this version scores and selects ``row`` (:attr:`admits`; all rows if unset)."""
+        return True if self.admits is None else self.admits(row)
 
     def reachable_bands(self, row: corpus.CorpusRow) -> tuple[str, ...]:
         """The bands ``row`` could occupy over its life, strongest-first.
@@ -515,6 +643,23 @@ _SAL_V4 = SalienceScorer(
     distribution_parse="dist-v2",
 )
 
+# sal-v5: registered, NOT active. `SALIENCE_VERSION` still names sal-v4, so the
+# live pass, the corpus stamp and every cell's frozen context are sal-v4's;
+# sal-v5's bands are published beside it in the statpack's `alt_segments` and
+# scored in every gate replay. The flip to sal-v5 is a separate registration
+# step (docs/salience.md).
+_SAL_V5 = SalienceScorer(
+    version="sal-v5",
+    score=_sal_v5_score,
+    band=_sal_v5_band,
+    bands=_SAL_V2_BAND_ORDER,  # the same band vocabulary, in the same order
+    carve_out=_sal_v5_carve_out,
+    selects_arrivals=True,
+    reachable=_sal_v5_reachable,
+    distribution_parse="dist-v2",
+    admits=_sal_v5_admits,
+)
+
 # Every registered version, keyed by label. A past ranking replays against the
 # function that produced it, so a version is only ever added here — never edited
 # and never removed, whatever the live pass currently scores with.
@@ -524,6 +669,7 @@ SCORERS: Mapping[str, SalienceScorer] = MappingProxyType(
         _SAL_V2.version: _SAL_V2,
         _SAL_V3.version: _SAL_V3,
         _SAL_V4.version: _SAL_V4,
+        _SAL_V5.version: _SAL_V5,
     }
 )
 
@@ -714,7 +860,11 @@ def distribution_census(
     frame_pending = 0
     count_increased = 0
     for row in corpus.iter_rows(conn, court="scotus"):
-        if not corpus.is_live_slice(row) or not caption._scored_segment(row):
+        if (
+            not corpus.is_live_slice(row)
+            or not caption._scored_segment(row)
+            or not active.in_segment(row)
+        ):
             continue
         term = corpus.scotus_term_year(row.docket_number)
         if term is None:
@@ -906,6 +1056,24 @@ def _interim_ladder_key(row: corpus.CorpusRow) -> tuple[int, int, str]:
     )
 
 
+def reserve_age_days(row: corpus.CorpusRow, as_of: date) -> int | None:
+    """Days from an application's filing to ``as_of``; None when it has no filing date."""
+    return None if row.date_filed is None else (as_of - row.date_filed).days
+
+
+def reserve_aged_out(row: corpus.CorpusRow, as_of: date | None, horizon_days: int) -> bool:
+    """Whether an application is past the interim reserve's age-out horizon at ``as_of``.
+
+    Past it means filed more than ``horizon_days`` before ``as_of``, the
+    selection pass's own date. A row with no filing date, a pass with no date
+    (``as_of`` None) and a horizon of 0 never age out.
+    """
+    if as_of is None or horizon_days <= 0:
+        return False
+    age = reserve_age_days(row, as_of)
+    return age is not None and age > horizon_days
+
+
 def plan_cohorts(
     rows: Iterable[corpus.CorpusRow],
     config: SalienceConfig,
@@ -914,6 +1082,7 @@ def plan_cohorts(
     select_arrivals: bool | None = None,
     released: Callable[[corpus.CorpusRow], bool] | None = None,
     application_twins: frozenset[str] = frozenset(),
+    as_of: date | None = None,
 ) -> tuple[dict[str, float], list[str], int, int]:
     """Score ``rows`` and pick each conference cohort's selected slice.
 
@@ -943,6 +1112,13 @@ def plan_cohorts(
     decided. It is called once per pending occupant and on nothing else. A
     caller with no snapshots to read (the gate replay) passes none, and every
     pending occupant holds its slot.
+    A slot also frees on **age**: given ``as_of``, the selection pass's own
+    date, a pending occupant filed more than
+    ``interim_reserve_age_out_days`` before it keeps its latch but not its slot
+    (:func:`reserve_aged_out`), and a pending application past the horizon does
+    not contend for a slot, so a freed slot never goes to an application the
+    next pass would free again. A row with no filing date, or a call with no
+    ``as_of`` (the gate replay), never ages out.
     The slots in use lower the rank-fill limit in the **latest** conference
     cohort of the pass — the conference cycle the applications are live in — so
     the reserve is defined inside ``N``. It is sized to *spend* inside ``N``
@@ -982,6 +1158,10 @@ def plan_cohorts(
     already_selected: set[str] = set()
     eligible = 0
     for row in rows:
+        # A row outside the version's own segment (sal-v5's Rule 20 writs) is
+        # neither scored nor selected under it, exactly like a Tier-0 row.
+        if not active.in_segment(row):
+            continue
         eligible += 1
         scores[row.case_id] = active.score(row)
         if row.salience_selected:
@@ -1026,9 +1206,13 @@ def plan_cohorts(
 
     # The interim reserve: still-pending occupants hold their slots (sticky
     # latch), new picks fill the remainder in ladder order. An occupant whose
-    # stored docket already reads as disposed keeps its latch but not its slot.
-    # The slot is the number's: a number latched under any of its rows holds
-    # one slot unless released, and none of its rows contends again either way.
+    # stored docket already reads as disposed, or that was filed past the
+    # age-out horizon, keeps its latch but not its slot. The slot is the
+    # number's: a number latched under any of its rows holds one slot unless
+    # released, and none of its rows contends again either way. `released` is
+    # asked of every pending occupant, aged or not, so the caller's ledger
+    # records each occupant's snapshot read.
+    horizon = config.interim_reserve_age_out_days
     latched = [row for row in applications if row.salience_selected]
     held = {_application_key(row) for row in latched}
     occupants = list(
@@ -1036,6 +1220,7 @@ def plan_cohorts(
             _application_key(row): row
             for row in latched
             if not (released is not None and released(row))
+            and not reserve_aged_out(row, as_of, horizon)
         }.values()
     )
     open_slots = max(0, config.interim_reserve_slots - len(occupants))
@@ -1046,6 +1231,7 @@ def plan_cohorts(
             if not row.salience_selected
             and row.case_id not in application_twins
             and _application_key(row) not in held
+            and not reserve_aged_out(row, as_of, horizon)
         ),
         key=_interim_ladder_key,
     )
@@ -1068,7 +1254,9 @@ def plan_cohorts(
     return scores, to_select, eligible, len(cohorts)
 
 
-def _reserve_occupant(conn: sqlite3.Connection, row: corpus.CorpusRow) -> ReserveOccupant:
+def _reserve_occupant(
+    conn: sqlite3.Connection, row: corpus.CorpusRow, *, as_of: date, horizon_days: int
+) -> ReserveOccupant:
     """Read a pending reserve occupant's newest stored snapshot for a disposal.
 
     An occupant whose snapshot reads as an interim disposal
@@ -1082,6 +1270,10 @@ def _reserve_occupant(conn: sqlite3.Connection, row: corpus.CorpusRow) -> Reserv
     the reserve as full as it was, never fail the pass. A failed read is logged
     as a warning and marked ``snapshot_read_failed``, so the ledger tells it
     apart from an occupant with nothing stored.
+
+    The record also carries the occupant's age at ``as_of`` and whether it is
+    past the age-out horizon (:func:`reserve_aged_out`); an aged occupant does
+    not hold its slot whatever its snapshot reads.
     """
     from . import outcome  # noqa: PLC0415 - outcome<-moments<-... keeps this deferred
 
@@ -1097,28 +1289,34 @@ def _reserve_occupant(conn: sqlite3.Connection, row: corpus.CorpusRow) -> Reserv
             type(exc).__name__,
         )
     disposed = snapshot is not None and outcome.interim_disposal_signal(snapshot[1]) is not None
+    aged_out = reserve_aged_out(row, as_of, horizon_days)
     return ReserveOccupant(
         case_id=row.case_id,
         docket_number=row.docket_number,
         date_filed=row.date_filed,
         snapshot_date=snapshot[0] if snapshot is not None else None,
-        holds_slot=not disposed,
+        age_days=reserve_age_days(row, as_of),
+        aged_out=aged_out,
+        holds_slot=not (disposed or aged_out),
         snapshot_read_failed=read_failed,
     )
 
 
 def _planned_selection(
-    conn: sqlite3.Connection, config: SalienceConfig
+    conn: sqlite3.Connection, config: SalienceConfig, *, as_of: date
 ) -> tuple[tuple[dict[str, float], list[str], int, int], list[ReserveOccupant]]:
     """The selection plan beside the reserve occupants it was planned against.
 
     One snapshot read per pending occupant, so the cost is bounded by the
     reserve's size plus whatever latched applications remain unresolved.
+    ``as_of`` is the pass's own date, which the reserve's age-out measures to.
     """
     occupancy: list[ReserveOccupant] = []
 
     def released(row: corpus.CorpusRow) -> bool:
-        occupant = _reserve_occupant(conn, row)
+        occupant = _reserve_occupant(
+            conn, row, as_of=as_of, horizon_days=config.interim_reserve_age_out_days
+        )
         occupancy.append(occupant)
         return not occupant.holds_slot
 
@@ -1135,12 +1333,13 @@ def _planned_selection(
         config,
         released=released,
         application_twins=corpus.duplicate_application_case_ids(conn),
+        as_of=as_of,
     )
     return plan, occupancy
 
 
 def _selection_plan(
-    conn: sqlite3.Connection, config: SalienceConfig
+    conn: sqlite3.Connection, config: SalienceConfig, *, as_of: date
 ) -> tuple[dict[str, float], list[str], int, int]:
     """Score the in-scope SCOTUS cases and pick each cohort's selected slice.
 
@@ -1149,13 +1348,14 @@ def _selection_plan(
     applications), delegating scoring, cohort selection, and the interim
     reserve to :func:`plan_cohorts`, whose reserve slot is an application
     number's — with the reserve's occupants whose stored docket already reads
-    as disposed released (:func:`_reserve_occupant`).
+    as disposed, or filed past the age-out horizon at ``as_of``, released
+    (:func:`_reserve_occupant`).
     """
-    return _planned_selection(conn, config)[0]
+    return _planned_selection(conn, config, as_of=as_of)[0]
 
 
 def apply_salience_selection(
-    conn: sqlite3.Connection, data_root: Path, config: SalienceConfig
+    conn: sqlite3.Connection, data_root: Path, config: SalienceConfig, *, as_of: date
 ) -> list[str]:
     """The live cycle's write pass: score, latch, and return the newly-latched ids.
 
@@ -1164,6 +1364,8 @@ def apply_salience_selection(
     always carries the latch state downstream readers see. The returned ids are
     the cycle's newly-latched picks (the selection sweep queues them via the
     ``predict_queued_at`` debounce — a never-queued case passes it).
+    ``as_of`` is the cycle's own date, which the interim reserve's age-out
+    measures each application's filing date to.
 
     Under a scorer with ``selects_arrivals`` the pass also mints the
     **arrival event** — both halves, into ``data_root``'s ledger as well as the
@@ -1177,7 +1379,7 @@ def apply_salience_selection(
     distribution moment (``store``'s admission), so an unminted pick would
     sit latched with nothing to forecast.
     """
-    scores, to_select, _, _ = _selection_plan(conn, config)
+    scores, to_select, _, _ = _selection_plan(conn, config, as_of=as_of)
     corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
     corpus.latch_salience_selected(conn, to_select)
     _mint_owed_arrival_events(conn, data_root)
@@ -1246,7 +1448,12 @@ def _mint_owed_arrival_events(conn: sqlite3.Connection, data_root: Path) -> None
 
 
 def reconcile_salience_selection(
-    conn: sqlite3.Connection, data_root: Path, config: SalienceConfig, *, apply: bool
+    conn: sqlite3.Connection,
+    data_root: Path,
+    config: SalienceConfig,
+    *,
+    apply: bool,
+    as_of: date,
 ) -> SalienceSelectionResult:
     """Score the in-scope SCOTUS cases and latch the per-conference selected slice.
 
@@ -1256,8 +1463,12 @@ def reconcile_salience_selection(
     arrival event into both stores — ``data_root`` is the git ledger root the
     mint's ``event.yaml`` half lands under. Idempotent under the sticky
     latch — a second run with no corpus change latches nothing new.
+    ``as_of`` is the pass's own date, which the interim reserve's age-out
+    measures each application's filing date to.
     """
-    (scores, to_select, eligible, conferences), occupancy = _planned_selection(conn, config)
+    (scores, to_select, eligible, conferences), occupancy = _planned_selection(
+        conn, config, as_of=as_of
+    )
     if apply:
         corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
         corpus.latch_salience_selected(conn, to_select)
@@ -1290,7 +1501,11 @@ def _unlatch_scan(
     spared_undistributed = 0
     for row in corpus.iter_rows(conn, court="scotus"):
         pending = corpus.resolution_date(row) is None
-        if corpus.is_ifp_petition(row) or corpus.out_of_scope_reason_full(conn, row) is not None:
+        if (
+            corpus.is_ifp_petition(row)
+            or corpus.out_of_scope_reason_full(conn, row) is not None
+            or not active.in_segment(row)
+        ):
             if row.salience_selected and pending:
                 spared_out_of_scope += 1
             continue

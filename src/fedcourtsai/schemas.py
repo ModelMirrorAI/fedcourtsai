@@ -823,6 +823,41 @@ class SnapshotContactScrub(_Strict):
         return self
 
 
+class CertAnchor(_Strict):
+    """The cert skill anchor frozen at provisioning: one pool of one statpack build.
+
+    **Harness-owned.** ``provision-snapshot`` pools it for a cert cell whose
+    context froze a band, with the scorer's own pooler
+    (:func:`fedcourtsai.pipeline.base_rates.prediction_base_rate`) over the
+    frozen ``(band, salience_version, term)`` and the ``metrics/statpack.json``
+    checked out when the cell was placed. The evaluator stamp reads it in place
+    of re-pooling, so a statpack refresh landing between forecast and grading
+    does not move the baseline the forecast is scored against — once it has
+    checked the record against harness-side inputs, since the file is reachable
+    from the cell's workspace: ``statpack_digest`` must name the newest build
+    committed by the predict cell's run id, ``lookback_terms`` the window
+    configured at that commit, and ``rate`` what that build pools to.
+    """
+
+    rate: float | None = Field(
+        ge=0.0,
+        le=1.0,
+        description="The risk-set band rate pooled at provisioning. Null where no "
+        "strictly-prior Term inside the window carries the frozen band under its "
+        "version, or the context froze no version or Term beside the band: the "
+        "cell then has no baseline, which the stamp records as a null rate",
+    )
+    statpack_digest: str = Field(
+        description="`pipeline.base_rates.statpack_digest` of the statpack build "
+        "the rate was pooled from (`sha256:` over the parsed pack's canonical JSON)"
+    )
+    lookback_terms: int = Field(
+        ge=0,
+        description="The `salience.base_rate_lookback_terms` window the rate was "
+        "pooled under (0 = no window)",
+    )
+
+
 class PredictionContext(_Strict):
     """The conditioning state a predict cell actually ran against.
 
@@ -1096,6 +1131,18 @@ class PredictionContext(_Strict):
         "`record/snapshot` is the pipeline's, not the docket's. Null where the "
         "provisioner runs no snapshot contact scrub (the cert back-test, which "
         "redacts its snapshot by its own rule) or the cell predates the record",
+    )
+    cert_anchor: CertAnchor | None = Field(
+        default=None,
+        description="The cert skill anchor pooled when the cell was placed: the "
+        "risk-set rate over the frozen band, version and Term, and the statpack "
+        "build and lookback window it was pooled under. A cert grading stamped from "
+        "proc-v15 on takes its segment_base_rate, base_rate_statpack_digest and "
+        "base_rate_lookback_terms from here rather than from the statpack checked "
+        "out at grading, so a metrics refresh between forecast and grading leaves "
+        "the anchor where it was. Null on a cell of any other stage, on a cert cell "
+        "that froze no band, where no statpack was readable at provisioning, and "
+        "on cells placed before the record",
     )
 
     @model_validator(mode="after")
@@ -2639,9 +2686,12 @@ class Evaluation(_Strict):
         "`sha256:` over the parsed statpack's canonical JSON) of the statpack build a "
         "harness-stamped cert segment_base_rate was pooled from. Written by "
         "`stamp-cell --role evaluator` beside every cert anchor it stamps (proc-v9 "
-        "and later, where the scored prediction froze a band); the leaderboard "
-        "re-pools the anchor wherever its own statpack carries the same digest and "
-        "drops a cell whose recorded rate does not reproduce. Null wherever the rate "
+        "and later, where the scored prediction froze a band). From proc-v15, where "
+        "the scored prediction's context carries a cert_anchor, it is that anchor's "
+        "build — the statpack in force when the forecast was placed — and the "
+        "leaderboard drops a cell that does not record its pin; otherwise the "
+        "leaderboard re-pools the anchor wherever its own statpack carries the same "
+        "digest and drops a cell whose recorded rate does not reproduce. Null wherever the rate "
         "is not a harness-stamped cert anchor — every merits and interim cell, an "
         "earlier label's cert grading, a cert cell on the terminal fallback — and "
         "on records written before the field existed.",
@@ -9521,6 +9571,110 @@ class QpTopicApplicationLabels(_Strict):
         return self
 
 
+QpTopicFrame = Literal["petitions", "applications"]
+QpTopicRunOutcome = Literal["published", "refused", "incomplete"]
+
+
+class QpTopicRunSpend(_Strict):
+    """``data/qp-topics/spend/<run_id>-<run_attempt>.json`` — one labeling run's spend.
+
+    One record per attempt of the labeling job whose engine left an execution
+    file, whatever became of the batch: a run refused at the reference gate
+    spends as much as one that publishes and writes no labels file, so the
+    spend lives here rather than on the labels artifact's batch ledger. The
+    token counts are the engine log's, read and priced by the rule every
+    cell's ``usage.json`` is (:func:`fedcourtsai.usage.parse_claude_usage`,
+    :func:`fedcourtsai.pricing.estimate_cost_usd`), so a labeler dollar and a
+    cell dollar are the same dollar, and the measured spend total
+    (:func:`fedcourtsai.spend.measured_spend`) sums these by ``recorded_at``.
+
+    The gate figures are carried for the same reason: a refused attempt is on
+    file with its measured agreement, and the label seam's review hold reads
+    the newest gated outcome per frame (:mod:`fedcourtsai.review_hold`).
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    lane: Literal["qp-topic-label"] = Field(
+        default="qp-topic-label", description="The spend lane this run belongs to"
+    )
+    frame: QpTopicFrame = Field(description="Which labeling frame the run labeled")
+    run_id: str = Field(pattern=r"^[0-9]+$", description="The Actions run id of the labeling run")
+    run_attempt: int = Field(ge=1, description="The labeling job's run attempt")
+    labeler: str = Field(min_length=1, description="Who labeled — engine and model")
+    model: str = Field(min_length=1, description="The model the cost rates were applied to")
+    outcome: QpTopicRunOutcome = Field(
+        description="published: the batch cleared the reference gate and its labels were "
+        "handed to the publish job; refused: it was measured and fell below the gate; "
+        "incomplete: it reached neither (a labels file short of the batch, a check ahead of "
+        "the measurement that failed, or a measurement that cleared the gate but did not "
+        "reach publication), its gate figures carried wherever it was measured"
+    )
+    batch_rows: int = Field(ge=0, description="Rows in the extract the labeler was handed")
+    label_lines: int = Field(ge=0, description="Label lines the run left behind")
+    agree: int | None = Field(
+        default=None, ge=0, description="Compared reference entries matched; null unmeasured"
+    )
+    n: int | None = Field(
+        default=None, ge=0, description="Reference entries compared; null unmeasured"
+    )
+    rate: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="agree / n — agreement with the frame's reference, not accuracy; null "
+        "when unmeasured or nothing was compared",
+    )
+    floor: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="What a constant labeler scores on the same compared entries; null "
+        "when unmeasured",
+    )
+    recorded_at: datetime = Field(
+        description="When the record was written, timezone-aware; the spend window reads it"
+    )
+    input_tokens: int = Field(ge=0, description="Fresh input tokens")
+    output_tokens: int = Field(ge=0, description="Output tokens")
+    cache_read_input_tokens: int = Field(ge=0, description="Cached input tokens read")
+    cache_creation_input_tokens: int = Field(ge=0, description="Cache-write tokens")
+    estimated_cost_usd: float = Field(
+        ge=0.0,
+        allow_inf_nan=False,
+        description="The run's on-demand cost at `pricing.MODEL_RATES` for `model`, or for "
+        "`priced_as` where `model` has no rate",
+    )
+    priced_as: str | None = Field(
+        default=None,
+        min_length=1,
+        description="The `pricing.MODEL_RATES` entry the run was priced at when `model` has "
+        "none: the one that prices these token counts dearest, so an unpriced model's spend "
+        "is still counted and never under-counted; null when priced at `model`'s own rate",
+    )
+
+    @model_validator(mode="after")
+    def _consistent(self) -> QpTopicRunSpend:
+        if self.recorded_at.tzinfo is None:
+            raise ValueError("recorded_at must be timezone-aware")
+        measured = self.agree is not None and self.n is not None
+        if (self.agree is None) != (self.n is None):
+            raise ValueError("agree and n are recorded together or not at all")
+        if measured and self.agree is not None and self.n is not None and self.agree > self.n:
+            raise ValueError("agree cannot exceed n")
+        if self.outcome != "incomplete" and not measured:
+            raise ValueError(f"a {self.outcome} run carries its gate figures")
+        if self.outcome == "published" and self.label_lines != self.batch_rows:
+            raise ValueError("a published run labeled every row of its batch")
+        if self.rate is not None and not measured:
+            raise ValueError("a rate is recorded only beside its agree and n")
+        if self.agree is not None and self.n is not None:
+            if self.n == 0 and self.rate is not None:
+                raise ValueError("nothing was compared, so there is no rate")
+            if self.n > 0 and (self.rate is None or abs(self.rate - self.agree / self.n) > 1e-9):
+                raise ValueError("rate is agree / n")
+        return self
+
+
 class DispositionShare(_Strict):
     """One realized outcome's count and share of the resolved cases in a slice.
 
@@ -11681,10 +11835,12 @@ class ReserveOccupant(_Strict):
 
     ``holds_slot`` is False when the application's newest stored snapshot
     already reads as an interim disposal
-    (:func:`fedcourtsai.pipeline.outcome.interim_disposal_signal`): the row is
-    still unresolved in the corpus, but the pass no longer counts it against
-    ``interim_reserve_slots``. ``date_filed`` dates the occupancy, so a slot held
-    for months is visible in the ledger.
+    (:func:`fedcourtsai.pipeline.outcome.interim_disposal_signal`), or when it
+    was filed more than ``interim_reserve_age_out_days`` before the pass
+    (``aged_out``): the row is still unresolved in the corpus, but the pass no
+    longer counts it against ``interim_reserve_slots``. ``date_filed`` and
+    ``age_days`` date the occupancy, so a slot held for months is visible in
+    the ledger.
     """
 
     case_id: str
@@ -11693,11 +11849,26 @@ class ReserveOccupant(_Strict):
     snapshot_date: date | None = Field(
         default=None, description="The newest stored snapshot read; None when none is stored"
     )
+    age_days: int | None = Field(
+        default=None,
+        description=(
+            "Days from date_filed to the selection pass's date; None when the "
+            "filing date is unknown"
+        ),
+    )
+    aged_out: bool = Field(
+        default=False,
+        description=(
+            "True when age_days exceeds the reserve's age-out horizon, which frees "
+            "the slot while the row stays latched"
+        ),
+    )
     holds_slot: bool = Field(
         default=True,
         description=(
             "False when the stored snapshot already reads as an interim disposal, "
-            "which frees the slot while the row awaits a resolver"
+            "or the occupant has aged out, which frees the slot while the row "
+            "awaits a resolver"
         ),
     )
     snapshot_read_failed: bool = Field(
@@ -14318,6 +14489,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "qp_topic_application_reference": QpTopicApplicationReference,
     "qp_topics": QpTopicLabels,
     "qp_topics_applications": QpTopicApplicationLabels,
+    "qp_topic_run_spend": QpTopicRunSpend,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "summary_plan": SummaryPlan,
     "export_prediction_row": ExportPredictionRow,

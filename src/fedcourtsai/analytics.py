@@ -1403,6 +1403,10 @@ class _TermAcc:
             # Hoisted per accumulator rather than resolved per row: this runs
             # once for every scored row of a full-corpus pass.
             for version, banding in self.scorers:
+                # A version that narrows its segment (sal-v5's Rule 20 writs)
+                # pools none of its bands over the rows it leaves out.
+                if not banding.in_segment(row):
+                    continue
                 band = banding.band(row)
                 self.segments[version][band].add(row)
                 # A band is monotone non-decreasing over a petition's life: the

@@ -132,6 +132,7 @@ def test_read_entry_names_kinds_and_polarity() -> None:
     )
     assert read_entry("ORDER granting 705 Motion to Compel") == ([], "granted")
     assert read_entry("Stay under 5 U.S.C. 705 granted")[0] == ["stay-705"]
+    assert read_entry("MOTION for Interim Relief Under 5 USC 705")[0] == ["stay-705"]
     assert read_entry("NOTICE of appearance") == ([], "unclear")
 
 

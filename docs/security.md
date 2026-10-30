@@ -100,7 +100,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
 | `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — one of the two PR openers in this repo not reviewed by a human (with the public-updates row below), which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
 | `run-analytics` (public-updates job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** update-history PR, whose diff the required `paths` check bounds independently (`assert-update-paths`: added `metrics/updates/<YYYY-Www>.md` files, nothing else). The job assumes no role, holds no `id-token` and does not bind `website`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the rows above |
-| `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR, from a job that runs no agent and takes only the measured labels file and the measured block from `qp-topic-label`, as a one-day artifact handed off once the gate has passed. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
+| `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR, or a spend-record PR, from a job that runs no agent and takes only the measured labels file, the measured block and the run's spend record from `qp-topic-label`, as a one-day artifact: the labels and the block once the gate has passed, the spend record on any outcome it was written on — a refused or incomplete run hands off the record (and a refused run its block) alone, and the job re-validates the record, holds it to this run's id and frame, and scans every handed-off file before it mints. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` (`write` job only — the promotion train) | dev | contents, pull-requests | create a `promote/<date>` candidate branch at staging's tip (the one ref write; never an update, force push or deletion), open its draft PR into `main`, mark it ready, request the approvers' review, refresh the generated block of its body — and **merge it**, with a merge commit pinned to the head, using the dev App's `main: require approval` bypass. The merge runs only after the job re-reads, on the ambient token before minting, that the PR is open, ready and unchanged at the planned head, that an approver in `config/promotion-train.yaml` approved exactly that head with no change requested since, from every page of the reviews (`fedcourts promotion-train-approval`; a short or failed read is not approved), that no fan-out is in flight, and that the registry gate still passes; `main: require PR`'s required checks still bind the merge. The `plan` job before it decides and renders holding no write credential and no environment |
 | `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. Both read the open PRs into `main` and their reviews first, standing down while a promotion is about to merge, and `chain` also reads its round's collect PR. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
@@ -813,7 +813,7 @@ enrichment — the dispatched enrich job's step and, step-scoped, the live job's
 one awaiting-grading enrichment step, the only step of that job holding it; by
 `run-analytics`'s order-scan job, step-scoped to its scan step, in a job that
 assumes no cloud role and mints no App token; by its decision-below job,
-step-scoped to its measuring step, in a job that holds the read-only role for
+step-scoped to its dry-run step, in a job that holds the read-only role for
 its corpus pull and mints no App token; by the MCP
 sidecar composite's launch step — the cells', `integration-test`'s
 engine-smoke **codex** leg, its engine-actions-smoke legs and each
@@ -839,18 +839,20 @@ deliberate exceptions, by environment: the two holds below,
 which bind `corpus-write` (the paragraph after those), `post-public-update`'s
 `post` job, which binds `website` (*The `website` environment*), and
 `staging-corpus-refresh`'s `refresh` job, which binds `staging`. The `approval` jobs of run-predict,
-run-evaluate, run-backtest and summarize declare
+run-evaluate, run-backtest and summarize, and run-analytics's
+`qp-topic-approval`, declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables and no role, and its deployment branches
-are `main` and `staging` — `staging` so that summarize's staging rehearsal
-(the one held lane whose jobs resolve their environment from the ref) passes
-the same hold its production run does. A `run-predict`, `run-evaluate` or
-`summarize` round its own plan auto-released binds **`review-auto`** instead
+are `main` and `staging` — `staging` so that the staging rehearsals of
+summarize and the topic-label lane (the two held lanes whose other jobs
+resolve their environment from the ref) pass the same hold their production
+runs do. A `run-predict`, `run-evaluate`, `summarize` or topic-label round its
+own plan auto-released binds **`review-auto`** instead
 (`run-backtest` never does): no required reviewers, on purpose — adding one
 would only make it a second `review` — no secrets, no variables, no role, and
 deployment branches restricted to `main`, so only a `main` run adds to the
 deployment count every lane's next plan reads against the shared daily cap,
-and a summarize staging rehearsal always holds on `review`. Create it that way
+and a summarize or topic-label staging rehearsal always holds on `review`. Create it that way
 before setting the caps: GitHub would otherwise create it on first reference
 with no branch policy, and the promotion gate's `contexts` stage refuses a
 `main` that binds it unless it is restricted to `main` and carries no secrets
@@ -858,11 +860,11 @@ or variables. The deployment count is only as good as the deployment record,
 which any write holder could prune, and that includes the agent account
 interactive sessions act as. So the daily cap reads a second record beside it,
 the auto-released commits on `main` (collect marks a released predict or
-evaluate round's ready commit, summarize's publish step its commit, and
-`main`'s history cannot be rewritten), and takes the larger count; an
+evaluate round's ready commit, summarize's and the topic labeler's publish
+steps their commits, and `main`'s history cannot be rewritten), and takes the larger count; an
 unreadable record keeps the hold. A write holder could still edit an unmerged
-collect PR's commit, and the summaries branch is rebuilt each run and merges
-only on a maintainer's review, so the committed count bounds what has landed,
+collect PR's commit, and the summaries and labels branches are rebuilt each
+run and merge only on a maintainer's review, so the committed count bounds what has landed,
 not what is in flight. Before a round spends, three bounds apply: the
 per-round cap and the daily count, which bound *estimated* spend, and the
 trailing budget, which projects measured spend from the committed ledger plus
@@ -1480,6 +1482,34 @@ runner seam's scrubbed base environment strips every AWS variable and every
 credential-shaped name except the engine's own auth — the same posture as a
 back-test replay cell.
 
+### Run-time installs are refused in a cell
+
+A predict or evaluate cell has the open network, so a package installed
+mid-turn would be code no review saw, fetched from an index and run beside
+the cell's outputs and the post-agent steps. Its tooling is fixed before the
+engine starts instead (`fedcourts pdf-text` reads a PDF), and one prefix list,
+`fedcourtsai.cell_policy.INSTALL_COMMAND_PREFIXES` (`pip install`, `uv pip`,
+`uv add`, `npm install`, `npx`, `apt-get`, `sudo` and the rest), is refused in
+each engine's own surface, written by `fedcourts cell-policy --engine <engine>`:
+
+- **claude-code**: `permissions.deny` rules in the step's `settings`, which
+  hold under `bypassPermissions`.
+- **codex**: `forbidden` execpolicy prefix rules, copied root-owned into the
+  codex account's `$CODEX_HOME/rules/` by the `codex-user-setup` action.
+- **gemini**: a `deny` rule on `run_shell_command`, loaded through the
+  settings' `policyPaths` at the user tier, which outranks the CLI's `--yolo`
+  allow-all.
+
+What each refuses is a command prefix the engine parses out of the command,
+not an outcome: all three split `&&` and `;` chains, and gemini reads into
+`bash -c`, but a script the agent writes and then runs, or an installer under
+a name the list does not carry, is not seen. Where each lives differs too:
+codex's rules are root-owned and the agent cannot edit them, while
+claude-code's deny list and gemini's policy file sit in files the runner's own
+user, the one the agent runs as, can rewrite. It closes the ordinary install
+path and is not a sandbox. The back-test and local cells, launched by
+`pipeline/runner.py`, do not carry it.
+
 ## The `website` environment
 
 `post-public-update` creates the weekly public update as a **draft** in
@@ -1616,7 +1646,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — public-updates          | none          | adds the committed `data/` ledger's missing weeks to the update history — no corpus, no network, no `id-token`. It binds the branch-resolved environment, never `website`, because it publishes, and mints the PR token there; it assumes no role |
 | `run-analytics` — order-scan              | none          | reads CourtListener's REST API only — no corpus, no `id-token`, no App token. It binds the branch-resolved environment for the CourtListener token, scoped to its scan step. Its runtime token adds `actions: read`, to fetch the previous run's report artifact the scan resumes |
-| `run-analytics` — decision-below          | read-only     | the sample (full `corpus-pull`, then each sampled case's newest snapshot from the content store), then CourtListener's REST API. It binds the branch-resolved environment for the CourtListener token, scoped to its measuring step, and mints no App token |
+| `run-analytics` — decision-below          | read-only     | the fill's rotation (full `corpus-pull`, then each case's newest snapshot from the content store), then CourtListener's REST API; a dry run, it writes nothing. It binds the branch-resolved environment for the CourtListener token, scoped to its dry-run step, and mints no App token |
 | `run-analytics` — qp-topic-label          | none          | the agent job assumes no role and has no `id-token: write`: its whole *evidentiary* input is that artifact, and a step asserts both the AWS and the OIDC variables are absent before the agent runs |
 | `summarize` — plan, stage                 | read-only     | the case-summary plan (full `corpus-pull`, then each predicted case's newest snapshot and document texts from the content store) and the staging of each planned case's record with `provision-snapshot`, handed to the generate job as a one-day artifact |
 | `summarize` — generate, publish           | none          | generate holds the environment's Anthropic API key, assumes no role, has no `id-token: write`, and asserts both the AWS and the OIDC variables are absent first; publish holds the dev App token on `main` only |
@@ -1951,7 +1981,7 @@ read`, used only to fetch the previous run's report so the scan resumes: the
 fetch takes the newest unexpired `order-scan` artifact from the same ref,
 checks that its run is a dispatch of `run-analytics`, and extracts the one
 report file by name. A sixth rides it too: the `decision-below` report,
-which names, for each sampled cert petition, the identifiers and dates its
+which names, for each cert petition the dry run walked, the identifiers and dates its
 stored supremecourt.gov docket carries (the SCOTUS number, the lower court's
 name and case numbers, the judgment and rehearing-denied dates), the lower
 court's CourtListener

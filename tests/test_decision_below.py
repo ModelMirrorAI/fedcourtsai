@@ -18,11 +18,13 @@ import pytest
 from typer.testing import CliRunner
 
 import fedcourtsai.cli as cli_module
-from fedcourtsai import corpus
+from fedcourtsai import corpus, provision
 from fedcourtsai.courtlistener import CourtListenerClient, RateLimiter, default_rate_limiter
+from fedcourtsai.pipeline import decision_below
 from fedcourtsai.pipeline.decision_below import (
     MAX_ENTRY_DOCKETS,
     MAX_ENTRY_PAGES,
+    MAX_FILL_CASES,
     MAX_LOWER_NUMBERS,
     MAX_OPINIONS,
     MAX_REQUESTS_PER_CASE,
@@ -30,11 +32,15 @@ from fedcourtsai.pipeline.decision_below import (
     CaseInput,
     LowerCourtFacts,
     appellate_core,
+    docket_document,
     facts_for_row,
+    fill_candidates,
+    fill_decision_below,
     lower_court_facts,
     match_case,
     match_cases,
     number_names,
+    opinion_document,
     read_entry,
     read_rehearing,
     sample_rows,
@@ -746,3 +752,230 @@ def test_a_body_that_is_not_an_object_fails_its_case_only() -> None:
         report = match_cases(client, cases)
     assert report.counts == {"failed": 2}
     assert all("not an object" in m.reason for m in report.matches)
+
+
+# --- the fill ------------------------------------------------------------------
+
+_TODAY = date(2026, 10, 30)
+
+
+def test_an_entry_filed_after_the_docketing_is_not_read() -> None:
+    # A petition on remand, filed after the SCOTUS docketing, would tell a cell
+    # what came of the petition; the reading stops at the docketing.
+    later = {
+        "entry_number": 60,
+        "date_filed": "2025-09-15",
+        "description": "PETITION for rehearing en banc filed on remand.",
+    }
+    undated = {"entry_number": 61, "description": "ORDER granting rehearing en banc."}
+    upstream = _matched_upstream(entries={11: [*_POST_JUDGMENT, later, undated]})
+    with _client(upstream) as client:
+        found = match_case(client, _facts(), case_id="scotus/1")
+    assert found.rehearing is not None
+    assert found.rehearing.entries_read == 2
+    assert [c.entry_number for c in found.rehearing.cites] == [41, 45]
+    assert found.rehearing.disposition == "denied"
+
+
+def _matched() -> tuple[decision_below.DecisionBelowMatch, dict[int, str]]:
+    upstream = _matched_upstream()
+    with _client(upstream) as client:
+        walk = decision_below._Walk(client)
+        found = decision_below._match(walk, _facts(), case_id="scotus/1")
+    return found, walk.texts
+
+
+def test_the_opinion_row_carries_the_text_on_the_judgment_date() -> None:
+    found, texts = _matched()
+    document = opinion_document(found, texts, today=_TODAY, char_cap=10_000)
+    assert document is not None
+    assert document.kind == "decision-below"
+    assert document.case_id == "scotus/1"
+    assert document.entry_date == "2025-04-09"
+    assert document.url == "https://www.courtlistener.com/opinion/500/"
+    assert document.text == _OPINION["plain_text"]
+    assert document.truncated is False
+    cut = opinion_document(found, texts, today=_TODAY, char_cap=20)
+    assert cut is not None and cut.truncated and len(cut.text) == 20
+    # No text upstream, or no match: no row.
+    assert opinion_document(found, {}, today=_TODAY, char_cap=10_000) is None
+    unmatched = found.model_copy(update={"status": "no_cluster_on_date"})
+    assert opinion_document(unmatched, texts, today=_TODAY, char_cap=10_000) is None
+
+
+def test_the_docket_row_records_the_en_banc_reading_and_its_entries() -> None:
+    found, _ = _matched()
+    document = docket_document(found, today=_TODAY)
+    assert document is not None
+    assert document.kind == "lower-court-docket"
+    assert document.url == "https://www.courtlistener.com/docket/11/"
+    # Dated by the latest entry the reading cites.
+    assert document.entry_date == "2025-06-02"
+    text = document.text
+    assert "Case number(s): 24-50496" in text
+    assert "Judgment below (SCOTUS docket): 2025-04-09" in text
+    assert "judges: Smith, Ho, Oldham" in text
+    assert "petition filed: yes" in text
+    assert "disposition: denied" in text
+    assert "dissent noted: yes" in text
+    assert "entry 45 on docket 11, filed 2025-06-02" in text
+    # No docket row found: nothing to record.
+    bare = found.model_copy(update={"status": "no_docket", "dockets": []})
+    assert docket_document(bare, today=_TODAY) is None
+
+
+def _seeded(db: Path) -> None:
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    "scotus/1",
+                    "25-100",
+                    originating_court="ca5",
+                    originating_docket_number="24-50496",
+                    date_filed=_DOCKETED,
+                )
+            ],
+        )
+        corpus.upsert_snapshot(conn, "scotus/1", date(2025, 8, 1), _payload())
+
+
+def test_an_applied_fill_stores_both_rows_and_stamps_the_case(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seeded(db)
+    with corpus.connect(db) as conn, _client(_matched_upstream()) as client:
+        row = corpus.get_row(conn, "scotus/1")
+        assert row is not None
+        dry = fill_decision_below(conn, client, [row], apply=False, today=_TODAY, char_cap=10_000)
+        assert dry.stored == {"decision-below": 1, "lower-court-docket": 1}
+        assert corpus.documents_for_case(conn, "scotus/1") == []
+        stamped = corpus.get_row(conn, "scotus/1")
+        assert stamped is not None and stamped.decision_below_attempted_at is None
+    with corpus.connect(db) as conn, _client(_matched_upstream()) as client:
+        row = corpus.get_row(conn, "scotus/1")
+        assert row is not None
+        applied = fill_decision_below(
+            conn, client, [row], apply=True, today=_TODAY, char_cap=10_000
+        )
+        assert applied.counts == {"matched": 1}
+        kinds = [d.kind for d in corpus.documents_for_case(conn, "scotus/1")]
+        assert kinds == ["decision-below", "lower-court-docket"]
+        stamped = corpus.get_row(conn, "scotus/1")
+        assert stamped is not None and stamped.decision_below_attempted_at == _TODAY
+
+
+def test_a_fill_stopped_at_a_wall_stamps_nothing(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seeded(db)
+    with corpus.connect(db) as conn, _always(429) as client:
+        row = corpus.get_row(conn, "scotus/1")
+        assert row is not None
+        report = fill_decision_below(conn, client, [row], apply=True, today=_TODAY, char_cap=10_000)
+        assert report.stopped is not None and report.deferred == ["scotus/1"]
+        again = corpus.get_row(conn, "scotus/1")
+        assert again is not None and again.decision_below_attempted_at is None
+
+
+def test_fill_candidates_order_and_exclusions(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    stale = date(2026, 9, 1)
+    recent = date(2026, 10, 20)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row("scotus/1", "25-10", originating_court="ca2"),
+                _row("scotus/2", "25-20", originating_court="ca2"),
+                _row("scotus/3", "25-5", originating_court="ca2", salience_selected=True),
+                _row("scotus/4", "25-30", originating_court="ca2"),
+                _row("scotus/5", "25-40", originating_court="ca2"),
+                _row("scotus/6", "25-50", originating_court="ca2", date_cert_denied=recent),
+                _row("scotus/7", "25-60", originating_court_name="Supreme Court of Ohio"),
+                _row("scotus/8", "25-70", originating_court="ca2"),
+                _row("scotus/9", "25-80", originating_court="ca2", merits_decided=recent),
+            ],
+        )
+        corpus.stamp_decision_below_attempt(conn, "scotus/4", stale)
+        corpus.stamp_decision_below_attempt(conn, "scotus/5", recent)
+        corpus.stamp_decision_below_attempt(conn, "scotus/8", stale)
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/8",
+                    kind="decision-below",
+                    url="https://www.courtlistener.com/opinion/1/",
+                    fetched_at=stale,
+                    text="stored",
+                )
+            ],
+        )
+        picked = fill_candidates(
+            conn, today=_TODAY, max_cases=MAX_FILL_CASES, priority=frozenset({"scotus/1"})
+        )
+        capped = fill_candidates(conn, today=_TODAY, max_cases=2)
+    # Priority and salience first (newest first within), then never-attempted
+    # newest first, then the stale re-attempt; a recent stamp, a denial, a merits
+    # decision and a state court are not walked, and a stored opinion is settled.
+    assert [r.case_id for r in picked.rows] == ["scotus/1", "scotus/3", "scotus/2", "scotus/4"]
+    assert picked.settled == ["scotus/8"]
+    assert [r.case_id for r in capped.rows] == ["scotus/3", "scotus/2"]
+    assert capped.settled == []
+
+
+def test_a_settled_case_is_re_stamped_with_no_request(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, [_row("scotus/8", "25-70", originating_court="ca2")])
+        corpus.stamp_decision_below_attempt(conn, "scotus/8", date(2026, 9, 1))
+        upstream = _Upstream()
+        with _client(upstream) as client:
+            report = fill_decision_below(
+                conn, client, [], apply=True, today=_TODAY, char_cap=10, settled=["scotus/8"]
+            )
+        row = corpus.get_row(conn, "scotus/8")
+    assert report.requests == 0 and upstream.requests == []
+    assert row is not None and row.decision_below_attempted_at == _TODAY
+
+
+def test_neither_fill_kind_reaches_a_cell_until_released() -> None:
+    documents = [
+        corpus.CaseDocument(
+            case_id="scotus/1",
+            kind=kind,
+            url="https://www.courtlistener.com/opinion/1/",
+            fetched_at=_TODAY,
+            text="x",
+        )
+        for kind in ("decision-below", "lower-court-docket", "petition")
+    ]
+    kept = provision.documents_for_moment(documents, "evt-petition-disposition")
+    assert [d.kind for d in kept] == ["petition"]
+
+
+def test_the_fill_command_stores_a_named_case(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "corpus"
+    root.mkdir()
+    _seeded(corpus.corpus_db_path(root))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setenv("FEDCOURTS_COURTLISTENER_API_TOKEN", "test-token")
+    monkeypatch.setattr(cli_module, "_client", lambda: _client(_matched_upstream()))
+    result = CliRunner().invoke(
+        cli_module.app, ["enrich-decision-below", "--apply", "--case", "scotus/1"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "stored 1 decision-below, 1 lower-court-docket" in result.output
+    assert "test-token" not in result.output
+    with corpus.connect(corpus.corpus_db_path(root)) as conn:
+        assert len(corpus.documents_for_case(conn, "scotus/1")) == 2
+
+
+def test_the_fill_command_caps_the_walk() -> None:
+    result = CliRunner().invoke(
+        cli_module.app, ["enrich-decision-below", "--max-cases", str(MAX_FILL_CASES + 1)]
+    )
+    assert result.exit_code == 2

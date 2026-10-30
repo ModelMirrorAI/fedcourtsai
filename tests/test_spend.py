@@ -1,10 +1,11 @@
 """The ex-post spend backstop — measured cost as a gate on minting new cells.
 
 Every other cost control bounds one decision or one run; this one reads the
-committed ``usage.json`` ledger over a trailing window and defers new cells once a
-configured ceiling is reached. Disabled by default, and a breach must always defer
-rather than destroy: the predict queue and the evaluate backlog re-derive their
-work from committed state on a later cycle.
+committed spend ledger (cells, case summaries, topic-labeler runs) over a
+trailing window and defers new cells once a configured ceiling is reached.
+Disabled by default, and a breach must always defer rather than destroy: the
+predict queue and the evaluate backlog re-derive their work from committed
+state on a later cycle.
 """
 
 from __future__ import annotations
@@ -13,9 +14,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from fedcourtsai.config import SpendConfig
-from fedcourtsai.schemas import Engine, ModelUsage, UsageRole
+from fedcourtsai.pipeline.qp_topics import run_spend_path
+from fedcourtsai.schemas import Engine, ModelUsage, QpTopicRunSpend, UsageRole
 from fedcourtsai.serialize import write_json
-from fedcourtsai.spend import check_spend, spend_over, trailing_spend
+from fedcourtsai.spend import check_spend, measured_spend, spend_over, trailing_spend
 from fedcourtsai.store import iter_usage
 
 NOW = datetime(2026, 7, 27, 12, 0, tzinfo=UTC)
@@ -155,3 +157,50 @@ def test_a_pinned_since_overrides_the_day_count_cutoff(tmp_path: Path) -> None:
 
     assert pinned == (3.00, 1)
     assert counted == (0.0, 0)
+
+
+def _labeler_run(data_root: Path, *, run_id: str, cost: float, recorded_at: datetime) -> None:
+    """Commit one topic-labeler run record where the spend reader globs."""
+    record = QpTopicRunSpend(
+        frame="applications",
+        run_id=run_id,
+        run_attempt=1,
+        labeler="claude-code/claude-opus-5-5",
+        model="claude-opus-5-5",
+        outcome="refused",
+        batch_rows=1200,
+        label_lines=1200,
+        agree=78,
+        n=100,
+        rate=0.78,
+        floor=0.3,
+        recorded_at=recorded_at,
+        input_tokens=1000,
+        output_tokens=100,
+        cache_read_input_tokens=0,
+        cache_creation_input_tokens=0,
+        estimated_cost_usd=cost,
+    )
+    write_json(run_spend_path(data_root, run_id, 1), record)
+
+
+def test_the_backstop_counts_cells_summaries_and_labeler_runs_as_one_total(
+    tmp_path: Path,
+) -> None:
+    """The backstop and the auto-release budget read one measured figure.
+
+    A labeler run refused at the gate spent all the same, so its record counts;
+    one recorded before the window does not. ``cells`` still counts the agent
+    cells alone.
+    """
+    _usage(tmp_path, docket=1, cost=40.0, created_at=NOW - timedelta(days=2))
+    _labeler_run(tmp_path, run_id="7", cost=9.28, recorded_at=NOW - timedelta(days=1))
+    _labeler_run(tmp_path, run_id="6", cost=60.16, recorded_at=NOW - timedelta(days=40))
+    measured, cells = measured_spend(tmp_path, window_days=30, now=NOW)
+    assert (measured.cells_usd, measured.summaries_usd) == (40.0, 0.0)
+    assert measured.labeler_usd == 9.28
+    assert cells == 1
+    verdict = check_spend(tmp_path, SpendConfig(ceiling_usd=49.0, window_days=30), now=NOW)
+    assert verdict.spent_usd == 49.28
+    assert verdict.cells == 1
+    assert verdict.breached

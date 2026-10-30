@@ -59,11 +59,12 @@ fields that mean the same thing at every stage:
   predicted. The staged `documents/` hold the kinds provisioning gives cells,
   never one the corpus stores but withholds from every cell until a re-bless
   (`provision.WITHHELD_KINDS`, which holds the Court-appointed amicus's merits
-  brief now;
+  brief and the two CourtListener kinds of the decision below now;
   [document-provisioning.md](document-provisioning.md)); the post-argument
   merits cell's `authorship-tally.json` is held back on the same rule
-  (`provision.AUTHORSHIP_TALLY_WITHHELD`), as is a cert cell's
-  `same-question.json` (`provision.SAME_QUESTION_WITHHELD`). `argument-features.json` is the
+  (`provision.AUTHORSHIP_TALLY_WITHHELD`). A forward cert cell's
+  `same-question.json` lists the petitions whose questions presented read like
+  its own. `argument-features.json` is the
   deterministic parse of the transcript the cell was staged. The staged documents carry a
   `documents.json` manifest stating
   each filing's kind with a one-sentence `kind_description`, its extraction
@@ -258,7 +259,8 @@ absent optional field as null.
     "term": 2025,
     "vide_links": [],
     "paper_only_filings": false,
-    "snapshot_contact_scrub": {"sides": [], "blocks": 0, "fields": 0}
+    "snapshot_contact_scrub": {"sides": [], "blocks": 0, "fields": 0},
+    "cert_anchor": null
   },
   "process_version": {
     "label": "proc-v8",
@@ -855,7 +857,7 @@ directory without knowing which part is which invites trusting the wrong half.
   cutoff** (`cut_kind`, with `cut_anchor_index` beside it), and the
   conditioning state frozen at provisioning: the
   salience band, the distribution count and CVSG date as at that cutoff (as at
-  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), whether the docket puts its filings on paper only under Rule 34.6, so nothing is posted to stage (`paper_only_filings`), what the contact scrub withheld from the staged snapshot (`snapshot_contact_scrub`: the self-represented sides it keyed on, empty where it did not run, and the blocks and values it replaced), and — on an
+  the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), whether the docket puts its filings on paper only under Rule 34.6, so nothing is posted to stage (`paper_only_filings`), what the contact scrub withheld from the staged snapshot (`snapshot_contact_scrub`: the self-represented sides it keyed on, empty where it did not run, and the blocks and values it replaced), on a cert cell that froze a band the skill anchor pooled at placement (`cert_anchor`: the risk-set rate over the frozen band, version and Term, the statpack build it was pooled from and the lookback window; null on a cell of any other stage, on a cert cell that froze no band, and where no statpack was readable), and — on an
   application cell only — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
   against only ever strengthens, so a band re-derived at evaluation would
@@ -1034,7 +1036,16 @@ who writes the baseline on each:
   the scored prediction froze a band, `stamp-cell` writes the rate, the Brier,
   the skill and both halves of the basis from the scorer's own pooler, and
   records the statpack build in `base_rate_statpack_digest` and the window in
-  `base_rate_lookback_terms`. Before `proc-v9`,
+  `base_rate_lookback_terms`. From `proc-v15` on, where the scored prediction's
+  context carries a `cert_anchor`, those three are copied from it rather than
+  pooled from the statpack checked out at grading, so a metrics refresh
+  between forecast and grading does not move the anchor — once the stamp has
+  verified it: it must name the newest revision of `metrics/statpack.json`
+  committed at or before the predict cell's run id, record the lookback
+  window `config/tracking.yaml` names at that commit, and re-pool to the
+  frozen rate, or the anchor and skill are cleared with a warning
+  (`docs/process-version.md` states the trust boundary). A context with no `cert_anchor` pools the statpack checked out at
+  grading. Before `proc-v9`,
   and on the terminal fallback, the evaluator transcribes the rate from
   `metrics/statpack.md`.
 - **An interim cell's baseline is registered and wired** — the statpack interim

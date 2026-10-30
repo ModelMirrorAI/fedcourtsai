@@ -68,6 +68,7 @@ queries:
     params:
       description: >-
         ("summary judgment" AND (vacat* OR "set aside")) OR "section 705"
+        OR "U.S.C. 705" OR "USC 705" OR "interim relief"
         OR "postpone the effective date"
       party_name: >-
         "Homeland Security" OR "Immigration and Customs" OR "Citizenship and Immigration"
@@ -91,7 +92,7 @@ queries:
 # applications (policy area `immigration`) trace back to, through the circuit
 # docket each application names and that docket's originating-court record in
 # CourtListener's bulk export. Applications whose circuit case the export does
-# not trace to a district docket are not listed, nor are three that trace to a
+# not trace to a district docket are not listed, nor are four that trace to a
 # docket outside the export slice the gold set was matched in (district
 # dockets filed 2017 on under the policy nature-of-suit codes).
 gold:
@@ -115,5 +116,4 @@ gold:
   - {docket_id: 69695790, court: mad, docket_number: "1:25-cv-10495", applications: [24A1079]}
   - {docket_id: 69741724, court: dcd, docket_number: "1:25-cv-00766", applications: [24A931]}
   - {docket_id: 70616413, court: mad, docket_number: "1:25-cv-10676", applications: [24A1153, 26A406]}
-  - {docket_id: 70793093, court: txnd, docket_number: "6:25-cv-00059", applications: [24A1007]}
   - {docket_id: 70965949, court: dcd, docket_number: "1:25-cv-02471", applications: [25A999]}

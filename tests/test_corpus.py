@@ -1361,6 +1361,7 @@ _TRACKING_STAMPS = (
     "last_live_polled",
     "opinion_enrich_attempted_at",
     "document_floor_probed_at",
+    "decision_below_attempted_at",
     "predict_queued_at",
     "evaluate_queued_at",
 )
@@ -3730,6 +3731,8 @@ def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
                     call_for_response_at=date(2026, 8, 12),
                     merits_brief_on_lead=date(2026, 7, 13),
                     relisted_at=date(2026, 10, 13),
+                    opening_writ="rule-20",
+                    distributed_after_call=1,
                     distribution_count=2,
                     application_kind="substantive",
                     sample_weight=10,
@@ -3762,6 +3765,8 @@ def test_counsel_survives_a_counsel_less_write_and_a_fresh_reading_replaces_it(
     assert kept.call_for_response_at == date(2026, 8, 12)  # fill-in latch
     assert kept.merits_brief_on_lead == date(2026, 7, 13)  # fill-in latch
     assert kept.relisted_at == date(2026, 10, 13)  # fill-in latch
+    assert kept.opening_writ == "rule-20"  # fill-in latch
+    assert kept.distributed_after_call == 1  # fill-in latch
     assert kept.distribution_count == 2  # max-latch
     assert kept.application_kind == "extension"  # a real reading replaces
     assert kept.sample_weight == 1  # min-latch

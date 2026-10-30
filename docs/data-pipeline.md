@@ -917,6 +917,21 @@ a replay cell's prior retrieval can return full SCOTUS opinion text. The
 retrieval cutoff (`decided_before`) and the mode contract are the controls that
 keep that honest, and they bind wherever the bit is filled.
 
+The **decision below** is filled by a sibling pass on the same budget,
+`enrich-decision-below` (`pipeline/decision_below.py`). For a cert petition from
+a federal court of appeals, not denied, it joins the lower court's docket on
+CourtListener and stores the opinion on the judgment date as a `decision-below`
+document and the docket record as a `lower-court-docket` document, both through
+`upsert_documents`. Its rotation key is `decision_below_attempted_at`, stamped
+with a direct column write (`stamp_decision_below_attempt`) on every case
+upstream answered about, so a docket CourtListener has not ingested is asked
+again after 30 days rather than every run. A case whose opinion is stored is
+re-stamped with no request when its turn comes, so it costs one manifest read
+a cycle. The ledger's predicted cases and the salience selection
+go first, because those are the cells the input is for. Both kinds wait in
+`provision.WITHHELD_KINDS` for the re-bless that names them
+([document-provisioning.md](document-provisioning.md)).
+
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a
 forward cell at the provisioning seam through three gates, mechanical-first:
@@ -1628,8 +1643,8 @@ pass's ledger to the run summary and writes nothing off the runner, the maintain
 count off it, and a second dispatch applies with that count in `repair_bound`,
 for the passes that take one.
 An apply run's own in-run dry-run is a receipt, not a reading — nobody reads it
-before the write. Ten passes skip it: the distribution re-derivation and the
-cert amicus back-fill, whose plans *are* their write sets, and the three fetching passes
+before the write. Eleven passes skip it: the distribution re-derivation, the
+cert amicus back-fill and the sal-v5 cert-column back-fill, whose plans *are* their write sets, and the three fetching passes
 (the OCR recovery, the document back-fill and the re-cut),
 whose apply ledgers already state the class they found before writing; the
 two vote-writer passes, the application back-fill and the opinion record, whose
@@ -1706,6 +1721,7 @@ passes, commits from the same record.
 | `event-definition-backfill` | `backfill-event-definitions` | `--max-rewrites` (`event.yaml` files rewritten: the dry run's "would rewrite N file(s)", not the field counts) | — | — |
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `cert-amicus-rederive` | `rederive-cert-amicus-briefs` | `--max-changes` (rows written: the dry run's `total_changes`, fills plus raises) | — | — |
+| `salience-cert-backfill` | `backfill-salience-cert-columns` | `--max-fills` (column fills across the three columns: the dry run's `total_fills`, not rows) | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
@@ -2273,6 +2289,25 @@ gh workflow run run-repair.yml --ref main \
   -f repair=cert-amicus-rederive -f repair_mode=dry-run
 gh workflow run run-repair.yml --ref main \
   -f repair=cert-amicus-rederive -f repair_mode=apply -f repair_bound=<the ledger's total_changes>
+
+# The sal-v5 cert-column back-fill fills `call_for_response_at`,
+# `distributed_after_call` and `opening_writ` on the cert live slice the poll no
+# longer reaches, re-parsing each row's newest live snapshot with the functions
+# ingest calls. NULLs only, stricter than ingest's upsert (where a fresh reading
+# replaces the stored one): a column already holding a value is `already_set`
+# and never written, whatever the snapshot now reads, and a count whose snapshot
+# dates the call differently from the stored call is `pair_mismatch`, not
+# filled. Corpus only.
+# Read `unobservable` first — a ledger where every fetched row is unobservable
+# read a blob with no content store behind it. Per column the ledger reads
+# `would_fill`, `already_set`, `no_reading` (no call, no petition entry) and
+# `unparseable` (no snapshot, or no proceedings). The bound is the ledger's
+# `total_fills` (column fills, not rows). Re-dispatching in `dry-run` after the
+# apply is the control: it must report `total_fills = 0`.
+gh workflow run run-repair.yml --ref main \
+  -f repair=salience-cert-backfill -f repair_mode=dry-run
+gh workflow run run-repair.yml --ref main \
+  -f repair=salience-cert-backfill -f repair_mode=apply -f repair_bound=<the ledger's total_fills>
 
 # The vote writer stamps committed outcomes from the Court's documents; each
 # pass's bound is the dry run's "would stamp N", in the handoff-parse job's

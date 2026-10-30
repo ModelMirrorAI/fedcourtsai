@@ -62,7 +62,8 @@ reconcile (``set_predict_excluded`` / ``normalize_predict_eligible``),
 ``backfill_live_signals``, the document back-fill's floor probe
 (``stamp_document_floor_probe``, a direct ``UPDATE`` precisely so a row
 hydrated from the payload-free index cannot re-mirror a body-less
-``case.json`` over a stored opinion), the bulk-cluster scrub
+``case.json`` over a stored opinion), the decision-below fill's cursor
+(``stamp_decision_below_attempt``, direct for the same reason), the bulk-cluster scrub
 (``pipeline.bulk_scrub``, which nulls case-fact columns a store browser
 reads), and the decision-date convergence
 (``converge_denial_termination_dates``, which fills a denied petition's

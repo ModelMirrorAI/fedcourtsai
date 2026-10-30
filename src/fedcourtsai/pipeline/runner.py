@@ -769,7 +769,7 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
     """
     prompt = request.prompt.as_posix()
     if request.role == UsageRole.predictor:
-        task = f"Read {prompt} and AGENTS.md, then produce the prediction for this cell:"
+        task = f"Read {prompt}, then produce the prediction for this cell:"
         actor_line = f"PREDICTOR_ID={request.actor_id}"
         blocked_doc = "reasoning.md"
         # The predict kickoff names the case-level record directory outright,
@@ -785,7 +785,7 @@ def _claude_instruction(request: RunRequest, model: str) -> str:
         )
     else:
         task = (
-            f"Read {prompt} and AGENTS.md, then score every predictor's prediction "
+            f"Read {prompt}, then score every predictor's prediction "
             "for this cell against its outcome.json:"
         )
         actor_line = f"EVALUATOR_ID={request.actor_id}"

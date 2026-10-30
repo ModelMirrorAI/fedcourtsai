@@ -95,18 +95,21 @@ live:
   max_poll_staleness_days: 7
   # The most of each cycle's max_cases_per_run the overdue tier may take, so a
   # large overdue backlog drains over several cycles while the distributed
-  # petitions keep the rest of each one (their order-list results are days
-  # away). A third of max_cases_per_run; at twelve cycles a day that drains at
-  # most ~600 overdue dockets a day.
+  # petitions keep the rest of each one, less the never-polled reserve below
+  # (their order-list results are days away). A third of max_cases_per_run;
+  # at twelve cycles a day that drains at most ~600 overdue dockets a day.
   max_overdue_per_run: 50
   # Slots of each cycle kept for rows the live channel has never polled,
   # oldest Term first, so a row the historical walker skipped (undecided when
   # walked, or never served) is still reached: the Term tiers lead with recent
-  # Terms, which always fill the cap. Taken only from what the overdue and
-  # distributed rows leave, so it never delays an order-list re-read. Only the
-  # row its docket number resolves to qualifies, so a caption-only upstream
-  # duplicate is never polled into a second full row. At twelve cycles a day,
-  # 10 slots reach up to ~120 rows a day; 0 disables the reserve.
+  # Terms, which always fill the cap. Yields only to the overdue tier: in Term
+  # the distributed petitions alone fill the cap, so the reserve takes its
+  # slots from the most recently polled petitions of the last conference the
+  # cycle reaches (a past conference's while its set exceeds the cap), which
+  # the next cycle reaches. At most half of max_cases_per_run. Only the row its docket number resolves to
+  # qualifies, so a caption-only upstream duplicate is never polled into a
+  # second full row. At twelve cycles a day, 10 slots reach up to ~120 rows a
+  # day; 0 disables the reserve.
   never_polled_reserve_per_run: 10
   # Days after a conference by which its order list has issued: the Monday
   # after a Friday conference (Tuesday after a Monday holiday), the first
@@ -539,6 +542,18 @@ salience:
   # predicted slice is a ladder-ordered subsample. Raising it widens interim
   # coverage and narrows the cert rank fill one-for-one.
   interim_reserve_slots: 5
+  # Age-out horizon for a reserve slot, in days from the application's filing
+  # date to the selection pass's own date (docs/salience.md "The interim
+  # docket"). A still-pending occupant filed more than this many days before
+  # the pass keeps its latch but gives up its slot, and a pending application
+  # past it does not contend for one, so an upstream docket that never records
+  # a disposition cannot hold a slot indefinitely. Sized against decided
+  # substantive applications (filing to decision: median 5 days, p99 167), so
+  # about 1% of them were still pending at the horizon and would have been
+  # de-funded before their outcome. 0 disables the age-out. A change moves which
+  # applications and which cert petitions are selected, so it takes a dated
+  # membership-rule entry in docs/freeze-record.md.
+  interim_reserve_age_out_days: 180
 
 # statpack = publication knobs for `metrics/statpack.md`
 # (src/fedcourtsai/analytics.py). The JSON artifact always carries every Term and
@@ -569,7 +584,12 @@ statpack:
 # per-period limit above it: across the day's scheduled windows, spend is bounded
 # only by how many cells happen to be owed — the quantity that becomes large at a
 # long conference. This section is the bound above them, read by the predict and
-# evaluate plan seams before either mints a matrix.
+# evaluate plan seams before either mints a matrix. What it sums is the one
+# measured total the review hold's auto-release budget (config/review-hold.yaml)
+# projects over too: every committed usage.json (the agent cells), the usage each
+# committed case summary records, and every topic-labeler run's spend record
+# under data/qp-topics/spend/ — a run refused at the reference gate included,
+# since it spends as much as one that publishes — each windowed on its own stamp.
 spend:
   # Trailing-window ceiling on measured spend, USD (0 would DISABLE the
   # backstop, the convention the other caps use — the code default, so a
@@ -602,8 +622,9 @@ spend:
   # The window the ceiling applies over, days. Sized to approximate the billing
   # period being protected, not a run (trailing, so it never aligns exactly
   # with a calendar cycle). NOTE the measurement lags: a cell's usage.json
-  # reaches data/ only when its run's collect PR merges, so the ledger is a FLOOR
-  # on spend within the window, never a live figure.
+  # reaches data/ only when its run's collect PR merges, and a summary's or a
+  # labeler run's record when its reviewed PR does, so the ledger is a FLOOR on
+  # spend within the window, never a live figure.
   window_days: 30
 
 # runner = the agentic predict/evaluate cell runner's retry governor (see
