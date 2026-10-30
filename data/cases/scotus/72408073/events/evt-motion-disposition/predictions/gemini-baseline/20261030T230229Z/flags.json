@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/72408073",
+  "run_id": "20261030T230229Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "leakage-disclosure",
+      "severity": "info",
+      "event_id": "evt-motion-disposition",
+      "message": "While looking up the originating Fifth Circuit docket 16-70010 via CourtListener MCP (after a pre-cutoff search with filed_before=2017-07-31 returned 0 results because 663 F. App'x 361 is not indexed under 16-70010), an unfiltered docket search returned a snippet from the subsequent remand opinion (706 F. App'x 181, filed 2017-12-12) noting that the Supreme Court later GVR'd the underlying cert petition in light of Moore v. Texas. The post-cutoff opinion was not read and did not disclose the disposition of interim stay application 17A145."
+    }
+  ]
+}

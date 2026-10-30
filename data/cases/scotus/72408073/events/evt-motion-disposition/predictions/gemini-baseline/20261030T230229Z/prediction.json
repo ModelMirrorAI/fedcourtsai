@@ -1,0 +1,91 @@
+{
+  "big_case_rationale": null,
+  "big_case_score": null,
+  "case_id": "scotus/72408073",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.01,
+        "Breyer": 0.035,
+        "Ginsburg": 0.025,
+        "Gorsuch": 0.01,
+        "Kagan": 0.015,
+        "Kennedy": 0.005,
+        "Roberts": 0.005,
+        "Sotomayor": 0.04,
+        "Thomas": 0.015
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "interim-disposition",
+      "probability": 0.14
+    },
+    {
+      "claim_id": "response-requested-increment",
+      "probability": 0.12
+    },
+    {
+      "claim_id": "referral-increment",
+      "probability": 0.85
+    },
+    {
+      "claim_id": "amicus-increment",
+      "probability": 0.03
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": 0,
+    "band": null,
+    "cert_anchor": null,
+    "cut_anchor_index": 0,
+    "cut_kind": "arrival-position",
+    "cutoff": "2017-08-01",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": false,
+    "response_requested": false,
+    "salience_version": null,
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2017-08-01",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2017,
+    "vide_links": []
+  },
+  "created_at": "2026-10-30T23:24:36.227034Z",
+  "engine": "gemini",
+  "event_id": "evt-motion-disposition",
+  "granted": 0,
+  "input_snapshot": "record/snapshots/2017-08-01.json",
+  "judgment": null,
+  "model": "gemini-4-argon",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": null,
+  "predictor_id": "gemini-baseline",
+  "probability": 0.14,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
+    "label": "proc-v15",
+    "pipeline_sha": "b9c108875b0e0d4bbc676b71cdf99f372cbf8529",
+    "stamped_at": "2026-10-30T23:24:36.227034Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261030T230229Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
