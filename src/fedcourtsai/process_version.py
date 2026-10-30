@@ -95,7 +95,7 @@ from .schemas import (
 
 # Human label the current process is stamped with. Bump on a deliberate,
 # named process change; the digest moves on *any* input change regardless.
-CURRENT_PROCESS_LABEL = "proc-v14"
+CURRENT_PROCESS_LABEL = "proc-v15"
 
 #: The committed frozen-process registry the freeze constants below are built
 #: from: the labels and their counting instants, the digests the current label

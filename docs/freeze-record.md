@@ -15011,3 +15011,161 @@ freeze commit is recorded here.
   over a freshly pulled corpus shows the OT2017 row gone from its table, or
   holding only rows whose poll failed in transit; its total falls with each
   later run until it reaches zero.
+
+- **`proc-v15`: a cell's prompt template is its whole contract, the cert
+  skill anchor is frozen at placement, forward cert cells read their
+  same-question list, and run-time installs are refused; recorded
+  2026-10-30.** Carried to `main` by `<FILL: promotion tag>` (merge
+  `<FILL: merge sha>`, `<FILL: merged time utc>`), to be tagged
+  **`prereg/proc-v15`**. Registered under the merge-stamped rule, so its
+  counting instant, its six bless moments and every window edge it moves are
+  the carrying merge's committer time. Both prompts change, so it takes the
+  same two supersession shapes `proc-v14` took
+  ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  each predictor's open `proc-v14` window **closes** at this label's instant
+  and a `proc-v15` window opens there for each new digest, and the three
+  judges' blessings are replaced. Nothing is de-counted and nothing is
+  re-owed. Until the carrying merge stamps the six new blessings, the carried
+  bless map is empty while `FROZEN_SINCE` stays at `proc-v14`'s instant, so
+  every board built in that interval counts nothing of this label.
+
+  **What moved, in what every cell reads.**
+  - *The instruction files.* Every cell was told to read `AGENTS.md` first,
+    and Claude Code and Codex load `AGENTS.md` and `CLAUDE.md` from the tree
+    on their own, so every cell answered under instructions no digest hashed.
+    The predict, evaluate and labeling prompts now open with a short *Cell
+    contract* (the lane, the harness-owned fields, the leakage clock, no
+    secrets, `flags.json` as the channel, validation) and name no other
+    instruction file. The kickoff lines name only the actor's template. Every
+    job that starts an engine in a checkout — run-predict, run-evaluate,
+    run-backtest, the run-analytics labeler and integration-test's scenario
+    and labeler-smoke jobs — marks the two files skip-worktree and deletes
+    them before its first engine step. `tests/test_cell_instructions.py`
+    holds all three. The labeling prompt is in no registered digest
+    ([qp-topic.md](qp-topic.md)), so its edit moves no registration.
+  - *PDFs and installs.* `fedcourts pdf-text <file>` prints a PDF's text
+    through the corpus's own pypdf extractor, and both prompts name it. Package
+    installs are refused in each engine's own surface, from one prefix list
+    (`fedcourtsai.cell_policy`, `fedcourts cell-policy`): claude-code
+    `permissions.deny` rules, codex `forbidden` execpolicy rules in the codex
+    account's `$CODEX_HOME/rules/`, gemini a `run_shell_command` deny rule
+    through `policyPaths`. It refuses command prefixes the engine parses, not
+    outcomes ([security.md](security.md)). The back-test and local cells
+    launched by `pipeline/runner.py` do not carry it. Both prompts also say a
+    bare `fedcourts` runs, which the `agent-shell-fedcourts-on-path`
+    boundary made true.
+  - *The frozen cert anchor, named.* The predict prompt names
+    `record/context.json`'s `cert_anchor` — the risk-set rate over the cell's
+    frozen band, version and prior Terms, pooled from the statpack in force at
+    placement, with that build's digest and lookback window — as the baseline
+    its cert skill is scored against, and says what a null `rate` and a null
+    record mean.
+  - *The same-question list.* `provision.SAME_QUESTION_WITHHELD` is off: a
+    forward cert cell's provisioning stages `record/same-question.json`,
+    other petitions whose questions presented read like this one's, by
+    text-similarity score, with each one's status at the cutoff, and the
+    predict prompt says how to read it.
+
+  **What the harness releases with this label.**
+  - *The pinned cert anchor.* `PINNED_CERT_ANCHOR_FROM` names `proc-v15`, the
+    label registered here: a cert grading stamped under it whose scored
+    prediction froze `context.cert_anchor` stamps that anchor, once verified
+    against the predict cell's run id, the committed statpack history and
+    `config/tracking.yaml`, instead of pooling the statpack checked out at
+    grading ([process-version.md](process-version.md)). A grading of a cell
+    placed without the record still pools at grading. This moves who fixes
+    the baseline's build, not the quantity: the same pooler over the same
+    frozen context.
+  - *The same-question boundary.* `cert-same-question-list` is registered
+    **pending** by the merged switch-on (every predictor, reach `all`, not
+    gradual); `promotion-record` stamps it at this label's carrying merge. It
+    coincides with this label's window edge, since the same merge moves every
+    predictor digest.
+  - *No other boundary.* The instruction-file removal, `pdf-text` and the
+    install refusal change what a cell reads or can run, but they land in the
+    same merge that moves every predictor and evaluator digest, so the label's
+    own window edge is their boundary and none is registered for them.
+
+  **What scored figures move.** None at once: no rate, membership rule or
+  scoring rule moves for a committed grading. From this label's gradings on,
+  a cert cell placed after the anchor record carries its placement-time
+  baseline, so a cert skill figure that spans the label pools two baseline
+  rules; such a figure reads per label.
+
+  **The retiring evaluator digests, and what was graded under them.**
+  `sha256:0e123d10…` (`claude-judge`), `sha256:0a2c0199…` (`codex-judge`) and
+  `sha256:61cb758f…` (`gemini-judge`) leave the blessed set. At `origin/main`
+  `3a6ec54a5` they stamp **3**, **3** and **3** committed evaluations. Each
+  keeps counting on its timing (`graded_in_window`), and judge-dependent
+  series that span the rubric boundary read per rubric
+  ([metrics/README.md](../metrics/README.md)).
+
+  **Digests** (`uv run fedcourts process-digest --all`, the `proc-v14`
+  column as the registry blesses it):
+
+  | Actor | Before | `proc-v15` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf` (`proc-v14`) | `sha256:a9a386a7c6c74e2d83f94ba78af0fea5d1fa8107033b0ade6df72a12b4290bd1` (new) |
+  | `codex-baseline` | `sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6` (`proc-v14`) | `sha256:ffa6d072990baa0a948db8f3f0c41be75fe0474e63710a25b79a1493cd99267e` (new) |
+  | `gemini-baseline` | `sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583` (`proc-v14`) | `sha256:a5c14f67ca839fb03851e35505173e45161ef1d5c97247b926c886bec4b20506` (new) |
+  | `claude-judge` | `sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec` | `sha256:1045006f58aefeb911c2ebc978907a9450f819f45705d52fa8866e70cd065d41` (new) |
+  | `codex-judge` | `sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30` | `sha256:688306c7d086317b1fd6448056659c8eeb99f4080e9f10666e0a9897d89921c2` (new) |
+  | `gemini-judge` | `sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9` | `sha256:a0771518d83f3cd79b6ee2ffb738c460f6011c39d1cd63aeaf4e6f50fb33e9e3` (new) |
+
+  **Step 0.** At `origin/main` `3a6ec54a5` (`2026-10-30T11:04:52Z`), `git grep
+  -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
+  the six newly blessed digests, and `git grep -l '"process_version": {'
+  origin/main -- data/cases | wc -l` is **3298** stamped cells.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`641ede79…`) | `proc-v14` | `2026-10-29T14:16:26Z` | this label's instant (was open) |
+  | `codex-baseline` (`231b2fd0…`) | `proc-v14` | `2026-10-29T14:16:26Z` | this label's instant (was open) |
+  | `gemini-baseline` (`725538ea…`) | `proc-v14` | `2026-10-29T14:16:26Z` | this label's instant (was open) |
+  | `claude-baseline` (`a9a386a7…`) | `proc-v15` | this label's instant | open (new) |
+  | `codex-baseline` (`ffa6d072…`) | `proc-v15` | this label's instant | open (new) |
+  | `gemini-baseline` (`a5c14f67…`) | `proc-v15` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-10-31T00:00:00Z`, in a
+  scratch copy of the registry, over `origin/main`'s ledger at `3a6ec54a5`.
+  `uv run fedcourts successor-disclosures --closed proc-v14 --successor
+  proc-v15`:
+
+  ```
+  successor proc-v15 closes proc-v14 at 2026-10-31T00:00:00+00:00
+    closed proc-v14 codex-baseline: 62 counted event(s) — 0 resolved, 62 pending at close
+    closed proc-v14 claude-baseline: 62 counted event(s) — 0 resolved, 62 pending at close
+    closed proc-v14 gemini-baseline: 58 counted event(s) — 0 resolved, 58 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v14` window figure is quoted outside the committed
+  board.
+
+  **Evidence for the change other than the closed windows' boards.** None:
+  every closed window has 0 resolved events, and the changes answer a
+  contract defect (instructions outside the digest), a scoring-baseline
+  defect (a statpack refresh moving a forecast's baseline), and the
+  maintainer's review of how cells read PDFs, not a score.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L, PINNED_CERT_ANCHOR_FROM as P; print(L, P)"`
+    prints `proc-v15 proc-v15`, and `uv run fedcourts process-digest --all`
+    prints the six digests above;
+  - on the first predict run after the carrying merge, each cell job's log
+    shows the removal step green and no engine transcript opens `AGENTS.md`
+    or `CLAUDE.md`; every forward cert cell's `record/context.json` carries
+    `cert_anchor` and its record carries `same-question.json`;
+  - `uv run fedcourts cell-policy --engine gemini` prints the deny rule, and
+    a cell whose transcript attempts `pip install` shows it refused;
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    HARNESS_BOUNDARIES as H; print('cert-same-question-list' in {b.name for
+    b in H})"` prints `True` once the promotion record has stamped the row.
