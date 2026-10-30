@@ -1,0 +1,23 @@
+{
+  "agree": 187,
+  "batch_rows": 1063,
+  "cache_creation_input_tokens": 568648,
+  "cache_read_input_tokens": 13140417,
+  "estimated_cost_usd": 7.3484474,
+  "floor": 0.38589211618257263,
+  "frame": "applications",
+  "input_tokens": 76,
+  "label_lines": 1063,
+  "labeler": "claude-code/claude-opus-5-5",
+  "lane": "qp-topic-label",
+  "model": "claude-opus-5-5",
+  "n": 241,
+  "outcome": "refused",
+  "output_tokens": 93841,
+  "priced_as": null,
+  "rate": 0.7759336099585062,
+  "recorded_at": "2026-10-30T17:02:25.680304Z",
+  "run_attempt": 1,
+  "run_id": "41092861853",
+  "schema_version": "1.0"
+}
