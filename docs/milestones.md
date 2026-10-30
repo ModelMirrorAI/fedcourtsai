@@ -134,9 +134,12 @@ developer, or an AI system's training, outputs or deployment, is central to a
 claim or defense — from the district court up. It exists for its audience: the
 evaluation and forecasting communities follow these cases closely, and
 little timestamped, structured coverage of them exists. The list and the rule
-that admits a case are committed, and a case is added on a dated line. Its
-cases carry an `ai` tag that follows them to any appeal or cert petition; the
-tag never changes SCOTUS selection.
+that admits a case are committed in `config/ai-watchlist.yaml`, and a case is
+added on a dated line. Each case names its AI-developer parties and one
+category from the file's closed vocabulary (copyright, government, product
+liability and so on), so the list's mix can be reported. Its cases carry an
+`ai` tag that follows them to any appeal or cert petition; the tag never
+changes SCOTUS selection.
 
 What the step adds:
 

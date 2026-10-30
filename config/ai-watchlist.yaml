@@ -1,0 +1,232 @@
+# The AI-case watchlist (src/fedcourtsai/ai_watchlist.py): the hand-curated
+# lower-court cases the AI-cases feed follows, and later forecasts.
+#
+# The rule. A case is listed when an AI developer, or an AI system's training,
+# outputs or deployment, is central to a claim or defense. Federal district
+# courts and circuits only; state courts are out. The list favours cases with
+# substantive rulings still ahead, and stays on the order of 10–20 cases.
+#
+# Changes. A case is added by a PR that cites this rule, on a dated `added`
+# line. A case is removed only when it closes, and it stays in the git
+# history either way. Nothing adds a case automatically; the maintainer decides.
+#
+# Fields. `developers` names every AI developer that is a party, because the
+# self-interest comparison will key on it; it is never empty. `category` is one
+# entry of `categories` below, the case's primary subject; a new category is a
+# rule change, made the same way as a new case. `related` lists the case's
+# other dockets (an appeal, a transferred-from or companion docket, an MDL's
+# panel docket and members), so the `ai` tag follows the case to every court
+# it reaches. A SCOTUS petition from a listed case is tagged by the same
+# relation once it exists, and enters the SCOTUS pipeline on its own salience
+# terms: the tag never changes selection, so `scotus` is never listed here.
+
+categories:
+  copyright: Training on, or outputting, protected works (infringement, DMCA §1202, licence claims).
+  government: Suits by or against a government over AI (APA review, procurement, regulation).
+  product-liability: Harm alleged from a model's outputs or deployment (injury, wrongful death).
+  antitrust: Competition claims over AI products or markets.
+  competitor: Disputes between AI developers or their founders (governance, trade secrets, contract).
+  employment: AI systems used in hiring and employment decisions.
+  computer-access: Scraping and automated or agentic access to sites and services.
+  privacy: Personal data in training, outputs or logs.
+  civil-rights: Discrimination or disability-access claims about AI systems.
+
+cases:
+  - name: In re OpenAI Copyright Infringement Litigation (MDL 3143)
+    court: nysd
+    docket_id: 69879510
+    docket_number: "1:25-md-03143"
+    category: copyright
+    why: Claims turn on training language models on news and books, and on what the models output.
+    developers: [OpenAI, Microsoft]
+    added: 2026-10-30
+    related:
+      - {court: jpml, docket_id: 646469, docket_number: "MDL No. 3143", relation: mdl}
+      - {court: ca2, docket_id: 70880280, docket_number: "25-1756", relation: appeal}
+      - {court: nysd, docket_id: 68117049, docket_number: "1:23-cv-11195", relation: member}
+      - {court: nysd, docket_id: 67810584, docket_number: "1:23-cv-08292", relation: member}
+
+  - name: Kadrey v. Meta Platforms
+    court: cand
+    docket_id: 67569326
+    docket_number: "3:23-cv-03417"
+    category: copyright
+    why: Whether training Llama on copied books is fair use.
+    developers: [Meta]
+    added: 2026-10-30
+    related: []
+
+  - name: Getty Images v. Stability AI
+    court: cand
+    docket_id: 71112094
+    docket_number: "3:25-cv-06891"
+    category: copyright
+    why: Training Stable Diffusion on Getty's images, and Getty watermarks in its outputs.
+    developers: [Stability AI]
+    added: 2026-10-30
+    related:
+      - {court: ded, docket_id: 66788385, docket_number: "1:23-cv-00135", relation: transfer}
+
+  - name: Thomson Reuters v. Ross Intelligence
+    court: ded
+    docket_id: 17131648
+    docket_number: "1:20-cv-00613"
+    category: copyright
+    why: Copying Westlaw headnotes to train an AI legal-search tool.
+    developers: [Ross Intelligence]
+    added: 2026-10-30
+    related:
+      - {court: ca3, docket_id: 70622297, docket_number: "25-2153", relation: appeal}
+
+  - name: Concord Music Group v. Anthropic
+    court: cand
+    docket_id: 68889092
+    docket_number: "5:24-cv-03811"
+    category: copyright
+    why: Training Claude on song lyrics, and lyrics in its outputs.
+    developers: [Anthropic]
+    added: 2026-10-30
+    related:
+      - {court: tnmd, docket_id: 67894459, docket_number: "3:23-cv-01092", relation: transfer}
+      - {court: cand, docket_id: 72199828, docket_number: "5:26-cv-00880", relation: companion}
+
+  - name: UMG Recordings v. Uncharted Labs (Udio)
+    court: nysd
+    docket_id: 68878697
+    docket_number: "1:24-cv-04777"
+    category: copyright
+    why: Training a music generator on copyrighted sound recordings.
+    developers: [Uncharted Labs]
+    added: 2026-10-30
+    related:
+      - {court: nysd, docket_id: 73641108, docket_number: "1:26-cv-06120", relation: companion}
+
+  - name: Dow Jones v. Perplexity AI
+    court: nysd
+    docket_id: 69280523
+    docket_number: "1:24-cv-07984"
+    category: copyright
+    why: Retrieval-augmented answers that copy, and misattribute, news content.
+    developers: [Perplexity AI]
+    added: 2026-10-30
+    related: []
+
+  - name: New York Times v. Perplexity AI
+    court: nysd
+    docket_id: 71997720
+    docket_number: "1:25-cv-10106"
+    category: copyright
+    why: Use of news content in Perplexity's AI answer engine.
+    developers: [Perplexity AI]
+    added: 2026-10-30
+    related: []
+
+  - name: Musk v. Altman
+    court: cand
+    docket_id: 69013420
+    docket_number: "4:24-cv-04722"
+    category: competitor
+    why: OpenAI's for-profit restructuring, brought by a co-founder who now runs a rival developer.
+    developers: [OpenAI, Microsoft]
+    added: 2026-10-30
+    related: []
+
+  - name: Mobley v. Workday
+    court: cand
+    docket_id: 66831340
+    docket_number: "3:23-cv-00770"
+    category: employment
+    why: Liability for discrimination by an AI hiring-screening tool.
+    developers: [Workday]
+    added: 2026-10-30
+    related: []
+
+  - name: Amazon.com Services v. Perplexity AI
+    court: cand
+    docket_id: 71874820
+    docket_number: "3:25-cv-09514"
+    category: computer-access
+    why: Whether an agentic AI browser may shop on a site that forbids it.
+    developers: [Perplexity AI]
+    added: 2026-10-30
+    related:
+      - {court: ca9, docket_id: 72502129, docket_number: "26-1444", relation: appeal}
+
+  - name: Anthropic v. U.S. Department of War
+    court: cand
+    docket_id: 72379655
+    docket_number: "3:26-cv-01996"
+    category: government
+    why: An AI developer's APA suit for declaratory and injunctive relief against the Department of War.
+    developers: [Anthropic]
+    added: 2026-10-30
+    related:
+      - {court: ca9, docket_id: 73136734, docket_number: "26-2011", relation: appeal}
+      - {court: cadc, docket_id: 72380208, docket_number: "26-1049", relation: companion}
+      - {court: cadc, docket_id: 73496372, docket_number: "26-1162", relation: companion}
+
+  - name: Garcia v. Character Technologies
+    court: flmd
+    docket_id: 69300919
+    docket_number: "6:24-cv-01903"
+    category: product-liability
+    why: Product-liability claims over a companion chatbot's outputs.
+    developers: [Character Technologies, Google]
+    added: 2026-10-30
+    related: []
+
+  - name: A.F. v. Character Technologies
+    court: txed
+    docket_id: 69450881
+    docket_number: "2:24-cv-01014"
+    category: product-liability
+    why: Strict-liability, negligence and deceptive-practices claims over a companion chatbot's outputs to minors.
+    developers: [Character Technologies, Google]
+    added: 2026-10-30
+    related: []
+
+  - name: Joshi v. OpenAI Foundation (N.D. Fla. product-liability suits)
+    court: flnd
+    docket_id: 73320881
+    docket_number: "4:26-cv-00222"
+    category: product-liability
+    why: Product-liability claims against OpenAI, the first of five such suits in one district.
+    developers: [OpenAI]
+    added: 2026-10-30
+    related:
+      - {court: flnd, docket_id: 73614528, docket_number: "4:26-cv-00334", relation: companion}
+      - {court: flnd, docket_id: 73615017, docket_number: "4:26-cv-00335", relation: companion}
+      - {court: flnd, docket_id: 74707084, docket_number: "4:26-cv-00416", relation: companion}
+      - {court: flnd, docket_id: 74806746, docket_number: "4:26-cv-00459", relation: companion}
+
+  - name: Buist v. Anthropic
+    court: cand
+    docket_id: 74816200
+    docket_number: "3:26-cv-10693"
+    category: antitrust
+    why: A class action bringing antitrust claims against an AI developer.
+    developers: [Anthropic]
+    added: 2026-10-30
+    related: []
+
+  - name: X.AI v. OpenAI
+    court: cand
+    docket_id: 71450167
+    docket_number: "3:25-cv-08133"
+    category: competitor
+    why: One AI developer's trade-secret misappropriation claims against another, now on appeal.
+    developers: [xAI, OpenAI]
+    added: 2026-10-30
+    related:
+      - {court: ca9, docket_id: 73638138, docket_number: "26-4486", relation: appeal}
+
+  - name: Grossinger v. Anthropic
+    court: paed
+    docket_id: 73583744
+    docket_number: "2:26-cv-04705"
+    category: civil-rights
+    why: A pro se disability-access (ADA) claim against an AI developer.
+    developers: [Anthropic]
+    added: 2026-10-30
+    related:
+      - {court: ca3, docket_id: 74794686, docket_number: "26-3299", relation: appeal}
