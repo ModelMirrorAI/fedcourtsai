@@ -26,10 +26,10 @@ from typing import Any, Literal
 
 from .. import corpus
 from ..schemas import PredictionContext
-from . import arrival_cut, vide_links
+from . import arrival_cut, cert_signals, vide_links
 from .asof import project_row
 from .paper_only import paper_only_filings
-from .salience import SALIENCE_VERSION, salience_band, scorer
+from .salience import scorer
 
 
 def build(
@@ -69,6 +69,13 @@ def build(
     exactly the silent move ``docs/process-version.md`` exists to prevent. An
     application cell needs the trio because its declared claims resolve against
     it; a cert cell has no claim that reads it.
+
+    The band is null, besides on an unobservable or application docket, on a
+    row outside the active version's segment
+    (:meth:`.salience.SalienceScorer.in_segment`, read off the payload's own
+    opening petition entry): a version that does not score a row has no band to
+    freeze for it. The signals still freeze, so the null band is told apart from
+    an unobservable docket by ``signals_observable``.
     """
     # Both payload shapes: the REST record carries `docket_number`, the live
     # supremecourt.gov JSON carries `CaseNumber`. Only the live shape carries
@@ -85,10 +92,19 @@ def build(
     # payload's caption is as leakage-safe as its docket number.
     petitioner_title = str(payload.get("PetitionerTitle") or "").strip() or None
     case_name = str(payload.get("case_name") or "").strip()
+    # The docket form, read off the number alone: it decides which signals and
+    # which band the context freezes below.
+    application = corpus.is_scotus_application_form(docket_number)
+    active = scorer()
     # The shared as-of projection derives the signals and their observability;
     # the base row carries only the identity a payload discloses (a forward
     # cell's snapshot need not disclose its originating court, and the nudge is
     # bounded below every band cutpoint anyway, so a band never turns on it).
+    # One more piece of that identity is what a version's segment reads: the
+    # writ the opening petition entry names (`cert_signals.opening_writ`, the
+    # reading ingest latches and the back-fill fills, on the cert form only, as
+    # both do). It is fixed at filing, so a dated or truncated payload discloses
+    # it as safely as its docket number.
     projected = project_row(
         corpus.CorpusRow(
             case_id=case_id,
@@ -96,6 +112,7 @@ def build(
             docket_number=docket_number,
             case_name=case_name,
             petitioner_title=petitioner_title,
+            opening_writ=None if application else cert_signals.opening_writ(payload),
         ),
         payload,
         cutoff=cutoff if cutoff is not None else snapshot_date,
@@ -114,7 +131,7 @@ def build(
         # registered-but-inactive version pinning a second parse reaches no cell
         # through here, which is what makes registration safe ahead of that
         # re-derivation.
-        parse=scorer().distribution_parse,
+        parse=active.distribution_parse,
     )
     observable = projected.observable
     count = projected.row.distribution_count
@@ -130,8 +147,19 @@ def build(
     # frozen, the base-rate guards downstream refuse by design (the interim
     # segment rate publishes on its own pre-registered terms; see
     # docs/salience.md).
-    application = corpus.is_scotus_application_form(docket_number)
-    band = salience_band(projected.row) if observable and not application else None
+    #
+    # A row outside the active version's segment takes no band either
+    # (`SalienceScorer.in_segment`): that version neither scores nor selects it,
+    # so a frozen band would name a pool the row is not in and hand the
+    # evaluator a base rate for a population it was excluded from. The segment
+    # is read off the projected row, so the refusal follows the cell's own
+    # payload exactly as the band does. Under a version that narrows nothing
+    # (`admits` unset, every version through sal-v4) this never refuses.
+    band = (
+        active.band(projected.row)
+        if observable and not application and active.in_segment(projected.row)
+        else None
+    )
     # The Term axis follows the docket form, because the two stages' baselines
     # pool different sections keyed on different Terms: a cert petition's
     # `YY-NNNN` number gives the cert Term the band table is keyed on, an
@@ -160,7 +188,7 @@ def build(
         distribution_count=count,
         cvsg_date=cvsg,
         band=band,
-        salience_version=SALIENCE_VERSION if band else None,
+        salience_version=active.version if band else None,
         response_requested=projected.row.response_requested if application else None,
         referred_to_court=projected.row.referred_to_court if application else None,
         amicus_briefs=projected.row.amicus_briefs if application else None,

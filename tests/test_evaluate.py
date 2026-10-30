@@ -19,6 +19,7 @@ from datetime import date, datetime
 import pytest
 
 from fedcourtsai import corpus, ids
+from fedcourtsai.pipeline import salience as salience_module
 from fedcourtsai.pipeline.base_rates import (
     INTERIM_BASE_RATE_MIN_RESOLVED,
     MERITS_BASE_RATE_MIN_PARSED,
@@ -167,6 +168,21 @@ def test_segment_base_rate_keys_on_the_cases_own_band() -> None:
     )  # 0 relists -> baseline
     assert high == pytest.approx(0.40)
     assert baseline == pytest.approx(0.01)
+
+
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+def test_segment_base_rate_none_for_a_row_outside_the_active_segment(
+    monkeypatch: pytest.MonkeyPatch, version: str
+) -> None:
+    """The fallback refuses a band rate where the active version leaves the row
+    out of its segment, as the frozen cell band does; under sal-v4 it does not."""
+    pack = _statpack(_term(2023, {"high": (0.40, 100)}))
+    writ = _row("24-100").model_copy(update={"opening_writ": "rule-20"})
+    assert segment_base_rate(writ, pack) == pytest.approx(0.40)
+    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", version)
+    assert segment_base_rate(writ, pack) is None
+    certiorari = writ.model_copy(update={"opening_writ": "certiorari"})
+    assert segment_base_rate(certiorari, pack) == pytest.approx(0.40)
 
 
 def test_segment_base_rate_none_when_no_prior_term_data() -> None:
