@@ -13,11 +13,18 @@ from typer.testing import CliRunner
 
 from fedcourtsai import corpus, dedupe
 from fedcourtsai.cli import app
+from fedcourtsai.ledger_events import remove_event_documents
 from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.ingest import UNSAMPLED_WEIGHT
-from fedcourtsai.schemas import Disposition, EventKind, Outcome, PredictableEvent
+from fedcourtsai.schemas import (
+    Disposition,
+    EventKind,
+    Outcome,
+    PredictableEvent,
+    ResolutionSignals,
+)
 from fedcourtsai.serialize import read_model, write_json, write_yaml
-from fedcourtsai.supremecourt import live_docket_id
+from fedcourtsai.supremecourt import live_application_id, live_docket_id
 
 runner = CliRunner()
 
@@ -66,9 +73,13 @@ def _corpus_event(case_id: str, event_id: str) -> corpus.CorpusEvent:
     return corpus.CorpusEvent(event_id=event_id, case_id=case_id, court="scotus", kind="petition")
 
 
-def _move(event_id: str, *, restamp_only: bool = False) -> dedupe.LedgerMove:
+def _move(event_id: str, *, restamp_only: bool = False, retire: bool = False) -> dedupe.LedgerMove:
     return dedupe.LedgerMove(
-        event_id=event_id, from_case=_DROP, to_case=_KEEP, restamp_only=restamp_only
+        event_id=event_id,
+        from_case=_DROP,
+        to_case=_KEEP,
+        restamp_only=restamp_only,
+        retire=retire,
     )
 
 
@@ -555,20 +566,253 @@ def test_an_unreadable_survivor_document_sends_the_pair_to_triage(tmp_path: Path
         assert corpus.get_row(conn, _DROP) is not None
 
 
-def test_a_case_baseline_directory_stays_where_it_is(tmp_path: Path) -> None:
-    """A case-level baseline is outside the mint rule — its ledger half is owed
-    at first touch or at resolution — so its row re-keys with no ledger move."""
+def test_a_case_baseline_directory_moves_with_its_row(tmp_path: Path) -> None:
+    """A case-level baseline owes no ledger half at the mint, but a committed one
+    names its case inside `outcome.json`: left on the dropped path, the row
+    delete orphans it into a `ledger_references_exist` failure. So it moves."""
     data_root = tmp_path / "data"
-    paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    old_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
     with _seeded(tmp_path, _pair_rows()) as conn:
         corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
         result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
         assert result.dropped == [_DROP]
-        assert result.ledger_moves == []
+        assert result.ledger_moves == [_move(_BASELINE)]
         assert [event.event_id for event in corpus.events_for_case(conn, _KEEP)] == [_BASELINE]
+    new_paths = _event_paths(data_root, _KEEP, _BASELINE)
+    assert not old_paths.base.exists()
+    assert read_model(new_paths.event_file, PredictableEvent).case_id == _KEEP
+    assert read_model(new_paths.outcome, Outcome).case_id == _KEEP
+
+
+def test_an_agreeing_survivor_baseline_retires_the_twins_copy(tmp_path: Path) -> None:
+    """Both ids commit the baseline and record the same resolution: the
+    survivor's definition stands, and the twin's copy goes with its row —
+    the dropped case directory is not left behind as an empty shell."""
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    new_paths = _write_ledger_event(data_root, _KEEP, _BASELINE)
+    before = new_paths.outcome.read_text()
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == [_DROP]
+        assert result.ledger_moves == [_move(_BASELINE, retire=True)]
+    assert not old_paths.base.exists()
+    assert not old_paths.base.parent.parent.exists()
+    assert new_paths.outcome.read_text() == before
+
+
+def _set_outcome(paths: EventPaths, **update: object) -> None:
+    write_json(paths.outcome, read_model(paths.outcome, Outcome).model_copy(update=update))
+
+
+def test_a_retirement_fills_the_twins_extra_facts_in_on_the_survivor(tmp_path: Path) -> None:
+    """Retiring the twin's copy must discard nothing only it carries: a field
+    the survivor lacks takes the twin's value, one it asserts keeps its own,
+    and a nested block fills field by field where nothing disagrees."""
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    new_paths = _write_ledger_event(data_root, _KEEP, _BASELINE)
+    _set_outcome(
+        old_paths,
+        disposition_route="plenary",
+        source="live",
+        signals=ResolutionSignals(distribution_count=2, distribution_parse="dist-v2"),
+    )
+    _set_outcome(new_paths, source="pull", signals=ResolutionSignals(distribution_count=2))
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.ledger_moves == [_move(_BASELINE, retire=True)]
+    assert not old_paths.base.exists()
+    survivor = read_model(new_paths.outcome, Outcome)
+    assert survivor.case_id == _KEEP
+    assert survivor.disposition_route == "plenary"
+    assert survivor.source == "pull"
+    assert survivor.signals == ResolutionSignals(distribution_count=2, distribution_parse="dist-v2")
+
+
+def test_a_disagreeing_nested_block_keeps_the_survivors_whole(tmp_path: Path) -> None:
+    """A parse stamp describes the values its parse produced; grafting the
+    twin's onto a survivor block whose count differs would misdescribe it."""
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    new_paths = _write_ledger_event(data_root, _KEEP, _BASELINE)
+    _set_outcome(
+        old_paths, signals=ResolutionSignals(distribution_count=2, distribution_parse="dist-v2")
+    )
+    _set_outcome(new_paths, signals=ResolutionSignals(distribution_count=3))
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
+        dedupe.dedupe_live_rows(conn, data_root, apply=True)
+    assert read_model(new_paths.outcome, Outcome).signals == ResolutionSignals(distribution_count=3)
+
+
+def test_an_unreadable_twin_document_sends_the_pair_to_triage(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    paths.outcome.write_text("{not json\n")
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == []
+        assert "could not be read" in result.skipped[0].conflicts[0]
     assert paths.base.is_dir()
-    assert not _event_paths(data_root, _KEEP, _BASELINE).base.exists()
-    assert read_model(paths.event_file, PredictableEvent).case_id == _DROP
+
+
+def test_a_disagreeing_survivor_baseline_refuses_the_pair(tmp_path: Path) -> None:
+    """Two committed baselines recording different resolutions are two
+    definitions of one fact: a judgement call, so the pair goes to triage."""
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    new_paths = _write_ledger_event(data_root, _KEEP, _BASELINE)
+    outcome = read_model(new_paths.outcome, Outcome)
+    write_json(
+        new_paths.outcome,
+        outcome.model_copy(update={"actual_disposition": Disposition.granted, "actual_granted": 1}),
+    )
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == []
+        assert result.ledger_moves == []
+        conflict = result.skipped[0].conflicts[0]
+        assert "do not agree" in conflict and "actual_disposition" in conflict
+        assert corpus.get_row(conn, _DROP) is not None
+    assert old_paths.base.is_dir()
+
+
+def test_a_twin_outcome_the_survivor_lacks_refuses_the_pair(tmp_path: Path) -> None:
+    """Retiring the twin's copy would discard the only recorded outcome."""
+    data_root = tmp_path / "data"
+    _write_ledger_event(data_root, _DROP, _BASELINE)
+    _write_ledger_event(data_root, _KEEP, _BASELINE, with_outcome=False)
+    with _seeded(tmp_path, _pair_rows()) as conn:
+        corpus.upsert_events(conn, [_corpus_event(_DROP, _BASELINE)])
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.dropped == []
+        assert (
+            "only the dropped id's directory records an outcome" in (result.skipped[0].conflicts[0])
+        )
+
+
+def _survivor_only(**kw: object) -> list[corpus.CorpusRow]:
+    """The corpus after a landed merge: the survivor row, the twin gone."""
+    return [_pair_rows(**kw)[0]]
+
+
+def test_a_stranded_baseline_is_carried_onto_its_survivor(tmp_path: Path) -> None:
+    """The shape a merge leaves when its corpus half lands without its ledger
+    half: the twin's rows (the pair's detection handle) are gone, so the sweep
+    re-finds the directory from the ledger side, decoding the docket number
+    from the live id."""
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    with _seeded(tmp_path, _survivor_only()) as conn:
+        dry = dedupe.dedupe_live_rows(conn, data_root, apply=False)
+        assert dry.pairs == 0
+        assert dry.ledger_moves == [_move(_BASELINE)]
+        assert old_paths.base.is_dir()
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.ledger_moves == [_move(_BASELINE)]
+        assert dedupe.dedupe_live_rows(conn, data_root, apply=True).ledger_moves == []
+    new_paths = _event_paths(data_root, _KEEP, _BASELINE)
+    assert not old_paths.base.exists()
+    assert read_model(new_paths.event_file, PredictableEvent).case_id == _KEEP
+    assert read_model(new_paths.outcome, Outcome).case_id == _KEEP
+
+
+def test_a_stranded_copy_the_survivor_defines_is_retired(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    _write_ledger_event(data_root, _KEEP, _BASELINE)
+    with _seeded(tmp_path, _survivor_only()) as conn:
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.ledger_moves == [_move(_BASELINE, retire=True)]
+    assert not old_paths.base.exists()
+
+
+def test_an_interrupted_stranded_move_stays_findable(tmp_path: Path) -> None:
+    """The stranded sweep restamps in place before it renames, so a run cut off
+    between the two leaves the directory under the live id — still stranded,
+    re-found and finished by the next run."""
+    data_root = tmp_path / "data"
+    old_paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    outcome = read_model(old_paths.outcome, Outcome)
+    write_json(old_paths.outcome, outcome.model_copy(update={"case_id": _KEEP}))
+    with _seeded(tmp_path, _survivor_only()) as conn:
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.ledger_moves == [_move(_BASELINE)]
+    new_paths = _event_paths(data_root, _KEEP, _BASELINE)
+    assert read_model(new_paths.event_file, PredictableEvent).case_id == _KEEP
+    assert read_model(new_paths.outcome, Outcome).case_id == _KEEP
+
+
+def test_a_stranded_refusal_is_reported_and_left_in_place(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    paths = _write_ledger_event(data_root, _DROP, _BASELINE)
+    _write_cell_output(paths)
+    with _seeded(tmp_path, _survivor_only()) as conn:
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.ledger_moves == []
+        assert len(result.stranded_skipped) == 1
+        assert _DROP in result.stranded_skipped[0]
+        assert "holds committed cell output" in result.stranded_skipped[0]
+    assert paths.base.is_dir()
+
+
+def test_a_stranded_minted_collision_is_reported_and_left_in_place(tmp_path: Path) -> None:
+    data_root = tmp_path / "data"
+    paths = _write_ledger_event(data_root, _DROP, _MINTED)
+    _write_ledger_event(data_root, _KEEP, _MINTED)
+    with _seeded(tmp_path, _survivor_only()) as conn:
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.ledger_moves == []
+        assert "exist under both ids" in result.stranded_skipped[0]
+    assert paths.base.is_dir()
+
+
+def test_a_stranded_application_id_resolves_through_its_own_number(tmp_path: Path) -> None:
+    """The application range decodes to an `NNAnnn` number, so a stranded
+    application directory finds the upstream row carrying that number."""
+    data_root = tmp_path / "data"
+    drop = f"scotus/{live_application_id(25, 1099)}"
+    keep = "scotus/73300001"
+    event_id = "evt-motion-disposition"
+    old_paths = _write_ledger_event(data_root, drop, event_id)
+    with _seeded(tmp_path, [_row(keep, "25A1099")]) as conn:
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert [(m.from_case, m.to_case) for m in result.ledger_moves] == [(drop, keep)]
+    assert not old_paths.base.exists()
+    moved = read_model(_event_paths(data_root, keep, event_id).outcome, Outcome)
+    assert moved.case_id == keep
+
+
+def test_removing_event_documents_refuses_anything_beside_them(tmp_path: Path) -> None:
+    paths = _write_ledger_event(tmp_path / "data", _DROP, _BASELINE)
+    _write_cell_output(paths)
+    with pytest.raises(ValueError, match="more than its documents"):
+        remove_event_documents(paths)
+    assert paths.outcome.is_file()
+
+
+def test_only_the_stranded_shape_is_swept(tmp_path: Path) -> None:
+    """A live id the corpus still carries is no stranded case, nor is an
+    absent live id whose number resolves to no upstream row, nor an absent
+    upstream id: each is left untouched."""
+    data_root = tmp_path / "data"
+    carried = f"scotus/{live_docket_id(25, 401)}"
+    orphan = f"scotus/{live_docket_id(24, 77)}"
+    upstream = "scotus/73277512"
+    for case_id in (carried, orphan, upstream):
+        _write_ledger_event(data_root, case_id, _BASELINE)
+    rows = [*_survivor_only(), _row(carried, "25-401")]
+    with _seeded(tmp_path, rows) as conn:
+        result = dedupe.dedupe_live_rows(conn, data_root, apply=True)
+        assert result.ledger_moves == []
+        assert result.stranded_skipped == []
+    for case_id in (carried, orphan, upstream):
+        assert _event_paths(data_root, case_id, _BASELINE).base.is_dir()
 
 
 def test_a_dry_run_reports_the_move_and_touches_no_directory(tmp_path: Path) -> None:
@@ -664,6 +908,7 @@ def test_cli_dry_run_reports_and_preserves(tmp_path: Path, monkeypatch: pytest.M
     with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
         corpus.upsert_rows(conn, _pair_rows())
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
 
     result = runner.invoke(app, ["dedupe-live-rows"])
     assert result.exit_code == 0, result.output
@@ -710,3 +955,23 @@ def test_cli_fails_loud_when_the_corpus_is_absent(
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "nowhere"))
     result = runner.invoke(app, ["dedupe-live-rows"])
     assert result.exit_code == 1
+
+
+def test_cli_lists_retired_and_stranded_ledger_work(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    corpus_root = tmp_path / "corpus"
+    data_root = tmp_path / "data"
+    _write_ledger_event(data_root, _DROP, _BASELINE)
+    _write_ledger_event(data_root, _KEEP, _BASELINE)
+    refused = f"scotus/{live_docket_id(25, 401)}"
+    _write_cell_output(_write_ledger_event(data_root, refused, _BASELINE))
+    with corpus.connect(corpus.corpus_db_path(corpus_root)) as conn:
+        corpus.upsert_rows(conn, [*_survivor_only(), _row("scotus/73277512", "25-401")])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+
+    result = runner.invoke(app, ["dedupe-live-rows"])
+    assert result.exit_code == 0, result.output
+    assert f"would retire ledger event directory {_DROP}/{_BASELINE}" in result.output
+    assert f"left in place: stranded {refused}" in result.output

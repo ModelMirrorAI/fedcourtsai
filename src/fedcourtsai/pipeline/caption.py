@@ -433,25 +433,26 @@ def petitioner_class_v2(row: corpus.CorpusRow) -> PetitionerClass:
 # the petitioner side is the reading that separates them, and sg-office-v1 is
 # the registered, dated reading of it.
 #
-# Why the counsel entries are safe to read at the moment the rule is used:
+# What the counsel entries can carry, and why sal-v5 is never activated on them:
 #
-# - Only the petitioner side is read. sg-office-v1 never reads `other` (amici,
-#   invited briefs, intervenors), the side that accrues after a grant and would
-#   be a grant oracle on a decided docket.
-# - The live selection pass reads the row as polled that day, so on the pending
-#   petitions it selects from every entry it reads is one the docket carried at
-#   the selection moment, and none can postdate an outcome that has not
-#   happened. Where the office files the petition, its appearance dates from
-#   the filing.
+# - Only the petitioner side is read, and sg-office-v1 never reads `other`
+#   (amici, invited briefs, intervenors). That guard does not keep amici out:
+#   the Clerk lists a United States amicus supporting petitioners under
+#   "Petitioner", so a post-grant amicus brief reads as the office on the
+#   petitioner side.
 # - A resolved row's list is its terminal one, and the index dates no counsel
-#   entry. Two things can reach it after the moment a band describes: a
-#   successor Solicitor General written after the resolution, which
-#   sg-office-v1 admits only on a party string that reads federal; and the
-#   office's appearance on a companion petition consolidated with a government
-#   petition, which can date from the consolidation rather than the filing.
-#   Neither is separable on the row, so a statpack pool over resolved rows reads
-#   the terminal list — the population the census measured — and a dated check
-#   of the companion family reads the stored snapshots, not the index.
+#   entry, so on a resolved row the `federal` class this rule adds can be
+#   written after the grant: that supporting amicus, a consolidation with a
+#   government petition in the grant order, or a successor Solicitor General
+#   (which sg-office-v1 admits only on a party string that reads federal).
+#   None is separable on the row, so a pool over resolved rows read through
+#   v3 can carry the outcome itself.
+# - A pending row read as polled that day carries no outcome yet, but the
+#   same amicus can join it later, so the class is not fixed at filing.
+#
+# The rule stays registered so the census and the pools published under it
+# replay; the salience version a flip would activate reads v2
+# (docs/salience.md, the sal-v5 and sal-v6 sections).
 #
 # The check runs first, ahead of every caption pattern and so ahead of v1's
 # Warden/Sheriff/Superintendent fallback: that tail is an inference about who

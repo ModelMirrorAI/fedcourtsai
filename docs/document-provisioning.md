@@ -149,7 +149,8 @@ Each of these is stated, with its reason, where the code makes the choice:
   holds: the opinion on the judgment date as `decision-below`, and the docket
   record (panel, a petition for rehearing en banc, its disposition and any
   dissent noted) as `lower-court-docket` (`pipeline/decision_below.py`,
-  [cli.md](cli.md)). The en banc reading is matched from entry text filed
+  [cli.md](cli.md)); `run-pull`'s live job runs it on six petitions each full
+  window, four windows a day. The en banc reading is matched from entry text filed
   before the SCOTUS docketing, so a petition on remand cannot leak back. Both
   kinds are held in `provision.WITHHELD_KINDS`. A petition from a state court,
   a district court or a specialized tribunal gets neither, and a missing

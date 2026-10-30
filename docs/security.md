@@ -810,7 +810,8 @@ lane also spends on, held in `summarize` by its generate job alone), the
 Codex/OpenAI key, the Gemini API key,
 the CourtListener API token (used by pull's ingestion; by the opinion
 enrichment — the dispatched enrich job's step and, step-scoped, the live job's
-one awaiting-grading enrichment step, the only step of that job holding it; by
+awaiting-grading enrichment step and its decision-below fill step, the only two
+steps of that job holding it; by
 `run-analytics`'s order-scan job, step-scoped to its scan step, in a job that
 assumes no cloud role and mints no App token; by its decision-below job,
 step-scoped to its dry-run step, in a job that holds the read-only role for

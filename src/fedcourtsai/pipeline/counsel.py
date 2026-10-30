@@ -14,6 +14,10 @@ side it appears for. This module reads the ``petitioner`` and ``respondent``
 entries only. ``other`` (amici, invited briefs, intervenors) is never read: it
 accrues overwhelmingly after a grant, so an ``other`` entry naming the
 Solicitor General on a decided docket is a grant oracle, not a covariate.
+The ``petitioner`` side is not amicus-free, though: the Clerk lists a United
+States amicus supporting petitioners under "Petitioner", so a petitioner
+``yes`` on a decided docket can be a post-grant amicus, and the party rates
+cut's ``sg_counsel=petitioner`` cell can pick it up (``docs/salience.md``).
 
 **Why a dated roster, not a name list.** The index stores no firm or office
 for an attorney, so "the Solicitor General's office" has to be read from who

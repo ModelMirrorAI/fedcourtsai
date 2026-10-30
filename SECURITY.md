@@ -52,7 +52,7 @@ runbook, [docs/security.md](docs/security.md).
   **aggregate step**, where the secret scan (below) needs the live value to
   search the run's output for it — a step that parses agent bytes with
   jq/git/tested Python but never executes them. (Pull's ingestion, the
-  opinion enrichment and `run-analytics`' order-scan and decision-below steps hold the same secret
+  opinion enrichment, run-pull's decision-below fill and `run-analytics`' order-scan and decision-below steps hold the same secret
   under its own name, each in a deterministic step that runs no agent; the two
   kinds here are the agent workflows'. A new caller of the composite is a new *call site*, never a new
   kind of place — the token reaches the launch step's env and stops there.) **No agent step holds it, and no file an agent can read

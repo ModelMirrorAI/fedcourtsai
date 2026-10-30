@@ -952,6 +952,37 @@ def test_never_polled_rows_drops_an_exact_spelling_above_a_lower_id(tmp_path: Pa
     assert [r.case_id for r in picked] == ["scotus/7"]
 
 
+def test_never_polled_page_probes_no_sibling_by_court_alone(tmp_path: Path) -> None:
+    """Every per-candidate probe of ``cases`` is keyed on the docket number.
+
+    A correlated subquery that can only narrow ``cases`` by court walks every
+    SCOTUS row for each candidate, which over the production corpus outlasts
+    the live window."""
+    db = tmp_path / "corpus.db"
+    rows = [corpus.CorpusRow(case_id="scotus/7", court="scotus", docket_number="18-7")]
+    statements: list[str] = []
+    with corpus.connect(db) as conn:
+        _seed_pending(conn, rows)
+        conn.set_trace_callback(statements.append)
+        corpus._never_polled_page(conn, term_floor_year=2017, size=10, offset=0)
+        conn.set_trace_callback(None)
+        (stmt,) = [s for s in statements if "FROM cases" in s]
+        plan = [
+            (int(record[0]), int(record[1]), str(record[3]))
+            for record in conn.execute(f"EXPLAIN QUERY PLAN {stmt}")
+        ]
+    correlated = {node for node, _, detail in plan if detail.startswith("CORRELATED")}
+    probes = [
+        detail
+        for _, parent, detail in plan
+        if parent in correlated and not detail.split(" USING ")[0].endswith("events")
+    ]
+    assert probes, plan
+    for detail in probes:
+        assert "docket_number=?" in detail, plan
+    assert not any(detail.startswith("SCAN lowest") for _, _, detail in plan), plan
+
+
 def test_live_rotation_reserve_takes_its_slot_when_distributed_petitions_fill_the_cap(
     tmp_path: Path,
 ) -> None:

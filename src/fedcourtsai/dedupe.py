@@ -36,13 +36,29 @@ merge's detection handle, so an interrupted pair is re-found and finished by the
 next run, where flipping the corpus first would strand the directory under an id
 the corpus no longer carries.
 
-A case-level baseline is not moved — its ledger half is owed at first touch or
-at resolution rather than at the mint, so a missing one is no breakage — but a
-baseline *directory* is not therefore free to ignore: committed cell output
-anywhere under the dropped id names that id inside `prediction.json` /
-`evaluation.json`, which no restamp here rewrites, so the row delete would
-orphan it into a ``ledger_references_exist`` failure. A dropped case carrying
-any such artifact refuses the whole pair.
+A case-level baseline (``evt-petition-disposition``, ``evt-motion-disposition``)
+owes no ledger half at the mint — it arrives at first touch or at resolution, so
+a *missing* one is no breakage — but a committed one under the dropped id is:
+its ``outcome.json`` names the dropped case, and the row delete orphans it into a
+``ledger_references_exist`` failure. So a baseline directory moves with its row
+exactly as a minted moment's does, and where the survivor already commits its own
+definition of the baseline the twin's copy is retired instead, provided the two
+outcomes agree on the resolving facts (disposition, grant, resolution date); any
+other field only the twin's outcome asserts fills in on the survivor's first, so
+the retirement discards nothing. Two disagreeing definitions are a judgement call
+and refuse the pair. Committed cell
+output anywhere under the dropped id names that id inside `prediction.json` /
+`evaluation.json`, which no restamp here rewrites, so a dropped case carrying any
+such artifact refuses the whole pair.
+
+The same ledger rule also runs without a pair, over **stranded** directories: a
+committed directory under a live-range id the corpus no longer carries, whose
+docket number (packed losslessly into the id) resolves to a surviving upstream
+row. That is the shape a merge leaves when its corpus half lands and its ledger
+half does not — the twin's rows, the pair's detection handle, are gone — so the
+sweep re-finds it from the ledger side and finishes the move or the retirement.
+Its documents are restamped in place before the rename, so an interrupted
+stranded move stays under the live id and is re-found by the next run.
 
 Deterministic and conservative: a pair disagreeing on ``date_filed``,
 ``date_decided``, or ``disposition`` is reported and never dropped — the
@@ -74,13 +90,19 @@ import yaml
 from pydantic import BaseModel, ConfigDict
 
 from . import corpus
-from .ledger_events import EVENT_DOCUMENTS, move_event_directory
-from .paths import CasePaths, EventPaths
+from .ids import case_id as make_case_id
+from .ledger_events import (
+    EVENT_DOCUMENTS,
+    move_event_directory,
+    remove_event_documents,
+    restamp_event_documents,
+)
+from .paths import CasePaths, EventPaths, court_cases_dir
 from .pipeline import moments
 from .pipeline.ingest import UNSAMPLED_WEIGHT
 from .schemas import Outcome, PredictableEvent
-from .serialize import read_model
-from .supremecourt import is_live_docket_id
+from .serialize import read_model, write_json
+from .supremecourt import is_live_docket_id, reserved_docket_number
 
 
 class DuplicatePair(BaseModel):
@@ -120,6 +142,9 @@ class LedgerMove(BaseModel):
     # True when the directory is already at the survivor and only its documents
     # need the case id restamped — the half an interrupted run leaves behind.
     restamp_only: bool
+    # True when the survivor already commits an agreeing definition of this
+    # case-level baseline, so the twin's copy is deleted rather than moved.
+    retire: bool = False
 
 
 class LiveDedupeResult(BaseModel):
@@ -132,6 +157,9 @@ class LiveDedupeResult(BaseModel):
     dropped: list[str]  # live-minted case_ids removed (or that a dry run would remove)
     skipped: list[SkippedPair]
     ledger_moves: list[LedgerMove]  # performed, or that a dry run would perform
+    # Stranded directories (a live-range id the corpus no longer carries) the
+    # sweep could not carry, each with its reason; left in place.
+    stranded_skipped: list[str] = []
 
 
 # Columns the field-level merge does not fill generically: identity, the scope
@@ -167,14 +195,19 @@ _LEDGER_COLLISION_REASON = (
     "committed ledger directories for {event_id} exist under both ids; merging two "
     "definitions of one minted moment is a judgement call this merge does not make"
 )
+_BASELINE_CONFLICT_REASON = (
+    "committed ledger directories for the baseline {event_id} exist under both ids "
+    "and do not agree ({detail}); choosing between two definitions is a judgement "
+    "call this merge does not make"
+)
 _CELL_OUTPUT_REASON = (
     "the dropped id's {event_id} directory holds committed cell output ({extra}); "
     "a prediction or evaluation names its own case id inside its own files, which "
     "this merge does not rewrite, and the row delete would orphan it"
 )
 _UNREADABLE_REASON = (
-    "the survivor's {event_id} document could not be read ({error}), so whether it "
-    "still names the dropped case — the interrupted-move shape — is unknowable here"
+    "a {event_id} document could not be read ({error}), so whether the survivor's "
+    "directory is an interrupted move or an agreeing definition is unknowable here"
 )
 
 
@@ -325,16 +358,20 @@ def dedupe_live_rows(conn: sqlite3.Connection, data_root: Path, *, apply: bool) 
     """Merge each agreed duplicate pair onto its survivor and drop the live twin.
 
     Dry run by default (reports what would change, writes nothing); ``apply``
-    performs the writes. For each agreed pair: move the committed ledger
-    directory of every minted moment the dropped id carries onto the survivor's
-    path, restamping the case id inside its documents; fill the survivor in with
+    performs the writes. For each agreed pair: move every committed ledger
+    directory the dropped id carries onto the survivor's path, restamping the
+    case id inside its documents (or retire a baseline copy the survivor already
+    defines in agreement); fill the survivor in with
     every fact only the dropped row carries; stamp its ``sample_weight`` with the
     pair's minimum; move the dropped id's ``events`` / ``snapshots`` /
     ``documents`` rows under the surviving id; and delete the dropped ``case_id``
     from all four tables. A disagreeing pair, and one whose ledger half this
     merge cannot carry mechanically (see :func:`_ledger_moves`), is skipped and
-    reported, never dropped. ``data_root`` is the git ledger root. Idempotent —
-    once applied, a second run finds no pairs.
+    reported, never dropped. Then sweep the **stranded** directories — ledger
+    halves a landed corpus merge left under a live-range id the corpus no longer
+    carries (:func:`_stranded_moves`) — onto their survivors by the same rule.
+    ``data_root`` is the git ledger root. Idempotent — once applied, a second
+    run finds no pairs and nothing stranded.
     """
     dropped: list[str] = []
     skipped: list[SkippedPair] = []
@@ -351,13 +388,93 @@ def dedupe_live_rows(conn: sqlite3.Connection, data_root: Path, *, apply: bool) 
         ledger_moves.extend(planned)
         if apply:
             _apply_pair(conn, pair, data_root, planned)
+    stranded, stranded_skipped = _stranded_moves(conn, data_root)
+    ledger_moves.extend(stranded)
+    if apply:
+        for move in stranded:
+            _apply_ledger_move(data_root, move, restamp_first=True)
     return LiveDedupeResult(
         applied=apply,
         pairs=len(dropped) + len(skipped),
         dropped=dropped,
         skipped=skipped,
         ledger_moves=ledger_moves,
+        stranded_skipped=stranded_skipped,
     )
+
+
+def _stranded_moves(
+    conn: sqlite3.Connection, data_root: Path
+) -> tuple[list[LedgerMove], list[str]]:
+    """Ledger work for directories a landed merge left under a dropped live id.
+
+    A stranded case is a committed SCOTUS case directory whose docket id sits in
+    a live-channel reserved range, whose case id the corpus no longer carries,
+    and whose docket number — decoded from the id itself — resolves through the
+    identity join to a surviving upstream row. Any other absent case is not this
+    rule's shape and is left untouched. Each stranded case is planned by
+    :func:`_plan_ledger`; a refusal is reported and leaves the case in place.
+    """
+    court_dir = court_cases_dir(data_root, "scotus")
+    if not court_dir.is_dir():
+        return [], []
+    planned: list[LedgerMove] = []
+    refused: list[str] = []
+    for case_dir in sorted(court_dir.iterdir()):
+        if not case_dir.is_dir() or not case_dir.name.isdigit():
+            continue
+        docket_id = int(case_dir.name)
+        if not is_live_docket_id(docket_id):
+            continue
+        drop = make_case_id("scotus", docket_id)
+        if corpus.get_row(conn, drop) is not None:
+            continue
+        keep = corpus.scotus_case_id_by_docket_number(conn, reserved_docket_number(docket_id))
+        keep_docket = None if keep is None else _docket_id(keep)
+        if keep is None or keep_docket is None or is_live_docket_id(keep_docket):
+            continue
+        drop_paths = _case_paths(data_root, drop)
+        if drop_paths is None:  # pragma: no cover — the id just parsed
+            continue
+        moves, blocker = _plan_ledger(
+            data_root, drop, keep, sorted(_committed_event_ids(drop_paths))
+        )
+        if blocker is not None:
+            refused.append(f"stranded {drop} (survivor {keep}): {blocker}")
+            continue
+        planned.extend(moves)
+    return planned, refused
+
+
+def _apply_ledger_move(data_root: Path, move: LedgerMove, *, restamp_first: bool = False) -> None:
+    """Perform one planned ledger move, restamp or retirement.
+
+    ``restamp_first`` rewrites the documents in place before the rename, for a
+    caller with no other handle on an interrupted move: the directory then stays
+    under the dropped id until it is fully carried, where that caller re-finds it.
+    """
+    drop_paths = _case_paths(data_root, move.from_case)
+    keep_paths = _case_paths(data_root, move.to_case)
+    if drop_paths is None or keep_paths is None:  # pragma: no cover — both ids just parsed
+        return
+    old = drop_paths.event(move.event_id)
+    new = keep_paths.event(move.event_id)
+    if move.retire:
+        # The survivor takes the twin's extra facts before the twin's copy goes,
+        # so a run cut off between the two re-plans the same retirement, whose
+        # fill-in then adds nothing.
+        _, old_outcome = _read_documents(old)
+        _, new_outcome = _read_documents(new)
+        if old_outcome is not None and new_outcome is not None:
+            filled = _filled_outcome(new_outcome, old_outcome)
+            if filled != new_outcome:
+                write_json(new.outcome, Outcome.model_validate(filled.model_dump()))
+        remove_event_documents(old)
+        return
+    restamp = {"case_id": move.to_case}
+    if restamp_first:
+        restamp_event_documents(old, restamp)
+    move_event_directory(old, new, restamp)
 
 
 def _case_paths(data_root: Path, case_id: str) -> CasePaths | None:
@@ -392,8 +509,8 @@ def _committed_cell_output(case_paths: CasePaths) -> tuple[str, list[str]] | Non
 
     Scoped to the whole case, not to the moments this merge would move: the row
     delete is what orphans a prediction or an evaluation, and it deletes the
-    case id every event of the twin references — including the case-level
-    baselines, which no move carries. Returns ``(event_id, entries)`` for the
+    case id every event of the twin references, and a move carries only the
+    event documents, never what sits beside them. Returns ``(event_id, entries)`` for the
     first such directory, or ``None`` when the case carries none.
     """
     if not case_paths.events_dir.is_dir():
@@ -414,28 +531,50 @@ def _ledger_moves(
 ) -> tuple[list[LedgerMove], str | None]:
     """The pair's owed ledger moves, or the reason the whole pair must not merge.
 
-    One entry per minted moment of the dropped twin whose committed directory
-    belongs under the survivor — either still on the dropped case's path, or
-    already at the survivor with documents naming the dropped case (an
-    interrupted run's half, which the move helper's unconditional restamp
-    finishes, and which reports as a restamp rather than a move). A case-level
-    baseline is not moved: its ledger half is owed at first touch or resolution
-    rather than at the mint, so a missing one is no breakage — but see below,
-    because a baseline directory is not therefore free to ignore.
+    Covers every event the dropped twin carries in the corpus and every
+    directory committed under its path (see :func:`_plan_ledger`).
+    """
+    drop_paths = _case_paths(data_root, pair.drop)
+    if drop_paths is None:  # pragma: no cover — the id just parsed
+        return [], None
+    event_ids = {event.event_id for event in corpus.events_for_case(conn, pair.drop)}
+    event_ids |= _committed_event_ids(drop_paths)
+    return _plan_ledger(data_root, pair.drop, pair.keep, sorted(event_ids))
 
-    Three shapes refuse the pair whole rather than merge it in part. Committed
+
+def _committed_event_ids(case_paths: CasePaths) -> set[str]:
+    """The event ids with a committed directory under this case."""
+    if not case_paths.events_dir.is_dir():
+        return set()
+    return {child.name for child in case_paths.events_dir.iterdir() if child.is_dir()}
+
+
+def _plan_ledger(
+    data_root: Path, drop: str, keep: str, event_ids: list[str]
+) -> tuple[list[LedgerMove], str | None]:
+    """The ledger work carrying ``drop``'s committed directories onto ``keep``.
+
+    One entry per event whose committed directory belongs under the survivor:
+    a **move** when it is still on the dropped case's path and the survivor has
+    none; a **restamp** when it is already at the survivor with documents naming
+    the dropped case (an interrupted run's half, which the move helper's
+    unconditional restamp finishes); and a **retirement** when both ids commit a
+    case-level baseline whose outcomes agree, so the survivor's definition
+    stands and the twin's copy goes.
+
+    Four shapes refuse the pair whole rather than merge it in part. Committed
     **cell output anywhere under the dropped case** — a prediction or evaluation
     names its own case id inside its own files, which no restamp here rewrites,
     so the row delete would orphan it into a ``ledger_references_exist``
-    failure; this is the one check that looks past the minted moments, since the
-    delete reaches every event of the twin. Directories under **both** ids for
-    one moment, which is two committed definitions and a judgement call. And a
+    failure. Directories under **both** ids for one minted moment, which is two
+    committed definitions and a judgement call; and the same for a baseline
+    whose two definitions disagree (:func:`_baseline_disagreement`). And a
     survivor-side document that will not read, which leaves the interrupted-move
     question unanswerable: one unreadable file sends its pair to triage instead
     of aborting a pass that may already have written.
     """
-    drop_paths = _case_paths(data_root, pair.drop)
-    keep_paths = _case_paths(data_root, pair.keep)
+    drop_paths = _case_paths(data_root, drop)
+    keep_paths = _case_paths(data_root, keep)
     if drop_paths is None or keep_paths is None:  # pragma: no cover — both ids just parsed
         return [], None
     output = _committed_cell_output(drop_paths)
@@ -444,29 +583,122 @@ def _ledger_moves(
         return [], _CELL_OUTPUT_REASON.format(event_id=event_id, extra=", ".join(entries))
     minted = moments.minted_moment_ids()
     planned: list[LedgerMove] = []
-    for event in corpus.events_for_case(conn, pair.drop):
-        if event.event_id not in minted:
-            continue
-        old = drop_paths.event(event.event_id)
-        new = keep_paths.event(event.event_id)
-        if old.base.is_dir():
-            if new.base.exists():
-                return [], _LEDGER_COLLISION_REASON.format(event_id=event.event_id)
-            planned.append(_planned_move(pair, event.event_id, restamp_only=False))
-            continue
+    for event_id in event_ids:
+        move = LedgerMove(event_id=event_id, from_case=drop, to_case=keep, restamp_only=False)
         try:
-            interrupted = _still_names(new, pair.drop)
+            step, blocker = _plan_event(
+                drop_paths.event(event_id), keep_paths.event(event_id), move, event_id in minted
+            )
         except (OSError, ValueError, yaml.YAMLError) as error:
-            return [], _UNREADABLE_REASON.format(event_id=event.event_id, error=error)
-        if interrupted:
-            planned.append(_planned_move(pair, event.event_id, restamp_only=True))
+            return [], _UNREADABLE_REASON.format(event_id=event_id, error=error)
+        if blocker is not None:
+            return [], blocker
+        if step is not None:
+            planned.append(step)
     return planned, None
 
 
-def _planned_move(pair: DuplicatePair, event_id: str, *, restamp_only: bool) -> LedgerMove:
-    return LedgerMove(
-        event_id=event_id, from_case=pair.drop, to_case=pair.keep, restamp_only=restamp_only
-    )
+def _plan_event(
+    old: EventPaths, new: EventPaths, move: LedgerMove, minted: bool
+) -> tuple[LedgerMove | None, str | None]:
+    """One event's step for :func:`_plan_ledger`: ``(step, None)`` or ``(None, reason)``.
+
+    ``(None, None)`` when the event owes nothing. Raises whatever a document
+    read raises, for the caller to report.
+    """
+    if old.base.is_dir():
+        if not new.base.exists():
+            _read_documents(old)  # an unreadable twin document is triage, not a crash mid-apply
+            return move, None
+        if minted:
+            return None, _LEDGER_COLLISION_REASON.format(event_id=move.event_id)
+        detail = _baseline_disagreement(old, new)
+        if detail is not None:
+            return None, _BASELINE_CONFLICT_REASON.format(event_id=move.event_id, detail=detail)
+        return move.model_copy(update={"retire": True}), None
+    if _still_names(new, move.from_case):
+        return move.model_copy(update={"restamp_only": True}), None
+    return None, None
+
+
+#: The outcome fields two definitions of one baseline must agree on for the
+#: twin's copy to be retired in favour of the survivor's.
+_RESOLVING_FACTS = ("actual_disposition", "actual_granted", "resolved_at")
+
+#: Identity fields the survivor's outcome never takes from the twin's.
+_OUTCOME_IDENTITY = frozenset({"schema_version", "case_id", "event_id"})
+
+
+def _read_documents(paths: EventPaths) -> tuple[PredictableEvent | None, Outcome | None]:
+    """The directory's parsed ``event.yaml`` and ``outcome.json``, either ``None`` if absent."""
+    event = read_model(paths.event_file, PredictableEvent) if paths.event_file.is_file() else None
+    outcome = read_model(paths.outcome, Outcome) if paths.outcome.is_file() else None
+    return event, outcome
+
+
+def _baseline_disagreement(old: EventPaths, new: EventPaths) -> str | None:
+    """Why the twin's baseline copy cannot be retired, or ``None`` when it can.
+
+    The survivor's definition stands when it records the same resolution as the
+    twin's (:data:`_RESOLVING_FACTS`), or when the twin records none; any other
+    field only the twin's outcome asserts fills in on the survivor's at the
+    retirement (:func:`_filled_outcome`), so nothing the twin alone carries is
+    discarded. A twin outcome the survivor lacks altogether is likewise not
+    discarded: that pair refuses. Raises whatever the read raises.
+    """
+    _, old_outcome = _read_documents(old)
+    _, new_outcome = _read_documents(new)
+    if old_outcome is None:
+        return None
+    if new_outcome is None:
+        return "only the dropped id's directory records an outcome"
+    differing = [
+        field
+        for field in _RESOLVING_FACTS
+        if getattr(old_outcome, field) != getattr(new_outcome, field)
+    ]
+    return f"outcomes differ on {', '.join(differing)}" if differing else None
+
+
+def _filled_outcome(keep: Outcome, drop: Outcome) -> Outcome:
+    """The survivor's outcome with every field only the twin's asserts filled in.
+
+    Keep-side precedence, the rule the corpus merge applies to the rows: a field
+    the survivor asserts keeps its value, one it lacks takes the twin's. A nested
+    block both carry (``signals``, say) fills field by field only when no field
+    both assert disagrees — a stamp like a parse label describes its block's
+    values, so it is never grafted onto values it did not produce.
+    """
+    updates: dict[str, Any] = {}
+    for name in Outcome.model_fields:
+        if name in _OUTCOME_IDENTITY:
+            continue
+        keep_val = getattr(keep, name)
+        drop_val = getattr(drop, name)
+        if _lacks(drop_val):
+            continue
+        if _lacks(keep_val):
+            updates[name] = drop_val
+        elif isinstance(keep_val, BaseModel) and type(keep_val) is type(drop_val):
+            nested = _filled_block(keep_val, drop_val)
+            if nested is not None:
+                updates[name] = nested
+    return keep.model_copy(update=updates) if updates else keep
+
+
+def _filled_block(keep: BaseModel, drop: BaseModel) -> BaseModel | None:
+    """``keep`` with ``drop``'s fields filled in, or ``None`` if they disagree or add nothing."""
+    updates: dict[str, Any] = {}
+    for name in type(keep).model_fields:
+        keep_val = getattr(keep, name)
+        drop_val = getattr(drop, name)
+        if _lacks(drop_val):
+            continue
+        if _lacks(keep_val):
+            updates[name] = drop_val
+        elif keep_val != drop_val:
+            return None
+    return keep.model_copy(update=updates) if updates else None
 
 
 def _merged_row(keep: corpus.CorpusRow, drop: corpus.CorpusRow, weight: int) -> corpus.CorpusRow:
@@ -525,15 +757,7 @@ def _apply_pair(
     # handle, so a run interrupted here is re-found and finished by the next one,
     # where a corpus flip first would strand the directory under a dropped id.
     for move in ledger_moves:
-        drop_paths = _case_paths(data_root, move.from_case)
-        keep_paths = _case_paths(data_root, move.to_case)
-        if drop_paths is None or keep_paths is None:  # pragma: no cover — both ids just parsed
-            continue
-        move_event_directory(
-            drop_paths.event(move.event_id),
-            keep_paths.event(move.event_id),
-            {"case_id": pair.keep},
-        )
+        _apply_ledger_move(data_root, move)
 
     # The salience and queue columns bypass the ingestion upsert (it keeps the
     # stored value — they belong to the salience pass and the queue routing), so
