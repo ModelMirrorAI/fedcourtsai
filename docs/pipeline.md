@@ -3217,9 +3217,8 @@ the plan job's pulled index serves and a cell's ranged read could not. A failed
 build starts the round anyway, each cell provisioned without its list, and
 each cell job deletes the round's file once provisioning has read it, so an
 agent reads only what was staged for it.
-Provisioning holds every list back from its cell until a re-bless
-(`provision.SAME_QUESTION_WITHHELD`); until then the step's log is where the
-lists' size and cost are read.
+A forward cert cell gets its own list as `record/same-question.json`; the
+harness boundary `cert-same-question-list` dates the cells that read it.
 
 ### The evaluate cell grades blind
 

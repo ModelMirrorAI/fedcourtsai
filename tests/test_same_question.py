@@ -328,12 +328,13 @@ def _lists(cutoff: date) -> SameQuestionLists:
     )
 
 
-def test_a_cell_reads_its_list_only_once_released(
+def test_a_cell_reads_its_list_only_while_not_held_back(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     event = moments.DECLARED_MOMENTS[0].event_id
     path = tmp_path / "lists.json"
     path.write_text(_lists(date(2026, 3, 1)).model_dump_json())
+    monkeypatch.setattr(provision, "SAME_QUESTION_WITHHELD", True)
     assert (
         _read_same_question(path, "scotus/1", event, cutoff=date(2026, 3, 1), mode="forward")
         is None
@@ -355,7 +356,7 @@ def test_a_cell_reads_its_list_only_once_released(
     )
 
 
-def test_the_record_carries_the_list_only_once_released(
+def test_the_record_carries_the_list_only_while_not_held_back(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     paths = CasePaths(tmp_path / "data", "scotus", 1)
@@ -369,6 +370,7 @@ def test_the_record_carries_the_list_only_once_released(
         dropped_documents=0,
     )
     listed = _lists(date(2026, 1, 26)).lists[0]
+    monkeypatch.setattr(provision, "SAME_QUESTION_WITHHELD", True)
     held = provision.write_cell_record(
         paths, "scotus/1", placement, mode="forward", cutoff=None, same_question=listed
     )
@@ -461,7 +463,9 @@ def test_the_lists_command_cuts_a_placed_cell_at_its_moment(
     assert [e.case_id for e in listed.petitions or []] == ["scotus/2"]
 
 
-def test_the_cascade_reads_a_released_list(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_cascade_reads_a_list_not_held_back(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     event = _seed_frame(tmp_path, monkeypatch)
     db = corpus.corpus_db_path(tmp_path / "corpus")
     placement = provision.Placement(
@@ -482,6 +486,7 @@ def test_the_cascade_reads_a_released_list(tmp_path: Path, monkeypatch: pytest.M
             db, "local", "scotus/1", {event: placement}, {event: read}, {event: mode}
         )
 
+    monkeypatch.setattr(provision, "SAME_QUESTION_WITHHELD", True)
     assert lists("forward") == {}
     monkeypatch.setattr(provision, "SAME_QUESTION_WITHHELD", False)
     assert lists("replay") == {}

@@ -446,10 +446,8 @@ jobs:
       # address serve once for the round, where a cell's ranged read could not.
       # Never the reason a round does not start: a failed build leaves no file,
       # and each cell then provisions without its list, which its log says.
-      # Provisioning holds every list back from its cell until the re-bless
-      # that tells cells about it (`provision.SAME_QUESTION_WITHHELD`); until
-      # then this step builds the lists the cells would get, so their size and
-      # cost are on record before any cell reads one.
+      # Provisioning stages a forward cert cell's own list as its
+      # `record/same-question.json`.
       - name: Build the same-question lists
         if: ${{ steps.plan.outputs.has_jobs == 'true' }}
         continue-on-error: true

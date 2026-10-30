@@ -715,6 +715,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": false
+    },
+    {
+      "name": "cert-same-question-list",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": false
     }
   ]
 }

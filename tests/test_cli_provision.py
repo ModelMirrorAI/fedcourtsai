@@ -3360,13 +3360,41 @@ def test_the_local_cascade_provisions_the_record_this_command_writes(
     # and this command hand a cell the same record. Both go through one placement
     # and one writer, and this pins the result rather than the wiring: on a
     # docket that trips both contact scrubs, every event's record — snapshot,
-    # context.json, documents and manifest — is byte-identical between the two.
+    # context.json, documents, manifest and a cert cell's same-question list —
+    # is byte-identical between the two. The command takes its lists from the
+    # file the plan job builds, built here on the snapshot's day as the
+    # cascade cuts an uncut cell.
     _seed_snapshot(fixture_corpus, date(2026, 7, 20), _PRO_SE_DOCKET)
     _seed_petition(fixture_corpus, _SIGNED_IN_PERSON)
     with corpus.connect(fixture_corpus.db_path) as conn:
         events = corpus.events_for_case(conn, "scotus/305")
     assert events
     assert not any(event.resolved for event in events)  # forward cells on both sides
+    matrix = tmp_path / "matrix.json"
+    matrix.write_text(
+        json.dumps(
+            {
+                "include": [
+                    {"court": "scotus", "docket": 305, "event_id": event.event_id}
+                    for event in events
+                ]
+            }
+        )
+    )
+    lists = tmp_path / "same-question-lists.json"
+    built = runner.invoke(
+        app,
+        [
+            "same-question-lists",
+            "--matrix-file",
+            str(matrix),
+            "--out",
+            str(lists),
+            "--today",
+            "2026-07-20",
+        ],
+    )
+    assert built.exit_code == 0, built.output
 
     for event in events:
         provisioned = tmp_path / "provisioned" / event.event_id
@@ -3381,6 +3409,8 @@ def test_the_local_cascade_provisions_the_record_this_command_writes(
                 "305",
                 "--event",
                 event.event_id,
+                "--same-question-file",
+                str(lists),
             ],
             env={"FEDCOURTS_DATA_ROOT": str(provisioned)},
         )
