@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000572",
+  "run_id": "20261029T230557Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebSearch", "WebFetch"],
+  "helpful": ["The federal band table in the statpack", "Web search to identify the lead granted case"],
+  "gaps": ["Paper-only SG petitions provision no text; the SG posts its petitions on justice.gov, which could be staged instead", "No signal flags that a petition shares a question with an already-granted case (hold-candidate detection)"],
+  "notes": "The arrival-moment federal anchor (~73%) is miscalibrated for a petition likely to be held for an already-granted lead case."
+}
