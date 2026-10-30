@@ -926,6 +926,20 @@
       "stale_reason": null
     },
     {
+      "case_id": "scotus/9026000427",
+      "distributed_for_conference": "2026-11-13",
+      "last_live_polled": "2026-10-30",
+      "next_conference": "2026-11-13",
+      "stale_reason": null
+    },
+    {
+      "case_id": "scotus/9026000433",
+      "distributed_for_conference": "2026-11-13",
+      "last_live_polled": "2026-10-30",
+      "next_conference": "2026-11-13",
+      "stale_reason": null
+    },
+    {
       "case_id": "scotus/9026000435",
       "distributed_for_conference": "2026-11-13",
       "last_live_polled": "2026-10-30",
@@ -937,6 +951,13 @@
       "distributed_for_conference": "2026-11-06",
       "last_live_polled": "2026-10-30",
       "next_conference": "2026-11-06",
+      "stale_reason": null
+    },
+    {
+      "case_id": "scotus/9026000440",
+      "distributed_for_conference": "2026-11-13",
+      "last_live_polled": "2026-10-30",
+      "next_conference": "2026-11-13",
       "stale_reason": null
     },
     {
@@ -963,7 +984,7 @@
     {
       "case_id": "scotus/9026000459",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-10-29",
+      "last_live_polled": "2026-10-30",
       "next_conference": "2026-11-06",
       "stale_reason": null
     },
@@ -977,21 +998,21 @@
     {
       "case_id": "scotus/9026000462",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-10-29",
+      "last_live_polled": "2026-10-30",
       "next_conference": "2026-11-06",
       "stale_reason": null
     },
     {
       "case_id": "scotus/9026000468",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-10-29",
+      "last_live_polled": "2026-10-30",
       "next_conference": "2026-11-06",
       "stale_reason": null
     },
     {
       "case_id": "scotus/9026000518",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-10-29",
+      "last_live_polled": "2026-10-30",
       "next_conference": "2026-11-06",
       "stale_reason": null
     }
