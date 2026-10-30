@@ -53,6 +53,7 @@ from ..store import (
     predictor_holds_no_counted_prediction,
 )
 from ..voids import is_voided
+from .documents import holds_docket_documents
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .moments import spec_for
@@ -1288,7 +1289,7 @@ def _timing_hold(
         # scan cannot. Clears at the case's next poll.
         return CaseDisposition.held_stale
     provisioning_attempted = row.predict_queued_at is not None or (
-        corpus.has_documents_for_case(conn, row.case_id)
+        holds_docket_documents(conn, row.case_id)
     )
     if not provisioning_attempted:
         # Provisioning has never been *attempted* for this case: the pull

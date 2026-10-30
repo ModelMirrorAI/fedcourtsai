@@ -299,6 +299,38 @@ def test_a_backlog_held_on_provisioning_is_counted_not_silently_empty(tmp_path: 
     assert drained.held_unswept == 0
 
 
+def test_a_decision_below_row_alone_is_not_provisioning(tmp_path: Path) -> None:
+    """The decision-below fill stores its CourtListener kinds ahead of the
+    docket's own filings, often on a case the live poll has not provisioned. Those
+    rows say nothing about provisioning, so a case holding only them stays held
+    rather than minting a forward cell whose record the withheld kinds leave
+    empty."""
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data = tmp_path / "data"
+    _open_case(db, "scotus", 1, provisioned=False)
+    with corpus.connect(db) as conn:
+        corpus.upsert_documents(
+            conn,
+            [
+                corpus.CaseDocument(
+                    case_id="scotus/1",
+                    kind=kind,
+                    url="https://www.courtlistener.com/opinion/1/",
+                    fetched_at=date(2026, 7, 1),
+                    text="The court of appeals' opinion.",
+                )
+                for kind in ("decision-below", "lower-court-docket")
+            ],
+        )
+
+    held = _backlog(db, data)
+    assert held.entries == ()
+    assert held.held_unswept == 1
+
+    _provision(db, "scotus/1")
+    assert _derive(db, data) == ("scotus/1",)
+
+
 def test_a_held_case_that_is_not_owed_is_not_counted_as_held(tmp_path: Path) -> None:
     """The counts are taken over the **owed** population alone. A case that is
     unprovisioned *and* fully predicted is not work this lane owes, so counting it

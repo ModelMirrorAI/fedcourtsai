@@ -1361,6 +1361,7 @@ _TRACKING_STAMPS = (
     "last_live_polled",
     "opinion_enrich_attempted_at",
     "document_floor_probed_at",
+    "decision_below_attempted_at",
     "predict_queued_at",
     "evaluate_queued_at",
 )
