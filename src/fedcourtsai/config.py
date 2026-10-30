@@ -354,8 +354,8 @@ class LiveConfig(BaseModel):
     # oldest Term first. Inside the tiers the current Terms always fill the
     # cap, so without a reserve an older Term's never-polled row is never
     # reached. Yields only to the overdue tier, so it displaces the cycle's
-    # tail, the furthest conference's petitions while those fill the cap;
-    # 0 disables it.
+    # tail, the last-reached conference's most recently polled petitions while
+    # those fill the cap; at most half the cap; 0 disables it.
     never_polled_reserve_per_run: int = Field(default=0, ge=0)
     # Days after a conference by which its order list has issued (the Monday
     # after a Friday conference, Tuesday after a Monday holiday; the first
@@ -417,6 +417,20 @@ class LiveConfig(BaseModel):
     # observed late-filing tail; the `le` cap keeps it a *window*, since a value
     # past ~182 would make dual-Term probing year-round.
     outgoing_term_grace_days: int = Field(default=60, ge=0, le=182)
+
+    @model_validator(mode="after")
+    def _reserve_leaves_most_of_the_cycle(self) -> Self:
+        """Refuse a never-polled reserve over half the cycle's cap.
+
+        The reserve displaces distributed petitions once they fill the cap, so
+        one sized near the cap would starve the order-list re-reads.
+        """
+        if self.never_polled_reserve_per_run * 2 > self.max_cases_per_run:
+            raise ValueError(
+                f"never_polled_reserve_per_run ({self.never_polled_reserve_per_run}) "
+                f"exceeds half of max_cases_per_run ({self.max_cases_per_run})"
+            )
+        return self
 
 
 def load_live_config(config_root: Path) -> LiveConfig:

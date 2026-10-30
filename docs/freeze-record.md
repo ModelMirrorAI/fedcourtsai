@@ -14961,16 +14961,18 @@ freeze commit is recorded here.
   The run-seed window of 2026-10-30 02:37 UTC (run 40992742010) reported 11
   pairs and dropped 11 live-minted rows, skipping none and moving no ledger
   path. Beside the nine that entry names, it dropped `scotus/9018006135`
-  (`18-6135`) and `scotus/9021005592` (`21-5592`). Read ranged from `main`'s
-  blob of 2026-10-30 09:36 UTC, each now holds the same shape as the nine: the
+  (`18-6135`) and `scotus/9021005592` (`21-5592`). Read ranged from the blob at
+  `main` `e4e50ee4a` (the live window's pointer, 2026-10-30 09:36 UTC), each
+  now holds the same shape as the nine: the
   CourtListener row keeps its facts (`18-6135` granted 2019-03-18, merits
   `affirmed` 2020-03-23; `21-5592` granted 2021-09-08, merits `reversed`
   2022-03-24) beside a caption-only row left untouched, and neither dropped id
   had a committed path. So the moves that entry lists gain these two:
   `corpus_rows` and the court and era sections by eleven rather than nine; the
-  live-slice and per-Term cert-stage figures by one IFP grant each in OT2018
-  and OT2021; and the merits section by one `affirmed` (OT2018) and one
-  `reversed` (OT2021). Its boundary is unchanged and covers them.
+  live-slice and per-Term cert-stage figures, keyed on the docket prefix, by
+  one IFP grant each in OT2018 and OT2021; and the merits section, keyed on
+  the grant date's October Term, by one `affirmed` in OT2018 and one
+  `reversed` in OT2020. Its boundary is unchanged and covers them.
 
 - **The never-polled reserve takes its slots while the distributed petitions
   fill the cycle; recorded 2026-10-30.** A **membership-rule** entry under
@@ -14978,21 +14980,27 @@ freeze commit is recorded here.
 
   **What moved.** That entry's reserve yielded to the distributed tier as
   well as the overdue one. Through the Term the distributed petitions alone
-  hold more than `live.max_cases_per_run`: on `main`'s blob of 2026-10-30
-  09:36 UTC, 290 pending petitions were distributed for the 2026-11-06
-  conference and 27 for 2026-11-13, against a cap of 150. So in its first
-  cycles, from the carrying merge of 2026-10-29 22:36 UTC to that blob, the
-  reserve took no slot and polled no OT2017 or OT2018 row. It now yields only
-  to the overdue tier (the first `live.max_overdue_per_run` stale rows) and
-  otherwise displaces the cycle's tail. In Term that tail is the furthest
-  conference's most recently polled petitions, which the next cycle reaches.
+  hold more than `live.max_cases_per_run`: on the blob at `main` `e4e50ee4a`
+  (the live window's pointer, 2026-10-30 09:36 UTC), 290 pending petitions
+  were distributed for the 2026-11-06 conference and 27 for 2026-11-13,
+  against a cap of 150. On the same blob no OT2017 or OT2018 row carries a
+  live poll dated 2026-10-30, so the five live windows of that day before it,
+  all after the carrying merge of 2026-10-29 22:36 UTC, reached no
+  never-polled row of either Term. It now yields only to the overdue tier
+  (the first `live.max_overdue_per_run` stale rows) and otherwise displaces
+  the cycle's tail, its rows listed last. In Term that tail is the most
+  recently polled petitions of the last conference the cycle reaches. It is
+  capped at half of `live.max_cases_per_run`.
 
-  **Why it is a boundary.** Ten of the cap's 150 slots move from distributed
-  petitions to never-polled rows, so a distributed petition's re-poll comes
-  about a fifteenth less often while its conference set exceeds the cap. A
-  petition's distribution transition, which fires predict, is read that much
-  later at most; the nearest conference, whose order-list re-read leads the
-  tier, is not the tail. The 2026-10-29 entry's boundary, a drift until the
+  **Why it is a boundary.** Ten slots move from distributed petitions to
+  never-polled rows, a fifteenth of the cap with the overdue tier empty and a
+  tenth of what is left with it full. While a conference's set exceeds the
+  cap its petitions' re-polls stretch by 15/14 to 10/9, so a distribution
+  transition, which fires predict, is read that much later at most. While a
+  past conference's set still awaiting its order-list read exceeds the cap,
+  that conference is the tail: up to ten of its petitions a cycle read the
+  order list one cycle later, and within a conference those are the most
+  recently polled, the likeliest to have read it already. The 2026-10-29 entry's boundary, a drift until the
   reserve's backlog drains, now starts at this entry's carrying merge rather
   than that entry's, since before it the reserve polled nothing in Term.
 

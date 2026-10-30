@@ -5244,8 +5244,9 @@ def live_rotation(
     distributed set's size and yields only to the overdue tier, so it shrinks
     while an overdue backlog drains. It displaces the cycle's tail: the Term
     tiers, or while the distributed petitions fill the cap, the most recently
-    polled petitions of the furthest conference, which the next cycle reaches.
-    0 disables it.
+    polled petitions of the last conference the cycle reaches, which can be a
+    past conference's awaiting its order-list read; the next cycle reaches
+    them. Its rows are listed last. 0 disables it.
     """
     if limit <= 0:
         return []
@@ -5283,7 +5284,9 @@ def live_rotation(
     reserved = {row.case_id for row in reserve}
     head = [row for row in picked if row.case_id in protected]
     tail = [row for row in picked if row.case_id not in protected and row.case_id not in reserved]
-    return (head + reserve + tail)[:limit]
+    # Listed last, so a cycle cut short by its wall-clock budget loses reserve
+    # rows before the conference petitions it displaced room from.
+    return head + tail[: limit - len(head) - len(reserve)] + reserve
 
 
 def never_polled_rows(

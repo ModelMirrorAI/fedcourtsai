@@ -95,17 +95,18 @@ live:
   max_poll_staleness_days: 7
   # The most of each cycle's max_cases_per_run the overdue tier may take, so a
   # large overdue backlog drains over several cycles while the distributed
-  # petitions keep the rest of each one (their order-list results are days
-  # away). A third of max_cases_per_run; at twelve cycles a day that drains at
-  # most ~600 overdue dockets a day.
+  # petitions keep the rest of each one, less the never-polled reserve below
+  # (their order-list results are days away). A third of max_cases_per_run;
+  # at twelve cycles a day that drains at most ~600 overdue dockets a day.
   max_overdue_per_run: 50
   # Slots of each cycle kept for rows the live channel has never polled,
   # oldest Term first, so a row the historical walker skipped (undecided when
   # walked, or never served) is still reached: the Term tiers lead with recent
   # Terms, which always fill the cap. Yields only to the overdue tier: in Term
   # the distributed petitions alone fill the cap, so the reserve takes its
-  # slots from the furthest conference's most recently polled petitions,
-  # which the next cycle reaches. Only the row its docket number resolves to
+  # slots from the most recently polled petitions of the last conference the
+  # cycle reaches (a past conference's while its set exceeds the cap), which
+  # the next cycle reaches. At most half of max_cases_per_run. Only the row its docket number resolves to
   # qualifies, so a caption-only upstream duplicate is never polled into a
   # second full row. At twelve cycles a day, 10 slots reach up to ~120 rows a
   # day; 0 disables the reserve.
