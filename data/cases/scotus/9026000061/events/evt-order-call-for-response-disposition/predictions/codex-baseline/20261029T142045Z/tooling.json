@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000061",
+  "gaps": [
+    "CourtListener MCP search returned HTTP 429 for the daily quota; opposing-circuit authority could not be independently checked there.",
+    "Web search and an official-opinion open returned no usable source content.",
+    "Corpus reporter-citation coverage was sparse; the known-authority citation lookup returned no rows."
+  ],
+  "helpful": [
+    "The case-level context and dated snapshot clearly distinguish a response request from a grant or true relist.",
+    "The petition and separate appendix allow checking advocacy against the actual lower-court opinion.",
+    "Matching sal-v4 risk-set rates and exact JSON denominators support a strictly-prior-Term anchor.",
+    "Corpus query transfer lines expose retrieval cost and sparse-filter warnings explain empty results."
+  ],
+  "notes": "Used the provisioned record and committed statpack. No current docket or outcome retrieval for this case. Required a writable uv cache override and --no-sync. Corpus priors did not supply a reliable topical frequency estimate. The called-for response was not yet in the baseline and its absence was expected.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "functions.exec_command",
+    "fedcourts paths",
+    "fedcourts query",
+    "jq",
+    "mcp__courtlistener.search (throttled)",
+    "web search/open (no usable content)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

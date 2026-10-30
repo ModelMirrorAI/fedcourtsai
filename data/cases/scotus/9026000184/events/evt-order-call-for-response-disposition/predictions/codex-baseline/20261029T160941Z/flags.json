@@ -1,0 +1,36 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000184",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "issue": null,
+      "message": "CourtListener MCP's citation search for Junger v. Daley, 209 F.3d 481, returned HTTP 429 under its daily limit. The prediction was completed using provisioned filings, the embedded lower-court opinion, the committed statpack, and general transfer-law background. No direct CourtListener REST fallback was attempted.",
+      "normalised": false,
+      "severity": "info",
+      "source": "agent"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "issue": null,
+      "message": "Harness check: this cell's logged tool calls named data/qp-topics/, the removed cert-outcome oracle the prompt forbids reading: 1 call(s), e.g. 'data/qp-topics/.'. Read from retrieval_log.json, which records that a call named the path, not what it returned; check the transcript before treating it as a read.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "issue": null,
+      "message": "Harness check: this cell's logged tool calls named a committed predictions/ or evaluations/ path other than this cell's own run directory (another predictor's output, an earlier run, or a glob over them): 1 call(s), e.g. 'predictions/evaluations/'. Read from retrieval_log.json, which records that a call named the path, not what it returned; check the transcript before treating it as a read.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0"
+}

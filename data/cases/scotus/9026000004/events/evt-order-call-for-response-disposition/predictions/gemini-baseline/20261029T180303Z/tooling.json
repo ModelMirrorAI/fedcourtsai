@@ -1,0 +1,25 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000004",
+  "gaps": [
+    "CourtListener MCP search returned HTTP 429 rate-limit errors during this run",
+    "A keyword or case-name substring filter on `fedcourts query` would help locate doctrinally related cert petitions when MCP is throttled"
+  ],
+  "helpful": [
+    "Provisioned petition.txt with full lower-court appendix orders",
+    "metrics/statpack.md salience-band risk-set base rates and signal cuts",
+    "fedcourts query for inspecting recent OT2026 granted cert trajectories"
+  ],
+  "notes": "Provisioned petition.txt and questions-presented.txt contained the complete record and all state-court orders below, allowing a full analysis despite CourtListener MCP rate limiting.",
+  "role": "predictor",
+  "run_id": "20261029T180303Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener MCP (rate-limited)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

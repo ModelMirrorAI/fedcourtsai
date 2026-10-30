@@ -1,0 +1,32 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000443",
+  "gaps": [
+    "No published grant rate conditional on a requested cert response",
+    "CourtListener MCP daily rate limit exhausted",
+    "General-rule web requests returned no usable content",
+    "corpus-info does not support the cell's service backend"
+  ],
+  "helpful": [
+    "Dated snapshot and explicit moment context",
+    "Text-available petition and appellate appendix",
+    "Exact prior-Term risk-set counts in statpack.json",
+    "Corpus query cache reports transfer counts"
+  ],
+  "notes": "The brief in opposition is not yet present at this moment and was not inferred. Worked around a read-only default uv cache with a temporary cache. Corpus grants were context only, not a matched sample; no current corpus census is claimed. No case outcome was retrieved.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "exec_command",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info",
+    "CourtListener MCP search",
+    "web open/find/search",
+    "committed statpack",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

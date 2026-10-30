@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500257",
+  "gaps": [
+    "CourtListener MCP daily quota was exhausted (HTTP 429); web searches supplied no usable results.",
+    "corpus-info cannot report vintage through the cell's service backend, and the committed statpack carries no explicit build timestamp.",
+    "A four-row summary-reversal query returned no matches after 902 ranged GETs and 236060672 bytes; targeted citation lookup also returned no matches because citation coverage is sparse.",
+    "No published base-rate cut conditions on a cert call for response."
+  ],
+  "helpful": [
+    "The dated case-level snapshot and context made the response-request moment unambiguous.",
+    "The separate appendix provided both the amended panel opinion and the substantive rehearing dissent.",
+    "Unrounded prior-Term reached-band denominators allowed exact pooling and an independent arithmetic check."
+  ],
+  "notes": "No own-case outcome retrieval or other-cell output was used. The opposition is absent as expected at this moment. Temporary UV cache configuration fixed the initial read-only cache failure. Generic corpus results were not useful legal analogues; the forecast uses staged opinions and committed base rates.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned inputs and committed schemas/statpack",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (unavailable on service backend)",
+    "CourtListener MCP search (rate-limited)",
+    "web.run search (no usable results)",
+    "read-only statpack arithmetic subagent"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

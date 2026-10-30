@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000377",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["sal-v4 segment table with bracketed reached rates"],
+  "gaps": ["No statpack cut conditions on a called-for response, which is this moment's defining signal", "No way to query priors by subject (e.g. Ruan / harmless error)"],
+  "notes": "Two queries hit an era usage error ('modern' is not a token); the help text lists the vocabulary."
+}

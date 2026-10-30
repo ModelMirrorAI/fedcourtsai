@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73538544",
+  "run_id": "20261029T180303Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt included the full California Court of Appeal opinion (114 Cal. App. 5th 873) and trial court summary-judgment order in the appendix, allowing direct verification of how the lower courts treated Miller, Aspen, and Ye.",
+    "fedcourts query --docket-number 24-1238 retrieved the corpus metadata for Montgomery v. Caribe Transport II, LLC when CourtListener MCP was rate-limited (HTTP 429).",
+    "metrics/statpack.md provided the sal-v4 baseline [reached] grant-family base rates and relist/CVSG/amicus cuts."
+  ],
+  "gaps": [
+    "CourtListener MCP returned HTTP 429 (daily rate limit exceeded), preventing full-text lookup of the slip opinion in Montgomery v. Caribe Transport II, LLC.",
+    "Because documents_before dates a combined brief-in-opposition by its earliest respondent brief (Aug. 26, 2026), the staged brief-in-opposition.txt on this response-requested cell (cutoff 2026-09-11) also contained co-respondent Walmart Inc.'s later Oct. 13, 2026 response."
+  ],
+  "notes": "Anchored the forecast strictly on the pre-cutoff 2026-09-11 record (Petition, Irigoyen Farms's Aug. 26 BIO, Walmart's Aug. 27 waiver, Petitioner's Aug. 31 reply, Sept. 9 distribution, and Sept. 10 CFR) and recorded an informational provisioning flag in flags.json regarding the combined BIO file."
+}

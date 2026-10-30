@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500257",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "WebFetch (supremecourt.gov docket)"],
+  "helpful": ["Appendix text including the en banc dissent", "sal-v4 segment table with reached rates"],
+  "gaps": ["No statpack cut conditioned on a called-for response", "No way to retrieve prior QI summary reversals by topic from the corpus"],
+  "notes": "The citation filter is too sparse to look up known precedents."
+}

@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500250",
+  "gaps": [
+    "CourtListener MCP citation lookup was unavailable because of a daily HTTP 429 rate limit.",
+    "Web searches returned no usable output.",
+    "No committed base-rate cut conditions on a cert response request.",
+    "Structured corpus priors lacked a topical match for these statutory issues."
+  ],
+  "helpful": [
+    "The complete petition includes the lower-court opinion, allowing advocacy to be checked against the actual analysis.",
+    "Frozen moment context distinguishes the one scheduled conference from an actual relist.",
+    "Matched sal-v4 reached-band aggregates support a prior-Term risk-set anchor."
+  ],
+  "notes": "Forecast completed from the staged record and committed aggregates. Default uv cache was read-only; setting its cache under /tmp allowed CLI commands. No subsequent state or outcome of this petition was retrieved. The CourtListener failure prevented independent verification of an asserted circuit split.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "exec_command",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search",
+    "web search",
+    "read-only statistical subagent"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

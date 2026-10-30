@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73377829",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "shell: provisioned record and schema reads",
+    "fedcourts paths",
+    "fedcourts query",
+    "jq: statpack risk-set pooling",
+    "web.run: general-authority searches and official rules PDF open attempts"
+  ],
+  "helpful": [
+    "Moment-cut snapshot clearly separates the response request from an unprovided future response.",
+    "The petition includes the appellate opinion, exposing preservation and vehicle issues without retrieving later case history.",
+    "Matching sal-v4 reached rates and unrounded JSON permit a reproducible prior-Term anchor."
+  ],
+  "gaps": [
+    "No published base-rate cut conditions on a cert-stage call for response.",
+    "General-authority web calls returned no readable payload in this run."
+  ],
+  "notes": "The initial uv commands failed because the default cache was read-only; redirecting UV_CACHE_DIR to /tmp/uv-cache restored CLI access. The structured query succeeded, but its denial-filtered examples were not a close subject-matter comparison and received no independent probability weight. The unavailable opposition is expected at this moment, not a provisioning defect. No case-outcome retrieval was attempted."
+}

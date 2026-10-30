@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000023",
+  "gaps": [
+    "CourtListener daily throttling prevented independent retrieval of the asserted split authority.",
+    "No published called-for-response conditional grant rate is available.",
+    "The structured corpus query produced unrelated recent grants rather than subject-matched abstention comparators."
+  ],
+  "helpful": [
+    "The petition includes both lower-court decisions, allowing advocacy to be checked against the opinions.",
+    "The matching sal-v4 reached-rate fields permit exact pooling of strictly-prior Terms."
+  ],
+  "notes": "The initial uv cache was read-only; setting UV_CACHE_DIR=/tmp/uv-cache resolved command startup. No case outcome was retrieved and no direct CourtListener REST fallback was attempted. Missing opposition text is expected at this moment.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned docket and petition",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search (throttled)",
+    "web search (no usable results)",
+    "read-only consistency reviewer"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

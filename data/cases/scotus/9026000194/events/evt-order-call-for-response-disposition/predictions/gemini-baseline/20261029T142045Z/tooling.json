@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000194",
+  "gaps": [
+    "CourtListener MCP server hit daily rate limit (HTTP 429 1400/day)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt included full lower court opinions from CA2, D. Conn., and Bankr. D. Conn.",
+    "metrics/statpack.md salience band and relist/amicus base-rate tables",
+    "fedcourts query CLI for checking docket metadata"
+  ],
+  "notes": "CourtListener MCP returned HTTP 429 daily rate limit exceeded, but local provisioned documents and corpus query were completely sufficient.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

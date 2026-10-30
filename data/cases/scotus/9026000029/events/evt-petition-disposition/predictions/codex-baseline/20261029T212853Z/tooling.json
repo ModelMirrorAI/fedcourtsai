@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000029",
+  "gaps": [
+    "The service backend did not expose corpus-info vintage reporting.",
+    "Web attempts returned no usable content; MCP still supplied the historical legal material."
+  ],
+  "helpful": [
+    "The appendix exposed headquarters facts that were more contested than the petition's summary suggested.",
+    "Exact risk-set fields in statpack JSON allowed reproducible pooling of the sal-v4 baseline anchor.",
+    "MCP opinion snippets supported narrow precedent checks without retrieving this petition's outcome."
+  ],
+  "notes": "The absent opposition was not overdue on the provisioned record and was not treated as a pipeline gap. The default uv cache was read-only; UV_CACHE_DIR=/tmp/uv-cache resolved execution. The corpus query was selected on denials and supplied no grant-rate estimate. No source on this petition beyond the provisioned record was retrieved.",
+  "role": "predictor",
+  "run_id": "20261029T212853Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and context",
+    "provisioned questions presented, petition and appendix",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (unsupported service-backend attempt)",
+    "CourtListener MCP search and search_document",
+    "web search and open (no usable source content)",
+    "jq"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

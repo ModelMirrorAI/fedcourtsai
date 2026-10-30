@@ -1,0 +1,23 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000145",
+  "gaps": [
+    "CourtListener MCP server returned HTTP 429 daily rate-limit errors on both search calls",
+    "record/related/ was not populated because the docket's Links field only names the extension application 25A1300 rather than a Vide link to the lead case Montoya Palacios v. Liggins (No. 25-1223)"
+  ],
+  "helpful": [
+    "Provisioned petition.txt included the complete petition text, the full Third Circuit panel opinion, both district court fee opinions, and the rehearing en banc dissents",
+    "fedcourts query --court scotus --docket-number 25-1223 and 26-146 confirmed the grant status of the lead case Montoya Palacios v. Liggins and the parallel hold posture of Baltazar v. Daley",
+    "metrics/statpack.md provided exact sal-v4 bracketed reached rates across prior Terms"
+  ],
+  "notes": "Proceeded using the provisioned petition.txt, snapshot 2026-10-06.json, metrics/statpack.md, and fedcourts query after CourtListener MCP returned HTTP 429.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "tools_used": [
+    "fedcourts query",
+    "statpack",
+    "courtlistener-mcp"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

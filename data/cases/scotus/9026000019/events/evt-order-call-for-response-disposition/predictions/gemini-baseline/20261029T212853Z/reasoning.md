@@ -1,0 +1,44 @@
+# Rationale for Prediction — *Allison Nguyen v. Louisiana* (No. 26-19)
+
+## Summary
+
+- **Predicted disposition:** `denied` (`granted: 0`, `probability: 0.06`)
+- **Input snapshot:** `2026-09-09.json` (`moment: response-requested`, `mode: forward`, `band: baseline`, `salience_version: sal-v4`, `distribution_count: 1`)
+- **Big-case score:** `0.28`
+
+## Base-rate anchoring from `metrics/statpack.md`
+
+This cell forecasts the disposition of a paid cert petition at `moment: response-requested` (`evt-order-call-for-response-disposition`), opened on September 9, 2026, the day the Court called for a response after the petition had been distributed on August 19, 2026 (`distribution_count: 1`) for the September 28, 2026 conference without a response from the State of Louisiana.
+
+From `metrics/statpack.md`:
+1. **Salience band anchor (`sal-v4`, `band: baseline`):** Across the nine prior October Terms rendered in the "Segment base rate by salience band (`sal-v4`)" table strictly preceding OT2026 (`2017` through `2025`), the pooled bracketed `reached` grant rate for `baseline` petitions—the yardstick against which this cell's skill is scored—is **5.1%** ($\approx 659.4$ grants across $n = 12,913$ weighted resolved petitions; ranging from 4.0% in OT2025, $n = 1,314$, to 5.9% in OT2022–OT2024).
+2. **Marginal signal cuts (paid scored segment):**
+   - **Overall modern discretionary-cert base rate:** 2.9% grant family (`granted` 1.5% + `gvr` 1.3%, $n = 44,777$ resolved).
+   - **Relist count:** Petitions ending at `relist_bucket = 0` (`distribution_count == 1`) grant at 1.8% (`granted` 1.3% + `gvr` 0.5%, $n = 10,203$), whereas petitions reaching `relist_bucket = 1` (`distribution_count == 2`, where a post-CFR petition lands once redistributed after the response) grant at 13.7% (`granted` 8.5% + `gvr` 5.2%, $n = 2,538$).
+   - **CVSG status:** `none` grants at 6.4% (`granted` 4.1% + `gvr` 2.3%, $n = 13,556$).
+   - **Amicus count:** Petitions with `0` cert-stage amicus briefs grant at 3.8% (`granted` 2.0% + `gvr` 1.8%, $n = 11,109$).
+
+## Case-specific adjustments
+
+Starting from the prior-Term pooled `baseline` `[reached]` rate of **5.1%**:
+
+### 1. Upward adjustment for the Call for a Response and the *Andersen* / *Acevedo* split (+3.5 percentage points, to ~8.6%)
+
+- **Affirmative chambers interest (CFR):** The Jefferson Parish District Attorney did not file a response or a formal waiver by the original August 3, 2026 due date, and the petition was placed on the August 19, 2026 distribution list for the Long Conference. The September 9, 2026 Call for a Response confirms that at least one chambers flagged the petition as warranting adversarial briefing rather than routine denial.
+- **Identifiable lower-court conflict on state firearm bans under *Blanton*:** Under *Blanton v. City of North Las Vegas*, 489 U.S. 538, 543 (1989), and *United States v. Nachtigal*, 507 U.S. 1, 3–4 (1993), an offense carrying a maximum prison sentence of six months or less is presumptively "petty" unless the legislature has packed the offense with additional statutory penalties so severe that they clearly reflect a legislative determination that the offense is "serious." Petitioner's first-offense misdemeanor domestic abuse battery conviction under La. R.S. 14:35.3 carries a maximum jail term of six months and a $1,000 fine (tried without a jury under La. C.Cr.P. art. 779(B)), but also triggers a 10-year state firearm prohibition under La. R.S. 14:95.10, a lifetime federal firearm ban under 18 U.S.C. § 922(g)(9), and a bar on expungement under La. C.Cr.P. art. 977(C)(1).
+- In *Andersen v. Eighth Judicial District Court*, 135 Nev. 321, 448 P.3d 1120 (2019), the Nevada Supreme Court unanimously held that while the federal ban in 18 U.S.C. § 922(g)(9) is a collateral consequence from another sovereign (*Amezcua v. Eighth Judicial District Court*, 130 Nev. 45, 319 P.3d 602, *cert. denied*, 574 U.S. 826 (2014)), the Nevada Legislature's imposition of a *state-law* firearm prohibition automatically upon conviction of misdemeanor domestic battery severely burdens a fundamental Second Amendment right and renders the offense "serious" under *Blanton*. Conversely, the Louisiana Fifth Circuit Court of Appeal in *State v. Acevedo*, 307 So. 3d 322, 329–30 (La. App. 5 Cir. 2020)—applied below in `25-K-267` (App. 46a–48a)—expressly rejected *Andersen* and held that neither La. R.S. 14:95.10 nor 18 U.S.C. § 922(g)(9) overcomes *Blanton*'s six-month presumption. Other courts similarly hold that firearm disqualifications do not trigger a Sixth Amendment jury-trial right for a six-month misdemeanor, e.g., *United States v. Chavez*, 204 F.3d 1305, 1313–14 (11th Cir. 2000); *State v. Woolverton*, 52 Kan. App. 2d 700, 371 P.3d 941 (2016); *State ex rel. McDougall v. Strohson*, 190 Ariz. 120, 945 P.2d 1251 (1997).
+
+### 2. Downward adjustment for vehicle defects, statutory distinguishability, and thin advocacy (-2.6 percentage points, to 6.0%)
+
+- **Procedural / Law-of-the-Case Obstacle in the Decision Below:** Petitioner first raised her Sixth Amendment jury-trial claim in a pretrial motion, and when the Louisiana Fifth Circuit denied her pretrial supervisory writ on the merits on June 13, 2025 (`25-K-267`, App. 43a–49a), she **did not seek review in the Supreme Court of Louisiana**. Instead, she went to a bench trial, was convicted, and re-raised the issue as Assignment of Error No. 4 in her post-conviction supervisory writ (`25-K-572`), alongside three fact-bound trial claims (self-defense sufficiency, witness sequestration, and impeachment). In the January 28, 2026 opinion under review (`25-K-572`, App. 18a–20a), the Louisiana Fifth Circuit declined to reconsider its prior ruling under the state "law of the case" doctrine, and the Louisiana Supreme Court issued a summary "Denied" order on May 12, 2026 (`2026-KK-00308`, App. 22a). Once the State's Brief in Opposition highlights that the judgment under review rests on law-of-the-case and that Petitioner bypassed the Louisiana Supreme Court on the pretrial writ that actually decided the merits, the Court is very likely to view this case as a poor vehicle.
+- **State-Law Distinguishability from *Andersen*:** As the court below explained in `25-K-267` (App. 47a–48a) following *Acevedo*, 307 So. 3d at 330, Nevada's statute in *Andersen* imposed an indefinite/permanent state-law firearm ban (restorable only by pardon), whereas Louisiana's statute (La. R.S. 14:95.10(E)) imposes only a **10-year** prohibition from completion of sentence and creates a separate offense with its own penalty scheme if violated. And as for the lifetime federal ban in 18 U.S.C. § 922(g)(9), *Blanton* looks strictly to the penalties imposed by the *enacting* legislature, and Congress itself recognized in 18 U.S.C. § 921(a)(33)(B)(i)(II) that some qualifying misdemeanor crimes of domestic violence do not carry a right to a jury trial.
+- **Advocacy and Amicus Profile:** The petition (`petition.txt`) was filed by solo local defense counsel without specialist Supreme Court co-counsel, contains only seven pages of argument (Pet. 5–11) with multiple citation errors, arises from an intermediate state appellate court's unpublished supervisory writ ruling, and has drawn **zero amicus briefs** (`cert_amicus = 0`, 3.8% grant-family rate in the statpack).
+
+Net of these factors, I set `probability = 0.06` (`granted = 0`, `predicted_disposition = "denied"`).
+
+## Secondary claims and `order-writers`
+
+- **`relist-increment` = 0.98:** Because `context.json` freezes `distribution_count: 1` as of September 9, 2026 (reflecting the initial August 19, 2026 distribution before the September 9 CFR), the petition is virtually certain (`0.98`) to be distributed at least once more after the State of Louisiana files its requested response (due October 9, 2026), barring an unexpected withdrawal or dismissal.
+- **`cvsg-increment` = 0.005:** The Solicitor General's views are almost never sought in state criminal misdemeanor prosecutions (`0.005`).
+- **`summary-disposition-route` = 0.08:** Conditional on a grant, there is an 8% chance of summary disposition (e.g., a GVR or summary reversal) and a 92% chance of plenary review, as modifying or extending *Blanton* to encompass statutory firearm disabilities would require full briefing and argument.
+- **`dissent-from-denial` = 0.03 and `order-writers`:** Conditional on denial, there is roughly a 3% chance that a Justice writes a dissent or statement respecting the denial of certiorari—most plausibly Justice Thomas (`0.015`) or Justice Gorsuch (`0.012`), given their sustained interest in both Second Amendment consequences and originalist Sixth Amendment jury-trial guarantees, with much smaller probabilities assigned to the remaining Justices (`Alito: 0.004`, `Sotomayor: 0.004`, `Jackson: 0.003`, `Kavanaugh: 0.002`, `Roberts: 0.001`, `Kagan: 0.001`, `Barrett: 0.001`).

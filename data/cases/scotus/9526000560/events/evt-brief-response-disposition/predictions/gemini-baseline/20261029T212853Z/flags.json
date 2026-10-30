@@ -1,0 +1,27 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9526000560",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-brief-response-disposition",
+      "issue": null,
+      "message": "Harness check: this cell's logged tool calls named a committed predictions/ or evaluations/ path other than this cell's own run directory (another predictor's output, an earlier run, or a glob over them): 2 call(s), e.g. 'predictions/gemini-baseline/flags.json', 'predictions/gemini-baseline/{prediction.json,reasoning.md,tooling.json,flags.json}'. Read from retrieval_log.json, which records that a call named the path, not what it returned; check the transcript before treating it as a read.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-brief-response-disposition",
+      "issue": null,
+      "message": "Harness check: this cell's logged tool calls wrote under data/ or a case record/ outside this cell's own run directory: 1 call(s), e.g. 'data/cases/scotus/9526000560/events/evt-brief-response-disposition/predictions/gemini-baseline/flags.json'. Read from retrieval_log.json, which records that a call named the path, not what it returned; check the transcript before treating it as a read.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T212853Z",
+  "schema_version": "1.0"
+}

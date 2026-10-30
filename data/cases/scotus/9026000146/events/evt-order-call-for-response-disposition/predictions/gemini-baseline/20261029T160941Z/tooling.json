@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000146",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "google_web_search"
+  ],
+  "helpful": [
+    "fedcourts query by originating docket number (24-1191) and related SCOTUS dockets (25-1223, 26-145) to confirm the hold relationship with Montoya Palacios v. Liggins",
+    "context.json paper_only_filings indicator explaining why no PDFs are provisioned under Rule 34.6",
+    "metrics/statpack.md base rate and order-writer tables"
+  ],
+  "gaps": [
+    "CourtListener MCP search returned HTTP 429 daily quota throttled errors",
+    "Salience band classifier assigned 'state' instead of 'sg' because the federal detention warden's title ('Juan Baltazar, Warden, et al.') matched the state-warden pattern despite Solicitor General D. John Sauer being counsel of record for petitioner"
+  ],
+  "notes": "CourtListener MCP was rate-limited (HTTP 429); used fedcourts query and google_web_search to verify the Tenth Circuit opinion (Daley v. Ceja, 157 F.4th 1207) and the hold relationship with Montoya Palacios v. Liggins (No. 25-1223).",
+  "tool_manifest": [
+    "courtlistener"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500261",
+  "gaps": [
+    "CourtListener MCP was throttled on the attempted historical citation lookup.",
+    "The separate appendix's cap leaves almost all of the Nathan opinion unavailable.",
+    "No committed base-rate cut conditions on a cert response request or a protective conditional petition.",
+    "General web attempts exposed no usable result text in the tool responses."
+  ],
+  "helpful": [
+    "The petition's surviving argument made its conditional companion posture explicit.",
+    "Exact JSON prefix rates permit correctly weighted pooling of the state risk set.",
+    "Context distinguishes the single scheduled distribution from later unknown activity."
+  ],
+  "notes": "Forecast from the July 28 baseline without seeking this petition's subsequent history. No BIO is expected at this moment. The initial uv cache permission error was resolved by using /tmp; it did not block the cell. The sparse citation lookup and unrelated historical grant rows did not determine the forecast.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot, context and filed-document text",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search (rate-limited)",
+    "web search and official-opinion open attempts"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

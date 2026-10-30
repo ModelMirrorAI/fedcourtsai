@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000146",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "issue": 1858,
+      "message": "The frozen distribution_count of 1 in context.json reflects the September 9, 2026 distribution following respondent's initial waiver, which was pre-empted by the Court's September 22, 2026 call for a response before the September 28 conference.",
+      "event_id": "evt-order-call-for-response-disposition"
+    },
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "message": "context.json assigns band 'state' because the lead petitioner is captioned 'Juan Baltazar, Warden, et al.' (Warden of the Aurora Contract Detention Facility, an ICE detention facility), even though this is a federal government petition filed by Solicitor General D. John Sauer.",
+      "event_id": "evt-order-call-for-response-disposition"
+    }
+  ]
+}

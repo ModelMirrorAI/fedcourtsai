@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000170",
+  "gaps": [
+    "CourtListener daily quota was exhausted",
+    "corpus-info cannot report corpus vintage through the service backend",
+    "No published cert response-request-conditioned base rate"
+  ],
+  "helpful": [
+    "Moment-cut snapshot and petition with appended lower-court opinion",
+    "Matching sal-v4 risk-set denominators in statpack JSON",
+    "Corpus query transfer accounting"
+  ],
+  "notes": "Completed using provisioned pre-response materials and the committed prior-Term anchor. No claim of current corpus freshness. The omitted opposition is expected at this moment, not a provisioning defect. uv required a writable temporary cache path. No case-outcome search was attempted.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (failed)",
+    "committed statpack",
+    "web search (no usable result)",
+    "CourtListener MCP search (rate-limited)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/9026000244",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json",
+    "google_web_search",
+    "web_fetch"
+  ],
+  "helpful": [
+    "Full non-truncated text of petition.txt, questions-presented.txt, and appendix.txt (including both the Ninth Circuit memorandum and the Magistrate Judge's detailed 41-page Findings and Recommendation)",
+    "Pre-computed sal-v4 baseline segment base rates and amicus/circuit cuts in metrics/statpack.md and metrics/statpack.json"
+  ],
+  "gaps": [
+    "CourtListener MCP server returned HTTP 429 daily rate-limit errors (1400/day exceeded) on search calls",
+    "fedcourts query lacks a filter for question-presented keywords or Rule 23 class-action cert petitions"
+  ],
+  "notes": "Provisioned documents were complete and clean, allowing full evaluation of the vehicle issues in the District of Oregon class-certification order despite the CourtListener MCP 429 rate limit."
+}

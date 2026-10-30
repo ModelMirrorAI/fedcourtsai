@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73377829",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_extract_citations"
+  ],
+  "helpful": [
+    "Provisioned petition.txt (including full Fourth Circuit opinion in Appendix A) and questions-presented.txt",
+    "metrics/statpack.md salience band (sal-v4) and signal cuts",
+    "fedcourts query",
+    "mcp_courtlistener_extract_citations"
+  ],
+  "gaps": [
+    "Statpack base-rate cut specifically conditioned on Call for Response (response-requested) on cert dockets"
+  ],
+  "notes": "CourtListener MCP search returned HTTP 429 daily rate limit (1400/day); degraded gracefully to provisioned filings (which included the full lower-court opinion in Appendix A), statpack base rates, local eyecite citation extraction, and fedcourts query."
+}
