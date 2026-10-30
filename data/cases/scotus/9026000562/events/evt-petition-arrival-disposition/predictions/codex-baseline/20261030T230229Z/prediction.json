@@ -1,0 +1,101 @@
+{
+  "big_case_rationale": "A constitutional decision on unequal electronic filing and preservation of self-represented litigants' evidence could affect many state courts, although this petition arises from a narrow mandamus proceeding in a private civil dispute.",
+  "big_case_score": 0.35,
+  "case_id": "scotus/9026000562",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.0002,
+        "Barrett": 0.0002,
+        "Gorsuch": 0.0009,
+        "Jackson": 0.0011,
+        "Kagan": 0.0003,
+        "Kavanaugh": 0.0002,
+        "Roberts": 0.0004,
+        "Sotomayor": 0.0014,
+        "Thomas": 0.0005
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.003
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.99
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.001
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.15
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.006
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.050890782339271884,
+      "statpack_digest": "sha256:3b01e1a254b5c991f8f6510eaef56d7a8b70cfd520a916429d93dcaa4a022cdd"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-29",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 5,
+      "sides": [
+        "Petitioner"
+      ]
+    },
+    "snapshot_date": "2026-10-29",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-30T23:26:52.848780Z",
+  "engine": "codex",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-29.json",
+  "judgment": null,
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.003,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
+    "label": "proc-v15",
+    "pipeline_sha": "b9c108875b0e0d4bbc676b71cdf99f372cbf8529",
+    "stamped_at": "2026-10-30T23:26:52.848780Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261030T230229Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

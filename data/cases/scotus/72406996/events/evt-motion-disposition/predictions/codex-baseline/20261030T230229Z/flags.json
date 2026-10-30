@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/72406996",
+  "run_id": "20261030T230229Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "Context labels this cell forward, but the supplied arrival entry is November 3, 2016 and the snapshot is November 4, 2016, while this run is October 30, 2026. No live docket was retrieved to confirm a disposition. I conservatively treated the supplied arrival position as the historical information boundary and filtered corpus priors before Term 2016. Please review mode/clock provisioning."
+    },
+    {
+      "category": "leakage-disclosure",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "Prior familiarity with Thomas Douglas Arthur litigation includes an uncertain recollection of a Supreme Court reprieve around 2016. I cannot map it reliably to application 16A450 or distinguish temporary from final relief. This possible outcome memory was not used as evidence or to set the forecast, but the cell should be discounted for potential contamination. No own-case disposition was deliberately retrieved."
+    }
+  ]
+}

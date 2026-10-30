@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/72408073",
+  "run_id": "20261030T230229Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "warning",
+      "event_id": "evt-motion-disposition",
+      "message": "Context labels this 2017-07-31 arrival forward, with snapshot/cutoff 2017-08-01 and term 2017, in a 2026-10-30 run. This historical boundary is inconsistent with the ordinary genuinely-pending forward setup and needs mode review. No own-case outcome or current docket was retrieved, and no disposition is asserted to have been confirmed. Forecast uses the sole provisioned submission entry, pre-2017 corpus priors, and the 2017 bench; no post-boundary own-case facts were used."
+    }
+  ]
+}
