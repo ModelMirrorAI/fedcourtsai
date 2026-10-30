@@ -1670,6 +1670,18 @@ jobs:
           set -euo pipefail
           mv data/qp-topics "$RUNNER_TEMP/qp-topics-oracle"
 
+      # AGENTS.md and CLAUDE.md are the repository's instructions for
+      # development sessions, which Claude Code and Codex load from the tree on
+      # their own. No process digest hashes them, so they leave the agent's
+      # tree and the prompt template is its whole contract. Marked
+      # skip-worktree first, so `git status` stays clean and an agent tidying
+      # its checkout cannot write them back; nothing after the agent reads them.
+      - name: Remove the development instructions from the agent's tree
+        run: |
+          set -euo pipefail
+          git ls-files -z -- AGENTS.md CLAUDE.md | git update-index -z --skip-worktree --stdin
+          rm -f AGENTS.md CLAUDE.md
+
       # The labeler runs with CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 (its tool
       # subprocesses must not inherit the engine API key), and the scrub's
       # isolation backend is bubblewrap, which the runner image does not
@@ -1759,7 +1771,7 @@ jobs:
           # step expects to find them; a workflow-shape test pins both to the
           # granted directory, here and on the measure step.
           prompt: |
-            Read .github/prompts/qp-topic-label.md and AGENTS.md, then label every
+            Read .github/prompts/qp-topic-label.md, then label every
             row in the extract:
 
             QP_TEXTS=${{ runner.temp }}/qp-io/qp-texts.json

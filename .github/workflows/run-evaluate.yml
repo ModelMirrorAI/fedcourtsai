@@ -896,7 +896,7 @@ jobs:
           fi
           echo "agent env is credential-free"
 
-      # Two surfaces the agent must not read, both taken out of its working tree
+      # Three surfaces the agent must not read, all taken out of its working tree
       # rather than left to instruction alone. Deliberate access through git
       # history stays covered by the prompt prohibition and the logged-tool-call
       # audit. Neither the deletion nor the move can propagate to the run PR:
@@ -912,6 +912,12 @@ jobs:
       #    record/blinded and needs neither tree. Runs after the staging step
       #    above, which reads the committed predictions to build the candidates;
       #    the trees come back the moment the agent stops.
+      # 3. AGENTS.md and CLAUDE.md are the repository's instructions for
+      #    development sessions, and Claude Code and Codex load them from the
+      #    tree on their own. No process digest hashes them, so a judge that
+      #    read them would be grading under instructions its stamp does not
+      #    record; the prompt template is the cell's whole contract. They stay
+      #    out for good — nothing after the agent reads them.
       #
       # Every tracked path under them is marked skip-worktree first, so the
       # removal leaves `git status` clean and an agent "tidying" its checkout
@@ -919,14 +925,16 @@ jobs:
       # write them back — a plain deletion shows as a change, which an agent
       # may restore. The bits are never cleared: the runner is
       # discarded, and nothing after the agent reads git's view of the tree.
-      - name: Remove the de-blinding surfaces from the agent's tree
+      - name: Remove the de-blinding surfaces and the development instructions from the agent's tree
         run: |
           set -euo pipefail
           git ls-files -z -- data/qp-topics \
             ':(glob)data/cases/*/*/events/*/predictions/**' \
             ':(glob)data/cases/*/*/events/*/evaluations/**' \
+            AGENTS.md CLAUDE.md \
             | git update-index -z --skip-worktree --stdin
           rm -rf data/qp-topics
+          rm -f AGENTS.md CLAUDE.md
           uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
 
       # Install the engine's CLI at the version `.github/engines/<engine>/`
@@ -1116,7 +1124,7 @@ jobs:
           # runner at job start, where an injected cell could recover it
           # (tests/test_workflow_token_holder.py).
           github_token: ${{ github.token }}
-          # Prompt caching is automatic: the stable prefix (AGENTS.md + the
+          # Prompt caching is automatic: the stable prefix (the
           # prompt template + schema) is cached across the run's tool-use turns.
           # The API key's default cache TTL is only 5 minutes, which would expire
           # mid-run, so ENABLE_PROMPT_CACHING_1H below pins the 1-hour TTL (and the
@@ -1133,7 +1141,7 @@ jobs:
           # allowlisted cell contract), so the
           # prompt text — not the env — is the contract's delivery channel.
           prompt: |
-            Read ${{ matrix.prompt }} and AGENTS.md, then score every predictor's
+            Read ${{ matrix.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
             ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
 
@@ -1204,7 +1212,7 @@ jobs:
           # never depends on env passthrough); the agent reads the template
           # itself, as the other engines do.
           prompt: |
-            Read ${{ matrix.prompt }} and AGENTS.md, then score every predictor's
+            Read ${{ matrix.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
             ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
 
@@ -1300,7 +1308,7 @@ jobs:
           # sanitizer (a harness run with no .gemini/settings.json still has only
           # the inline channel).
           PROMPT: |
-            Read ${{ matrix.prompt }} and AGENTS.md, then score every predictor's
+            Read ${{ matrix.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
             ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
 

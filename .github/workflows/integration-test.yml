@@ -694,6 +694,18 @@ jobs:
       - name: Remove the labeling-measurement oracle from the agent's tree
         run: rm -rf data/qp-topics
 
+      # AGENTS.md and CLAUDE.md are the repository's instructions for
+      # development sessions, which Claude Code and Codex load from the tree on
+      # their own. No process digest hashes them, so they leave the agent's
+      # tree and the prompt template is its whole contract. Marked
+      # skip-worktree first, so `git status` stays clean and an agent tidying
+      # its checkout cannot write them back; nothing after the agent reads them.
+      - name: Remove the development instructions from the agent's tree
+        run: |
+          set -euo pipefail
+          git ls-files -z -- AGENTS.md CLAUDE.md | git update-index -z --skip-worktree --stdin
+          rm -f AGENTS.md CLAUDE.md
+
       - uses: ./.github/actions/setup-python-env
         with:
           restore-cache: "false"
@@ -1565,7 +1577,7 @@ jobs:
           allow-bot-users: "fedcourtsai-data[bot],fedcourtsai-dispatch[bot]"
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt: |
-            Read ${{ steps.repro.outputs.prompt }} and AGENTS.md, then score every predictor's
+            Read ${{ steps.repro.outputs.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
 
             COURT_ID=${{ steps.repro.outputs.court }}
@@ -2885,6 +2897,18 @@ jobs:
       - name: Remove the labeling-measurement oracle from the agent's tree
         run: rm -rf data/qp-topics
 
+      # AGENTS.md and CLAUDE.md are the repository's instructions for
+      # development sessions, which Claude Code and Codex load from the tree on
+      # their own. No process digest hashes them, so they leave the agent's
+      # tree and the prompt template is its whole contract. Marked
+      # skip-worktree first, so `git status` stays clean and an agent tidying
+      # its checkout cannot write them back; nothing after the agent reads them.
+      - name: Remove the development instructions from the agent's tree
+        run: |
+          set -euo pipefail
+          git ls-files -z -- AGENTS.md CLAUDE.md | git update-index -z --skip-worktree --stdin
+          rm -f AGENTS.md CLAUDE.md
+
       - uses: ./.github/actions/setup-python-env
         with:
           restore-cache: "false"
@@ -2965,7 +2989,7 @@ jobs:
       - name: Run the labeler's invocation block over the synthetic extract
         id: smoke_label
         # 15 covers the block's fixed preamble — reading the labeling prompt
-        # and AGENTS.md — plus five short rows with margin; the job cap at 25
+        # and the vocabulary doc — plus five short rows with margin; the job cap at 25
         # holds the setup steps beside it.
         timeout-minutes: 15
         uses: anthropics/claude-code-action@925afb53776cf1a2b738c6bdbed37b4d4000ef13 # v1.0.262
@@ -2984,7 +3008,7 @@ jobs:
               }
             }
           prompt: |
-            Read .github/prompts/qp-topic-label.md and AGENTS.md, then label every
+            Read .github/prompts/qp-topic-label.md, then label every
             row in the extract:
 
             QP_TEXTS=${{ runner.temp }}/qp-io/qp-texts.json

@@ -46,6 +46,20 @@ The digest excludes documentation that does not change behaviour — the actor's
 `description` and the MCP manifest `description` are comments, not process inputs,
 so editing one does not re-version anything.
 
+**The prompt template is the only instruction file a cell reads.** The digest
+records what a cell was told only while the template is all it was told, so
+nothing else that instructs it may sit outside the hash. The kickoff line each
+engine receives names the actor's own template and no other file, the template
+names no other instruction file, and every job that starts an engine in a
+checkout takes the repository's development instructions (`AGENTS.md`,
+`CLAUDE.md`, which Claude Code and Codex would otherwise load from the tree on
+their own) out of the tree before the engine starts. Each template carries a
+short *Cell contract* section instead, so the rules a cell keeps from the
+development instructions — its lane, the harness-owned fields, the leakage
+clock, `flags.json` as the channel, validation — are hashed with the rest of
+the template. `tests/test_cell_instructions.py` holds all three, over the
+name set the `data/` path jail refuses (`collect.AGENT_CONTEXT_FILENAMES`).
+
 ### Harness code is outside the digest, and one case of that has teeth
 
 Everything the harness *does* around the agent rides `pipeline_sha`, not the
