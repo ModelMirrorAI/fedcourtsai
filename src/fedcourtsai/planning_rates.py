@@ -1,4 +1,4 @@
-"""The per-cell planning rates every predict and evaluate plan prices its fan-out at.
+"""The planning rates spend plans price their rounds at: per cell, and per labeled row.
 
 These rates are spend authority, not only reporting: the review hold's
 auto-release (:mod:`fedcourtsai.review_hold`) compares a round's priced
@@ -69,3 +69,29 @@ def price_cells(cells: Iterable[Mapping[str, Any]], *, seam: str) -> tuple[float
             at_fallback += 1
         total += rate
     return total, at_fallback
+
+
+#: Per-row topic-labeler rates in USD, keyed by the labeler's model — what a
+#: label round's plan prices its batch at, and so what the review hold's
+#: auto-release compares against the per-round cap. Set at or above the
+#: measured runs, each a ceiling-sized 1,200-row batch read in one headless
+#: session: ``claude-opus-5-5`` measured $10.01 a batch (about $0.0083 a row),
+#: priced at $0.02 a row ($24 a batch, about 2.4x the one measurement, since a
+#: run's spend varies with how many turns it takes); ``claude-fable-5``
+#: measured $37.48 and $60.16 a batch (about $0.031 and $0.050 a row), priced
+#: at $0.06 a row ($72 a batch, above the dearer of the two). A refused or short
+#: run spends like a published one, so the rate prices every run whatever its
+#: outcome.
+LABEL_RATES_USD_PER_ROW: dict[str, float] = {
+    "claude-opus-5-5": 0.02,
+    "claude-fable-5": 0.06,
+}
+
+
+def label_rate_usd_per_row(model: str) -> float:
+    """The per-row rate a label round of ``model`` prices at.
+
+    A model the table does not name prices at the table's highest rate, so a
+    new labeler model is never priced below the dearest one measured.
+    """
+    return LABEL_RATES_USD_PER_ROW.get(model, max(LABEL_RATES_USD_PER_ROW.values()))

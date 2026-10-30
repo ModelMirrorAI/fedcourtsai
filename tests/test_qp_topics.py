@@ -40,6 +40,7 @@ from fedcourtsai.pipeline.qp_topics import (
     shadow_label,
 )
 from fedcourtsai.schemas import (
+    QpTopicAgreement,
     QpTopicBatchEntry,
     QpTopicLabel,
     QpTopicLabelEntry,
@@ -1475,3 +1476,99 @@ def test_cli_lands_the_frame_count_on_the_batch_ledger(
     assert refused.exit_code != 0
     plain = re.sub(r"\x1b\[[0-9;]*m", "", refused.output)
     assert "--frame-rows" in " ".join(plain.split())
+
+
+def test_qp_corpus_stands_down_on_a_converged_frame_when_asked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The scheduled run's form: nothing new to label is a clean stand-down,
+    # exit 0 and no extract, so the cron's later jobs skip rather than fail.
+    _extract_corpus_root(tmp_path, monkeypatch, rows=3)
+    data_root = tmp_path / "data"
+    reference = _extract_reference(["scotus/1"])
+    _install_reference(data_root, reference)
+    _install_labels(data_root, reference, "scotus/1", "scotus/2", "scotus/3")
+    out = tmp_path / "extract.json"
+
+    result = CliRunner().invoke(app, ["qp-corpus", "--out", str(out), "--converged-ok"])
+
+    assert result.exit_code == 0, result.output
+    assert "converged" in result.output
+    assert "standing down" in result.output
+    assert not out.exists()
+    assert not out.with_name("extract.batch.json").exists()
+
+
+def test_qp_corpus_stands_down_when_the_reference_fills_the_budget_when_asked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(qp_topics_module, "LABEL_ROW_CEILING", 2)
+    _extract_corpus_root(tmp_path, monkeypatch, rows=4)
+    _install_reference(tmp_path / "data", _extract_reference(["scotus/1", "scotus/2"]))
+    out = tmp_path / "extract.json"
+
+    result = CliRunner().invoke(app, ["qp-corpus", "--out", str(out), "--converged-ok"])
+
+    assert result.exit_code == 0, result.output
+    assert not out.exists()
+
+
+def test_qp_corpus_keeps_the_coverage_refusal_under_converged_ok(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A frame missing reference texts is broken, not done: the stand-down flag
+    # does not soften it.
+    _extract_corpus_root(tmp_path, monkeypatch, rows=3)
+    _install_reference(
+        tmp_path / "data",
+        _extract_reference(["scotus/1", "scotus/2", "scotus/3", "scotus/404"]),
+    )
+    out = tmp_path / "extract.json"
+
+    result = CliRunner().invoke(app, ["qp-corpus", "--out", str(out), "--converged-ok"])
+
+    assert result.exit_code == 1
+    assert "coverage floor" in result.output
+
+
+def test_cli_writes_the_gate_figures_on_a_refused_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A refused run writes no labels file, so its measurement survives only in
+    # the agreement file its spend record is built from.
+    data_root = tmp_path / "data"
+    reference = _reference(*[(f"scotus/{index:03d}", "tax") for index in range(10)])
+    _install_reference(data_root, reference)
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    labels, texts = _write_run(
+        tmp_path,
+        [
+            {
+                "case_id": entry.case_id,
+                "docket_number": entry.docket_number,
+                "label": "tax" if rank < 7 else "firearms",
+            }
+            for rank, entry in enumerate(reference.entries)
+        ],
+    )
+    agreement = tmp_path / "agreement.json"
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "qp-topics",
+            "--labels",
+            str(labels),
+            "--texts",
+            str(texts),
+            "--labeler",
+            "stub/model",
+            "--agreement-out",
+            str(agreement),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert not (data_root / "qp-topics" / "qp-topics.json").exists()
+    measured = read_model(agreement, QpTopicAgreement)
+    assert (measured.overall_agree, measured.overall_n, measured.gate_passed) == (7, 10, False)

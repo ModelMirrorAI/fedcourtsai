@@ -1,0 +1,28 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000285",
+  "gaps": [
+    "CourtListener MCP returned HTTP 429 before any legal-context opinion could be read.",
+    "corpus-info does not expose corpus vintage through the cell's service backend.",
+    "No published base rate conditions on a cert-stage call for response."
+  ],
+  "helpful": [
+    "The staged petition includes the lower-court opinion, exposing preservation problems omitted from its opening framing.",
+    "Frozen moment, band, and distribution count distinguish the response request from a substantive relist.",
+    "Unrounded statpack JSON supports pooling all rendered prior-Term risk sets."
+  ],
+  "notes": "The default uv cache is read-only; setting UV_CACHE_DIR=/tmp/uv-cache allowed CLI execution. The initial invalid era token was corrected to 2020s. No live docket or disposition of this petition was retrieved. External web attempts returned no usable content, so split strength remains based on the provisioned materials.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (failed)",
+    "committed statpack",
+    "CourtListener MCP search (throttled)",
+    "web search and open (no usable content)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,13 @@
+# Forecast of the Court's disposition
+
+The Court will most likely deny the petition after receiving the requested government response, without a separate opinion. This forecast assigns 25% probability to any grant and does not predict the Fourth Amendment merits as though review had already been granted.
+
+The snapshot shows **one distribution**, entered September 23, 2026, and **no CVSG**. The September 29 call for a response has already occurred. The next procedural step will ordinarily be a further distribution after response briefing is complete. I assign **98%** to at least one additional distribution entry, expect roughly **one or two more entries** before disposition, and do not treat the briefing-related redistribution as proof of substantive relisting. The modal path is denial at the first conference that considers the completed briefing, with an additional true relist a material alternative. Disposition is more likely later in the fall or early winter than immediately upon the October 29 response deadline; this is a timing forecast, not a docket fact.
+
+The Court will not separately call for the Solicitor General's views: I put that incremental probability at **1%**. The federal government is already the respondent and can present its position in the response the Court requested.
+
+**If review is granted**, the likely question is whether, and for what purposes, the border-search exception permits warrantless searches of a traveler's digital phone contents. The Court would likely take the petition's single question, with its actual holding distinguishing manual from forensic searches or addressing the required border nexus rather than announcing that every border phone search requires a warrant. Conditional on a grant, plenary briefing and argument is the likelier route: **8%** probability goes to a summary disposition in the cert order, with no identified intervening-decision basis for a routine GVR.
+
+**If review is denied**, I assign **12%** to a dissent from denial or statement respecting it and **88%** to neither. The modal forecast is no writing. In the less likely writing branch, Sotomayor, Gorsuch or Jackson is a more plausible author than Roberts, although no named Justice is individually likely to write. The separate per-Justice probabilities in `prediction.json` are unconditional probabilities of writing on the disposing order, not probabilities of joining someone else's opinion.
+
+Any merits holding remains conditional on a grant. A denial would leave the judgment below in place without endorsing the Fifth Circuit's constitutional reasoning.

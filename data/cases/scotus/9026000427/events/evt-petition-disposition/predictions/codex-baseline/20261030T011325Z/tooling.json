@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000427",
+  "gaps": [
+    "corpus-info cannot report freshness with the service backend.",
+    "Web calls returned no usable displayed content.",
+    "Default uv cache is read-only; a temporary cache override was required."
+  ],
+  "helpful": [
+    "The petition appendix includes the full lower-court analysis.",
+    "Frozen conditioning and matching sal-v4 reached rates support the correct prior-Term anchor.",
+    "CourtListener citation lookup and opinion retrieval worked."
+  ],
+  "notes": "Completed from the provisioned record and general precedent. Corpus examples were unrelated and denial-selected, not an empirical grant estimate. No outcome retrieval was attempted.",
+  "role": "predictor",
+  "run_id": "20261030T011325Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info",
+    "committed statpack",
+    "CourtListener search",
+    "CourtListener read_document",
+    "web search/open/find"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

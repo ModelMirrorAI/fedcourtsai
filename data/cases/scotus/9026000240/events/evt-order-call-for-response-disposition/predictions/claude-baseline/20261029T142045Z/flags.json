@@ -1,0 +1,9 @@
+{
+  "case_id": "scotus/9026000240",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "capture-gap", "severity": "info", "event_id": "evt-order-call-for-response-disposition", "message": "The petition names a pending companion, Hall v. Fleming, No. 26-193 (same respondent and the same VTAG exclusion; the amicus entries are marked VIDED), but context.vide_links is empty and nothing was staged under record/related/. The companion drove this forecast and had to be fetched live."}
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000176",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["--docket-number lookup surfaced the earlier petition in this same case"],
+  "gaps": ["No statpack cut conditions on a called-for response", "summary-reversal disposition filter returned nothing for the 2020s despite a costly 899-GET scan"],
+  "notes": "Prior-round order text (the Thomas dissent) is not in the corpus row; the petition's description of it was relied on."
+}

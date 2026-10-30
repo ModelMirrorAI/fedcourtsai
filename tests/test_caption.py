@@ -28,6 +28,7 @@ from fedcourtsai.pipeline.caption import (
     petitioner_caption,
     petitioner_class,
     petitioner_class_v2,
+    petitioner_class_v3,
 )
 from fedcourtsai.schemas import Disposition
 
@@ -224,9 +225,10 @@ def test_qui_tam_keeps_its_precedence_behind_an_in_re_prefix() -> None:
 def test_the_registry_serves_each_rule_and_raises_on_an_unregistered_one() -> None:
     """A census cut under a label this process cannot produce wants an error,
     not a silent fallback to the baseline rule."""
-    assert caption_rule("caption-v1") is classify_petitioner
-    assert caption_rule("caption-v2") is classify_petitioner_v2
-    assert set(CAPTION_RULES) == {"caption-v1", "caption-v2"}
+    assert caption_rule("caption-v1") is petitioner_class
+    assert caption_rule("caption-v2") is petitioner_class_v2
+    assert caption_rule("caption-v3") is petitioner_class_v3
+    assert set(CAPTION_RULES) == {"caption-v1", "caption-v2", "caption-v3"}
     with pytest.raises(KeyError):
         caption_rule("caption-v0")
 
@@ -446,3 +448,119 @@ def test_petitioner_title_survives_a_channel_without_it(tmp_path: Path) -> None:
     assert row is not None
     assert row.petitioner_title == "United States"
     assert row.topic == "refreshed"
+
+
+# --- caption-v3: the Solicitor General's office as petitioner counsel ------------
+
+_FILED_UNDER_PRELOGAR = date(2023, 3, 1)
+
+
+def _counsel_row(
+    title: str,
+    *counsel: corpus.CounselEntry,
+    case_id: str = "scotus/1",
+    docket_number: str = "22-100",
+    disposition: Disposition | None = None,
+) -> corpus.CorpusRow:
+    return corpus.CorpusRow(
+        case_id=case_id,
+        court="scotus",
+        docket_number=docket_number,
+        petitioner_title=title,
+        date_filed=_FILED_UNDER_PRELOGAR,
+        disposition=disposition,
+        last_live_polled=date(2026, 8, 1),
+        counsel=list(counsel),
+    )
+
+
+def _sg_for(role: corpus.CounselRole, party: str = "Bobby Lumpkin") -> corpus.CounselEntry:
+    return corpus.CounselEntry(
+        party=party, attorney="Elizabeth B. Prelogar", role=role, counsel_of_record=True
+    )
+
+
+def test_caption_v3_reads_an_sg_represented_warden_as_federal() -> None:
+    """The Warden tail is v1's sub-national officer fallback: state wherever the
+    caption omits the jurisdiction. Under caption-v3 the office's appearance for
+    the petitioner runs first, so the same caption the Solicitor General files
+    for reads federal — and without that appearance it is v2's state read."""
+    title = "Michael Smith, Warden"
+    assert classify_petitioner_v2(title) == "state"
+    represented = _counsel_row(title, _sg_for(corpus.CounselRole.petitioner))
+    assert petitioner_class_v2(represented) == "state"
+    assert petitioner_class_v3(represented) == "federal"
+    unrepresented = _counsel_row(
+        title,
+        corpus.CounselEntry(
+            party="Michael Smith", attorney="Jane Roe", role=corpus.CounselRole.petitioner
+        ),
+    )
+    assert petitioner_class_v3(unrepresented) == "state"
+
+
+def test_caption_v3_reads_the_office_on_a_private_caption_as_federal() -> None:
+    represented = _counsel_row("John Doe", _sg_for(corpus.CounselRole.petitioner, "John Doe"))
+    assert petitioner_class_v2(represented) == "private"
+    assert petitioner_class_v3(represented) == "federal"
+
+
+def test_caption_v3_never_reads_the_office_as_respondent_or_amicus_counsel() -> None:
+    """The office opposing cert (respondent) is the commonest SG appearance and
+    says nothing about who is asking, and `other` is the post-grant grant oracle —
+    neither side moves the class."""
+    for role in (corpus.CounselRole.respondent, corpus.CounselRole.other):
+        row = _counsel_row("John Doe", _sg_for(role, "United States"))
+        assert petitioner_class_v3(row) == "private", role
+
+
+def test_caption_v3_reads_a_former_solicitor_general_in_private_practice_as_private() -> None:
+    """The dated roster, not the name: Francisco's spans ended in 2020, so on a
+    docket filed in 2023 his appearance for a private petitioner is private practice."""
+    row = _counsel_row(
+        "John Doe",
+        corpus.CounselEntry(
+            party="John Doe", attorney="Noel J. Francisco", role=corpus.CounselRole.petitioner
+        ),
+    )
+    assert petitioner_class_v3(row) == "private"
+
+
+@pytest.mark.parametrize("title", FEDERAL + STATE + PRIVATE)
+def test_caption_v3_is_caption_v2_on_a_row_without_the_office(title: str) -> None:
+    """With no counsel at all, v3 is v2 on every frozen fixture — the counsel
+    check is the whole of the widening, so the two censuses differ only on rows
+    the office appears on."""
+    row = _counsel_row(title)
+    assert petitioner_class_v3(row) == petitioner_class_v2(row)
+
+
+def test_caption_v3_census_moves_only_the_rows_the_office_appears_on(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _counsel_row(
+                    "Michael Smith, Warden",
+                    _sg_for(corpus.CounselRole.petitioner),
+                    case_id="scotus/1",
+                    docket_number="24-100",
+                    disposition=Disposition.granted,
+                ),
+                _counsel_row(
+                    "John Doe",
+                    _sg_for(corpus.CounselRole.respondent, "United States"),
+                    case_id="scotus/2",
+                    docket_number="24-101",
+                    disposition=Disposition.denied,
+                ),
+            ],
+        )
+        v2 = caption_census(conn, rule_version="caption-v2")
+        v3 = caption_census(conn, rule_version="caption-v3")
+    v2_cells = {c.petitioner_class: c.n for c in v2.pooled}
+    v3_cells = {c.petitioner_class: c.n for c in v3.pooled}
+    assert v2_cells == {"federal": 0, "state": 1, "private": 1}
+    assert v3_cells == {"federal": 1, "state": 0, "private": 1}
+    assert v3.rule_version == "caption-v3"

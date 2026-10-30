@@ -49,8 +49,10 @@ from .cert_signals import (
     DISTRIBUTED_RE,
     call_for_response_date,
     distribution_pattern,
+    distributions_after_call,
     docket_disposition_signals,
     first_relist_date,
+    opening_writ,
     proceedings_entries,
     sg_brief_date,
     snapshot_carries_proceedings,
@@ -189,6 +191,20 @@ class CorpusRow(BaseModel):
         "(`pipeline.cert_signals.first_relist_date`) — the cert stage's relist "
         "moment. Live cert branch only; None elsewhere — the storage fill-in latch "
         "keeps a stored date when a writer carries none.",
+    )
+    distributed_after_call: int | None = Field(
+        default=None,
+        description="How many conferences the petition was first distributed for "
+        "after a call for response (`pipeline.cert_signals.distributions_after_call`). "
+        "Live cert branch only; None elsewhere — the storage fill-in latch keeps a "
+        "stored count when a writer carries none.",
+    )
+    opening_writ: str | None = Field(
+        default=None,
+        description="The writ the docket's opening petition entry names "
+        "(`pipeline.cert_signals.opening_writ`: certiorari, rule-20, ambiguous or "
+        "other). Live cert branch only; None elsewhere — the storage fill-in latch "
+        "keeps a stored reading when a writer carries none.",
     )
     sg_brief_filed: date | None = Field(
         default=None,
@@ -602,6 +618,8 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         sg_brief_filed=_date(record.get("sg_brief_filed")),
         call_for_response_at=_date(record.get("call_for_response_at")),
         relisted_at=_date(record.get("relisted_at")),
+        opening_writ=_clean(record.get("opening_writ")),
+        distributed_after_call=_as_count(record.get("distributed_after_call")),
         originating_court_name=_clean(record.get("originating_court_name")),
         application_kind=_clean(record.get("application_kind")),
         application_filed_at=_date(record.get("application_filed_at")),
@@ -1138,6 +1156,13 @@ def map_live_docket(
         "sg_brief_filed": sg_brief.isoformat() if sg_brief else None,
         "call_for_response_at": call_for_response.isoformat() if call_for_response else None,
         "relisted_at": relisted.isoformat() if relisted else None,
+        # The writ the opening petition entry names, on the cert branch only:
+        # fixed at filing, and read off the entry text so a sealed certiorari
+        # petition's "In re" caption never reads as a Rule 20 writ.
+        "opening_writ": opening_writ(payload) if form == "cert" else None,
+        # The conferences first distributed for after a call for response,
+        # counted under the reading `distribution_count` holds.
+        "distributed_after_call": distributions_after_call(payload) if form == "cert" else None,
         "originating_court_name": lower_court,
         "application_kind": ask,
         "application_filed_at": (
@@ -1418,6 +1443,8 @@ def to_corpus_row(
         sg_brief_filed=row.sg_brief_filed,
         call_for_response_at=row.call_for_response_at,
         relisted_at=row.relisted_at,
+        opening_writ=row.opening_writ,
+        distributed_after_call=row.distributed_after_call,
         originating_court_name=row.originating_court_name,
         application_kind=row.application_kind,
         response_requested=row.response_requested,

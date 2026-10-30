@@ -1,0 +1,21 @@
+# Predicted Court Reasoning and Procedural Trajectory
+
+## Procedural Posture and Further Distributions (`relist-increment`)
+
+The provisioned snapshot (`2026-10-06.json`) shows one conference distribution (`distribution_count: 1`, distributed on September 30, 2026 for the Conference of October 16, 2026), followed by the Court's October 5, 2026 call for a response (due November 4, 2026). Because a response was requested before the October 16 conference and is due in November (or later if extended), the petition will be redistributed for a subsequent conference once the brief in opposition is filed and any reply period runs. Accordingly, at least one further distribution beyond the single distribution currently on the docket is virtually certain (`relist-increment` = 0.99). After the post-BIO distribution, the most likely trajectory is either denial at that first post-response conference or one true relist for closer vehicle scrutiny followed by denial.
+
+## Call for the Views of the Solicitor General (`cvsg-increment`)
+
+The Court is very unlikely to invite the Solicitor General's views (`cvsg-increment` = 0.01). This is a 42 U.S.C. § 1983 damages action by a county jail pretrial detainee against a county jail medical director arising under the Fourteenth Amendment Due Process Clause. It implicates no federal statute, federal agency regulation, treaty, or direct federal proprietary interest that typically prompts a CVSG.
+
+## Question Presented and Merits Scope (Conditional on Grant)
+
+If the Court were to grant certiorari, it would take the single Question Presented in the petition: whether a pretrial detainee's Fourteenth Amendment Due Process Clause claim for denial of medical care is governed by an objective standard under *Kingsley v. Hendrickson*, 576 U.S. 389 (2015), or by the subjective deliberate-indifference standard of *Farmer v. Brennan*, 511 U.S. 825 (1994). However, a major obstacle to plenary review—and the primary reason the Court is likely to deny certiorari after reviewing the brief in opposition—is that this case is a poor vehicle to reach that question. As the Fifth Circuit's opinion (170 F.4th 960) and the Northern District of Texas's summary judgment order demonstrate, Petitioner did not press the *Kingsley* objective-standard argument below, and both the district court and Judge Wiener's concurrence rested independently on the "clearly established law" prong of qualified immunity. Because Fifth Circuit precedent in May 2020 clearly applied the subjective standard (*Hare v. City of Corinth*; *Cope v. Cogdill*), an objective standard was not clearly established in the Fifth Circuit at the time of the conduct, meaning Respondent would be entitled to qualified immunity on the second prong even if the Court adopted an objective constitutional standard on the first prong.
+
+## Summary Disposition vs. Plenary Review (`summary-disposition-route`)
+
+Conditional on a grant, the probability that the Court disposes of the case in the cert order itself (via GVR or summary reversal) rather than setting it for plenary briefing and argument is modest (`summary-disposition-route` = 0.15). An entrenched 5–4 circuit split over *Kingsley*'s reach is a classic plenary-review issue rather than a summary-reversal candidate, unless the Court grants a narrow GVR or holds the petition pending another case that reaches the issue first.
+
+## Separate Writings on the Order (`dissent-from-denial` and `order-writers`)
+
+Conditional on denial of certiorari, there is a modest but elevated probability (`dissent-from-denial` = 0.06) that one or more Justices author a dissent from denial of certiorari or a statement respecting the denial. The tragic facts—a mentally ill, nonverbal pretrial detainee giving birth alone in a solitary jail cell, resulting in the newborn's death—combined with the persistent circuit split over *Kingsley* and recurring criticisms of qualified immunity make this a plausible candidate for a separate statement or dissent from Justice Sotomayor (`0.04`) or Justice Jackson (`0.025`), or potentially Justice Thomas (`0.015`) or Justice Gorsuch (`0.015`) addressing the textual or historical foundations of Fourteenth Amendment pretrial-detainee claims.

@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000146",
+  "gaps": [
+    "Paper-only petition: no questions-presented or petition text provisioned",
+    "CourtListener daily quota exhausted on first attempted call",
+    "No response-requested conditional cert base rate",
+    "Apparent state-versus-federal caption-band mismatch"
+  ],
+  "helpful": [
+    "Frozen snapshot and explicit mode/moment context",
+    "Exact per-Term reached-band counts in statpack JSON",
+    "Pre-boundary official lower-court opinion"
+  ],
+  "notes": "Completed despite MCP throttling. No token extraction or CourtListener REST fallback. The official lower-court PDF was read in memory, without modifying the provisioned record. A writable temporary uv cache was needed.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP opinion search (throttled)",
+    "web search and open",
+    "official Tenth Circuit PDF via urllib and pypdf",
+    "committed statpack JSON and Markdown",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

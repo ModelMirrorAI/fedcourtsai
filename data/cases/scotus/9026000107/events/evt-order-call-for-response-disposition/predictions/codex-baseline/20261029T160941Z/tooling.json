@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000107",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "committed statpack", "CourtListener MCP search (throttled)", "web search (no returned content)"],
+  "helpful": ["Moment-cut snapshot and explicit conditioning context", "Readable petition and separate lower-court appendix", "Exact sal-v4 reached-rate denominators in statpack.json"],
+  "gaps": ["CourtListener daily quota exhausted", "No source content returned by precedent web searches", "No response-request-conditioned historical rate"],
+  "notes": "The response is properly absent at this moment. The filtered corpus lookup succeeded but was not substantively analogous. Setting UV_CACHE_DIR=/tmp/uv-cache resolved a read-only default-cache error. No subsequent docket state or outcome was sought."
+}

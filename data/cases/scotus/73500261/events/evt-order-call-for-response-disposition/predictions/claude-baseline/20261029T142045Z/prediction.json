@@ -1,0 +1,94 @@
+{
+  "big_case_rationale": "The underlying question, whether a State may require the Ten Commandments to be posted in every public-school classroom notwithstanding Stone v. Graham, is nationally salient. This petition is the protective companion to the lead vehicle, so its own stakes are somewhat lower.",
+  "big_case_score": 0.8,
+  "case_id": "scotus/73500261",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.04,
+        "Barrett": 0.01,
+        "Gorsuch": 0.04,
+        "Jackson": 0.03,
+        "Kagan": 0.01,
+        "Kavanaugh": 0.02,
+        "Roberts": 0.01,
+        "Sotomayor": 0.04,
+        "Thomas": 0.05
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.24
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.02
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.2
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.1
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "state",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-07-29",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-07-28",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2025,
+    "vide_links": []
+  },
+  "created_at": "2026-10-29T15:10:46.687940Z",
+  "engine": "claude-code",
+  "event_id": "evt-order-call-for-response-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-07-28.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.24,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
+    "label": "proc-v14",
+    "pipeline_sha": "f2a4da6f8f2ad46633e5bc703649b2f84c4730da",
+    "stamped_at": "2026-10-29T15:10:46.687940Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

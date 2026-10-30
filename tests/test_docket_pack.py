@@ -24,11 +24,14 @@ from typer.testing import CliRunner
 from fedcourtsai import analytics, corpus
 from fedcourtsai.analytics import _DOCKET_SECTIONS, _STATPACK_SECTIONS
 from fedcourtsai.cli import app
+from fedcourtsai.pipeline.interim_signals import ApplicationKind
 from fedcourtsai.schemas import (
     Disposition,
     DocketPack,
     GroupBy,
     QpTopicAgreement,
+    QpTopicApplicationLabels,
+    QpTopicApplicationPublishedEntry,
     QpTopicBatchEntry,
     QpTopicLabel,
     QpTopicLabelAgreement,
@@ -1183,3 +1186,268 @@ def test_the_pack_states_its_corpus_vintage(fixture_corpus: FixtureCorpus) -> No
         assert "pulled through" not in rendered
     else:
         assert f"pulled through {pack.corpus_through.isoformat()}" in rendered
+
+
+def _stage_corpus(db: Path) -> None:
+    """Three live-slice cert petitions plus three applications, one of them an extension."""
+    _qp_corpus(db)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id=f"scotus/a{serial}",
+                    court="scotus",
+                    docket_number=f"24A{serial}",
+                    disposition=disposition,
+                    application_kind=kind,
+                    last_live_polled=date(2026, 7, 1),
+                )
+                for serial, disposition, kind in (
+                    (1, Disposition.granted, ApplicationKind.substantive.value),
+                    (2, Disposition.denied, ApplicationKind.substantive.value),
+                    (3, Disposition.granted, ApplicationKind.extension.value),
+                )
+            ],
+        )
+
+
+def _application_labels(
+    path: Path,
+    primaries: dict[str, tuple[QpTopicLabel, Literal["application-text", "docket-only"]]],
+    *,
+    gate_passed: bool = True,
+    frame_rows: int | None = None,
+) -> Path:
+    """Write an application labels artifact for ``case_id -> (primary, input kind)``."""
+    artifact = QpTopicApplicationLabels(
+        labeler="stub-labeler",
+        cases=len(primaries),
+        agreement=QpTopicAgreement(
+            overall_agree=203,
+            overall_n=241,
+            overall_rate=203 / 241,
+            uncovered=0,
+            floor=0.39,
+            per_label=[QpTopicLabelAgreement(label="tax", agree=1, n=1)],
+            gate_passed=gate_passed,
+        ),
+        shadow=QpTopicShadow(texts=len(primaries), fired=0, disagreements=0),
+        batches=[
+            QpTopicBatchEntry(
+                batch=1,
+                labeler="stub-labeler",
+                published=len(primaries),
+                labeler_rows=len(primaries),
+                measured=len(primaries),
+                agree=203,
+                n=241,
+                floor=0.39,
+                frame_rows=frame_rows,
+            )
+        ],
+        entries=[
+            QpTopicApplicationPublishedEntry(
+                case_id=case_id,
+                docket_number=case_id.removeprefix("scotus/a"),
+                label=label,
+                source="labeler",
+                batch=1,
+                input_kind=kind,
+            )
+            for case_id, (label, kind) in sorted(primaries.items())
+        ],
+    )
+    write_json(path, artifact)
+    return path
+
+
+def test_application_topic_cut_counts_the_application_frame_only(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _stage_corpus(db)
+    applications = _application_labels(
+        tmp_path / "qp-topics-applications.json",
+        {
+            "scotus/a1": ("immigration", "application-text"),
+            "scotus/a2": ("unclassifiable", "docket-only"),
+        },
+        frame_rows=2,
+    )
+    pack = analytics.build_docket_pack(corpus_db_path=db, qp_topics_applications_path=applications)
+    # No petition labels, so no petition cut — the application cut stands alone.
+    assert pack.qp_topics is None
+    topics = pack.application_topics
+    assert topics is not None
+    assert [(b.key, b.cases) for b in topics.section.buckets] == [
+        ("immigration", 1),
+        ("unclassifiable", 1),
+    ]
+    assert (topics.labeled_cases, topics.matched_cases, topics.docket_only_cases) == (2, 2, 1)
+    assert topics.unmeasured_labels == ["tax"]
+    # The scope counts the application frame alone: the extension and the three
+    # cert petitions are out of its denominator.
+    note = topics.section.scope_note or ""
+    assert note.startswith(
+        "Labeled applications only — 2 of 2 in-frame live-slice applications labeled, "
+        "1 of the labeled read from the docket alone; primaries only; not "
+        "docket-representative."
+    )
+    assert "counted 2 application(s) in the frame" in note
+    rendered = analytics.render_docket_markdown(pack)
+    assert "## Emergency applications by topic (`qp-topic-v1`)" in rendered
+    assert "application reference block's adjudicated labels on 203 of 241" in rendered
+
+
+def test_application_topic_cut_refuses_a_failed_gate(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _stage_corpus(db)
+    applications = _application_labels(
+        tmp_path / "qp-topics-applications.json",
+        {"scotus/a1": ("immigration", "application-text")},
+        gate_passed=False,
+    )
+    pack = analytics.build_docket_pack(corpus_db_path=db, qp_topics_applications_path=applications)
+    assert pack.application_topics is None
+    assert pack.topic_mix is None
+
+
+def test_topic_mix_splits_cert_merits_and_interim(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _stage_corpus(db)
+    petitions = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {
+            "scotus/101": "criminal-law",  # granted, weight 1
+            "scotus/102": "tax",  # sampled denial, weight 4
+            "scotus/103": "criminal-law",  # sampled denial, weight 4
+        },
+    )
+    applications = _application_labels(
+        tmp_path / "qp-topics-applications.json",
+        {
+            "scotus/a1": ("immigration", "application-text"),
+            "scotus/a2": ("unclassifiable", "docket-only"),
+        },
+    )
+    pack = analytics.build_docket_pack(
+        corpus_db_path=db,
+        qp_topics_path=petitions,
+        qp_topics_applications_path=applications,
+    )
+    assert pack.topic_mix is not None
+    stages = {stage.stage: stage for stage in pack.topic_mix.stages}
+    assert list(stages) == ["cert", "merits", "interim"]
+    # Cert: every labeled petition, on the section's own reweighted counts.
+    cert = stages["cert"]
+    assert (cert.cases, cert.rows, cert.vocabulary) == (9, 3, "qp-topic-v0")
+    assert [(s.label, s.cases, s.rows) for s in cert.shares] == [
+        ("criminal-law", 5, 2),
+        ("tax", 4, 1),
+    ]
+    assert cert.shares[0].share == pytest.approx(5 / 9)
+    # Merits: the granted subset only; a label with no grant does not appear.
+    merits = stages["merits"]
+    assert [(s.label, s.cases, s.share) for s in merits.shares] == [("criminal-law", 1, 1.0)]
+    assert merits.scope_note.startswith(
+        "Granted QP-bearing petitions only — 1 labeled grant(s) of the 1 plenary grant(s)"
+    )
+    # Interim: the application frame, `unclassifiable` kept as a share.
+    interim = stages["interim"]
+    assert interim.vocabulary == "qp-topic-v1"
+    assert [(s.label, s.share) for s in interim.shares] == [
+        ("immigration", 0.5),
+        ("unclassifiable", 0.5),
+    ]
+    # Every stage's scope string travels into the document with it.
+    rendered = analytics.render_docket_markdown(pack)
+    assert "## Topic mix by stage" in rendered
+    assert (
+        "| topic | cert (est. n=9; 3 rows) | merits (n=1) | interim (n=2) "
+        + "| interim, subject-bearing only |"
+    ) in rendered
+    assert "| tax | 44.4% (1) | — | — | — |" in rendered
+    assert "| immigration | — | — | 50.0% (1) | 100.0% |" in rendered
+    for stage in pack.topic_mix.stages:
+        assert stage.scope_note in rendered
+
+
+def test_topic_mix_merits_leaves_out_a_gvr(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _stage_corpus(db)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                corpus.CorpusRow(
+                    case_id="scotus/104",
+                    court="scotus",
+                    docket_number="24-104",
+                    disposition=Disposition.gvr,
+                    last_live_polled=date(2026, 7, 1),
+                    sample_weight=1,
+                    distribution_count=1,
+                )
+            ],
+        )
+    petitions = _qp_labels(
+        tmp_path / "qp-topics.json",
+        {"scotus/101": "criminal-law", "scotus/104": "tax"},
+    )
+    pack = analytics.build_docket_pack(corpus_db_path=db, qp_topics_path=petitions)
+    assert pack.topic_mix is not None
+    stages = {stage.stage: stage for stage in pack.topic_mix.stages}
+    # The GVR is a labeled cert petition, but not a plenary grant.
+    assert {s.label for s in stages["cert"].shares} == {"criminal-law", "tax"}
+    assert [(s.label, s.cases) for s in stages["merits"].shares] == [("criminal-law", 1)]
+
+
+def test_application_topic_cut_holds_when_no_petition_label_matches(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _stage_corpus(db)
+    # Petition labels that match no corpus row still add their sections to the
+    # scan, so the application cut must read its own counters, not theirs.
+    petitions = _qp_labels(tmp_path / "qp-topics.json", {"scotus/999": "tax"})
+    applications = _application_labels(
+        tmp_path / "qp-topics-applications.json",
+        {
+            "scotus/a1": ("immigration", "application-text"),
+            "scotus/a2": ("unclassifiable", "docket-only"),
+        },
+    )
+    pack = analytics.build_docket_pack(
+        corpus_db_path=db,
+        qp_topics_path=petitions,
+        qp_topics_applications_path=applications,
+    )
+    assert pack.application_topics is not None
+    assert pack.application_topics.labeled_cases == 2
+    assert pack.application_topics.docket_only_cases == 1
+    assert pack.topic_mix is not None
+    interim = next(stage for stage in pack.topic_mix.stages if stage.stage == "interim")
+    assert [(s.label, s.rows) for s in interim.shares] == [
+        ("immigration", 1),
+        ("unclassifiable", 1),
+    ]
+
+
+def test_docket_cli_reads_the_default_application_labels(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    corpus_root = tmp_path / "corpus"
+    corpus_root.mkdir()
+    _stage_corpus(corpus.corpus_db_path(corpus_root))
+    data_root = tmp_path / "data"
+    (data_root / "qp-topics").mkdir(parents=True)
+    _application_labels(
+        data_root / "qp-topics" / "qp-topics-applications.json",
+        {"scotus/a1": ("immigration", "application-text")},
+    )
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(data_root))
+    monkeypatch.setenv("FEDCOURTS_METRICS_ROOT", str(tmp_path / "metrics"))
+    result = runner.invoke(app, ["docket"])
+    assert result.exit_code == 0, result.output
+    pack = DocketPack.model_validate_json((tmp_path / "metrics" / "docket.json").read_text())
+    assert pack.application_topics is not None
+    assert pack.topic_mix is not None
+    assert [stage.stage for stage in pack.topic_mix.stages] == ["interim"]

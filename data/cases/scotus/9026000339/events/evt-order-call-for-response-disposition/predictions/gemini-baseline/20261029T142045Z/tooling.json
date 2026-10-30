@@ -1,0 +1,23 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000339",
+  "gaps": [
+    "CourtListener MCP server returned HTTP 429 daily rate-limit errors during the run, though the Fourth Circuit opinion and district court orders were already provisioned in record/documents/appendix.txt.",
+    "No statpack cut conditions specifically on cert petitions where the Court called for a response (CFR) after a waiver."
+  ],
+  "helpful": [
+    "Provisioned petition.txt, questions-presented.txt, party-letter.txt, and appendix.txt provided the complete lower-court opinions and cert arguments.",
+    "metrics/statpack.md and statpack.json provided exact sal-v4 baseline reached base rates and summary-disposition-route base rates."
+  ],
+  "notes": "Degraded gracefully from CourtListener MCP 429 throttling to provisioned documents and corpus queries.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "tools_used": [
+    "fedcourts-paths",
+    "fedcourts-query",
+    "statpack",
+    "courtlistener-mcp"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

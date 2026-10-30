@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73272491",
+  "gaps": [
+    "CourtListener daily rate limit prevented precedent verification",
+    "Web tools returned no usable general-rules content",
+    "No published base-rate cut conditional on a cert response request"
+  ],
+  "helpful": [
+    "Frozen conditioning state and dated docket boundary",
+    "Petition text containing the lower-court summary order",
+    "Matching sal-v4 reached-band priors with denominators"
+  ],
+  "notes": "Forecast uses the provisioned June response-request moment, not an October docket refresh. No case-outcome retrieval. The missing opposition is expected at this moment. A temporary uv cache location resolves the read-only default-cache error.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "local provisioned-file reads",
+    "committed metrics/statpack.md",
+    "fedcourts paths",
+    "web search and open attempts (no usable content)",
+    "CourtListener MCP search attempt (HTTP 429)",
+    "local prior-Term pooling calculation",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

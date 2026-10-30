@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000440",
+  "run_id": "20261030T011325Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned documents"],
+  "helpful": ["Provisioned petition and appendix text", "sal-v4 band table with reached rates"],
+  "gaps": ["No statpack cut conditioning on respondent waiver / no response called for, which is the dominant signal on a waived petition", "--docket-number lookup for an older Term docket (20-1369) printed help instead of a row"],
+  "notes": "--era modern was rejected; the help text could list valid era values."
+}

@@ -1,0 +1,23 @@
+{
+  "case_id": "scotus/73272488",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "WebFetch (supremecourt.gov docket pages and BIO PDF)",
+    "pypdf for PDF text extraction"
+  ],
+  "helpful": [
+    "Live supremecourt.gov docket for a forward cell showed the BIO, reply and the 11/13 distribution",
+    "--docket-number lookup confirmed the same-question petition Tovar (25-6344) was denied"
+  ],
+  "gaps": [
+    "The BIO and reply filed after the cutoff are not provisioned, so a forward cell has to fetch and extract the PDFs itself",
+    "No statpack cut conditions on a called-for response"
+  ],
+  "notes": "The WebFetch summarizer could not read the BIO PDF; I extracted its text locally with pypdf."
+}

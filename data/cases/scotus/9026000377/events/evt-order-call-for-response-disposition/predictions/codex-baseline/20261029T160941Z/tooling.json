@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000377",
+  "gaps": [
+    "CourtListener MCP daily rate limit prevented independent precedent verification",
+    "Web tool returned no usable content",
+    "No published base rate conditional on a called-for cert response"
+  ],
+  "helpful": [
+    "Complete petition and appellate opinions in the appendix",
+    "Explicit response-requested moment and frozen conditioning",
+    "Exact reached-band denominators in statpack.json",
+    "Corpus query coverage warning for sparse citations"
+  ],
+  "notes": "Default uv cache was read-only; using a temporary cache fixed command execution. Corpus examples were not legally matched, and a Neder citation lookup was empty with a coverage warning. The forecast rests on provisioned appellate opinions and petition advocacy, discounted for unverified split characterization. No current own-case docket retrieval was attempted.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and documents",
+    "committed statpack",
+    "fedcourts paths",
+    "fedcourts query",
+    "CourtListener MCP search (rate-limited)",
+    "web search/open (no usable content)",
+    "local schema validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

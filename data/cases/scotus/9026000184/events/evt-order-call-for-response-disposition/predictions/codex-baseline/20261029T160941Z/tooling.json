@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000184",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "local statpack and jq", "CourtListener MCP search (throttled)", "web search and official opinion open", "read-only statistical subagent"],
+  "helpful": ["Frozen response-requested snapshot and context", "Petition with the actual Third Circuit opinion in its appendix", "Matched sal-v4 reached-rate fields and weighted denominators"],
+  "gaps": ["CourtListener MCP citation lookup unavailable under the daily rate limit", "No measured base rate conditional on a called-for cert response"],
+  "notes": "The default uv cache path was read-only; setting UV_CACHE_DIR=/tmp/uv-cache restored CLI execution. The broad structured corpus query worked but returned no close substantive analogue. No direct CourtListener REST fallback was used. A missing opposition at the call-for-response moment is expected, not a provisioning failure. Full data validation passed: 29704 artifacts valid, 71066 references consistent. Independent statistical review reproduced the matched prior-Term anchor with no blockers."
+}

@@ -1,0 +1,22 @@
+{
+  "case_id": "scotus/9026000023",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "WebFetch (supremecourt.gov docket 25-1359)"
+  ],
+  "helpful": [
+    "--docket-number lookup for the companion petition",
+    "sal-v4 band table with reached-rate brackets"
+  ],
+  "gaps": [
+    "No statpack cut conditioned on a called-for response, the moment this cell is defined by",
+    "The companion petition 25-1359 (same parties, same enforcement proceeding, same QP) is not a Vide link, so record/related/ did not stage it"
+  ],
+  "notes": "Companion found only because the petition text names it."
+}

@@ -42,6 +42,17 @@ keeps any non-``private`` answer*: no caption loses a ``federal`` or ``state``
 read it had under v1, so the delta between the two censuses is drawn from the
 ``private`` cell only and the two are comparable cell by cell.
 
+``caption-v3`` is the first rule that reads more than the caption string: a
+petition whose petitioner-side counsel is the Solicitor General's office
+(``sg-office-v1``, :func:`.counsel.sg_office_annotations`) reads ``federal``,
+and that check runs ahead of every caption pattern — the sub-national officer
+fallback included — so a warden's caption the Solicitor General files for is
+federal rather than state. Every
+rule is therefore registered as a predicate on a **row**
+(:data:`CAPTION_RULES`); v1 and v2 read only the row's caption
+(:func:`petitioner_caption`) through their string predicates, which are
+unchanged.
+
 This module is census-grade and selection-grade: the class feeds the salience
 band (a reporting dimension) everywhere, and the ``federal`` class feeds an
 arrival carve-in **only after** the census computed from the carve-in's own
@@ -75,6 +86,11 @@ CAPTION_RULE_VERSION = "caption-v1"
 
 #: The widened rule's version: v1's ordering and classes, more federal shapes.
 CAPTION_RULE_VERSION_V2 = "caption-v2"
+
+#: The counsel-aware rule's version: v2, with the Solicitor General's office as
+#: petitioner-side counsel read as a federal petitioner ahead of the
+#: sub-national officer fallback.
+CAPTION_RULE_VERSION_V3 = "caption-v3"
 
 #: Class labels in reporting order (strongest measured grant rate first).
 PETITIONER_CLASSES: Final[tuple[PetitionerClass, ...]] = ("federal", "state", "private")
@@ -384,29 +400,6 @@ def classify_petitioner_v2(title: str) -> PetitionerClass:
     return "private"
 
 
-#: Every registered caption rule, keyed by version label. A rule is only ever
-#: added here — never edited and never removed — because a frozen selection
-#: constant names the census it came from, and that census replays only against
-#: the predicate that produced it.
-CAPTION_RULES: Final[Mapping[str, Callable[[str], PetitionerClass]]] = MappingProxyType(
-    {
-        CAPTION_RULE_VERSION: classify_petitioner,
-        CAPTION_RULE_VERSION_V2: classify_petitioner_v2,
-    }
-)
-
-
-def caption_rule(rule_version: str) -> Callable[[str], PetitionerClass]:
-    """The registered predicate for ``rule_version``.
-
-    Raises :class:`KeyError` for an unregistered label rather than falling back
-    to the baseline rule: a caller asking for a rule this process cannot
-    produce wants an error, not a census silently cut under a version it did
-    not ask for.
-    """
-    return CAPTION_RULES[rule_version]
-
-
 def petitioner_caption(row: corpus.CorpusRow) -> str:
     """The row's best petitioner caption: the structured column, else the split.
 
@@ -428,6 +421,96 @@ def petitioner_class(row: corpus.CorpusRow) -> PetitionerClass:
 def petitioner_class_v2(row: corpus.CorpusRow) -> PetitionerClass:
     """The row's ``caption-v2`` petitioner class, off its best available caption."""
     return classify_petitioner_v2(petitioner_caption(row))
+
+
+# --- caption-v3: the Solicitor General's office as petitioner counsel ----------
+#
+# v2's patterns read who the caption names. The census frame measures a
+# grant-enriched family they cannot read at all: petitions the Solicitor
+# General files whose caption names a private-looking or sub-national party —
+# a warden, a companion petitioner consolidated with a government petition, an
+# agency official captioned under a personal name. The office's appearance on
+# the petitioner side is the reading that separates them, and sg-office-v1 is
+# the registered, dated reading of it.
+#
+# Why the counsel entries are safe to read at the moment the rule is used:
+#
+# - Only the petitioner side is read. sg-office-v1 never reads `other` (amici,
+#   invited briefs, intervenors), the side that accrues after a grant and would
+#   be a grant oracle on a decided docket.
+# - The live selection pass reads the row as polled that day, so on the pending
+#   petitions it selects from every entry it reads is one the docket carried at
+#   the selection moment, and none can postdate an outcome that has not
+#   happened. Where the office files the petition, its appearance dates from
+#   the filing.
+# - A resolved row's list is its terminal one, and the index dates no counsel
+#   entry. Two things can reach it after the moment a band describes: a
+#   successor Solicitor General written after the resolution, which
+#   sg-office-v1 admits only on a party string that reads federal; and the
+#   office's appearance on a companion petition consolidated with a government
+#   petition, which can date from the consolidation rather than the filing.
+#   Neither is separable on the row, so a statpack pool over resolved rows reads
+#   the terminal list — the population the census measured — and a dated check
+#   of the companion family reads the stored snapshots, not the index.
+#
+# The check runs first, ahead of every caption pattern and so ahead of v1's
+# Warden/Sheriff/Superintendent fallback: that tail is an inference about who
+# the officer is from the office named, and the Solicitor General's appearance
+# for the petitioner is direct evidence of who is asking. It runs ahead of v1's
+# qualified state markers too, which is the predicate the census measured: a
+# state officer's petition the office appears for on the petitioner side reads
+# federal. A row the rule does not fire on reads exactly as v2 reads it, so v3
+# can only move a v2 `private` or `state` read to `federal`.
+
+
+def _sg_office_petitioner(row: corpus.CorpusRow) -> bool:
+    """Whether sg-office-v1 places the Solicitor General's office on the petitioner side."""
+    from .counsel import sg_office_annotations  # noqa: PLC0415 - counsel<-party<-caption cycle
+
+    return sg_office_annotations(row, None).petitioner == "yes"
+
+
+def petitioner_class_v3(row: corpus.CorpusRow) -> PetitionerClass:
+    """The row's ``caption-v3`` petitioner class: the office as counsel, then caption-v2.
+
+    A petition whose petitioner-side counsel is the Solicitor General's office
+    (``sg-office-v1`` petitioner ``yes``, read over the whole row with no cut)
+    reads ``federal`` before any caption pattern runs — so a Warden's or
+    Sheriff's caption the office files for is federal, not state. Every other
+    row reads its ``caption-v2`` class. Total: a row with no counsel, or with a
+    roster name the dated spans cannot place, reads exactly as v2 reads it.
+    """
+    if _sg_office_petitioner(row):
+        return "federal"
+    return petitioner_class_v2(row)
+
+
+#: Every registered caption rule, keyed by version label, as a predicate on a
+#: corpus row. A rule is only ever added here — never edited and never removed —
+#: because a frozen selection constant names the census it came from, and that
+#: census replays only against the predicate that produced it. ``caption-v1``
+#: and ``caption-v2`` read the row's caption alone, through
+#: :func:`classify_petitioner` and :func:`classify_petitioner_v2`.
+CAPTION_RULES: Final[Mapping[str, Callable[[corpus.CorpusRow], PetitionerClass]]] = (
+    MappingProxyType(
+        {
+            CAPTION_RULE_VERSION: petitioner_class,
+            CAPTION_RULE_VERSION_V2: petitioner_class_v2,
+            CAPTION_RULE_VERSION_V3: petitioner_class_v3,
+        }
+    )
+)
+
+
+def caption_rule(rule_version: str) -> Callable[[corpus.CorpusRow], PetitionerClass]:
+    """The registered row predicate for ``rule_version``.
+
+    Raises :class:`KeyError` for an unregistered label rather than falling back
+    to the baseline rule: a caller asking for a rule this process cannot
+    produce wants an error, not a census silently cut under a version it did
+    not ask for.
+    """
+    return CAPTION_RULES[rule_version]
 
 
 def _scored_segment(row: corpus.CorpusRow) -> bool:
@@ -498,7 +581,7 @@ def caption_census(
                 f"{row.case_id}: sample_weight {row.sample_weight} — the census "
                 "counts raw and must not run over a subsampled frame"
             )
-        cell = counts[term][classify(petitioner_caption(row))]
+        cell = counts[term][classify(row)]
         cell[0] += 1
         if row.disposition in GRANT_FAMILY_DISPOSITIONS:
             cell[1] += 1

@@ -1,0 +1,22 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000176",
+  "gaps": [
+    "CourtListener MCP search returned HTTP 429 daily rate limit exceeded (1400/day)"
+  ],
+  "helpful": [
+    "metrics/statpack.md salience band and relist base-rate tables",
+    "fedcourts query --docket-number lookup for the prior petition in No. 24-421",
+    "Provisioned petition.txt and appendix.txt containing all Sixth Circuit and district court opinions"
+  ],
+  "notes": "All opinions below and the full petition were staged in record/documents/, so the CourtListener 429 rate limit did not impair analysis.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

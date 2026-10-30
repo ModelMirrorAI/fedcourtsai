@@ -22,6 +22,8 @@ from fedcourtsai.review_hold import (
     Seam,
     count_auto_released,
     decide,
+    label_pending,
+    label_refusal,
     load_review_hold_config,
     measured_spend,
     released_last_day,
@@ -833,3 +835,299 @@ def test_the_command_refuses_an_unknown_seam(tmp_path: Path) -> None:
     result = runner.invoke(app, ["hold-decision", "--plan-file", str(plan), "--seam", "backtest"])
     assert result.exit_code == 1
     assert "--seam" in result.output
+
+
+# --- the label seam ----------------------------------------------------------------
+
+
+def _label_plan(*, rows: int = 1200, high: float | None = 24.0) -> dict[str, Any]:
+    """A `qp-label-plan` document in its real shape."""
+    plan: dict[str, Any] = {"stage": "label", "frame": "petitions", "rows": rows}
+    if high is not None:
+        plan["estimated_cost_usd_high"] = high
+    return plan
+
+
+def _write_run(
+    data_root: Path,
+    run_id: str,
+    recorded_at: str,
+    *,
+    outcome: str = "published",
+    frame: str = "petitions",
+    cost: float = 10.01,
+    attempt: int = 1,
+) -> None:
+    measured = outcome != "incomplete"
+    record = {
+        "frame": frame,
+        "run_id": run_id,
+        "run_attempt": attempt,
+        "labeler": "claude-code/claude-opus-5-5",
+        "model": "claude-opus-5-5",
+        "outcome": outcome,
+        "batch_rows": 1200,
+        "label_lines": 1200,
+        "agree": 160 if measured else None,
+        "n": 200 if measured else None,
+        "rate": 0.8 if measured else None,
+        "floor": 0.3 if measured else None,
+        "recorded_at": recorded_at,
+        "input_tokens": 100,
+        "output_tokens": 10,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "estimated_cost_usd": cost,
+    }
+    path = data_root / "qp-topics" / "spend" / f"{run_id}-{attempt}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(record))
+
+
+def test_a_label_round_is_priced_from_its_plan_without_a_matrix() -> None:
+    decision = _decide(_label_plan(), seam="label", released_last_day=0, matrix=None)
+    assert decision.auto_release, decision.auto_release_reason
+    assert decision.estimated_spend_usd == pytest.approx(24.0)
+    assert decision.plan_cells == 1200
+    assert decision.matrix_cells is None
+    assert decision.drain_more is False
+
+
+@pytest.mark.parametrize(
+    "plan",
+    [_label_plan(rows=0), _label_plan(high=None), {**_label_plan(), "rows": True}],
+)
+def test_a_label_round_without_a_readable_plan_is_held(plan: dict[str, Any]) -> None:
+    assert not _decide(plan, seam="label", released_last_day=0, matrix=None).auto_release
+
+
+def test_a_label_round_over_the_per_round_cap_is_held() -> None:
+    decision = _decide(_label_plan(high=72.0), seam="label", released_last_day=0, matrix=None)
+    assert not decision.auto_release
+    assert "over the per-round cap" in decision.auto_release_reason
+
+
+def test_a_label_round_after_a_refusal_waits_for_a_maintainer() -> None:
+    reason = "the last petitions labeling run was refused at the reference gate; a retry waits"
+    decision = decide(
+        _label_plan(),
+        ON,
+        seam="label",
+        released_last_day=0,
+        matrix=None,
+        backstop=BACKSTOP,
+        measured=LOW,
+        label_refusal=reason,
+    )
+    assert not decision.auto_release
+    assert decision.auto_release_reason == reason
+    # Another seam ignores the label rule.
+    summarize = decide(
+        _summary_plan(),
+        ON,
+        seam="summarize",
+        released_last_day=0,
+        matrix=None,
+        backstop=BACKSTOP,
+        measured=LOW,
+        label_refusal=reason,
+    )
+    assert summarize.auto_release, summarize.auto_release_reason
+
+
+def test_the_refusal_rule_reads_the_newest_gated_run_of_the_frame(tmp_path: Path) -> None:
+    assert label_refusal(tmp_path, "petitions") is None  # no records at all
+    _write_run(tmp_path, "100", "2026-10-01T09:00:00Z", outcome="published")
+    assert label_refusal(tmp_path, "petitions") is None
+    _write_run(tmp_path, "200", "2026-10-08T09:00:00Z", outcome="refused")
+    reason = label_refusal(tmp_path, "petitions")
+    assert reason is not None and "petitions labeling run was refused" in reason
+    # An incomplete run was never gated: it neither clears nor sets the rule.
+    _write_run(tmp_path, "300", "2026-10-15T09:00:00Z", outcome="incomplete")
+    assert label_refusal(tmp_path, "petitions") is not None
+    # The other frame's record is not this frame's.
+    assert label_refusal(tmp_path, "applications") is None
+    _write_run(tmp_path, "301", "2026-10-15T09:30:00Z", outcome="refused", frame="applications")
+    assert label_refusal(tmp_path, "applications") is not None
+    # A newer published run clears it.
+    _write_run(tmp_path, "400", "2026-10-22T09:00:00Z", outcome="published")
+    assert label_refusal(tmp_path, "petitions") is None
+
+
+def test_an_unreadable_run_record_keeps_a_label_round_held(tmp_path: Path) -> None:
+    _write_run(tmp_path, "100", "2026-10-01T09:00:00Z")
+    next((tmp_path / "qp-topics" / "spend").glob("*.json")).write_text("{not json")
+    reason = label_refusal(tmp_path, "petitions")
+    assert reason is not None and "could not be read" in reason
+
+
+def test_measured_spend_counts_labeler_runs_by_recorded_at(tmp_path: Path) -> None:
+    _write_usage(tmp_path, "20261010T120000Z", "2026-10-10T12:00:00Z", 10.0)
+    _write_run(tmp_path, "100", "2026-10-14T09:00:00Z", outcome="refused", cost=9.28)
+    _write_run(tmp_path, "101", "2026-10-15T09:00:00Z", outcome="published", cost=10.01)
+    _write_run(tmp_path, "50", "2026-09-01T09:00:00Z", cost=60.16)  # outside the window
+    measured = measured_spend(tmp_path, window_days=30, now=NOW)
+    assert measured is not None
+    assert measured.labeler_usd == pytest.approx(19.29)
+    assert measured.total_usd == pytest.approx(29.29)
+
+
+def test_the_hold_summary_and_arithmetic_name_the_labeler_runs() -> None:
+    measured = MeasuredSpend(cells_usd=100.0, summaries_usd=5.0, labeler_usd=19.29)
+    decision = _decide(
+        _label_plan(), seam="label", released_last_day=0, matrix=None, measured=measured
+    )
+    assert decision.measured_labeler_usd == pytest.approx(19.29)
+    assert decision.projected_spend_usd == pytest.approx(148.29)
+    assert "labeler runs $19.29" in decision.auto_release_reason
+    summary = render_summary(decision)
+    assert "| Measured: topic-labeler runs | $19.29 |" in summary
+    assert "**$148.29**" in summary
+
+
+def test_an_auto_released_label_round_is_counted_once_by_run() -> None:
+    subjects = [
+        "data(qp-topics): batch 11 — 1000 new qp-topic-v0 label(s) by claude-code/claude-opus-5-5 "
+        + f"(9000 total) (run 123) {AUTO_RELEASED_MARKER} (#77)",
+        "data(qp-topics): spend record of a refused application labeling run, no labels "
+        + f"published (run 124) {AUTO_RELEASED_MARKER}",
+        f"data(summaries): 3 plain-language case summaries (run 123) {AUTO_RELEASED_MARKER}",
+        "data(qp-topics): batch 11 — 1000 new label(s) (run 125)",  # held: no mark
+    ]
+    # Run 123 is two rounds: one label, one summarize.
+    assert count_auto_released(subjects) == 3
+
+
+def test_the_command_decides_a_label_round_and_reads_the_refusal(tmp_path: Path) -> None:
+    plan = tmp_path / "label-plan.json"
+    plan.write_text(json.dumps(_label_plan()))
+    env = _cmd_env(tmp_path)
+    subjects = tmp_path / "subjects.txt"
+    subjects.write_text("")
+    args = [
+        "hold-decision",
+        "--plan-file",
+        str(plan),
+        "--seam",
+        "label",
+        "--deployments-released",
+        "0",
+        "--main-subjects-file",
+        str(subjects),
+    ]
+    released = runner.invoke(app, args, env=env)
+    assert released.exit_code == 0, released.output
+    assert json.loads(released.stdout)["auto_release"] is True
+    _write_run(tmp_path / "data", "200", "2026-10-28T09:00:00Z", outcome="refused")
+    held = json.loads(runner.invoke(app, args, env=env).stdout)
+    assert held["auto_release"] is False
+    assert "refused at the reference gate" in held["auto_release_reason"]
+
+
+def test_a_future_dated_run_record_keeps_a_label_round_held(tmp_path: Path) -> None:
+    # A record dated after the plan is not one a run wrote; a forged
+    # `published` one would otherwise mask the frame's refusal.
+    _write_run(tmp_path, "200", "2026-10-08T09:00:00Z", outcome="refused")
+    _write_run(tmp_path, "999", "2027-01-01T09:00:00Z", outcome="published")
+    reason = label_refusal(tmp_path, "petitions", now=NOW)
+    assert reason is not None and "dated after this round's plan" in reason
+    # The other frame's records are not read for it.
+    assert label_refusal(tmp_path, "applications", now=NOW) is None
+
+
+def test_a_published_batch_on_the_open_pr_keeps_a_label_round_held(tmp_path: Path) -> None:
+    _write_run(tmp_path, "100", "2026-10-01T09:00:00Z", outcome="published")
+    _write_run(tmp_path, "200", "2026-10-08T09:00:00Z", outcome="refused", frame="applications")
+    carried = ["data/qp-topics/spend/200-1.json"]
+    # A carried refusal of the other frame is no pending batch of this one.
+    assert label_pending(tmp_path, "petitions", carried) is None
+    # A record already on main is not pending; only a carried one is.
+    assert label_pending(tmp_path, "petitions", []) is None
+    reason = label_pending(tmp_path, "petitions", ["data/qp-topics/spend/100-1.json", ""])
+    assert reason is not None and "unmerged published batch (run 100)" in reason
+    unreadable = label_pending(tmp_path, "petitions", ["data/qp-topics/spend/404-1.json"])
+    assert unreadable is not None and "could not be read" in unreadable
+
+
+@pytest.mark.parametrize("frame", [None, "", "dockets", 7])
+def test_a_label_plan_naming_no_frame_keeps_the_hold(tmp_path: Path, frame: object) -> None:
+    plan = tmp_path / "label-plan.json"
+    body = _label_plan()
+    if frame is None:
+        del body["frame"]
+    else:
+        body["frame"] = frame
+    plan.write_text(json.dumps(body))
+    subjects = tmp_path / "subjects.txt"
+    subjects.write_text("")
+    result = runner.invoke(
+        app,
+        [
+            "hold-decision",
+            "--plan-file",
+            str(plan),
+            "--seam",
+            "label",
+            "--deployments-released",
+            "0",
+            "--main-subjects-file",
+            str(subjects),
+        ],
+        env=_cmd_env(tmp_path),
+    )
+    assert result.exit_code == 0, result.output
+    decision = json.loads(result.stdout)
+    assert decision["auto_release"] is False
+    assert decision["auto_release_reason"] == "the plan names no labeling frame"
+
+
+def test_the_command_holds_a_label_round_while_its_batch_awaits_review(tmp_path: Path) -> None:
+    plan = tmp_path / "label-plan.json"
+    plan.write_text(json.dumps(_label_plan()))
+    subjects = tmp_path / "subjects.txt"
+    subjects.write_text("")
+    carried = tmp_path / "carried.txt"
+    carried.write_text("")
+    args = [
+        "hold-decision",
+        "--plan-file",
+        str(plan),
+        "--seam",
+        "label",
+        "--deployments-released",
+        "0",
+        "--main-subjects-file",
+        str(subjects),
+        "--carried-file",
+        str(carried),
+    ]
+    env = _cmd_env(tmp_path)
+    assert json.loads(runner.invoke(app, args, env=env).stdout)["auto_release"] is True
+    _write_run(tmp_path / "data", "300", "2026-10-28T09:00:00Z", outcome="published")
+    carried.write_text("data/qp-topics/spend/300-1.json\n")
+    held = json.loads(runner.invoke(app, args, env=env).stdout)
+    assert held["auto_release"] is False
+    assert "unmerged published batch" in held["auto_release_reason"]
+    pending = runner.invoke(
+        app,
+        ["qp-topic-pending", "--frame", "petitions", "--carried-file", str(carried)],
+        env=env,
+    )
+    assert pending.exit_code == 0, pending.output
+    assert pending.stdout.strip() == "true"
+    other = runner.invoke(
+        app,
+        ["qp-topic-pending", "--frame", "applications", "--carried-file", str(carried)],
+        env=env,
+    )
+    assert other.stdout.strip() == "false"
+    missing = runner.invoke(
+        app,
+        ["qp-topic-pending", "--frame", "petitions", "--carried-file", str(tmp_path / "no")],
+        env=env,
+    )
+    assert missing.stdout.strip() == "true"
+    gone = tmp_path / "gone.txt"
+    held = json.loads(runner.invoke(app, [*args[:-1], str(gone)], env=env).stdout)
+    assert held["auto_release"] is False
+    assert "could not be read" in held["auto_release_reason"]

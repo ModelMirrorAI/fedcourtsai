@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000274",
+  "gaps": [
+    "CourtListener MCP exhausted its daily rate limit before the first opinion could be retrieved.",
+    "No usable visible content from general-context web searches or the attempted official opinion PDF.",
+    "No published response-requested conditional cert rate.",
+    "Default uv cache is read-only; a temporary cache override is needed."
+  ],
+  "helpful": [
+    "The petition includes the appellate opinion, revealing plain-error review not highlighted by the clean-vehicle argument.",
+    "Matching sal-v4 reached-band rates and exact JSON denominators support a strictly prior-Term anchor.",
+    "The structured query error supplied valid era values, allowing a corrected query."
+  ],
+  "notes": "Forecast completed from staged materials and committed prior-Term base rates. No CourtListener REST fallback, later own-case docket retrieval, or other-cell output reads. The missing response is expected at this event's moment, not a provisioning failure. The broad corpus-prior results were not close substantive analogues.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and petition",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack markdown and JSON",
+    "CourtListener MCP search (throttled)",
+    "web search and open (no usable visible content)",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

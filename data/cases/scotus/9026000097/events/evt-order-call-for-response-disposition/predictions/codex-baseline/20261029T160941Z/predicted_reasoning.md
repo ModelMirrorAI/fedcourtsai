@@ -1,0 +1,13 @@
+# Forecast of the Court's disposition
+
+The Court will most likely deny the petition after receiving a response, without explaining its reasons. Denial will leave the First Circuit's judgment in place but will not endorse its reasoning or settle the constitutional question nationwide.
+
+The snapshot records one distribution and no completed conference consideration. I expect another distribution entry once the requested-response process is complete, ordinarily followed by a decision within the next few conferences. That routine redistribution is distinct from a substantive relist following a conference. The modal trajectory is no extended series of post-conference relists; if the Court holds the petition beyond its first actual consideration, one or two further distributions are more plausible than a long sequence. The response's contents and any later entries are not assumed.
+
+I do not expect the Court to invite the Solicitor General's views. Although special-education law supplies the background, the requested decision concerns a state's administration of its benefit and the constitutional right to choose private schooling, not a direct conflict in interpreting a federal statute.
+
+If the Court grants review, it will most likely set the case for briefing and argument rather than issue a summary reversal or a grant-vacate-remand order. The question calls for distinguishing a permissible refusal to subsidize private education from a prohibited penalty on an existing constitutional right. The provisioned record supplies no intervening controlling decision that makes reconsideration on remand the obvious route. The conditional chance of disposition in the cert order is 12%.
+
+If review is granted, the Court will most likely take the petition's single question substantially as written, but address it through the narrower circumstances here: whether generally available special-education benefits may be supplied on different premises depending on parental placement. A ruling would need to distinguish the right to select private education from a freestanding demand for state financial support. Requiring the state to create a new benefit is not the presented question. The Court would not need to decide a separate religious-discrimination claim that the parents did not bring.
+
+Conditional on denial, no separate writing is the clear favorite; a dissent or statement has a 16% chance. If one appears, Thomas or Gorsuch is my leading authorship possibility, followed by Alito. Such a writing would likely criticize treating parental educational choice differently from other rights when government distributes an established benefit. I predict neither a cert vote lineup nor an unconditional merits opinion.

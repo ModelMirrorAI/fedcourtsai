@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73500260",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["Salience band table with reached-rate risk sets", "Petition text with intact split section"],
+  "gaps": ["No statpack cut conditioning on a called-for response (response-requested moment has no committed anchor)"],
+  "notes": "--docket-number lookup printed usage text instead of a row; may need different syntax."
+}

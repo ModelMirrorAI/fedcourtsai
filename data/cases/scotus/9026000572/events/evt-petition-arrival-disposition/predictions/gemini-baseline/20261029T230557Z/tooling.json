@@ -1,0 +1,25 @@
+{
+  "case_id": "scotus/9026000572",
+  "run_id": "20261029T230557Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "google_web_search"
+  ],
+  "helpful": [
+    "CourtListener MCP search and read_document retrieved the complete 56-page Seventh Circuit opinion and dissent below (Rojas v. Olson, No. 25-3127, decided July 30, 2026), which was critical because Supreme Court filings in this immigration habeas case are paper-only under Rule 34.6.",
+    "fedcourts query --docket-number quickly confirmed that the Supreme Court already granted certiorari on October 1, 2026 in the lead Second Circuit vehicle on the identical 8 U.S.C. 1225(b)(2)(A) question (Rhoney v. Barbosa da Cunha, No. 26-104) and is holding the Sixth and Fifth Circuit companion petitions (Nos. 25-1415 and 26-43).",
+    "metrics/statpack.md provided the exact sal-v4 federal band base rates across OT2017-OT2025."
+  ],
+  "gaps": [
+    "A --counsel or --party filter on fedcourts query would make it easier to locate related Solicitor General or ICE field-office petitions without knowing their exact docket numbers in advance."
+  ],
+  "notes": "Because Rule 34.6 paper-only filing applies to immigration cases at the Supreme Court, combining CourtListener MCP lower-court opinion retrieval with fedcourts query docket lookups was essential to identifying this petition as a follow-on SG hold petition for Rhoney v. Barbosa da Cunha (No. 26-104)."
+}

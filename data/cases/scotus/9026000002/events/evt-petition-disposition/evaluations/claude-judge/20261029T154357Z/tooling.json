@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000002",
+  "run_id": "20261029T154357Z",
+  "role": "evaluator",
+  "actor_id": "claude-judge",
+  "used_corpus_query": false,
+  "used_base_rates": false,
+  "tools_used": ["shell", "file-read"],
+  "helpful": ["Staged retrieval_log.json per candidate made the forward-leakage check quick", "Provisioned snapshot shows the Rule 46 entries that explain the dismissed outcome"],
+  "gaps": ["Exact-label correct scores every denied forecast 0 against a Rule 46 dismissal; no elicited P(dismissed) to grade separately"],
+  "notes": "Frozen-band cert cell, so base rate and skill left to the harness stamp."
+}

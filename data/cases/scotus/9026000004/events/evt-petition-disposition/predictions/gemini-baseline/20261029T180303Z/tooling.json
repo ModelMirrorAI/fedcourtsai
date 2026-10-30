@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000004",
+  "run_id": "20261029T180303Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "provisioned petition.txt and brief-in-opposition.txt with lower-court opinions in appendices",
+    "metrics/statpack.md salience band and relist/CVSG/amicus cuts",
+    "fedcourts query --docket-number for related post-Mallory cert petitions (21-926, 24-1190, 25-1208)"
+  ],
+  "gaps": [
+    "cert-reply.txt was not provisioned despite the docket showing a reply brief filed Sept. 16, 2026",
+    "CourtListener MCP server hit daily rate limit (HTTP 429: 1400/day)"
+  ],
+  "notes": "Provisioned petition and BIO texts were complete and included the full Georgia Court of Appeals opinion and trial court orders in the petition appendix, so the CourtListener MCP HTTP 429 rate-limit did not impair analysis."
+}

@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73538544",
+  "run_id": "20261029T180303Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "provisioning",
+      "severity": "warning",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "record/documents/brief-in-opposition.txt combines Irigoyen Farms' brief (Aug 26, 2026) with Walmart Inc.'s response, docketed Oct 13, 2026. That is after this response-requested cell's date cutoff (2026-09-11), so the document directory was not cut by the snapshot's date rule. I did not read the Walmart section and it did not inform the forecast. Other predictors in this cohort may have read it."
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000274",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tool_manifest": [
+    "courtlistener"
+  ],
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "google_web_search"
+  ],
+  "helpful": [
+    "metrics/statpack.md",
+    "record/documents/petition.txt",
+    "record/documents/questions-presented.txt",
+    "google_web_search"
+  ],
+  "gaps": [
+    "CourtListener MCP server returned HTTP 429 (1400/day rate limit exceeded)",
+    "Last 5 pages of First Circuit opinion in petition.txt were truncated by the 150,000-character document cap"
+  ],
+  "notes": "Provisioned petition.txt and questions-presented.txt provided nearly the entire First Circuit opinion and all relevant record materials; forward-mode web search filled in the truncated tail of the First Circuit's Blockburger discussion and context on Barrett v. United States, 607 U.S. 128 (2026)."
+}

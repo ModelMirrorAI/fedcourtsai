@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000098",
+  "gaps": [
+    "CourtListener MCP returned HTTP 429 on the attempted lower-court precedent lookup.",
+    "Corpus vintage reporting is unavailable through corpus-info with the service backend.",
+    "General-context web calls returned no visible content."
+  ],
+  "helpful": [
+    "The petition includes the appellate opinion, allowing inspection of the acknowledged circuit disagreement.",
+    "The frozen moment, band, and distribution count distinguish a response request from a true relist.",
+    "The committed statpack provides matching prior-Term risk-set denominators."
+  ],
+  "notes": "Used provisioned inputs and committed base rates after degraded external retrieval. The structured corpus query worked but returned generic grants rather than close substantive analogues. Setting UV_CACHE_DIR to a writable temporary directory resolved the initial CLI cache failure. No issue with the provisioned snapshot or required filings prevented completion.",
+  "role": "predictor",
+  "run_id": "20261030T011325Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell provisioned-input inspection",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (failed)",
+    "CourtListener MCP search (rate-limited)",
+    "web search and open (no visible content)",
+    "committed statpack",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

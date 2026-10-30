@@ -1,0 +1,9 @@
+# Forecast: Strickland v. Moritz (No. 25-1303), response-requested moment
+
+**Disposition: denied.** The Court called for a response on June 15, 2026, after the federal respondents waived. The call shows that at least one chambers wanted the Solicitor General's position on the record. I still expect the petition to be denied once the response is in.
+
+- **Relists.** The docket I was given shows one distribution, for the June 25, 2026 conference, which the call for a response took the petition off. The petition will be distributed again once the response is filed (the `relist-increment` claim is effectively certain and the harness masks it). After that I expect it to go to one conference and be denied, without a further relist. If a Justice wants to write separately, it could be relisted once or twice while the writing is prepared.
+- **CVSG.** No CVSG will be called for. The federal government is the respondent and is already filing on the merits of the petition.
+- **Question presented, if granted.** The Court would take QP 1, the Fifth Amendment due-process and equal-protection challenge to channeling judiciary employees' harassment and discrimination claims through the internal EDR Plan, perhaps narrowed to due process alone. QP 2, the Congressional Accountability Act and Judicial Conference policy theory, would most likely be left aside, because it rests on whether that policy can be enforced at all.
+- **Summary disposition.** Unlikely. No intervening decision bears on the questions, and a per curiam reversal of a post-trial factual record is implausible.
+- **Separate writing.** A dissent from denial or a statement respecting it is possible but not the expected outcome. The likeliest writers are Justice Jackson or Justice Sotomayor, observing that the judiciary's own employees lack Title VII-equivalent protection and that the fix lies with Congress or the Judicial Conference.

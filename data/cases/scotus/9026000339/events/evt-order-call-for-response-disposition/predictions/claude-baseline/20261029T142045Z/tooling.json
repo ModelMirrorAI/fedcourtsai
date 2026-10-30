@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000339",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["Salience-band reached-rate table", "Provisioned petition and QP text"],
+  "gaps": ["No statpack cut conditioning on a called-for response, the defining signal of this moment", "query has no way to find priors by legal issue (e.g. diversity jurisdiction)"],
+  "notes": "Structured-only query surface made topical priors unreachable; anchored on band table plus judgement."
+}

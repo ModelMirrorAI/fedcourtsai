@@ -1,0 +1,16 @@
+# Forecast of the Court's Proceedings: *James P. Abrams v. United States* (No. 25-1236)
+
+## 1. Further Distributions and Relists (`relist-increment`)
+The docket as of the June 10, 2026 snapshot records a single distribution (`distribution_count: 1`, distributed May 27, 2026 for the June 11, 2026 conference), followed by the Court's June 9, 2026 Call for a Response (CFR) setting a July 9, 2026 response deadline. Because the Solicitor General has not yet filed the Brief in Opposition, the petition will almost certainly be distributed again once the response is filed (likely for the Long Conference in late September 2026 or an October 2026 conference after any extensions). Beyond that initial post-response distribution, we forecast zero or at most one conference relist before the Court denies certiorari (`relist-increment` probability: `0.99`).
+
+## 2. Call for the Views of the Solicitor General (`cvsg-increment`)
+The respondent is the United States, represented by the Solicitor General, who is already filing a Brief in Opposition pursuant to the June 9, 2026 Call for a Response. Accordingly, the Court will not issue a Call for the Views of the Solicitor General (`cvsg-increment` probability: `0.0`).
+
+## 3. Question Presented and Conditional Merits Path
+The petition presents a single question: whether a defendant's general motion for judgment of acquittal under Federal Rule of Criminal Procedure 29(a) preserves *de novo* appellate review of the sufficiency of the evidence, or whether the defendant must articulate specific evidentiary deficiencies to avoid plain-error review. If the Court were to grant certiorari, it would take the single Question Presented as written and address the 7–4 circuit split over the text and history of Criminal Rule 29(a) versus Criminal Rule 47(b) and Civil Rule 50(a)(2). On the merits, if granted, the Court would likely hold that a general Rule 29 motion preserves *de novo* sufficiency review, while leaving the Third Circuit free on remand to affirm the convictions on the ground that the evidence was sufficient under *de novo* review as well.
+
+## 4. Summary Disposition Route (`summary-disposition-route`)
+Conditional on a grant, plenary review with full briefing and oral argument is the overwhelming path (`summary-disposition-route` probability: `0.05`). Because the Third Circuit issued a detailed published opinion explicitly rejecting the majority circuit view after analyzing the text of Rules 29 and 47(b), and no intervening Supreme Court decision resolves the Rule 29 preservation split, neither a GVR nor a summary reversal is likely.
+
+## 5. Separate Writings on Denial (`dissent-from-denial` and `order-writers`)
+We expect the Court to deny certiorari without any recorded dissent or statement respecting the denial (`dissent-from-denial` probability: `0.04`). Although the petition presents a clean textual split in federal criminal procedure that could attract interest from Justice Gorsuch, Justice Sotomayor, or Justice Jackson (`order-writers` probabilities of `0.015`, `0.012`, and `0.012`, respectively), the fact that the Third Circuit explicitly held the evidence sufficient under the *Jackson v. Virginia* rational-jury standard on every challenged count makes a separate writing at the cert stage unlikely.

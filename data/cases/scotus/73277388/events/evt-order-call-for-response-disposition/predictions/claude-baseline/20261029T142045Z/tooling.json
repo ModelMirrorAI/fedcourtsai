@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/73277388",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query --docket-number", "fedcourts query", "metrics/statpack.md"],
+  "helpful": ["--docket-number lookup of the companion petition named in the brief"],
+  "gaps": ["No statpack cut conditions on a called-for response (response_requested), the signal this moment is defined by"],
+  "notes": "Forward cell run about a year after its snapshot; a related docket's post-snapshot disposition was visible and is disclosed."
+}

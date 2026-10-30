@@ -1,0 +1,21 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000176",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "External precedent verification was degraded: CourtListener MCP citation search for Pitchess returned HTTP 429 with a 5569-second wait; general-precedent web attempts supplied no usable visible content. Completed the prediction from provisioned competing opinions and committed base rates, without a CourtListener REST fallback or current-case outcome retrieval.",
+      "severity": "info"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "A single filtered corpus query for pre-2026 SCOTUS summary reversals returned zero rows but reported 902 ranged GETs and 236060672 bytes. This is a retrieval-cost observation, not an estimate of summary-reversal frequency. Details and the exact command are in retrieval.md.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0"
+}

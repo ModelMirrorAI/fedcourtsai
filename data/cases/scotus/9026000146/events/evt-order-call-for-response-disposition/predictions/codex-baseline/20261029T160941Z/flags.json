@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000146",
+  "flags": [
+    {
+      "category": "data-quality",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "Frozen context assigns band=state under sal-v4, but the provisioned snapshot identifies the Solicitor General as petitioners' counsel and the dated Tenth Circuit opinion in No. 24-1191 identifies federal immigration officials as defendants. This appears to be a federal-petitioner caption-class mismatch that can materially affect the scoring baseline. I preserved the context, reported the state-band reached anchor (104/426), and calibrated substantively using the observed federal parties (federal floor 151/206) plus the explicit circuit split. Please inspect the caption classification; no input was modified.",
+      "severity": "warning"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0"
+}

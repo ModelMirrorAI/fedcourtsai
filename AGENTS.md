@@ -481,8 +481,9 @@ same PR.
   See `docs/pipeline.md`.
 - **The public site reads this repository.** fedcourts.ai
   (`ModelMirrorAI/fedcourts.ai`) builds daily from `main` and fails closed:
-  it reads `metrics/*.json`, `metrics/updates/*.md`,
-  `data/qp-topics/qp-topics.json`, the `event.yaml`, `outcome.json`,
+  it reads `metrics/*.json`, `metrics/updates/*.md`, the two topic labels
+  files `data/qp-topics/qp-topics.json` and
+  `data/qp-topics/qp-topics-applications.json`, the `event.yaml`, `outcome.json`,
   `prediction.json` and `evaluation.json` records and the case summaries under
   `data/cases/`, the release manifest `docs/releases.json`, and each release
   document at its tag. A change to the shape of any of these needs a matching
@@ -588,7 +589,7 @@ task-specific instructions: the prompt file named in your run
 | Which command does X, and with which flags? | `docs/cli.md` |
 | How does a PR get its corpus-dependent figure checked without corpus access? | `docs/corpus-check.md` |
 | Which cases get predicted, and against which base rate? | `docs/salience.md` |
-| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, ten batches have landed covering the scoped frame; the committed `metrics/docket.md` still renders the two-batch cut until the next `fedcourts docket` run regenerates it) | `docs/qp-topic.md` |
+| What do the petitions ask about, and how are QP texts labeled? (vocabulary, reference set, labeler, run mode, and the docket-pack cut all built; the labels artifact accrues batch by batch, ten batches have landed covering the scoped frame; the committed `metrics/docket.md` still renders the two-batch cut until the next weekly metrics refresh regenerates it) | `docs/qp-topic.md` |
 | What is pre-registered, and when does a digest move? | `docs/process-version.md` (the rules), `docs/freeze-record.md` (the dated record) |
 | How is a predicted outcome decomposed and scored? (mechanical cert, interim, and merits-judgment claims implemented; vote pre-registered; writing elicited as distribution claims on every moment (authorship scored on the merits moments, order writers collected); the semantic family an alpha declared, elicited, staged and graded on the merits moments, producing only the availability mask while opinion coverage is a rounding error; a grade of `predicted_reasoning.md` itself, `predicted_reasoning_quality`, designed and awaiting its pilot) | `docs/outcome-decomposition.md` |
 | How many votes decide this, and what can I ever observe? (merits scoring registered and wired; vote accuracy scored, merits-gated and completeness-gated, and recomputed over the whole bench for the leaderboard's `mean_vote_accuracy` — the orders vote source (cert and interim, banked unscored) is stamped on committed outcomes, while the opinions source (merits) is registered with a dispatch-only writer and not yet populated; margins pre-registered only) | `docs/decision-model.md` |

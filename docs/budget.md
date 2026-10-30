@@ -84,12 +84,27 @@ so steady state is roughly 5–10 summaries a day, ≈$1–2 a day or ≈$30–6
 month — inside the model-spend envelope's headroom below, and bounded by the
 key's cap whatever a plan owes.
 
+**The topic labeler spends outside it too** ([qp-topic.md](qp-topic.md)). One
+headless Claude Code session labels a batch of up to 1,200 questions-presented
+texts, weekly per frame (petitions and applications) behind the `review` hold
+or its budgeted auto-release, and standing down on a week with nothing new to
+label. Measured basis: $10.01 for a full batch at the default
+`claude-opus-5-5`, $37.48 and $60.16 at `claude-fable-5`; a round is priced
+before it runs at $0.02 and $0.06 a row (`fedcourtsai.planning_rates`). At the
+default, both frames weekly come to about $90 a month at the one measured
+opus batch, and up to about $210 a month at the planning rate, less once the
+frames' backlogs clear and most weeks stand down. A `claude-fable-5` dispatch
+of a full 1,200-row batch prices at $72, just under the $75 per-round cap, so
+it too can auto-release. Every run's spend is recorded
+under `data/qp-topics/spend/`, a run refused at the reference gate included.
+
 **The merits replay and the grading pilot over it spend outside the ledger
 too** ([pipeline.md](pipeline.md), *The predict/evaluate matrix*, for the
 replay arm; [outcome-decomposition.md](outcome-decomposition.md), *The pilot,
 and what it reports*). Neither writes under `data/`, so the trailing-spend
 window the auto-release budget and the `spend` backstop read never sees them:
-each is bounded on its own terms instead.
+each is bounded on its own terms instead. (The cells, the case summaries and
+the topic labeler's runs are what that window counts.)
 
 - **The replay** (`run-backtest`, `replay: merits`) runs every routable
   predictor on each drawn case at two moments, the grant and the briefed
@@ -128,10 +143,11 @@ The model line is the **envelope**, not today's run rate: 850–1,100 events at
 about $10 is ≈$8.5–11K, and the headroom above it carries the moments milestone 1
 adds and milestone 2's AI-case watchlist ([milestones.md](milestones.md)).
 
-The envelope is also what unattended spend is held to. A predict, evaluate or
-case-summary round skips the maintainer's release only while measured spend
-over the trailing 30 days (the committed `usage.json` ledger plus each
-committed summary's recorded usage), plus an allowance for rounds released in
+The envelope is also what unattended spend is held to. A predict, evaluate,
+case-summary or topic-label round skips the maintainer's release only while
+measured spend over the trailing 30 days (the committed `usage.json` ledger,
+each committed summary's recorded usage, and each topic-labeler run's spend
+record — the same total the `spend` backstop sums), plus an allowance for rounds released in
 the last day, plus the round's own estimate, stays within
 `auto_release_budget_usd` in `config/review-hold.yaml`, set $500 above this
 monthly figure so a campaign's spend still in the window does not hold every

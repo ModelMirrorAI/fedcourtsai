@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000170",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "Research degraded but prediction completed: CourtListener MCP precedent search returned HTTP 429 (daily quota), and fedcourts corpus-info cannot report freshness with the service backend. The forecast uses the provisioned August 29 snapshot, petition and committed prior-Term statpack; no claim of current corpus-wide vintage or independent live precedent verification is made. A service-compatible corpus vintage report would let cells satisfy the freshness contract.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0"
+}

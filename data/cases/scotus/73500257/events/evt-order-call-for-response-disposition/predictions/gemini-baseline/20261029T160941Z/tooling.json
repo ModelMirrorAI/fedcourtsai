@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500257",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts query",
+    "metrics/statpack.md",
+    "courtlistener:extract_citations"
+  ],
+  "helpful": [
+    "Provisioned appendix.txt and petition.txt with full text of the Ninth Circuit panel opinions, Judge Collins's 8-judge en banc dissent, and the district court summary judgment order",
+    "metrics/statpack.md sal-v4 baseline risk-set table and signal cuts"
+  ],
+  "gaps": [
+    "CourtListener MCP search returned HTTP 429 (1400/day rate limit exceeded)"
+  ],
+  "notes": "Provisioned documents were comprehensive and sufficient to evaluate both questions presented and vehicle issues despite CourtListener MCP rate-limiting."
+}

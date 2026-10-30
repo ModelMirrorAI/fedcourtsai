@@ -1,0 +1,31 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000194",
+  "gaps": [
+    "No published grant rate specifically conditional on a called-for cert response.",
+    "CourtListener daily quota prevented independent verification of an older split precedent.",
+    "corpus-info cannot report vintage on the service backend.",
+    "Web tools returned no usable content for general primary-source lookups."
+  ],
+  "helpful": [
+    "Moment-cut snapshot makes the response-requested conditioning state explicit.",
+    "Petition appendix supplies the lower court's own statutory reasoning.",
+    "Exact reached-band numerators and denominators can be recovered from statpack JSON."
+  ],
+  "notes": "Forecast uses the frozen forward record and prior-Term committed rates, not later case developments. Upstream failures did not block completion. The default uv cache was read-only; setting UV_CACHE_DIR under /tmp allowed local commands.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and filing text",
+    "committed statpack Markdown and JSON",
+    "fedcourts paths",
+    "fedcourts corpus-info (failed on service backend)",
+    "CourtListener MCP search (HTTP 429)",
+    "web search and open (no usable results)",
+    "read-only calibration subagent",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

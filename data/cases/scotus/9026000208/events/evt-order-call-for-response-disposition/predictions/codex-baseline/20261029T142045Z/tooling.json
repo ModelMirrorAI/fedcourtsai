@@ -1,0 +1,32 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000208",
+  "gaps": [
+    "CourtListener MCP returned a daily-limit HTTP 429",
+    "All five web calls returned no visible usable result text",
+    "corpus-info cannot report vintage through the service backend",
+    "No published call-for-response-conditioned cert base rate",
+    "Default uv cache is read-only; /tmp cache override was necessary"
+  ],
+  "helpful": [
+    "Moment-bounded snapshot and context",
+    "Extracted petition and separate appendix",
+    "Exact reached-rate denominators in statpack JSON",
+    "Clocked historical docket-number queries"
+  ],
+  "notes": "The absence of a provisioned response is expected at this moment, not a provisioning failure. Kept the baseline sal-v4 band despite ten amici. Used historical Merchant and Cano denials only as issue context, not as an empirical rate. No target disposition or later filing was retrieved. No direct CourtListener REST fallback. External appellate authorities could not be independently retrieved; their characterization is attributed to the provisioned petition.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "exec_command",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info",
+    "CourtListener MCP search",
+    "web search/open/find",
+    "apply_patch"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

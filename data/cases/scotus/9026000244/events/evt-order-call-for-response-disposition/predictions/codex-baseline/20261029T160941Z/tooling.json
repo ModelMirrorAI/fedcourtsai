@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000244",
+  "gaps": [
+    "CourtListener MCP returned HTTP 429 on the attempted prior-opinion search.",
+    "General-context web attempts returned no usable results.",
+    "No published response-requested conditional base rate; the moment-specific adjustment is judgmental.",
+    "Default uv cache was read-only; setting UV_CACHE_DIR to a temporary writable cache resolved it."
+  ],
+  "helpful": [
+    "The separate appendix exposed vehicle complications not apparent from the petition's characterization.",
+    "Frozen sal-v4 context and prior-Term reached rates provided an appropriate population anchor.",
+    "Corpus CLI disclosed citation sparsity and exact ranged-transfer lines."
+  ],
+  "notes": "Forecast uses the provisioned response-call information set, not the target docket's current state. Corpus queries supplied no matched substantive analogue. Independent read-only appendix review checked the vehicle analysis. No flags were needed for the provisioned record.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "exec_command",
+    "fedcourts paths",
+    "fedcourts query",
+    "web search/open attempts",
+    "CourtListener MCP search attempt",
+    "read-only appendix review subagent"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

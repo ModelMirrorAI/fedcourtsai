@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73279493",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "sal-v4 per-Term risk-set base-rate table in metrics/statpack.md",
+    "provisioned petition.txt containing the full Eleventh Circuit and District Court appendix opinions (App. A through App. D)"
+  ],
+  "gaps": [
+    "CourtListener MCP server returned HTTP 429 rate-limit errors on search calls",
+    "statpack lacks a conditioned post-CFR grant-rate cut for private baseline-band petitions"
+  ],
+  "notes": "Provisioned petition.txt included the complete Eleventh Circuit opinion (147 F.4th 1330) and the district/bankruptcy opinions on remand, which were decisive in identifying the appellate waiver/law-of-the-case vehicle defect.",
+  "tool_manifest": [
+    "courtlistener"
+  ]
+}
