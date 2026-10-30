@@ -61,8 +61,8 @@
     {
       "label": "proc-v15",
       "since": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       }
     }
@@ -74,8 +74,8 @@
       "actor_id": "claude-baseline",
       "label": "proc-v15",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       }
     },
@@ -85,8 +85,8 @@
       "actor_id": "codex-baseline",
       "label": "proc-v15",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       }
     },
@@ -96,8 +96,8 @@
       "actor_id": "gemini-baseline",
       "label": "proc-v15",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       }
     },
@@ -107,8 +107,8 @@
       "actor_id": "claude-judge",
       "label": "proc-v15",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       }
     },
@@ -118,8 +118,8 @@
       "actor_id": "codex-judge",
       "label": "proc-v15",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       }
     },
@@ -129,8 +129,8 @@
       "actor_id": "gemini-judge",
       "label": "proc-v15",
       "blessed": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       }
     }
@@ -386,8 +386,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       },
       "revoked_at": null
@@ -402,8 +402,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       },
       "revoked_at": null
@@ -418,8 +418,8 @@
         "source": "merge"
       },
       "closes": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       },
       "revoked_at": null
@@ -429,8 +429,8 @@
       "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
       "predictor_id": "claude-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       },
       "closes": null,
@@ -441,8 +441,8 @@
       "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
       "predictor_id": "codex-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       },
       "closes": null,
@@ -453,8 +453,8 @@
       "digest": "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
       "predictor_id": "gemini-baseline",
       "opens": {
-        "at": null,
-        "merge": null,
+        "at": "2026-10-30T16:38:43Z",
+        "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
         "source": "merge"
       },
       "closes": null,
@@ -783,8 +783,8 @@
     },
     {
       "name": "cert-same-question-list",
-      "merge": null,
-      "at": null,
+      "merge": "a3b2daec8ba19b6c3b3aecb9316bd62c15d568df",
+      "at": "2026-10-30T16:38:43Z",
       "predictors": null,
       "reach": "all",
       "gradual": false
