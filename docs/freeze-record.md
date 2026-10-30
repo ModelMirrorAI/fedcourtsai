@@ -15051,9 +15051,9 @@ freeze commit is recorded here.
     account's `$CODEX_HOME/rules/`, gemini a `run_shell_command` deny rule
     through `policyPaths`. It refuses command prefixes the engine parses, not
     outcomes ([security.md](security.md)). The back-test and local cells
-    launched by `pipeline/runner.py` do not carry it. Both prompts also say a
-    bare `fedcourts` runs, which the `agent-shell-fedcourts-on-path`
-    boundary made true.
+    launched by `pipeline/runner.py` do not carry it. Both prompts drop the
+    line saying a bare `fedcourts` is not on the shell's `PATH`, which the
+    `agent-shell-fedcourts-on-path` boundary made untrue for the live cells.
   - *The frozen cert anchor, named.* The predict prompt names
     `record/context.json`'s `cert_anchor` — the risk-set rate over the cell's
     frozen band, version and prior Terms, pooled from the statpack in force at
@@ -15105,12 +15105,12 @@ freeze commit is recorded here.
 
   | Actor | Before | `proc-v15` |
   | --- | --- | --- |
-  | `claude-baseline` | `sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf` (`proc-v14`) | `sha256:a9a386a7c6c74e2d83f94ba78af0fea5d1fa8107033b0ade6df72a12b4290bd1` (new) |
-  | `codex-baseline` | `sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6` (`proc-v14`) | `sha256:ffa6d072990baa0a948db8f3f0c41be75fe0474e63710a25b79a1493cd99267e` (new) |
-  | `gemini-baseline` | `sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583` (`proc-v14`) | `sha256:a5c14f67ca839fb03851e35505173e45161ef1d5c97247b926c886bec4b20506` (new) |
-  | `claude-judge` | `sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec` | `sha256:1045006f58aefeb911c2ebc978907a9450f819f45705d52fa8866e70cd065d41` (new) |
-  | `codex-judge` | `sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30` | `sha256:688306c7d086317b1fd6448056659c8eeb99f4080e9f10666e0a9897d89921c2` (new) |
-  | `gemini-judge` | `sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9` | `sha256:a0771518d83f3cd79b6ee2ffb738c460f6011c39d1cd63aeaf4e6f50fb33e9e3` (new) |
+  | `claude-baseline` | `sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf` (`proc-v14`) | `sha256:72e10340d87fd761b82338c07ad11cf1460e1339b6f68d31d227f38124a90114` (new) |
+  | `codex-baseline` | `sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6` (`proc-v14`) | `sha256:60d842b23f2ec60f65a985e46b2da0c5e3ea1feb82a6d1f86815c9802ff70384` (new) |
+  | `gemini-baseline` | `sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583` (`proc-v14`) | `sha256:46e600ee7a3af2e59b65ea32392b24b709a826ee0dc483c54efc5a2dc0b04698` (new) |
+  | `claude-judge` | `sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec` | `sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388` (new) |
+  | `codex-judge` | `sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30` | `sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0` (new) |
+  | `gemini-judge` | `sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9` | `sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c` (new) |
 
   **Step 0.** At `origin/main` `3a6ec54a5` (`2026-10-30T11:04:52Z`), `git grep
   -l 'sha256:<digest>' origin/main -- data/cases | wc -l` is **0** for each of
@@ -15124,9 +15124,9 @@ freeze commit is recorded here.
   | `claude-baseline` (`641ede79…`) | `proc-v14` | `2026-10-29T14:16:26Z` | this label's instant (was open) |
   | `codex-baseline` (`231b2fd0…`) | `proc-v14` | `2026-10-29T14:16:26Z` | this label's instant (was open) |
   | `gemini-baseline` (`725538ea…`) | `proc-v14` | `2026-10-29T14:16:26Z` | this label's instant (was open) |
-  | `claude-baseline` (`a9a386a7…`) | `proc-v15` | this label's instant | open (new) |
-  | `codex-baseline` (`ffa6d072…`) | `proc-v15` | this label's instant | open (new) |
-  | `gemini-baseline` (`a5c14f67…`) | `proc-v15` | this label's instant | open (new) |
+  | `claude-baseline` (`72e10340…`) | `proc-v15` | this label's instant | open (new) |
+  | `codex-baseline` (`60d842b2…`) | `proc-v15` | this label's instant | open (new) |
+  | `gemini-baseline` (`46e600ee…`) | `proc-v15` | this label's instant | open (new) |
 
   Earlier windows keep the closes earlier labels gave them.
 

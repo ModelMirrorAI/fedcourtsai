@@ -69,7 +69,7 @@
   ],
   "blessings": [
     {
-      "digest": "sha256:a9a386a7c6c74e2d83f94ba78af0fea5d1fa8107033b0ade6df72a12b4290bd1",
+      "digest": "sha256:72e10340d87fd761b82338c07ad11cf1460e1339b6f68d31d227f38124a90114",
       "role": "predictor",
       "actor_id": "claude-baseline",
       "label": "proc-v15",
@@ -80,7 +80,7 @@
       }
     },
     {
-      "digest": "sha256:ffa6d072990baa0a948db8f3f0c41be75fe0474e63710a25b79a1493cd99267e",
+      "digest": "sha256:60d842b23f2ec60f65a985e46b2da0c5e3ea1feb82a6d1f86815c9802ff70384",
       "role": "predictor",
       "actor_id": "codex-baseline",
       "label": "proc-v15",
@@ -91,7 +91,7 @@
       }
     },
     {
-      "digest": "sha256:a5c14f67ca839fb03851e35505173e45161ef1d5c97247b926c886bec4b20506",
+      "digest": "sha256:46e600ee7a3af2e59b65ea32392b24b709a826ee0dc483c54efc5a2dc0b04698",
       "role": "predictor",
       "actor_id": "gemini-baseline",
       "label": "proc-v15",
@@ -102,7 +102,7 @@
       }
     },
     {
-      "digest": "sha256:1045006f58aefeb911c2ebc978907a9450f819f45705d52fa8866e70cd065d41",
+      "digest": "sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388",
       "role": "evaluator",
       "actor_id": "claude-judge",
       "label": "proc-v15",
@@ -113,7 +113,7 @@
       }
     },
     {
-      "digest": "sha256:688306c7d086317b1fd6448056659c8eeb99f4080e9f10666e0a9897d89921c2",
+      "digest": "sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0",
       "role": "evaluator",
       "actor_id": "codex-judge",
       "label": "proc-v15",
@@ -124,7 +124,7 @@
       }
     },
     {
-      "digest": "sha256:a0771518d83f3cd79b6ee2ffb738c460f6011c39d1cd63aeaf4e6f50fb33e9e3",
+      "digest": "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c",
       "role": "evaluator",
       "actor_id": "gemini-judge",
       "label": "proc-v15",
@@ -426,7 +426,7 @@
     },
     {
       "label": "proc-v15",
-      "digest": "sha256:a9a386a7c6c74e2d83f94ba78af0fea5d1fa8107033b0ade6df72a12b4290bd1",
+      "digest": "sha256:72e10340d87fd761b82338c07ad11cf1460e1339b6f68d31d227f38124a90114",
       "predictor_id": "claude-baseline",
       "opens": {
         "at": null,
@@ -438,7 +438,7 @@
     },
     {
       "label": "proc-v15",
-      "digest": "sha256:ffa6d072990baa0a948db8f3f0c41be75fe0474e63710a25b79a1493cd99267e",
+      "digest": "sha256:60d842b23f2ec60f65a985e46b2da0c5e3ea1feb82a6d1f86815c9802ff70384",
       "predictor_id": "codex-baseline",
       "opens": {
         "at": null,
@@ -450,7 +450,7 @@
     },
     {
       "label": "proc-v15",
-      "digest": "sha256:a5c14f67ca839fb03851e35505173e45161ef1d5c97247b926c886bec4b20506",
+      "digest": "sha256:46e600ee7a3af2e59b65ea32392b24b709a826ee0dc483c54efc5a2dc0b04698",
       "predictor_id": "gemini-baseline",
       "opens": {
         "at": null,
@@ -505,13 +505,13 @@
     "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9": [
       "proc-v14"
     ],
-    "sha256:1045006f58aefeb911c2ebc978907a9450f819f45705d52fa8866e70cd065d41": [
+    "sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388": [
       "proc-v15"
     ],
-    "sha256:688306c7d086317b1fd6448056659c8eeb99f4080e9f10666e0a9897d89921c2": [
+    "sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0": [
       "proc-v15"
     ],
-    "sha256:a0771518d83f3cd79b6ee2ffb738c460f6011c39d1cd63aeaf4e6f50fb33e9e3": [
+    "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c": [
       "proc-v15"
     ]
   },
