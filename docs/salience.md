@@ -352,11 +352,11 @@ prediction's frozen context. A refit registers a new record beside the old
 rather than editing it, and `scorer(version)` raises on an unregistered label
 rather than falling back, so no consumer can silently receive output banded
 under a version it did not ask for. A version may also narrow the **segment** it
-scores (`SalienceScorer.admits`, read through `in_segment`): `sal-v5` leaves Rule
-20 writs out. Every reader of a version's bands — the selection pass, the
-frozen cell band, the gate replay, the statpack's per-version slices, the
-distribution census — applies it, so a row outside it is in none of that
-version's cohorts or pools.
+scores (`SalienceScorer.admits`, read through `in_segment`): `sal-v5` and
+`sal-v6` leave Rule 20 writs out. Every reader of a version's bands — the
+selection pass, the frozen cell band, the gate replay, the statpack's
+per-version slices, the distribution census — applies it, so a row outside it
+is in none of that version's cohorts or pools.
 
 Three consequences are worth stating, because each is a place the discipline
 could otherwise leak:
@@ -894,15 +894,16 @@ order, the same `dist-v2` parse pin, the same carve-in shape and the same
 arrival draw. Each change is a new **input**, not a re-fitted constant, which is
 why the relist-tier mis-fit above stays a later version's question.
 
-`sal-v5` is **registered, not active**. `SALIENCE_VERSION` still names `sal-v4`,
-so the live pass scores, latches and stamps under `sal-v4`, every cell's frozen
-context carries a `sal-v4` band, and nothing the gate funds moves. What
-registration does is put `sal-v5` everywhere a registered version is read: its
-bands in every rendered pack's `alt_segments`, its cells in every
-`salience-replay`, and its frame in the distribution census. The flip is a
-separate registration step, with its own record in
-[freeze-record.md](freeze-record.md), and the prerequisites below come before
-it.
+`sal-v5` is **registered and never activated**. `SALIENCE_VERSION` names
+`sal-v4`, so the live pass scores, latches and stamps under `sal-v4`, every
+cell's frozen context carries a `sal-v4` band, and nothing the gate funds moves.
+Registration puts `sal-v5` everywhere a registered version is read: its bands in
+every rendered pack's `alt_segments`, its cells in every `salience-replay`, and
+its frame in the distribution census. It stays registered so that whatever was
+published under its label replays, but its `caption-v3` reading carries
+post-outcome information on resolved rows (below), so the candidate for the
+flip is [`sal-v6`](#sal-v6-sal-v5-read-through-caption-v2), which keeps the
+other two changes and reads the petitioner class through `caption-v2`.
 
 **1. `caption-v3`.** The band and the carve-in read the petitioner class through
 `caption-v3` (`pipeline.caption.petitioner_class_v3`), registered in
@@ -920,20 +921,20 @@ a `private` or `state` read to `federal`. `CAPTION_RULES` registers every rule a
 a predicate on a **row**, since this one reads more than the caption string;
 `caption-census --rule-version caption-v3` cuts the same frame as the other two.
 
-What the counsel reading is safe for, and what it is not. Only the petitioner
-side is read; `sg-office-v1` never reads `other` (amici, invited briefs,
-intervenors), the side that accrues after a grant. The live pass reads a pending
-row as polled that day, so every entry it reads was on the docket at the
-selection moment and none can postdate an outcome that has not happened. A
-resolved row's list is its terminal one and the index dates no entry, so two
-things can reach a historical pool after the moment its band describes: a
-successor Solicitor General written after the resolution (which `sg-office-v1`
-admits only on a party string that reads federal), and the office's appearance
-on a companion petition consolidated with a government petition, which can
-date from the consolidation rather than the filing. The census names four such
-companions among the 16 resolved rows `caption-v3` moves (18-1587, 24-20,
-24-422, 19-1257); whether their petitioner-side entry predates the grant is a
-dated-snapshot check, not an index read, and it is owed before activation.
+What the counsel reading admits, and why it disqualifies `sal-v5`. Only the
+petitioner side is read, and `sg-office-v1` never reads `other` (amici, invited
+briefs, intervenors). That guard does not keep amici out: the Clerk lists a
+United States amicus supporting petitioners under "Petitioner", so a post-grant
+amicus brief reads as the office on the petitioner side. A resolved row's list
+is its terminal one, and the index dates no entry, so on a historical pool the
+`federal` class `caption-v3` adds can be the outcome itself, written after the
+grant: a supporting amicus, or a consolidation with a government petition in the
+grant order. Of the 16 resolved rows `caption-v3` moves, 5 (all granted) carry
+that kind of post-outcome information (19-1257 and 25-840 by a supporting
+amicus, 18-1587, 24-20 and 24-422 by consolidation at the grant), and no stored
+snapshot of a historical row predates its grant to date the rest. The figures
+and their vintage are in the 2026-10-30 entry of
+[freeze-record.md](freeze-record.md).
 
 **2. The relist count allows for a call for response.** A call for response
 takes the petition off the conference it was distributed for, so the
@@ -1041,43 +1042,53 @@ nothing may quote it; `sal-v5` is inactive, so no cell does. The pack rendered
 after the back-fill is the first whose `sal-v5` block measures the registered
 rule.
 
-**The other activation prerequisites,** stated here so the flip does not
-rediscover them:
+The census figures in this section are on blob `251805e6…a982ef` (newest pull
+2026-10-29).
 
-- the dated companion-counsel check above;
-- the reachable ladder's premise. `_caption_reachable_bands` and the statpack's
-  risk sets (`analytics._TermAcc`) take the `federal` / `state` class as fixed at
-  filing. Under `caption-v1` and `caption-v2` it is, being read off the caption;
-  under `caption-v3` it is not, since the office's petitioner-side appearance can
-  be written after docketing (a companion's consolidation, a substitution). A
-  pack reads each row's ladder off its terminal class, so a petition that moved
-  `private` → `federal` sits in `federal`'s risk set alone and never in the
-  trajectory bands it occupied first. How many rows move after filing is a
-  dated-snapshot measurement owed beside the companion check;
-- the frozen cell band and scope. `cell_context` bands a cell off the cell's own
-  payload, and the as-of projection behind it re-derives
-  `distributed_after_call` from that payload, so the relist rule is reproducible
-  from what the cell can read. The scope is too: the base row reads its
-  `opening_writ` off the payload (`cert_signals.opening_writ`, the reader ingest
-  and the back-fill use, on the cert form only), and the band freeze refuses a
-  row outside the active version's segment (`in_segment`), freezing a null band
-  with the signals still frozen, so a cell on a Rule 20 writ freezes no `sal-v5`
-  band. Under the active `sal-v4`, whose segment narrows nothing, the freeze
-  never refuses. The counsel half is not built: the projection carries no
-  counsel, so a cell's frozen `sal-v5` band would read `caption-v2`'s class
-  where the live pass reads `caption-v3`'s, and the gate replay's projection
-  carries none either, so a `sal-v4` / `sal-v5` replay comparison measures the
-  relist rule and the writ scope, never `caption-v3`;
-- the rule against the census's reading. The census classified a call as
-  superseding from each snapshot's dated `petition_distributions`; the rule as
-  built reads `distributed_after_call` instead. Before activation, measure over
-  the complete Terms OT2017–OT2024, after the back-fill, how often the two agree
-  on `s` — per Term, with the disagreeing case ids — and report the figure;
-- a post-back-fill statpack refresh and the per-Term caption-v3 census, under the
-  same statistical bar `sal-v3`'s activation cleared — the moved rows were found
-  by a grant-ranked residual scan, so the recall gain is outcome-selected and the
-  evidential weight sits on the replication shape;
-- the census's numbers are on blob `251805e6…a982ef` (newest pull 2026-10-29).
+### `sal-v6`: `sal-v5` read through `caption-v2`
+
+`sal-v6` is `sal-v5` without `caption-v3`: the call-for-response relist count
+(change 2 above) and the Rule 20 writ scope (change 3) as `sal-v5`'s own
+callables, over `sal-v3`'s `caption-v2` band, carve-in and reachable ladder, with
+the same `dist-v2` parse pin, cutpoints, band vocabulary and arrival draw. On a
+row with no call for response and no Rule 20 entry it scores, bands and carves
+exactly as `sal-v4` does, counsel or none. Its petitioner class is read off the
+caption, so it is fixed at filing and the reachable-ladder premise the
+statpack's risk sets rest on holds, as under `sal-v3` and `sal-v4`.
+
+`sal-v6` is **registered, not active**, on the pattern `sal-v5` set:
+`SALIENCE_VERSION` names `sal-v4`, and registration puts `sal-v6`'s bands in
+every pack's `alt_segments`, its cells in every `salience-replay` and its frame
+in the distribution census. The back-fill state above reads the same for it: a
+past-Term `sal-v6` pool measures the registered rule only on a pack rendered
+after the `salience-cert-backfill` apply. The flip is a separate registration
+step, with its own record in [freeze-record.md](freeze-record.md).
+
+**The activation prerequisites,** stated here so the flip does not rediscover
+them:
+
+- the frozen cell band and scope, which hold. `cell_context` bands a cell off
+  the cell's own payload, and the as-of projection behind it re-derives
+  `distributed_after_call` from that payload, so the relist rule is
+  reproducible from what the cell can read. The base row reads its
+  `opening_writ` off the payload too (`cert_signals.opening_writ`, the reader
+  ingest and the back-fill use, on the cert form only), and the band freeze
+  refuses a row outside the active version's segment (`in_segment`), freezing a
+  null band with the signals still frozen, so a cell on a Rule 20 writ freezes
+  no `sal-v6` band. Under the active `sal-v4`, whose segment narrows nothing,
+  the freeze never refuses. The class is read off the payload's caption, which
+  every cell can read;
+- the rule against the census's reading, measured. The census classified a
+  call as superseding from each snapshot's dated `petition_distributions`; the
+  rule reads `distributed_after_call`. Over the complete Terms OT2017–OT2024,
+  after the back-fill, the two agree on `s` on 1,465 of the 1,470 rows with a
+  call for response (99.66%), and every disagreement is definitional (a call
+  dated after the first conference sat, or one following a relist or a
+  reschedule), with the rule reading `s = 1` on each. The per-Term table and
+  the case ids are in the 2026-10-30 entry of [freeze-record.md](freeze-record.md),
+  on blob `d6086761…aa18703a` (newest pull 2026-10-30);
+- a statpack refresh rendered after the back-fill, under the same statistical
+  bar `sal-v3`'s activation cleared, read at matched recall against `sal-v4`.
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 

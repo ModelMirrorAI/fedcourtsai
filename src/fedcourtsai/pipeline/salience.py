@@ -490,6 +490,34 @@ def _sal_v5_admits(row: corpus.CorpusRow) -> bool:
     return not corpus.is_rule_20_writ(row)
 
 
+# sal-v6: sal-v5 without caption-v3. The call-for-response relist count and the
+# Rule 20 writ scope are sal-v5's own callables; the petitioner class is read
+# through caption-v2, exactly as sal-v3 and sal-v4 read it. caption-v3's
+# counsel reading is not usable as a band input: the Clerk lists a United
+# States amicus supporting petitioners on the petitioner side, and that entry
+# is written after the grant, so on a resolved row the `federal` class it adds
+# can be the outcome itself (docs/freeze-record.md, 2026-10-30). sal-v5 stays
+# registered so its published pools replay, and is never activated.
+
+
+def _sal_v6_band(row: corpus.CorpusRow) -> str:
+    """sal-v3's band rule, read through ``caption-v2`` and the call-for-response relist count."""
+    trajectory = _sal_v5_trajectory(row)
+    cls = caption.petitioner_class_v2(row)
+    if cls == "federal":
+        return "federal"
+    if cls == "state" and trajectory not in ("high",):
+        return "state"
+    return trajectory
+
+
+def _sal_v6_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
+    """sal-v1's rule, plus the federal arrival carve-in read through ``caption-v2``."""
+    return (
+        row.cvsg_date is not None or score >= floor or caption.petitioner_class_v2(row) == "federal"
+    )
+
+
 @dataclass(frozen=True)
 class SalienceScorer:
     """One frozen salience version: everything that makes a ranking reproducible.
@@ -646,8 +674,9 @@ _SAL_V4 = SalienceScorer(
 # sal-v5: registered, NOT active. `SALIENCE_VERSION` still names sal-v4, so the
 # live pass, the corpus stamp and every cell's frozen context are sal-v4's;
 # sal-v5's bands are published beside it in the statpack's `alt_segments` and
-# scored in every gate replay. The flip to sal-v5 is a separate registration
-# step (docs/salience.md).
+# scored in every gate replay. It is never activated: its caption-v3 counsel
+# reading carries post-outcome information, so sal-v6 is the candidate
+# registered in its place (docs/salience.md).
 _SAL_V5 = SalienceScorer(
     version="sal-v5",
     score=_sal_v5_score,
@@ -660,6 +689,23 @@ _SAL_V5 = SalienceScorer(
     admits=_sal_v5_admits,
 )
 
+# sal-v6: registered, NOT active, for the same reason sal-v5 was registered
+# first: `SALIENCE_VERSION` still names sal-v4, and the flip is a separate
+# registration step (docs/salience.md). It is sal-v5's relist rule and writ
+# scope over sal-v3's caption-v2 band, carve-out and reachable ladder, reusing
+# each as the SAME callable so the versions cannot drift in what they share.
+_SAL_V6 = SalienceScorer(
+    version="sal-v6",
+    score=_sal_v5_score,  # sal-v5's relist count; the caption never weights it
+    band=_sal_v6_band,
+    bands=_SAL_V2_BAND_ORDER,  # the same band vocabulary, in the same order
+    carve_out=_sal_v6_carve_out,
+    selects_arrivals=True,
+    reachable=_sal_v3_reachable,  # caption-v2's partition, fixed at filing
+    distribution_parse="dist-v2",
+    admits=_sal_v5_admits,  # sal-v5's segment: Rule 20 writs out
+)
+
 # Every registered version, keyed by label. A past ranking replays against the
 # function that produced it, so a version is only ever added here — never edited
 # and never removed, whatever the live pass currently scores with.
@@ -670,6 +716,7 @@ SCORERS: Mapping[str, SalienceScorer] = MappingProxyType(
         _SAL_V3.version: _SAL_V3,
         _SAL_V4.version: _SAL_V4,
         _SAL_V5.version: _SAL_V5,
+        _SAL_V6.version: _SAL_V6,
     }
 )
 

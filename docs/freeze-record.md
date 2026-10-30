@@ -15242,3 +15242,54 @@ freeze commit is recorded here.
   - on `main`, `uv run python -c "from fedcourtsai.process_version import
     HARNESS_BOUNDARIES as H; print('cert-same-question-list' in {b.name for
     b in H})"` prints `True` once the promotion record has stamped the row.
+
+- **`sal-v6` registered, inactive, and `sal-v5` never to be activated;
+  recorded 2026-10-30.** No freeze commit belongs to this entry, on the
+  `sal-v4` registration's pattern: the salience version sits outside the
+  process digest (`pipeline_sha` is not an input), carries its own
+  data-visible boundary (`context.salience_version`), and a registration
+  re-blesses nothing. `uv run fedcourts process-digest --all` prints the same
+  six `proc-v15` digests before and after this change. Carried to `main` by
+  the promotion tagged `<FILL: promotion tag>` (merge commit
+  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  **What `sal-v6` is.** `sal-v5`'s call-for-response relist count
+  (`call_for_response_superseded`, over `distributed_after_call`) and its Rule
+  20 writ scope (`opening_writ`, `SalienceScorer.admits`), read as the same
+  callables, over `sal-v3`'s `caption-v2` band, carve-in and reachable ladder,
+  with `sal-v4`'s `dist-v2` parse pin, cutpoints, band vocabulary and arrival
+  draw. `SALIENCE_VERSION` stays `sal-v4`, so nothing the live pass selects,
+  latches or stamps moves; `statpack.json` and `salience-replay.json` carry a
+  sixth version's bands from their next render.
+
+  **Why `sal-v5` is set aside.** Its `caption-v3` petitioner class reads the
+  Solicitor General's office as petitioner-side counsel, and that reading
+  carries post-outcome information. The Clerk lists a United States amicus
+  supporting petitioners under "Petitioner", so the side guard, which drops
+  only `other`-role counsel, admits a post-grant amicus; and every stored
+  snapshot of the historical rows postdates their grants, so no stored record
+  dates the entry before the outcome. Of the 16 resolved rows `caption-v3`
+  moves to `federal`, 5 (all granted) carry post-outcome information: 19-1257
+  and 25-840 by a post-grant United States amicus listed on the petitioner
+  side (25-840 observed directly: no office on the petitioner side in the
+  snapshots of 2026-07-12 through 2026-08-16, after its 2026-06-29 grant, and
+  the office present from 2026-10-04, after the amicus brief of 2026-09-15),
+  and 18-1587, 24-20 and 24-422 by consolidation with a government petition in
+  the grant order itself. `sal-v5` stays registered, so a pool or replay cell
+  published under its label still replays, and it is never activated.
+
+  **The relist rule against the census's reading, measured.** Over the
+  complete Terms OT2017–OT2024 after the `salience-cert-backfill` apply, the
+  1,470 rows with a call for response agree on `s` on 1,465 (99.66%) under the
+  census's own reading (the first distribution filed on or before the call
+  and its conference not yet sat) and on 1,468 under the alternate (the
+  conference pending at the call). The five disagreements under the first
+  reading are 18-1078, 20-1737, 20-791, 21-1241 and 24-1192, all with the rule
+  reading `s = 1`: definitional, none from an unfilled column or a call-date
+  or count mismatch. The back-filled columns match a fresh snapshot reading on
+  1,470 of 1,470.
+
+  The figures are on production index blob `d6086761…aa18703a` (newest pull
+  2026-10-30, newest stored snapshot row 2026-07-13), from
+  `/mnt/project-files/sal-v5/activation-measurements-20261030.md`, which
+  carries the per-Term table and the counts behind each figure.

@@ -2377,17 +2377,24 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
-  **The registered, inactive `sal-v5`.** Its cells and its statpack
-  `alt_segments` block cover a narrower population than every other
-  version's: Rule 20 writs are outside its segment, so its `eligible`, recall
-  and band pools leave them out, and a cross-version comparison spans that
-  population change as well as the scoring. Its replay cells measure the
+  **The registered, inactive `sal-v5` and `sal-v6`.** Their cells and
+  their statpack `alt_segments` blocks cover a narrower population than every
+  other version's: Rule 20 writs are outside their segment, so their
+  `eligible`, recall and band pools leave them out, and a cross-version
+  comparison spans that population change as well as the scoring. `sal-v6` is
+  `sal-v5` with the petitioner class read through `caption-v2` rather than
+  `caption-v3`, and it is the one a flip would activate: `sal-v5` is never
+  activated, because `caption-v3`'s counsel reading carries post-outcome
+  information on resolved rows (a supporting United States amicus the Clerk
+  lists under "Petitioner"). A `sal-v5` figure from this artifact measures that
+  leak along with the rule. `sal-v5`'s replay cells measure the
   call-for-response relist rule and the writ scope but never `caption-v3`,
-  since the projection carries no counsel. Its pack block over past Terms is
-  **not a `sal-v5` pool** until a run-repair back-fill fills
-  `distributed_after_call` and `opening_writ` on the decided rows: until then those rows read as `sal-v4` reads them, mixed with the rows
-  the live poll has re-read, and no figure from the block may be quoted
-  (`docs/salience.md`, the `sal-v5` section).
+  since the projection carries no counsel. Either block over past Terms is
+  **not that version's pool** on a pack rendered before the run-repair
+  back-fill filled `distributed_after_call` and `opening_writ` on the decided
+  rows: on such a pack those rows read as `sal-v4` reads them, mixed with the
+  rows the live poll has re-read, and no figure from the block may be quoted
+  (`docs/salience.md`, the `sal-v5` and `sal-v6` sections).
 
   **What may not.** Nothing here is predictor skill — no model
   ran — and nothing is ex-ante: every replayed petition had resolved before

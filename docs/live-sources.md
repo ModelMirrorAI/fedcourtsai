@@ -291,8 +291,8 @@ read past an extension application that precedes it, classified `certiorari`
 (certiorari before judgment included), `rule-20` (mandamus, prohibition or
 habeas corpus with no certiorari), `ambiguous` (both) or `other`. The entry
 text decides, never the caption: a Rule 20 petition is captioned "In re …", and
-so is a sealed certiorari petition. It is `sal-v5`'s scope input
-([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
+so is a sealed certiorari petition. It is the scope input of `sal-v5` and
+`sal-v6` ([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
 the `query` rows, and null on a row polled before the column existed.
 
 `distributed_after_call` counts the conferences a petition was first
@@ -300,7 +300,8 @@ distributed for after the Court called for a response
 (`cert_signals.distributions_after_call`): the distinct conference dates named
 by petition distributions (the entry-initial `dist-v2` reading) filed after the
 first `Response Requested` entry, less any conference a distribution filed on or
-before the call, or undated, also names. It is `sal-v5`'s relist-count input.
+before the call, or undated, also names. It is the relist-count input of
+`sal-v5` and `sal-v6`.
 Cert branch only, fill-in latched, withheld from the `query` rows, and null where
 the docket shows no dated call or on a row polled before the column existed.
 
