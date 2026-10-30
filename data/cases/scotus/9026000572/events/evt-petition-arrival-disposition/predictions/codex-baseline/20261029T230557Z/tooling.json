@@ -1,0 +1,32 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000572",
+  "gaps": [
+    "corpus-info cannot report corpus-wide freshness through the cell's service backend",
+    "Paper-only filings leave the petition's exact questions and requested companion treatment unavailable; this is an expected source limitation"
+  ],
+  "helpful": [
+    "Frozen arrival context made the zero-distribution baseline unambiguous",
+    "CourtListener lower-court docket search located the substantive opinion despite officeholder substitutions",
+    "Companion docket-number queries and the official lead docket established the already-granted lead case",
+    "The statpack's sal-v4 federal reached rates supplied the correct arrival-population anchor"
+  ],
+  "notes": "Used only pre-decision material and other cases' preexisting status; never queried this petition's own outcome. The default uv cache was read-only, resolved with a temporary writable cache. Corpus-prior examples were grant-conditioned and not used to estimate rates. No flags warranted: paper-only missing filings are expected, and the unsupported freshness command did not block the forecast.",
+  "role": "predictor",
+  "run_id": "20261029T230557Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (unsupported service backend)",
+    "CourtListener MCP search",
+    "CourtListener MCP read_document",
+    "CourtListener MCP search_document",
+    "web search",
+    "web open",
+    "committed statpack",
+    "local Python denominator calculation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

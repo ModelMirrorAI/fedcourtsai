@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000433",
+  "run_id": "20261030T011325Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["The sal-v4 band table with reached rates made the anchor straightforward"],
+  "gaps": ["No way to query priors by legal issue (e.g. substantive due process / qualified immunity petitions), so the corpus priors were not comparable"],
+  "notes": "Corpus query surface is structured-only, so issue-similar priors were not reachable."
+}

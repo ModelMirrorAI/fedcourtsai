@@ -1,0 +1,13 @@
+# Forecast of the Court's action
+
+I predict denial of certiorari, most likely in an ordinary order without an explanation or separate writing. That would leave the collateral judgment intact without endorsing its reasoning.
+
+The October 30, 2026 snapshot shows **one distribution**, entered October 28 for the November 13 conference, and therefore no relist yet. My modal forecast is **zero additional distributions**, followed by denial at or soon after that conference. I assign a 12% probability of at least one further distribution. If the Court does pursue review, I expect it first to request the United States' response after its waiver; additional consideration could then produce one or two further distributions. A requested response is not itself a grant signal strong enough to change the modal disposition.
+
+No CVSG appears in the snapshot. I forecast no new CVSG, with a 0.1% probability of one. The United States is already the respondent: obtaining its position would ordinarily involve requesting its response, not inviting an outside federal-interest brief.
+
+**If granted**, the issue most likely taken is the petition's sole question in a narrower procedural formulation: whether the bar on relitigating claims under 28 U.S.C. §2255 forecloses relief when the prisoner's own direct appeal recognized that the charged conduct fell outside the statute but left the conviction standing under plain-error review. I do not expect review of the separate perjury convictions or a free-standing reconsideration of the entire 2020 appeal.
+
+Conditional on any grant, I place a 65% probability on disposition in the cert order rather than plenary briefing and argument. The strongest intervention route is a summary reversal of the collateral ruling, with remand for further proceedings, because the petition principally alleges conflict with existing precedent rather than a developed circuit split. That would be a summary reversal, not merely a GVR for reconsideration in light of a new decision. No intervening lead decision identified in these inputs makes a routine GVR my preferred grant route. Plenary review remains the alternative if the Court considers the relationship between plain-error finality and collateral innocence insufficiently settled for summary treatment.
+
+Conditional on denial, the probability of a noted dissent or statement respecting denial is 5%; no separate writing is the clear modal forecast. If one occurs, Sotomayor or Jackson is more plausible than the other Justices, with Gorsuch another possibility given the statutory-coverage issue. These are low-confidence forecasts of writing, not assertions about undisclosed cert votes.
