@@ -6,6 +6,7 @@ import pytest
 
 from fedcourtsai.courtlistener import (
     CourtListenerClient,
+    EntryPageCapExceeded,
     RateLimiter,
     classify_error,
     default_rate_limiter,
@@ -277,3 +278,80 @@ def test_classify_error_agrees_with_is_transient() -> None:
     for exc in permanent:
         assert is_transient(exc) is False
         assert classify_error(exc) == "permanent"
+
+
+_ENTRIES = "https://www.courtlistener.com/api/rest/v4/docket-entries/"
+
+
+def _cursor_entries(
+    pages: int, *, docket: int = 7
+) -> tuple[httpx.MockTransport, list[dict[str, str]]]:
+    """A docket-entries endpoint that pages only by cursor, ignoring ``page``, as upstream does."""
+    seen: list[dict[str, str]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        seen.append(params)
+        index = int(params.get("cursor", "0"))
+        nxt = f"{_ENTRIES}?cursor={index + 1}&docket={docket}" if index + 1 < pages else None
+        return httpx.Response(200, json={"next": nxt, "results": [{"id": index}]})
+
+    return httpx.MockTransport(handle), seen
+
+
+def test_docket_entries_follow_the_cursor_not_a_page_number() -> None:
+    transport, seen = _cursor_entries(3)
+    client = _client(transport)
+
+    entries = client.iter_docket_entries(7)
+
+    assert [e["id"] for e in entries] == [0, 1, 2]
+    assert seen[0] == {"docket": "7"}
+    assert [p.get("cursor") for p in seen[1:]] == ["1", "2"]
+    assert all("page" not in p for p in seen)
+
+
+def test_docket_entries_past_the_page_cap_are_refused_whole() -> None:
+    transport, seen = _cursor_entries(10)
+    client = _client(transport)
+
+    with pytest.raises(EntryPageCapExceeded, match="more than 4 pages"):
+        client.iter_docket_entries(7, max_pages=4)
+    assert len(seen) == 4
+
+    read = client.docket_entries(7, max_pages=4)
+    assert (read.pages, read.complete, len(read.entries)) == (4, False, 4)
+
+
+def test_docket_entries_date_filter_rides_the_first_page() -> None:
+    transport, seen = _cursor_entries(1)
+    client = _client(transport)
+
+    read = client.docket_entries(7, max_pages=2, date_filed_gte=date(2026, 1, 2))
+
+    assert read.complete and read.pages == 1
+    assert seen == [{"docket": "7", "date_filed__gte": "2026-01-02"}]
+
+
+@pytest.mark.parametrize(
+    ("next_url", "message"),
+    [
+        ("https://evil.example/api/rest/v4/docket-entries/?cursor=1&docket=7", "off the"),
+        ("https://www.courtlistener.com/api/rest/v4/search/?cursor=1&docket=7", "off the"),
+        (f"{_ENTRIES}?cursor=1&docket=8", "another docket"),
+        (f"{_ENTRIES}?cursor=1&docket=7&docket=7", "repeats a parameter"),
+    ],
+)
+def test_docket_entries_refuse_a_next_link_this_client_did_not_build(
+    next_url: str, message: str
+) -> None:
+    calls: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        return httpx.Response(200, json={"next": next_url, "results": []})
+
+    client = _client(httpx.MockTransport(handle))
+    with pytest.raises(ValueError, match=message):
+        client.docket_entries(7, max_pages=3)
+    assert len(calls) == 1

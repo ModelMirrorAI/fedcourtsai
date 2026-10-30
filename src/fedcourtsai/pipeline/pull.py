@@ -30,7 +30,13 @@ import httpx
 
 from .. import corpus, ids
 from ..config import PredictScope
-from ..courtlistener import CourtListenerClient, RateBudgetExceeded, is_transient
+from ..courtlistener import (
+    DEFAULT_MAX_ENTRY_PAGES,
+    CourtListenerClient,
+    EntryPageCapExceeded,
+    RateBudgetExceeded,
+    is_transient,
+)
 from ..matrix import (
     awaited_presence,
     cell_failure_count,
@@ -95,11 +101,15 @@ def pull_case(
     data_root: Path,
     court_id: str,
     docket_id: int,
+    *,
+    max_entry_pages: int = DEFAULT_MAX_ENTRY_PAGES,
 ) -> PullResult:
     case_id = ids.case_id(court_id, docket_id)
 
     docket = client.get_docket(docket_id)
-    entries = client.iter_docket_entries(docket_id)
+    # A docket longer than the cap raises before anything is written, so it is
+    # never stored as a truncated record that would diff as a real change.
+    entries = client.iter_docket_entries(docket_id, max_pages=max_entry_pages)
     fresh = {**docket, "docket_entries": entries}
 
     today = date.today()
@@ -1710,7 +1720,7 @@ def derive_predict_backlog(
     )
 
 
-def pull_cases(
+def pull_cases(  # noqa: PLR0913 - the rotation's guards are each a caller-tuned bound
     client: CourtListenerClient,
     corpus_db_path: Path,
     data_root: Path,
@@ -1719,6 +1729,7 @@ def pull_cases(
     scope: PredictScope = PredictScope.all,
     deadline: float | None = None,
     max_consecutive_transient_failures: int | None = None,
+    max_entry_pages: int = DEFAULT_MAX_ENTRY_PAGES,
     time_fn: Callable[[], float] = time.monotonic,
 ) -> PullQueues:
     """Refresh each due case and sort it into the predict / evaluate / unrecorded queues.
@@ -1766,17 +1777,21 @@ def pull_cases(
             _stop("run deadline reached", due_list[index:])
             break
         try:
-            result = pull_case(client, corpus_db_path, data_root, court, docket)
+            result = pull_case(
+                client, corpus_db_path, data_root, court, docket, max_entry_pages=max_entry_pages
+            )
         except RateBudgetExceeded as exc:
             # The next request cannot fit the API budget this window; every
             # later case would hit the same wall, so defer them all now.
             _stop(f"API budget exhausted ({exc})", due_list[index:])
             break
-        except httpx.HTTPError as exc:
+        except (httpx.HTTPError, EntryPageCapExceeded) as exc:
             # One docket's REST failure must not abort the rotation: the cases
             # already refreshed this run keep their corpus writes and queue
             # entries. Record the casualty and move on. ``pull_case`` fetches
             # before it writes, so a failure here leaves no partial corpus state.
+            # A docket longer than the per-case page cap is one more such
+            # deterministic failure, so it never trips the breaker.
             queues.failed.append(
                 {"court": court, "docket": docket, "reason": f"{type(exc).__name__}: {exc}"}
             )

@@ -1378,9 +1378,11 @@ or network.
   (`eligible_refresh_reserve`, set to the whole cap) are reserved for the
   stalest SCOTUS dockets, so the in-scope set rotates ahead of the much larger
   active set and the general rotation takes only slots the SCOTUS-open pool
-  leaves empty. A refresh pages every entry of a docket, so a bulk-loaded
-  circuit docket with hundreds of entry pages would otherwise spend a window's
-  hourly budget on one case outside the prediction scope.
+  leaves empty. A refresh reads a docket's entries by following upstream's
+  cursor (`docket-entries/` ignores a page number), at most
+  `max_entry_pages_per_case` pages of twenty; a longer docket is recorded as
+  failed with nothing written, so one bulk-loaded circuit docket with hundreds
+  of entry pages cannot spend a window's hourly budget.
 - **Two forward jobs over the shared core:**
   1. **Refresh** active known cases (`pull_case`), routing changed cases with
      open case-baseline events onto the predict queue — a `predict_queued_at`

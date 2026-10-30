@@ -311,6 +311,10 @@ class PullConfig(BaseModel):
     # per-case errors (e.g. a 404) never trip it. Deferred cases keep their
     # stalest-first position, so the next window retries them.
     max_consecutive_transient_failures: int = Field(default=5, ge=1)
+    # Most pages of docket entries (twenty a page) one refresh may read. A
+    # longer docket is recorded as failed with nothing written, so one huge
+    # docket cannot spend a window's budget.
+    max_entry_pages_per_case: int = Field(default=25, ge=1)
 
 
 def load_pull_config(config_root: Path) -> PullConfig:

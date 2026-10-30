@@ -51,7 +51,7 @@ class FakeCourtListenerClient:
     def get_docket(self, docket_id: int) -> dict[str, Any]:
         return self._dockets[docket_id]
 
-    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:
+    def iter_docket_entries(self, docket_id: int, *, max_pages: int = 25) -> list[dict[str, Any]]:
         return self._entries.get(docket_id, [])
 
 

@@ -1,10 +1,22 @@
 """CourtListener REST API v4 client."""
 
-from .client import CourtListenerClient, ErrorClass, classify_error, is_throttled, is_transient
+from .client import (
+    DEFAULT_MAX_ENTRY_PAGES,
+    CourtListenerClient,
+    EntryPageCapExceeded,
+    EntryPages,
+    ErrorClass,
+    classify_error,
+    is_throttled,
+    is_transient,
+)
 from .ratelimit import RateBudgetExceeded, RateLimiter, default_rate_limiter
 
 __all__ = [
+    "DEFAULT_MAX_ENTRY_PAGES",
     "CourtListenerClient",
+    "EntryPageCapExceeded",
+    "EntryPages",
     "ErrorClass",
     "RateBudgetExceeded",
     "RateLimiter",

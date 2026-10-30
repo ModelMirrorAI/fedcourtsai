@@ -609,18 +609,15 @@ class _Walk:
 
     def entries(self, docket_id: int, since: date) -> tuple[list[Mapping[str, Any]], bool]:
         """A row's entries filed on or after ``since``, and whether all were read."""
-        found: list[Mapping[str, Any]] = []
-        for page in range(1, MAX_ENTRY_PAGES + 1):
-            self.requests += 1
-            payload = _object(
-                self.client.list_docket_entries(docket_id, page=page, date_filed_gte=since)
-            )
-            results = payload.get("results")
-            if isinstance(results, list):
-                found.extend(entry for entry in results if isinstance(entry, Mapping))
-            if not payload.get("next"):
-                return found, True
-        return found, False
+        # The first page is counted before it is sent, as every other request
+        # here is; the pages the cursor led to are counted once the read returns.
+        self.requests += 1
+        read = self.client.docket_entries(
+            docket_id, max_pages=MAX_ENTRY_PAGES, date_filed_gte=since
+        )
+        self.requests += read.pages - 1
+        found: list[Mapping[str, Any]] = [e for e in read.entries if isinstance(e, Mapping)]
+        return found, read.complete
 
 
 def _availability(opinion_id: int, payload: Mapping[str, Any]) -> OpinionAvailability:
