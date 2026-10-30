@@ -402,18 +402,38 @@ to its disagreements.
 - **Fitted rules.** Four rules were written from those disagreements and
   settled them: the stay-of-execution presumption, the court-as-respondent
   rule, the custodian presumption, and the party-only `unclassifiable`
-  sentence. The custodian presumption rests on two rows. The adjudication was
-  done by the same session that drew the sample and wrote the rules, and it
-  was not blind.
-- **Owed before agreement is quoted under the rules.** A fresh blind pass on
-  a held-out sample. The figures above measure agreement without the rules,
-  not with them.
-- **What the labels show.** After adjudication, 92 of the 206 `docket-only`
-  rows are `unclassifiable`, against 1 of the 35 `application-text` rows.
+  sentence. The custodian presumption rests on two rows. The rules were
+  written by the same session that drew the sample, which did not work
+  blind; the committed labels come from the blind pass below, not from that
+  session.
+- **Blind re-adjudication under the rules.** Three further instances of the
+  same model, reading only this document (rules included) and the extract
+  rows, labeled the 241 reference rows shuffled among 100 held-out rows, with
+  no marker of which was which. The held-out rows are the first 100
+  non-reference rows of the frame by the SHA-256 of
+  `heldout-2026-10-30|<case_id>`; every one is `docket-only`. Neither the
+  raters nor the reconciliation saw any labeler output or gate score. Two raters
+  labeled every row and agreed on 197 of the 241 reference rows and 82 of the
+  100 held-out rows; the third labeled only the rows they split, and every
+  label is the majority of three. The committed labels are those majority
+  labels, which changed 27 of the 241 adjudicated labels, 25 of them on
+  `docket-only` rows. Of the 44 reference rows the two full raters split,
+  39 have one of them answering `unclassifiable`: the judgment is mostly
+  whether a caption or a court below names a subject, or the row is
+  party-only.
+- **Agreement under the rules.** Against the held-out majority labels, the
+  most recent refused labeler run agreed on 82 of 100 `docket-only` rows, where answering the most
+  common label on every row would agree on 48. The held-out rows include no
+  `application-text` rows, so the figure says nothing about rows with stored
+  text. Every rater is an instance of the same model as the labeler, so the
+  raters' errors and the labeler's are correlated and the figure overstates
+  agreement with an independent human rater.
+- **What the labels show.** After the blind re-adjudication, 92 of the 206
+  `docket-only` rows are `unclassifiable`, against none of the 35 `application-text` rows.
   That is an association, not a measured cost: 34 of the 35 text rows are
   from Term 2026, and which applications carry a stored document is not
   random. Within Term 2026 alone the contrast holds, at 13 of 24 `docket-only`
-  rows against 1 of 34 `application-text` rows.
+  rows against none of the 34 `application-text` rows.
 
 **The coverage caveat is sharper here.** The extract's stderr tally gives the
 split by Term, ask and input kind. Read under main's corpus pointer
@@ -462,13 +482,14 @@ application inputs in place of the petition ones:
   `docket-only` row never fires one. Their level means less here than on the
   petition frame, which is the text they were written from.
 
-The gate measures agreement with the block's adjudicated labels, and the block
-was adjudicated by the session that wrote the fitted rules above. So a passing
-application run measures agreement with those rules as applied by one session,
-not with independent raters, and a held-out blind pass is still owed before an
-application agreement figure is quoted; the docket pack's application cut
-prints the figure marked as not yet quotable for that reason. The petition
-frame's gates are unchanged.
+The gate measures agreement with the block's labels, which are the majority
+of three blind raters under the fitted rules above. The raters are instances
+of the labeler's own model, so a passing application run measures agreement
+with those rules as that model applies them, not with independent raters, and
+the held-out pass held no `application-text` row. An independent rater is
+still owed before an application agreement figure is quoted; the docket
+pack's application cut prints the figure marked as not yet quotable for that
+reason. The petition frame's gates are unchanged.
 
 ## The reference set
 
