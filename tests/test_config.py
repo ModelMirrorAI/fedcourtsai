@@ -197,6 +197,7 @@ def test_repo_tracking_yaml_carries_the_salience_spend_controls() -> None:
     assert cfg.per_conference_capacity == 12
     assert cfg.long_conference_capacity == 24
     assert cfg.interim_reserve_slots == 5
+    assert cfg.interim_reserve_age_out_days == 180
     assert cfg.floor == 0.28
     assert cfg.arrival_sample_rate == 0.05
     # The reserve is defined *inside* the per-conference envelope: the selection

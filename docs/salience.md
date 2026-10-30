@@ -1926,7 +1926,7 @@ features do not exist here, so each selection pass fills up to
 count, `case_id` for determinism. A slot is an application **number's**, the
 unit the interim base rate counts: a number the corpus stores under two case
 ids holds at most one slot. Latched under any of its rows, it holds one (none
-once released as disposed, below) and its other rows do not contend; unlatched, it contends through the row
+once released, below) and its other rows do not contend; unlatched, it contends through the row
 `corpus.duplicate_application_case_ids` keeps, and the rows that call skips
 are scored but never picked. Moment minting and the predict queue do not read
 the skip set, so a number already latched under two rows stays funded twice.
@@ -1950,9 +1950,28 @@ application decided in language it misses stays unresolved; its outcome is
 legible in the snapshot, no forward cell will be minted for it, and it keeps
 its latch but not its slot. An application whose stored docket shows no
 disposal at all — an upstream docket that never updated, or a disposition the
-corpus has not yet pulled — still holds its slot until a pull records one;
-`reconcile-salience-selection` lists every occupant with its filing date and
-the snapshot read, so a slot held for months is visible. The slots in
+corpus has not yet pulled — holds its slot until a pull records one or until
+it **ages out**: an occupant filed more than
+`salience.interim_reserve_age_out_days` (180) days before the selection
+pass's own date keeps its latch but not its slot, and a pending application
+past that horizon does not contend for one, so a freed slot never goes to an
+application the next pass would free again. A row with no filing date never
+ages out. The horizon sits far in the tail of how long the Court takes:
+across 1,097 decided substantive applications (production corpus, newest
+pull 2026-10-29), filing to decision runs a
+median of 5 days, a 95th percentile of 69 and a 99th of 167, and 11 (1%)
+took longer than 180. Those figures count decided applications only, so they
+are right-censored — an application still pending is in none of them — and
+the true tail is understated. That 1%, a lower bound, is the cost the horizon
+accepts — an
+application still pending at 180 days loses its funding before it resolves,
+so the funded interim slice under-represents the slowest applications. The
+age is measured to the pass's own date, never the wall clock inside the
+planner; the gate replay passes no date and projects no applications, so it
+ages nothing out.
+`reconcile-salience-selection` lists every occupant with its filing date, its
+age at the pass's date, the snapshot read and why a released one was
+released, so a slot held for months, and one freed by age, is visible. The slots in
 use lower the cert **rank-fill limit** one-for-one in the **latest
 conference cohort of the pass** — never a carve-out — so the reserve is defined
 inside `N`. Whether it *spends* inside `N` depends on the cohort: a lowered

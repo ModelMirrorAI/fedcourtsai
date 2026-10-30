@@ -45,6 +45,8 @@ from fedcourtsai.schemas import Disposition, EventKind, Stage
 
 REGULAR_CONFERENCE = date(2026, 1, 9)  # a Term conference (Oct-June)
 LONG_CONFERENCE = date(2025, 9, 29)  # the Term's opening long conference (September)
+# The selection pass's own date, which the interim reserve's age-out measures to.
+_PASS_DATE = date(2026, 10, 29)
 
 
 def _petition(  # noqa: PLR0913 - a keyword-only test fixture builder, one arg per row feature
@@ -539,7 +541,11 @@ def test_the_live_pass_still_selects_a_rule_20_writ_under_the_active_sal_v4(
     db = _seed(tmp_path, [writ])
     with corpus.connect(db) as conn:
         result = reconcile_salience_selection(
-            conn, _data_root(tmp_path), SalienceConfig(per_conference_capacity=1), apply=True
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(per_conference_capacity=1),
+            apply=True,
+            as_of=_PASS_DATE,
         )
     assert result.version == "sal-v4"
     assert _selected_ids(db) == {"scotus/writ"}
@@ -622,7 +628,9 @@ def test_ranks_and_caps_to_n_with_carveouts_above_n(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=3, floor=0.28)
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     selected = _selected_ids(db)
     assert "scotus/cvsg" in selected  # carve-out, above N
     # The five relist-0 rows tie on score, so the cap takes the 3 lowest case_ids.
@@ -639,11 +647,15 @@ def test_selection_is_sticky_across_runs(tmp_path: Path) -> None:
     db = _seed(tmp_path, [_petition(f"scotus/{c}", distribution_count=1) for c in "abc"])
     config = SalienceConfig(per_conference_capacity=2, floor=0.28)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert _selected_ids(db) == {"scotus/a", "scotus/b"}
     with corpus.connect(db) as conn:
         corpus.upsert_rows(conn, [_petition("scotus/hot", distribution_count=2)])  # relist-1
-        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     # 'hot' joins; 'b' stays despite dropping out of the fresh top-2. Never de-selected.
     assert _selected_ids(db) == {"scotus/a", "scotus/b", "scotus/hot"}
     assert result.newly_selected == 1  # only 'hot' is new this run
@@ -666,6 +678,7 @@ def test_capacity_is_per_conference(tmp_path: Path) -> None:
             _data_root(tmp_path),
             SalienceConfig(per_conference_capacity=1, floor=0.28),
             apply=True,
+            as_of=_PASS_DATE,
         )
     selected = _selected_ids(db)
     assert len([s for s in selected if s.startswith("scotus/x")]) == 1
@@ -679,14 +692,18 @@ def test_long_conference_uses_the_larger_cap(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=1, long_conference_capacity=3, floor=0.28)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert len(_selected_ids(db)) == 3  # the long-conference cap, not the regular 1
 
 
 def test_petition_not_yet_distributed_is_scored_but_not_selected(tmp_path: Path) -> None:
     db = _seed(tmp_path, [_petition("scotus/pending", distribution_count=3, conference=None)])
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), SalienceConfig(), apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), SalienceConfig(), apply=True, as_of=_PASS_DATE
+        )
         row = corpus.get_row(conn, "scotus/pending")
     assert row is not None
     assert row.salience_score is not None  # scored
@@ -703,7 +720,7 @@ def test_decided_petition_is_scored_but_never_cohorted(tmp_path: Path) -> None:
     )
     with corpus.connect(db) as conn:
         result = reconcile_salience_selection(
-            conn, _data_root(tmp_path), SalienceConfig(), apply=True
+            conn, _data_root(tmp_path), SalienceConfig(), apply=True, as_of=_PASS_DATE
         )
         row = corpus.get_row(conn, "scotus/decided")
     assert row is not None
@@ -723,7 +740,9 @@ def test_decided_petition_never_displaces_an_open_petition_within_capacity(tmp_p
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=1, floor=0.28)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert _selected_ids(db) == {"scotus/open"}
 
 
@@ -733,7 +752,7 @@ def test_out_of_scope_petition_is_not_scored(tmp_path: Path) -> None:
     db = _seed(tmp_path, [_petition("scotus/app", docket="25A100", distribution_count=3)])
     with corpus.connect(db) as conn:
         result = reconcile_salience_selection(
-            conn, _data_root(tmp_path), SalienceConfig(), apply=True
+            conn, _data_root(tmp_path), SalienceConfig(), apply=True, as_of=_PASS_DATE
         )
         row = corpus.get_row(conn, "scotus/app")
     assert result.eligible_cases == 0
@@ -744,7 +763,7 @@ def test_dry_run_writes_nothing(tmp_path: Path) -> None:
     db = _seed(tmp_path, [_petition("scotus/1", distribution_count=3)])
     with corpus.connect(db) as conn:
         result = reconcile_salience_selection(
-            conn, _data_root(tmp_path), SalienceConfig(), apply=False
+            conn, _data_root(tmp_path), SalienceConfig(), apply=False, as_of=_PASS_DATE
         )
         row = corpus.get_row(conn, "scotus/1")
     assert result.applied is False and result.scored == 1
@@ -777,7 +796,7 @@ def test_selection_plan_equals_wrapper_free_plan_cohorts(tmp_path: Path) -> None
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=1, floor=0.28)
     with corpus.connect(db) as conn:
-        direct = _selection_plan(conn, config)
+        direct = _selection_plan(conn, config, as_of=_PASS_DATE)
         eligible = [
             row
             for row in corpus.iter_rows(conn, court="scotus")
@@ -888,7 +907,9 @@ def test_long_conference_realized_count_is_n_plus_carveouts(tmp_path: Path) -> N
     db = _seed(tmp_path, _long_conference_cohort())
     config = load_salience_config(Path("config"))  # the caps actually in force
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
 
     selected = _selected_ids(db)
     assert result.eligible_cases == _LC_TOTAL
@@ -910,7 +931,9 @@ def test_every_carveout_survives_a_cohort_far_larger_than_n(tmp_path: Path) -> N
     db = _seed(tmp_path, _long_conference_cohort())
     config = load_salience_config(Path("config"))
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
 
     selected = _selected_ids(db)
     assert all(f"scotus/r2-{i:04d}" in selected for i in range(_LC_RELIST_2))
@@ -925,7 +948,9 @@ def test_the_cap_prefers_higher_scores_before_it_fills_with_ties(tmp_path: Path)
     db = _seed(tmp_path, _long_conference_cohort())
     config = load_salience_config(Path("config"))
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
 
     selected = _selected_ids(db)
     capacity = config.long_conference_capacity
@@ -954,7 +979,9 @@ def test_selection_over_a_large_cohort_is_reproducible(tmp_path: Path) -> None:
     for name in ("a", "b"):
         db = _seed(tmp_path / name, _long_conference_cohort())
         with corpus.connect(db) as conn:
-            reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+            reconcile_salience_selection(
+                conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+            )
         runs.append(_selected_ids(db))
     assert runs[0] == runs[1]
 
@@ -962,7 +989,7 @@ def test_selection_over_a_large_cohort_is_reproducible(tmp_path: Path) -> None:
 # --- the interim reserve --------------------------------------------------------
 
 
-def _application(  # a keyword-only test fixture builder, one arg per row feature
+def _application(  # noqa: PLR0913 - a keyword-only test fixture builder, one arg per row feature
     case_id: str,
     docket: str,
     *,
@@ -972,12 +999,14 @@ def _application(  # a keyword-only test fixture builder, one arg per row featur
     amici: int = 0,
     selected: bool = False,
     disposition: str | None = None,
+    filed: date | None = None,
 ) -> corpus.CorpusRow:
     return corpus.CorpusRow.model_validate(
         {
             "case_id": case_id,
             "court": "scotus",
             "docket_number": docket,
+            "date_filed": filed,
             "application_kind": kind,
             "response_requested": requested,
             "referred_to_court": referred,
@@ -1002,6 +1031,7 @@ def test_unlatch_overselected_clears_the_resize_overhang(tmp_path: Path) -> None
             _data_root(tmp_path),
             SalienceConfig(per_conference_capacity=3, floor=0.28),
             apply=True,
+            as_of=_PASS_DATE,
         )
     assert _selected_ids(db) == {"scotus/a", "scotus/b", "scotus/c", "scotus/cvsg"}
     resized = SalienceConfig(per_conference_capacity=1, floor=0.28)
@@ -1074,7 +1104,9 @@ def test_unlatch_retains_what_a_filled_reserve_would_displace(tmp_path: Path) ->
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     # The live pass funds the application + 1 cert fill; latch 'b' by hand to
     # simulate a pre-resize latch the reserve would now displace.
     with corpus.connect(db) as conn:
@@ -1095,13 +1127,16 @@ def test_unlatch_then_live_pass_is_stable(tmp_path: Path) -> None:
             _data_root(tmp_path),
             SalienceConfig(per_conference_capacity=3, floor=0.28),
             apply=True,
+            as_of=_PASS_DATE,
         )
     resized = SalienceConfig(per_conference_capacity=1, floor=0.28)
     with corpus.connect(db) as conn:
         unlatch_overselected(conn, resized, apply=True)
     assert _selected_ids(db) == {"scotus/a"}
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, _data_root(tmp_path), resized, apply=True)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), resized, apply=True, as_of=_PASS_DATE
+        )
     assert result.newly_selected == 0
     assert _selected_ids(db) == {"scotus/a"}
 
@@ -1115,7 +1150,9 @@ def test_reserve_selects_pending_applications_and_shrinks_the_cert_fill(tmp_path
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/a"}
 
 
@@ -1130,7 +1167,9 @@ def test_reserve_never_displaces_a_carve_out(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=1, floor=0.28, interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/cvsg"}
 
 
@@ -1142,7 +1181,9 @@ def test_unfilled_reserve_returns_to_cert(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=3, floor=0.28, interim_reserve_slots=5)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/a", "scotus/b"}
 
 
@@ -1158,7 +1199,9 @@ def test_reserve_picks_climb_the_escalation_ladder(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(interim_reserve_slots=2)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     # The requested-response application outranks the amicus-carrying one; the
     # signal-less one waits for a freed slot.
     assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000003"}
@@ -1177,7 +1220,9 @@ def test_reserve_ladder_orders_by_amicus_count_and_breaks_ties_on_case_id(
     db = _seed(tmp_path, rows)
     config = SalienceConfig(interim_reserve_slots=2)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     # amici=3 first, then the amici=1 tie resolves to the lower case_id.
     assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000003"}
 
@@ -1194,7 +1239,9 @@ def test_reserve_ladder_ignores_the_referral_signal(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert _selected_ids(db) == {"scotus/9525000002"}
 
 
@@ -1211,14 +1258,18 @@ def test_reserve_slots_are_occupied_until_resolution(tmp_path: Path) -> None:
     )
     config = SalienceConfig(interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        first = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        first = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert first.newly_selected == 0  # the slot is occupied
     assert _selected_ids(db) == {"scotus/9525000001"}
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
             conn, [_application("scotus/9525000001", "25A1", selected=True, disposition="denied")]
         )
-        second = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        second = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert second.newly_selected == 1
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
 
@@ -1236,7 +1287,9 @@ def test_a_twice_stored_application_number_takes_one_reserve_slot(tmp_path: Path
     db = _seed(tmp_path, rows)
     config = SalienceConfig(interim_reserve_slots=2)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
 
     held = [
@@ -1246,7 +1299,9 @@ def test_a_twice_stored_application_number_takes_one_reserve_slot(tmp_path: Path
     ]
     db = _seed(tmp_path / "held", held)
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert result.newly_selected == 1
     assert _selected_ids(db) == {"scotus/9525000002", "scotus/9525000009"}
 
@@ -1259,7 +1314,9 @@ def test_a_twice_stored_application_number_takes_one_reserve_slot(tmp_path: Path
     ]
     db = _seed(tmp_path / "both", both)
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert result.newly_selected == 1
     assert "scotus/9525000002" in _selected_ids(db)
 
@@ -1295,7 +1352,9 @@ def test_reserve_releases_an_occupant_whose_snapshot_reads_disposed(tmp_path: Pa
     )
     config = SalienceConfig(interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert result.newly_selected == 1
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002"}
     assert [(o.case_id, o.holds_slot, o.snapshot_date) for o in result.reserve_occupants] == [
@@ -1328,7 +1387,9 @@ def test_reserve_occupant_without_a_disposal_holds_its_slot(
         _store_proceedings(db, "scotus/9525000001", *texts)
     config = SalienceConfig(interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        result = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=False)
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=False, as_of=_PASS_DATE
+        )
     assert result.newly_selected == 0
     assert [
         (o.case_id, o.holds_slot, o.snapshot_read_failed) for o in result.reserve_occupants
@@ -1354,7 +1415,11 @@ def test_reserve_occupant_holds_its_slot_when_the_snapshot_read_fails(
     monkeypatch.setattr(corpus, "latest_snapshot", _unreadable)
     with corpus.connect(db) as conn:
         result = reconcile_salience_selection(
-            conn, _data_root(tmp_path), SalienceConfig(interim_reserve_slots=1), apply=False
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(interim_reserve_slots=1),
+            apply=False,
+            as_of=_PASS_DATE,
         )
     assert result.newly_selected == 0
     assert [
@@ -1399,6 +1464,195 @@ def test_plan_cohorts_frees_only_the_occupants_it_releases() -> None:
     assert asked == ["scotus/9525000001", "scotus/9525000002"]  # occupants only
 
 
+# 25A622's age at the pass date, and 26A163's: one past the 180-day horizon,
+# one inside it.
+_AGED_FILED = date(2025, 11, 25)  # 338 days before _PASS_DATE
+_FRESH_FILED = date(2026, 8, 5)  # 85 days before _PASS_DATE
+
+
+def test_plan_cohorts_ages_out_an_occupant_past_the_horizon() -> None:
+    # The occupant filed 338 days before the pass gives up its slot and keeps
+    # its latch (it is not re-picked); the one filed 85 days before holds its.
+    rows = [
+        _application("scotus/9525000001", "25A1", selected=True, filed=_AGED_FILED),
+        _application("scotus/9525000002", "25A2", selected=True, filed=_FRESH_FILED),
+        _application("scotus/9525000003", "25A3", requested=True, filed=_FRESH_FILED),
+    ]
+    config = SalienceConfig(interim_reserve_slots=2, interim_reserve_age_out_days=180)
+    assert plan_cohorts(rows, config, as_of=_PASS_DATE)[1] == ["scotus/9525000003"]
+    # With no pass date (the gate replay) nothing ages out.
+    assert plan_cohorts(rows, config)[1] == []
+
+
+def test_plan_cohorts_keeps_an_occupant_on_the_horizon_and_an_undated_one() -> None:
+    # Exactly at the horizon is not past it, and a row with no filing date has
+    # no age to measure.
+    rows = [
+        _application(
+            "scotus/9525000001",
+            "25A1",
+            selected=True,
+            filed=date.fromordinal(_PASS_DATE.toordinal() - 180),
+        ),
+        _application("scotus/9525000002", "25A2", selected=True),
+        _application("scotus/9525000003", "25A3", requested=True),
+    ]
+    config = SalienceConfig(interim_reserve_slots=2, interim_reserve_age_out_days=180)
+    assert plan_cohorts(rows, config, as_of=_PASS_DATE)[1] == []
+
+
+def test_an_application_past_the_horizon_does_not_contend() -> None:
+    # A freed slot never goes to an application the next pass would free again:
+    # the aged contender is passed over though its ladder rung ranks it first.
+    rows = [
+        _application("scotus/9525000001", "25A1", requested=True, filed=_AGED_FILED),
+        _application("scotus/9525000002", "25A2", filed=_FRESH_FILED),
+    ]
+    config = SalienceConfig(interim_reserve_slots=1, interim_reserve_age_out_days=180)
+    assert plan_cohorts(rows, config, as_of=_PASS_DATE)[1] == ["scotus/9525000002"]
+
+
+def test_the_age_out_horizon_comes_from_config() -> None:
+    # The same occupant holds its slot under a wider horizon, and under 0,
+    # which disables the age-out.
+    rows = [
+        _application("scotus/9525000001", "25A1", selected=True, filed=_AGED_FILED),
+        _application("scotus/9525000002", "25A2", requested=True, filed=_FRESH_FILED),
+    ]
+    for horizon, picks in ((180, ["scotus/9525000002"]), (400, []), (0, [])):
+        config = SalienceConfig(interim_reserve_slots=1, interim_reserve_age_out_days=horizon)
+        assert plan_cohorts(rows, config, as_of=_PASS_DATE)[1] == picks, horizon
+
+
+def test_load_salience_config_reads_the_age_out_horizon(tmp_path: Path) -> None:
+    (tmp_path / "tracking.yaml").write_text(
+        yaml.safe_dump({"salience": {"interim_reserve_age_out_days": 90}})
+    )
+    assert load_salience_config(tmp_path).interim_reserve_age_out_days == 90
+
+
+def test_reconcile_reports_an_aged_occupant_released_and_a_fresh_one_held(
+    tmp_path: Path,
+) -> None:
+    db = _seed(
+        tmp_path,
+        [
+            _application("scotus/9525000001", "25A1", selected=True, filed=_AGED_FILED),
+            _application("scotus/9525000002", "25A2", selected=True, filed=_FRESH_FILED),
+            _application("scotus/9525000003", "25A3", requested=True, filed=_FRESH_FILED),
+        ],
+    )
+    config = SalienceConfig(interim_reserve_slots=2, interim_reserve_age_out_days=180)
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
+    assert result.newly_selected == 1
+    assert _selected_ids(db) == {"scotus/9525000001", "scotus/9525000002", "scotus/9525000003"}
+    assert sorted(
+        (o.case_id, o.age_days, o.aged_out, o.holds_slot) for o in result.reserve_occupants
+    ) == [
+        ("scotus/9525000001", 338, True, False),
+        ("scotus/9525000002", 85, False, True),
+    ]
+
+
+def test_snapshot_release_still_frees_an_occupant_inside_the_horizon(tmp_path: Path) -> None:
+    # The two releases are independent: an occupant well inside the horizon is
+    # still released when its stored docket reads disposed, and is not marked
+    # aged.
+    db = _seed(
+        tmp_path,
+        [
+            _application("scotus/9525000001", "25A1", selected=True, filed=_FRESH_FILED),
+            _application("scotus/9525000002", "25A2", requested=True, filed=_FRESH_FILED),
+        ],
+    )
+    _store_proceedings(
+        db,
+        "scotus/9525000001",
+        "Application (25A1) for a stay, submitted to Justice Kagan.",
+        "Stay granted pending disposition of the petition for a writ of certiorari.",
+    )
+    config = SalienceConfig(interim_reserve_slots=1, interim_reserve_age_out_days=180)
+    with corpus.connect(db) as conn:
+        result = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
+    assert result.newly_selected == 1
+    assert [(o.aged_out, o.holds_slot) for o in result.reserve_occupants] == [(False, False)]
+
+
+def test_reconcile_printout_shows_the_age_out_on_each_occupant_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    corpus_root = tmp_path / "corpus"
+    _seed(
+        tmp_path,
+        [
+            _application("scotus/9525000001", "25A1", selected=True, filed=_AGED_FILED),
+            _application("scotus/9525000002", "25A2", selected=True, filed=_FRESH_FILED),
+        ],
+    )
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    (config_root / "tracking.yaml").write_text(
+        yaml.safe_dump(
+            {"salience": {"interim_reserve_slots": 2, "interim_reserve_age_out_days": 180}}
+        )
+    )
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(corpus_root))
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(config_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(_data_root(tmp_path)))
+    result = CliRunner().invoke(
+        app, ["reconcile-salience-selection", "--today", _PASS_DATE.isoformat()]
+    )
+    assert result.exit_code == 0, result.output
+    assert (
+        "interim reserve as of 2026-10-29: 1 of 2 slot(s) held, 1 occupant(s) released "
+        "(1 aged out past 180 day(s))"
+    ) in result.output
+    assert (
+        "scotus/9525000001 25A1 filed 2025-11-25 age 338 day(s) snapshot None "
+        "released: aged out past 180 day(s)"
+    ) in result.output
+    assert (
+        "scotus/9525000002 25A2 filed 2026-08-05 age 85 day(s) snapshot None holds a slot"
+    ) in result.output
+
+
+def test_reconcile_printout_reads_age_out_off_at_horizon_zero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(
+        tmp_path,
+        [_application("scotus/9525000001", "25A1", selected=True, filed=_AGED_FILED)],
+    )
+    config_root = tmp_path / "config"
+    config_root.mkdir()
+    (config_root / "tracking.yaml").write_text(
+        yaml.safe_dump({"salience": {"interim_reserve_age_out_days": 0}})
+    )
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_CONFIG_ROOT", str(config_root))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(_data_root(tmp_path)))
+    result = CliRunner().invoke(
+        app, ["reconcile-salience-selection", "--today", _PASS_DATE.isoformat()]
+    )
+    assert result.exit_code == 0, result.output
+    assert "1 of 5 slot(s) held, 0 occupant(s) released (age-out off)" in result.output
+
+
+def test_reconcile_refuses_a_malformed_today(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _seed(tmp_path, [_application("scotus/9525000001", "25A1")])
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    result = CliRunner().invoke(app, ["reconcile-salience-selection", "--today", "10/29/2026"])
+    assert result.exit_code == 2
+    assert "--today must be a date (YYYY-MM-DD)" in result.stderr
+
+
 def test_reserve_displaces_only_the_current_conference(tmp_path: Path) -> None:
     # The application is live in the cycle whose conference the pass is
     # filling — the latest cohort — so an earlier conference's fill is intact.
@@ -1413,7 +1667,9 @@ def test_reserve_displaces_only_the_current_conference(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     # Earlier cohort keeps both; the later (current) one shrinks to 1.
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/e1", "scotus/e2", "scotus/l1"}
 
@@ -1428,13 +1684,21 @@ def test_reserve_zero_keeps_applications_deferred_and_reserve_gates_predict_scop
     assert _in_predict_scope(db, "scotus/9525000001") is True  # unscored: fail-open
     with corpus.connect(db) as conn:
         reconcile_salience_selection(
-            conn, _data_root(tmp_path), SalienceConfig(interim_reserve_slots=0), apply=True
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(interim_reserve_slots=0),
+            apply=True,
+            as_of=_PASS_DATE,
         )
     assert _selected_ids(db) == set()
     assert _in_predict_scope(db, "scotus/9525000001") is False  # scored, deferred
     with corpus.connect(db) as conn:
         reconcile_salience_selection(
-            conn, _data_root(tmp_path), SalienceConfig(interim_reserve_slots=1), apply=True
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(interim_reserve_slots=1),
+            apply=True,
+            as_of=_PASS_DATE,
         )
     assert _in_predict_scope(db, "scotus/9525000001") is True  # reserve-selected
 
@@ -1447,8 +1711,12 @@ def test_reserve_pass_is_idempotent(tmp_path: Path) -> None:
     db = _seed(tmp_path, rows)
     config = SalienceConfig(per_conference_capacity=2, floor=0.28, interim_reserve_slots=1)
     with corpus.connect(db) as conn:
-        first = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
-        again = reconcile_salience_selection(conn, _data_root(tmp_path), config, apply=True)
+        first = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
+        again = reconcile_salience_selection(
+            conn, _data_root(tmp_path), config, apply=True, as_of=_PASS_DATE
+        )
     assert first.newly_selected == 2  # the application + the one remaining fill
     assert again.newly_selected == 0
     assert _selected_ids(db) == {"scotus/9525000001", "scotus/a"}
@@ -1642,7 +1910,10 @@ def _arrival_pass(db: Path, tmp_path: Path) -> set[str]:
     """One selection pass over ``db``; returns the case's corpus event ids."""
     with corpus.connect(db) as conn:
         apply_salience_selection(
-            conn, _data_root(tmp_path), SalienceConfig(per_conference_capacity=2, floor=0.28)
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(per_conference_capacity=2, floor=0.28),
+            as_of=_PASS_DATE,
         )
         return {e.event_id for e in corpus.events_for_case(conn, _ARRIVAL_CASE_ID)}
 
@@ -1732,7 +2003,10 @@ def test_every_owed_arrival_in_one_scan_gets_both_halves(
                 ],
             )
         apply_salience_selection(
-            conn, _data_root(tmp_path), SalienceConfig(per_conference_capacity=2, floor=0.28)
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(per_conference_capacity=2, floor=0.28),
+            as_of=_PASS_DATE,
         )
         minted = {
             case_id

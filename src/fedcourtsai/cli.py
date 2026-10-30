@@ -540,6 +540,7 @@ from .schemas import (
     QpTopicLabels,
     QpTopicReference,
     QpTopicRunSpend,
+    ReserveOccupant,
     RetrievalCall,
     RetrievalLog,
     SalienceReplay,
@@ -1675,6 +1676,15 @@ def interim_reading_census_cmd() -> None:
     typer.echo(result.model_dump_json())
 
 
+def _reserve_occupant_status(occupant: ReserveOccupant, horizon_days: int) -> str:
+    """One reserve occupant's slot status for the reconcile printout."""
+    if occupant.holds_slot:
+        return "holds a slot"
+    if occupant.aged_out:
+        return f"released: aged out past {horizon_days} day(s)"
+    return "released: snapshot reads disposed"
+
+
 @app.command("reconcile-salience-selection")
 def reconcile_salience_selection_cmd(
     apply: Annotated[
@@ -1683,6 +1693,16 @@ def reconcile_salience_selection_cmd(
             "--apply", help="Write the scores and selection latch; omit for a dry-run count."
         ),
     ] = False,
+    today: Annotated[
+        str,
+        typer.Option(
+            "--today",
+            help=(
+                "The pass's own date (YYYY-MM-DD), which the interim reserve's age-out "
+                "measures each application's filing date to; defaults to today (UTC)."
+            ),
+        ),
+    ] = "",
 ) -> None:
     """Score the in-scope cert petitions and latch the per-conference selected slice.
 
@@ -1693,8 +1713,10 @@ def reconcile_salience_selection_cmd(
     a re-run never de-selects a case that later drifts below the cap. Dry-run by
     default; `--apply` writes (the run-seed walk then pushes the corpus). Lists the
     interim reserve's occupants — each latched, still-pending application with its
-    filing date, the stored snapshot read, and whether it still holds a slot (one
-    whose snapshot already reads as an interim disposal does not). Prints a
+    filing date, its age at the pass's date, the stored snapshot read, and
+    whether it still holds a slot (one whose snapshot already reads as an interim
+    disposal does not, nor one filed more than
+    `salience.interim_reserve_age_out_days` before the pass). Prints a
     `SalienceSelectionResult`. Fails loud if the corpus is absent.
     """
     settings = get_settings()
@@ -1706,24 +1728,34 @@ def reconcile_salience_selection_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
+    try:
+        as_of = date.fromisoformat(today) if today else datetime.now(UTC).date()
+    except ValueError:
+        typer.echo(f"--today must be a date (YYYY-MM-DD), not {today!r}", err=True)
+        raise typer.Exit(code=2) from None
     config = load_salience_config(settings.config_root)
     with corpus.connect_maintenance(db_path, apply=apply) as conn:
-        result = reconcile_salience_selection(conn, settings.data_root, config, apply=apply)
+        result = reconcile_salience_selection(
+            conn, settings.data_root, config, apply=apply, as_of=as_of
+        )
     typer.echo(
         f"reconcile-salience-selection ({'applied' if apply else 'dry-run'}): "
         f"scored {result.scored}, newly selected {result.newly_selected} "
         f"across {result.conferences} conference(s)"
     )
     held = sum(o.holds_slot for o in result.reserve_occupants)
+    aged = sum(o.aged_out for o in result.reserve_occupants)
+    horizon = config.interim_reserve_age_out_days
+    age_out = f"{aged} aged out past {horizon} day(s)" if horizon else "age-out off"
     typer.echo(
-        f"interim reserve: {held} of {config.interim_reserve_slots} slot(s) held, "
-        f"{len(result.reserve_occupants) - held} occupant(s) released as disposed"
+        f"interim reserve as of {as_of}: {held} of {config.interim_reserve_slots} slot(s) held, "
+        f"{len(result.reserve_occupants) - held} occupant(s) released ({age_out})"
     )
     for occupant in result.reserve_occupants:
         typer.echo(
             f"  {occupant.case_id} {occupant.docket_number} filed {occupant.date_filed} "
-            f"snapshot {occupant.snapshot_date} "
-            f"{'holds a slot' if occupant.holds_slot else 'released: snapshot reads disposed'}"
+            f"age {occupant.age_days} day(s) snapshot {occupant.snapshot_date} "
+            f"{_reserve_occupant_status(occupant, horizon)}"
             f"{' (snapshot read failed)' if occupant.snapshot_read_failed else ''}"
         )
     typer.echo(result.model_dump_json())
@@ -20241,7 +20273,7 @@ def live_poll(
     salience_cfg = load_salience_config(settings.config_root)
     cap = live_cfg.max_cases_per_run if limit is None else min(limit, live_cfg.max_cases_per_run)
     deadline = time.monotonic() + max_run_seconds if max_run_seconds is not None else None
-    today = date.today()
+    today = datetime.now(UTC).date()
     probe_term = term if term is not None else current_docket_term(today)
     db = corpus.corpus_db_path(settings.corpus_root)
     with SupremeCourtClient(throttle_seconds=live_cfg.throttle_seconds) as client:

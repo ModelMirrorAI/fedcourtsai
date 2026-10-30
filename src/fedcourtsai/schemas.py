@@ -11785,10 +11785,12 @@ class ReserveOccupant(_Strict):
 
     ``holds_slot`` is False when the application's newest stored snapshot
     already reads as an interim disposal
-    (:func:`fedcourtsai.pipeline.outcome.interim_disposal_signal`): the row is
-    still unresolved in the corpus, but the pass no longer counts it against
-    ``interim_reserve_slots``. ``date_filed`` dates the occupancy, so a slot held
-    for months is visible in the ledger.
+    (:func:`fedcourtsai.pipeline.outcome.interim_disposal_signal`), or when it
+    was filed more than ``interim_reserve_age_out_days`` before the pass
+    (``aged_out``): the row is still unresolved in the corpus, but the pass no
+    longer counts it against ``interim_reserve_slots``. ``date_filed`` and
+    ``age_days`` date the occupancy, so a slot held for months is visible in
+    the ledger.
     """
 
     case_id: str
@@ -11797,11 +11799,26 @@ class ReserveOccupant(_Strict):
     snapshot_date: date | None = Field(
         default=None, description="The newest stored snapshot read; None when none is stored"
     )
+    age_days: int | None = Field(
+        default=None,
+        description=(
+            "Days from date_filed to the selection pass's date; None when the "
+            "filing date is unknown"
+        ),
+    )
+    aged_out: bool = Field(
+        default=False,
+        description=(
+            "True when age_days exceeds the reserve's age-out horizon, which frees "
+            "the slot while the row stays latched"
+        ),
+    )
     holds_slot: bool = Field(
         default=True,
         description=(
             "False when the stored snapshot already reads as an interim disposal, "
-            "which frees the slot while the row awaits a resolver"
+            "or the occupant has aged out, which frees the slot while the row "
+            "awaits a resolver"
         ),
     )
     snapshot_read_failed: bool = Field(

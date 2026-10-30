@@ -2075,7 +2075,7 @@ def live_poll_all(  # noqa: PLR0913,PLR0915 - soft-budget deadline + injected cl
 
     if salience_config is not None:
         with corpus.connect(corpus_db_path) as conn:
-            apply_salience_selection(conn, data_root, salience_config)
+            apply_salience_selection(conn, data_root, salience_config, as_of=today)
         if gated:
             already_queued = {
                 int(str(entry["docket"]))

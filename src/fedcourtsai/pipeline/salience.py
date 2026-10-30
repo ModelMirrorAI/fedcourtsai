@@ -1056,6 +1056,24 @@ def _interim_ladder_key(row: corpus.CorpusRow) -> tuple[int, int, str]:
     )
 
 
+def reserve_age_days(row: corpus.CorpusRow, as_of: date) -> int | None:
+    """Days from an application's filing to ``as_of``; None when it has no filing date."""
+    return None if row.date_filed is None else (as_of - row.date_filed).days
+
+
+def reserve_aged_out(row: corpus.CorpusRow, as_of: date | None, horizon_days: int) -> bool:
+    """Whether an application is past the interim reserve's age-out horizon at ``as_of``.
+
+    Past it means filed more than ``horizon_days`` before ``as_of``, the
+    selection pass's own date. A row with no filing date, a pass with no date
+    (``as_of`` None) and a horizon of 0 never age out.
+    """
+    if as_of is None or horizon_days <= 0:
+        return False
+    age = reserve_age_days(row, as_of)
+    return age is not None and age > horizon_days
+
+
 def plan_cohorts(
     rows: Iterable[corpus.CorpusRow],
     config: SalienceConfig,
@@ -1064,6 +1082,7 @@ def plan_cohorts(
     select_arrivals: bool | None = None,
     released: Callable[[corpus.CorpusRow], bool] | None = None,
     application_twins: frozenset[str] = frozenset(),
+    as_of: date | None = None,
 ) -> tuple[dict[str, float], list[str], int, int]:
     """Score ``rows`` and pick each conference cohort's selected slice.
 
@@ -1093,6 +1112,13 @@ def plan_cohorts(
     decided. It is called once per pending occupant and on nothing else. A
     caller with no snapshots to read (the gate replay) passes none, and every
     pending occupant holds its slot.
+    A slot also frees on **age**: given ``as_of``, the selection pass's own
+    date, a pending occupant filed more than
+    ``interim_reserve_age_out_days`` before it keeps its latch but not its slot
+    (:func:`reserve_aged_out`), and a pending application past the horizon does
+    not contend for a slot, so a freed slot never goes to an application the
+    next pass would free again. A row with no filing date, or a call with no
+    ``as_of`` (the gate replay), never ages out.
     The slots in use lower the rank-fill limit in the **latest** conference
     cohort of the pass — the conference cycle the applications are live in — so
     the reserve is defined inside ``N``. It is sized to *spend* inside ``N``
@@ -1180,9 +1206,13 @@ def plan_cohorts(
 
     # The interim reserve: still-pending occupants hold their slots (sticky
     # latch), new picks fill the remainder in ladder order. An occupant whose
-    # stored docket already reads as disposed keeps its latch but not its slot.
-    # The slot is the number's: a number latched under any of its rows holds
-    # one slot unless released, and none of its rows contends again either way.
+    # stored docket already reads as disposed, or that was filed past the
+    # age-out horizon, keeps its latch but not its slot. The slot is the
+    # number's: a number latched under any of its rows holds one slot unless
+    # released, and none of its rows contends again either way. `released` is
+    # asked of every pending occupant, aged or not, so the caller's ledger
+    # records each occupant's snapshot read.
+    horizon = config.interim_reserve_age_out_days
     latched = [row for row in applications if row.salience_selected]
     held = {_application_key(row) for row in latched}
     occupants = list(
@@ -1190,6 +1220,7 @@ def plan_cohorts(
             _application_key(row): row
             for row in latched
             if not (released is not None and released(row))
+            and not reserve_aged_out(row, as_of, horizon)
         }.values()
     )
     open_slots = max(0, config.interim_reserve_slots - len(occupants))
@@ -1200,6 +1231,7 @@ def plan_cohorts(
             if not row.salience_selected
             and row.case_id not in application_twins
             and _application_key(row) not in held
+            and not reserve_aged_out(row, as_of, horizon)
         ),
         key=_interim_ladder_key,
     )
@@ -1222,7 +1254,9 @@ def plan_cohorts(
     return scores, to_select, eligible, len(cohorts)
 
 
-def _reserve_occupant(conn: sqlite3.Connection, row: corpus.CorpusRow) -> ReserveOccupant:
+def _reserve_occupant(
+    conn: sqlite3.Connection, row: corpus.CorpusRow, *, as_of: date, horizon_days: int
+) -> ReserveOccupant:
     """Read a pending reserve occupant's newest stored snapshot for a disposal.
 
     An occupant whose snapshot reads as an interim disposal
@@ -1236,6 +1270,10 @@ def _reserve_occupant(conn: sqlite3.Connection, row: corpus.CorpusRow) -> Reserv
     the reserve as full as it was, never fail the pass. A failed read is logged
     as a warning and marked ``snapshot_read_failed``, so the ledger tells it
     apart from an occupant with nothing stored.
+
+    The record also carries the occupant's age at ``as_of`` and whether it is
+    past the age-out horizon (:func:`reserve_aged_out`); an aged occupant does
+    not hold its slot whatever its snapshot reads.
     """
     from . import outcome  # noqa: PLC0415 - outcome<-moments<-... keeps this deferred
 
@@ -1251,28 +1289,34 @@ def _reserve_occupant(conn: sqlite3.Connection, row: corpus.CorpusRow) -> Reserv
             type(exc).__name__,
         )
     disposed = snapshot is not None and outcome.interim_disposal_signal(snapshot[1]) is not None
+    aged_out = reserve_aged_out(row, as_of, horizon_days)
     return ReserveOccupant(
         case_id=row.case_id,
         docket_number=row.docket_number,
         date_filed=row.date_filed,
         snapshot_date=snapshot[0] if snapshot is not None else None,
-        holds_slot=not disposed,
+        age_days=reserve_age_days(row, as_of),
+        aged_out=aged_out,
+        holds_slot=not (disposed or aged_out),
         snapshot_read_failed=read_failed,
     )
 
 
 def _planned_selection(
-    conn: sqlite3.Connection, config: SalienceConfig
+    conn: sqlite3.Connection, config: SalienceConfig, *, as_of: date
 ) -> tuple[tuple[dict[str, float], list[str], int, int], list[ReserveOccupant]]:
     """The selection plan beside the reserve occupants it was planned against.
 
     One snapshot read per pending occupant, so the cost is bounded by the
     reserve's size plus whatever latched applications remain unresolved.
+    ``as_of`` is the pass's own date, which the reserve's age-out measures to.
     """
     occupancy: list[ReserveOccupant] = []
 
     def released(row: corpus.CorpusRow) -> bool:
-        occupant = _reserve_occupant(conn, row)
+        occupant = _reserve_occupant(
+            conn, row, as_of=as_of, horizon_days=config.interim_reserve_age_out_days
+        )
         occupancy.append(occupant)
         return not occupant.holds_slot
 
@@ -1289,12 +1333,13 @@ def _planned_selection(
         config,
         released=released,
         application_twins=corpus.duplicate_application_case_ids(conn),
+        as_of=as_of,
     )
     return plan, occupancy
 
 
 def _selection_plan(
-    conn: sqlite3.Connection, config: SalienceConfig
+    conn: sqlite3.Connection, config: SalienceConfig, *, as_of: date
 ) -> tuple[dict[str, float], list[str], int, int]:
     """Score the in-scope SCOTUS cases and pick each cohort's selected slice.
 
@@ -1303,13 +1348,14 @@ def _selection_plan(
     applications), delegating scoring, cohort selection, and the interim
     reserve to :func:`plan_cohorts`, whose reserve slot is an application
     number's — with the reserve's occupants whose stored docket already reads
-    as disposed released (:func:`_reserve_occupant`).
+    as disposed, or filed past the age-out horizon at ``as_of``, released
+    (:func:`_reserve_occupant`).
     """
-    return _planned_selection(conn, config)[0]
+    return _planned_selection(conn, config, as_of=as_of)[0]
 
 
 def apply_salience_selection(
-    conn: sqlite3.Connection, data_root: Path, config: SalienceConfig
+    conn: sqlite3.Connection, data_root: Path, config: SalienceConfig, *, as_of: date
 ) -> list[str]:
     """The live cycle's write pass: score, latch, and return the newly-latched ids.
 
@@ -1318,6 +1364,8 @@ def apply_salience_selection(
     always carries the latch state downstream readers see. The returned ids are
     the cycle's newly-latched picks (the selection sweep queues them via the
     ``predict_queued_at`` debounce — a never-queued case passes it).
+    ``as_of`` is the cycle's own date, which the interim reserve's age-out
+    measures each application's filing date to.
 
     Under a scorer with ``selects_arrivals`` the pass also mints the
     **arrival event** — both halves, into ``data_root``'s ledger as well as the
@@ -1331,7 +1379,7 @@ def apply_salience_selection(
     distribution moment (``store``'s admission), so an unminted pick would
     sit latched with nothing to forecast.
     """
-    scores, to_select, _, _ = _selection_plan(conn, config)
+    scores, to_select, _, _ = _selection_plan(conn, config, as_of=as_of)
     corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
     corpus.latch_salience_selected(conn, to_select)
     _mint_owed_arrival_events(conn, data_root)
@@ -1400,7 +1448,12 @@ def _mint_owed_arrival_events(conn: sqlite3.Connection, data_root: Path) -> None
 
 
 def reconcile_salience_selection(
-    conn: sqlite3.Connection, data_root: Path, config: SalienceConfig, *, apply: bool
+    conn: sqlite3.Connection,
+    data_root: Path,
+    config: SalienceConfig,
+    *,
+    apply: bool,
+    as_of: date,
 ) -> SalienceSelectionResult:
     """Score the in-scope SCOTUS cases and latch the per-conference selected slice.
 
@@ -1410,8 +1463,12 @@ def reconcile_salience_selection(
     arrival event into both stores — ``data_root`` is the git ledger root the
     mint's ``event.yaml`` half lands under. Idempotent under the sticky
     latch — a second run with no corpus change latches nothing new.
+    ``as_of`` is the pass's own date, which the interim reserve's age-out
+    measures each application's filing date to.
     """
-    (scores, to_select, eligible, conferences), occupancy = _planned_selection(conn, config)
+    (scores, to_select, eligible, conferences), occupancy = _planned_selection(
+        conn, config, as_of=as_of
+    )
     if apply:
         corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
         corpus.latch_salience_selected(conn, to_select)

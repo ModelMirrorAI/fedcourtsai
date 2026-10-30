@@ -15011,3 +15011,66 @@ freeze commit is recorded here.
   over a freshly pulled corpus shows the OT2017 row gone from its table, or
   holding only rows whose poll failed in transit; its total falls with each
   later run until it reaches zero.
+
+- **An interim reserve slot frees when its occupant was filed more than 180
+  days before the selection pass; recorded 2026-10-29.** A
+  **membership-rule** entry under unchanged digests: no value, digest or
+  `salience_version` moves, but which pending applications the interim
+  reserve funds can. The reserve is applied by `pipeline.salience.plan_cohorts`
+  under every scorer, so it is not part of what a salience version names.
+
+  **What moved.** A latched, still-unresolved application held its reserve slot
+  until the resolver recorded a disposition or its newest stored snapshot read
+  as an interim disposal (the 2026-10-19 entry). From the carrying merge, an
+  occupant whose `date_filed` is more than `salience.interim_reserve_age_out_days`
+  (180 in `config/tracking.yaml`) days before the selection pass's own date
+  also keeps its latch but stops counting against
+  `salience.interim_reserve_slots`, and a pending application past the same
+  horizon does not contend for a slot, so a freed slot never goes to an
+  application the next pass would free again. The age is measured to the
+  pass's date (the live cycle's `today`, or `reconcile-salience-selection
+  --today`, default today UTC), never the wall clock inside the planner. A
+  row with no filing date never ages out. The gate replay passes no date and
+  projects no applications, so it ages nothing out.
+  `reconcile-salience-selection` now prints each occupant's age at the pass's
+  date and, for a released one, whether it aged out or its snapshot reads
+  disposed. An aged occupant stays latched and unresolved, so every live
+  cycle reads its snapshot again until a pull records the disposition, as for
+  a snapshot release.
+
+  **Why it is a boundary.** A freed slot goes to the next application on the
+  escalation ladder, and the slots in use lower the current conference's cert
+  rank fill one-for-one, so the change can move which applications and which
+  cert petitions are selected from the carrying merge on. It moves no cell
+  already minted and re-derives nothing committed.
+
+  **The horizon and its evidence.** Read from the production corpus (newest
+  pull 2026-10-29), 1,097 substantive applications are decided. Days from
+  filing to decision: median 5, 95th percentile 69, 99th percentile 167; 11
+  (1%) took more than 180. The figures count decided applications only, so
+  they are right-censored: an application still pending today is in none of
+  them, and the true share still pending at 180 days is understated.
+
+  **The de-funding risk.** About 1% of decided substantive applications were
+  still pending at 180 days, a lower bound for the reason above. An application like them loses its slot before
+  it resolves, and a pending application past the horizon is never picked,
+  so the funded interim slice under-represents the slowest applications. A
+  forward cell already minted for an aged occupant stands; the slot it frees
+  funds another application's.
+
+  **What it frees today.** Two slots. A dry run of the selection planner at
+  2026-10-29, read ranged against the index pointer `251805e6650ab3cb…` (the
+  pointer at `main` `54a2b8d40`), finds five latched, pending occupants, and
+  all five hold a slot before the change. 21A85 (`scotus/60667676`, filed
+  2021-10-18, 1,837 days, latched substantive and in scope) is one of them and
+  is freed; so is the stuck occupant 25A622 (`scotus/73279700`, 338 days).
+  26A163 (85 days), 26A458 (23) and 26A560 (8) keep their slots.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live: where the corpus is pulled,
+  `uv run fedcourts reconcile-salience-selection` (a dry run) prints an
+  `interim reserve as of <date>:` line counting the occupants aged out, and
+  the 21A85 and 25A622 occupant lines read `released: aged out past 180
+  day(s)` while the 26A163 line reads `holds a slot`, for as long as none of
+  them has resolved and 26A163 is inside the horizon.
