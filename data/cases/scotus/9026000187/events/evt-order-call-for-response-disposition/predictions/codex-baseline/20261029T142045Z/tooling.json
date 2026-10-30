@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000187",
+  "gaps": [
+    "CourtListener precedent lookup was refused by the daily HTTP 429 limit.",
+    "The corpus citation lookup returned no Kingsley row and warned that citation coverage is sparse."
+  ],
+  "helpful": [
+    "The separately staged appendix exposed a qualified-immunity vehicle problem not resolved by the petition's objective-standard argument.",
+    "The sal-v4 statpack provided exact prior-Term risk-set numerators and denominators."
+  ],
+  "notes": "No retrieved precedent or web result contributed substantive evidence. Forecast completed from the provisioned filings and committed base rates. uv required a writable cache override. The absent opposition is expected at the response-requested moment, not a provisioning gap.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "fedcourts query",
+    "jq",
+    "web search",
+    "CourtListener MCP search"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

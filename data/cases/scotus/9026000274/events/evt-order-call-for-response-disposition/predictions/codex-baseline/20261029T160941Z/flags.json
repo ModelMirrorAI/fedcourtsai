@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000274",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "The first CourtListener MCP opinion search (Mannava, 565 F.3d 412) returned HTTP 429 reporting the daily limit exhausted and an estimated 9,159-second wait. No direct REST fallback was attempted. The forecast was completed from the staged petition/appellate opinion and committed base rates; the claimed split was not independently verified.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0"
+}

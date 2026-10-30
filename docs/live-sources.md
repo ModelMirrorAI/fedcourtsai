@@ -158,24 +158,31 @@ stalest first, so no polled docket goes unpolled longer than that bound plus
 the cycles its overdue backlog takes to drain. The overdue tier takes at most
 `live.max_overdue_per_run` of each cycle, so a large backlog drains over
 several cycles while the distributed petitions, whose order-list results are
-days away, keep the rest; an overdue docket past that share keeps its ordinary
+days away, keep the rest, less the reserve below; an overdue docket past that share keeps its ordinary
 place. A never-polled row has no stamp to age and keeps its ordinary priority-tier
 place unless the reserve below reaches it.
 The bound is set well above one sweep of the polled watchlist at the cap, so
 it bites only when a tier is starving the rest and the priority tiers govern
 otherwise.
 
-Behind the overdue and distributed rows, `live.never_polled_reserve_per_run`
-slots of each cycle go to Term-prefixed cert numbers (no applications) the
+Each cycle, `live.never_polled_reserve_per_run` slots go to Term-prefixed cert numbers (no applications) the
 channel has never polled, oldest Term first: an undecided row with an open
 event, in practice a past-Term row the historical walker skipped (undecided
 when walked, or never served). The Term tiers lead with the newest Terms,
 which fill the cap on their own, so without the reserve such a row would never
-be reached. The reserve takes only what the overdue and distributed rows
-leave, so it never delays an order-list re-read and yields while an overdue
-backlog drains. A row qualifies only when its docket number resolves to that
-row and no row under the same number has been polled, so a caption-only
-upstream duplicate is never polled into a second full row.
+be reached. Through the Term the distributed petitions alone hold more than
+the cap, so a reserve that waited for them to leave room would never run: it
+yields only to the overdue tier, shrinking while an overdue backlog drains,
+and otherwise displaces the cycle's tail. In Term that tail is the most
+recently polled petitions of the last conference the cycle reaches. While a
+past conference's set exceeds the cap that is the past conference, so up to
+the reserve's size of its rows read the order list one cycle later; within a
+conference those are the rows likeliest to have read it already. The reserve
+is capped at half the cycle and listed last, so a cycle cut short by its
+wall-clock budget drops reserve rows before conference petitions. A row
+qualifies only when its docket number resolves to that row and no row under
+the same number has been polled, so a caption-only upstream duplicate is never
+polled into a second full row.
 
 **Predict fires on the distribution transition** — a fresh distribution or a relist's new date — the cert-calendar analogue of
 `pull.predict_on_change_only`, for petitions the salience gate admits. The
@@ -277,6 +284,25 @@ opening the moment. It opens the cert stage's relist moment, once per
 petition: a later relist repeats the same signal. Live poll only, fill-in latched, withheld
 from the `query` rows, and null on a decided row polled before the column
 existed.
+
+`opening_writ` records which writ the docket's opening petition entry asks for
+(`cert_signals.opening_writ`): the first "Petition for a writ of … filed" entry,
+read past an extension application that precedes it, classified `certiorari`
+(certiorari before judgment included), `rule-20` (mandamus, prohibition or
+habeas corpus with no certiorari), `ambiguous` (both) or `other`. The entry
+text decides, never the caption: a Rule 20 petition is captioned "In re …", and
+so is a sealed certiorari petition. It is `sal-v5`'s scope input
+([salience.md](salience.md)). Cert branch only, fill-in latched, withheld from
+the `query` rows, and null on a row polled before the column existed.
+
+`distributed_after_call` counts the conferences a petition was first
+distributed for after the Court called for a response
+(`cert_signals.distributions_after_call`): the distinct conference dates named
+by petition distributions (the entry-initial `dist-v2` reading) filed after the
+first `Response Requested` entry, less any conference a distribution filed on or
+before the call, or undated, also names. It is `sal-v5`'s relist-count input.
+Cert branch only, fill-in latched, withheld from the `query` rows, and null where
+the docket shows no dated call or on a row polled before the column existed.
 
 On a granted docket the same parse also lands the **merits decision record**
 (`pipeline/decision_record.py`), over every grant — the GVR and the summary

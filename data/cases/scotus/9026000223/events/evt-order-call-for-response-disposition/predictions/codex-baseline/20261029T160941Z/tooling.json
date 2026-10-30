@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000223",
+  "gaps": [
+    "No published response-request-conditioned cert base rate",
+    "CourtListener MCP returned HTTP 429",
+    "Web calls returned no usable content",
+    "corpus-info cannot report freshness through the service backend"
+  ],
+  "helpful": [
+    "Moment-specific context and dated snapshot",
+    "Full petition includes lower-court decisions",
+    "Prior-Term risk-set counts in statpack.json"
+  ],
+  "notes": "Queries succeeded after moving the uv cache to writable /tmp and correcting the era vocabulary. Returned generic denial priors were not substantive analogues. No current case docket or disposition was sought. The BIO is not yet due at the provisioned moment, so its absence is expected.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned docket and petition with appendix",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP citation search (throttled)",
+    "web search/open (no content returned)",
+    "independent document and arithmetic review",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

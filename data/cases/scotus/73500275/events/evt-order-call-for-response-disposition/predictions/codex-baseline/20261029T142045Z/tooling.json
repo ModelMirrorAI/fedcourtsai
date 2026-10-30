@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500275",
+  "gaps": [
+    "CourtListener MCP daily rate limit blocked the historical-opinion lookup.",
+    "Web attempts returned no usable content.",
+    "No committed base rate specifically conditions on a called-for cert response."
+  ],
+  "helpful": [
+    "Petition appendix includes the actual appellate memorandum.",
+    "Frozen mode, moment, distribution count, and salience version.",
+    "Machine-readable prior-Term reached-band counts."
+  ],
+  "notes": "Used the provisioned July 22 information set without seeking current case status. No opposition was yet recorded at this moment. The read-only uv cache issue was resolved by placing the cache in /tmp. Tool failures did not block production.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned inputs and committed statpack",
+    "fedcourts paths",
+    "web search and open: no usable content returned",
+    "CourtListener MCP search: throttled",
+    "fedcourts validate data"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

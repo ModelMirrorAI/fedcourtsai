@@ -14902,7 +14902,7 @@ freeze commit is recorded here.
   refreshed after it; a prediction stamped after such a refresh draws on the
   moved baseline.
 
-  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+  Carried to `main` by `promotion/2026-10-29-2` (merge commit `7dde3572fb8db291cf4e8c8d992b517e42a2a28a`, merged `2026-10-29T22:36:30Z`).
 
   The runnable effect check once it is live: after a day of live windows
   with reserve slots free, `CHECK_SUMMARY=out.md uv run python
@@ -14910,3 +14910,104 @@ freeze commit is recorded here.
   the OT2017 row gone from its table, or holding only rows whose poll failed
   in transit, which the live cycle's failed queue names; its total falls with
   each later run until it reaches zero.
+
+- **Readings the `proc-v14` entry owes, recorded 2026-10-29.** No rule moves
+  here. The `proc-v14` entry (dated 2026-10-28), carried to `main` by
+  `promotion/2026-10-29` (merge `116bd569e`, registry stamped by `f2a4da6f8`)
+  and tagged `prereg/proc-v14`, quoted its `successor-disclosures` lines at
+  a provisional instant and owed them again once the carrying merge had
+  stamped the registry, before any figure of a `proc-v13` window is quoted
+  outside the committed board. This entry does not establish whether that
+  ordering held. That entry is not otherwise edited.
+
+  The run reads the ledger and registry at `origin/main`'s `1b197495a`
+  (`2026-10-29T16:08:11Z`), after the stamp and after the first `proc-v14`
+  predict round (run `20261029T142045Z`) landed.
+
+  **`proc-v14` closes `proc-v13`.** `uv run fedcourts successor-disclosures
+  --closed proc-v13 --successor proc-v14` prints:
+
+  ```
+  successor proc-v14 closes proc-v13 at 2026-10-29T14:16:26+00:00
+    closed proc-v13 codex-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    closed proc-v13 claude-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    closed proc-v13 gemini-baseline: 7 counted event(s) — 0 resolved, 7 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+    claude-baseline: 24 successor-counted event(s); earlier window proc-v13: 0 failed, 0 uncounted cell, 0 missing, 24 not reached before the close
+    codex-baseline: 24 successor-counted event(s); earlier window proc-v13: 0 failed, 0 uncounted cell, 0 missing, 24 not reached before the close
+    gemini-baseline: 23 successor-counted event(s); earlier window proc-v13: 0 failed, 0 uncounted cell, 0 missing, 23 not reached before the close
+  ```
+
+  The closed lines match the provisional run's (7 counted events per engine,
+  none resolved), though the stamped instant, `2026-10-29T14:16:26Z`, fell
+  later than the provisional `2026-10-29T00:00:00Z`. Because the resolved
+  count is an upper bound (every outcome dated on or before the close's UTC
+  day), none of the closed windows' outcomes was visible when the close was
+  decided. Every successor-counted event falls in the not-reached bucket: no
+  engine left a failure fact or a cell on it in its earlier span, and no
+  predictor had committed a cell on it before the close. `gemini-baseline` counts one fewer than the other two
+  because its cell on `scotus/9026000187`
+  `evt-order-call-for-response-disposition` in that round failed inside the
+  `proc-v14` window, not the closed one. No grading of a closed-window cell
+  is committed, so no grading line prints.
+
+  The closed-window resolved counts can still move: an outcome dated on or
+  before the close's day may land late, and an event void de-counts what it
+  names. The split, partition and grading lines also move as cells, outcomes
+  and gradings land.
+
+- **The live-duplicate dedupe dropped eleven live twins, not nine; recorded
+  2026-10-30.** A reading the 2026-10-29 dedupe entry owes; no rule moves.
+  The run-seed window of 2026-10-30 02:37 UTC (run 40992742010) reported 11
+  pairs and dropped 11 live-minted rows, skipping none and moving no ledger
+  path. Beside the nine that entry names, it dropped `scotus/9018006135`
+  (`18-6135`) and `scotus/9021005592` (`21-5592`). Read ranged from the blob at
+  `main` `e4e50ee4a` (the live window's pointer, 2026-10-30 09:36 UTC), each
+  now holds the same shape as the nine: the
+  CourtListener row keeps its facts (`18-6135` granted 2019-03-18, merits
+  `affirmed` 2020-03-23; `21-5592` granted 2021-09-08, merits `reversed`
+  2022-03-24) beside a caption-only row left untouched, and neither dropped id
+  had a committed path. So the moves that entry lists gain these two:
+  `corpus_rows` and the court and era sections by eleven rather than nine; the
+  live-slice and per-Term cert-stage figures, keyed on the docket prefix, by
+  one IFP grant each in OT2018 and OT2021; and the merits section, keyed on
+  the grant date's October Term, by one `affirmed` in OT2018 and one
+  `reversed` in OT2020. Its boundary is unchanged and covers them.
+
+- **The never-polled reserve takes its slots while the distributed petitions
+  fill the cycle; recorded 2026-10-30.** A **membership-rule** entry under
+  unchanged digests, amending the 2026-10-29 reserve entry.
+
+  **What moved.** That entry's reserve yielded to the distributed tier as
+  well as the overdue one. Through the Term the distributed petitions alone
+  hold more than `live.max_cases_per_run`: on the blob at `main` `e4e50ee4a`
+  (the live window's pointer, 2026-10-30 09:36 UTC), 290 pending petitions
+  were distributed for the 2026-11-06 conference and 27 for 2026-11-13,
+  against a cap of 150. On the same blob no OT2017 or OT2018 row carries a
+  live poll dated 2026-10-30, so the five live windows of that day before it,
+  all after the carrying merge of 2026-10-29 22:36 UTC, reached no
+  never-polled row of either Term. It now yields only to the overdue tier
+  (the first `live.max_overdue_per_run` stale rows) and otherwise displaces
+  the cycle's tail, its rows listed last. In Term that tail is the most
+  recently polled petitions of the last conference the cycle reaches. It is
+  capped at half of `live.max_cases_per_run`.
+
+  **Why it is a boundary.** Ten slots move from distributed petitions to
+  never-polled rows, a fifteenth of the cap with the overdue tier empty and a
+  tenth of what is left with it full. While a conference's set exceeds the
+  cap its petitions' re-polls stretch by 15/14 to 10/9, so a distribution
+  transition, which fires predict, is read that much later at most. While a
+  past conference's set still awaiting its order-list read exceeds the cap,
+  that conference is the tail: up to ten of its petitions a cycle read the
+  order list one cycle later, and within a conference those are the most
+  recently polled, the likeliest to have read it already. The 2026-10-29 entry's boundary, a drift until the
+  reserve's backlog drains, now starts at this entry's carrying merge rather
+  than that entry's, since before it the reserve polled nothing in Term.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live: a day after the carrying merge,
+  `CHECK_SUMMARY=out.md uv run python scripts/checks/never_polled_reserve.py`
+  over a freshly pulled corpus shows the OT2017 row gone from its table, or
+  holding only rows whose poll failed in transit; its total falls with each
+  later run until it reaches zero.

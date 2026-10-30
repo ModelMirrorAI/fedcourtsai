@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000061",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "Independent authority retrieval was degraded: CourtListener MCP's Tanksley v. Daniels search returned HTTP 429, daily quota exhausted, with an approximately 11632-second retry interval. General web searches and an official Skidmore opinion open returned no usable content. Finished using the staged petition and lower-court opinion, committed base rates, and limited corpus context. No own-case outcome or subsequent history was retrieved; the alleged split remains incompletely corroborated. See retrieval.md and reasoning.md.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0"
+}

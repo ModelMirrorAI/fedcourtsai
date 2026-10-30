@@ -2377,6 +2377,18 @@ the rendered table) and
   `selected_rank_fill` each cell publishes. A bare precision delta between
   versions is not a claim this artifact supports.
 
+  **The registered, inactive `sal-v5`.** Its cells and its statpack
+  `alt_segments` block cover a narrower population than every other
+  version's: Rule 20 writs are outside its segment, so its `eligible`, recall
+  and band pools leave them out, and a cross-version comparison spans that
+  population change as well as the scoring. Its replay cells measure the
+  call-for-response relist rule and the writ scope but never `caption-v3`,
+  since the projection carries no counsel. Its pack block over past Terms is
+  **not a `sal-v5` pool** until a run-repair back-fill fills
+  `distributed_after_call` and `opening_writ` on the decided rows: until then those rows read as `sal-v4` reads them, mixed with the rows
+  the live poll has re-read, and no figure from the block may be quoted
+  (`docs/salience.md`, the `sal-v5` section).
+
   **What may not.** Nothing here is predictor skill — no model
   ran — and nothing is ex-ante: every replayed petition had resolved before
   the replay, so the backtest-as-iteration doctrine below applies in full. A
@@ -2860,7 +2872,18 @@ the rendered table) and
   whose own rows are all labeled over a frame labeled out publishes no factor. Each bucket also prints the rows on
   hand behind it, and its reference-sourced share of them, because a
   denial-reweighted `est. n=` runs above the rows read and the thinnest buckets
-  here rest on a handful. The committed copy of the document names the missing
+  here rest on a handful. The **emergency applications** get a cut of their
+  own on the same terms from the `qp-topic-v1` application labels file, over the
+  live slice's non-extension application dockets and measured against the
+  application reference block. It is never pooled with the petition cut, because
+  an application is labeled from its caption, docket entries and, where stored,
+  its own filing rather than from questions presented, and its scope string
+  counts the rows read from the docket alone, where `unclassifiable` is a rule
+  rather than a finding. A **topic mix by stage** then reads both cuts as
+  shares: of the labeled cert petitions, of the labeled petitions granted
+  plenary review (a GVR recorded as such is left out), and of the labeled applications,
+  each column a share of its own stage rather than of the docket and each with
+  its own scope string. The committed copy of the document names the missing
   distribution among its gaps until someone runs `fedcourts docket` where the
   corpus is pulled — it is on demand, on no schedule. The document names the other statistics it
   cannot yet compute the same way (summary reversals, which have a disposition

@@ -50,6 +50,7 @@ the corpus-dependent checks stay scheduled, where the remote is present.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from collections import Counter
 from collections.abc import Callable, Iterator
@@ -86,6 +87,7 @@ from .schemas import (
     PredictableEvent,
     Prediction,
     PredictionContext,
+    QpTopicRunSpend,
     ScopeDocketShape,
     ScopeExclusion,
     ScopeUnclassified,
@@ -322,6 +324,34 @@ def _in_provisioning_tree(file: Path, root: Path) -> bool:
     return len(parts) > 4 and parts[0] == "cases" and parts[3] == "record"
 
 
+_RUN_SPEND_NAME: Final = re.compile(r"^(?P<run>[0-9]+)-(?P<attempt>[1-9][0-9]*)\.json$")
+
+
+def _run_spend_problems(file: Path) -> list[str] | None:
+    """Validate one topic-labeler run record; ``None`` if the file is not one.
+
+    Matched by position — ``qp-topics/spend/<file>`` — since the records are
+    named for their run rather than for a fixed filename. The name must spell
+    the record's own ``run_id`` and ``run_attempt``, so a record cannot sit
+    under another attempt's name and be counted twice or not at all.
+    """
+    if file.parent.name != "spend" or file.parent.parent.name != "qp-topics":
+        return None
+    name = _RUN_SPEND_NAME.match(file.name)
+    if name is None:
+        return ["not a run spend record: expected spend/<run_id>-<run_attempt>.json"]
+    try:
+        record = QpTopicRunSpend.model_validate(json.loads(file.read_text()))
+    except (OSError, ValueError) as exc:
+        return [str(exc)]
+    if (record.run_id, record.run_attempt) != (name["run"], int(name["attempt"])):
+        return [
+            f"names run {name['run']} attempt {name['attempt']} but records run "
+            + f"{record.run_id} attempt {record.run_attempt}"
+        ]
+    return []
+
+
 def validate_ledger(path: Path) -> LedgerValidation:
     """Validate every known artifact under ``path`` against its schema model.
 
@@ -334,7 +364,9 @@ def validate_ledger(path: Path) -> LedgerValidation:
     Scoped to the committed ledger: the gitignored ``record/`` provisioning trees
     are skipped (:func:`_in_provisioning_tree`). A case's committed
     ``summaries/`` files are checked too, against the summary contract
-    (:func:`fedcourtsai.summaries.summary_file_problems`).
+    (:func:`fedcourtsai.summaries.summary_file_problems`), and so are the topic
+    labeler's run spend records under ``qp-topics/spend/``
+    (:func:`_run_spend_problems`); both are matched by position, not filename.
     """
     problems: list[str] = []
     checked = 0
@@ -347,6 +379,11 @@ def validate_ledger(path: Path) -> LedgerValidation:
         if summary is not None:
             checked += 1
             problems.extend(f"{file}: {problem}" for problem in summary)
+            continue
+        spend = _run_spend_problems(file)
+        if spend is not None:
+            checked += 1
+            problems.extend(f"{file}: {problem}" for problem in spend)
             continue
         model = FILENAME_MODELS.get(file.name)
         if model is None:

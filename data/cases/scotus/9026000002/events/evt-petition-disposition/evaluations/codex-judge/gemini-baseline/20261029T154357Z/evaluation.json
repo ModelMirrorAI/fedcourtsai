@@ -1,0 +1,88 @@
+{
+  "base_rate_basis": "risk_set",
+  "base_rate_lookback_terms": 10,
+  "base_rate_salience_version": "sal-v4",
+  "base_rate_statpack_digest": "sha256:84feb6798b6407fea2a17fed92c36d8a8db71d12850a967d840f018295ba4641",
+  "big_case": {
+    "evaluator_score": 0.35,
+    "notes": "The governing law for nonsignatory estoppel under the New York Convention has meaningful international-arbitration and insurance implications. This particular petition is a specialized follow-on vehicle seeking a hold, and its Rule 46 dismissal establishes no substantive rule."
+  },
+  "brier_score": 0.0625,
+  "brier_skill_score": -22.924697113177228,
+  "case_id": "scotus/9026000002",
+  "claim_scores": {
+    "claims": [
+      {
+        "baseline": 0.05111128320297375,
+        "claim_id": "disposition",
+        "outcome": 0,
+        "probability": 0.25,
+        "score": -0.05988763672934541
+      },
+      {
+        "baseline": null,
+        "claim_id": "relist-increment",
+        "outcome": 0,
+        "probability": 0.98,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "cvsg-increment",
+        "outcome": 0,
+        "probability": 0.08,
+        "score": null
+      },
+      {
+        "baseline": 0.3442622950819672,
+        "claim_id": "summary-disposition-route",
+        "outcome": null,
+        "probability": 0.02,
+        "score": null
+      },
+      {
+        "baseline": null,
+        "claim_id": "dissent-from-denial",
+        "outcome": null,
+        "probability": 0.15,
+        "score": null
+      }
+    ],
+    "declared_set_version": "cert-v2",
+    "floor": 0.0,
+    "lift": -0.05988763672934541,
+    "total": -0.05988763672934541
+  },
+  "correct": 0,
+  "created_at": "2026-10-29T15:50:20.060768Z",
+  "engine": "codex",
+  "evaluator_id": "codex-judge",
+  "event_id": "evt-petition-disposition",
+  "judgment_correct": null,
+  "leakage": {
+    "influenced_prediction": "not_applicable",
+    "mode": "forward",
+    "notes": "The October 6 forecast preceded the October 23 dismissal stipulation and October 26 resolution. The log shows case-background searches and baseline reads, not a disposing order. All 32 calls are unobserved (capture coverage 0.0); their null dates do not prove empty results. On the visible queries and prose, no retrieval of this case's outcome is evidenced.",
+    "retrieved_outcome_material": false
+  },
+  "leakage_suspected": false,
+  "model": "gpt-6.1-sol",
+  "notes_doc": "evaluation.md",
+  "predicted_reasoning_quality": null,
+  "predicted_reasoning_review": null,
+  "prediction_run_id": "20261005T231540Z",
+  "predictor_id": "gemini-baseline",
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
+    "label": "proc-v14",
+    "pipeline_sha": "54a2b8d40efa9cf8141b48da2fe4f86aeb41d8d9",
+    "stamped_at": "2026-10-29T15:50:20.060768Z"
+  },
+  "reasoning_quality": 0.5,
+  "run_id": "20261029T154357Z",
+  "schema_version": "1.0",
+  "segment_base_rate": 0.05111128320297375,
+  "semantic_grades": null,
+  "vote_accuracy": null
+}

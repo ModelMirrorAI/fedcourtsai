@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000145",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "data-quality",
+      "severity": "info",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "Frozen band is 'baseline' (sal-v4), but the petitioner is represented by the Solicitor General on behalf of a federal immigration-detention warden; the caption names no federal marker, so the caption-class rule reads it private. The petition is an express hold request pending Montoya Palacios v. Liggins (No. 25-1223, granted 2026-06-29), so neither the baseline nor the federal band rate describes this petition well; the forecast rests on the companion case."
+    }
+  ]
+}

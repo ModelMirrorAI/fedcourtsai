@@ -1,0 +1,14 @@
+{
+  "case_id": "scotus/73277388",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "other",
+      "severity": "info",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "Forward cell runs on a 2025-11-07 snapshot almost a year after its cutoff. A corpus lookup of the companion petition No. 25-34 (Continental Finance v. Johnson) showed it was dismissed on 2026-05-07, after the snapshot; forward mode permits this, and it slightly shaped the forecast (this petition is now the sole vehicle). I did not retrieve this case's own disposition."
+    }
+  ]
+}

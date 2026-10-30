@@ -1,0 +1,26 @@
+{
+  "actor_id": "codex-judge",
+  "case_id": "scotus/9026000002",
+  "gaps": [
+    "gemini-baseline retrieval results are entirely unobserved; its leakage assessment necessarily relies on query text and prose"
+  ],
+  "helpful": [
+    "Explicit Rule 46 disposition in the staged docket",
+    "Blinded candidate rationales and retrieval logs",
+    "Result-capture markers distinguish missing telemetry from empty retrieval",
+    "Frozen context makes baseline ownership explicit"
+  ],
+  "notes": "All three candidates can be scored from the staged record. No external retrieval was needed. Frozen-band baselines, skill, and structured claim scores remain for the harness. gemini-baseline capture limitations were not treated as a provisioning defect or as evidence of leakage.",
+  "role": "evaluator",
+  "run_id": "20261029T154357Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "blinded provisioned files",
+    "committed statpack",
+    "JSON Schema validation",
+    "read-only review subagent"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": false
+}

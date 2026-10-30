@@ -1,0 +1,24 @@
+{
+  "case_id": "scotus/9026000107",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "record/documents/petition.txt",
+    "record/documents/appendix.txt",
+    "record/documents/questions-presented.txt"
+  ],
+  "helpful": [
+    "Full text of the district court bench ruling and Fourth Circuit opinion in record/documents/appendix.txt was critical for evaluating vehicle quality.",
+    "metrics/statpack.md provided clear sal-v4 baseline band reached rates across prior Terms."
+  ],
+  "gaps": [
+    "CourtListener MCP server returned HTTP 429 (1400/day rate limit exceeded) on initial opinion search calls."
+  ],
+  "notes": "Gracefully degraded to provisioned documents and corpus queries after CourtListener MCP 429 response."
+}

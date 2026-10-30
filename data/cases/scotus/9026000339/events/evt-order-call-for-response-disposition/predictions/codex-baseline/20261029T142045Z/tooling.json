@@ -1,0 +1,31 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000339",
+  "gaps": [
+    "CourtListener MCP citation search was throttled by the daily quota, preventing independent inspection of Tango Music.",
+    "The provisioned appendix intentionally omits the end of the appellate opinion, including its detailed treatment of the circuit conflict.",
+    "corpus-info cannot report freshness through the cell's service backend; the committed statpack carries no explicit vintage timestamp.",
+    "Web searches and attempted page opens returned no usable displayed content."
+  ],
+  "helpful": [
+    "Moment-bounded snapshot and explicit context identified one distribution, the response request, and the correct sal-v4 baseline population.",
+    "Provisioned questions presented, petition, partial appendix, and party letter supported a concrete split-and-vehicle assessment.",
+    "Statpack JSON prefix fields allowed exact pooling of the strictly-prior reached-band baseline."
+  ],
+  "notes": "Forecast rests on the provisioned case record. Required corpus query succeeded but its selected grant examples were not treated as substantive analogues or a base-rate sample. The first query's transfer line was lost in truncated displayed output; the repeated query reported zero ranged reads. A temporary uv cache override resolved a read-only default-cache error. No live case outcome was sought or encountered.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned record and schema reads",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (unsupported by service backend)",
+    "committed statpack and local exact pooling",
+    "CourtListener MCP search (HTTP 429)",
+    "web search/open (no usable content)",
+    "read-only record review and statistical review assistants"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

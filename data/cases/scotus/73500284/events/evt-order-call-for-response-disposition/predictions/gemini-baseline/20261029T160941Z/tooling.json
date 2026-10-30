@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73500284",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": false,
+  "used_base_rates": true,
+  "tools_used": [
+    "read_file",
+    "list_directory",
+    "glob",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_extract_citations"
+  ],
+  "helpful": [
+    "provisioned petition.txt, appendix.txt, and questions-presented.txt in record/documents/",
+    "provisioned docket snapshot 2026-07-27.json and record/context.json",
+    "metrics/statpack.md and metrics/statpack.json for sal-v4 baseline risk-set grant rates",
+    "mcp_courtlistener_extract_citations for local citation extraction"
+  ],
+  "gaps": [
+    "CourtListener MCP search endpoint hit upstream HTTP 429 daily rate limit (1400/day)",
+    "local corpus.db not mounted in cell workspace",
+    "per-Term conditional grant rate cut for response-requested (CFR) cert petitions in statpack"
+  ],
+  "notes": "Four CourtListener MCP search calls for cited precedents returned HTTP 429 daily quota errors; the provisioned petition and 82-page appendix contained the full Fifth Circuit and district court opinions needed to evaluate the case.",
+  "tool_manifest": [
+    "courtlistener"
+  ]
+}

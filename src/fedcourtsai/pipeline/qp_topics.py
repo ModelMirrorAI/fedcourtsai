@@ -71,6 +71,7 @@ from pathlib import Path
 from typing import Final, Literal, NamedTuple, Protocol, cast, get_args
 
 from ..corpus import scotus_application_term_year, scotus_term_year, strip_docket_annotation
+from ..planning_rates import LABEL_RATES_USD_PER_ROW, label_rate_usd_per_row
 from ..schemas import (
     QP_TOPIC_LABELS,
     QpTopicAgreement,
@@ -283,6 +284,68 @@ def application_labels_path(data_root: Path) -> Path:
     it stay as they are, and the application gate binds apart.
     """
     return data_root / "qp-topics" / "qp-topics-applications.json"
+
+
+def run_spend_dir(data_root: Path) -> Path:
+    """Where the labeling runs' spend records live under a data root.
+
+    Inside the lane's own ``data/qp-topics/`` directory, so the labels PR's
+    fixed branches carry a record beside the labels file, or alone for a run
+    that published nothing.
+    """
+    return data_root / "qp-topics" / "spend"
+
+
+def run_spend_path(data_root: Path, run_id: str, run_attempt: int) -> Path:
+    """One labeling attempt's spend record: ``spend/<run_id>-<run_attempt>.json``.
+
+    Keyed on the attempt as well as the run, because a re-run of the labeling
+    job spends again and must not overwrite the first attempt's record.
+    """
+    return run_spend_dir(data_root) / f"{run_id}-{run_attempt}.json"
+
+
+def build_label_plan(*, frame: str, model: str, rows: int) -> dict[str, object]:
+    """The plan document a topic-label round is held on.
+
+    Priced at the batch's rows times the labeler's per-row planning rate, so
+    the review hold reads one upper estimate the way it reads a summarize
+    plan's. A model the rate table does not name is priced at its highest rate
+    and the plan says so.
+    """
+    rate = label_rate_usd_per_row(model)
+    return {
+        "stage": "label",
+        "frame": frame,
+        "model": model,
+        "labeler": f"claude-code/{model}",
+        "rows": rows,
+        "rate_usd_per_row": rate,
+        "rate_source": "measured" if model in LABEL_RATES_USD_PER_ROW else "highest-rate fallback",
+        "estimated_cost_usd_high": round(rows * rate, 2),
+        "basis": (
+            "rows x the labeler's per-row planning rate (fedcourtsai.planning_rates), set at "
+            "or above the measured ceiling-sized batches; one headless session, so a refused "
+            "or short run spends about what a published one does"
+        ),
+    }
+
+
+def render_label_plan(plan: Mapping[str, object]) -> str:
+    """The plan's step-summary report: what the round labels and what it is priced at."""
+    fallback = (
+        " (a model the rate table does not name, so its highest rate)"
+        if plan.get("rate_source") != "measured"
+        else ""
+    )
+    return (
+        f"### qp-topic label plan ({plan['frame']} frame)\n\n"
+        f"- **Labeler:** `{plan['labeler']}`\n"
+        f"- **Batch:** {plan['rows']} row(s)\n"
+        f"- **Price:** {plan['rows']} x ${float(str(plan['rate_usd_per_row'])):.2f} a row"
+        f"{fallback} = **${float(str(plan['estimated_cost_usd_high'])):,.2f}**, the upper "
+        "estimate the review hold judges the round on\n"
+    )
 
 
 @dataclass(frozen=True)

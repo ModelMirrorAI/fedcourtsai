@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73277388",
+  "gaps": [
+    "No measured cert response-requested conditional base rate",
+    "CourtListener daily rate limit prevented precedent verification",
+    "Web calls returned no usable content",
+    "Historical one-docket lookup consumed 653 ranged GETs and returned no opinion",
+    "Committed statpack lacks a build or corpus freshness timestamp"
+  ],
+  "helpful": [
+    "Moment-bounded snapshot and readable petition/appendix",
+    "Matching sal-v4 risk-set counts in statpack JSON",
+    "Explicit response-requested claim-mask guidance"
+  ],
+  "notes": "Used UV_CACHE_DIR=/tmp/uv-cache after the default cache proved read-only. Corpus query results supplied no useful substantive analogue; no own-case outcome was sought. Distinguishing docket-Term filtering from decision-day filtering matters even for prior-only lookups. Missing BIO is expected at this response-requested moment.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search (throttled)",
+    "web search/open (no usable response)",
+    "local schema and artifact validation"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

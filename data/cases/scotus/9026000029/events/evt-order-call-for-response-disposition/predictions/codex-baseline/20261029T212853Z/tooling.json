@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000029",
+  "run_id": "20261029T212853Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["exec_command", "fedcourts paths", "fedcourts query", "CourtListener search", "CourtListener search_document", "web search_query", "web open"],
+  "helpful": ["Complete petition and appended lower-court opinion", "Moment-bounded snapshot and frozen salience context", "Per-Term sal-v4 reached-risk-set anchors", "CourtListener focused searches within older opinions"],
+  "gaps": ["No committed base-rate cut conditions on a called-for cert response", "Web calls returned no usable content", "Default uv cache path was read-only; a temporary cache worked", "Statpack metadata inspected did not supply a generation timestamp or corpus vintage"],
+  "notes": "Corrected the corpus era token from modern to 2020s. Generic granted-prior retrieval included substantive interim applications, which were excluded from cert comparison. Citation-only CourtListener lookup can match a different reporter; court and caption filters recovered Cox. No response text is expected at this moment, so its absence is not a provisioning failure. No target-case outcome or other cell's output was read."
+}

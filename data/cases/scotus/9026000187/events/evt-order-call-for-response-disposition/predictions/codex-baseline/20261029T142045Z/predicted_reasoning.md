@@ -1,0 +1,11 @@
+# Forecast of the Court's action
+
+The Court will most likely deny the petition after receiving the requested response. The snapshot shows one distribution, on September 30, 2026, for the October 16 conference, followed by a response request on October 5 with a November 4 deadline. It shows no filed response, no CVSG, and no amicus-brief entries.
+
+Expect one further distribution after the response arrives or its time expires, followed by disposition in late 2026 or early 2027. The probability of at least one additional distribution is 0.99; this is not a prediction of a substantive conference relist, since redistribution after the response request itself satisfies the increment. One or two additional conference relists beyond that redistribution are possible, especially if the Court seriously considers resolving the split, but are not the modal path. The Court will probably not invite the Solicitor General's views; the probability of a new CVSG is 0.015.
+
+If review is granted, the Court will most likely take the petition's single question substantially as presented: whether a pretrial detainee's medical-care claim requires proof of the official's subjective awareness of the risk or can proceed under an objective standard following Kingsley. The question would remain about constitutional medical-care liability, not every kind of due-process claim. The separate question whether qualified immunity still protects this defendant would remain a substantial obstacle to relief.
+
+Conditional on any grant, plenary briefing and argument are more likely than disposition in the cert order itself: P(summary-disposition route | grant) = 0.10. Resolving the competing readings of Kingsley would require choosing between developed positions, and no intervening controlling decision providing an obvious GVR basis appears in the provisioned record.
+
+Conditional on denial, expect no separate writing: P(a noted dissent or statement respecting denial | denial) = 0.08. If a Justice does write about the treatment of this detainee or the unresolved split, Sotomayor or Jackson is the leading individual possibility, but neither writing is the predicted outcome. No merits opinion or merits vote lineup is forecast on the denial path.

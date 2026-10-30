@@ -1,0 +1,16 @@
+# Why P(grant) = 0.24
+
+**Inputs read.** Snapshot `2026-07-28.json` (distributed once for 9/28/2026; response waived 7/6, response requested 7/28). Provisioned `questions-presented.txt`, `petition.txt` (cover, QPs, introduction and reasons headings; the text is truncated per `documents.json`) and `appendix.txt` (not relied on beyond confirming the en banc opinion set). No brief in opposition was provisioned, since it postdates my snapshot. Context: band `state` (sal-v4), term 2025, distribution_count 1, no CVSG, forward mode.
+
+**Anchor.** The band anchor is the `state` band's bracketed `reached` rate over Terms before OT2025 in the sal-v4 segment table, pooled over OT2017–OT2024. That works out to about 94 grants in about 395 petitions, **about 24%**. The relist-1 bucket of the relist cut (8.5% granted plus 5.2% GVR) is a weaker cross-check. No committed table conditions on a called-for response.
+
+**Why the anchor fits poorly, and why I end close to it anyway.** The `state` band models a State that lost below and is asking the Court to step in. Here Louisiana **won** below. Its petition is expressly conditional and argues that review is unwarranted. Its grant chance is roughly P(*Nathan* granted) × P(this petition is taken too | *Nathan* granted), plus a small GVR/hold path.
+- P(*Nathan* granted) ≈ 0.55–0.6. The en banc Fifth Circuit (9–8) upheld a classroom Ten Commandments mandate despite *Stone v. Graham*. Similar laws are spreading (Arkansas, now before the Eighth Circuit; Alabama; Tennessee). Several Justices have signalled interest in *Kennedy*-era history-and-tradition questions. Against a grant: the absence of a circuit split (Louisiana's own argument) and the pending Eighth Circuit appeal.
+- P(take Roake too | *Nathan* granted) ≈ 0.35–0.4. The request for a response shows the Court wants a full picture before acting on the pair. That is weak evidence, since response requests are routine on paid state petitions once a response is waived. The respondents' BIO (filed 10/19) presumably opposes, and the ripeness/PI posture makes this a weaker vehicle than *Nathan*.
+- Product ≈ 0.21, plus about 0.03 for a GVR/hold-then-vacate path, gives **about 0.24**. That coincides with the band anchor, so I stay there.
+
+**Increments.** relist-increment 0.96: the first conference passed while the response was pending, so the petition must be redistributed after the 10/19 BIO. The harness masks this claim at this moment anyway. cvsg-increment 0.02. summary-disposition-route 0.2, conditional on a grant (a hold followed by GVR). dissent-from-denial 0.10, conditional on a denial: the denial would most likely be mechanical, and any writing would attach to *Nathan*.
+
+**Forward retrieval and leakage check.** I read the live dockets for 25-1360 and 26-257 and checked the corpus rows for both (each last polled about 10/25–26). Neither shows a disposition. 25-1360 shows two response extensions and the BIO filed 10/19/2026. 26-257 shows the petition filed 8/17/2026, an amicus brief, and a response due 11/10/2026. So the cell is not mis-provisioned. The web search surfaced only filings and background coverage, with no claimed disposition.
+
+**Where to discount me.** P(*Nathan* granted) is the big lever. I hold it with low confidence, and I cannot see Texas's position as respondent. I also did not read the BIO's arguments.

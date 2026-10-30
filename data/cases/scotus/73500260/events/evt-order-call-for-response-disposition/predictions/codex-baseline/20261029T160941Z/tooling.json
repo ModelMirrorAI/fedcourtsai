@@ -1,0 +1,31 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500260",
+  "gaps": [
+    "CourtListener MCP authority lookup was daily-rate-limited with HTTP 429.",
+    "Web search/open attempts returned no usable material.",
+    "corpus-info does not support the cell's service backend, so live corpus vintage was unavailable.",
+    "No published base rate conditions on a called-for cert response."
+  ],
+  "helpful": [
+    "Frozen context distinguishes a response request from an actual relist.",
+    "Full petition includes the lower-court opinion, enabling assessment of the petition's vehicle framing.",
+    "Matching sal-v4 JSON risk-set denominators permit exact prior-Term pooling."
+  ],
+  "notes": "Completed from staged inputs and the committed statpack. The default uv cache path was read-only; a /tmp cache override made CLI commands work. The generic corpus grant examples were not close comparators and did not drive the probability. No outcome retrieval or direct CourtListener REST fallback.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell",
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info",
+    "CourtListener MCP search",
+    "web search/open",
+    "jq",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

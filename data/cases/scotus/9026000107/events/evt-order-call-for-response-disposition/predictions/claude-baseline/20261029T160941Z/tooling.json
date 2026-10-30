@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000107",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["sal-v4 band table with reached rates", "provisioned petition and appendix text"],
+  "gaps": ["No statpack cut conditioned on a called-for response, which is this moment's defining signal", "query has no way to find takings-ripeness priors by subject"],
+  "notes": "A summary-reversal filter over the 2020s returned nothing after a 235 MB read, so it was expensive and empty."
+}

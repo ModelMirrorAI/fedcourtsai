@@ -1186,6 +1186,104 @@ def call_for_response_date(payload: Mapping[str, Any]) -> date | None:
     return None
 
 
+#: The docket's opening petition entry: "Petition for a writ of … filed".
+#: Start-anchored and read up to the filing verb, so the writ phrase is what the
+#: Clerk wrote for the case-opening paper, never a later motion reciting it.
+_OPENING_PETITION_RE = re.compile(
+    r"^\s*petition\s+for\s+(?:an?\s+)?(?P<what>[^.(]*?\bwrit\b[^.(]*?)\s+filed\b", re.I
+)
+
+#: The extraordinary writs of the Court's Rule 20.
+RULE_20_WRITS: tuple[str, ...] = ("mandamus", "prohibition", "habeas corpus")
+
+#: The writ a docket's opening petition names. ``rule-20`` is a writ of
+#: mandamus, prohibition or habeas corpus and no certiorari; ``ambiguous`` names
+#: both; ``certiorari`` (certiorari before judgment included) names certiorari
+#: and no Rule 20 writ; ``other`` names neither.
+OpeningWrit = Literal["certiorari", "rule-20", "ambiguous", "other"]
+
+#: The stored values of :data:`OpeningWrit`, in that order.
+OPENING_WRITS: tuple[OpeningWrit, ...] = ("certiorari", "rule-20", "ambiguous", "other")
+
+
+def opening_petition_entry(
+    payload: Mapping[str, Any],
+) -> tuple[str, str | None, OpeningWrit] | None:
+    """The first "Petition for a writ of … filed" entry: ``(text, raw date, writ)``.
+
+    The opening *petition* entry rather than the docket's first entry of all: an
+    application to extend the time to file precedes the petition on many
+    dockets and names no writ of its own. The writ is read off the entry text
+    alone, never off the caption, because the caption does not separate the
+    two populations: a Rule 20 petition is captioned "In re …", and so is a
+    sealed certiorari petition. ``None`` where no such entry is disclosed — a
+    payload with no proceedings, or a docket whose petition entry is missing.
+    """
+    for text, raw in proceedings_entries(payload):
+        match = _OPENING_PETITION_RE.search(text)
+        if match is None:
+            continue
+        what = match.group("what").lower()
+        extraordinary = any(writ in what for writ in RULE_20_WRITS)
+        certiorari = "certiorari" in what
+        writ: OpeningWrit
+        if extraordinary and certiorari:
+            writ = "ambiguous"
+        elif extraordinary:
+            writ = "rule-20"
+        elif certiorari:
+            writ = "certiorari"
+        else:
+            writ = "other"
+        return text.strip(), raw, writ
+    return None
+
+
+def opening_writ(payload: Mapping[str, Any]) -> OpeningWrit | None:
+    """The writ the docket's opening petition entry names, or ``None`` if none is disclosed.
+
+    The ingest latch behind the corpus's ``opening_writ`` column
+    (:func:`opening_petition_entry`). Fixed at filing, so any payload that
+    discloses the opening entry yields the same reading.
+    """
+    found = opening_petition_entry(payload)
+    return found[2] if found is not None else None
+
+
+def distributions_after_call(payload: Mapping[str, Any]) -> int | None:
+    """How many conferences the petition was first distributed for after a call for response.
+
+    The ingest latch behind the corpus's ``distributed_after_call`` column, the
+    input sal-v5's relist count reads. ``None`` where the docket shows no dated
+    call for response (:func:`call_for_response_date`). Otherwise the number of
+    distinct conference dates named by **petition** distributions (the
+    entry-initial ``dist-v2`` parse, the reading ``distribution_count`` holds)
+    filed strictly after the call, less any conference a distribution filed on
+    or before the call, or undated, also names. Counted over the whole docket,
+    as ``distribution_count`` is, so every conference counted here is one that
+    column counts too, and a conference enters this count only in the same
+    poll that first adds it to that one.
+    """
+    called = call_for_response_date(payload)
+    if called is None:
+        return None
+    after: set[date] = set()
+    other: set[date] = set()
+    for text, raw in proceedings_entries(payload):
+        match = _PETITION_DISTRIBUTED_RE.search(text)
+        if match is None:
+            continue
+        conference = conference_date(match.group(1))
+        if conference is None:
+            continue
+        filed = entry_date(raw)
+        if filed is not None and filed > called:
+            after.add(conference)
+        else:
+            other.add(conference)
+    return len(after - other)
+
+
 def petition_distributions(payload: Mapping[str, Any], *, through: date) -> list[tuple[date, date]]:
     """Every petition distribution filed on or before ``through``: ``(filed, conference)``.
 

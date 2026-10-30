@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000019",
+  "run_id": "20261029T212853Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp:courtlistener:search",
+    "mcp:courtlistener:read_document"
+  ],
+  "helpful": [
+    "metrics/statpack.md salience band and signal cuts",
+    "provisioned petition.txt and appendix.txt",
+    "mcp:courtlistener:read_document for Andersen v. Eighth Judicial District Court and United States v. Chavez"
+  ],
+  "gaps": [],
+  "notes": "Corpus queries provided 2020s SCOTUS grant and denial comparisons; CourtListener MCP search and read_document tools retrieved Andersen v. Eighth Judicial District Court (2019 NV 42), People v. Suazo (32 N.Y.3d 491), United States v. Chavez (204 F.3d 1305), State v. Woolverton (371 P.3d 941), and State ex rel. McDougall v. Strohson (945 P.2d 1251)."
+}

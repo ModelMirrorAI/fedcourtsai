@@ -1,0 +1,30 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000180",
+  "gaps": [
+    "CourtListener MCP was unavailable due to its daily HTTP 429 limit.",
+    "No published response-request-conditioned cert rate was available.",
+    "The targeted historical corpus prior had no opinion body even with --full.",
+    "The web tool returned no usable output for two general precedent searches."
+  ],
+  "helpful": [
+    "Explicit moment, cutoff, and frozen salience band prevented confusing redistribution with a true merits relist.",
+    "The petition included the lower appellate opinion, allowing a direct comparison between advocacy and the actual immunity rationale.",
+    "Exact risk-set denominators in statpack JSON allowed pooling every displayed prior Term."
+  ],
+  "notes": "Used the provisioned response-call record rather than retrieving the petition's later state. No opposition was expected at this moment. The default uv cache was read-only; a writable /tmp cache allowed CLI reads and validation without changing project configuration.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "shell: provisioned-input and schema reads",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack Markdown and JSON",
+    "CourtListener MCP search (throttled)",
+    "web search (no usable output)",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

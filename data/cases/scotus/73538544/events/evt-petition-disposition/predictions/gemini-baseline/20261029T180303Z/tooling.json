@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/73538544",
+  "run_id": "20261029T180303Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "mcp_courtlistener_search",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "brief-in-opposition.txt combining both Irigoyen Farms' Aug 26 brief and Walmart's Oct 13 post-CFR brief conceding GVR",
+    "petition.txt including the full California Court of Appeal opinion (Pet. App. 1a-14a)",
+    "metrics/statpack.md salience band (sal-v4) reached base rates and relist/CVSG/amicus cuts",
+    "fedcourts query --disposition gvr and --disposition summary-reversal"
+  ],
+  "gaps": [
+    "CourtListener MCP search returned HTTP 429 daily rate limit error (1,400/day exceeded)",
+    "cert-reply.txt included only the first cert reply (Aug 31, 2026) and omitted the second cert reply (Oct 20, 2026, replying to Walmart's post-CFR brief)"
+  ],
+  "notes": "Provisioning both respondents' briefs in brief-in-opposition.txt—especially Walmart's October 13, 2026 post-CFR response explicitly agreeing to a GVR in light of Montgomery v. Caribe Transport II, LLC—and including the full California Court of Appeal opinion in petition.txt made the record self-contained despite the CourtListener HTTP 429 rate limit."
+}

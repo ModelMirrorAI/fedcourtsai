@@ -1,0 +1,27 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000176",
+  "gaps": [
+    "CourtListener MCP citation lookup was throttled by its daily limit.",
+    "The sparse summary-reversal corpus filter returned no rows after 902 ranged GETs and 236060672 bytes.",
+    "The committed statistical pack did not expose corpus-wide pull/snapshot freshness metadata.",
+    "General-precedent web attempts returned no usable visible content."
+  ],
+  "helpful": [
+    "The provisioned appendix preserved the appellate majority's enforcement rationale and the dissent, allowing comparison with the petition's framing.",
+    "Frozen sal-v4 conditioning and exact per-Term reached-rate denominators made the state-petitioner anchor reproducible."
+  ],
+  "notes": "The corpus query was attempted and completed but yielded no usable priors. The forecast relies on the provisioned record and committed statpack; no CourtListener REST fallback or own-case outcome lookup was used. A temporary uv cache resolved the default cache's read-only filesystem error.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "committed metrics/statpack.md and metrics/statpack.json",
+    "CourtListener MCP search (throttled)",
+    "web search and open (no usable visible content)"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

@@ -1,0 +1,13 @@
+{
+  "case_id": "scotus/73500261",
+  "run_id": "20261029T142045Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {
+      "category": "scope",
+      "severity": "info",
+      "message": "No. 25-1360 is a conditional, protective petition from the party that prevailed below (Louisiana asks the Court to deny review unless it grants the companion Nathan v. Alamo Heights, No. 26-257). The salience 'state' band assumes a losing State seeking review, so its base rate describes a different population. Its disposition will likely track 26-257, which is not yet distributed. The two cases are not linked by a Vide entry, so record/related/ is empty."
+    }
+  ]
+}

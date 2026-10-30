@@ -1,0 +1,29 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000046",
+  "gaps": [
+    "CourtListener citation lookup was throttled with HTTP 429.",
+    "Web calls returned no readable payload.",
+    "corpus-info does not support the cell's corpus service backend, so corpus-wide freshness was unavailable."
+  ],
+  "helpful": [
+    "Moment-bounded snapshot and explicit sal-v4 conditioning.",
+    "Petition text with the lower-court summary order appended.",
+    "Committed risk-set base rates and exact JSON denominators.",
+    "Structured corpus query worked and reported transfer counts and sparse-filter coverage."
+  ],
+  "notes": "The broad corpus query returned unrelated prior-Term grants, not substantive analogues. The targeted citation query was empty. Legal analysis therefore rests on the staged filing and appended order; no current docket or outcome was retrieved. A temporary uv cache override was needed because the default cache was read-only.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts corpus-info (failed)",
+    "CourtListener MCP search (throttled)",
+    "web search/open (no readable results)",
+    "local statpack arithmetic"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

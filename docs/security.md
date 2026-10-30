@@ -100,7 +100,7 @@ also on `corpus-write`, for the corpus writer jobs that bind it. Each workflow m
 | `run-analytics` (metrics-refresh job only) | dev | contents, pull-requests | open the reviewed metrics-refresh PR; the read-only analysis modes hold no write token. Minted on `main`-branch (prod-bound) runs only — a staging rehearsal fences the mint, identity and review-PR steps and publishes nothing |
 | `run-analytics` (big-cases job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** big-case-board PR — one of the two PR openers in this repo not reviewed by a human (with the public-updates row below), which is why its diff is bounded independently by the required `paths` check (`assert-board-paths`: the board's two files, written, nothing else). The job assumes no role and holds no `id-token`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the row above |
 | `run-analytics` (public-updates job only) | dev | contents, pull-requests | open and, once its required checks pass, merge the **unattended** update-history PR, whose diff the required `paths` check bounds independently (`assert-update-paths`: added `metrics/updates/<YYYY-Www>.md` files, nothing else). The job assumes no role, holds no `id-token` and does not bind `website`: it reads the committed ledger and nothing else. Minted on `main`-branch (prod-bound) runs only, on the same terms as the rows above |
-| `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR, from a job that runs no agent and takes only the measured labels file and the measured block from `qp-topic-label`, as a one-day artifact handed off once the gate has passed. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
+| `run-analytics` (qp-topic-publish job only) | dev | contents, pull-requests | open the reviewed qp-topic labels PR, or a spend-record PR, from a job that runs no agent and takes only the measured labels file, the measured block and the run's spend record from `qp-topic-label`, as a one-day artifact: the labels and the block once the gate has passed, the spend record on any outcome it was written on — a refused or incomplete run hands off the record (and a refused run its block) alone, and the job re-validates the record, holds it to this run's id and frame, and scans every handed-off file before it mints. The mint is fenced to `main`-branch (prod-bound) runs, so a rehearsal exercises the hand-off and publishes nothing. The labeling job itself holds no App token on any ref — the agent step is passed the job's own ambient token as `github_token` (the action requires one, and its OIDC fallback would mint an App installation token defaulting to contents/issues/pull-requests *write*), capped at `contents: read` by the job's permissions block |
 | `summarize` (publish job only) | dev | contents, pull-requests | open or update the reviewed `summaries/refresh` PR (never auto-merged). The job runs on `main` only, binds `prod`, assumes no role and holds no model key: it mints after the generate job has jailed, validated and scanned the summaries, and re-runs all three over the whole change set before the push |
 | `promotion-prep` (`write` job only — the promotion train) | dev | contents, pull-requests | create a `promote/<date>` candidate branch at staging's tip (the one ref write; never an update, force push or deletion), open its draft PR into `main`, mark it ready, request the approvers' review, refresh the generated block of its body — and **merge it**, with a merge commit pinned to the head, using the dev App's `main: require approval` bypass. The merge runs only after the job re-reads, on the ambient token before minting, that the PR is open, ready and unchanged at the planned head, that an approver in `config/promotion-train.yaml` approved exactly that head with no change requested since, from every page of the reviews (`fedcourts promotion-train-approval`; a short or failed read is not approved), that no fan-out is in flight, and that the registry gate still passes; `main: require PR`'s required checks still bind the merge. The `plan` job before it decides and renders holding no write credential and no environment |
 | `run-pull` (chain-predict job), `run-predict` (chain job) | dispatch | actions write; pull-requests read | start an input-less `run-predict` on `main`: after a pull window commits, and after a round a cap stopped short once its collect PR merges. Both read the open PRs into `main` and their reviews first, standing down while a promotion is about to merge, and `chain` also reads its round's collect PR. The started round derives its own backlog and waits on the review hold unless its own plan auto-releases |
@@ -839,18 +839,20 @@ deliberate exceptions, by environment: the two holds below,
 which bind `corpus-write` (the paragraph after those), `post-public-update`'s
 `post` job, which binds `website` (*The `website` environment*), and
 `staging-corpus-refresh`'s `refresh` job, which binds `staging`. The `approval` jobs of run-predict,
-run-evaluate, run-backtest and summarize declare
+run-evaluate, run-backtest and summarize, and run-analytics's
+`qp-topic-approval`, declare
 **`review`**, an environment that exists *only* for its required reviewers.
 It carries no secrets, no variables and no role, and its deployment branches
-are `main` and `staging` — `staging` so that summarize's staging rehearsal
-(the one held lane whose jobs resolve their environment from the ref) passes
-the same hold its production run does. A `run-predict`, `run-evaluate` or
-`summarize` round its own plan auto-released binds **`review-auto`** instead
+are `main` and `staging` — `staging` so that the staging rehearsals of
+summarize and the topic-label lane (the two held lanes whose other jobs
+resolve their environment from the ref) pass the same hold their production
+runs do. A `run-predict`, `run-evaluate`, `summarize` or topic-label round its
+own plan auto-released binds **`review-auto`** instead
 (`run-backtest` never does): no required reviewers, on purpose — adding one
 would only make it a second `review` — no secrets, no variables, no role, and
 deployment branches restricted to `main`, so only a `main` run adds to the
 deployment count every lane's next plan reads against the shared daily cap,
-and a summarize staging rehearsal always holds on `review`. Create it that way
+and a summarize or topic-label staging rehearsal always holds on `review`. Create it that way
 before setting the caps: GitHub would otherwise create it on first reference
 with no branch policy, and the promotion gate's `contexts` stage refuses a
 `main` that binds it unless it is restricted to `main` and carries no secrets
@@ -858,11 +860,11 @@ or variables. The deployment count is only as good as the deployment record,
 which any write holder could prune, and that includes the agent account
 interactive sessions act as. So the daily cap reads a second record beside it,
 the auto-released commits on `main` (collect marks a released predict or
-evaluate round's ready commit, summarize's publish step its commit, and
-`main`'s history cannot be rewritten), and takes the larger count; an
+evaluate round's ready commit, summarize's and the topic labeler's publish
+steps their commits, and `main`'s history cannot be rewritten), and takes the larger count; an
 unreadable record keeps the hold. A write holder could still edit an unmerged
-collect PR's commit, and the summaries branch is rebuilt each run and merges
-only on a maintainer's review, so the committed count bounds what has landed,
+collect PR's commit, and the summaries and labels branches are rebuilt each
+run and merge only on a maintainer's review, so the committed count bounds what has landed,
 not what is in flight. Before a round spends, three bounds apply: the
 per-round cap and the daily count, which bound *estimated* spend, and the
 trailing budget, which projects measured spend from the committed ledger plus
@@ -1571,8 +1573,8 @@ pair the third one writes:
   head, and its `run-auto` job, whose pull serves an allowlisted query run at
   `main`'s own commit. Two operational facts ride this role. Its IAM **maximum
   session duration** must allow the sessions its callers request —
-  `run-backtest`'s replay job asks for 21600 s (6 h), the census for 8100 s —
-  because a
+  `run-backtest`'s replay job asks for 21600 s (6 h), `run-analytics`'
+  text-coverage job for 8100 s — because a
   re-provisioned role at the AWS default hour fails both at their first
   credentialed step. (`run-backtest` calls the composite twice: its cadence
   `plan` job pulls the index at the composite's default hour and reads it
@@ -1610,7 +1612,7 @@ Access mirrors each workflow's role in the pipeline:
 | `run-repair` — corpus job | read-only on a dry run, read-write on an apply | a dry run pulls the index, applies the dedupe (and, for the overhang clear, the scope reconcile) to the runner's copy alone and tees the pass's ledger: no App token, no `corpus-write` lock, the remote-writes switch off, no push. An apply holds the lock, the read-write role and the App token for the whole job. The dry run narrows what is held, not what is reachable: the job still binds `corpus-write` with `id-token: write`, so any step can still mint the read-write role. No pass in it fetches or parses third-party content |
 | `run-repair` — decision-record job | read-only (pull and dry run), read-write on an apply | the dry run pulls the index and reads each candidate's stored snapshot from the content store; the apply re-assumes the read-write role for the step that fills two index columns and pushes the blob. One job, not the split: it fetches nothing, and the private snapshots it parses may not cross a public artifact |
 | `run-predict`, `run-evaluate` — cell jobs | read-only, **step-scoped** | record provisioning + the corpus sidecar's ranged queries; the credentials ride the sidecar/provisioning steps only, never an agent step (no pull). A forward predict cell's provisioning step also fetches its docket's current JSON from the Court (the pre-mint poll), and a post-run step holding no credential fetches it once more, both through the live poller's client, which refuses any hop off the Court's host; each payload is only scanned for the event's outcome, never stored or handed to the cell |
-| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the distribution census additionally reads each frame case's latest live-shaped snapshot from the content store under the split — undated, unlike the back-test's cutoff-bounded snapshot read, but the same per-case list-plus-get access pattern against the store; the text-coverage mode reads wider on the same terms — a document-manifest round trip per live-slice case plus each stored document's text body |
+| `run-analytics`                           | read-only     | scan-heavy analysis / metrics refresh (full `corpus-pull`); the text-coverage mode additionally reads the content store under the split — a document-manifest round trip per live-slice case plus each stored document's text body |
 | `run-analytics` — qp-topic-extract        | read-only     | the labeler's extract (full `corpus-pull`), handed to the labeling job as an artifact |
 | `run-analytics` — tool-usage              | none          | rolls up the committed `data/` retrieval logs — no corpus, no network, so it binds no environment and assumes no role |
 | `run-analytics` — big-cases               | none          | rolls the committed `data/` predictions into the big-case board — no corpus, no network, no `id-token`. It binds the branch-resolved environment (unlike tool-usage) because it publishes, and mints the PR token there; it assumes no role |
@@ -1853,8 +1855,8 @@ env-configured `ranged` backend; an explicit
 per-command `--corpus-backend` is the only thing that still wins), and the
 casestore read path *does* list (`s3:ListBucket`) — a latest-snapshot-style
 read lists a case's `snapshots/` to find the newest (`provision-snapshot`, the
-writer's own change detection, the signal backfill, and the distribution census
-`run-analytics` dispatches, which takes one such read per frame case — one
+writer's own change detection, the signal backfill, and the
+`distribution-census` command, which takes one such read per frame case — one
 listing each, and a get per snapshot it walks past to reach the newest
 live-shaped one), while
 pure `GetObject` reads (`materialize-event`'s event/document reads, document
@@ -1928,12 +1930,7 @@ stripping mechanism, since the summary tees the command's stderr verbatim; and
 the labeling job's label-line count, which is arithmetic computed from the
 file rather than anything read out of it, and is therefore the one record that
 needs no scan ahead of it. A fourth run artifact rides the same one-day
-window: the `distribution-census` JSON, which republishes no document text —
-counts, band labels, and changed-case ids only — but whose id lists name
-ingested dockets by public docket number, membership conditioned on a parse
-delta (the case's DISTRIBUTED count reads differently under the candidate
-parse), re-derivable on a re-dispatch against the corpus sha it records. A
-fifth rides the same window on the same terms: the `text-coverage` report,
+window: the `text-coverage` report,
 which also republishes no document text — counts, kinds, and three untruncated
 case-id ledgers, the empty-text documents (fetch-conditioned membership whose
 extent tracks corpus growth), the queued cert-form cases holding no petition row
@@ -1942,7 +1939,7 @@ grant-correlated cut argued above) and the queued application-form cases holding
 no application document (membership conditioned on the interim lane's own
 predict-queue decision, which turns on the ask being substantive rather than on
 any grant-correlated cut, and is the weaker of the two) — re-derivable on a
-re-dispatch over the blob its own vintage lines name. A sixth rides the same
+re-dispatch over the blob its own vintage lines name. A fifth rides the same
 window: the `order-scan` report, which names district dockets the corpus does
 not hold, by court, docket id, number and filing date, with the numbers and
 dates of the entries a RECAP search matched and the order kinds read from them.
@@ -1955,7 +1952,7 @@ Its job holds the CourtListener token and, on the runtime token, `actions:
 read`, used only to fetch the previous run's report so the scan resumes: the
 fetch takes the newest unexpired `order-scan` artifact from the same ref,
 checks that its run is a dispatch of `run-analytics`, and extracts the one
-report file by name. A seventh rides it too: the `decision-below` report,
+report file by name. A sixth rides it too: the `decision-below` report,
 which names, for each sampled cert petition, the identifiers and dates its
 stored supremecourt.gov docket carries (the SCOTUS number, the lower court's
 name and case numbers, the judgment and rehearing-denied dates), the lower

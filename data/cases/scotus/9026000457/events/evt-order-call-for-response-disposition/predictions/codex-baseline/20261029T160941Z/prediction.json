@@ -1,0 +1,94 @@
+{
+  "big_case_rationale": "The reach of state contract-pharmacy mandates within a nationwide federal drug-discount program has substantial financial, healthcare-access, and federalism consequences, independently of the chance of review.",
+  "big_case_score": 0.73,
+  "case_id": "scotus/9026000457",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.02,
+        "Barrett": 0.006,
+        "Gorsuch": 0.02,
+        "Jackson": 0.005,
+        "Kagan": 0.003,
+        "Kavanaugh": 0.006,
+        "Roberts": 0.002,
+        "Sotomayor": 0.006,
+        "Thomas": 0.025
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.24
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.99
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.42
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.08
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.08
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-28",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-27",
+    "snapshot_provenance": "dated",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-29T16:49:43.914322Z",
+  "engine": "codex",
+  "event_id": "evt-order-call-for-response-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-27.json",
+  "judgment": null,
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.24,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6",
+    "label": "proc-v14",
+    "pipeline_sha": "1b197495a1c7b86ca8cb852433253767f07489b4",
+    "stamped_at": "2026-10-29T16:49:43.914322Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

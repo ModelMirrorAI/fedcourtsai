@@ -1,0 +1,48 @@
+# Rationale
+
+## Call and information set
+
+I assign **P(any grant) = 0.12** and predict **denial**. The grant family includes plenary review, a GVR, and summary reversal. This is a cert-stage, response-requested cell, not an application for interim relief or a merits forecast.
+
+I read the provisioned `2026-09-09.json` snapshot, `context.json`, the questions presented, the complete short petition, the document manifest, and selected appendix passages, especially App. 12a, 33a–45a. The snapshot records one distribution, on August 12 for the September 28 conference, followed by the September 9 response request after Louisiana's August 5 waiver. That is not a completed conference followed by a true relist. The record contains no response or CVSG and no docketed amicus brief. The context's amicus field is null, not a harness-certified zero.
+
+The mode is forward, but I elected to use this case's provisioned record only: I did not retrieve its current docket, disposition, later filings, or subsequent history. The forecast therefore conditions on the September 9 information set, with the date cut excluding September 10 onward. The October 9 response deadline is an expectation in that record, not evidence that a response was actually filed. The petition and appendix were extracted without an empty-text or truncation flag. No brief in opposition was provisioned; that is expected at this moment, and I do not infer its future contents. I do not independently know this petition's outcome.
+
+## Base-rate anchor
+
+The frozen band is `baseline` under `sal-v4`, and the petition is paid with a private petitioner. Louisiana is the respondent, so its presence does not make this a state-petitioner-band case. I used the matching **Segment base rate by salience band (sal-v4)** table in the committed `metrics/statpack.md`, with exact pool arithmetic from `metrics/statpack.json`. Pooling every displayed Term strictly before 2026, namely 2017–2025, gives **660 grant-family outcomes / 12,913 weighted resolved baseline risk-set observations = 5.11%**. This uses the bracketed reached rates, not terminal-baseline rates. The current Term is excluded. These are denial-reweighted estimates in the committed pack, not a newly refreshed corpus census; I did not obtain a current corpus-wide vintage.
+
+For cross-checks, the pack's terminal relist-0 bucket has 10,203 resolved observations and a grant-family share of approximately 1.8%; the relist-1 bucket has 2,538 and approximately 13.7%. The no-CVSG bucket has 13,556 resolved observations and approximately 6.4% in the grant family, versus 164 and approximately 34.8% for CVSG petitions. None is a conditional forward hazard from this cell's posture. In particular, the nearly certain redistribution following the response request is not equivalent to surviving a considered conference. The terminal zero-amicus bucket has 11,109 resolved observations and approximately 3.8% in the grant family; it is a marginal, selected comparison, not another independent penalty on this petition. The lower court is Louisiana's Fifth Circuit Court of Appeal, not the federal Fifth Circuit, so I did not apply a federal `ca5` rate.
+
+The pack publishes no response-request-conditioned rate. Moving from 5.11% to 12% is my judgment, not a measured multiplier: the affirmative request and a concrete competing state-high-court approach raise the odds, while several vehicle problems prevent a large increase.
+
+## Why above the anchor
+
+The question is whether the Sixth Amendment requires a jury for misdemeanor domestic abuse carrying no more than six months in jail when firearm restrictions and other consequences accompany conviction. The important issue is not whether domestic abuse is serious in ordinary speech. It is whether the additional statutory penalties overcome the constitutional presumption that an offense capped at six months is petty.
+
+I checked **Blanton v. City of North Las Vegas, 489 U.S. 538, 543–45 (1989)** through CourtListener MCP. Its test allows unusually severe additional statutory penalties to overcome that presumption; the six-month line is not an absolute ceiling on the jury guarantee. The appendix's pretrial ruling, App. 44a–45a, treats the imprisonment threshold much more categorically. That gives the petition a substantive federal point, not merely a plea to reweigh guilt.
+
+I also checked **Andersen v. Eighth Judicial District Court, 135 Nev., Adv. Op. 42 (September 12, 2019), No. 75208**, CourtListener opinion 5133431. The petition spells the name Anderson; the retrieved primary opinion spells it Andersen. The Nevada court held that its added state firearm prohibition made misdemeanor domestic battery sufficiently serious to require a jury. Its reasoning applies the federal petty-offense framework as well as discussing the Nevada Constitution, so I do not dismiss it as simply a more generous state-law jury rule. Its state-law firearm restriction was important: it distinguished an earlier holding that the federal firearm restriction alone did not suffice. This is meaningful competing authority, though different states' penalty schemes keep it from proving a clean conflict on identical statutes.
+
+The response request indicates some judicial interest in testing the petition against an adversarial answer. That signal and the jury-right/firearm-right intersection justify raising the estimate above the general baseline risk set.
+
+## Why denial still dominates
+
+1. **State procedural posture.** The posttrial appellate opinion, App. 35a–39a, rejected reconsideration under discretionary law-of-the-case reasoning. It also reports Louisiana's objections that a particularized constitutional challenge and attorney-general notice were missing. The court did not clearly adopt those latter objections as its holding, so I treat them as potential vehicle defenses, not established jurisdictional bars. The petition does little to explain why the Supreme Court can cleanly reach the federal issue despite them.
+2. **Existing restrictions on this petitioner.** App. 12a records a prior aggravated-battery conviction and an active probationary sentence. That raises a question whether the misdemeanor newly deprived this petitioner of firearm rights, making her an imperfect vehicle for the strongest framing. It does not establish that a jury right depends on her personal gun eligibility: Blanton examines authorized statutory penalties. I therefore treat the prior conviction as a vehicle complication, not a dispositive defeat.
+3. **Finality uncertainty.** App. 41a remands for resentencing concerning the restriction of sentencing benefits. The provisioned record does not establish whether that remand was completed. That is another possible impediment to an uncomplicated state-final-judgment petition, not a finding that Supreme Court jurisdiction is absent.
+4. **Limited conflict development.** The petition identifies the Nevada decision but supplies little comparison of the relevant statutes, no developed nationwide split, and substantial case-specific innocence rhetoric. Its claimed permanent federal firearm disability, ten-year state restriction, and expungement consequences are advocacy; I have not separately verified their exact applicability here. The narrower, objectively framed state-penalty question is stronger than the categorical claim of losing all gun rights forever.
+
+The single Louisiana Supreme Court justice who would have granted state review is modest supporting evidence of contestability, not a predictor of four Supreme Court votes. No response has yet been read, so uncertainty about preservation and the penalty schemes remains substantial.
+
+## Other elicited numbers
+
+- **Further distribution: 0.98.** A new distribution after the requested response or expiration of its time is overwhelmingly likely. This increment is masked for this moment and should not be read as 98% confidence in substantive relisting after conference.
+- **New CVSG: 0.015.** The federal firearm overlay gives the United States an interest, but a state criminal jury-right petition is not an especially natural CVSG vehicle. The state response is the more immediate information the Court sought.
+- **Summary route given a grant: 0.25.** A summary vacatur for application of Blanton is conceivable, but whether these penalties cross its line is sufficiently substantive that plenary briefing is the more likely grant route. I found no intervening decision making a routine GVR the central scenario.
+- **Dissent or statement given denial: 0.14.** The intersection of jury and firearm rights makes a writing plausible, but quiet denial remains the modal forecast. Thomas and Gorsuch receive the largest, still small, unconditional order-writing probabilities. The nine numbers are independent marginal forecasts, not a distribution summing to one, and allow shared interest and correlated writings.
+- **Stakes: 0.48.** A ruling could affect the process used in a substantial category of misdemeanor prosecutions, but the presented statutory question is narrower than a general ruling on firearm prohibitions or all petty offenses. This score measures significance if decided, not grant probability.
+
+## Retrieval limits
+
+The corpus citation lookup returned no row and explicitly warned about sparse reporter-citation coverage; I did not interpret that as absence of Blanton. CourtListener supplied the relevant primary opinions. Two web-search batches returned no visible results, so I relied on none. The initial paths command encountered a read-only default uv cache and succeeded when rerun with a temporary cache. These limitations did not prevent completion. Exact attempted lookups appear in `retrieval.md`.

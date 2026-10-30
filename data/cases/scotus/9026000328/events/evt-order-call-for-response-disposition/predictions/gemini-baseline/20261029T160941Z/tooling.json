@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000328",
+  "run_id": "20261029T160941Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md"
+  ],
+  "helpful": [
+    "fedcourts query --docket-number for related SCOTUS petitions (25-213, 26-159, 26-263, 26-350)",
+    "provisioned petition.txt, appendix.txt, and related/26-350.json",
+    "metrics/statpack.md salience band and cert signal cuts"
+  ],
+  "gaps": [],
+  "notes": "Queried the corpus by docket number to inspect the prior related South Carolina receivership cert denial (Atlas Turner, Inc. v. Welch, No. 25-213), the pending Third Circuit Whittaker cert petitions (Nos. 26-159 and 26-263), and the companion Vide petition (Altrad Investment Authority S.A.S. v. CIHL, No. 26-350)."
+}

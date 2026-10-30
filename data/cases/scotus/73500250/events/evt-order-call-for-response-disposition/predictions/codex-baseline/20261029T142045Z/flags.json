@@ -1,0 +1,36 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/73500250",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "issue": null,
+      "message": "CourtListener MCP precedent lookup for 544 F.3d 88 returned HTTP 429 (daily rate limit), and two web-search calls yielded no usable results. No case outcome surfaced. Forecast completed from the provisioned petition and appended opinion plus committed base rates; the petition's asserted circuit splits remain independently unverified. No REST fallback was attempted.",
+      "normalised": false,
+      "severity": "info",
+      "source": "agent"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "issue": null,
+      "message": "Harness check: this cell's logged tool calls named data/qp-topics/, the removed cert-outcome oracle the prompt forbids reading: 1 call(s), e.g. 'qp-topics,'. Read from retrieval_log.json, which records that a call named the path, not what it returned; check the transcript before treating it as a read.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    },
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "issue": null,
+      "message": "Harness check: this cell's logged tool calls named a committed predictions/ or evaluations/ path other than this cell's own run directory (another predictor's output, an earlier run, or a glob over them): 1 call(s), e.g. 'evaluations,'. Read from retrieval_log.json, which records that a call named the path, not what it returned; check the transcript before treating it as a read.",
+      "normalised": false,
+      "severity": "warning",
+      "source": "harness"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0"
+}

@@ -2028,17 +2028,47 @@ def test_the_scored_merits_baseline_never_sees_the_gvr_block(tmp_path: Path) -> 
 # --- the alt_segments block: every registered version's bands, per Term ---------
 
 
+def test_sal_v5_pools_none_of_its_bands_over_a_rule_20_writ() -> None:
+    """sal-v5's segment leaves Rule 20 writs out, so its per-Term slices never
+    count one, while every other version's slices still do — the writ is in the
+    paid scored segment the pack reads, and only sal-v5 narrows it."""
+    writ = corpus.CorpusRow(
+        case_id="scotus/1",
+        court="scotus",
+        docket_number="24-100",
+        petitioner_title="In re Smith",
+        disposition=Disposition.denied,
+        distribution_count=1,
+        opening_writ="rule-20",
+        last_live_polled=date(2026, 8, 1),
+    )
+    sealed = writ.model_copy(
+        update={
+            "case_id": "scotus/2",
+            "docket_number": "24-101",
+            "petitioner_title": "In re Grand Jury Subpoena",
+            "opening_writ": "certiorari",
+        }
+    )
+    acc = analytics._TermAcc()
+    acc.add(writ)
+    acc.add(sealed)
+    assert sum(cell.cases for cell in acc.segments["sal-v5"].values()) == 1
+    assert sum(cell.cases for cell in acc.prefixes["sal-v5"].values()) == 1
+    assert sum(cell.cases for cell in acc.segments["sal-v4"].values()) == 2
+
+
 def test_alt_segments_carry_exactly_the_non_active_versions(
     fixture_corpus: FixtureCorpus,
 ) -> None:
     """The block exists for every non-active registered version — today, sal-v1,
-    sal-v2 and the superseded sal-v3 beside the active sal-v4 — and never repeats
-    the active one, so a prediction frozen at any registered version keeps a
-    published base rate."""
+    sal-v2 and the superseded sal-v3, and the registered-but-inactive sal-v5,
+    beside the active sal-v4 — and never repeats the active one, so a prediction
+    frozen at any registered version keeps a published base rate."""
     pack = _pack(fixture_corpus)
     for term in pack.terms:
         versions = {alt.salience_version for alt in term.alt_segments}
-        assert versions == {"sal-v1", "sal-v2", "sal-v3"}, versions
+        assert versions == {"sal-v1", "sal-v2", "sal-v3", "sal-v5"}, versions
     payload = pack.model_dump(mode="json")
     assert all("alt_segments" in term for term in payload["terms"])
 
@@ -2054,7 +2084,7 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         assert term.salience_version == SALIENCE_VERSION
         assert [s.band for s in term.segments] == list(_BANDS)
         alts = {alt.salience_version: alt for alt in term.alt_segments}
-        assert set(alts) == {"sal-toy", "sal-v1", "sal-v2", "sal-v3"}
+        assert set(alts) == {"sal-toy", "sal-v1", "sal-v2", "sal-v3", "sal-v5"}
         # Each version's own vocabulary, not the active scorer's — a band name
         # means something only under the function that assigned it.
         assert [s.band for s in alts["sal-toy"].segments] == ["hot", "cold"]
@@ -2067,7 +2097,7 @@ def test_a_second_version_publishes_its_own_bands_beside_the_active_ones(
         assert [s.band for s in alts["sal-v3"].segments] == list(_BANDS)
     # And it survives serialization rather than being dropped by the wrap serializer.
     payload = pack.model_dump(mode="json")
-    assert all(len(term["alt_segments"]) == 4 for term in payload["terms"])
+    assert all(len(term["alt_segments"]) == 5 for term in payload["terms"])
 
 
 def test_both_versions_count_the_same_rows_into_their_own_bands(

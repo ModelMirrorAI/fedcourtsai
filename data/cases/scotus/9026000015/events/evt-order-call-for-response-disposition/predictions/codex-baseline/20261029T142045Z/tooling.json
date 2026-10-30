@@ -1,0 +1,31 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000015",
+  "gaps": [
+    "No published response-request-conditioned cert rate",
+    "CourtListener MCP daily rate limit prevented precedent lookup",
+    "Web calls returned no usable content",
+    "Appendix truncation limits independent vehicle assessment"
+  ],
+  "helpful": [
+    "Moment-bounded snapshot and explicit sal-v4 conditioning",
+    "Exact risk-set denominators in statpack.json",
+    "Petition with appended majority opinion and truncation markers",
+    "Corpus transfer accounting and sparse-citation warning"
+  ],
+  "notes": "Used the provisioned July record without seeking the target's current status. Moved uv's cache to /tmp after a read-only-cache error. Corpus retrieval worked, but returned priors were not close analogues; exact salience risk-set counts were more informative. No REST fallback was attempted. Missing response text is expected at this moment, not a provisioning defect.",
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned record",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack",
+    "CourtListener MCP search (throttled)",
+    "web search/open (no usable content)",
+    "jq"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}

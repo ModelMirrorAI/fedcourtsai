@@ -1,0 +1,15 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000187",
+  "flags": [
+    {
+      "category": "other",
+      "event_id": "evt-order-call-for-response-disposition",
+      "message": "CourtListener MCP refused the targeted Kingsley precedent lookup with HTTP 429, reporting the daily 1,400-call limit and a 12,633-second wait. Corpus citation retrieval also returned no rows with a sparse-coverage warning. No external case evidence was obtained, no REST fallback was used, and the prediction was completed from provisioned filings and committed base rates.",
+      "severity": "info"
+    }
+  ],
+  "role": "predictor",
+  "run_id": "20261029T142045Z",
+  "schema_version": "1.0"
+}

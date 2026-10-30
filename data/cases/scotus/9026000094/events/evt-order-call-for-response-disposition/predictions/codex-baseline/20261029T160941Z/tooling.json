@@ -1,0 +1,31 @@
+{
+  "actor_id": "codex-baseline",
+  "case_id": "scotus/9026000094",
+  "gaps": [
+    "No published called-for-response conditional cert base rate",
+    "CourtListener daily rate limit prevented general-precedent verification",
+    "The filtered corpus query returned no rows after transferring 236060672 bytes",
+    "The default uv cache was read-only; a temporary cache override was required"
+  ],
+  "helpful": [
+    "Explicit response-requested moment and dated snapshot boundary",
+    "Petition Appendix carrying both the panel's reasons and Koh's separate opinion",
+    "Exact prior-Term reached-band rates and denominators in statpack.json"
+  ],
+  "notes": "The corpus query was attempted successfully but supplied no priors. The petition and attached lower-court opinions support a forecast without external retrieval. No future response or outcome was retrieved, and no missing response was treated as a provisioning failure. Summary-disposition and denial-writing probabilities are explicitly conditional. Tool limitations are reported here rather than mislabeled as case-data defects.",
+  "role": "predictor",
+  "run_id": "20261029T160941Z",
+  "schema_version": "1.0",
+  "tools_used": [
+    "provisioned snapshot and petition Appendix",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack Markdown and JSON",
+    "CourtListener MCP search (throttled)",
+    "web search and open (no usable content)",
+    "read-only statistical subagent",
+    "fedcourts validate"
+  ],
+  "used_base_rates": true,
+  "used_corpus_query": true
+}
