@@ -14955,3 +14955,51 @@ freeze commit is recorded here.
   before the close's day may land late, and an event void de-counts what it
   names. The split, partition and grading lines also move as cells, outcomes
   and gradings land.
+
+- **The live-duplicate dedupe dropped eleven live twins, not nine; recorded
+  2026-10-30.** A reading the 2026-10-29 dedupe entry owes; no rule moves.
+  The run-seed window of 2026-10-30 02:37 UTC (run 40992742010) reported 11
+  pairs and dropped 11 live-minted rows, skipping none and moving no ledger
+  path. Beside the nine that entry names, it dropped `scotus/9018006135`
+  (`18-6135`) and `scotus/9021005592` (`21-5592`). Read ranged from `main`'s
+  blob of 2026-10-30 09:36 UTC, each now holds the same shape as the nine: the
+  CourtListener row keeps its facts (`18-6135` granted 2019-03-18, merits
+  `affirmed` 2020-03-23; `21-5592` granted 2021-09-08, merits `reversed`
+  2022-03-24) beside a caption-only row left untouched, and neither dropped id
+  had a committed path. So the moves that entry lists gain these two:
+  `corpus_rows` and the court and era sections by eleven rather than nine; the
+  live-slice and per-Term cert-stage figures by one IFP grant each in OT2018
+  and OT2021; and the merits section by one `affirmed` (OT2018) and one
+  `reversed` (OT2021). Its boundary is unchanged and covers them.
+
+- **The never-polled reserve takes its slots while the distributed petitions
+  fill the cycle; recorded 2026-10-30.** A **membership-rule** entry under
+  unchanged digests, amending the 2026-10-29 reserve entry.
+
+  **What moved.** That entry's reserve yielded to the distributed tier as
+  well as the overdue one. Through the Term the distributed petitions alone
+  hold more than `live.max_cases_per_run`: on `main`'s blob of 2026-10-30
+  09:36 UTC, 290 pending petitions were distributed for the 2026-11-06
+  conference and 27 for 2026-11-13, against a cap of 150. So in its first
+  cycles, from the carrying merge of 2026-10-29 22:36 UTC to that blob, the
+  reserve took no slot and polled no OT2017 or OT2018 row. It now yields only
+  to the overdue tier (the first `live.max_overdue_per_run` stale rows) and
+  otherwise displaces the cycle's tail. In Term that tail is the furthest
+  conference's most recently polled petitions, which the next cycle reaches.
+
+  **Why it is a boundary.** Ten of the cap's 150 slots move from distributed
+  petitions to never-polled rows, so a distributed petition's re-poll comes
+  about a fifteenth less often while its conference set exceeds the cap. A
+  petition's distribution transition, which fires predict, is read that much
+  later at most; the nearest conference, whose order-list re-read leads the
+  tier, is not the tail. The 2026-10-29 entry's boundary, a drift until the
+  reserve's backlog drains, now starts at this entry's carrying merge rather
+  than that entry's, since before it the reserve polled nothing in Term.
+
+  Carried to `main` by `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live: a day after the carrying merge,
+  `CHECK_SUMMARY=out.md uv run python scripts/checks/never_polled_reserve.py`
+  over a freshly pulled corpus shows the OT2017 row gone from its table, or
+  holding only rows whose poll failed in transit; its total falls with each
+  later run until it reaches zero.

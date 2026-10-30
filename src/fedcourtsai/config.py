@@ -353,7 +353,8 @@ class LiveConfig(BaseModel):
     # Slots of each cycle's cap kept for rows the channel has never polled,
     # oldest Term first. Inside the tiers the current Terms always fill the
     # cap, so without a reserve an older Term's never-polled row is never
-    # reached. Taken only from what the overdue and distributed rows leave;
+    # reached. Yields only to the overdue tier, so it displaces the cycle's
+    # tail, the furthest conference's petitions while those fill the cap;
     # 0 disables it.
     never_polled_reserve_per_run: int = Field(default=0, ge=0)
     # Days after a conference by which its order list has issued (the Monday

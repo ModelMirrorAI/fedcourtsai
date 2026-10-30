@@ -102,11 +102,13 @@ live:
   # Slots of each cycle kept for rows the live channel has never polled,
   # oldest Term first, so a row the historical walker skipped (undecided when
   # walked, or never served) is still reached: the Term tiers lead with recent
-  # Terms, which always fill the cap. Taken only from what the overdue and
-  # distributed rows leave, so it never delays an order-list re-read. Only the
-  # row its docket number resolves to qualifies, so a caption-only upstream
-  # duplicate is never polled into a second full row. At twelve cycles a day,
-  # 10 slots reach up to ~120 rows a day; 0 disables the reserve.
+  # Terms, which always fill the cap. Yields only to the overdue tier: in Term
+  # the distributed petitions alone fill the cap, so the reserve takes its
+  # slots from the furthest conference's most recently polled petitions,
+  # which the next cycle reaches. Only the row its docket number resolves to
+  # qualifies, so a caption-only upstream duplicate is never polled into a
+  # second full row. At twelve cycles a day, 10 slots reach up to ~120 rows a
+  # day; 0 disables the reserve.
   never_polled_reserve_per_run: 10
   # Days after a conference by which its order list has issued: the Monday
   # after a Friday conference (Tuesday after a Monday holiday), the first

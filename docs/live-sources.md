@@ -165,15 +165,18 @@ The bound is set well above one sweep of the polled watchlist at the cap, so
 it bites only when a tier is starving the rest and the priority tiers govern
 otherwise.
 
-Behind the overdue and distributed rows, `live.never_polled_reserve_per_run`
+Right behind the overdue tier, `live.never_polled_reserve_per_run`
 slots of each cycle go to Term-prefixed cert numbers (no applications) the
 channel has never polled, oldest Term first: an undecided row with an open
 event, in practice a past-Term row the historical walker skipped (undecided
 when walked, or never served). The Term tiers lead with the newest Terms,
 which fill the cap on their own, so without the reserve such a row would never
-be reached. The reserve takes only what the overdue and distributed rows
-leave, so it never delays an order-list re-read and yields while an overdue
-backlog drains. A row qualifies only when its docket number resolves to that
+be reached. Through the Term the distributed petitions alone hold more than
+the cap, so a reserve that waited for them to leave room would never run: it
+yields only to the overdue tier, shrinking while an overdue backlog drains,
+and otherwise displaces the cycle's tail. In Term that tail is the furthest
+conference's most recently polled petitions, which the next cycle reaches; a
+conference's order-list re-read leads its tier and is never the tail. A row qualifies only when its docket number resolves to that
 row and no row under the same number has been polled, so a caption-only
 upstream duplicate is never polled into a second full row.
 
