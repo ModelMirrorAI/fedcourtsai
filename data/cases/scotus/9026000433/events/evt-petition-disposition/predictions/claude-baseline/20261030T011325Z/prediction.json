@@ -1,0 +1,94 @@
+{
+  "big_case_rationale": "A clean ruling on whether substantive-due-process claims against executive officials need a fundamental right on top of conscience-shocking conduct would reshape a recurring \u00a71983 doctrine across circuits, but the case itself is a narrow damages suit.",
+  "big_case_score": 0.35,
+  "case_id": "scotus/9026000433",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.005,
+        "Barrett": 0.004,
+        "Gorsuch": 0.012,
+        "Jackson": 0.02,
+        "Kagan": 0.003,
+        "Kavanaugh": 0.004,
+        "Roberts": 0.002,
+        "Sotomayor": 0.025,
+        "Thomas": 0.012
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.05
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.42
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.01
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.1
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.05
+    }
+  ],
+  "confidence": 0.85,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-30",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-30T01:26:14.089980Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-30.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.05,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
+    "label": "proc-v14",
+    "pipeline_sha": "b473cdeb5084309396d0a13d05d4af6de498bea8",
+    "stamped_at": "2026-10-30T01:26:14.089980Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261030T011325Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

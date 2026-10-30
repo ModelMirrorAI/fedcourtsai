@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000098",
+  "run_id": "20261030T011325Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search",
+    "mcp_courtlistener_read_document",
+    "mcp_courtlistener_search_document",
+    "mcp_courtlistener_get_endpoint_item"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and questions-presented.txt with the full lower-court appendix",
+    "metrics/statpack.md salience band reached base-rate table",
+    "CourtListener MCP read_document for inspecting the Tenth Circuit opinion in Voter Reference Foundation v. Torrez"
+  ],
+  "gaps": [],
+  "notes": "All provisioned documents and snapshot files were complete and clean."
+}

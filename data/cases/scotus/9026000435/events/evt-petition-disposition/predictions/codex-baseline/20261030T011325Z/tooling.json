@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000435",
+  "run_id": "20261030T011325Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "provisioned snapshot and filing text",
+    "fedcourts paths",
+    "fedcourts query",
+    "committed statpack markdown and JSON",
+    "CourtListener search",
+    "CourtListener get_endpoint_item",
+    "CourtListener read_document",
+    "CourtListener search_document",
+    "web search"
+  ],
+  "helpful": [
+    "The petition included the panel order, allowing direct comparison with the advocate's framing.",
+    "Exact JSON risk-set figures support pooling all displayed strictly prior Terms without rounding error.",
+    "CourtListener chunked reading recovered the relevant majority analysis after a long opinion response was truncated."
+  ],
+  "gaps": [
+    "The structured corpus interface cannot directly select labor-law or agency-deference analogies on these SCOTUS rows."
+  ],
+  "notes": "The initial corpus query used an invalid era token and was corrected from the returned vocabulary. A general web search returned no usable result; CourtListener supplied primary authorities. The uv cache required a writable temporary location. No opposition was provisioned because the respondent waived response; that is expected posture, not a provisioning defect."
+}
