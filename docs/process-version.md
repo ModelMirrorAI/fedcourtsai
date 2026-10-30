@@ -134,16 +134,24 @@ agent-reachable, and the stamp verifies `cert_anchor` against inputs the agent
 cannot touch: the predict cell's harness-minted run id (the UTC timestamp its
 ledger directory is named with, minted before the cell is provisioned, never
 the document's own `created_at`, which is stamped after the agent runs), the
-committed history of `metrics/statpack.json`, and `config/tracking.yaml` as
-committed. The anchor must name the newest statpack build committed at or
-before that run id, record the `salience.base_rate_lookback_terms` committed
-at that build's commit, and carry the rate that build pools to over the scored
-context; an earlier real build, another window or another rate is refused, the
-anchor and skill are cleared with a warning, and the stamp's summary counts
-the refusals. Two builds that publish identical figures share a digest and so
-count as one build. A statpack commit landing between a run id's minting and
-its checkout makes the cell's honest anchor name a build later than the bound,
-which is refused rather than trusted. The label therefore covers two readings: under `proc-v15` and later, a grading
+first-parent history of `metrics/statpack.json` on `main`, and
+`config/tracking.yaml` as committed. The history is a bare clone of `main` the
+evaluate workflow makes after the agent's step, so nothing the agent does to
+its checkout reaches it. The anchor must name the build in force on `main` at
+that run id — the newest first-parent landing of the statpack at or before it,
+dated by the landing commit, so a refresh merged through a branch counts from
+its merge — record the `salience.base_rate_lookback_terms` committed at that
+build's commit, and carry the rate that build pools to over the scored context;
+another window or another rate is refused, the anchor and skill are cleared
+with a warning, and the stamp's summary counts the refusals. Two builds that
+publish identical figures share a digest and so count as one build. A cell
+checks out the commit its run was triggered on *before* the plan job mints the
+run id, so a refresh landing between the two leaves the cell's honest anchor
+naming the build that refresh replaced. That one earlier build is accepted
+too, where the build in force landed within `CHECKOUT_SLACK` (six hours, sized
+from the measured trigger-to-mint gap, in
+`src/fedcourtsai/statpack_history.py`) before the bound; any older build is
+refused. The label therefore covers two readings: under `proc-v15` and later, a grading
 of a cell provisioned without `cert_anchor` — placed before provisioning wrote
 the record, or with no readable statpack — still pools the statpack checked
 out at grading, and the grading's `base_rate_statpack_digest` names whichever

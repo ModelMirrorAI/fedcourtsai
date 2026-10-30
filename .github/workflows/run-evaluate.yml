@@ -1703,6 +1703,23 @@ jobs:
             --evaluator "$EVALUATOR_ID" --run-id "$RUN_ID" \
             --map-dir "$RUNNER_TEMP/blinding"
 
+      # The history a frozen cert anchor is checked against, fetched after the
+      # agent's step so nothing the agent did to this checkout reaches it: the
+      # agent runs as this user here and could commit, back-date a revision,
+      # move a ref or edit the git config. A bare blobless clone of main, with
+      # the user's and the system's git config ignored and no hooks; the stamp
+      # walks its first-parent landings of the statpack. A failed clone leaves
+      # no directory, and the stamp then refuses every frozen anchor it cannot
+      # place rather than trusting the record.
+      - name: Fetch main's history for the anchor check
+        if: ${{ !cancelled() }}
+        run: |
+          set -euo pipefail
+          GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
+            git -c core.hooksPath=/dev/null clone --quiet --bare --single-branch \
+            --branch main --filter=blob:none \
+            "https://github.com/${GITHUB_REPOSITORY}.git" "$RUNNER_TEMP/anchor-history.git"
+
       # Stamp every evaluation.json this cell wrote with the evaluator's process
       # version (see the predict workflow's step for the rationale). One evaluate
       # cell scores every predictor, so `stamp-cell --role evaluator` stamps all
@@ -1720,7 +1737,8 @@ jobs:
           set -euo pipefail
           uv run fedcourts stamp-cell \
             --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
-            --run-id "$RUN_ID" --role evaluator --actor "$EVALUATOR_ID"
+            --run-id "$RUN_ID" --role evaluator --actor "$EVALUATOR_ID" \
+            --anchor-history "$RUNNER_TEMP/anchor-history.git" --anchor-ref main
 
       # Finalize even when the agent step failed or timed out (`!cancelled()`), so a
       # run stopped by max-turns or the step timeout still hands its partial output

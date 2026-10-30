@@ -23,6 +23,7 @@ import time
 from collections import Counter
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
@@ -11057,6 +11058,18 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
             "existing process_version exactly as its producing run stamped it.",
         ),
     ] = False,
+    anchor_history: Annotated[
+        Path | None,
+        typer.Option(
+            help="Evaluator role only: the git repository (a bare clone of main) whose "
+            "first-parent history a frozen cert anchor is checked against; defaults to "
+            "the checkout.",
+        ),
+    ] = None,
+    anchor_ref: Annotated[
+        str,
+        typer.Option(help="The branch in --anchor-history whose landings count."),
+    ] = statpack_history.DEFAULT_REF,
 ) -> None:
     """Stamp a cell's ``prediction.json`` / ``evaluation.json`` with its process version.
 
@@ -11202,6 +11215,7 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     to age.
     """
     settings = get_settings()
+    _ANCHOR_HISTORY.set((anchor_history or Path.cwd(), anchor_ref))
     if role not in ("predictor", "evaluator"):
         typer.echo(f"role must be predictor or evaluator, not {role!r}", err=True)
         raise typer.Exit(code=2)
@@ -12888,13 +12902,16 @@ def _cert_anchor_for(
 
     **A frozen anchor is verified before it is copied.** ``record/context.json``
     is reachable from the cell's workspace, so every field of the record is a
-    claim, and it is checked against inputs the agent cannot reach
-    (:func:`fedcourtsai.statpack_history.verify_cert_anchor`): it must name the
-    newest statpack build committed at or before the scored predict cell's run
-    id — the UTC timestamp the harness mints before provisioning and names the
-    ledger directory with, read off that directory rather than the document —
-    record the lookback window configured at that build's commit, and carry the
-    rate that build pools to. Where it does not, the anchor is cleared with a
+    claim, and it is checked against ``main``'s first-parent history as read
+    from ``--anchor-history`` — in the evaluate workflow, a bare clone made
+    after the agent's step (:func:`fedcourtsai.statpack_history.verify_cert_anchor`):
+    it must name the statpack build in force on ``main`` at the scored predict
+    cell's run id — the UTC timestamp the harness mints before provisioning and
+    names the ledger directory with, read off that directory rather than the
+    document — or the one it replaced within
+    :data:`fedcourtsai.statpack_history.CHECKOUT_SLACK`, record the lookback
+    window configured at that build's commit, and carry the rate that build
+    pools to. Where it does not, the anchor is cleared with a
     warning and the refusal is appended to ``anchor_refusals`` for the stamp's
     summary — the cell is not graded against an anchor nothing harness-side
     vouches for, the same omission a missing statpack is.
@@ -12946,12 +12963,19 @@ def _anchor_refusal(
     )
 
 
+#: The repository and branch the frozen-anchor check walks, set per stamp-cell
+#: invocation (``--anchor-history`` / ``--anchor-ref``).
+_ANCHOR_HISTORY: ContextVar[tuple[Path, str] | None] = ContextVar("_ANCHOR_HISTORY", default=None)
+
+
 def _git_statpack_history(settings: Settings) -> statpack_history.StatpackHistory:
-    return statpack_history.GitStatpackHistory(settings.metrics_root, settings.config_root)
+    repo, ref = _ANCHOR_HISTORY.get() or (Path.cwd(), statpack_history.DEFAULT_REF)
+    return statpack_history.GitStatpackHistory(repo, ref)
 
 
-#: The harness-side record the frozen-anchor check reads: the committed history
-#: of ``metrics/statpack.json`` and of the config beside it. A seam for tests.
+#: The harness-side record the frozen-anchor check reads: the first-parent
+#: history of ``metrics/statpack.json`` and of the config beside it on ``main``.
+#: A seam for tests.
 _statpack_history: Callable[[Settings], statpack_history.StatpackHistory] = _git_statpack_history
 
 

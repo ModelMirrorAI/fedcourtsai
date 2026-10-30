@@ -47,7 +47,12 @@ from fedcourtsai.schemas import (
     StatPackTermVersionSegments,
 )
 from fedcourtsai.serialize import read_model, write_json, write_yaml
-from fedcourtsai.statpack_history import CommittedBuild, GitStatpackHistory, verify_cert_anchor
+from fedcourtsai.statpack_history import (
+    CHECKOUT_SLACK,
+    CommittedBuild,
+    GitStatpackHistory,
+    verify_cert_anchor,
+)
 
 runner = CliRunner()
 
@@ -486,6 +491,10 @@ class _History:
         candidates = [build for build in self.builds if build.committed_at <= bound]
         return max(candidates, key=lambda build: build.committed_at) if candidates else None
 
+    def build_before(self, build: CommittedBuild) -> CommittedBuild | None:
+        earlier = [each for each in self.builds if each.committed_at < build.committed_at]
+        return max(earlier, key=lambda each: each.committed_at) if earlier else None
+
     def lookback_terms_at(self, sha: str) -> int | None:
         return self.lookbacks.get(sha)
 
@@ -770,7 +779,7 @@ def test_the_git_reader_returns_the_build_and_window_committed_together(tmp_path
         )
         _run_git(repo, "add", "-A")
         _run_git(repo, "commit", "-q", "-m", "build", when=when)
-    history = GitStatpackHistory(repo / "metrics", repo / "config")
+    history = GitStatpackHistory(repo, "HEAD")
 
     build = history.newest_build(_PROVISIONED)
 
@@ -783,5 +792,127 @@ def test_the_git_reader_returns_the_build_and_window_committed_together(tmp_path
     assert history.newest_build(datetime(2026, 8, 1, tzinfo=UTC)) is None
 
 
-def test_a_metrics_root_outside_any_work_tree_has_no_build(tmp_path: Path) -> None:
-    assert GitStatpackHistory(tmp_path / "m", tmp_path / "c").newest_build(_PROVISIONED) is None
+def test_a_repo_that_is_not_one_has_no_build(tmp_path: Path) -> None:
+    assert GitStatpackHistory(tmp_path / "m", "main").newest_build(_PROVISIONED) is None
+
+
+def test_a_build_replaced_within_the_slack_still_verifies() -> None:
+    """A cell checks out its trigger commit before the plan job mints the run
+    id; a refresh landing in that gap is a build the cell never saw."""
+    landed = _PROVISIONED - CHECKOUT_SLACK
+    history = _History(builds=[], lookbacks={})
+    history.add("a" * 40, datetime(2026, 9, 1, tzinfo=UTC), _statpack())
+    history.add("b" * 40, landed, _refreshed())
+    anchor = _pinned(_statpack()).cert_anchor
+    assert anchor is not None
+    assert verify_cert_anchor(anchor, _frozen(), _PROVISIONED, history) is None
+    late = _PROVISIONED + timedelta(seconds=1)
+    refusal = verify_cert_anchor(anchor, _frozen(), late, history)
+    assert refusal is not None and "not the build in force" in refusal
+
+
+def test_the_slack_reaches_one_build_back_and_no_further() -> None:
+    history = _History(builds=[], lookbacks={})
+    history.add("a" * 40, datetime(2026, 9, 1, tzinfo=UTC), _statpack())
+    history.add("b" * 40, _PROVISIONED - timedelta(hours=2), _refreshed())
+    third = _refreshed().model_copy(
+        update={"terms": [_term(2026, 0.5, 1000), _term(2025, 0.4, 200), _term(2024, 0.06, 100)]}
+    )
+    history.add("c" * 40, _PROVISIONED - timedelta(hours=1), third)
+    oldest = _pinned(_statpack()).cert_anchor
+    replaced = _pinned(_refreshed()).cert_anchor
+    assert oldest is not None and replaced is not None
+    assert verify_cert_anchor(replaced, _frozen(), _PROVISIONED, history) is None
+    assert verify_cert_anchor(oldest, _frozen(), _PROVISIONED, history) is not None
+
+
+def _commit_build(repo: Path, pack: StatPack, when: str) -> None:
+    write_json(repo / "metrics" / "statpack.json", pack)
+    (repo / "config" / "tracking.yaml").write_text("salience:\n  base_rate_lookback_terms: 10\n")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "build", when=when)
+
+
+def test_a_merged_refresh_is_in_force_from_its_merge_not_its_branch_commit(
+    tmp_path: Path,
+) -> None:
+    """A refresh committed on a branch on 2026-09-20 and merged with a merge
+    commit on 2026-10-05 was never on main before the merge: a bound in the gap
+    finds the build it replaced, and the merge is a landing of its own."""
+    repo = tmp_path / "repo"
+    (repo / "metrics").mkdir(parents=True)
+    (repo / "config").mkdir()
+    _run_git(repo, "init", "-q", "-b", "main")
+    _commit_build(repo, _statpack(), "2026-09-01T00:00:00Z")
+    _run_git(repo, "switch", "-q", "-c", "refresh")
+    _commit_build(repo, _refreshed(), "2026-09-20T00:00:00Z")
+    _run_git(repo, "switch", "-q", "main")
+    (repo / "README").write_text("unrelated\n")
+    _run_git(repo, "add", "-A")
+    _run_git(repo, "commit", "-q", "-m", "other", when="2026-09-25T00:00:00Z")
+    _run_git(repo, "merge", "-q", "--no-ff", "-m", "merge", "refresh", when="2026-10-05T00:00:00Z")
+    history = GitStatpackHistory(repo, "main")
+
+    in_gap = history.newest_build(_PROVISIONED)
+    merged = history.newest_build(datetime(2026, 10, 6, tzinfo=UTC))
+
+    assert in_gap is not None and in_gap.statpack is not None
+    assert statpack_digest(in_gap.statpack) == statpack_digest(_statpack())
+    assert merged is not None and merged.statpack is not None
+    assert statpack_digest(merged.statpack) == statpack_digest(_refreshed())
+    assert merged.committed_at == datetime(2026, 10, 5, tzinfo=UTC)
+    assert history.build_before(merged) == in_gap
+    anchor = _pinned(_refreshed()).cert_anchor
+    assert anchor is not None
+    assert verify_cert_anchor(anchor, _frozen(), _PROVISIONED, history) is not None
+
+
+def test_a_bare_clone_reads_main_and_not_a_branch_the_checkout_added(tmp_path: Path) -> None:
+    """The stamp reads a bare clone of main: a back-dated commit on another
+    branch of the source repository is not a landing."""
+    repo = tmp_path / "repo"
+    (repo / "metrics").mkdir(parents=True)
+    (repo / "config").mkdir()
+    _run_git(repo, "init", "-q", "-b", "main")
+    _commit_build(repo, _statpack(), "2026-09-01T00:00:00Z")
+    _run_git(repo, "switch", "-q", "-c", "forged")
+    _commit_build(repo, _refreshed(), "2026-09-15T00:00:00Z")
+    bare = tmp_path / "history.git"
+    subprocess.run(
+        [
+            "git",
+            "clone",
+            "-q",
+            "--bare",
+            "--single-branch",
+            "--branch",
+            "main",
+            str(repo),
+            str(bare),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    build = GitStatpackHistory(bare, "main").newest_build(_PROVISIONED)
+    assert build is not None and build.statpack is not None
+    assert statpack_digest(build.statpack) == statpack_digest(_statpack())
+    assert GitStatpackHistory(bare, "forged").newest_build(_PROVISIONED) is None
+
+
+def test_stamp_cell_walks_the_history_it_is_handed(tmp_path: Path) -> None:
+    """``--anchor-history`` / ``--anchor-ref`` choose the repository the check
+    reads; the default is the checkout's ``origin/main``."""
+    seen: list[tuple[Path, str] | None] = []
+    token = cli._ANCHOR_HISTORY.set(None)
+    try:
+        default = cli._git_statpack_history(cli.get_settings())
+        assert isinstance(default, GitStatpackHistory)
+        assert default._ref == "origin/main" and default._repo == Path.cwd()
+        cli._ANCHOR_HISTORY.set((tmp_path, "main"))
+        handed = cli._git_statpack_history(cli.get_settings())
+        assert isinstance(handed, GitStatpackHistory)
+        assert (handed._repo, handed._ref) == (tmp_path, "main")
+        seen.append(cli._ANCHOR_HISTORY.get())
+    finally:
+        cli._ANCHOR_HISTORY.reset(token)
+    assert seen == [(tmp_path, "main")]
