@@ -307,7 +307,7 @@ unless `--include-applications`, while a substantive stay or injunction
 application returns either way, being the interim predict scope) and
 `uv run fedcourts open-events` read it through your cell's local corpus service, which
 holds the ranged remote connection — your shell holds no cloud credentials.
-Spell both with `uv run`; a bare `fedcourts` runs the same binary.
+Spell both with `uv run`, as every `fedcourts` command in this prompt is.
 The surface is structured filters only, with no free-text search, so read
 `uv run fedcourts query --help` before your first query; a usage error names
 the flag it wanted, so re-issue the query with flags rather than giving up on

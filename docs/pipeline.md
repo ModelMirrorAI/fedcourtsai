@@ -3266,6 +3266,20 @@ a file the checkout already carries is never overwritten, and a differing copy
 is refused with the checkout's kept — and `assert-paths` rejects any
 non-addition that slips past.
 
+The same step in both cells, and a step of its own in every other job that
+starts an engine in a checkout (the back-test, the qp-topic labeler and the
+integration-test jobs), takes `AGENTS.md` and `CLAUDE.md` out of the tree,
+skip-worktree first, before the first engine step. They are the development
+instructions, which Claude Code and Codex load from the tree unasked, and no
+process digest hashes them; a cell's prompt template is its whole contract
+([process-version.md](process-version.md)). They are not restored: nothing
+after the agent reads them. The cells' engine configuration also carries the
+run-time install refusal (`fedcourts cell-policy`,
+[security.md](security.md)): the claude step's settings, the codex rules file
+the "Configure agent retrieval" step writes beside `.codex/config.toml`, which
+`codex-user-setup` copies root-owned into the codex account's home, and the
+gemini policy file that step names in `.gemini/settings.json`.
+
 **The un-aliasing runs before the stamp, and the ordering is load-bearing.**
 `stamp-cell --role evaluator` joins each evaluation to the prediction it scored
 on the `predictor_id` field; under an alias the join misses and the cell's

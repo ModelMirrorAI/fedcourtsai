@@ -112,7 +112,7 @@ def test_every_gemini_settings_file_names_the_policy(name: str) -> None:
     policy = ".gemini/policies/" + cell_policy.GEMINI_POLICY_FILENAME
     for run in runs:
         written = run.index(f"cell-policy --engine gemini > {policy}")
-        named = run.index(f"'.policyPaths = [$policy]'")
+        named = run.index("'.policyPaths = [$policy]'")
         assert f'"$GITHUB_WORKSPACE/{policy}"' in run
         assert written < named
 

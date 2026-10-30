@@ -69,11 +69,9 @@ def _names_instruction_file(text: str) -> list[str]:
 
 def _actor_prompts() -> list[str]:
     config = REPO_ROOT / "config"
-    actors = [
-        *load_predictors(config / "predictors.yaml"),
-        *load_evaluators(config / "evaluators.yaml"),
-    ]
-    return sorted({actor.prompt for actor in actors} | {LABELER_PROMPT})
+    prompts = {p.prompt for p in load_predictors(config / "predictors.yaml")}
+    prompts |= {e.prompt for e in load_evaluators(config / "evaluators.yaml")}
+    return sorted(prompts | {LABELER_PROMPT})
 
 
 def _load(name: str) -> dict[Any, Any]:
@@ -160,7 +158,7 @@ def test_the_local_runner_kickoff_names_only_the_actors_own_template(
     request = RunRequest(
         role=role,
         court_id="scotus",
-        docket_id="1",
+        docket_id=1,
         event_id="evt-petition-disposition",
         actor_id="claude-baseline" if role == UsageRole.predictor else "claude-judge",
         run_id="20261030T000000Z",
