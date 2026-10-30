@@ -822,8 +822,9 @@ def test_live_rotation_reserves_slots_for_never_polled_rows_oldest_term_first(
     tmp_path: Path,
 ) -> None:
     """The current Term fills the cap, so an older Term's never-polled row is
-    reached only through the reserve. It takes slots after the distributed
-    petition, never ahead of it, and only the row a number resolves to."""
+    reached only through the reserve. It takes its slots from the cycle's tail
+    even when the distributed petitions fill it, and only the row a number
+    resolves to."""
     db = tmp_path / "corpus.db"
     with corpus.connect(db) as conn:
         _seed_pending(conn, _reserve_rows())
@@ -832,10 +833,11 @@ def test_live_rotation_reserves_slots_for_never_polled_rows_oldest_term_first(
         two = [r.case_id for r in corpus.live_rotation(conn, limit=3, never_polled_reserve=2)]
         wide = [r.case_id for r in corpus.live_rotation(conn, limit=3, never_polled_reserve=9)]
     assert off == ["scotus/1", "scotus/2", "scotus/3"]
-    assert one == ["scotus/1", "scotus/18", "scotus/2"]
+    assert one == ["scotus/1", "scotus/2", "scotus/18"]
     assert two == ["scotus/1", "scotus/18", "scotus/19"]
-    # The distributed petition keeps its slot however wide the reserve, and
-    # neither duplicate row is ever offered.
+    # The reserve takes its slots from the cycle's tail even when the
+    # distributed petition and the Term tiers fill the cap, and neither
+    # duplicate row is ever offered.
     assert wide == ["scotus/1", "scotus/18", "scotus/19"]
 
 
@@ -867,7 +869,7 @@ def test_live_rotation_reserve_reads_past_a_page_of_passed_over_rows(tmp_path: P
     with corpus.connect(db) as conn:
         _seed_pending(conn, [*_reserve_rows(), *shadowed])
         picked = [r.case_id for r in corpus.live_rotation(conn, limit=3, never_polled_reserve=1)]
-    assert picked == ["scotus/1", "scotus/18", "scotus/2"]
+    assert picked == ["scotus/1", "scotus/2", "scotus/18"]
 
 
 def test_live_rotation_reserve_skips_a_number_whose_higher_twin_was_polled(
@@ -892,6 +894,46 @@ def test_live_rotation_reserve_skips_a_number_whose_higher_twin_was_polled(
     assert picked == ["scotus/1", "scotus/18", "scotus/19"]
 
 
+def test_live_rotation_reserve_protects_only_the_capped_overdue_tier(tmp_path: Path) -> None:
+    """A stale row past the overdue cap keeps its ordinary place, so the reserve
+    may displace it like any other tail row."""
+    db = tmp_path / "corpus.db"
+    rows = [
+        *_reserve_rows(),
+        corpus.CorpusRow(
+            case_id="scotus/4",
+            court="scotus",
+            docket_number="25-4",
+            last_live_polled=date(2026, 8, 1),
+        ),
+        corpus.CorpusRow(
+            case_id="scotus/5",
+            court="scotus",
+            docket_number="26-5",
+            last_live_polled=date(2026, 8, 2),
+        ),
+    ]
+    with corpus.connect(db) as conn:
+        _seed_pending(conn, rows)
+        picked = [
+            r.case_id
+            for r in corpus.live_rotation(
+                conn,
+                limit=3,
+                overdue_before=date(2026, 9, 25),
+                overdue_limit=1,
+                never_polled_reserve=2,
+            )
+        ]
+    assert picked == ["scotus/4", "scotus/18", "scotus/19"]
+
+
+def test_live_config_refuses_a_reserve_over_half_the_cycle() -> None:
+    LiveConfig(max_cases_per_run=20, never_polled_reserve_per_run=10)
+    with pytest.raises(ValueError, match="never_polled_reserve_per_run"):
+        LiveConfig(max_cases_per_run=20, never_polled_reserve_per_run=11)
+
+
 def test_never_polled_rows_drops_an_exact_spelling_above_a_lower_id(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     rows = [
@@ -907,6 +949,39 @@ def test_never_polled_rows_drops_an_exact_spelling_above_a_lower_id(tmp_path: Pa
         picked = corpus.never_polled_rows(conn, limit=5, term_floor_year=2017, exclude=())
     assert [r.case_id for r in page] == ["scotus/7"]
     assert [r.case_id for r in picked] == ["scotus/7"]
+
+
+def test_live_rotation_reserve_takes_its_slot_when_distributed_petitions_fill_the_cap(
+    tmp_path: Path,
+) -> None:
+    """Distributed petitions alone fill the cap, as they do through the Term:
+    the reserve still takes its slot, from the cycle's tail."""
+    db = tmp_path / "corpus.db"
+    distributed = [
+        corpus.CorpusRow(
+            case_id=f"scotus/{n}",
+            court="scotus",
+            docket_number=f"26-{n}",
+            distributed_for_conference=conference,
+            last_live_polled=date(2026, 10, 1),
+        )
+        for n, conference in (
+            (31, date(2026, 11, 6)),
+            (32, date(2026, 11, 6)),
+            (33, date(2026, 11, 13)),
+        )
+    ]
+    rows = [
+        *distributed,
+        corpus.CorpusRow(case_id="scotus/18", court="scotus", docket_number="18-5018"),
+    ]
+    with corpus.connect(db) as conn:
+        _seed_pending(conn, rows)
+        off = [r.case_id for r in corpus.live_rotation(conn, limit=3)]
+        on = [r.case_id for r in corpus.live_rotation(conn, limit=3, never_polled_reserve=1)]
+    assert off == ["scotus/31", "scotus/32", "scotus/33"]
+    # The tail it displaces is the last conference reached, polled last.
+    assert on == ["scotus/31", "scotus/32", "scotus/18"]
 
 
 def test_live_rotation_reserve_never_displaces_an_overdue_row(tmp_path: Path) -> None:
@@ -932,7 +1007,7 @@ def test_live_rotation_reserve_never_displaces_an_overdue_row(tmp_path: Path) ->
                 never_polled_reserve=9,
             )
         ]
-    assert picked == ["scotus/4", "scotus/1", "scotus/18"]
+    assert picked == ["scotus/4", "scotus/18", "scotus/19"]
 
 
 def test_live_poll_all_reaches_a_docket_starved_behind_a_full_tier(tmp_path: Path) -> None:
@@ -987,13 +1062,23 @@ def test_live_poll_all_wires_the_never_polled_reserve(tmp_path: Path) -> None:
                     last_live_polled=date(2026, 10, 1),
                 ),
                 corpus.CorpusRow(
+                    case_id="scotus/9026000002",
+                    court="scotus",
+                    docket_number="26-2",
+                    last_live_polled=date(2026, 10, 1),
+                ),
+                corpus.CorpusRow(
                     case_id="scotus/9018005018", court="scotus", docket_number="18-5018"
                 ),
             ],
         )
-    served = {"26-1": _payload("26-1"), "18-5018": _payload("18-5018")}
+    served = {
+        "26-1": _payload("26-1"),
+        "26-2": _payload("26-2"),
+        "18-5018": _payload("18-5018"),
+    }
     config = LiveConfig(
-        max_cases_per_run=1,
+        max_cases_per_run=2,
         max_new_cases_per_run=0,
         max_applications_per_run=0,
         never_polled_reserve_per_run=1,
@@ -1002,9 +1087,11 @@ def test_live_poll_all_wires_the_never_polled_reserve(tmp_path: Path) -> None:
         live_poll_all(client, db, tmp_path / "data", term=26, config=config, today=today)
     with corpus.connect(db) as conn:
         reached = corpus.get_row(conn, "scotus/9018005018")
-        current = corpus.get_row(conn, "scotus/9026000001")
+        first = corpus.get_row(conn, "scotus/9026000001")
+        displaced = corpus.get_row(conn, "scotus/9026000002")
     assert reached is not None and reached.last_live_polled == today
-    assert current is not None and current.last_live_polled == date(2026, 10, 1)
+    assert first is not None and first.last_live_polled == today
+    assert displaced is not None and displaced.last_live_polled == date(2026, 10, 1)
 
 
 def test_live_poll_all_caps_the_overdue_tier_at_its_configured_share(tmp_path: Path) -> None:

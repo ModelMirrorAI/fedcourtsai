@@ -5309,11 +5309,13 @@ def live_rotation(
     current Terms always hold more than ``limit`` rows, so an older Term's
     never-polled row would otherwise never reach a cycle.
     ``never_polled_reserve`` slots go to such rows, oldest Term first (see
-    :func:`never_polled_rows`). The reserve takes only what the overdue
-    and distributed rows leave of ``limit``, so it never displaces either and
-    yields while an overdue backlog drains; it displaces the tail of the Term
-    tiers, which the overdue bound already keeps from going stale. 0 disables
-    it.
+    :func:`never_polled_rows`). The reserve takes its slots whatever the
+    distributed set's size and yields only to the overdue tier, so it shrinks
+    while an overdue backlog drains. It displaces the cycle's tail: the Term
+    tiers, or while the distributed petitions fill the cap, the most recently
+    polled petitions of the last conference the cycle reaches, which can be a
+    past conference's awaiting its order-list read; the next cycle reaches
+    them. Its rows are listed last. 0 disables it.
     """
     if limit <= 0:
         return []
@@ -5327,24 +5329,18 @@ def live_rotation(
     )
     if never_polled_reserve <= 0:
         return picked
-    conference = _pending_conference_sql(order_list_lag_days)
-    protected: set[str] = set()
-    if picked:
-        marks = ",".join("?" for _ in picked)
-        protected = {
-            str(record["case_id"])
-            for record in conn.execute(
-                f"SELECT case_id FROM cases WHERE case_id IN ({marks}) "
-                f"AND {conference} IS NOT NULL",
-                tuple(row.case_id for row in picked),
-            )
-        }
-    if overdue_before is not None:
-        protected |= {
+    # Only the overdue tier is held ahead of the reserve: the tiers lead with
+    # it, capped at ``overdue_limit``, so the first such stale rows are the tier.
+    overdue = (
+        [
             row.case_id
             for row in picked
             if row.last_live_polled is not None and row.last_live_polled < overdue_before
-        }
+        ]
+        if overdue_before is not None
+        else []
+    )
+    protected = set(overdue if overdue_limit is None else overdue[:overdue_limit])
     free = limit - len(protected)
     reserve = never_polled_rows(
         conn,
@@ -5357,7 +5353,9 @@ def live_rotation(
     reserved = {row.case_id for row in reserve}
     head = [row for row in picked if row.case_id in protected]
     tail = [row for row in picked if row.case_id not in protected and row.case_id not in reserved]
-    return (head + reserve + tail)[:limit]
+    # Listed last, so a cycle cut short by its wall-clock budget loses reserve
+    # rows before the conference petitions it displaced room from.
+    return head + tail[: limit - len(head) - len(reserve)] + reserve
 
 
 def never_polled_rows(

@@ -158,24 +158,31 @@ stalest first, so no polled docket goes unpolled longer than that bound plus
 the cycles its overdue backlog takes to drain. The overdue tier takes at most
 `live.max_overdue_per_run` of each cycle, so a large backlog drains over
 several cycles while the distributed petitions, whose order-list results are
-days away, keep the rest; an overdue docket past that share keeps its ordinary
+days away, keep the rest, less the reserve below; an overdue docket past that share keeps its ordinary
 place. A never-polled row has no stamp to age and keeps its ordinary priority-tier
 place unless the reserve below reaches it.
 The bound is set well above one sweep of the polled watchlist at the cap, so
 it bites only when a tier is starving the rest and the priority tiers govern
 otherwise.
 
-Behind the overdue and distributed rows, `live.never_polled_reserve_per_run`
-slots of each cycle go to Term-prefixed cert numbers (no applications) the
+Each cycle, `live.never_polled_reserve_per_run` slots go to Term-prefixed cert numbers (no applications) the
 channel has never polled, oldest Term first: an undecided row with an open
 event, in practice a past-Term row the historical walker skipped (undecided
 when walked, or never served). The Term tiers lead with the newest Terms,
 which fill the cap on their own, so without the reserve such a row would never
-be reached. The reserve takes only what the overdue and distributed rows
-leave, so it never delays an order-list re-read and yields while an overdue
-backlog drains. A row qualifies only when its docket number resolves to that
-row and no row under the same number has been polled, so a caption-only
-upstream duplicate is never polled into a second full row.
+be reached. Through the Term the distributed petitions alone hold more than
+the cap, so a reserve that waited for them to leave room would never run: it
+yields only to the overdue tier, shrinking while an overdue backlog drains,
+and otherwise displaces the cycle's tail. In Term that tail is the most
+recently polled petitions of the last conference the cycle reaches. While a
+past conference's set exceeds the cap that is the past conference, so up to
+the reserve's size of its rows read the order list one cycle later; within a
+conference those are the rows likeliest to have read it already. The reserve
+is capped at half the cycle and listed last, so a cycle cut short by its
+wall-clock budget drops reserve rows before conference petitions. A row
+qualifies only when its docket number resolves to that row and no row under
+the same number has been polled, so a caption-only upstream duplicate is never
+polled into a second full row.
 
 **Predict fires on the distribution transition** — a fresh distribution or a relist's new date — the cert-calendar analogue of
 `pull.predict_on_change_only`, for petitions the salience gate admits. The
