@@ -15,6 +15,7 @@ from typing import Any
 
 import httpx
 import pytest
+import yaml
 from typer.testing import CliRunner
 
 import fedcourtsai.cli as cli_module
@@ -47,6 +48,7 @@ from fedcourtsai.pipeline.decision_below import (
     split_lower_numbers,
     unmapped_class,
 )
+from tests.workflow_argv import command_argv
 
 _BASE = "https://www.courtlistener.com/api/rest/v4/"
 _JUDGMENT = date(2025, 4, 9)
@@ -979,3 +981,52 @@ def test_the_fill_command_caps_the_walk() -> None:
         cli_module.app, ["enrich-decision-below", "--max-cases", str(MAX_FILL_CASES + 1)]
     )
     assert result.exit_code == 2
+
+
+_WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+
+
+def _step(workflow: str, job: str, predicate: Any) -> Mapping[str, Any]:
+    wf = yaml.safe_load((_WORKFLOWS / workflow).read_text())
+    return next(s for s in wf["jobs"][job]["steps"] if predicate(s))
+
+
+@pytest.mark.parametrize(
+    ("workflow", "job", "program", "expected"),
+    [
+        (
+            "run-pull.yml",
+            "live",
+            (".venv/bin/fedcourts",),
+            ["enrich-decision-below", "--apply", "--max-cases", "6"],
+        ),
+        (
+            "run-analytics.yml",
+            "decision-below",
+            ("uv", "run", "fedcourts"),
+            ["enrich-decision-below", "--max-cases", "25"],
+        ),
+    ],
+)
+def test_the_workflows_run_the_fill_with_flags_the_cli_accepts(
+    workflow: str, job: str, program: tuple[str, ...], expected: list[str]
+) -> None:
+    """Both call sites are shell strings no Python check reaches, so a renamed
+    flag would surface as a usage error in the job. Click validates every option
+    before `--help` fires, so the parse is the check."""
+    step = _step(workflow, job, lambda s: "enrich-decision-below" in str(s.get("run") or ""))
+    calls = command_argv(step["run"], program)
+    assert calls == [expected]
+    result = CliRunner().invoke(cli_module.app, [*calls[0], "--help"])
+    assert result.exit_code == 0, result.output
+
+
+def test_the_live_fill_runs_on_the_opinion_steps_windows_and_tolerates_failure() -> None:
+    """The fill spends CourtListener budget, so it runs on exactly the four full
+    live windows the awaiting-grading step does, and like that step it can never
+    fail the live pull whose facts the push and commit carry."""
+    fill = _step("run-pull.yml", "live", lambda s: s.get("id") == "enrich-decision-below")
+    opinion = _step("run-pull.yml", "live", lambda s: s.get("id") == "enrich-awaiting")
+    assert fill["if"] == opinion["if"]
+    assert fill["continue-on-error"] is True
+    assert "FEDCOURTS_COURTLISTENER_API_TOKEN" in fill["env"]

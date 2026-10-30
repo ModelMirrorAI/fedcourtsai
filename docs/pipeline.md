@@ -857,9 +857,13 @@ multiplies the spend), one bounded step after the poll: `enrich-opinions
 --awaiting-grading --max-cases 8` walks only the merits cases decided within
 the evaluate lane's opinion-hold window, so a just-decided case's body usually
 lands before the next evaluate tick (*The evaluate queue is level-triggered
-too*, below). That step alone in the live job holds the CourtListener token,
-and it is `continue-on-error`: a failed or slow enrichment never fails the live
-pull, whose facts the push and commit carry either way. run-seed also runs eleven
+too*, below). A second step on the same windows, `enrich-decision-below
+--apply --max-cases 6`, stores the decision below for up to six pending cert
+petitions from the federal courts of appeals, withheld from cells
+([document-provisioning.md](document-provisioning.md)). Those two steps alone in
+the live job hold the CourtListener token, and both are `continue-on-error`: a
+failed or slow enrichment never fails the live pull, whose facts the push and
+commit carry either way. run-seed also runs eleven
 maintenance sweeps, each gated to one window a day and each converging rather
 than one-shot — a re-run over an unchanged corpus does nothing. In order: the
 **live-duplicate dedupe** (`fedcourts dedupe-live-rows`), which merges and drops

@@ -928,7 +928,13 @@ upstream answered about, so a docket CourtListener has not ingested is asked
 again after 30 days rather than every run. A case whose opinion is stored is
 re-stamped with no request when its turn comes, so it costs one manifest read
 a cycle. The ledger's predicted cases and the salience selection
-go first, because those are the cells the input is for. Both kinds wait in
+go first, because those are the cells the input is for. The `run-pull` live job
+runs it as `enrich-decision-below --apply --max-cases 6` on the same four full
+windows as the awaiting-grading opinion step, step-scoped and
+`continue-on-error` like that step, so it spends about 24 requests a typical
+window (four a case) and about a hundred a day, with its 3-minute timeout
+bounding a worst-case window; `run-analytics`'s `decision-below` mode runs
+the same pass as a 25-case dry run. Both kinds wait in
 `provision.WITHHELD_KINDS` for the re-bless that names them
 ([document-provisioning.md](document-provisioning.md)).
 

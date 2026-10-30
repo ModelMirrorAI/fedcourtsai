@@ -755,7 +755,8 @@ The automated consumer stays within CourtListener's published API limits by desi
   its governor capped at order-scan's 150 requests. Both read only what CourtListener already holds — no RECAP
   Fetch request, so no PACER charge ([cli.md](cli.md)).
 - **The decision-below fill shares it too.** `enrich-decision-below` makes the
-  same requests for at most 50 cases a run, about four each, and stores what
+  same requests for at most 50 cases a run, about four each — six cases on each
+  of `run-pull`'s four full live windows a day — and stores what
   they return: the lower court's opinion text, and a short docket record the
   fill writes, in the access-gated corpus like every other document. The
   opinion is CourtListener's text extraction of a public-domain federal
