@@ -25,6 +25,7 @@ from typer.testing import CliRunner, Result
 
 from fedcourtsai import cli, process_version
 from fedcourtsai.cli import app
+from fedcourtsai.config import get_settings
 from fedcourtsai.leaderboard import _anchor_reproduces
 from fedcourtsai.paths import CasePaths, EventPaths
 from fedcourtsai.pipeline.base_rates import freeze_cert_anchor, statpack_digest
@@ -905,11 +906,11 @@ def test_stamp_cell_walks_the_history_it_is_handed(tmp_path: Path) -> None:
     seen: list[tuple[Path, str] | None] = []
     token = cli._ANCHOR_HISTORY.set(None)
     try:
-        default = cli._git_statpack_history(cli.get_settings())
+        default = cli._git_statpack_history(get_settings())
         assert isinstance(default, GitStatpackHistory)
         assert default._ref == "origin/main" and default._repo == Path.cwd()
         cli._ANCHOR_HISTORY.set((tmp_path, "main"))
-        handed = cli._git_statpack_history(cli.get_settings())
+        handed = cli._git_statpack_history(get_settings())
         assert isinstance(handed, GitStatpackHistory)
         assert (handed._repo, handed._ref) == (tmp_path, "main")
         seen.append(cli._ANCHOR_HISTORY.get())
