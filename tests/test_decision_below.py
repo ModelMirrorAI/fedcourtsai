@@ -308,7 +308,9 @@ class _Upstream:
             rows = self.entries.get(docket, [])
             # Upstream pages entries by cursor: the next link re-asks for the
             # same docket with a cursor token.
-            nxt = f"{_BASE}docket-entries/?cursor=c{len(self.requests)}&docket={docket}"
+            since = params.get("date_filed__gte")
+            echo = f"&date_filed__gte={since}" if since else ""
+            nxt = f"{_BASE}docket-entries/?cursor=c{len(self.requests)}&docket={docket}{echo}"
             return httpx.Response(
                 200,
                 json={

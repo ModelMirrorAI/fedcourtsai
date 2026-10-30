@@ -22,6 +22,7 @@ from pydantic import (
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from . import paths
+from .courtlistener import DEFAULT_MAX_ENTRY_PAGES
 
 # The corpus read backends, defined here because `corpus` imports this module.
 # One definition, so the setting, the type hints, and the CLI help cannot drift.
@@ -314,7 +315,7 @@ class PullConfig(BaseModel):
     # Most pages of docket entries (twenty a page) one refresh may read. A
     # longer docket is recorded as failed with nothing written, so one huge
     # docket cannot spend a window's budget.
-    max_entry_pages_per_case: int = Field(default=25, ge=1)
+    max_entry_pages_per_case: int = Field(default=DEFAULT_MAX_ENTRY_PAGES, ge=1)
 
 
 def load_pull_config(config_root: Path) -> PullConfig:

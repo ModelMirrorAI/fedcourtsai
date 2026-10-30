@@ -607,15 +607,14 @@ class _Walk:
             self.texts[opinion_id] = text
         return payload
 
+    def _count(self) -> None:
+        self.requests += 1
+
     def entries(self, docket_id: int, since: date) -> tuple[list[Mapping[str, Any]], bool]:
         """A row's entries filed on or after ``since``, and whether all were read."""
-        # The first page is counted before it is sent, as every other request
-        # here is; the pages the cursor led to are counted once the read returns.
-        self.requests += 1
         read = self.client.docket_entries(
-            docket_id, max_pages=MAX_ENTRY_PAGES, date_filed_gte=since
+            docket_id, max_pages=MAX_ENTRY_PAGES, date_filed_gte=since, on_request=self._count
         )
-        self.requests += read.pages - 1
         found: list[Mapping[str, Any]] = [e for e in read.entries if isinstance(e, Mapping)]
         return found, read.complete
 

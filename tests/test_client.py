@@ -338,7 +338,8 @@ def test_docket_entries_date_filter_rides_the_first_page() -> None:
     [
         ("https://evil.example/api/rest/v4/docket-entries/?cursor=1&docket=7", "off the"),
         ("https://www.courtlistener.com/api/rest/v4/search/?cursor=1&docket=7", "off the"),
-        (f"{_ENTRIES}?cursor=1&docket=8", "another docket"),
+        (f"{_ENTRIES}?cursor=1&docket=8", "another question"),
+        (f"{_ENTRIES}?cursor=1", "another question"),
         (f"{_ENTRIES}?cursor=1&docket=7&docket=7", "repeats a parameter"),
     ],
 )
@@ -355,3 +356,29 @@ def test_docket_entries_refuse_a_next_link_this_client_did_not_build(
     with pytest.raises(ValueError, match=message):
         client.docket_entries(7, max_pages=3)
     assert len(calls) == 1
+
+
+def test_docket_entries_refuse_a_next_link_that_drops_the_date_filter() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"next": f"{_ENTRIES}?cursor=1&docket=7", "results": []})
+
+    client = _client(httpx.MockTransport(handle))
+    with pytest.raises(ValueError, match="another question"):
+        client.docket_entries(7, max_pages=3, date_filed_gte=date(2026, 1, 2))
+
+
+def test_docket_entries_count_each_page_before_it_is_sent() -> None:
+    sent = 0
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        nonlocal sent
+        sent += 1
+        if sent == 2:
+            return httpx.Response(404, json={"detail": "gone"})
+        return httpx.Response(200, json={"next": f"{_ENTRIES}?cursor=1&docket=7", "results": []})
+
+    counted: list[None] = []
+    client = _client(httpx.MockTransport(handle))
+    with pytest.raises(httpx.HTTPStatusError):
+        client.docket_entries(7, max_pages=3, on_request=lambda: counted.append(None))
+    assert len(counted) == sent == 2

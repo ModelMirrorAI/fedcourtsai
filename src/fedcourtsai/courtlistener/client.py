@@ -22,7 +22,7 @@ Docs: https://www.courtlistener.com/help/api/rest/
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import date
 from types import TracebackType
 from typing import Any, Final, Literal, NamedTuple
@@ -89,6 +89,10 @@ def classify_error(exc: BaseException) -> ErrorClass:
 #: The most pages of entries one docket read may cost before it is refused
 #: (twenty entries a page upstream).
 DEFAULT_MAX_ENTRY_PAGES: Final = 25
+
+#: What a cursor ``next`` link adds to the question its first page asked
+#: (upstream echoes the requested ``fields`` too, which this client never sets).
+_CURSOR_KEYS: Final = frozenset({"cursor"})
 
 
 class EntryPageCapExceeded(RuntimeError):
@@ -248,7 +252,12 @@ class CourtListenerClient:
         return self._get("docket-entries/", params)
 
     def docket_entries(
-        self, docket_id: int, *, max_pages: int, date_filed_gte: date | None = None
+        self,
+        docket_id: int,
+        *,
+        max_pages: int,
+        date_filed_gte: date | None = None,
+        on_request: Callable[[], None] | None = None,
     ) -> EntryPages:
         """Read up to ``max_pages`` pages of a docket's entries, following the cursor.
 
@@ -257,17 +266,27 @@ class CourtListenerClient:
         ``docket-entries/`` endpoint for the same docket. The result says how
         many pages were read and whether the last one had no ``next``: a caller
         that needs every entry treats an incomplete read as a refusal, never as
-        the whole docket.
+        the whole docket. ``on_request`` is called before each page is sent, so
+        a caller keeping its own request count stays exact when a page fails.
         """
         if max_pages < 1:
             raise ValueError("max_pages must be >= 1")
+        asked = {"docket": str(docket_id)}
+        if date_filed_gte is not None:
+            asked["date_filed__gte"] = date_filed_gte.isoformat()
+        if on_request is not None:
+            on_request()
         payload = self.list_docket_entries(docket_id, date_filed_gte=date_filed_gte)
         entries: list[JsonDict] = list(payload.get("results", []))
         pages = 1
         while (next_url := payload.get("next")) and pages < max_pages:
             params = self.link_params(next_url, "docket-entries/")
-            if params.get("docket") != str(docket_id):
-                raise ValueError(f"docket-entries next link names another docket: {next_url!r}")
+            # The link must re-ask the first page's question, adding only its
+            # cursor: a dropped date filter would quietly widen the read.
+            if {k: v for k, v in params.items() if k not in _CURSOR_KEYS} != asked:
+                raise ValueError(f"docket-entries next link asks another question: {next_url!r}")
+            if on_request is not None:
+                on_request()
             payload = self._get("docket-entries/", dict(params))
             entries.extend(payload.get("results", []))
             pages += 1
