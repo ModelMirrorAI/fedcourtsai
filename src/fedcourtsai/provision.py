@@ -649,14 +649,15 @@ no tally is read, so a cell's provisioning spends nothing on it.
 """
 
 
-SAME_QUESTION_WITHHELD = True
+SAME_QUESTION_WITHHELD = False
 """Whether a cell's record goes without its same-question petition list.
 
 The list (:func:`fedcourtsai.pipeline.same_question.cell_lists`) is part of a
-cert cell's information set, which the process digest does not see, so it is
-held back as the authorship tally is (:data:`AUTHORSHIP_TALLY_WITHHELD`) until
-the re-bless whose prompt tells cells about it, which flips this and registers
-the harness boundary. While held, no list file is read.
+forward cert cell's information set, which the process digest does not see, so
+the harness boundary ``cert-same-question-list`` dates the cells that read it;
+the predict prompt names ``record/same-question.json``. Setting this holds the
+list back as the authorship tally is (:data:`AUTHORSHIP_TALLY_WITHHELD`), and
+then no list file is read.
 """
 
 

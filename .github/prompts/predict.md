@@ -170,6 +170,20 @@ the output directory you will write to.
    read, staged or not, and why not (`reason`). Read a companion's distribution,
    grant or hold there rather than fetching it, and say in `reasoning.md` where
    your forecast rests on it. Its absence means the docket links none.
+
+   On a cert-stage cell in `forward` mode, `record/same-question.json` lists
+   other petitions whose questions presented read like this petition's, best
+   first: each one's docket number, `score` (a 0–1 text-similarity cosine,
+   listed only at or above the file's `threshold`), the day it was docketed,
+   and its `status` as of the file's `cutoff` (`pending`, or the disposition
+   it reached before then). It is a text match, not the Court's own link, so
+   a listed petition may share words rather than the question: read its
+   docket before you rely on it. A granted petition on the same question can
+   point to a hold, and several pending ones to a split; say in
+   `reasoning.md` where your forecast rests on the list. `petitions: null`
+   means this petition had no questions presented to match on, an empty list
+   that nothing scored above the threshold, and a missing file that no list
+   was built for this cell.
 6. `record/context.json` — your cell's **mode** (`forward` or `replay`) and the
    **conditioning state** the harness froze for you: `band` (your
    grant-likelihood tier under the salience version named beside it in
