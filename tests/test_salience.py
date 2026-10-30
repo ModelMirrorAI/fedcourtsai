@@ -541,7 +541,11 @@ def test_the_live_pass_still_selects_a_rule_20_writ_under_the_active_sal_v4(
     db = _seed(tmp_path, [writ])
     with corpus.connect(db) as conn:
         result = reconcile_salience_selection(
-            conn, _data_root(tmp_path), SalienceConfig(per_conference_capacity=1), apply=True
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(per_conference_capacity=1),
+            apply=True,
+            as_of=_PASS_DATE,
         )
     assert result.version == "sal-v4"
     assert _selected_ids(db) == {"scotus/writ"}
