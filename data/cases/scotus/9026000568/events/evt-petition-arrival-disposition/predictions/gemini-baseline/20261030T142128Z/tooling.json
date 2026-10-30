@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000568",
+  "run_id": "20261030T142128Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "mcp_courtlistener_search"
+  ],
+  "helpful": [
+    "provisioned petition.txt with Ninth Circuit majority and dissenting opinions",
+    "metrics/statpack.md",
+    "fedcourts query --docket-number 26-104"
+  ],
+  "gaps": [
+    "fedcourts query --originating-court filter"
+  ],
+  "notes": "Provisioned petition.txt included the full petition body and Ninth Circuit opinions, clearly showing that No. 26-568 is a Solicitor General hold petition pending Rhoney v. Barbosa da Cunha, No. 26-104."
+}

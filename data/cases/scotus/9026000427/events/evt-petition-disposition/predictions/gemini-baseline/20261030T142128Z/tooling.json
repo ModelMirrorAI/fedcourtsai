@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000427",
+  "run_id": "20261030T142128Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "record/documents/petition.txt",
+    "record/documents/questions-presented.txt"
+  ],
+  "helpful": [
+    "record/documents/petition.txt (included full petition and Federal Circuit Appendix A opinion)",
+    "record/context.json",
+    "metrics/statpack.md"
+  ],
+  "gaps": [],
+  "notes": "Provisioned petition.txt cleanly included both the petition body and the Federal Circuit's nonprecedential opinion in Appendix A, making external retrieval unnecessary beyond a baseline corpus query."
+}
