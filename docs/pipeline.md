@@ -425,21 +425,23 @@ queues behind the production run of the same mode. The modes:
   staging environment holds no CourtListener token today, so a staging
   dispatch stops at the scan's no-token refusal; the first scan that reads
   upstream is a production one.
-- **`decision-below`** (dispatch) runs `fedcourts decision-below --sample 35`:
-  for the newest 35 cert petitions whose lower court is a federal court of
-  appeals, whether CourtListener holds the lower court's docket and the opinion
-  on the judgment date, and what its entries say about rehearing en banc — the
-  match rate the decision-below cell input waits on. It reads the corpus (a
-  full pull, for the sample, then each sampled case's newest snapshot from the
-  content store) and CourtListener, so it holds the read-only role
-  and the CourtListener token, the token on its measuring step alone, and
-  buys nothing (no RECAP Fetch). About four requests a case, sixteen at worst:
+- **`decision-below`** (dispatch) runs `fedcourts enrich-decision-below
+  --max-cases 25`, the decision-below fill's dry run: for the next 25 cases of
+  its rotation, whether CourtListener holds the lower court's docket and the
+  opinion on the judgment date, what its entries say about rehearing en banc,
+  and which `decision-below` and `lower-court-docket` rows an applied window
+  would store. It is the bounded reading a maintainer takes before a writer
+  step applies the fill, and its match count is the rate on the petitions the
+  pipeline forecasts. It writes nothing. It reads the corpus (a full pull, for
+  the rotation, then each case's newest snapshot from the content store) and
+  CourtListener, so it holds the read-only role and the CourtListener token,
+  the token on its dry-run step alone, and buys nothing (no RECAP Fetch). About four requests a case, sixteen at worst:
   the step runs the governor at 10 a minute with order-scan's 150 as its hourly
   limit, the cap that fits beside a pull window and a live window's enrichment,
   so a walk that would pass it stops with the rest reported deferred, and the
-  sample is sized to fit it. A refused credential fails the run. Dispatch it in
-  the quiet odd hours `run-pull`'s enrich job names. The match rate and the
-  per-status counts go on the step summary; the report (court-record
+  walk is sized to fit it. A refused credential fails the run. Dispatch it in
+  the quiet odd hours `run-pull`'s enrich job names. The counts, per status and
+  per stored kind, go on the step summary; the report (court-record
   identifiers, captions, panels and docket entry numbers and dates, no opinion
   text) is uploaded on the same one-day retention as text-coverage's. Its own
   never-cancelled, ref-suffixed concurrency group keeps two runs of one ref

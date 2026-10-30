@@ -750,9 +750,9 @@ The automated consumer stays within CourtListener's published API limits by desi
   and configured ceilings: four requests for a typical circuit case, sixteen at
   worst. Its requests count against the same account limits but not against
   the pull governor's per-process tally, since each process counts only its
-  own. It is a maintainer's measurement, not a lane, dispatched as
-  `run-analytics`'s `decision-below` mode over 35 petitions with its governor
-  capped at order-scan's 150 requests, and it reads only what CourtListener already holds — no RECAP
+  own. It is a maintainer's measurement, not a lane; `run-analytics`'s
+  `decision-below` mode runs the fill's dry run instead, over 25 cases with
+  its governor capped at order-scan's 150 requests. Both read only what CourtListener already holds — no RECAP
   Fetch request, so no PACER charge ([cli.md](cli.md)).
 - **The decision-below fill shares it too.** `enrich-decision-below` makes the
   same requests for at most 50 cases a run, about four each, and stores what
