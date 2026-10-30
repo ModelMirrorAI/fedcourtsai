@@ -2386,8 +2386,8 @@ the rendered table) and
   `caption-v3`, and it is the one a flip would activate: `sal-v5` is never
   activated, because `caption-v3`'s counsel reading carries post-outcome
   information on resolved rows (a supporting United States amicus the Clerk
-  lists under "Petitioner"). A `sal-v5` figure from this artifact measures that
-  leak along with the rule. `sal-v5`'s replay cells measure the
+  lists under "Petitioner"). The statpack `alt_segments` block measures that
+  leak; the replay cells do not. `sal-v5`'s replay cells measure the
   call-for-response relist rule and the writ scope but never `caption-v3`,
   since the projection carries no counsel. Either block over past Terms is
   **not that version's pool** on a pack rendered before the run-repair

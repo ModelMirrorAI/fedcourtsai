@@ -15269,27 +15269,46 @@ freeze commit is recorded here.
   only `other`-role counsel, admits a post-grant amicus; and every stored
   snapshot of the historical rows postdates their grants, so no stored record
   dates the entry before the outcome. Of the 16 resolved rows `caption-v3`
-  moves to `federal`, 5 (all granted) carry post-outcome information: 19-1257
-  and 25-840 by a post-grant United States amicus listed on the petitioner
-  side (25-840 observed directly: no office on the petitioner side in the
-  snapshots of 2026-07-12 through 2026-08-16, after its 2026-06-29 grant, and
-  the office present from 2026-10-04, after the amicus brief of 2026-09-15),
-  and 18-1587, 24-20 and 24-422 by consolidation with a government petition in
-  the grant order itself. `sal-v5` stays registered, so a pool or replay cell
-  published under its label still replays, and it is never activated.
+  moves to `federal`, at least 5 (all granted) carry post-outcome
+  information: 19-1257 and 25-840 by a post-grant United States amicus listed
+  on the petitioner side (25-840 observed directly: no office on the
+  petitioner side in the snapshots of 2026-07-12 through 2026-08-16, after its
+  2026-06-29 grant, and the office present from 2026-10-04, after the amicus
+  brief of 2026-09-15), and 18-1587, 24-20 and 24-422 by consolidation with a
+  government petition in the grant order itself. No stored snapshot of the
+  other historical moved rows predates its grant, so they cannot be dated.
+  `sal-v5` stays registered, so a pool or replay cell published under its
+  label still replays, and it is never activated.
 
-  **The relist rule against the census's reading, measured.** Over the
-  complete Terms OT2017–OT2024 after the `salience-cert-backfill` apply, the
-  1,470 rows with a call for response agree on `s` on 1,465 (99.66%) under the
-  census's own reading (the first distribution filed on or before the call
-  and its conference not yet sat) and on 1,468 under the alternate (the
-  conference pending at the call). The five disagreements under the first
-  reading are 18-1078, 20-1737, 20-791, 21-1241 and 24-1192, all with the rule
-  reading `s = 1`: definitional, none from an unfilled column or a call-date
-  or count mismatch. The back-filled columns match a fresh snapshot reading on
-  1,470 of 1,470.
+  **The relist rule against the census's reading, measured.** The frame is
+  the census's: the 12,168 resolved live-slice rows in the scored segment with
+  docket Terms 2017–2024, read after the `salience-cert-backfill` apply, of
+  which 1,470 carry a call for response. On all 1,470 the back-filled
+  `call_for_response_at`, `distributed_after_call` and `distribution_count`
+  each match a fresh reading of the row's newest live snapshot. The census
+  stored no per-row `s`, so its reading was reconstructed from each
+  snapshot's dated distributions: the first distribution filed on or before
+  the call with its conference not yet sat, and a distribution after the call
+  naming a conference not named before it. Per Term, under that reading:
+
+  | Term | rows with a call | rule `s = 1` | census `s = 1` | agree | disagreeing ids |
+  | --- | --- | --- | --- | --- | --- |
+  | 2017 | 203 | 191 | 191 | 203 | — |
+  | 2018 | 185 | 179 | 178 | 184 | 18-1078 |
+  | 2019 | 184 | 181 | 181 | 184 | — |
+  | 2020 | 205 | 201 | 199 | 203 | 20-1737, 20-791 |
+  | 2021 | 173 | 166 | 165 | 172 | 21-1241 |
+  | 2022 | 161 | 156 | 156 | 161 | — |
+  | 2023 | 170 | 158 | 158 | 170 | — |
+  | 2024 | 189 | 185 | 184 | 188 | 24-1192 |
+  | all | 1,470 | 1,417 | 1,412 | 1,465 (99.66%) | 5 |
+
+  Read instead off the conference pending at the call, the two agree on
+  1,468. Every disagreement has the rule reading `s = 1` and is definitional:
+  a call dated after the first conference sat (20-1737, 20-791), or a call
+  following a relist or a reschedule (18-1078, 21-1241, 24-1192). None comes
+  from an unfilled column or a call-date or count mismatch, and none is a
+  Rule 20 writ.
 
   The figures are on production index blob `d6086761…aa18703a` (newest pull
-  2026-10-30, newest stored snapshot row 2026-07-13), from
-  `/mnt/project-files/sal-v5/activation-measurements-20261030.md`, which
-  carries the per-Term table and the counts behind each figure.
+  2026-10-30, newest stored snapshot row 2026-07-13).

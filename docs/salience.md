@@ -929,7 +929,7 @@ amicus brief reads as the office on the petitioner side. A resolved row's list
 is its terminal one, and the index dates no entry, so on a historical pool the
 `federal` class `caption-v3` adds can be the outcome itself, written after the
 grant: a supporting amicus, or a consolidation with a government petition in the
-grant order. Of the 16 resolved rows `caption-v3` moves, 5 (all granted) carry
+grant order. Of the 16 resolved rows `caption-v3` moves, at least 5 (all granted) carry
 that kind of post-outcome information (19-1257 and 25-840 by a supporting
 amicus, 18-1587, 24-20 and 24-422 by consolidation at the grant), and no stored
 snapshot of a historical row predates its grant to date the rest. The figures
@@ -1089,6 +1089,12 @@ them:
   on blob `d6086761…aa18703a` (newest pull 2026-10-30);
 - a statpack refresh rendered after the back-fill, under the same statistical
   bar `sal-v3`'s activation cleared, read at matched recall against `sal-v4`.
+- a decision on whether a refused band needs its own stamp. A cell outside the
+  active version's segment freezes `band = null` with `signals_observable =
+  true`, which a reader tells apart from an unobservable docket only by that
+  flag; whether the context should carry the refusal as a field of its own is
+  settled before the flip, since a field added to `context.json` widens what
+  every cell reads.
 
 ## Selection — deterministic rank-and-cap, sticky per conference
 
