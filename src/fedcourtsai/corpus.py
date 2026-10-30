@@ -5449,25 +5449,34 @@ _RESERVE_SCAN_PAGES = 10
 def _never_polled_page(
     conn: sqlite3.Connection, *, term_floor_year: int, size: int, offset: int
 ) -> list[CorpusRow]:
-    """One page of :func:`never_polled_rows`'s candidates, oldest Term first."""
+    """One page of :func:`never_polled_rows`'s candidates, oldest Term first.
+
+    A row stored under the same spelling as a lower docket id is dropped by
+    joining each candidate to its spelling's lowest id, computed once per page
+    in ``lowest``. The live-docket index covers only polled rows, so a
+    correlated lower-id probe would walk every SCOTUS row for each candidate.
+    """
+    term_year = _TERM_YEAR_SQL.replace("docket_number", "cases.docket_number")
     cur = conn.execute(
-        "SELECT * FROM cases WHERE court = 'scotus' "
-        "AND date_decided IS NULL AND disposition IS NULL "
-        "AND last_live_polled IS NULL "
-        "AND docket_number GLOB '[0-9][0-9]-*' "
-        f"AND {_TERM_YEAR_SQL} >= ? "
+        "WITH lowest AS ("
+        "    SELECT docket_number, MIN(CAST(substr(case_id, 8) AS INTEGER)) AS low_id "
+        "    FROM cases WHERE court = 'scotus' AND docket_number GLOB '[0-9][0-9]-*' "
+        "    GROUP BY docket_number) "
+        "SELECT cases.* FROM cases JOIN lowest "
+        "    ON lowest.docket_number = cases.docket_number "
+        "    AND lowest.low_id = CAST(substr(cases.case_id, 8) AS INTEGER) "
+        "WHERE cases.court = 'scotus' "
+        "AND cases.date_decided IS NULL AND cases.disposition IS NULL "
+        "AND cases.last_live_polled IS NULL "
+        "AND cases.docket_number GLOB '[0-9][0-9]-*' "
+        f"AND {term_year} >= ? "
         "AND EXISTS (SELECT 1 FROM events "
         "            WHERE events.case_id = cases.case_id AND events.resolved = 0) "
         "AND NOT EXISTS (SELECT 1 FROM cases AS sibling "
         "                WHERE sibling.court = 'scotus' "
         "                AND sibling.docket_number = cases.docket_number "
         "                AND sibling.last_live_polled IS NOT NULL) "
-        "AND NOT EXISTS (SELECT 1 FROM cases AS sibling "
-        "                WHERE sibling.court = 'scotus' "
-        "                AND sibling.docket_number = cases.docket_number "
-        "                AND CAST(substr(sibling.case_id, 8) AS INTEGER) "
-        "                    < CAST(substr(cases.case_id, 8) AS INTEGER)) "
-        f"ORDER BY {_TERM_YEAR_SQL} ASC, case_id ASC LIMIT ? OFFSET ?",
+        f"ORDER BY {term_year} ASC, cases.case_id ASC LIMIT ? OFFSET ?",
         (term_floor_year, size, offset),
     )
     return [_from_record(record) for record in cur]
