@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/72408073",
+  "run_id": "20261030T230229Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "flags": [
+    {"category": "data-quality", "severity": "warning", "event_id": "evt-brief-response-disposition",
+     "message": "context.json marks this cell mode=forward, but the application (17A145, filed Jul 2017) is from OT2017 and has almost certainly long since been resolved. The outcome was not retrieved or folded in; the cell probably should have been placed as replay."},
+    {"category": "provisioning", "severity": "info", "event_id": "evt-brief-response-disposition",
+     "message": "No record/documents/ (application or response text) and no related/ snapshot for linked No. 16-8909 were provisioned; forecast made from the two-entry docket and base rates."}
+  ]
+}

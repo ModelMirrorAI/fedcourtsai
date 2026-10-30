@@ -15250,8 +15250,8 @@ freeze commit is recorded here.
   data-visible boundary (`context.salience_version`), and a registration
   re-blesses nothing. `uv run fedcourts process-digest --all` prints the same
   six `proc-v15` digests before and after this change. Carried to `main` by
-  the promotion tagged `<FILL: promotion tag>` (merge commit
-  `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+  the promotion tagged `promotion/2026-10-30-2` (merge commit
+  `d1fea1be5dbf3bc923038e0e98dbbfac26c0d629`, merged `2026-10-30T21:35:48Z`).
 
   **What `sal-v6` is.** `sal-v5`'s call-for-response relist count
   (`call_for_response_superseded`, over `distributed_after_call`) and its Rule

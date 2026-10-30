@@ -1,0 +1,15 @@
+{
+  "case_id": "scotus/72406996",
+  "run_id": "20261030T230229Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "flags": [
+    {
+      "category": "leakage-disclosure",
+      "severity": "info",
+      "event_id": "evt-brief-response-disposition",
+      "message": "Although context.json sets mode='forward', this is a historical November 2016 application (cutoff 2016-11-04). While running pre-cutoff CourtListener searches (filed_before='2016-11-03') for the lower-court decision in Arthur v. State (Ala. Crim. App. CR-15-1452, 236 So. 3d 155, decided Oct. 19, 2016), the cluster metadata included a Westlaw subsequent-history string noting 'Certiorari Denied by Arthur v. Alabama, U.S., April 17, 2017' (referring to linked cert petition 16-595, not application 16A450), and a SCOTUS search scoped to filed_before='2016-11-03' returned the November 3, 2016 stay orders in companion application 16A451/16-602 (Arthur v. Dunn, 137 S. Ct. 14 and 15). No disposition for 16A450 surfaced, and only pre-cutoff facts were used in the forecast."
+    }
+  ],
+  "schema_version": "1.0"
+}

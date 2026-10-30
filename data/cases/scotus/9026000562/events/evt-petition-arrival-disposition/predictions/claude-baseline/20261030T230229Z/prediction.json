@@ -1,0 +1,101 @@
+{
+  "big_case_rationale": "Pro se challenge to one county's attorney-only e-filing access, arising from a state supreme court's refusal to entertain mandamus; narrow, local, interlocutory.",
+  "big_case_score": 0.03,
+  "case_id": "scotus/9026000562",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.001,
+        "Barrett": 0.001,
+        "Gorsuch": 0.003,
+        "Jackson": 0.004,
+        "Kagan": 0.001,
+        "Kavanaugh": 0.001,
+        "Roberts": 0.001,
+        "Sotomayor": 0.004,
+        "Thomas": 0.002
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.003
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.96
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.002
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.35
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.01
+    }
+  ],
+  "confidence": 0.97,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.050890782339271884,
+      "statpack_digest": "sha256:3b01e1a254b5c991f8f6510eaef56d7a8b70cfd520a916429d93dcaa4a022cdd"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": "date",
+    "cutoff": "2026-10-29",
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 0,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 1,
+      "fields": 5,
+      "sides": [
+        "Petitioner"
+      ]
+    },
+    "snapshot_date": "2026-10-29",
+    "snapshot_provenance": "truncated",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-30T23:22:38.150685Z",
+  "engine": "claude-code",
+  "event_id": "evt-petition-arrival-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-29.json",
+  "judgment": null,
+  "model": "claude-opus-5-5",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "claude-baseline",
+  "probability": 0.003,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
+    "label": "proc-v15",
+    "pipeline_sha": "b9c108875b0e0d4bbc676b71cdf99f372cbf8529",
+    "stamped_at": "2026-10-30T23:22:38.150685Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261030T230229Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}

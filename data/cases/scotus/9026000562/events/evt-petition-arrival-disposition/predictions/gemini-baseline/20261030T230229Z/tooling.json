@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000562",
+  "run_id": "20261030T230229Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "metrics/statpack.md",
+    "metrics/statpack.json"
+  ],
+  "helpful": [
+    "context.json cert_anchor and salience band",
+    "provisioned petition.txt and appendix.txt",
+    "statpack base rates by salience band and originating court",
+    "fedcourts query"
+  ],
+  "gaps": [],
+  "notes": "Provisioned petition and appendix texts (including the May 21, 2026 Supreme Court of South Carolina mandamus denial and August 3, 2026 circuit court sanctions dismissal) alongside context.json and statpack base rates provided a complete record for arrival-stage cert disposition forecasting."
+}

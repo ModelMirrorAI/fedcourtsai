@@ -4,11 +4,11 @@
   "cases_without_score": 1,
   "coverage": [
     {
-      "cases": 303,
+      "cases": 306,
       "n": 3
     },
     {
-      "cases": 34,
+      "cases": 31,
       "n": 2
     },
     {
@@ -16,18 +16,18 @@
       "n": 1
     }
   ],
-  "current_reads": 1012,
+  "current_reads": 1015,
   "declared_no_view": 22,
   "frozen_process": {
     "digests": [
-      "sha256:0a2c019943da445c875bf3b3cbfa9dfbfcc7a3fdcf03fb84412ca0e8e45e0b30",
-      "sha256:0e123d10c73cb8a03f7859c46c1f3bd621187ecb12918542fee4512f6fde36ec",
-      "sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6",
-      "sha256:61cb758f964fffee9d99657cc31e70042bf9bfc61fdb4912b6accac77622f1a9",
-      "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
-      "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583"
+      "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
+      "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
+      "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
+      "sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c",
+      "sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388",
+      "sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0"
     ],
-    "since": "2026-10-29T14:16:26Z",
+    "since": "2026-10-30T16:38:43Z",
     "windows": [
       {
         "closes": "2026-10-11T12:00:00Z",
@@ -150,7 +150,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-30T16:38:43Z",
         "digest": "sha256:641ede79b901c3dead9f6dc49cd2fe94e350511b9bc3ac43d603c08919b8eddf",
         "label": "proc-v14",
         "opens": "2026-10-29T14:16:26Z",
@@ -158,7 +158,7 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-30T16:38:43Z",
         "digest": "sha256:231b2fd0b0381db5a321b479ad12793f5c9ef990942823e77029cbdec3caecc6",
         "label": "proc-v14",
         "opens": "2026-10-29T14:16:26Z",
@@ -166,10 +166,34 @@
         "revoked_at": null
       },
       {
-        "closes": null,
+        "closes": "2026-10-30T16:38:43Z",
         "digest": "sha256:725538ea76a7fc5bb3d37cd80dd6a7f2f24440f5b75e1644f0ece61656d62583",
         "label": "proc-v14",
         "opens": "2026-10-29T14:16:26Z",
+        "predictor_id": "gemini-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a",
+        "label": "proc-v15",
+        "opens": "2026-10-30T16:38:43Z",
+        "predictor_id": "claude-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
+        "label": "proc-v15",
+        "opens": "2026-10-30T16:38:43Z",
+        "predictor_id": "codex-baseline",
+        "revoked_at": null
+      },
+      {
+        "closes": null,
+        "digest": "sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07",
+        "label": "proc-v15",
+        "opens": "2026-10-30T16:38:43Z",
         "predictor_id": "gemini-baseline",
         "revoked_at": null
       }
@@ -193,7 +217,7 @@
     "leakage_note": "A leakage-flagged read is worse here than on a board that drops it. A stakes read is partly a read of the disposition, so a predictor that saw its own outcome may have read the stakes off it too \u2014 and on this board that cell is not one point inside a coefficient, it is the published number. Every read and every row carries `leakage_suspected`, set where any committed grading of that run recorded the bit. Read a marked row as evidence about the cell, not about the case. The **row** mark is moment-scoped like every other row figure: it covers the reads the row publishes, so a flagged read on an earlier moment leaves the row unmarked while staying visible, and marked, under its own event.",
     "no_time_series": "The committed ledger spans a boundary at which `big_case_score` became required with an explicit null escape (`docs/freeze-record.md`). Cells either side of it are two populations \u2014 the ask changed, so which cells carry a read changed with it \u2014 and **this build spans it**, so the board publishes no trend and no history. Nor is a movement between two consecutive builds a measurement: a row's mean, `n` and rank also move when its `moment` does, which is the **docket** advancing and the whole panel switching question at once, not a predictor changing its mind. A movement across any of these boundaries measures nothing.",
     "population": "Every case in the committed ledger carrying at least one **in-scope** scored read on its current moment, pending and decided alike. `cases_without_score` counts the predicted cases whose in-scope reads carry no number at all and which are therefore absent \u2014 including a case whose current moment drew only declining reads whilst an earlier moment carried scores, which are history here and never promoted back into a row. The list is the predictions', never the corpus's \u2014 and the predictions' list is the salience gate's deliberately non-representative selection (`docs/salience.md`), so the board inherits that gate and is **not** a sample of the docket or of any conference. `status` says only whether a committed `outcome.json` sits on the case's predicted events: `pending` means the ledger records no outcome, which is not a statement about what the Court has done.",
-    "process_label": "proc-v14",
+    "process_label": "proc-v15",
     "rank_resolution": "The `#` column is a coarse band, never an ordering. Neighbouring rows sit far closer together than the predictors inside a single row sit to each other, so the difference between two adjacent ranks is smaller than the disagreement the ranks are built from. `median_adjacent_gap` and `median_score_range` are published beside each other so that comparison can be made rather than assumed. The moment-first collapse sharpens this rather than settling it: each row is one moment, so a row's mean **is** comparable across its own predictors, but two rows on different moments are not comparable to each other and the `#` column orders across moments anyway. The panel reads stakes systematically higher at later moments, so a row's position reflects which question its panel answered as well as how big its case is.",
     "reading_rule": "A stakes read is neither scored nor ranked: it resolves against nothing, so no **stakes** figure here is an accuracy, a calibration or an ordering of predictors, and none may be quoted as one. The per-cell `probability` carried beside it **is** a forecast \u2014 the cell's raw value, unstratified, unexcluded and unscored \u2014 and it is not a claimable one either; scored forecast performance lives on the leaderboard and nowhere else. Like the leaderboard's big-case views, this board reads the ledger directly, so neither the forward-claim exclusion nor the leakage exclusion applies; it is wider still than those, since it also reads cells no judge has graded and every process version. A wider population than the scored boards, deliberately, and a caveat that has to travel with a quoted number. The mean is a panel opinion about which cases matter, and it says nothing about how likely any of them is to be granted.",
     "schedule_rule": "`scheduled` is joined by case id from the committed `data/schedule/schedule.json`, which the live poll writes from the conference each pending public docket's newest 'DISTRIBUTED for Conference of ...' entry names. It is null where the case is not on the schedule (decided, never distributed, or not read by the live channel) and where the conference had already passed on the day the schedule was built. The row carries no build day, so the board moves only when a case's date does; a reader rendering on a later day drops a date that has since passed rather than show it as upcoming. A schedule moves on every relist, so the field is display-only and never a ledger record: nothing predicts, evaluates or scores on it, and no cell is provisioned with it.",
@@ -3393,100 +3417,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Quinones",
-      "caption": "Andre Quinones, Acting Director of the Seattle Field Office of U.S. Immigration and Customs Enforcement, et al. v. Ramon Rodriguez Vazquez, Individually and on Behalf of All Others Similarly Situated",
-      "caption_event_id": "evt-petition-arrival-disposition",
-      "case_id": "scotus/9026000568",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "Class-wide challenge to the government's reading of 8 U.S.C. 1225(b)(2)(A) mandating no-bond detention of every alien present without admission \u2014 an issue of national reach, though this petition rides as a hold behind the granted lead case.",
-          "big_case_score": 0.8,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261029T184840Z"
-        },
-        {
-          "big_case_rationale": "The underlying statutory question governs access to bond hearings for a broad population of immigrants arrested inside the United States, although this petition is a follow-on vehicle to an already-granted case.",
-          "big_case_score": 0.9,
-          "event_id": "evt-petition-arrival-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261029T184840Z"
-        }
-      ],
-      "docket_id": 9026000568,
-      "docket_number": "26-568",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-568.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "Class-wide challenge to the government's reading of 8 U.S.C. 1225(b)(2)(A) mandating no-bond detention of every alien present without admission \u2014 an issue of national reach, though this petition rides as a hold behind the granted lead case.",
-              "big_case_score": 0.8,
-              "cell_path": "data/cases/scotus/9026000568/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T184840Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000568/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T184840Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "claude-baseline",
-              "probability": 0.56,
-              "run_id": "20261029T184840Z"
-            },
-            {
-              "big_case_rationale": "The underlying statutory question governs access to bond hearings for a broad population of immigrants arrested inside the United States, although this petition is a follow-on vehicle to an already-granted case.",
-              "big_case_score": 0.9,
-              "cell_path": "data/cases/scotus/9026000568/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T184840Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000568/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T184840Z",
-              "confidence": null,
-              "granted": 1,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "gvr",
-              "predictor_id": "codex-baseline",
-              "probability": 0.82,
-              "run_id": "20261029T184840Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Andre Quinones, Acting Director of the Seattle Field Office of U.S. Immigration and Customs Enforcement, et al. v. Ramon Rodriguez Vazquez, Individually and on Behalf of All Others Similarly Situated"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.85,
-      "moment": "evt-petition-arrival-disposition",
-      "moment_opened_at": "2026-10-29",
-      "n": 2,
-      "other_party": "Ramon Rodriguez Vazquez",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Quinones' case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Quinones' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": null,
-      "score_max": 0.9,
-      "score_min": 0.8,
-      "score_range": 0.1,
-      "short_caption": "Quinones v. Ramon Rodriguez Vazquez",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "National Association for Gun Rights",
       "caption": "National Association for Gun Rights, et al. v. Ned Lamont, in His Official Capacity as Governor of Connecticut, et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -5481,6 +5411,123 @@
       "score_range": 0.32,
       "short_caption": null,
       "status": "partly_resolved"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Quinones",
+      "caption": "Andre Quinones, Acting Director of the Seattle Field Office of U.S. Immigration and Customs Enforcement, et al. v. Ramon Rodriguez Vazquez, Individually and on Behalf of All Others Similarly Situated",
+      "caption_event_id": "evt-petition-arrival-disposition",
+      "case_id": "scotus/9026000568",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "Class-wide challenge to the government's reading of 8 U.S.C. 1225(b)(2)(A) mandating no-bond detention of every alien present without admission \u2014 an issue of national reach, though this petition rides as a hold behind the granted lead case.",
+          "big_case_score": 0.8,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261029T184840Z"
+        },
+        {
+          "big_case_rationale": "The underlying statutory question governs access to bond hearings for a broad population of immigrants arrested inside the United States, although this petition is a follow-on vehicle to an already-granted case.",
+          "big_case_score": 0.9,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261029T184840Z"
+        },
+        {
+          "big_case_rationale": "High-stakes statutory question whether 8 U.S.C. 1225(b)(2)(A) mandates detention without bond for millions of noncitizens present in the interior without admission, presented here in a class-action hold petition awaiting the lead decision in Rhoney v. Barbosa da Cunha, No. 26-104.",
+          "big_case_score": 0.72,
+          "event_id": "evt-petition-arrival-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261030T142128Z"
+        }
+      ],
+      "docket_id": 9026000568,
+      "docket_number": "26-568",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-568.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "Class-wide challenge to the government's reading of 8 U.S.C. 1225(b)(2)(A) mandating no-bond detention of every alien present without admission \u2014 an issue of national reach, though this petition rides as a hold behind the granted lead case.",
+              "big_case_score": 0.8,
+              "cell_path": "data/cases/scotus/9026000568/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T184840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000568/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261029T184840Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "claude-baseline",
+              "probability": 0.56,
+              "run_id": "20261029T184840Z"
+            },
+            {
+              "big_case_rationale": "The underlying statutory question governs access to bond hearings for a broad population of immigrants arrested inside the United States, although this petition is a follow-on vehicle to an already-granted case.",
+              "big_case_score": 0.9,
+              "cell_path": "data/cases/scotus/9026000568/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T184840Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000568/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261029T184840Z",
+              "confidence": null,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "codex-baseline",
+              "probability": 0.82,
+              "run_id": "20261029T184840Z"
+            },
+            {
+              "big_case_rationale": "High-stakes statutory question whether 8 U.S.C. 1225(b)(2)(A) mandates detention without bond for millions of noncitizens present in the interior without admission, presented here in a class-action hold petition awaiting the lead decision in Rhoney v. Barbosa da Cunha, No. 26-104.",
+              "big_case_score": 0.72,
+              "cell_path": "data/cases/scotus/9026000568/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261030T142128Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000568/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261030T142128Z",
+              "confidence": 0.65,
+              "granted": 1,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "gvr",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.55,
+              "run_id": "20261030T142128Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Andre Quinones, Acting Director of the Seattle Field Office of U.S. Immigration and Customs Enforcement, et al. v. Ramon Rodriguez Vazquez, Individually and on Behalf of All Others Similarly Situated"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.8067,
+      "moment": "evt-petition-arrival-disposition",
+      "moment_opened_at": "2026-10-29",
+      "n": 3,
+      "other_party": "Ramon Rodriguez Vazquez",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Quinones' case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Quinones' petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": null,
+      "score_max": 0.9,
+      "score_min": 0.72,
+      "score_range": 0.18,
+      "short_caption": "Quinones v. Ramon Rodriguez Vazquez",
+      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -16294,6 +16341,20 @@
               "predictor_id": "codex-baseline",
               "probability": 0.22,
               "run_id": "20261029T212853Z"
+            },
+            {
+              "big_case_rationale": "If granted and decided, the case would clarify whether general personal jurisdiction can rest on a corporation's historical headquarters at the time of injury and further police specific personal jurisdiction boundaries under Ford Motor Co. and Bristol-Myers Squibb in coordinated mass-tort product-liability litigation.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000029/events/evt-petition-disposition/predictions/gemini-baseline/20261030T142128Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000029/events/evt-petition-disposition/predictions/gemini-baseline/20261030T142128Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.025,
+              "run_id": "20261030T142128Z"
             }
           ],
           "resolved_at": null,
@@ -35285,6 +35346,176 @@
     },
     {
       "asking_declined": null,
+      "asking_party": "Nexstar Media",
+      "caption": "Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National Labor Relations Board",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000435",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A fact-bound NLRA supervisory-status dispute over one station's producers, reached through an unpublished summary order; the Loper Bright standard-of-review angle is of broader interest but the Second Circuit has already corrected course in a published opinion.",
+          "big_case_score": 0.15,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261030T011325Z"
+        },
+        {
+          "big_case_rationale": "The scope of independent judicial review of labor-agency legal conclusions matters nationally, but this unpublished, fact-specific television-producer classification dispute is a narrow vehicle for that broader issue.",
+          "big_case_score": 0.32,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261030T011325Z"
+        },
+        {
+          "big_case_rationale": "If decided on the merits, the case would clarify the boundary between de novo statutory interpretation under Loper Bright and substantial-evidence review of NLRB supervisory-status determinations under 29 U.S.C. 152(11), a moderately consequential labor and administrative law issue but applied here to a routine bargaining-unit dispute.",
+          "big_case_score": 0.35,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261030T142128Z"
+        }
+      ],
+      "docket_id": 9026000435,
+      "docket_number": "26-435",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-435.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-arrival-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A single-station refusal-to-bargain test of certification resolved in an unpublished Second Circuit summary order; the only general stake is whether Loper Bright compliance by circuits reviewing NLRB orders needs policing, and the panel's substantial-evidence posture makes this a poor vehicle for that.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261001T215439Z",
+              "confidence": 0.7,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.03,
+              "run_id": "20261001T215439Z"
+            },
+            {
+              "big_case_rationale": "The petition could clarify independent judicial review of NLRB statutory interpretations and the supervisory exclusion for broadcast producers. Those questions extend beyond one station, but the evidence-specific summary order limits the likely breadth of a decision.",
+              "big_case_score": 0.45,
+              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261001T215439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.12,
+              "run_id": "20261001T215439Z"
+            },
+            {
+              "big_case_rationale": "High-stakes administrative law issue testing the application of Loper Bright and agency deference.",
+              "big_case_score": 0.65,
+              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261001T215439Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261001T215439Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.12,
+              "run_id": "20261001T215439Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National Labor Relations Board, et al."
+        },
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A fact-bound NLRA supervisory-status dispute over one station's producers, reached through an unpublished summary order; the Loper Bright standard-of-review angle is of broader interest but the Second Circuit has already corrected course in a published opinion.",
+              "big_case_score": 0.15,
+              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-disposition/predictions/claude-baseline/20261030T011325Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-disposition/predictions/claude-baseline/20261030T011325Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.04,
+              "run_id": "20261030T011325Z"
+            },
+            {
+              "big_case_rationale": "The scope of independent judicial review of labor-agency legal conclusions matters nationally, but this unpublished, fact-specific television-producer classification dispute is a narrow vehicle for that broader issue.",
+              "big_case_score": 0.32,
+              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-disposition/predictions/codex-baseline/20261030T011325Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-disposition/predictions/codex-baseline/20261030T011325Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.07,
+              "run_id": "20261030T011325Z"
+            },
+            {
+              "big_case_rationale": "If decided on the merits, the case would clarify the boundary between de novo statutory interpretation under Loper Bright and substantial-evidence review of NLRB supervisory-status determinations under 29 U.S.C. 152(11), a moderately consequential labor and administrative law issue but applied here to a routine bargaining-unit dispute.",
+              "big_case_score": 0.35,
+              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-disposition/predictions/gemini-baseline/20261030T142128Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-disposition/predictions/gemini-baseline/20261030T142128Z",
+              "confidence": 0.85,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.015,
+              "run_id": "20261030T142128Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National Labor Relations Board"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.2733,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-10-01",
+      "n": 3,
+      "other_party": "NLRB",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Nexstar Media's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Nexstar Media's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.35,
+      "score_min": 0.15,
+      "score_range": 0.2,
+      "short_caption": "Nexstar Media v. NLRB",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
       "asking_party": "Casarez",
       "caption": "Christina Casarez v. Irigoyen Farms, Inc., et al.",
       "caption_event_id": "evt-order-call-for-response-disposition",
@@ -36895,153 +37126,6 @@
       "score_range": 0.19,
       "short_caption": "Jason Tywann Bell v. Gilley",
       "status": "resolved"
-    },
-    {
-      "asking_declined": null,
-      "asking_party": "Nexstar Media",
-      "caption": "Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National Labor Relations Board",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/9026000435",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A fact-bound NLRA supervisory-status dispute over one station's producers, reached through an unpublished summary order; the Loper Bright standard-of-review angle is of broader interest but the Second Circuit has already corrected course in a published opinion.",
-          "big_case_score": 0.15,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261030T011325Z"
-        },
-        {
-          "big_case_rationale": "The scope of independent judicial review of labor-agency legal conclusions matters nationally, but this unpublished, fact-specific television-producer classification dispute is a narrow vehicle for that broader issue.",
-          "big_case_score": 0.32,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261030T011325Z"
-        }
-      ],
-      "docket_id": 9026000435,
-      "docket_number": "26-435",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-435.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-arrival-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A single-station refusal-to-bargain test of certification resolved in an unpublished Second Circuit summary order; the only general stake is whether Loper Bright compliance by circuits reviewing NLRB orders needs policing, and the panel's substantial-evidence posture makes this a poor vehicle for that.",
-              "big_case_score": 0.15,
-              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261001T215439Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/claude-baseline/20261001T215439Z",
-              "confidence": 0.7,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.03,
-              "run_id": "20261001T215439Z"
-            },
-            {
-              "big_case_rationale": "The petition could clarify independent judicial review of NLRB statutory interpretations and the supervisory exclusion for broadcast producers. Those questions extend beyond one station, but the evidence-specific summary order limits the likely breadth of a decision.",
-              "big_case_score": 0.45,
-              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261001T215439Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/codex-baseline/20261001T215439Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.12,
-              "run_id": "20261001T215439Z"
-            },
-            {
-              "big_case_rationale": "High-stakes administrative law issue testing the application of Loper Bright and agency deference.",
-              "big_case_score": 0.65,
-              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261001T215439Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-arrival-disposition/predictions/gemini-baseline/20261001T215439Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "gemini-baseline",
-              "probability": 0.12,
-              "run_id": "20261001T215439Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National Labor Relations Board, et al."
-        },
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A fact-bound NLRA supervisory-status dispute over one station's producers, reached through an unpublished summary order; the Loper Bright standard-of-review angle is of broader interest but the Second Circuit has already corrected course in a published opinion.",
-              "big_case_score": 0.15,
-              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-disposition/predictions/claude-baseline/20261030T011325Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-disposition/predictions/claude-baseline/20261030T011325Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.04,
-              "run_id": "20261030T011325Z"
-            },
-            {
-              "big_case_rationale": "The scope of independent judicial review of labor-agency legal conclusions matters nationally, but this unpublished, fact-specific television-producer classification dispute is a narrow vehicle for that broader issue.",
-              "big_case_score": 0.32,
-              "cell_path": "data/cases/scotus/9026000435/events/evt-petition-disposition/predictions/codex-baseline/20261030T011325Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000435/events/evt-petition-disposition/predictions/codex-baseline/20261030T011325Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.07,
-              "run_id": "20261030T011325Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Nexstar Media Inc., Authorized to Operate Television Station WROC-TV v. National Labor Relations Board"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.235,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-10-01",
-      "n": 2,
-      "other_party": "NLRB",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Nexstar Media's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Nexstar Media's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
-      "score_max": 0.32,
-      "score_min": 0.15,
-      "score_range": 0.17,
-      "short_caption": "Nexstar Media v. NLRB",
-      "status": "pending"
     },
     {
       "asking_declined": null,
@@ -43283,103 +43367,6 @@
     },
     {
       "asking_declined": null,
-      "asking_party": "Coleman",
-      "caption": "Richard W. Coleman, Jr. v. Merit Systems Protection Board",
-      "caption_event_id": "evt-petition-disposition",
-      "case_id": "scotus/9026000427",
-      "court_id": "scotus",
-      "current_reads": [
-        {
-          "big_case_rationale": "A pro se federal employee's fact-bound whistleblower-jurisdiction dispute over one position description and hazardous duty pay; nonprecedential below, no broader stakes.",
-          "big_case_score": 0.03,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "claude-baseline",
-          "process_window": null,
-          "run_id": "20261030T011325Z"
-        },
-        {
-          "big_case_rationale": "The potential rule concerns federal whistleblower remedies and continuing pay denials, but the presented dispute is an individual, fact-bound hazardous-duty-pay case without a demonstrated appellate split.",
-          "big_case_score": 0.19,
-          "event_id": "evt-petition-disposition",
-          "leakage_suspected": false,
-          "predictor_id": "codex-baseline",
-          "process_window": null,
-          "run_id": "20261030T011325Z"
-        }
-      ],
-      "docket_id": 9026000427,
-      "docket_number": "26-427",
-      "docket_number_source": "case_id",
-      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-427.html",
-      "events": [
-        {
-          "actual_disposition": null,
-          "event_id": "evt-petition-disposition",
-          "reads": [
-            {
-              "big_case_rationale": "A pro se federal employee's fact-bound whistleblower-jurisdiction dispute over one position description and hazardous duty pay; nonprecedential below, no broader stakes.",
-              "big_case_score": 0.03,
-              "cell_path": "data/cases/scotus/9026000427/events/evt-petition-disposition/predictions/claude-baseline/20261030T011325Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000427/events/evt-petition-disposition/predictions/claude-baseline/20261030T011325Z",
-              "confidence": 0.95,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "claude-baseline",
-              "probability": 0.004,
-              "run_id": "20261030T011325Z"
-            },
-            {
-              "big_case_rationale": "The potential rule concerns federal whistleblower remedies and continuing pay denials, but the presented dispute is an individual, fact-bound hazardous-duty-pay case without a demonstrated appellate split.",
-              "big_case_score": 0.19,
-              "cell_path": "data/cases/scotus/9026000427/events/evt-petition-disposition/predictions/codex-baseline/20261030T011325Z",
-              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000427/events/evt-petition-disposition/predictions/codex-baseline/20261030T011325Z",
-              "confidence": null,
-              "granted": 0,
-              "leakage_suspected": false,
-              "mode": "forward",
-              "predicted_disposition": "denied",
-              "predictor_id": "codex-baseline",
-              "probability": 0.005,
-              "run_id": "20261030T011325Z"
-            }
-          ],
-          "resolved_at": null,
-          "title": "Richard W. Coleman, Jr. v. Merit Systems Protection Board"
-        }
-      ],
-      "leakage_suspected": false,
-      "mean_big_case_score": 0.11,
-      "moment": "evt-petition-disposition",
-      "moment_opened_at": "2026-09-29",
-      "n": 2,
-      "other_party": "Merit Systems Protection Board",
-      "outcome_lines": [
-        {
-          "action": "granted",
-          "line": "The Court takes up Coleman's case. A grant alone decides nothing yet about who is right.",
-          "side": "granted"
-        },
-        {
-          "action": "denied",
-          "line": "Coleman's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
-          "side": "not-granted"
-        }
-      ],
-      "scheduled": {
-        "date": "2026-11-13",
-        "kind": "conference"
-      },
-      "score_max": 0.19,
-      "score_min": 0.03,
-      "score_range": 0.16,
-      "short_caption": "Coleman v. Merit Systems Protection Board",
-      "status": "pending"
-    },
-    {
-      "asking_declined": null,
       "asking_party": "Goodley",
       "caption": "Rachel E. Goodley v. Supreme Rice, L.L.C., et al.",
       "caption_event_id": "evt-petition-disposition",
@@ -44014,6 +44001,126 @@
       "score_min": 0.02,
       "score_range": 0.2,
       "short_caption": "Emberton v. Superior Court of California",
+      "status": "pending"
+    },
+    {
+      "asking_declined": null,
+      "asking_party": "Coleman",
+      "caption": "Richard W. Coleman, Jr. v. Merit Systems Protection Board",
+      "caption_event_id": "evt-petition-disposition",
+      "case_id": "scotus/9026000427",
+      "court_id": "scotus",
+      "current_reads": [
+        {
+          "big_case_rationale": "A pro se federal employee's fact-bound whistleblower-jurisdiction dispute over one position description and hazardous duty pay; nonprecedential below, no broader stakes.",
+          "big_case_score": 0.03,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "claude-baseline",
+          "process_window": null,
+          "run_id": "20261030T011325Z"
+        },
+        {
+          "big_case_rationale": "The potential rule concerns federal whistleblower remedies and continuing pay denials, but the presented dispute is an individual, fact-bound hazardous-duty-pay case without a demonstrated appellate split.",
+          "big_case_score": 0.19,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "codex-baseline",
+          "process_window": null,
+          "run_id": "20261030T011325Z"
+        },
+        {
+          "big_case_rationale": "Routine pro se federal-employee whistleblower appeal challenging a nonprecedential jurisdictional dismissal over a 2015 hazardous-duty-pay discontinuation; even if decided on the merits, its impact would be confined to narrow WPEA timing and continuing-violation pleading rules before the MSPB.",
+          "big_case_score": 0.05,
+          "event_id": "evt-petition-disposition",
+          "leakage_suspected": false,
+          "predictor_id": "gemini-baseline",
+          "process_window": null,
+          "run_id": "20261030T142128Z"
+        }
+      ],
+      "docket_id": 9026000427,
+      "docket_number": "26-427",
+      "docket_number_source": "case_id",
+      "docket_url": "https://www.supremecourt.gov/docket/docketfiles/html/public/26-427.html",
+      "events": [
+        {
+          "actual_disposition": null,
+          "event_id": "evt-petition-disposition",
+          "reads": [
+            {
+              "big_case_rationale": "A pro se federal employee's fact-bound whistleblower-jurisdiction dispute over one position description and hazardous duty pay; nonprecedential below, no broader stakes.",
+              "big_case_score": 0.03,
+              "cell_path": "data/cases/scotus/9026000427/events/evt-petition-disposition/predictions/claude-baseline/20261030T011325Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000427/events/evt-petition-disposition/predictions/claude-baseline/20261030T011325Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "claude-baseline",
+              "probability": 0.004,
+              "run_id": "20261030T011325Z"
+            },
+            {
+              "big_case_rationale": "The potential rule concerns federal whistleblower remedies and continuing pay denials, but the presented dispute is an individual, fact-bound hazardous-duty-pay case without a demonstrated appellate split.",
+              "big_case_score": 0.19,
+              "cell_path": "data/cases/scotus/9026000427/events/evt-petition-disposition/predictions/codex-baseline/20261030T011325Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000427/events/evt-petition-disposition/predictions/codex-baseline/20261030T011325Z",
+              "confidence": null,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "codex-baseline",
+              "probability": 0.005,
+              "run_id": "20261030T011325Z"
+            },
+            {
+              "big_case_rationale": "Routine pro se federal-employee whistleblower appeal challenging a nonprecedential jurisdictional dismissal over a 2015 hazardous-duty-pay discontinuation; even if decided on the merits, its impact would be confined to narrow WPEA timing and continuing-violation pleading rules before the MSPB.",
+              "big_case_score": 0.05,
+              "cell_path": "data/cases/scotus/9026000427/events/evt-petition-disposition/predictions/gemini-baseline/20261030T142128Z",
+              "cell_url": "https://github.com/ModelMirrorAI/fedcourtsai/tree/main/data/cases/scotus/9026000427/events/evt-petition-disposition/predictions/gemini-baseline/20261030T142128Z",
+              "confidence": 0.95,
+              "granted": 0,
+              "leakage_suspected": false,
+              "mode": "forward",
+              "predicted_disposition": "denied",
+              "predictor_id": "gemini-baseline",
+              "probability": 0.003,
+              "run_id": "20261030T142128Z"
+            }
+          ],
+          "resolved_at": null,
+          "title": "Richard W. Coleman, Jr. v. Merit Systems Protection Board"
+        }
+      ],
+      "leakage_suspected": false,
+      "mean_big_case_score": 0.09,
+      "moment": "evt-petition-disposition",
+      "moment_opened_at": "2026-09-29",
+      "n": 3,
+      "other_party": "Merit Systems Protection Board",
+      "outcome_lines": [
+        {
+          "action": "granted",
+          "line": "The Court takes up Coleman's case. A grant alone decides nothing yet about who is right.",
+          "side": "granted"
+        },
+        {
+          "action": "denied",
+          "line": "Coleman's petition ends and the lower court's decision stands. That is not a ruling that the lower court was right.",
+          "side": "not-granted"
+        }
+      ],
+      "scheduled": {
+        "date": "2026-11-13",
+        "kind": "conference"
+      },
+      "score_max": 0.19,
+      "score_min": 0.03,
+      "score_range": 0.16,
+      "short_caption": "Coleman v. Merit Systems Protection Board",
       "status": "pending"
     },
     {
@@ -47532,5 +47639,5 @@
   ],
   "rows_with_leakage_flag": 4,
   "schema_version": "1.3",
-  "scored_reads": 979
+  "scored_reads": 982
 }
