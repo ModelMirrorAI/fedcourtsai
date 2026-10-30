@@ -2757,11 +2757,12 @@ def _activate(monkeypatch: pytest.MonkeyPatch, version: str) -> None:
     monkeypatch.setattr(salience_module, "SALIENCE_VERSION", version)
 
 
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
 def test_the_band_freeze_refuses_a_rule_20_writ_only_under_a_version_that_excludes_it(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, version: str
 ) -> None:
     """The segment is read off the payload's opening petition entry: a writ of
-    mandamus freezes no band under sal-v5, a sealed certiorari petition captioned
+    mandamus freezes no band under sal-v5 or sal-v6, a sealed certiorari petition captioned
     "In re" still does, and under the active sal-v4 the writ is banded as before."""
     writ = _warden_payload(opening="Petition for a writ of mandamus filed.", sg=False)
     sealed = {
@@ -2771,10 +2772,11 @@ def test_the_band_freeze_refuses_a_rule_20_writ_only_under_a_version_that_exclud
     as_v4 = cell_context.build("scotus/100", date(2025, 10, 2), writ, "forward")
     assert as_v4.band == "state" and as_v4.salience_version == "sal-v4"
 
-    _activate(monkeypatch, "sal-v5")
+    _activate(monkeypatch, version)
     refused = cell_context.build("scotus/100", date(2025, 10, 2), writ, "forward")
     assert refused.signals_observable is True
     assert refused.band is None
+    assert refused.salience_version is None
     assert refused.distribution_count == 1  # the signals still freeze; only the band is refused
     kept = cell_context.build("scotus/101", date(2025, 10, 2), sealed, "forward")
     assert kept.band is not None

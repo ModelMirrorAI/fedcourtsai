@@ -34,7 +34,7 @@ from ..schemas import Outcome, Prediction, StatPack, VoteValue
 from .base_rates import _pooled_band_rate, interim_base_rate, merits_base_rate
 from .justices import normalize_justice_name
 from .moments import scores_votes
-from .salience import SALIENCE_VERSION, salience_band
+from .salience import SALIENCE_VERSION, salience_band, scorer
 
 # The module's public surface — including `merits_base_rate`, re-exported from
 # `base_rates` so the whole set of names an evaluator is told to match resolves
@@ -102,9 +102,11 @@ def segment_base_rate(
     axis and yields ``None``.
 
     The cert arm: the band rate for a case whose band is read from the row
-    **now**. For a resolved case that is its *terminal* band, so this pools
-    ``est_grant_rate`` — the rate over rows that ended in the band. Baseline and
-    grouping match, which is what makes the number meaningful.
+    **now**, and ``None`` for a row outside the active version's segment
+    (:meth:`~fedcourtsai.pipeline.salience.SalienceScorer.in_segment`). For a
+    resolved case that is its *terminal* band, so this pools ``est_grant_rate`` —
+    the rate over rows that ended in the band. Baseline and grouping match, which
+    is what makes the number meaningful.
 
     This is the fallback, not the preferred path. Prefer
     :func:`fedcourtsai.pipeline.base_rates.prediction_base_rate` wherever the
@@ -137,6 +139,11 @@ def segment_base_rate(
         return interim_base_rate(application_term, statpack, lookback_terms=lookback_terms)
     term = scotus_term_year(row.docket_number)
     if term is None:
+        return None
+    # A row outside the active version's segment has no band under it, so no
+    # band rate: the frozen cell band refuses the same row
+    # (`cell_context.build`).
+    if not scorer().in_segment(row):
         return None
     return _pooled_band_rate(
         salience_band(row),

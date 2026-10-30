@@ -511,13 +511,6 @@ def _sal_v6_band(row: corpus.CorpusRow) -> str:
     return trajectory
 
 
-def _sal_v6_carve_out(row: corpus.CorpusRow, score: float, floor: float) -> bool:
-    """sal-v1's rule, plus the federal arrival carve-in read through ``caption-v2``."""
-    return (
-        row.cvsg_date is not None or score >= floor or caption.petitioner_class_v2(row) == "federal"
-    )
-
-
 @dataclass(frozen=True)
 class SalienceScorer:
     """One frozen salience version: everything that makes a ranking reproducible.
@@ -692,14 +685,14 @@ _SAL_V5 = SalienceScorer(
 # sal-v6: registered, NOT active, for the same reason sal-v5 was registered
 # first: `SALIENCE_VERSION` still names sal-v4, and the flip is a separate
 # registration step (docs/salience.md). It is sal-v5's relist rule and writ
-# scope over sal-v3's caption-v2 band, carve-out and reachable ladder, reusing
+# scope over sal-v3's caption-v2 carve-out and reachable ladder, reusing
 # each as the SAME callable so the versions cannot drift in what they share.
 _SAL_V6 = SalienceScorer(
     version="sal-v6",
     score=_sal_v5_score,  # sal-v5's relist count; the caption never weights it
     band=_sal_v6_band,
     bands=_SAL_V2_BAND_ORDER,  # the same band vocabulary, in the same order
-    carve_out=_sal_v6_carve_out,
+    carve_out=_sal_v3_carve_out,  # sal-v3's caption-v2 carve-in, unchanged
     selects_arrivals=True,
     reachable=_sal_v3_reachable,  # caption-v2's partition, fixed at filing
     distribution_parse="dist-v2",

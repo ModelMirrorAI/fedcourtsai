@@ -29,7 +29,7 @@ from ..schemas import PredictionContext
 from . import arrival_cut, cert_signals, vide_links
 from .asof import project_row
 from .paper_only import paper_only_filings
-from .salience import SALIENCE_VERSION, scorer
+from .salience import scorer
 
 
 def build(
@@ -188,7 +188,7 @@ def build(
         distribution_count=count,
         cvsg_date=cvsg,
         band=band,
-        salience_version=SALIENCE_VERSION if band else None,
+        salience_version=active.version if band else None,
         response_requested=projected.row.response_requested if application else None,
         referred_to_court=projected.row.referred_to_court if application else None,
         amicus_briefs=projected.row.amicus_briefs if application else None,
