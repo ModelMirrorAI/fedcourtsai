@@ -1250,11 +1250,12 @@ or network.
   never held is onboarded outright, ledger included.
 - **Maintenance sweeps:** after the loop, one window a day also runs eleven
   converging sweeps in order — `fedcourts dedupe-live-rows --apply` (merging
-  live-minted duplicate rows; a minted moment's committed event directory moves
-  onto the survivor with its re-keyed row, so the lane must stage the moved
-  `data/` paths in the same pointer commit — an uncommitted ledger half strands
-  the directory under an id the corpus no longer carries, and no later pass
-  re-detects it), `fedcourts reconcile-scope --apply` (the
+  live-minted duplicate rows; every committed event directory under the
+  dropped id moves onto the survivor with its re-keyed row, or is retired where
+  the survivor already defines that baseline in agreement, so the lane must
+  stage the moved and retired `data/` paths in the same pointer commit — an
+  uncommitted ledger half strands the directory under an id the corpus no
+  longer carries until the next window's stranded sweep carries it), `fedcourts reconcile-scope --apply` (the
   predict-scope latch sweep), `fedcourts relabel-application-events --apply`
   (application baselines to their motion/interim identity), `fedcourts
   backfill-merits-judgments --apply` (the judgment a merits-bound grant

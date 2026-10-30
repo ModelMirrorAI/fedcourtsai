@@ -46,11 +46,42 @@ def move_event_directory(old: EventPaths, new: EventPaths, restamp: Mapping[str,
         # target case commits, so its parent has to be made.
         new.base.parent.mkdir(parents=True, exist_ok=True)
         old.base.rename(new.base)
-    if new.event_file.is_file():
-        event = read_model(new.event_file, PredictableEvent)
+    restamp_event_documents(new, restamp)
+
+
+def restamp_event_documents(paths: EventPaths, restamp: Mapping[str, str]) -> None:
+    """Rewrite ``restamp``'s fields into the directory's ``event.yaml`` and ``outcome.json``.
+
+    Either document may be absent; an absent one is left absent. Re-validated
+    rather than ``model_copy``-ed, so every carried field normalizes.
+    """
+    if paths.event_file.is_file():
+        event = read_model(paths.event_file, PredictableEvent)
         write_yaml(
-            new.event_file, PredictableEvent.model_validate({**event.model_dump(), **restamp})
+            paths.event_file, PredictableEvent.model_validate({**event.model_dump(), **restamp})
         )
-    if new.outcome.is_file():
-        outcome = read_model(new.outcome, Outcome)
-        write_json(new.outcome, Outcome.model_validate({**outcome.model_dump(), **restamp}))
+    if paths.outcome.is_file():
+        outcome = read_model(paths.outcome, Outcome)
+        write_json(paths.outcome, Outcome.model_validate({**outcome.model_dump(), **restamp}))
+
+
+def remove_event_documents(paths: EventPaths) -> None:
+    """Delete an event directory that holds only :data:`EVENT_DOCUMENTS`.
+
+    Refuses (``ValueError``) a directory holding anything else, since cell
+    output under it is a judgment no caller here may discard. The emptied
+    ``events/`` and case directories go too, so no bare shell is left behind.
+    """
+    if not paths.base.is_dir():
+        return
+    extra = sorted(
+        child.name for child in paths.base.iterdir() if child.name not in EVENT_DOCUMENTS
+    )
+    if extra:
+        raise ValueError(f"{paths.base} holds more than its documents: {', '.join(extra)}")
+    for name in sorted(EVENT_DOCUMENTS):
+        (paths.base / name).unlink(missing_ok=True)
+    paths.base.rmdir()
+    for parent in (paths.base.parent, paths.base.parent.parent):
+        if parent.is_dir() and not any(parent.iterdir()):
+            parent.rmdir()
