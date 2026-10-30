@@ -256,6 +256,30 @@ KIND_QUESTIONS_PRESENTED = "questions-presented"
 # so it is fetched by the live poll's transcript pass rather than selected here,
 # and dated by the argument day the list gives.
 KIND_ARGUMENT_TRANSCRIPT = "argument-transcript"
+# The decision a cert petition asks the Court to review, and the lower court's
+# docket around it, which no SCOTUS docket entry links: read from CourtListener
+# by the decision-below fill (:mod:`fedcourtsai.pipeline.decision_below`) for a
+# petition from a federal court of appeals, and dated by the judgment below.
+# The opinion is upstream's extracted text; the docket row is a short record
+# the fill writes, the en banc reading among it text-derived.
+KIND_DECISION_BELOW = "decision-below"
+KIND_LOWER_COURT_DOCKET = "lower-court-docket"
+# The kinds that fill stores, which are not the docket's own filings: holding
+# them says nothing about whether the live poll provisioned the docket.
+LOWER_COURT_KINDS: frozenset[str] = frozenset({KIND_DECISION_BELOW, KIND_LOWER_COURT_DOCKET})
+
+
+def holds_docket_documents(conn: corpus.ReadConnection, case_id: str) -> bool:
+    """Whether the case has a stored document of the docket's own, the fill's kinds aside.
+
+    The question a reader means by "has this case been provisioned": the
+    decision-below fill stores its kinds ahead of the docket's filings, often on
+    a case the live poll has not provisioned yet, so a bare existence probe
+    would read its rows as provisioning. One manifest read under the corpus
+    split, as :func:`fedcourtsai.corpus.has_documents_for_case` is.
+    """
+    return bool(set(corpus.document_urls_for_case(conn, case_id)) - LOWER_COURT_KINDS)
+
 
 # The separator a combined row joins its constituents' links with. Named because
 # three readers turn on it: the row is rebuilt from the same join to compare
@@ -5211,6 +5235,21 @@ KIND_DESCRIPTIONS: Mapping[str, str] = {
     KIND_ARGUMENT_TRANSCRIPT: (
         "The transcript of the oral argument as the Court posted it, without its line "
         "numbers, page headers and word index."
+    ),
+    KIND_DECISION_BELOW: (
+        "The federal court of appeals' opinion this petition asks the Court to review, "
+        "as CourtListener extracted it, dated by the judgment below; where the court "
+        "filed more than one opinion that day, each under a '=== <type> (<author>) ===' "
+        "header, the court's own opinion first. A truncated row was cut at the cap from "
+        "the end."
+    ),
+    KIND_LOWER_COURT_DOCKET: (
+        "A short record of the court of appeals' docket behind the decision below, "
+        "read from CourtListener: the court, case numbers, judgment and rehearing "
+        "dates, panel where recorded, and whether a petition for rehearing en banc "
+        "was filed, how it was disposed of and whether a dissent was noted. The en "
+        "banc reading is matched from the docket entries' text, filed before the "
+        "petition was docketed, and cites each entry it rests on."
     ),
 }
 

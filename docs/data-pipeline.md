@@ -917,6 +917,21 @@ a replay cell's prior retrieval can return full SCOTUS opinion text. The
 retrieval cutoff (`decided_before`) and the mode contract are the controls that
 keep that honest, and they bind wherever the bit is filled.
 
+The **decision below** is filled by a sibling pass on the same budget,
+`enrich-decision-below` (`pipeline/decision_below.py`). For a cert petition from
+a federal court of appeals, not denied, it joins the lower court's docket on
+CourtListener and stores the opinion on the judgment date as a `decision-below`
+document and the docket record as a `lower-court-docket` document, both through
+`upsert_documents`. Its rotation key is `decision_below_attempted_at`, stamped
+with a direct column write (`stamp_decision_below_attempt`) on every case
+upstream answered about, so a docket CourtListener has not ingested is asked
+again after 30 days rather than every run. A case whose opinion is stored is
+re-stamped with no request when its turn comes, so it costs one manifest read
+a cycle. The ledger's predicted cases and the salience selection
+go first, because those are the cells the input is for. Both kinds wait in
+`provision.WITHHELD_KINDS` for the re-bless that names them
+([document-provisioning.md](document-provisioning.md)).
+
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a
 forward cell at the provisioning seam through three gates, mechanical-first:

@@ -2941,7 +2941,8 @@ decision date the row carries (`date_decided`, `merits_decided`) is; the termina
 date, the merits-brief date and the conference-distribution date unless each
 is, and always `merits_terminated`, the citing count, the pipeline's tracking
 stamps (`last_pulled`, `last_live_polled`, `opinion_enrich_attempted_at`,
-`document_floor_probed_at`, `predict_queued_at`, `evaluate_queued_at`) and the
+`document_floor_probed_at`, `decision_below_attempted_at`, `predict_queued_at`,
+`evaluate_queued_at`) and the
 `counsel`, `parties` and `attorneys` lists, which accrue after a grant and
 carry no date to test. Which priors return, and in what order, does not move,
 except that a `--citation` filter matches only the cites a prior comes back
