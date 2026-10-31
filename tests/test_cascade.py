@@ -28,6 +28,8 @@ from fedcourtsai.pipeline.documents import (
     KIND_ARGUMENT_TRANSCRIPT,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_CERT_REPLY,
+    KIND_DECISION_BELOW,
+    KIND_LOWER_COURT_DOCKET,
     KIND_PETITION,
     KIND_SUPPLEMENTAL_BRIEF,
 )
@@ -700,6 +702,10 @@ def test_a_cell_cut_between_two_oppositions_holds_the_stored_set() -> None:
         (KIND_ARGUMENT_TRANSCRIPT, "evt-order-judgment", False),
         (KIND_ARGUMENT_TRANSCRIPT, "", False),
         (KIND_SUPPLEMENTAL_BRIEF, "evt-petition-disposition", True),
+        (KIND_DECISION_BELOW, "evt-petition-disposition", True),
+        (KIND_LOWER_COURT_DOCKET, "evt-order-judgment", True),
+        (KIND_DECISION_BELOW, "evt-brief-response-disposition", False),
+        (KIND_LOWER_COURT_DOCKET, "", False),
     ],
 )
 def test_moment_admits_kind_draws_the_placement_line(

@@ -99,7 +99,11 @@ from .config import get_settings
 from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.decision_record import assigned_by_term, rode_the_order
-from .pipeline.documents import KIND_MERITS_BRIEF_RESPONDENT, consolidation_lead
+from .pipeline.documents import (
+    KIND_MERITS_BRIEF_RESPONDENT,
+    LOWER_COURT_KINDS,
+    consolidation_lead,
+)
 from .pipeline.judgment import judgment_disturbed
 from .pipeline.outcome import forward_leakage
 from .pipeline.runner import RunRequest
@@ -535,7 +539,14 @@ def provision_replay_cell(
             "no-snapshot",
             "the corpus holds no snapshot for the case",
         )
-    documents = corpus.documents_for_case(conn, case.case_id)
+    # The decision-below fill walks undecided cases only, so a decided case in
+    # this population holds the lower-court kinds only by accident of timing;
+    # staging them would give some replay cells an input the others lack.
+    documents = [
+        doc
+        for doc in corpus.documents_for_case(conn, case.case_id)
+        if doc.kind not in LOWER_COURT_KINDS
+    ]
     try:
         provision.screen_document_kinds(documents)
     except provision.ProvisionError as refused:

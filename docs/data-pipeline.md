@@ -978,9 +978,9 @@ windows as the awaiting-grading opinion step, step-scoped and
 `continue-on-error` like that step, so it spends about 24 requests a typical
 window (four a case) and about a hundred a day, with its 3-minute timeout
 bounding a worst-case window; `run-analytics`'s `decision-below` mode runs
-the same pass as a 25-case dry run. Both kinds wait in
-`provision.WITHHELD_KINDS` for the re-bless that names them
-([document-provisioning.md](document-provisioning.md)).
+the same pass as a 25-case dry run. Both kinds are staged for cert and merits
+cells only (`provision.LOWER_COURT_STAGES`;
+[document-provisioning.md](document-provisioning.md)).
 
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a
