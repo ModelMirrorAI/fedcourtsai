@@ -15387,17 +15387,32 @@ freeze commit is recorded here.
   per-band composition figures, the bar `sal-v3`'s activation read off a
   census; they are not a selection comparison.
 
-  **The matched-recall reading is owed.** The prerequisite reads a
-  cross-version comparison at matched recall, which is `salience-replay`'s.
-  The committed `metrics/salience-replay.json` is the 2026-08-07 run and
-  holds `sal-v1` cells only, so no committed figure compares `sal-v6` with
-  `sal-v4` at any operating point. The reading comes from the next
-  salience-gate replay:
-  `gh workflow run run-backtest.yml --ref main -f replay=salience-gate -f
-  terms=2017,2018,2019,2020,2021,2022,2023,2024`. This change waits for it:
-  it is not promoted until that replay's `sal-v6` and `sal-v4` cells are read
-  at matched recall, or the maintainer records why the flip goes ahead
-  without them.
+  **The replay reading.** The prerequisite reads a cross-version comparison
+  at matched recall, which is `salience-replay`'s. The salience-gate replay
+  over OT2017–OT2024 (run-backtest run 41155571013, 2026-10-31, retrospective
+  stratum, its `metrics/salience-replay.json` carried by the run's own PR)
+  reads, pooled over the eight Terms:
+
+  | policy | version | eligible | selected | grants caught / realized | recall | precision |
+  | --- | --- | --: | --: | --: | --: | --: |
+  | resolution | `sal-v4` | 12,168 | 4,309 | 699 / 831 | 84.1% | 16.2% |
+  | resolution | `sal-v6` | 11,942 | 4,178 | 690 / 829 | 83.2% | 16.5% |
+  | distribution-1 | `sal-v4` | 12,168 | 3,253 | 376 / 831 | 45.2% | 11.6% |
+  | distribution-1 | `sal-v6` | 11,942 | 3,253 | 376 / 829 | 45.4% | 11.6% |
+
+  The two versions do not sit at one recall, so the reading is the margin
+  between them. At `resolution`, the 131 petitions `sal-v4` selects beyond
+  `sal-v6` carry 9 grants, 6.9%, which is the eligible frame's own grant
+  rate (831 of 12,168, 6.8%): what `sal-v6` gives up it gives up at the rate
+  of an unranked pick. Per Term, `sal-v6` catches more grants in four Terms,
+  fewer in three and the same in one, on fewer selections in every Term. At
+  `distribution-1` the selections and grants caught are the same; recall
+  differs only by the two writ grants leaving the denominator. `sal-v5`'s
+  cells equal `sal-v6`'s, because the replay's projection carries no counsel
+  and so cannot show the `caption-v3` difference. The `arrival` policy
+  selects no row under any version and reads nothing here. On this reading
+  `sal-v6` ranks no worse than `sal-v4`: the replay finds no selection cost
+  to the flip, and no gain beyond the margin above.
 
   **A refused band carries its reason.** `PredictionContext` gains
   `band_refused`, `"outside-segment"` where the band freeze refuses a row the

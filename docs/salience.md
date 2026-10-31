@@ -1119,12 +1119,11 @@ them, with where each stands:
   bar `sal-v3`'s activation cleared, read at matched recall against `sal-v4`.
   The refresh is the metrics refresh on blob `ffc504df…`, which descends from
   the back-fill's `d6086761…`; its per-band pools are quoted in the activation
-  entry. The matched-recall reading is **owed**: it is `salience-replay`'s, and
-  the committed `metrics/salience-replay.json` predates `sal-v4`'s registration
-  and carries no `sal-v4` or `sal-v6` cell, so it is read from the next
-  `run-backtest` salience-gate replay
-  (`gh workflow run run-backtest.yml --ref main -f replay=salience-gate -f
-  terms=2017,2018,2019,2020,2021,2022,2023,2024`), before the flip is promoted;
+  entry. The matched-recall reading is `salience-replay`'s, from the
+  salience-gate replay over OT2017–OT2024 the activation entry quotes: the
+  petitions `sal-v4` selects beyond `sal-v6` at `resolution` grant at the
+  eligible frame's own rate, and `distribution-1` selects the same petitions
+  under both;
 - a refused band carries its own stamp. A cell outside the active version's
   segment freezes `band = null` with `signals_observable = true` and
   `band_refused = "outside-segment"`, so a reader tells it apart from an
