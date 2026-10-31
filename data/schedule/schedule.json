@@ -2,6 +2,13 @@
   "as_of": "2026-10-31",
   "entries": [
     {
+      "case_id": "scotus/72460218",
+      "distributed_for_conference": "2018-02-23",
+      "last_live_polled": "2026-10-31",
+      "next_conference": null,
+      "stale_reason": "conference_passed"
+    },
+    {
       "case_id": "scotus/73272488",
       "distributed_for_conference": "2026-06-18",
       "last_live_polled": "2026-10-26",
@@ -354,7 +361,7 @@
     {
       "case_id": "scotus/73522552",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-10-30",
+      "last_live_polled": "2026-10-31",
       "next_conference": "2026-11-06",
       "stale_reason": null
     },
@@ -382,7 +389,7 @@
     {
       "case_id": "scotus/73539054",
       "distributed_for_conference": "2026-11-06",
-      "last_live_polled": "2026-10-30",
+      "last_live_polled": "2026-10-31",
       "next_conference": "2026-11-06",
       "stale_reason": null
     },
