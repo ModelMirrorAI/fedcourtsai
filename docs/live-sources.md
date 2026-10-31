@@ -305,6 +305,23 @@ before the call, or undated, also names. It is the relist-count input of
 Cert branch only, fill-in latched, withheld from the `query` rows, and null where
 the docket shows no dated call or on a row polled before the column existed.
 
+Two more readings serve the published schedule (`data/schedule/schedule.json`)
+and nothing else (`pipeline/schedule_signals.py`). `argument_set_for` is the
+day the newest "SET FOR ARGUMENT on …" entry names, so a rescheduled argument
+reads its new day; cert branch only, fill-in latched. `response_due` is the
+newest response deadline the proceedings state — the docketing entry's
+"(Response due …)", a call for response's "(Due …)", a granted extension's
+"extended to and including …", a Justice's request for a response to an
+application — and `response_due_state` says whether it is still owed: the
+entries are walked in docket order, a stated deadline makes it `due`, a
+respondent's response or brief in opposition makes it `filed`, and a waiver of
+the right to respond makes it `waived`, until a later entry states a new
+deadline. Both forms, latched as a pair keyed on the state. All three are
+withheld from the `query` rows and are never a cell input, and a row polled
+before the columns existed carries none until its next poll. A removal from the
+argument calendar is not read: the setting stands until it passes, when the
+schedule marks it `passed`.
+
 On a granted docket the same parse also lands the **merits decision record**
 (`pipeline/decision_record.py`), over every grant — the GVR and the summary
 reversal included, where the merits pair (`merits_judgment` / `merits_decided`)

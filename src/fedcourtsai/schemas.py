@@ -8932,51 +8932,108 @@ class ScopeManifest(_Strict):
 
 
 ScheduleStaleReason = Literal["conference_passed"]
+ScheduledDayStaleReason = Literal["passed"]
+
+
+class ScheduledDay(_Strict):
+    """One date the Court has set on a docket, as the live channel last read it.
+
+    `upcoming` carries the date only while it falls on or after the schedule's
+    `as_of`; once it has passed, the row keeps the date as read in `set_for`
+    and says why it is no longer scheduled, so a past date is never shown as
+    upcoming.
+    """
+
+    set_for: date = Field(description="The date the docket names, whether or not it has passed")
+    upcoming: date | None = Field(
+        description="`set_for`, when it falls on or after `as_of`; null exactly when "
+        "`stale_reason` is set"
+    )
+    stale_reason: ScheduledDayStaleReason | None = Field(
+        default=None,
+        description="Why the day carries no `upcoming` date: `passed` (`set_for` is before "
+        "`as_of`, and the docket shows no newer setting yet). Null while the date is ahead",
+    )
+
+    @model_validator(mode="after")
+    def _stale_exactly_when_not_upcoming(self) -> ScheduledDay:
+        """A day is either upcoming or says why it is not."""
+        if (self.upcoming is None) == (self.stale_reason is None):
+            raise ValueError("stale_reason is set exactly when upcoming is null")
+        return self
 
 
 class ScheduleEntry(_Strict):
-    """One pending, already-public docket's next scheduled conference.
+    """One pending, already-public docket's next dates at the Court.
 
-    A row exists for every docket on the public set whose corpus row is
-    unresolved and carries a conference it was distributed for. The date is
-    published as `next_conference` only while it falls on or after the
-    schedule's `as_of`; once it has passed and the docket has not moved, the
-    row keeps the date it was distributed for and says why it is no longer a
-    scheduled date, so a past conference is never shown as upcoming.
+    A row exists for every docket on the public set that has at least one of
+    three dates in play: the conference an undecided petition is distributed
+    for, the day a granted case awaiting its merits decision is set for
+    argument, and the deadline for a response that is still owed. Each date is
+    published only while it falls on or after the schedule's `as_of`; once it
+    has passed and the docket has not moved, the row keeps the date as read and
+    says why it is no longer a scheduled date, so a past date is never shown as
+    upcoming.
     """
 
     case_id: str = Field(description="``<court>/<docket>`` of an already-public case")
     next_conference: date | None = Field(
+        default=None,
         description="The conference the docket is distributed for, when it falls on or "
-        "after `as_of`; null exactly when `stale_reason` is set"
+        "after `as_of`; null when `stale_reason` is set, and when the row names no "
+        "conference (`distributed_for_conference` null)",
     )
-    distributed_for_conference: date = Field(
+    distributed_for_conference: date | None = Field(
+        default=None,
         description="The corpus `distributed_for_conference`: the date named by the "
         "docket's newest 'DISTRIBUTED for Conference of …' entry, as the live channel "
-        "last read it, whether or not it has passed"
+        "last read it, whether or not it has passed. Null on an undecided docket never "
+        "distributed, and on a granted case, whose conference is behind it",
     )
     stale_reason: ScheduleStaleReason | None = Field(
         default=None,
-        description="Why the row carries no `next_conference`: `conference_passed` (the "
-        "conference is before `as_of` and the docket shows no newer distribution or a "
-        "decision yet). Null while the date is still ahead",
+        description="Why the row carries no `next_conference` although it names a "
+        "conference: `conference_passed` (the conference is before `as_of` and the "
+        "docket shows no newer distribution or a decision yet). Null while the date is "
+        "still ahead, and on a row that names no conference",
+    )
+    argument: ScheduledDay | None = Field(
+        default=None,
+        description="The day the docket's newest 'SET FOR ARGUMENT on …' entry names, on "
+        "a granted case the Court has not yet decided. Null when the case is not set for "
+        "argument, or has been argued on or after that day",
+    )
+    response_due: ScheduledDay | None = Field(
+        default=None,
+        description="The newest stated deadline for a response to the petition or "
+        "application, while the docket is undecided and the response is still owed. Null "
+        "when no deadline is stated, or a response or waiver followed it",
     )
     last_live_polled: date | None = Field(
         default=None,
         description="When the live channel last read this docket — the per-case vintage of "
-        "`distributed_for_conference`, which `as_of` is not",
+        "every date on the row, which `as_of` is not",
     )
 
     @model_validator(mode="after")
     def _stale_exactly_when_unscheduled(self) -> ScheduleEntry:
-        """A row is either scheduled or says why it is not."""
-        if (self.next_conference is None) == (self.stale_reason is None):
+        """A conference is either scheduled or says why it is not; a row holds a date."""
+        if self.distributed_for_conference is None:
+            if self.next_conference is not None or self.stale_reason is not None:
+                raise ValueError("next_conference and stale_reason need distributed_for_conference")
+        elif (self.next_conference is None) == (self.stale_reason is None):
             raise ValueError("stale_reason is set exactly when next_conference is null")
+        if (
+            self.distributed_for_conference is None
+            and self.argument is None
+            and self.response_due is None
+        ):
+            raise ValueError("a schedule row carries a conference, an argument or a deadline")
         return self
 
 
 class Schedule(_Strict):
-    """``data/schedule/schedule.json`` — the next scheduled conference, public set only.
+    """``data/schedule/schedule.json`` — the Court's next dates, public set only.
 
     Written by the live poll from the corpus it already holds, after each cycle,
     for the dockets the repository already discloses under ``data/cases``: it is
@@ -8988,7 +9045,11 @@ class Schedule(_Strict):
     present.
     """
 
-    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    schema_version: Literal["1.0", "1.1"] = Field(
+        default="1.1",
+        description="The artifact's schema version. A reader keys on it: a `1.1` row adds "
+        "`argument` and `response_due`, and may name no conference",
+    )
     skipped: bool = Field(
         default=False, description="True when no corpus was present; nothing was read"
     )
@@ -8999,8 +9060,8 @@ class Schedule(_Strict):
     )
     entries: list[ScheduleEntry] = Field(
         default_factory=list,
-        description="One entry per pending public docket with a conference it was "
-        "distributed for, in case_id order",
+        description="One entry per pending public docket with a conference, an argument "
+        "day or a response deadline in play, in case_id order",
     )
 
 
@@ -11557,10 +11618,12 @@ _Day = date
 
 
 class BigCaseScheduled(_Strict):
-    """The next date the Court has set for a case, as the committed schedule carries it."""
+    """A date ahead that the Court has set for a case, as the committed schedule carries it."""
 
-    kind: Literal["conference"] = Field(
-        description="What is scheduled: `conference`, the conference the docket is distributed for"
+    kind: Literal["conference", "argument", "response_due"] = Field(
+        description="What is scheduled: `conference`, the conference the docket is "
+        "distributed for; `argument`, the day a granted case is set for argument; "
+        "`response_due`, the deadline for a response to the petition or application"
     )
     date: _Day = Field(
         description="The scheduled day, on or after the day the schedule was last built. A "
@@ -11670,8 +11733,15 @@ class BigCaseRow(_Strict):
         default=None,
         description="The case's next scheduled date, joined from the committed "
         "`data/schedule/schedule.json` by the `schedule_rule` provenance string; None where "
-        "the schedule carries no upcoming date for the case. Carries no `as_of`, so the "
-        "board moves only when a case's date does. Display-only",
+        "the schedule carries no upcoming conference for the case. Always the `conference` "
+        "entry of `schedule`, kept for `1.3` readers. Carries no `as_of`, so the board moves "
+        "only when a case's date does. Display-only",
+    )
+    schedule: list[BigCaseScheduled] = Field(
+        default_factory=list,
+        description="Every upcoming date the committed schedule carries for the case — its "
+        "conference, its argument day, its response deadline — earliest first, joined by "
+        "the `schedule_rule` provenance string. Empty where none is ahead. Display-only",
     )
     status: Literal["pending", "partly_resolved", "resolved"] = Field(
         description="Resolution state across **all** the case's predicted events, derived "
@@ -11743,6 +11813,15 @@ class BigCaseRow(_Strict):
             raise ValueError("asking_party, other_party and outcome_lines are set together")
         if all(present) == (self.asking_declined is not None):
             raise ValueError("asking_declined is set exactly when asking_party is not")
+        return self
+
+    @model_validator(mode="after")
+    def _scheduled_is_the_conference(self) -> BigCaseRow:
+        """`scheduled` keeps its `1.3` meaning: the conference entry, when there is one."""
+        if self.scheduled is not None and self.scheduled.kind != "conference":
+            raise ValueError("scheduled carries the conference only; see schedule")
+        if self.schedule != sorted(self.schedule, key=lambda day: (day.date, day.kind)):
+            raise ValueError("schedule is ordered earliest first")
         return self
 
 
@@ -11841,13 +11920,13 @@ class BigCaseBoard(_Strict):
     artifact's vintage is the commit that wrote it.
     """
 
-    schema_version: Literal["1.3"] = Field(
-        default="1.3",
+    schema_version: Literal["1.3", "1.4"] = Field(
+        default="1.4",
         description="The artifact's schema version. A reader keys on it: a `1.1` row "
         "carries the display fields `short_caption`, `docket_number`, "
         "`docket_number_source` and `docket_url`, a `1.2` row adds `asking_party`, "
-        "`other_party`, `outcome_lines` and `asking_declined`, and a `1.3` row adds "
-        "`scheduled`",
+        "`other_party`, `outcome_lines` and `asking_declined`, a `1.3` row adds "
+        "`scheduled`, and a `1.4` row adds `schedule`",
     )
     process_scope: Literal["frozen", "all"] = Field(
         default="all",
