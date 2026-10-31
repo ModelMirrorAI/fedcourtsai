@@ -26143,7 +26143,7 @@ def cleanup_out_of_scope_predictions_cmd(
 
     Reads the corpus (must be pulled) and the committed ``data/`` tree and
     finds every ``…/predictions`` directory whose case an exclusion predicate drops —
-    pre-1925 mandatory jurisdiction or a stale unresolvable old SCOTUS petition;
+    pre-1925 mandatory jurisdiction or a stale unresolvable old SCOTUS petition or application;
     the event definition and any ``outcome.json`` stay, only the out-of-scope
     predictions go. Prints a JSON summary
     ``{"prunable":[{case_id,reason,paths}],"removed":<bool>,"pr":<branch/title/commit/body|null>}``;
