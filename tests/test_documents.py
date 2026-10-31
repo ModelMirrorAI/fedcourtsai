@@ -45,6 +45,7 @@ from fedcourtsai.pipeline.documents import (
     _qp_stored_is_fragment,
     backfill_questions_presented,
     bio_block_texts,
+    combined_blocks,
     consolidation_lead,
     document_fetch_losses,
     document_text_coverage,
@@ -52,6 +53,7 @@ from fedcourtsai.pipeline.documents import (
     extract_questions_presented,
     fetch_case_documents,
     fetch_consolidation_lead,
+    link_entry_dates,
     member_respondent_brief_date,
     merits_entry_matched,
     party_contact_values,
@@ -69,7 +71,7 @@ from fedcourtsai.pipeline.merits_signals import (
     respondent_brief_date,
 )
 from fedcourtsai.pipeline.pull import PullQueues
-from fedcourtsai.provision import documents_before, redact_snapshot
+from fedcourtsai.provision import CellRead, documents_before, place_at_moment, redact_snapshot
 from fedcourtsai.supremecourt import SupremeCourtClient
 from tests.conftest import FixtureCorpus, seed_prediction
 
@@ -778,12 +780,167 @@ def test_combined_bio_is_dated_by_its_earliest_brief_and_survives_a_later_cutoff
     bio = next(d for d in documents if d.kind == KIND_BRIEF_IN_OPPOSITION)
     assert bio.entry_date == "Jun 01 2026"  # the earliest, not "Aug 20 2026"
     # The consequence the date exists for: a cell cut after the first filing
-    # still reads the opposition.
-    assert documents_before([bio], date(2026, 7, 1)) == [bio]
-    # And the residual that buys, pinned rather than left implicit: the row is
-    # kept whole, so the later brief's text rides in with it. Dating the row at
-    # its last brief would drop both instead of neither.
-    assert "Northampton also says deny." in bio.text
+    # still reads the opposition — and, cut brief by brief, only the brief filed
+    # before it.
+    (placed,) = documents_before(
+        [bio], date(2026, 7, 1), link_dates=link_entry_dates(_two_bio_payload("Aug 20 2026"))
+    )
+    assert "Lead respondents say deny." in placed.text
+    assert "Northampton also says deny." not in placed.text
+    # A cell placed after both reads the row as stored.
+    assert documents_before([bio], date(2026, 8, 21)) == [bio]
+
+
+def _cut_opposition_row() -> corpus.CaseDocument:
+    """A stored two-brief opposition: the lead's of Aug 26, a co-respondent's of Oct 13."""
+    return corpus.CaseDocument(
+        case_id="scotus/9025000100",
+        kind=KIND_BRIEF_IN_OPPOSITION,
+        url="https://www.supremecourt.gov/lead.pdf|https://www.supremecourt.gov/late.pdf",
+        entry_date="Aug 26 2026",
+        fetched_at=date(2026, 10, 29),
+        pages=40,
+        truncated=True,
+        text=(
+            "=== Brief of respondent Irigoyen Farms, Inc. filed. (Aug 26 2026) ===\n"
+            + "Deny the petition. " * 30
+            + "\n\n=== Brief for respondent Walmart Inc. filed. (Oct 13 2026) ===\n"
+            + "Walmart answers the call for a response. " * 10
+            + "\n[pipeline note: 900 characters of this filing omitted here]"
+        ),
+    )
+
+
+def _cut_opposition_payload() -> dict[str, object]:
+    return {
+        "ProceedingsandOrder": [
+            {
+                "Date": "Aug 26 2026",
+                "Text": "Brief of respondent Irigoyen Farms, Inc. filed.",
+                "Links": [
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/lead.pdf",
+                    }
+                ],
+            },
+            {"Date": "Sep 10 2026", "Text": "Response Requested. (Due October 13, 2026)"},
+            {
+                "Date": "Oct 13 2026",
+                "Text": "Brief for respondent Walmart Inc. filed.",
+                "Links": [
+                    {
+                        "Description": "Main Document",
+                        "DocumentUrl": "https://www.supremecourt.gov/late.pdf",
+                    }
+                ],
+            },
+        ]
+    }
+
+
+def test_a_combined_opposition_is_cut_brief_by_brief_at_the_cutoff() -> None:
+    # The call-for-response shape: one respondent filed early, the Court called
+    # for a response, and the co-respondent's brief filed after the cutoff is the
+    # called-for response itself. The cell keeps the lead brief and nothing in
+    # the staged row — text, date, links, pages, cut flag — says a later brief
+    # exists.
+    row = _cut_opposition_row()
+    (placed,) = documents_before(
+        [row], date(2026, 9, 11), link_dates=link_entry_dates(_cut_opposition_payload())
+    )
+    assert placed.text == row.text.split("\n\n=== ")[0]
+    assert "Walmart" not in placed.text
+    assert placed.entry_date == "Aug 26 2026"
+    assert placed.url == "https://www.supremecourt.gov/lead.pdf"
+    assert placed.truncated is False  # the cut note was in the dropped brief
+    assert 1 <= placed.pages < row.pages
+    assert (placed.fetched_at, placed.ocr_derived) == (row.fetched_at, row.ocr_derived)
+
+
+def test_a_cut_opposition_names_no_link_the_served_docket_does_not_date() -> None:
+    # The stored key is sorted, so a link is named only where the docket as
+    # served dates it before the cutoff; without the docket, none is.
+    row = _cut_opposition_row()
+    (placed,) = documents_before([row], date(2026, 9, 11))
+    assert placed.url == ""
+    assert "Walmart" not in placed.text
+
+
+def test_an_opposition_row_no_later_brief_reaches_is_staged_as_stored() -> None:
+    row = _cut_opposition_row()
+    assert documents_before([row], date(2026, 10, 14)) == [row]
+    assert documents_before([row], date(2026, 8, 26)) == []
+
+
+def test_an_opposition_row_dated_by_its_latest_brief_keeps_the_earlier_one() -> None:
+    # A row stored under the latest-constituent dating keeps that date until its
+    # set of briefs changes; cut by parts, a cell between the two still reads
+    # the lead brief rather than losing the whole opposition.
+    row = _cut_opposition_row().model_copy(update={"entry_date": "Oct 13 2026"})
+    (placed,) = documents_before([row], date(2026, 9, 11))
+    assert placed.entry_date == "Aug 26 2026"
+    assert "Deny the petition." in placed.text
+
+
+def test_an_undated_constituent_is_placed_on_the_rows_fetch_date() -> None:
+    row = _cut_opposition_row()
+    row = row.model_copy(update={"text": row.text.replace(" (Oct 13 2026) ===", " ===")})
+    assert "Walmart" not in documents_before([row], date(2026, 9, 11))[0].text
+    assert documents_before([row], date(2026, 10, 30)) == [row]
+
+
+def test_a_link_also_posted_on_a_later_entry_is_not_named_for_a_dropped_brief() -> None:
+    # The late brief's link rides an early entry too; its text is dropped, and
+    # so is its link, since one entry posting it falls after the cutoff.
+    payload = _cut_opposition_payload()
+    entries = payload["ProceedingsandOrder"]
+    assert isinstance(entries, list)
+    entries[1]["Links"] = [{"DocumentUrl": "https://www.supremecourt.gov/late.pdf"}]
+    (placed,) = documents_before(
+        [_cut_opposition_row()], date(2026, 9, 11), link_dates=link_entry_dates(payload)
+    )
+    assert placed.url == "https://www.supremecourt.gov/lead.pdf"
+
+
+def test_link_entry_dates_keeps_every_date_and_skips_what_it_cannot_read() -> None:
+    payload = {
+        "ProceedingsandOrder": [
+            "not an entry",
+            {"Date": "2026", "Links": [{"DocumentUrl": "https://x/undated.pdf"}]},
+            {"Date": "Aug 26 2026", "Links": [{"DocumentUrl": "https://x/a.pdf"}, "bad"]},
+            {"Date": "Oct 13 2026", "Links": [{"DocumentUrl": "https://x/a.pdf"}]},
+        ]
+    }
+    assert link_entry_dates(payload) == {
+        "https://x/a.pdf": frozenset({date(2026, 8, 26), date(2026, 10, 13)})
+    }
+
+
+def test_a_header_cut_short_is_its_own_undated_constituent() -> None:
+    # The plain head cut can stop inside a later header; the fragment, with the
+    # cut note after it, must not ride on the brief before it.
+    text = (
+        "=== Brief of respondent Irigoyen Farms, Inc. filed. (Aug 26 2026) ===\n"
+        + "Deny the petition.\n\n=== Brief for respondent Walmart Inc. fi\n"
+        + "[pipeline note: 900 characters of these filings omitted here]"
+    )
+    blocks = combined_blocks(text)
+    assert [block.entry_date for block in blocks] == ["Aug 26 2026", None]
+    assert "\n\n".join(block.text for block in blocks) == text
+    row = _cut_opposition_row().model_copy(update={"text": text})
+    (placed,) = documents_before([row], date(2026, 9, 11))
+    assert "Walmart" not in placed.text
+    assert "these filings" not in placed.text
+
+
+def test_combined_blocks_round_trip_the_stored_text() -> None:
+    row = _cut_opposition_row()
+    blocks = combined_blocks(row.text)
+    assert [block.entry_date for block in blocks] == ["Aug 26 2026", "Oct 13 2026"]
+    assert "\n\n".join(block.text for block in blocks) == row.text
+    assert [block.cut for block in blocks] == [False, True]
+    assert combined_blocks("A lone brief, stored raw.") == []
 
 
 def test_combined_bio_is_dated_by_a_brief_it_actually_carries() -> None:
@@ -6042,3 +6199,29 @@ def test_backfill_questions_presented_marks_a_rewritten_row_that_is_capped(
         stored = {d.kind: d for d in corpus.documents_for_case(conn, "scotus/9")}
     row = stored[KIND_QUESTIONS_PRESENTED]
     assert row.truncated is True and row.text == extract_questions_presented(long_text)
+
+
+def test_a_call_for_response_cell_is_staged_the_lead_brief_alone() -> None:
+    # Through the placement every provisioner calls, which dates the row's links
+    # off the docket and stages the lead brief alone.
+    payload = {"CaseNumber": "25-1421", **_cut_opposition_payload()}
+    row = _cut_opposition_row()
+    placement = place_at_moment(
+        "scotus/9025000100",
+        "evt-order-call-for-response-disposition",
+        date(2026, 9, 11),
+        CellRead(
+            latest=(date(2026, 10, 29), payload),
+            documents=[row],
+            events=[],
+            row=None,
+            cutoff=date(2026, 9, 11),
+            dated=None,
+        ),
+        payload=payload,
+        snapshot_date=date(2026, 10, 29),
+        documents=[row],
+    )
+    (staged,) = placement.documents
+    assert "Walmart" not in staged.text
+    assert staged.url == "https://www.supremecourt.gov/lead.pdf"
