@@ -33,7 +33,7 @@ def _row(case_id: str, granted: date | None, **fields: object) -> CorpusRow:
         case_name=f"A v. B ({case_id})",
         date_cert_granted=granted,
         disposition=fields.pop("disposition", "granted"),
-        **fields,  # type: ignore[arg-type]
+        **fields,
     )
 
 
