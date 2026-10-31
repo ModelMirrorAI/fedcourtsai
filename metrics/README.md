@@ -345,7 +345,7 @@ The offline gate
 `statpack.md` — exist
 and are committed. Others land here without being gate-checked:
 `cert-backtest.json`, which only a released replay writes, `docket.{json,md}`,
-which is regenerated on demand by `fedcourts docket`, `big-cases.{json,md}`,
+which the weekly metrics refresh regenerates beside the statpack, `big-cases.{json,md}`,
 which the daily `big-cases` lane keeps current on its own cadence,
 `updates/<YYYY-Www>.md`, to which the weekly `public-updates` lane adds each
 missing week, and
