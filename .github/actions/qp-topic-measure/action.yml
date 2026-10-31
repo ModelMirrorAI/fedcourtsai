@@ -167,9 +167,10 @@ runs:
             echo
             echo "Agreement with the application reference block's adjudicated"
             echo "labels, not accuracy, and in-sample: the register rules the"
-            echo "labeler applies were fitted to this block. Not quotable until a"
-            echo "held-out blind pass exists (see the Applications section of"
-            echo "docs/qp-topic.md)."
+            echo "labeler applies were fitted to this block, and its blind raters"
+            echo "are instances of the labeler's own model. Not quotable until an"
+            echo "independent rater has checked it (see the Applications section"
+            echo "of docs/qp-topic.md)."
           else
             echo "### qp-topic-v0 labeling run"
             echo
