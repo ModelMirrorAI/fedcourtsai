@@ -9861,6 +9861,129 @@ class QpTopicRunSpend(_Strict):
         return self
 
 
+OffLedgerWorkflow = Literal[
+    "integration-test", "run-analytics", "summarize", "run-backtest", "run-evaluate"
+]
+OffLedgerLane = Literal[
+    "engine-smoke",
+    "engine-actions-smoke",
+    "codex-application-repro",
+    "qp-labeler-smoke",
+    "qp-topic-label",
+    "summarize",
+    "cert-replay",
+    "merits-replay",
+    "reasoning-pilot",
+]
+OffLedgerSource = Literal[
+    "claude-execution-file",
+    "claude-transcripts",
+    "codex-sessions",
+    "gemini-telemetry",
+    "cell-usage",
+    "case-summaries",
+]
+OffLedgerConclusion = Literal["success", "failure", "cancelled"]
+
+
+class OffLedgerSpendLine(_Strict):
+    """One engine log's (or one group of priced records') share of an off-ledger leg."""
+
+    source: OffLedgerSource = Field(
+        description="What the line was read from: an engine's own log, the usage.json "
+        + "records a pilot round's cells wrote, or the front matter of case summaries"
+    )
+    engine: Engine | None = Field(
+        description="The engine that spent; null for case summaries, which are direct "
+        + "Messages API calls with no engine"
+    )
+    model: str = Field(min_length=1, description="The model the line is priced at")
+    priced_as: str | None = Field(
+        default=None,
+        min_length=1,
+        description="The `pricing.MODEL_RATES` entry the line was priced at when `model` "
+        + "has none: the one that prices these token counts dearest; null when priced at "
+        + "`model`'s own rate, or when the line's records were priced where they were written",
+    )
+    records: int | None = Field(
+        default=None,
+        ge=1,
+        description="How many priced records the line sums (usage.json files or case "
+        + "summaries); null for a line read from an engine log",
+    )
+    input_tokens: int = Field(ge=0, description="Fresh input tokens")
+    output_tokens: int = Field(ge=0, description="Output tokens")
+    cache_read_input_tokens: int = Field(ge=0, description="Cached input tokens read")
+    cache_creation_input_tokens: int = Field(ge=0, description="Cache-write tokens")
+    estimated_cost_usd: float = Field(
+        ge=0.0,
+        allow_inf_nan=False,
+        description="The line's on-demand cost at `pricing.MODEL_RATES`",
+    )
+
+
+class OffLedgerSpend(_Strict):
+    """One leg's model spend from a run that commits nothing to the ledger.
+
+    Integration smokes, the promotion gate, staging rehearsals and the replay
+    and pilot rounds spend real tokens on runs whose outputs never reach
+    ``data/``, so neither :func:`fedcourtsai.spend.measured_spend` nor the
+    review hold sees them. Each such leg writes one of these and uploads it as
+    an ``off-ledger-spend-*`` run artifact; the daily ``run-ops`` job sweeps the
+    artifacts onto the ``ops-metrics`` branch as
+    ``off-ledger-spend/<run_id>-<run_attempt>-<leg>.json`` and reports them
+    (``fedcourts off-ledger-spend-report``). The figure is **reported
+    separately and counted nowhere**: it never joins the total the spend
+    backstop and the auto-release budget read, so test traffic cannot hold
+    back a production round. Lines are priced by the rule every cell's
+    ``usage.json`` is (:func:`fedcourtsai.pricing.estimate_cost_usd`).
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    workflow: OffLedgerWorkflow = Field(description="The workflow whose run spent")
+    lane: OffLedgerLane = Field(description="Which off-ledger lane the leg belongs to")
+    leg: str = Field(
+        pattern=r"^[a-z0-9][a-z0-9.-]{0,79}$",
+        description="The leg's name, unique within its run attempt (e.g. "
+        + "`engine-smoke-codex`); it names the record's file",
+    )
+    selection: str | None = Field(
+        default=None,
+        min_length=1,
+        description="What the run was dispatched to do — the integration suite's scenario "
+        + "selection (`gate` for a promotion-gate run), or the lane's mode; null where the "
+        + "lane has none",
+    )
+    environment: Literal["prod", "staging"] = Field(
+        description="The deployment environment whose engine keys paid for the leg"
+    )
+    ref: str = Field(min_length=1, description="The branch the run was dispatched from")
+    run_id: str = Field(pattern=r"^[0-9]+$", description="The Actions run id")
+    run_attempt: int = Field(ge=1, description="The run attempt")
+    conclusion: OffLedgerConclusion = Field(
+        description="The leg's job status when the record was written; a failed leg "
+        + "spends too, so it is recorded"
+    )
+    recorded_at: datetime = Field(
+        description="When the record was written, timezone-aware; the report windows read it"
+    )
+    lines: list[OffLedgerSpendLine] = Field(
+        min_length=1, description="The leg's spend, one line per engine log or record group"
+    )
+    estimated_cost_usd: float = Field(
+        ge=0.0, allow_inf_nan=False, description="The sum of the lines' costs"
+    )
+
+    @model_validator(mode="after")
+    def _consistent(self) -> OffLedgerSpend:
+        if self.recorded_at.tzinfo is None:
+            raise ValueError("recorded_at must be timezone-aware")
+        total = sum(line.estimated_cost_usd for line in self.lines)
+        if abs(total - self.estimated_cost_usd) > 1e-6:
+            raise ValueError("estimated_cost_usd is the sum of the lines' costs")
+        return self
+
+
 class DispositionShare(_Strict):
     """One realized outcome's count and share of the resolved cases in a slice.
 
@@ -14677,6 +14800,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "qp_topics": QpTopicLabels,
     "qp_topics_applications": QpTopicApplicationLabels,
     "qp_topic_run_spend": QpTopicRunSpend,
+    "off_ledger_spend": OffLedgerSpend,
     "alignment_side_codes": AlignmentSideCodes,
     "ai_case_activity": AiCaseActivity,
     "case_summary_front_matter": CaseSummaryFrontMatter,

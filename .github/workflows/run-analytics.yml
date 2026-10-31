@@ -2594,6 +2594,30 @@ jobs:
           outcome=$(jq -er '.outcome' "$RUNNER_TEMP/qp-spend.json")
           echo "spend record: ${outcome} run, ~\$${cost} at the rate table" >> "$GITHUB_STEP_SUMMARY"
 
+      # A rehearsal off `main` publishes nothing (the publish job is fenced to
+      # `main`), so the record above never reaches the ledger and its spend is
+      # in no total. It is recorded off-ledger instead and reported apart:
+      # run-ops sweeps it onto the ops-metrics branch, and no budget counts
+      # it. The recorder runs on the same runner-owned scanner, and only once
+      # the tree is pristine, because the composite it runs is read from the
+      # checkout the labeler held a Write grant over.
+      - name: Record a rehearsal's spend off-ledger
+        if: >-
+          ${{ always() && github.ref_name != 'main' && steps.pristine.outcome == 'success'
+          && steps.scanner_install.outcome == 'success'
+          && steps.label.outputs.execution_file != '' }}
+        uses: ./.github/actions/off-ledger-spend
+        with:
+          workflow: run-analytics
+          lane: qp-topic-label
+          leg: ${{ format('qp-topic-label-{0}', env.QP_FRAME) }}
+          selection: ${{ inputs.mode }}
+          conclusion: ${{ job.status }}
+          claude-execution-file: ${{ steps.label.outputs.execution_file }}
+          claude-model: ${{ needs.qp-topic-resolve.outputs.model }}
+          scanner-python: ${{ github.workspace }}/.transcript-scanner/.venv/bin/python
+          scanner-dir: ${{ github.workspace }}/.transcript-scanner
+
       - name: Note a run with no spend to record
         if: ${{ !cancelled() && steps.label.outputs.execution_file == '' }}
         run: |

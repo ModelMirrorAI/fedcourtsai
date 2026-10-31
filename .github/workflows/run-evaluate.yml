@@ -1936,6 +1936,42 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      # A pilot round commits nothing, so the usage.json its cells wrote never
+      # reaches the ledger and its spend is in no measured total. It leaves one
+      # priced off-ledger record instead, read from this round's own cells only
+      # (the artifacts also carry each event's committed evaluations), which
+      # run-ops sweeps onto the ops-metrics branch and reports apart; no budget
+      # counts it. Staged on its own so a round whose report failed is still
+      # recorded.
+      - name: Stage the round's own usage records
+        id: pilot_usage
+        if: ${{ always() }}
+        env:
+          ROUND_ID: ${{ needs.plan.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/pilot-usage/data"
+          rm -rf "$RUNNER_TEMP/pilot-usage"
+          if [ -d pilot-round/data/cases ]; then
+            (cd pilot-round/data && find cases -path "*/evaluations/*/${ROUND_ID}/usage.json" -type f) \
+              | while read -r rel; do
+                  mkdir -p "$root/$(dirname "$rel")"
+                  cp "pilot-round/data/$rel" "$root/$rel"
+                done
+          fi
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+
+      - name: Record the round's model spend
+        if: ${{ always() && steps.pilot_usage.outputs.root != '' }}
+        uses: ./.github/actions/off-ledger-spend
+        with:
+          workflow: run-evaluate
+          lane: reasoning-pilot
+          leg: reasoning-pilot
+          selection: ${{ inputs.mode }}
+          conclusion: ${{ job.status }}
+          cell-usage-root: ${{ steps.pilot_usage.outputs.root }}
+
   collect:
     # Defence in depth only. Both attempts of a re-run share `run_id`, so this
     # groups them — but GitHub refuses to re-run a run that is still in
