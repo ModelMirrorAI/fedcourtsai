@@ -2581,8 +2581,14 @@ class Evaluation(_Strict):
         "to null where either committed artifact is missing — no prediction "
         "from this predictor, or no outcome — so a hand-written bit never "
         "survives that refusal; an unstamped or pre-existing record keeps "
-        "whatever it was written with. The leaderboard's accuracy column is its "
-        "mean over the cells where it is non-null.",
+        "whatever it was written with. On an interim cell whose scored "
+        "prediction takes the finer interim reading (`proc-v17` on) it follows "
+        "the binary instead, through `pipeline.evaluate.stage_correct`: 1 iff "
+        "the predicted label falls on the same side of the granted line as "
+        "`Outcome.interim_granted`, and null where that is null (a moot "
+        "dismissal, or an outcome recorded with no finer reading). The "
+        "leaderboard's accuracy column is its mean over the cells where it is "
+        "non-null.",
     )
     brier_score: float | None = Field(
         default=None,
@@ -2595,7 +2601,10 @@ class Evaluation(_Strict):
         "`event.yaml` names that stage it is harness-stamped **at stamp time** by "
         "`stamp-cell --role evaluator` from the scored prediction's committed "
         "`probability` and the outcome's `actual_granted`, never the evaluator's "
-        "word, and cleared where either artifact is missing — so the "
+        "word — against `Outcome.interim_granted` instead on an interim cell "
+        "whose scored prediction takes the finer interim reading "
+        "(`pipeline.evaluate.stage_brier_score`; null where that is null) — and "
+        "cleared where either artifact is missing — so the "
         "`segment_base_rate` and `brier_skill_score` stamped beside it share "
         "one source and the skill ratio is verifiable rather than merely "
         "self-consistent. An unstamped cell keeps whatever it was written with. "
@@ -14509,6 +14518,17 @@ class ExportPredictionRow(_Strict):
     actual_granted: int | None = Field(
         description="The realized binary outcome: 1 positive, 0 not; null while "
         "unresolved, and null on a `voided` row"
+    )
+    scored_granted: int | None = Field(
+        default=None,
+        ge=0,
+        le=1,
+        description="The binary this prediction is scored against "
+        "(`pipeline.evaluate.scored_granted`): `actual_granted`, except on an "
+        "interim cell whose prediction takes the finer interim reading, which "
+        "is scored against `interim_granted` — so null there on a moot "
+        "dismissal or an outcome with no finer reading. Null while unresolved, "
+        "and null on a `voided` row",
     )
     disposition_basis: Literal["standard", "mootness"] | None = Field(
         description="Whether the disposition rests on the ordinary standard or on "

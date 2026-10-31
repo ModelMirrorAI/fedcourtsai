@@ -660,14 +660,14 @@ of the requested relief**:
   docket are procedural: whether a **response will be called for**, whether
   the application will be **referred** to the full Court, how many further
   **amicus briefs** arrive, and roughly **when** and how it will be disposed
-  of. Four of those five are the `interim-v2` claims below — the three
+  of. Four of those five are the `interim-v3` claims below — the three
   increments and the disposition itself — and this document is their
   human-readable form, so write the reasoning here and the numbers there and
   keep the two saying the same thing. The **timing** is the exception: nothing
   resolves a horizon claim at any stage, so forecast it because it disciplines
   the rest, not because it is scored. Merits-shaped content stays
   conditional, exactly as on the cert path.
-- **Four declared claims.** Every interim moment declares the `interim-v2`
+- **Four declared claims.** Every interim moment declares the `interim-v3`
   set, and you state a probability for each of its four claims — no additions,
   no declining, per the declared-set rule under `prediction.json` below:
   - `interim-disposition` — P(relief granted **in whole or in part** | not
@@ -1157,7 +1157,7 @@ Write to `data/cases/$COURT_ID/$DOCKET_ID/events/$EVENT_ID/predictions/$PREDICTO
     kind — every cert moment (the petition, the CVSG order, the arrival event,
     the SG's invited brief and the first relist) declares `cert-v3`, all
     three interim moments (arrival, the requested response, the filed
-    response) declare `interim-v2`, and all three merits moments (the
+    response) declare `interim-v3`, and all three merits moments (the
     judgment order, the respondent-brief re-predict and the post-argument
     re-predict) declare `merits-v2`. A **petition-kind event that is not one
     of those moments** — an entry-pinned filing, a legacy id — falls back to `cert-v1`'s

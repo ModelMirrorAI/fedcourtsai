@@ -1491,7 +1491,7 @@ jobs:
       - name: Re-read the resolved applications
         if: ${{ inputs.repair == 'application-reread' && steps.dedupe-live-rows.outcome == 'success' }}
         # Network-bound like the cert amicus back-fill: one content-store read
-        # per resolved application row (about twelve thousand), pooled by the
+        # per resolved application row (well over ten thousand), pooled by the
         # shared prefetch; the blob push is the persist step's.
         timeout-minutes: 30
         env:

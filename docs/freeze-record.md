@@ -15730,14 +15730,17 @@ freeze commit is recorded here.
   or later is scored on the finer interim reading, where partial relief is a
   grant and a moot dismissal leaves the scored set; recorded 2026-10-31.**
   Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
-  commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`). This entry
-  registers the terms the 2026-10-16 interim partial-grant and moot entry said
-  the next label's own entry must settle. The label's digests, its window
-  supersessions and their census are the `register-process` run's, made once
-  `proc-v16` is on `main`, and are added to the change before it merges. Both
-  prompts change, so every digest moves. No harness boundary is registered:
-  the change is keyed on the label, and every board already reads a label's
-  cells as their own window.
+  commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`), to be tagged
+  **`prereg/proc-v17`**. Registered under the merge-stamped rule, so its
+  counting instant, its bless moments and every window edge it moves are the
+  carrying merge's committer time. This entry registers the terms the
+  2026-10-16 interim partial-grant and moot entry said the next label's own
+  entry must settle. The label's digests, its window supersessions and their
+  census are the `register-process` run's, made once `proc-v16` is on `main`,
+  and are added to the change before it merges. Both prompts change, so every
+  digest moves. No harness boundary is registered: the change is keyed on the
+  scored prediction's label, and a label's cells sit in their own counting
+  window.
 
   **The reading.** `pipeline.interim_signals.read_interim_disposition`, as the
   2026-10-16 entry describes it, with two corrections:
@@ -15809,10 +15812,21 @@ freeze commit is recorded here.
      `application-reread` apply rather than pool a partial census.
   9. *Skill across the label change:* a `proc-v17` interim cell's skill is
      against the finer pool and an earlier cell's against the registered
-     one. They are different targets over different denominators, so no
-     interim skill figure pools the two. Each board reads them as separate
-     windows, and any pooled interim figure quoted across the change names
-     both readings.
+     one. They are different targets over different denominators. The
+     leaderboard's interim block pools a predictor's windows as every default
+     figure does (*The registered reading pools windows*, `metrics/README.md`),
+     so a pooled interim figure spanning the change pools the two readings;
+     its stated composition names each window by label, and the by-protocol
+     cut reads each reading alone. The leaderboard pairs each cell's skill
+     baseline with the binary its Brier was taken against
+     (`pipeline.evaluate.scored_granted`), so no cell is re-based across the
+     readings. No claim surface publishes an interim block yet, and the set
+     versions keep the two apart for the one that will: the interim moments
+     declare `interim-v3`, whose `interim-disposition` claim resolves on the
+     finer reading, and a cell stamped before this label is scored under
+     `interim-v2` (`pipeline.claims.declared_claim_set_for`). The dataset
+     export carries `scored_granted` beside `actual_granted`, so a
+     recomputation from the bundle uses the right target.
 
   **The measurement**, read 2026-10-31 from a dev checkout of this change
   over blob
@@ -15846,7 +15860,10 @@ freeze commit is recorded here.
 
     OT2021's 13 are the OSHA applications dismissed in light of the relief
     granted in the lead application, which the registered reading counts as
-    grants. Every Term's `finer_unread` is 0.
+    grants. Every Term's `finer_unread` is 0. The table's 31 moot rows are
+    the substantive slice's; the re-read's 35 include four rows outside it.
+    OT2026 is Term to date at the snapshot vintage, and outside the OT2026
+    pool in any case.
   - The pool an OT2026 interim cell is scored against, at the registered
     lookback of 10: **160/1366 = 11.71%** registered and **156/1337 =
     11.67%** finer.
@@ -15861,7 +15878,16 @@ freeze commit is recorded here.
   - The `application-reread` apply runs from `main` after the carrying
     promotion, and before the first `proc-v17` interim cell is graded. Until
     it does, the finer pool refuses and such a cell is stamped with no
-    baseline.
+    baseline. The pass is re-runnable: a row a writer resolves later without
+    the column (any channel but the live application branch) counts
+    `finer_unread` and holds the finer pool off its Term until the next
+    apply fills it, so the steady state is a pass after each such write.
+  - An outcome is written once, so a `proc-v17` cell whose outcome was
+    recorded from a row with no finer reading is masked
+    `finer-reading-absent` for good. The live application branch writes the
+    column in the same ingest that resolves the row, so a forward cell is not
+    expected to reach that mask; any that does names it in its stamped claim
+    block's `mask_reason`, so it can be counted.
 
   **Evidence for the change other than a score.** The 2026-10-16 census and
   the replication record on the executive-action emergency docket, which

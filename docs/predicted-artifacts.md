@@ -286,10 +286,12 @@ grant or denial of the requested relief.
   is pre-registered ([salience.md](salience.md), *The interim docket*), and
   scoring partial relief as a grant would over-state the number on exactly the
   mixed shadow-docket shape.
-- `predicted_disposition` draws from four labels only — `granted`, `denied`,
-  `withdrawn`, `dismissed`. `gvr`, `summary-reversal`, and `granted-in-part`
-  are cert-stage routes the interim vocabulary never records.
-- **A `claims` field over `interim-v2`** — `interim-v1`'s four binary claims,
+- `predicted_disposition` draws from five labels only — `granted`,
+  `granted-in-part`, `denied`, `withdrawn`, `dismissed`. `granted-in-part` is
+  the finer interim reading's partial grant, which the registered interim
+  vocabulary reads denial-first; `gvr` and `summary-reversal` are cert-stage
+  routes no interim reading records.
+- **A `claims` field over `interim-v3`** — `interim-v1`'s four binary claims,
   with `order-writers` in `claim_distributions` beside them: `interim-disposition` (restating the
   headline `probability`), `response-requested-increment`, `referral-increment`,
   `amicus-increment`, in that order. Every interim moment declares the same four,

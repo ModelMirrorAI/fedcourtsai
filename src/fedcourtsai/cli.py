@@ -1789,8 +1789,8 @@ def interim_reading_census_cmd() -> None:
     ask. It also lists stored `denied` rows whose disposing entry holds an
     application clause that grants with no denial in it — the registered
     reading's known side-motion misreading — and the committed interim outcomes
-    on the named rows, which stay as recorded. Nothing stored, scored or
-    cell-facing moves. Run where the corpus is pulled with the content store
+    on the named rows, which stay as recorded. The census itself writes
+    nothing. Run where the corpus is pulled with the content store
     addressed; read `unobservable` first. Prints an `InterimReadingCensus`.
     Exits 1 when the corpus is absent.
     """

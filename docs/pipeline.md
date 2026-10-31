@@ -1532,7 +1532,6 @@ call differently from the stored `call_for_response_at` is reported as
 swept for the same reason: every poll writes the three columns on the row it
 reads, so the class does not regrow once the history is filled.
 
-
 `application-reread` is corpus-only as well: it fills the `interim_reading`
 column, the finer interim reading the live application branch stores beside the
 registered `disposition` (`fedcourts reread-applications`), on the resolved
@@ -1546,7 +1545,9 @@ the finer interim pool refuses a rate over any Term with a resolved row left
 unread (`finer_unread`), so the apply is what gives a cell scored on the finer
 reading its baseline. Dispatched rather than swept for the reason the cert
 amicus back-fill is: every poll writes the column on the row it reads, so the
-class does not regrow.
+class regrows only where a channel other than the live application branch
+resolves a row, and a re-run fills that.
+
 A scored relabel is half a repair: the labels move there, and the grades taken
 under the old label catch up through `regrade-stale`, which recomputes an
 evaluator cell's graded fields under the cell's original stamp and rewrites

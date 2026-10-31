@@ -111,7 +111,7 @@ from .integrity import (
     latest_evaluations,
 )
 from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
-from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
+from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct, scored_granted
 from .pipeline.moments import first_moment, scores_votes
 from .process_version import (
     HARNESS_BOUNDARIES,
@@ -1401,13 +1401,16 @@ def skill_components(
         if evaluation.brier_score is None:
             continue
         outcome = _read_outcome(cases_dir, evaluation, outcomes)
+        target = _skill_target(cases_dir, evaluation, stage, outcome)
+        if target is None:
+            continue
         prior = (
-            _prior_baseline(evaluation, outcome.actual_granted)
+            _prior_baseline(evaluation, target)
             if _anchor_reproduces(cases_dir, evaluation, stage, statpack, pack_digest)
             else None
         )
         realized = _baseline_brier(
-            _realized_rate(cases_dir, evaluation, stage, outcome, statpack), outcome.actual_granted
+            _realized_rate(cases_dir, evaluation, stage, outcome, statpack), target
         )
         if prior is None and realized is None:
             continue
@@ -1417,6 +1420,26 @@ def skill_components(
             realized_term_baseline=realized,
         )
     return components
+
+
+def _skill_target(
+    cases_dir: Path, evaluation: Evaluation, stage: Stage | None, outcome: Outcome
+) -> int | None:
+    """The binary this cell's Brier was taken against, which its baselines must share.
+
+    :func:`fedcourtsai.pipeline.evaluate.scored_granted` over the scored
+    prediction, so an interim cell scored on the finer reading pairs its Brier
+    with a baseline taken against ``interim_granted`` rather than the registered
+    ``actual_granted``. ``None`` — the cell joins no skill column — where that
+    reading leaves the cell unscored. A cell whose scored prediction cannot be
+    read keeps ``actual_granted``, the target every earlier label scored on.
+    """
+    if stage != Stage.interim:
+        return outcome.actual_granted
+    scored = _scored_prediction(cases_dir, evaluation)
+    if scored is None:
+        return outcome.actual_granted
+    return scored_granted(scored, outcome, interim=True)
 
 
 def _read_outcome(
@@ -1850,6 +1873,10 @@ def _records_pinned_anchor(evaluation: Evaluation, frozen: CertAnchor) -> bool:
 
 def _prior_baseline(evaluation: Evaluation, actual_granted: int) -> float | None:
     """The prior-Term baseline Brier this cell aggregates on, or ``None``.
+
+    ``actual_granted`` is the cell's scored target (:func:`_skill_target`):
+    ``Outcome.actual_granted``, or ``Outcome.interim_granted`` on an interim
+    cell scored on the finer reading.
 
     The column's **population** stays the recorded ``brier_skill_score``'s, so
     ``skill_scored`` keeps its documented meaning. Its **value** is derived from

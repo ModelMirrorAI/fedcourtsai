@@ -239,7 +239,9 @@ fails the cell.
     stage's own axis? On a cert or interim cell that is
     `predicted_disposition` against `actual_disposition`, exact match on the
     label: `gvr` (grant/vacate/remand) is distinct from `granted`, even
-    though both count as a grant on the binary axis. On a **merits** cell the
+    though both count as a grant on the binary axis. An interim cell whose
+    outcome records the finer reading takes the binary instead (the interim
+    rule below). On a **merits** cell the
     axis is the `judgment` instead — a merits outcome's `actual_disposition`
     is always the off-vocabulary `other`, so comparing dispositions there
     would score every cell against a constant. Route on the **outcome**: an
@@ -255,7 +257,9 @@ fails the cell.
     comparison.
   - `brier_score` — `(probability - actual_granted)**2`, 0–1 (`actual_granted` is 1
     for a `gvr` outcome — a GVR is a grant; on a merits outcome the same field
-    carries the disturbed binary, so one formula serves every stage).
+    carries the disturbed binary, so one formula serves every stage; an
+    interim cell whose outcome records the finer reading is the one exception,
+    below).
   - `vote_accuracy` — **merits-stage cells only**, and only where
     `outcome.vote_provenance` says `complete: true`: fraction of predicted
     per-Justice votes that matched, over the Justices the prediction and the
@@ -310,18 +314,22 @@ fails the cell.
     rate (positive beats it, ~0 merely parrots it, negative is worse). Omit when
     `segment_base_rate` is omitted or the baseline is already exact.
   - **Interim-stage cells** (the event's stage is `interim` — a stay/injunction
-    application): `granted` there denotes the requested relief, and which
-    binary scores the cell is keyed on the label the scored prediction was
-    stamped under (`prediction.json`'s `process_version.label`). A prediction
-    stamped `proc-v17` or later is scored on the finer interim reading: read
-    `outcome.interim_granted` as recorded (a partial grant is 1; a moot
-    dismissal is null), compute `brier_score` against it and set `correct` to
-    1 iff your judged side of the granted/ungranted line matches — and where
-    `interim_granted` is null, leave `brier_score` and `correct` null, since
-    the cell is unscored. An earlier prediction is scored on
-    `outcome.actual_granted` exactly as for a cert cell. Never re-derive
-    either from the order text. `stamp-cell` recomputes both from the
-    committed artifacts and overwrites what you wrote. **Write
+    application): `granted` there denotes the requested relief, scored on the
+    finer interim reading wherever `outcome.json` records one. Where the
+    outcome carries `interim_reading`, read `outcome.interim_granted` as
+    recorded (a partial grant is 1; a moot dismissal is null): compute
+    `brier_score` against it, and set `correct` to 1 iff the prediction's
+    `predicted_disposition` falls on the same side of the granted/ungranted
+    line as `interim_granted` (`granted` and `granted-in-part` on one side;
+    `denied`, `withdrawn` and `dismissed` on the other). Where
+    `interim_granted` is null the cell is unscored: leave `brier_score` and
+    `correct` null. An outcome with no `interim_reading` is scored on
+    `actual_granted` and the label exactly as a cert cell is. Never re-derive
+    either from the order text. Which reading actually scores the cell is
+    decided by the stamp the scored prediction carries, which your copy does
+    not show you: `stamp-cell` recomputes both from the committed artifacts
+    under that reading and overwrites what you wrote, so a disagreement on a
+    prediction made before the finer reading was asked is expected. **Write
     neither `segment_base_rate` nor `brier_skill_score`, and leave
     `base_rate_basis` null.** The rate is not yours here: the interim baseline
     is the substantive slice's grant rate pooled over application-Terms
@@ -348,7 +356,7 @@ fails the cell.
     the stamped rate comes back null — what the pack could not support, since
     the reader cannot tell a thin pool from a missing section by looking at a
     null. `claim_scores`
-    is likewise not yours: every interim moment declares the `interim-v2`
+    is likewise not yours: every interim moment declares the `interim-v3`
     set (its four binary claims and the order-writers distribution claim),
     and the harness computes the block from the prediction's
     claims, the outcome's `interim_signals`, and the committed statpack. You
@@ -487,7 +495,8 @@ fails the cell.
     systematic mis-read (the wrong binary axis, a stale probability) can
     surface at all. An elicited number the stamp overwrites is that check
     working, not wasted work; a null `correct` is a contract miss that costs
-    the stamped bit its only independent read.
+    the stamped bit its only independent read — except on an interim cell
+    the finer reading leaves unscored, where null is the answer.
   - `leakage` — the structured assessment from the leakage grading below
     (`mode`, `retrieved_outcome_material`, `influenced_prediction`, `notes`),
     and `leakage_suspected` kept in step with it (`true` iff

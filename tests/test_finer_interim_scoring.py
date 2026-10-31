@@ -19,10 +19,11 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, date, datetime
+from pathlib import Path
 
 import pytest
 
-from fedcourtsai import corpus
+from fedcourtsai import corpus, leaderboard
 from fedcourtsai.analytics import _InterimAcc
 from fedcourtsai.pipeline.base_rates import interim_base_rate
 from fedcourtsai.pipeline.claims import CLAIM_INTERIM_DISPOSITION, score_claims
@@ -47,6 +48,7 @@ from fedcourtsai.schemas import (
     Prediction,
     PredictionContext,
     ProcessVersion,
+    Stage,
     StatPack,
     StatPackInterim,
     StatPackInterimTerm,
@@ -286,6 +288,48 @@ def test_the_claim_block_follows_the_label() -> None:
         "finer-reading-absent",
         pytest.approx(12 / 95),
     )
+
+
+def test_the_claim_set_version_follows_the_label() -> None:
+    """A finer-label block reports `interim-v3`; an earlier one keeps `interim-v2`.
+
+    So no claim board pools the disposition claim's two resolutions under one
+    set version.
+    """
+    pack = _pack({2024: (10, 100, 12, 95, 0)})
+    outcome = _outcome(Disposition.denied, "denied")
+    versions = {}
+    for label in ("proc-v16", FINER_INTERIM_READING_FROM):
+        block = score_claims(
+            _prediction(label, claims=_claims(0.3)), outcome, pack, lookback_terms=10
+        )
+        assert block is not None
+        versions[label] = block.declared_set_version
+    assert versions == {"proc-v16": "interim-v2", FINER_INTERIM_READING_FROM: "interim-v3"}
+
+
+@pytest.mark.parametrize(
+    ("label", "finer", "expected"),
+    [
+        ("proc-v16", "granted-in-part", 0),
+        (FINER_INTERIM_READING_FROM, "granted-in-part", 1),
+        (FINER_INTERIM_READING_FROM, "dismissed-moot", None),
+    ],
+)
+def test_the_board_pairs_its_skill_baseline_with_the_scored_target(
+    monkeypatch: pytest.MonkeyPatch, label: str, finer: str, expected: int | None
+) -> None:
+    """The leaderboard's skill baseline is taken against the binary the Brier was.
+
+    Otherwise a finer-label partial grant — scored 1 — would be re-based
+    against the registered 0, fail the coherence check, and drop silently.
+    """
+    prediction = _prediction(label)
+    monkeypatch.setattr(leaderboard, "_scored_prediction", lambda _dir, _ev: prediction)
+    outcome = _outcome(Disposition.denied, finer)
+    target = leaderboard._skill_target(Path("."), object(), Stage.interim, outcome)  # type: ignore[arg-type]
+    assert target == expected
+    assert leaderboard._skill_target(Path("."), object(), Stage.cert, outcome) == 0  # type: ignore[arg-type]
 
 
 def test_the_statpack_counts_the_finer_reading_beside_the_registered_one() -> None:

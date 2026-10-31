@@ -124,6 +124,7 @@ CLAIM_SET_CERT_V2 = "cert-v2"
 CLAIM_SET_CERT_V3 = "cert-v3"
 CLAIM_SET_INTERIM_V1 = "interim-v1"
 CLAIM_SET_INTERIM_V2 = "interim-v2"
+CLAIM_SET_INTERIM_V3 = "interim-v3"
 CLAIM_SET_MERITS_V1 = "merits-v1"
 CLAIM_SET_MERITS_V2 = "merits-v2"
 
@@ -242,6 +243,7 @@ _SETS_BY_VERSION: Mapping[str, tuple[str, tuple[str, ...]]] = {
     CLAIM_SET_CERT_V3: (CLAIM_SET_CERT_V3, _CERT_V2_CLAIM_SET[1]),
     CLAIM_SET_INTERIM_V1: _INTERIM_CLAIM_SET,
     CLAIM_SET_INTERIM_V2: (CLAIM_SET_INTERIM_V2, _INTERIM_CLAIM_SET[1]),
+    CLAIM_SET_INTERIM_V3: (CLAIM_SET_INTERIM_V3, _INTERIM_CLAIM_SET[1]),
     CLAIM_SET_MERITS_V1: _MERITS_CLAIM_SET,
     CLAIM_SET_MERITS_V2: (CLAIM_SET_MERITS_V2, _MERITS_CLAIM_SET[1]),
 }
@@ -251,6 +253,7 @@ _SETS_BY_VERSION: Mapping[str, tuple[str, tuple[str, ...]]] = {
 _DISTRIBUTIONS_BY_VERSION: Mapping[str, tuple[str, ...]] = {
     CLAIM_SET_CERT_V3: (CLAIM_ORDER_WRITERS,),
     CLAIM_SET_INTERIM_V2: (CLAIM_ORDER_WRITERS,),
+    CLAIM_SET_INTERIM_V3: (CLAIM_ORDER_WRITERS,),
     CLAIM_SET_MERITS_V2: (CLAIM_MAJORITY_AUTHOR, CLAIM_SEPARATE_WRITERS),
 }
 
@@ -301,23 +304,36 @@ _ASKED_BEFORE_AUTHORSHIP: Mapping[str, str] = {
 }
 
 
+#: The finer-reading interim set -> the set a cell stamped before
+#: :data:`~fedcourtsai.process_version.FINER_INTERIM_READING_FROM` was asked:
+#: the same claims, its disposition claim resolving on the registered reading.
+_ASKED_BEFORE_FINER_INTERIM: Mapping[str, str] = {
+    CLAIM_SET_INTERIM_V3: CLAIM_SET_INTERIM_V2,
+}
+
+
 def _asked_version(prediction: Prediction) -> str | None:
     """The set version ``prediction`` was asked under, or ``None`` off the moment table.
 
-    The moment table's version, unless the cell was stamped before the
-    authorship forecast was asked, which reads the set that version extends:
-    the binary claims are the same, so the scores are, and the version a
-    committed grading reports never moves with the table.
+    The moment table's version, unless the cell was stamped before the label
+    that version was first asked under: a cell stamped before the finer interim
+    reading reads ``interim-v2``, and one stamped before the authorship
+    forecast reads the set that version extends. The claims are the same, so
+    the scores are, and the version a committed grading reports never moves
+    with the table.
     """
     spec = moments.spec_for(prediction.event_id)
     if spec is None or spec.claim_set_version is None:
         return None
     label = prediction.process_version.label if prediction.process_version else None
+    version = spec.claim_set_version
+    if not scores_finer_interim_reading(label):
+        version = _ASKED_BEFORE_FINER_INTERIM.get(version, version)
     if asked_authorship_claims(
         label, states_distributions=prediction.claim_distributions is not None
     ):
-        return spec.claim_set_version
-    return _ASKED_BEFORE_AUTHORSHIP.get(spec.claim_set_version, spec.claim_set_version)
+        return version
+    return _ASKED_BEFORE_AUTHORSHIP.get(version, version)
 
 
 def declared_claim_set_for(prediction: Prediction) -> tuple[str, tuple[str, ...]] | None:
@@ -1340,18 +1356,7 @@ def _distribution_block_problems(prediction: Prediction) -> list[str]:
     return problems
 
 
-#: Every declared interim claim set's version opens this way (``interim-v1``,
-#: ``interim-v2``), which is how :func:`score_claims` knows a block is an interim
-#: cell's without the event's stage, which neither artifact records.
-_INTERIM_SET_PREFIX = "interim-"
-
 ClaimMaskReason = Literal["signal-before-run", "dismissed-moot", "finer-reading-absent"]
-
-
-def _takes_finer_reading(prediction: Prediction) -> bool:
-    """Whether the scored prediction was stamped under the finer interim reading's label."""
-    label = prediction.process_version.label if prediction.process_version else None
-    return scores_finer_interim_reading(label)
 
 
 def _finer_disposition(outcome: Outcome) -> tuple[int | None, ClaimMaskReason | None]:
@@ -1457,7 +1462,7 @@ def score_claims(
     # The finer interim reading re-reads the disposition claim alone: its
     # resolution and its pool. The increment claims resolve on the escalation
     # signals, which the reading does not touch, so they score as before.
-    finer = set_version.startswith(_INTERIM_SET_PREFIX) and _takes_finer_reading(prediction)
+    finer = set_version == CLAIM_SET_INTERIM_V3
     for claim_id in claim_ids:
         probability = stated[claim_id]
         resolved = (

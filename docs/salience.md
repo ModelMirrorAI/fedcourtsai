@@ -2145,7 +2145,7 @@ interim `outcome.json` records it with its binary (`interim_reading`,
 cell whose scored prediction was stamped under `proc-v17` or later
 (`process_version.FINER_INTERIM_READING_FROM`, keyed on the prediction's label
 and never the grading's) is scored on it: partial relief counts as granted,
-withdrawn and non-moot dismissed stay ungranted, and a moot dismissal leaves
+withdrawn applications and non-moot dismissals stay ungranted, and a moot dismissal leaves
 the scored set — its Brier, `correct` and skill are null and its
 `interim-disposition` claim is masked `dismissed-moot` — and leaves the pool's
 numerator and denominator alike. The pool is the estimator below over the
