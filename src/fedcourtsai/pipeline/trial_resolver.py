@@ -726,7 +726,7 @@ _CLOSURE_TAIL = re.compile(
     r"pursuant\s+to\s+(?:fed\.?\s*r\.?\s*civ\.?\s*p\.?\s*|federal\s+rule\s+of\s+civil\s+procedure\s+|rule\s+)?"
     r"41\S*|under\s+rule\s+41\S*|"
     r"and\s+(?:final\s+)?judgment\b|"
-    r"signed\s+by\s+.*$|\(\s*entered:.*$|\(\s*\w{2,4}\s*\)|"
+    r"signed\s+by\s[\s\S]*+|\(\s*entered:[\s\S]*+|\(\s*\w{2,4}\s*\)|"
     r"\(\s*[a-z.'\u2019-]+,\s*[a-z.'\u2019 -]+\)"
     r")*+",
     re.I,
