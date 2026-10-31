@@ -849,7 +849,7 @@ class SalienceConfig(BaseModel):
     # so a short window is noisy, while a long one assumes the Court's grant
     # behaviour is stationary across the whole walked range. Per-Term high-band
     # rates measured on sal-v3 segments run 24.2%-42.4% on those counts — too thin
-    # to tell drift from sampling either way, and the active sal-v4 re-reads that
+    # to tell drift from sampling either way, and sal-v4 and the active sal-v6 re-read that
     # band under a narrower distribution parse, so both the range and the counts
     # above re-base at the next statpack rebuild — which is why the window is stated rather than
     # defaulted (see docs/salience.md, *Base rates &

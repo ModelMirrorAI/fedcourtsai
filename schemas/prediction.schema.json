@@ -191,6 +191,20 @@
           "description": "The active scorer's salience band as at prediction, derived from the signals above. None when they were unobservable, which is the honest answer for a cell whose snapshot carried no proceedings \u2014 the evaluator then scores against the terminal band it can derive rather than guessing a frozen one. A band is readable only beside the `salience_version` below, which is what the risk-set basis keys on: a band with no version names a population nothing pins down",
           "title": "Band"
         },
+        "band_refused": {
+          "anyOf": [
+            {
+              "const": "outside-segment",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why the band freeze refused a band the signals could otherwise have given. 'outside-segment' is a cert row the scorer active at provisioning leaves out of its segment (a Rule 20 writ under a version that excludes them, read off the payload's opening petition entry): that version neither scores nor selects the row, so `band` and `salience_version` are null while `signals_observable` stays true and the signals above are frozen as usual. Null wherever no such refusal happened: a frozen band, an unobservable docket (`signals_observable` false), an application docket (which takes no band by rule), and every context written before the field existed",
+          "title": "Band Refused"
+        },
         "cert_anchor": {
           "anyOf": [
             {

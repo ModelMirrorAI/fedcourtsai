@@ -1048,6 +1048,19 @@ class PredictionContext(_Strict):
         "whose version is absent — or does not match the statpack's — yields no "
         "baseline rather than a terminal relabel",
     )
+    band_refused: Literal["outside-segment"] | None = Field(
+        default=None,
+        description="Why the band freeze refused a band the signals could otherwise "
+        "have given. 'outside-segment' is a cert row the scorer active at "
+        "provisioning leaves out of its segment (a Rule 20 writ under a version "
+        "that excludes them, read off the payload's opening petition entry): "
+        "that version neither scores nor selects the row, so `band` and "
+        "`salience_version` are null while `signals_observable` stays true and "
+        "the signals above are frozen as usual. Null wherever no such refusal "
+        "happened: a frozen band, an unobservable docket (`signals_observable` "
+        "false), an application docket (which takes no band by rule), and every "
+        "context written before the field existed",
+    )
     response_requested: bool | None = Field(
         default=None,
         description="Whether the snapshot showed the Court (or a Circuit Justice) "

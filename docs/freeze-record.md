@@ -15312,3 +15312,143 @@ freeze commit is recorded here.
 
   The figures are on production index blob `d6086761…aa18703a` (newest pull
   2026-10-30, newest stored snapshot row 2026-07-13).
+
+- **`sal-v6` activated, and a refused band carries its reason; recorded
+  2026-10-31.** A distinct entry from the 2026-10-30 registration entry above,
+  on the `sal-v4` activation's pattern: that entry is landed, and its only
+  editable content was its own promotion placeholders. No freeze commit
+  belongs to this entry: the salience version sits outside the process digest
+  (`pipeline_sha` is not an input), carries its own data-visible boundary
+  (`context.salience_version`), and a flip re-blesses nothing. `uv run
+  fedcourts process-digest --all` prints the same six `proc-v15` digests
+  before and after this change.
+
+  **The flip is one constant.** `SALIENCE_VERSION` goes `sal-v4` → `sal-v6`.
+  `sal-v6` pins `dist-v2`, which `cert_signals.DEFAULT_DISTRIBUTION_PARSE`
+  already names, so the pairing `sal-v4`'s activation needed does not arise
+  and the stored `distribution_count` column needs no re-derivation. Nothing
+  in `src/` branches on the literal: the live pass, the corpus stamp, the
+  frozen cell band, the statpack's `segments`/`alt_segments` split, the gate
+  replay's ordering and `segment-anchors`' default follow the constant. Two
+  inputs `sal-v6` reads beyond `sal-v4`'s, `distributed_after_call` and
+  `opening_writ`, are filled on the decided rows by the
+  `salience-cert-backfill` apply (29,503 fills; the control dry run reports
+  0) on blob `d6086761…aa18703a`, and the live poll latches both at ingest.
+
+  **What it moves.** The live pass scores, latches and stamps under `sal-v6`.
+  A petition distributed again after a call for response loses the relist
+  that distribution read as; a Rule 20 writ leaves the scored segment and is
+  neither scored nor latched. The pass stamps such a row with `sal-v6` and no
+  score, so the gate reads it as deferred rather than failing open into the
+  predict scope as an unscored row would, and the `sal-v4` score the corpus
+  column held on it is cleared; one already latched keeps its latch, which is
+  one-way. A cohort's capacity counts no existing latch, so the first `sal-v6`
+  pass latches each pending conference's `sal-v6` top-N beside the `sal-v4`
+  latches already there: the conferences pending at the flip fund more
+  petitions than either version alone would, once. The size is the
+  `newly_selected` count of `uv run fedcourts reconcile-salience-selection`, a
+  dry run read before the promotion. `unlatch-overselected` would de-select
+  pending petitions the new rule demotes; it is not part of activation and is
+  not run. The scored
+  window opens at the first post-promotion metrics refresh, as for every
+  earlier flip. A cell minted before it pools a `sal-v6` anchor from the
+  committed `alt_segments` block, but reads `statpack.md`'s `sal-v4` table
+  as a version mismatch.
+
+  **The post-back-fill pack.** The metrics refresh merged to `main` as
+  `648fc4355` rendered `metrics/statpack.json` from a commit whose corpus
+  pointer names blob `ffc504df…62d8`, which descends from the back-fill's
+  `d6086761…`. Its Terms stamp `sal-v4` and
+  carry a `sal-v6` block in `alt_segments`. Pooled through the scorer's own
+  pooler over the complete Terms OT2017–OT2024 (the anchor for an OT2025
+  docket, lookback 10; grant-family rate, resolved `n`, unweighted on this
+  frame), by `uv run fedcourts segment-anchors --term 2025 --salience-version
+  <v> --statpack <that pack>`:
+
+  | band | `sal-v6` terminal | `sal-v6` risk-set | `sal-v4` terminal | `sal-v4` risk-set |
+  | --- | --: | --: | --: | --: |
+  | federal | 75.98% (136/179) | 75.98% (n=179) | 75.82% (138/182) | 75.82% (n=182) |
+  | high | 34.55% (246/712) | 34.55% (n=712) | 35.44% (319/900) | 35.44% (n=900) |
+  | state | 18.56% (54/291) | 22.82% (n=390) | 16.97% (47/277) | 22.82% (n=390) |
+  | elevated | 20.48% (250/1,221) | 25.14% (n=1,834) | 10.50% (213/2,029) | 17.40% (n=2,816) |
+  | baseline | 1.50% (143/9,539) | 5.31% (n=11,373) | 1.30% (114/8,780) | 5.21% (n=11,596) |
+
+  The frames are 11,942 resolved rows under `sal-v6` against 12,168 under
+  `sal-v4`, the 12,168 the registration entry's census frame counts; the 226
+  rows `sal-v6` leaves out are the writs, carrying 2 grant-family outcomes
+  (829 against 831 over the two frames). Per Term, `sal-v6`'s `elevated`
+  terminal rate is above `sal-v4`'s in all eight complete Terms (14.7% to
+  25.3% against 7.8% to 13.1%), on 127 to 184 resolved rows a Term against
+  207 to 295; `high` moves both ways (lower in four Terms, higher in four).
+  So the call-for-response rule takes out of `elevated` and `high` the rows
+  whose second distribution was not a relist, and `elevated` separates more
+  sharply from `baseline` (13.7× against 8.1× on the terminal rates) while
+  `high` separates a little less (23.0× against 27.3×). These are
+  per-band composition figures, the bar `sal-v3`'s activation read off a
+  census; they are not a selection comparison.
+
+  **The replay reading.** The prerequisite reads a cross-version comparison
+  at matched recall, which is `salience-replay`'s. The salience-gate replay
+  over OT2017–OT2024 (run-backtest run 41155571013, 2026-10-31, retrospective
+  stratum, its `metrics/salience-replay.json` carried by the run's own PR)
+  reads, pooled over the eight Terms:
+
+  | policy | version | eligible | selected | grants caught / realized | recall | precision |
+  | --- | --- | --: | --: | --: | --: | --: |
+  | resolution | `sal-v4` | 12,168 | 4,309 | 699 / 831 | 84.1% | 16.2% |
+  | resolution | `sal-v6` | 11,942 | 4,178 | 690 / 829 | 83.2% | 16.5% |
+  | distribution-1 | `sal-v4` | 12,168 | 3,253 | 376 / 831 | 45.2% | 11.6% |
+  | distribution-1 | `sal-v6` | 11,942 | 3,253 | 376 / 829 | 45.4% | 11.6% |
+
+  The two versions do not sit at one recall, so the reading is the margin
+  between them. At `resolution`, the 131 petitions `sal-v4` selects beyond
+  `sal-v6` carry 9 grants, 6.9%, which is the eligible frame's own grant
+  rate (831 of 12,168, 6.8%): what `sal-v6` gives up it gives up at the rate
+  of an unranked pick. Per Term, `sal-v6` catches more grants in four Terms,
+  fewer in three and the same in one, on fewer selections in every Term. At
+  `distribution-1` the selections and grants caught are the same; recall
+  differs only by the two writ grants leaving the denominator. `sal-v5`'s
+  cells equal `sal-v6`'s, because the replay's projection carries no counsel
+  and so cannot show the `caption-v3` difference. The `arrival` policy
+  selects no row under any version and reads nothing here. On this reading
+  `sal-v6` ranks no worse than `sal-v4`: the replay finds no selection cost
+  to the flip, and no gain beyond the margin above.
+
+  **A refused band carries its reason.** `PredictionContext` gains
+  `band_refused`, `"outside-segment"` where the band freeze refuses a row the
+  active scorer's segment leaves out, null everywhere else (a frozen band, an
+  unobservable docket, an application docket, and every earlier context).
+  Such a cell freezes `band` and `salience_version` null with
+  `signals_observable` true, which before this field a reader could tell from
+  an unobservable docket only by that flag. Under `sal-v6` the field is set
+  only on a cert cell whose payload's opening petition entry is a Rule 20
+  writ. The cell reads `record/context.json`, so the field joins its
+  information set; it adds nothing the cell could not read, since the
+  opening entry is in the staged snapshot. No prompt text or other digest
+  input changes, so no digest moves; the predict prompt describes `band`'s
+  null cases and does not yet name the field, which is left for the next
+  re-bless. The boundary is `context-band-refused`, every predictor, reach
+  `all`, not gradual: every cell provisioned after the carrying merge freezes
+  the key. It is registered **pending** in this change
+  (`fedcourts register-boundary`), stamped by the promotion record. It is
+  composition, not a cut; no board reads the field.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION; print(SALIENCE_VERSION)"` prints `sal-v6`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '.terms[].salience_version' metrics/statpack.json | sort -u` prints
+    `sal-v6`, every Term's `alt_segments` holds a `sal-v4` block, and
+    `elevated`'s published OT2017–OT2024 terminal rate reads near 20%, not
+    near 10%; a refresh leaving it near 10% is evidence the flip is not live;
+  - on the first predict run's collect PR after the carrying merge, `jq -c
+    '[.context.salience_version, .context | has("band_refused")]'
+    data/cases/scotus/*/events/*/predictions/*/<run_id>/prediction.json`
+    prints `"sal-v6"` (or null on an unbanded cell) and `true` for every
+    file;
+  - `uv run python -c "from fedcourtsai.process_version import
+    HARNESS_BOUNDARIES as H; print('context-band-refused' in {b.name for b
+    in H})"` prints `True` once the promotion record has stamped the row.
