@@ -365,6 +365,7 @@ from .pipeline.documents import (
     KIND_ARGUMENT_TRANSCRIPT,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
+    LOWER_COURT_KINDS,
     OTHER_LIST,
     SCRUB_PASS_SHAPE,
     SCRUB_PASS_VALUE,
@@ -15643,8 +15644,8 @@ def enrich_decision_below_command(
     stores what upstream holds: the opinion on the judgment date as a
     `decision-below` document and the docket record as a `lower-court-docket`
     document, then stamps `decision_below_attempted_at`. A dry run walks and
-    counts without writing. Both kinds are held back from every cell
-    (`provision.WITHHELD_KINDS`) until the re-bless whose prompt names them.
+    counts without writing. Both kinds reach cert and merits cells only
+    (`provision.LOWER_COURT_STAGES`).
     Spends CourtListener REST requests through the shared client and this
     process's governor, never RECAP Fetch. Prints the per-case report as JSON on
     stdout and the counts on stderr.
@@ -19016,16 +19017,19 @@ def summarize_plan_cmd(
         if found.latest is None:
             return None
         day, payload = found.latest
-        # The argument transcript is a post-argument cell's input alone, and a
-        # withheld kind no cell's (`provision.documents_for_moment`); a summary
-        # is written from the record every predict cell shares.
+        # The argument transcript is a post-argument cell's input alone, a
+        # withheld kind no cell's, and the lower-court kinds no interim cell's
+        # (`provision.documents_for_moment`); a summary is written from the
+        # record every predict cell shares.
         return summaries.CaseRecord(
             snapshot=day,
             payload=payload,
             documents=[
                 (doc.kind, doc.text)
                 for doc in found.documents
-                if doc.kind != KIND_ARGUMENT_TRANSCRIPT and doc.kind not in provision.WITHHELD_KINDS
+                if doc.kind != KIND_ARGUMENT_TRANSCRIPT
+                and doc.kind not in provision.WITHHELD_KINDS
+                and doc.kind not in LOWER_COURT_KINDS
             ],
         )
 

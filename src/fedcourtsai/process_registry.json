@@ -796,6 +796,14 @@
       "predictors": null,
       "reach": "all",
       "gradual": false
+    },
+    {
+      "name": "decision-below-documents",
+      "merge": null,
+      "at": null,
+      "predictors": null,
+      "reach": "all",
+      "gradual": true
     }
   ]
 }

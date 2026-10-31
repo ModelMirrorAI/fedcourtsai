@@ -18,10 +18,10 @@ the match rate. The ``enrich-decision-below`` command walks the same join over
 a rotation (:func:`fill_candidates`) and stores what upstream holds
 (:func:`fill_decision_below`): the opinion on the judgment date as a
 ``decision-below`` document, the docket record as a ``lower-court-docket``
-document, and the case's ``decision_below_attempted_at`` stamp. Both kinds are
-held back from every cell (``provision.WITHHELD_KINDS``) until the re-bless
-whose prompt names them. No request buys anything: the client reads
-CourtListener's REST API only, and RECAP Fetch is never called.
+document, and the case's ``decision_below_attempted_at`` stamp. Both kinds
+reach cert and merits cells only (``provision.LOWER_COURT_STAGES``), under the
+``decision-below-documents`` harness boundary. No request buys anything: the
+client reads CourtListener's REST API only, and RECAP Fetch is never called.
 
 **Federal courts of appeals only.** The lower-court name maps to a
 CourtListener court id through the same table the live channel uses

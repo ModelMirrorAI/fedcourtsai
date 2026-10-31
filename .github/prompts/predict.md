@@ -188,6 +188,20 @@ the output directory you will write to.
    means this petition had no questions presented to match on, an empty list
    that nothing scored above the threshold, and a missing file that no list
    was built for this cell.
+
+   On a cert-stage or merits-stage cell whose case comes from a federal court
+   of appeals, `record/documents/` may also hold `decision-below.txt` (that
+   court's opinion on its judgment date, as CourtListener extracted it) and
+   `lower-court-docket.txt` (a short record of its docket: the panel where
+   recorded, and whether a petition for rehearing en banc was filed, how it
+   was disposed of and whether a dissent was noted, citing the entries read).
+   Both come from a match the pipeline made on CourtListener by the lower
+   court's docket number, not from the Court's own record, so check that the
+   opinion is the judgment the petition describes before you rely on it, and
+   prefer the petition's appendix where the two differ. A missing file means
+   no match was stored for this case — CourtListener lacked the docket or the
+   opinion, or the case has not been reached yet — never that there was no
+   decision below. Say in `reasoning.md` where your forecast rests on either.
 6. `record/context.json` — your cell's **mode** (`forward` or `replay`) and the
    **conditioning state** the harness froze for you: `band` (your
    grant-likelihood tier under the salience version named beside it in
