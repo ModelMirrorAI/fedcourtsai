@@ -280,6 +280,7 @@ from .ops import (
 )
 from .paths import CasePaths, EventPaths
 from .pipeline import (
+    alignment_baseline,
     application_backfill,
     argument_features,
     authorship,
@@ -6396,6 +6397,72 @@ def justice_priors_cmd(
             }
         )
     )
+
+
+@app.command("merits-alignment-baseline")
+def merits_alignment_baseline_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First October Term to score.")
+    ] = 2022,
+    last_term: Annotated[
+        int, typer.Option("--last-term", help="Last October Term to score.")
+    ] = 2025,
+) -> None:
+    """Score the coding-free merits alignment baselines over the merits lineups, read-only.
+
+    The two baselines `docs/merits-alignment-baseline.md` registers that need no
+    per-case coding (`pipeline/alignment_baseline.py`): majority alignment (the
+    conservative bloc, the Justices appointed by a Republican president, with the
+    judgment and everyone else in dissent, whichever side wins) and unanimity
+    (every Justice with the judgment). Each is read over every complete lineup
+    from `--first-term` to `--last-term` on justice accuracy (sides called over
+    the participating bench), exact split and full coalition, per Term and
+    pooled, beside each Term's realized unanimous and bloc-coalition counts.
+    Writes nothing. Prints one line per Term and baseline to stderr and the
+    readout JSON to stdout; a reversed range exits 2, a missing corpus 1.
+    """
+    if first_term > last_term:
+        typer.echo("merits-alignment-baseline: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    settings = get_settings()
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before scoring the alignment baselines.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        lineups = merits_lineups.merits_lineups(conn, first_term=first_term, last_term=last_term)
+    readout = alignment_baseline.alignment_readout(
+        lineups, first_term=first_term, last_term=last_term
+    )
+
+    def _pct(rate: float | None) -> str:
+        return "-" if rate is None else f"{rate:.1%}"
+
+    for term in [*readout.terms, readout.pooled]:
+        label = (
+            f"OT{readout.first_term}-OT{readout.last_term}"
+            if term is readout.pooled
+            else f"OT{term.term}"
+        )
+        typer.echo(
+            f"{label}: {term.decisions} of {term.documents} documents with a complete lineup; "
+            f"{term.unanimous} unanimous, {term.bloc_coalition} bloc coalition",
+            err=True,
+        )
+        for reading in term.readings:
+            typer.echo(
+                f"  {reading.baseline}: justice {_pct(reading.justice_accuracy)} "
+                f"({reading.justice_hits}/{reading.justice_votes}), exact split "
+                f"{_pct(reading.exact_split_accuracy)} ({reading.exact_split_hits}), "
+                f"full coalition {_pct(reading.full_coalition_accuracy)} "
+                f"({reading.full_coalition_hits})",
+                err=True,
+            )
+    typer.echo(readout.model_dump_json())
 
 
 @app.command("backfill-opinion-record")
