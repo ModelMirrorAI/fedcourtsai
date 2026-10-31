@@ -156,7 +156,7 @@
         }
       ],
       "default": null,
-      "description": "The UTC day the schedule was built on, which decides whether a conference has passed; null on a skipped build",
+      "description": "The UTC day the schedule was built on, which decides whether a date has passed; null on a skipped build",
       "title": "As Of"
     },
     "entries": {

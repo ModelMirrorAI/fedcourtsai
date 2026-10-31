@@ -263,7 +263,7 @@
             }
           ],
           "default": null,
-          "description": "Where `scheduled` comes from and when it is null",
+          "description": "Where `schedule` and `scheduled` come from and when each is empty or null",
           "title": "Schedule Rule"
         },
         "short_caption_rule": {

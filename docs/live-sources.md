@@ -316,7 +316,8 @@ application — and `response_due_state` says whether it is still owed: the
 entries are walked in docket order, a stated deadline makes it `due`, a
 respondent's response or brief in opposition makes it `filed`, and a waiver of
 the right to respond makes it `waived`, until a later entry states a new
-deadline. Both forms, latched as a pair keyed on the state. All three are
+deadline. `response_due` is read on both the cert and application forms and
+latched as a pair keyed on `response_due_state`. All three are
 withheld from the `query` rows and are never a cell input, and a row polled
 before the columns existed carries none until its next poll. A removal from the
 argument calendar is not read: the setting stands until it passes, when the

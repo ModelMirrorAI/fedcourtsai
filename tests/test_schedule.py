@@ -378,3 +378,12 @@ def test_the_scheduled_columns_never_reach_the_retrieval_surface() -> None:
     assert {"argument_set_for", "response_due", "response_due_state"} <= (
         corpus.RETRIEVAL_WITHHELD_COLUMNS
     )
+
+
+def test_a_1_0_schedule_carries_conferences_only() -> None:
+    entry = ScheduleEntry(
+        case_id="scotus/2", response_due=ScheduledDay(set_for=_AS_OF, upcoming=_AS_OF)
+    )
+    with pytest.raises(ValueError, match=r"need 1\.1"):
+        Schedule(schema_version="1.0", as_of=_AS_OF, entries=[entry])
+    assert Schedule(as_of=_AS_OF, entries=[entry]).schema_version == "1.1"

@@ -3149,7 +3149,8 @@ the rendered table) and
   schedule`). `schedule` lists every date still ahead on the day the schedule
   was built, earliest first, each `{kind, date}`: `conference`, the conference
   an undecided docket's newest "DISTRIBUTED for Conference of …" entry names;
-  `argument`, the day a granted case awaiting decision is set for argument;
+  `argument`, the day a granted case awaiting decision is set for argument,
+  until an argument on or after that day is read;
   and `response_due`, the newest stated deadline for a response still owed.
   `scheduled` is its `conference` entry alone, kept for readers of the `1.3`
   board, and null where there is none. The row carries no build day, so the

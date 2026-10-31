@@ -9056,13 +9056,25 @@ class Schedule(_Strict):
     as_of: date | None = Field(
         default=None,
         description="The UTC day the schedule was built on, which decides whether a "
-        "conference has passed; null on a skipped build",
+        "date has passed; null on a skipped build",
     )
     entries: list[ScheduleEntry] = Field(
         default_factory=list,
         description="One entry per pending public docket with a conference, an argument "
         "day or a response deadline in play, in case_id order",
     )
+
+    @model_validator(mode="after")
+    def _a_1_0_row_is_a_conference(self) -> Schedule:
+        """A `1.0` schedule carries conferences only: the other dates need `1.1`."""
+        if self.schema_version == "1.0" and any(
+            entry.distributed_for_conference is None
+            or entry.argument is not None
+            or entry.response_due is not None
+            for entry in self.entries
+        ):
+            raise ValueError("argument, response_due and conference-less rows need 1.1")
+        return self
 
 
 QpTopicLabel = Literal[
@@ -11822,6 +11834,8 @@ class BigCaseRow(_Strict):
             raise ValueError("scheduled carries the conference only; see schedule")
         if self.schedule != sorted(self.schedule, key=lambda day: (day.date, day.kind)):
             raise ValueError("schedule is ordered earliest first")
+        if self.scheduled is not None and self.schedule and self.scheduled not in self.schedule:
+            raise ValueError("scheduled is the conference entry of schedule")
         return self
 
 
@@ -11878,7 +11892,7 @@ class BigCaseProvenance(_Strict):
     )
     schedule_rule: str | None = Field(
         default=None,
-        description="Where `scheduled` comes from and when it is null",
+        description="Where `schedule` and `scheduled` come from and when each is empty or null",
     )
     process_label: str = Field(
         description="The process label in force when the board was built — what a "

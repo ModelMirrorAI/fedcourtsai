@@ -145,3 +145,29 @@ _UNREAD: dict[str, Any] = {
     "response_due": None,
     "response_due_state": None,
 }
+
+
+def test_only_the_respondents_own_answer_ends_the_deadline() -> None:
+    for entry in (
+        "Motion of petitioner to expedite and to shorten respondent's time to respond filed.",
+        "Response of petitioner to respondent's motion to dismiss filed.",
+        "Motion of petitioner for leave to file a reply to respondent brief filed.",
+        "Brief of the State of Texas in support of respondent filed.",
+        "Response to motion from respondent Roe filed.",
+        "Motion of respondent Acme Inc. to extend the time to file a response filed.",
+    ):
+        assert response_deadline(_docket(_FILED, entry)) == (date(2026, 11, 6), "due"), entry
+    for entry in (
+        "Memorandum of respondent United States filed.",
+        "Motion of appellee to dismiss or affirm filed.",
+        "Brief of the federal respondents in opposition filed.",
+    ):
+        assert response_deadline(_docket(_FILED, entry)) == (date(2026, 11, 6), "filed"), entry
+
+
+def test_an_extension_for_a_brief_in_opposition_moves_the_deadline() -> None:
+    granted = (
+        "Motion to extend the time to file a brief in opposition is granted and the time is "
+        "extended to and including December 7, 2026."
+    )
+    assert response_deadline(_docket(_FILED, granted)) == (date(2026, 12, 7), "due")

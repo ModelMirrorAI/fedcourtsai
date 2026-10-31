@@ -13,8 +13,8 @@ the dates still ahead for the public site's case timeline:
   that states a deadline — the docketing entry's ``(Response due …)``, a call
   for response's ``(Due …)``, a granted extension's "extended to and including
   …", a Justice's request for a response to an application — sets the date and
-  makes the response ``due``. A respondent's response or brief in opposition
-  makes it ``filed``, and a waiver of the right to respond makes it
+  makes the response ``due``. A response, brief in opposition or memorandum
+  the respondent files makes it ``filed``, and a waiver of the right to respond makes it
   ``waived``, until a later entry states a new deadline.
 
 Neither date is a cell input. The columns they land in are withheld from the
@@ -50,10 +50,11 @@ _SET_FOR_ARGUMENT_RE = re.compile(
 _PAREN_DUE_RE = re.compile(r"\(\s*(?:response\s+)?due\s+" + _DAY, re.IGNORECASE)
 #: A granted extension of the time to respond: "Motion to extend the time to file
 #: a response is granted and the time is extended to and including December 4,
-#: 2026." The request itself ("… submitted to The Clerk.") moves nothing.
+#: 2026.", or the same for a brief in opposition. The request itself ("…
+#: submitted to The Clerk.") moves nothing.
 _EXTENDED_RE = re.compile(
-    r"\btime\s+to\s+file\s+(?:a\s+|the\s+)?response\b.*?\bextended\s+to\s+and\s+including\s+"
-    + _DAY,
+    r"\btime\s+to\s+file\s+(?:a\s+|the\s+)?(?:response|brief\s+in\s+opposition)\b"
+    r".*?\bextended\s+to\s+and\s+including\s+" + _DAY,
     re.IGNORECASE | re.DOTALL,
 )
 #: A Justice's call for a response to an application: "Response to application
@@ -63,13 +64,22 @@ _APPLICATION_REQUEST_RE = re.compile(
     r"^\s*response\s+to\s+(?:the\s+)?application\b.*?\brequested\b.*?\bdue\b.*?" + _DAY,
     re.IGNORECASE | re.DOTALL,
 )
-#: The respondent's answer on file: "Brief of respondent X in opposition filed.",
-#: "Response to application from respondent X filed.", "Motion of appellee to
-#: dismiss or affirm filed." Entry-initial, naming the responding side before
-#: the filing verb, and never an amicus brief, an extension or a request.
+#: The respondent's answer on file, with the respondent as the filer: "Brief of
+#: respondent X in opposition filed.", "Memorandum of respondent United States
+#: filed.", "Motion of appellee to dismiss or affirm filed.", and "Response to
+#: application (26A123) from respondent X filed." A filing that only names the
+#: respondent ("… to respondent's motion …", "… in support of respondent …") or
+#: answers a motion rather than the petition is not the answer, and neither is an
+#: extension request.
 _RESPONSE_FILED_RE = re.compile(
-    r"^\s*(?:brief|response|motion)\b(?![^.]*\b(?:amic\w*|extend\w*|extension|requested)\b)"
-    r"[^.]{0,240}?\b(?:respondents?|appellees?)\b.{0,300}?\bfiled\b",
+    r"^\s*(?:"
+    r"(?:brief|response|motion|memorandum)\s+(?:of|from)\s+(?:the\s+)?(?:federal\s+)?"
+    r"(?:respondents?|appellees?)\b"
+    r"|response\s+to\s+(?:the\s+)?application\b[^.]{0,80}?\bfrom\s+(?:the\s+)?"
+    r"(?:respondents?|appellees?)\b"
+    r")"
+    r"(?!.*\b(?:in\s+support\s+of|extend\w*|extension)\b)"
+    r".{0,300}?\bfiled\b",
     re.IGNORECASE,
 )
 #: "Waiver of right of respondent X to respond filed."

@@ -3952,7 +3952,8 @@ _BIG_CASE_SCHEDULE_RULE = (
     "docket's entries name: the conference its newest 'DISTRIBUTED for Conference of ...' "
     "entry names while it is undecided, the day its newest 'SET FOR ARGUMENT on ...' entry "
     "names while a granted case awaits decision and has not been argued on or after that day, "
-    "and the newest stated response deadline while no response or waiver has followed it. "
+    "and the newest stated response deadline while the docket is undecided and no response or "
+    "waiver has followed it. "
     "`schedule` lists each such date still ahead on the day the schedule was built, earliest "
     "first; `scheduled` is its conference entry alone, or null. The row carries no build "
     "day, so the board moves only when a case's date does; a reader rendering on a later day "
@@ -4599,7 +4600,7 @@ def build_big_case_board(
     Ledger-only: it reads ``data/`` and nothing else — the predictions, the
     committed qp-topic labels for the docket numbers a CourtListener id does not
     carry, every committed event definition's caption for the cross-petition
-    test, and the committed schedule for each row's next conference — with no
+    test, and the committed schedule for each row's upcoming dates — with no
     corpus, no network, no credentials, no clock, so it runs anywhere a
     checkout exists and reruns over
     an unchanged ledger reproduce the artifact byte for byte. That is also why it
