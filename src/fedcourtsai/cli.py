@@ -2185,7 +2185,7 @@ def executive_success_cmd(
         DEFAULT_SCOPE_RULE,
         "--scope-rule",
         help="Which registered scope rule reads an application as executive action "
-        "(exec-action-v1).",
+        "(exec-action-v2, the default, or exec-action-v1).",
     ),
     reading: str = typer.Option(
         "finer",
@@ -2207,7 +2207,9 @@ def executive_success_cmd(
     withdrawn, moot, pending and unreadable rows are counted beside them. By
     default a stored denial is re-read from the row's latest snapshot under the
     finer interim reading, which names partial grants and denials as moot.
-    The same applications are counted again by controversy
+    A row with no docketed date takes its first proceeding entry's date where
+    a live snapshot is read. The
+    same applications are counted again by controversy
     (`pipeline.controversy`), each controversy once. An analytics artifact:
     nothing a predict or evaluate cell reads comes from it. Prints an
     `ExecutiveSuccess` (its `review_rows` list every in-scope and unknown-scope
@@ -2271,7 +2273,8 @@ def executive_success_cmd(
         f"{moment}): {result.applications} application(s) read for scope, "
         f"{result.extension_rows} extension(s) and {result.duplicate_rows} duplicate docket "
         f"row(s) left out, {result.filed_before_since} earlier and "
-        f"{result.filed_after_through} later than the cut; scope [{reasons}]; unknown scope "
+        f"{result.filed_after_through} later than the cut, {result.filed_from_first_entry} "
+        f"dated by their first proceeding; scope [{reasons}]; unknown scope "
         f"[{unknown}]; {result.reading} reading re-read {result.reread_rows} stored denial(s), "
         f"{result.reread_changed} relabeled, {result.reread_unobservable} unobservable and "
         f"{result.reread_after_through} decided after the cut; "

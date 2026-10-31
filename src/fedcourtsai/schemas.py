@@ -12900,7 +12900,15 @@ class ExecutiveSuccessRow(_Strict):
     administration: str | None = Field(
         default=None, description="Administration under the cut's date convention"
     )
-    date_filed: date | None = Field(default=None, description="The row's filing date")
+    date_filed: date | None = Field(
+        default=None,
+        description="The row's filing date: the docketed date, else its first proceeding's",
+    )
+    date_source: Literal["docketed", "first-entry"] | None = Field(
+        default=None,
+        description="Where `date_filed` came from: the docket's docketed date, or the "
+        "first proceeding entry where the docketed date is empty; null = neither",
+    )
     in_scope: bool | None = Field(description="The scope rule's reading; null = unknown")
     reason: str = Field(description="The scope rule's reason code")
     government_side: Literal["applicant", "respondent"] = Field(
@@ -12949,7 +12957,7 @@ class ExecutiveSuccess(_Strict):
     """
 
     schema_version: Literal["1.0"] = SCHEMA_VERSION
-    scope_rule_version: str = Field(description="The committed scope rule, e.g. exec-action-v1")
+    scope_rule_version: str = Field(description="The committed scope rule, e.g. exec-action-v2")
     party_rule_version: str = Field(description="The party rule the scope rule composes")
     counsel_rule_version: str = Field(description="The counsel rule the scope rule composes")
     reading: Literal["finer", "registered"] = Field(
@@ -12985,6 +12993,12 @@ class ExecutiveSuccess(_Strict):
         ge=0,
         description="Applications in the window, extensions of time left out, one per "
         "docket number",
+    )
+    filed_from_first_entry: int = Field(
+        default=0,
+        ge=0,
+        description="Of those, rows with no docketed date that took their first "
+        "proceeding entry's date as their filing date",
     )
     duplicate_rows: int = Field(
         default=0,
@@ -13037,7 +13051,7 @@ class ExecutiveSuccess(_Strict):
         default_factory=list, description="Non-empty cells only; an absent cell is not a zero"
     )
     controversy_rule_version: str = Field(
-        description="The grouping rule the controversy cells are counted under, e.g. controversy-v1"
+        description="The grouping rule the controversy cells are counted under, e.g. controversy-v2"
     )
     controversy_cells: list[ExecutiveControversyCell] = Field(
         default_factory=list,

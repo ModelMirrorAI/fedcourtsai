@@ -3575,11 +3575,13 @@ it.
 **What may be claimed from the executive success cut.** `fedcourts
 executive-success` (`pipeline.executive_success`, [docs/cli.md](../docs/cli.md))
 publishes the federal executive's emergency-docket record by administration
-and by who filed, over the applications the scope rule `exec-action-v1`
+and by who filed, over the applications the scope rule `exec-action-v2`
 (`pipeline.exec_action`) reads as challenging or defending a general federal
 executive action. It is an analytics artifact like the party rates, and every
 rule of the party rates on dates, coverage, the rule version and the corpus
-vintage travels with it. Eight more are specific to it.
+vintage travels with it, save one: this cut dates a row with no docketed date
+by its first proceeding, which the party rates do not. Nine more are specific
+to it.
 
 - **A rate reads in the executive's direction.** A government application on
   the granted side (in whole or in part) and a challenger's application denied
@@ -3601,9 +3603,21 @@ vintage travels with it. Eight more are specific to it.
   the rate. Under `registered` the government's rate is understated where it
   filed, and overstated where it defended.
 - **Scope is a caption rule, and its unknowns are not zeros.** The rule reads
-  the caption and the Solicitor General's counsel entries, never the
-  application's text, and it narrows only the government-respondent side:
-  every government application is in scope. `unknown_scope` counts the rows it
+  the caption and the Solicitor General's counsel entries, and it narrows the
+  government-respondent side only: every government application is in scope
+  but one. The exception, under `exec-action-v2`, is a request for leave to
+  file over the word or page limit, `procedural-request`, read from the
+  application's own submission entry where its stored ask is not
+  substantive: granting it decides nothing, so it is out of scope on both
+  sides and counted under its reason. It is read from a live snapshot, so a
+  request whose row has none keeps its caption reason and is counted like
+  any other. Of the 28 requests the two-rater hand check codes procedural, the
+  19 the caption steps keep in scope or unknown are all set aside, and none of
+  the 58 other counted applications read with them, those the replication's
+  issues name, is (blob pulled 2026-10-31). Its pattern is
+  "in excess of" or "exceed" the word or page limit; another phrasing is
+  missed. `exec-action-v1`, still registered, counts such a grant as the
+  filer's win. `unknown_scope` counts the rows it
   cannot place — a named individual with `et al.` against an officer, and rows
   only the counsel entries put on the government-respondent side — and a
   quoted figure names that count beside it. `review_rows` lists them, and every
@@ -3620,13 +3634,29 @@ vintage travels with it. Eight more are specific to it.
   hold 2023-07-10 to 2025-01-19 only, and `trump-45` holds none. No
   cross-administration comparison reads from that blob; one needs a blob that
   holds the back-filled earlier Terms.
+- **An empty docketed date is dated by the first proceeding.** A row whose
+  docket carries no docketed date has a null stored `date_filed`; the cut
+  dates it by its first proceeding entry, the submission, wherever a live
+  snapshot is read, for the window, the `filed` attribution and the
+  controversy's first application. Each review row's `date_source` says
+  which, and `filed_from_first_entry` counts the fallbacks; quote it beside
+  any figure for a window that holds them. A row with neither date sits in
+  the unattributed cells.
 - **A controversy rate is beside the application rate, not instead of it.**
-  `controversy_cells` group the in-scope applications under `controversy-v1`
+  `controversy_cells` group the in-scope applications under `controversy-v2`
   (`pipeline.controversy`): two applications are one controversy where they
-  share a case below, one order decided both (read only for an application
-  decided by the cut's moment), or both are government applications whose
-  captions name the same leading party on each side, and the groups are the
-  connected sets. A controversy takes the executive's result in its last
+  share a case below; one order decided both (read only for an application
+  decided by the cut's moment); their disposing orders read alike, once
+  markup and each one's own number are set aside, on one day, from one court
+  below, against one leading government party; or both are government
+  applications whose captions name the same leading party on each side, from
+  the same court below where both name one, the later filed within 210 days
+  of the earlier's decision. The groups are the connected sets. The 210 days
+  sit between renewed applications in one dispute (123 and 187 days after the
+  first was decided) and the nearest new dispute under an old caption (263
+  days, *United States v. Texas*), so the bound is a measured choice with a
+  thin margin; a renewal more than 210 days on, such as `26A406` after
+  `24A1153`, is its own controversy. A controversy takes the executive's result in its last
   substantively decided application, by stored decision date, and is
   `indeterminate` where none was decided; its administration is that of its
   first-filed application dated under the cut's convention, and its filer is
@@ -3673,7 +3703,8 @@ vintage travels with it. Eight more are specific to it.
   cell, and a quoted per-area figure names that count. Most cells hold a few
   rows: quote the pair.
 
-**Hand-coded check of the scope rule.** Every federal-side application of the
+**Hand-coded check of the scope rule.** Measured under `exec-action-v1`,
+before an empty docketed date took the first proceeding's. Every federal-side application of the
 `--through 2026-10-12` cut below (232 of its 828 applications: every reason
 but `no-federal-party`) and a seeded sample of 60 `no-federal-party` rows (the
 lowest 60 by the SHA-256 of `scope-sample-v1:` plus the docket number) were
@@ -3719,11 +3750,13 @@ raters split on it, so that figure rests on the adjudication) and add
 `24A1007`, `24A808`, `25A1008` and `26A274` to the challenger side: 7/9 by the
 cut's convention, or 8/9 reading `26A274`, an intervenor's stay that helped an
 FCC action, in substance, the same direction flip as above. The
-`exec-action-v1` reading is unchanged by this check; a narrower rule is a new
-version. Five of the rows this check codes in scope (`23A55`, `23A300`,
+`exec-action-v1` reading is unchanged by this check; `exec-action-v2` is the
+narrower rule it called for, on the procedural requests. Five of the rows this check codes in scope (`23A55`, `23A300`,
 `23A712`, `24A754`, `25A327`) are only requests to file over the word or page
-limit. None has a filing date, so under `--as-of filed` they sit among the
-unattributed rows and in no administration's pair. The second policy-label
+limit. None has a docketed date, so under `exec-action-v1`, which this check
+read, they sit among the unattributed rows and in no administration's pair;
+`exec-action-v2` dates them by their first proceeding and sets them out of
+scope as `procedural-request`. The second policy-label
 round's hand codes, not committed either, put such a request out of scope as
 procedural, since its grant is no ruling on the executive action; the counts
 of this check hold the five in scope.
@@ -3731,7 +3764,11 @@ of this check hold the five in scope.
 **Replication against the published tally.** Adam Feldman's SCOTUSblog
 column of 2026-10-19 ("Where the Supreme Court favors Trump on the emergency
 docket – and where it doesn't") counts applications involving general federal
-executive actions through 2026-10-12, and lists no rows. Cut `--as-of filed
+executive actions through 2026-10-12, and lists no rows. The figures below
+are this record's measurement under `exec-action-v1` and `controversy-v1`,
+before an empty docketed date took the first proceeding's; the current code
+cuts under `exec-action-v2` and `controversy-v2`, so it does not reproduce
+them, and a refreshed record states its own versions. Cut `--as-of filed
 --through 2026-10-12` on the blob pulled 2026-10-26 (newest stored snapshot in
 the index 2026-07-13; the re-read rows' own live snapshots run later):
 `finer` reading, 59 stored denials re-read, 7 relabeled, 0 unobservable, 0
