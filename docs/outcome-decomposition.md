@@ -2303,8 +2303,8 @@ reports, so the report cannot be chosen after the grades are read.
 The grade is registered at the `proc-v16` re-bless, as one coordinated change
 ([freeze-record.md](freeze-record.md)): the evaluate prompt's *Grading the
 forecast document* section asking for it (the schema already carried the
-field and its central-claims list), the `validate` check that refused a
-committed grade lifted, a freeze-record entry, and the register revised to
+field and its central-claims list), the `validate` check that refuses an
+unregistered grade lifted, a freeze-record entry, and the register revised to
 match: its opening paragraph and its "every scored route is mechanical or
 graded, never prose" property name the registered grade, and a row routes the
 document to it. Every evaluate cell stages each writing of the decision
