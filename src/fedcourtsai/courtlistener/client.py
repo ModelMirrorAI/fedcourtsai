@@ -22,10 +22,10 @@ Docs: https://www.courtlistener.com/help/api/rest/
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import date
 from types import TracebackType
-from typing import Any, Literal
+from typing import Any, Final, Literal, NamedTuple
 from urllib.parse import parse_qsl, urlsplit
 
 import httpx
@@ -84,6 +84,29 @@ def classify_error(exc: BaseException) -> ErrorClass:
     so the two never diverge.
     """
     return "transient" if is_transient(exc) else "permanent"
+
+
+#: The most pages of entries one docket read may cost before it is refused
+#: (twenty entries a page upstream).
+DEFAULT_MAX_ENTRY_PAGES: Final = 25
+
+#: What a cursor ``next`` link adds to the question its first page asked
+#: (upstream echoes the requested ``fields`` too, which this client never sets).
+_CURSOR_KEYS: Final = frozenset({"cursor"})
+
+
+class EntryPageCapExceeded(RuntimeError):
+    """A docket has more pages of entries than the read may cost."""
+
+
+class EntryPages(NamedTuple):
+    """What a bounded read of a docket's entries returned."""
+
+    entries: list[JsonDict]
+    #: Requests spent, one a page.
+    pages: int
+    #: Whether the last page read was the docket's last.
+    complete: bool
 
 
 class CourtListenerClient:
@@ -213,30 +236,77 @@ class CourtListenerClient:
         return self._get("dockets/", {"court": court, key: docket_number})
 
     def list_docket_entries(
-        self, docket_id: int, page: int = 1, *, date_filed_gte: date | None = None
+        self, docket_id: int, *, date_filed_gte: date | None = None
     ) -> JsonDict:
-        """List docket entries (the timeline of filings/orders) for a docket.
+        """The first page of a docket's entries (the timeline of filings and orders).
 
-        ``date_filed_gte`` narrows the page to entries filed on or after a date,
-        so a caller reading only what followed a judgment pays for nothing
-        before it.
+        ``date_filed_gte`` narrows it to entries filed on or after a date, so a
+        caller reading only what followed a judgment pays for nothing before it.
+        The endpoint is cursor-paginated: a ``page`` number is ignored upstream,
+        and only the ``next`` link reaches the following page
+        (:meth:`docket_entries` follows it).
         """
-        params: JsonDict = {"docket": docket_id, "page": page}
+        params: JsonDict = {"docket": docket_id}
         if date_filed_gte is not None:
             params["date_filed__gte"] = date_filed_gte.isoformat()
         return self._get("docket-entries/", params)
 
-    def iter_docket_entries(self, docket_id: int) -> list[JsonDict]:
-        """Page through and collect all docket entries for a docket."""
-        results: list[JsonDict] = []
-        page = 1
-        while True:
-            payload = self.list_docket_entries(docket_id, page=page)
-            results.extend(payload.get("results", []))
-            if not payload.get("next"):
-                break
-            page += 1
-        return results
+    def docket_entries(
+        self,
+        docket_id: int,
+        *,
+        max_pages: int,
+        date_filed_gte: date | None = None,
+        on_request: Callable[[], None] | None = None,
+    ) -> EntryPages:
+        """Read up to ``max_pages`` pages of a docket's entries, following the cursor.
+
+        Each page after the first is the one the previous page's ``next`` link
+        names, checked by :meth:`link_params` to address this client's own
+        ``docket-entries/`` endpoint for the same docket. The result says how
+        many pages were read and whether the last one had no ``next``: a caller
+        that needs every entry treats an incomplete read as a refusal, never as
+        the whole docket. ``on_request`` is called before each page is sent, so
+        a caller keeping its own request count stays exact when a page fails.
+        """
+        if max_pages < 1:
+            raise ValueError("max_pages must be >= 1")
+        asked = {"docket": str(docket_id)}
+        if date_filed_gte is not None:
+            asked["date_filed__gte"] = date_filed_gte.isoformat()
+        if on_request is not None:
+            on_request()
+        payload = self.list_docket_entries(docket_id, date_filed_gte=date_filed_gte)
+        entries: list[JsonDict] = list(payload.get("results", []))
+        pages = 1
+        while (next_url := payload.get("next")) and pages < max_pages:
+            params = self.link_params(next_url, "docket-entries/")
+            # The link must re-ask the first page's question, adding only its
+            # cursor: a dropped date filter would quietly widen the read.
+            if {k: v for k, v in params.items() if k not in _CURSOR_KEYS} != asked:
+                raise ValueError(f"docket-entries next link asks another question: {next_url!r}")
+            if on_request is not None:
+                on_request()
+            payload = self._get("docket-entries/", dict(params))
+            entries.extend(payload.get("results", []))
+            pages += 1
+        return EntryPages(entries=entries, pages=pages, complete=not payload.get("next"))
+
+    def iter_docket_entries(
+        self, docket_id: int, *, max_pages: int = DEFAULT_MAX_ENTRY_PAGES
+    ) -> list[JsonDict]:
+        """Every entry of a docket, or :class:`EntryPageCapExceeded` past ``max_pages`` pages.
+
+        The cap bounds what one docket can cost: a docket longer than it is
+        refused whole rather than stored as a truncated record that would read as
+        complete.
+        """
+        read = self.docket_entries(docket_id, max_pages=max_pages)
+        if not read.complete:
+            raise EntryPageCapExceeded(
+                f"docket {docket_id} has more than {max_pages} pages of entries"
+            )
+        return read.entries
 
     def list_dockets(
         self,
@@ -275,29 +345,33 @@ class CourtListenerClient:
         return self.search(self.search_link_params(next_url))
 
     def search_link_params(self, next_url: str) -> dict[str, str]:
-        """The parameters of a search result's ``next`` link, once it is checked.
+        """The parameters of a search result's ``next`` link, once it is checked."""
+        return self.link_params(next_url, "search/")
 
-        Search pages are cursor-paginated, so the link is the only way to the
-        next page. It is accepted only when it addresses this client's own
-        ``search/`` endpoint (same scheme, host and path), and its query string
-        is re-sent as parameters, so the request is still one this client
-        built. A link anywhere else, or one repeating a parameter, raises
-        ``ValueError`` before any request, rather than carrying the token to an
-        address this client did not choose, or asking a question the link did
-        not.
+    def link_params(self, next_url: str, endpoint: str) -> dict[str, str]:
+        """The parameters of a cursor-paginated result's ``next`` link, once it is checked.
+
+        Search and docket-entry pages are cursor-paginated, so the link is the
+        only way to the next page. It is accepted only when it addresses this
+        client's own ``endpoint`` (same scheme, host and path), and its query
+        string is re-sent as parameters, so the request is still one this
+        client built. A link anywhere else, or one repeating a parameter,
+        raises ``ValueError`` before any request, rather than carrying the token
+        to an address this client did not choose, or asking a question the link
+        did not.
         """
-        expected = urlsplit(f"{self.base_url}search/")
+        expected = urlsplit(f"{self.base_url}{endpoint}")
         link = urlsplit(next_url)
         if (link.scheme, link.netloc, link.path) != (
             expected.scheme,
             expected.netloc,
             expected.path,
         ):
-            raise ValueError(f"search next link is off the search endpoint: {next_url!r}")
+            raise ValueError(f"next link is off the {endpoint.rstrip('/')} endpoint: {next_url!r}")
         pairs = parse_qsl(link.query, keep_blank_values=True)
         params = dict(pairs)
         if len(params) != len(pairs):
-            raise ValueError(f"search next link repeats a parameter: {next_url!r}")
+            raise ValueError(f"next link repeats a parameter: {next_url!r}")
         return params
 
     def iter_dockets(

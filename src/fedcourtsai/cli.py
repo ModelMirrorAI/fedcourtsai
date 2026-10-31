@@ -20435,6 +20435,7 @@ def pull_all(
             scope=scope,
             deadline=deadline,
             max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
+            max_entry_pages=pull_cfg.max_entry_pages_per_case,
         )
     # Re-derive owed gradings from the ledger, on top of this poll's fresh
     # resolutions. `already_queued` keeps a case the poll just queued from being

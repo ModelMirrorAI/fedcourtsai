@@ -304,8 +304,21 @@ class _Upstream:
         if parts[-1] == "docket-entries":
             if self.entries_status != 200:
                 return httpx.Response(self.entries_status, json={"detail": "refused"})
-            rows = self.entries.get(int(params["docket"]), [])
-            return self._page(rows, self.entries_next)
+            docket = int(params["docket"])
+            rows = self.entries.get(docket, [])
+            # Upstream pages entries by cursor: the next link re-asks for the
+            # same docket with a cursor token.
+            since = params.get("date_filed__gte")
+            echo = f"&date_filed__gte={since}" if since else ""
+            nxt = f"{_BASE}docket-entries/?cursor=c{len(self.requests)}&docket={docket}{echo}"
+            return httpx.Response(
+                200,
+                json={
+                    "count": len(rows),
+                    "next": nxt if self.entries_next else None,
+                    "results": rows,
+                },
+            )
         resource, ident = parts[-2], int(parts[-1])
         if resource != "opinions" or ident not in self.opinions:
             return httpx.Response(404, json={"detail": "Not found."})
