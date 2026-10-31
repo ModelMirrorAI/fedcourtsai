@@ -1,0 +1,136 @@
+{
+  "$defs": {
+    "AiCaseActivityEntry": {
+      "additionalProperties": false,
+      "description": "One significant docket entry an AI watchlist case gained.",
+      "properties": {
+        "case": {
+          "description": "The watchlist case's name, as the watchlist gives it.",
+          "minLength": 1,
+          "title": "Case",
+          "type": "string"
+        },
+        "category": {
+          "description": "The case's category in the watchlist's closed vocabulary.",
+          "minLength": 1,
+          "title": "Category",
+          "type": "string"
+        },
+        "court": {
+          "description": "CourtListener court id of the docket.",
+          "minLength": 1,
+          "title": "Court",
+          "type": "string"
+        },
+        "date_filed": {
+          "description": "The day the entry was filed.",
+          "format": "date",
+          "title": "Date Filed",
+          "type": "string"
+        },
+        "docket_id": {
+          "description": "CourtListener docket id.",
+          "exclusiveMinimum": 0,
+          "title": "Docket Id",
+          "type": "integer"
+        },
+        "docket_number": {
+          "description": "The court's own docket number.",
+          "minLength": 1,
+          "title": "Docket Number",
+          "type": "string"
+        },
+        "entry_id": {
+          "description": "CourtListener's id for the docket entry.",
+          "exclusiveMinimum": 0,
+          "title": "Entry Id",
+          "type": "integer"
+        },
+        "entry_number": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The entry's number on the docket; unnumbered entries carry none.",
+          "title": "Entry Number"
+        },
+        "kind": {
+          "description": "What the entry is, under the record's rule.",
+          "enum": [
+            "opinion",
+            "judgment",
+            "ruling",
+            "motion",
+            "complaint",
+            "appeal",
+            "resolution"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "url": {
+          "description": "The entry on CourtListener: its main document's page, else the docket.",
+          "pattern": "^https://www\\.courtlistener\\.com/[A-Za-z0-9/_.~%#-]*$",
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case",
+        "category",
+        "court",
+        "docket_id",
+        "docket_number",
+        "entry_id",
+        "date_filed",
+        "kind",
+        "url"
+      ],
+      "title": "AiCaseActivityEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``data/ai-cases/activity/<YYYY-MM-DD>.json`` \u2014 a day's significant AI-case docket entries.\n\nWritten by ``watchlist-refresh`` for the entries a refresh found that the\nstored docket lacked and that the rule (:data:`fedcourtsai.ai_activity.ACTIVITY_RULE`)\nkeeps. Identifiers, dates, kinds and links only: no docket text is copied.",
+  "properties": {
+    "day": {
+      "description": "The UTC day the refresh found these entries.",
+      "format": "date",
+      "title": "Day",
+      "type": "string"
+    },
+    "entries": {
+      "description": "The day's entries, oldest filing first; a quiet day has no file.",
+      "items": {
+        "$ref": "#/$defs/AiCaseActivityEntry"
+      },
+      "minItems": 1,
+      "title": "Entries",
+      "type": "array"
+    },
+    "rule": {
+      "description": "The significance rule's label.",
+      "minLength": 1,
+      "title": "Rule",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "day",
+    "rule",
+    "entries"
+  ],
+  "title": "AiCaseActivity",
+  "type": "object"
+}

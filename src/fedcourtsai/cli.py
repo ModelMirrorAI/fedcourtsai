@@ -48,6 +48,7 @@ from typer._click.exceptions import UsageError
 from typer.core import TyperCommand
 
 from . import (
+    ai_activity,
     analytics,
     blinding,
     casestore,
@@ -89,6 +90,7 @@ from . import (
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
 from .agent_tooling import normalise_tooling
+from .ai_cases_update import ai_cases_subject, build_ai_cases_update, render_ai_cases_update
 from .ai_watchlist import AI_WATCHLIST_FILENAME, load_ai_watchlist, tagged_case_ids
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
@@ -503,6 +505,7 @@ from .schemas import (
     AgentFlag,
     AgentFlags,
     AgentToolingFeedback,
+    AiCaseActivityEntry,
     AuthorshipTally,
     Backtest,
     BlindingRecord,
@@ -14617,6 +14620,129 @@ def post_public_update_cmd(
     typer.echo(f"post-public-update: {chosen}: {verb} {draft.email_id}{where}")
 
 
+def _ai_cases_span(week: str, day: str) -> tuple[date, date]:
+    """The span an AI-cases command names: one day, one ISO week, or the last complete week."""
+    if week and day:
+        raise typer.BadParameter("give at most one of --week and --day")
+    if day:
+        try:
+            one = date.fromisoformat(day)
+        except ValueError as exc:
+            raise typer.BadParameter(f"--day {day!r} is not a YYYY-MM-DD date") from exc
+        return one, one
+    try:
+        return week_bounds(week or last_complete_week(datetime.now(UTC)))
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command("ai-cases-update")
+def ai_cases_update_cmd(
+    *,
+    week: Annotated[
+        str, typer.Option(help="ISO week to render, as YYYY-Www; default the last complete week.")
+    ] = "",
+    day: Annotated[str, typer.Option(help="One day to render instead, as YYYY-MM-DD.")] = "",
+    out: Annotated[
+        Path | None, typer.Option(help="Write the Markdown here; omit to print it.")
+    ] = None,
+) -> None:
+    """Render the AI-cases update from the committed watchlist activity records.
+
+    Read-only and deterministic: the same tree and span render the same bytes.
+    Exits 3, writing nothing, when the span recorded no significant entry.
+    """
+    settings = get_settings()
+    start, end = _ai_cases_span(week, day)
+    update = build_ai_cases_update(settings.data_root, start, end)
+    if update.empty:
+        typer.echo(f"ai-cases-update: nothing to send for {start} to {end}.", err=True)
+        raise typer.Exit(code=3)
+    text = render_ai_cases_update(update)
+    if out is None:
+        typer.echo(text, nl=False)
+        return
+    write_text(out, text)
+    typer.echo(f"ai-cases-update: {start} to {end}: {update.items} item(s) -> {out}", err=True)
+
+
+@app.command("post-ai-cases-update")
+def post_ai_cases_update_cmd(
+    *,
+    tag: Annotated[
+        str,
+        typer.Option(
+            help="Buttondown tag name whose subscribers the draft is addressed to; "
+            "resolving a name lists the account's tags. Or give --tag-id."
+        ),
+    ] = "",
+    tag_id: Annotated[
+        str,
+        typer.Option(
+            "--tag-id",
+            help="Buttondown tag id the draft is addressed to; needs no read beyond emails.",
+        ),
+    ] = "",
+    week: Annotated[
+        str, typer.Option(help="ISO week to post, as YYYY-Www; default the last complete week.")
+    ] = "",
+    day: Annotated[str, typer.Option(help="One day to post instead, as YYYY-MM-DD.")] = "",
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", help="Render the subject and body and print them; contact nothing."
+        ),
+    ] = False,
+) -> None:
+    """Create the AI-cases update as a Buttondown draft for one tag's subscribers.
+
+    Draft only: a person reads it and presses send in Buttondown. Idempotent per
+    span, since an email already carrying the span's subject is returned rather
+    than duplicated. Exits 3 on a span with nothing to send, 2 on a bad span or a
+    missing key, 1 when Buttondown refuses. The key is read from the environment
+    and never printed.
+    """
+    settings = get_settings()
+    if bool(tag.strip()) == bool(tag_id.strip()):
+        typer.echo("post-ai-cases-update: give exactly one of --tag or --tag-id.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        start, end = _ai_cases_span(week, day)
+    except typer.BadParameter as exc:
+        typer.echo(f"post-ai-cases-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_ai_cases_update(settings.data_root, start, end)
+    if update.empty:
+        typer.echo(f"post-ai-cases-update: nothing to send for {start} to {end}.", err=True)
+        raise typer.Exit(code=3)
+    subject = ai_cases_subject(update)
+    body = render_ai_cases_update(update, title=False)
+    if dry_run:
+        typer.echo(f"Subject: {subject}\nTag: {tag.strip() or tag_id.strip()}\n\n{body}", nl=False)
+        return
+    api_key = os.environ.get(API_KEY_ENV, "")
+    if not api_key.strip():
+        typer.echo(
+            f"post-ai-cases-update: the {API_KEY_ENV} environment variable is unset.", err=True
+        )
+        raise typer.Exit(code=2)
+    try:
+        with make_client(api_key) as client:
+            draft = post_draft(
+                client,
+                subject=subject,
+                body=body,
+                tag_name=tag.strip() or None,
+                tag_id_value=tag_id.strip() or None,
+            )
+    except ButtondownError as exc:
+        typer.echo(f"post-ai-cases-update: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    verb = "created draft" if draft.created else f"already present ({draft.status})"
+    where = f" {draft.url}" if draft.url else ""
+    typer.echo(f"post-ai-cases-update: {start} to {end}: {verb} {draft.email_id}{where}")
+
+
 @app.command("daily-digest")
 def daily_digest(
     *,
@@ -15307,6 +15433,24 @@ def watchlist_refresh_cmd(
         return
     share = load_courtlistener_budget(settings.config_root).lane("watchlist").per_run
     deadline = time.monotonic() + cfg.max_run_minutes * 60
+    named = {
+        ids.case_id(court, docket_id): (case.name, case.category)
+        for case in watchlist.cases
+        for court, docket_id in case.dockets()
+    }
+    recorded: list[AiCaseActivityEntry] = []
+
+    def record(done: watchlist_refresh.Refreshed) -> None:
+        # Recorded docket by docket, as each write lands: an entry the corpus
+        # has stored is never "new" again, so a run killed part-way must
+        # already have recorded what it stored.
+        found = ai_activity.activity_entries(
+            *named[done.case_id], done.docket, done.added, today=today
+        )
+        if found:
+            ai_activity.record_activity(settings.data_root, today, found)
+            recorded.extend(found)
+
     with _client("watchlist") as client:
         result = watchlist_refresh.refresh_watchlist(
             client,
@@ -15317,8 +15461,12 @@ def watchlist_refresh_cmd(
             share=share,
             deadline=deadline,
             max_consecutive_transient_failures=cfg.max_consecutive_transient_failures,
+            on_refreshed=record,
         )
     _ensure_corpus_layout(db)
+    if recorded:
+        path = ai_activity.activity_path(settings.data_root, today)
+        typer.echo(f"watchlist-refresh: {len(recorded)} significant new entr(ies) -> {path}")
     if report is not None:
         write_raw_json(report, result.as_json())
     changed = sum(1 for r in result.refreshed if r.changed)

@@ -230,8 +230,8 @@ def test_a_second_reviewer_rule_counts_toward_the_set() -> None:
 
 WEBSITE_SECRETS: dict[str, Any] = {"total_count": 1, "secrets": [{"name": "BUTTONDOWN_API_KEY"}]}
 WEBSITE_VARIABLES: dict[str, Any] = {
-    "total_count": 1,
-    "variables": [{"name": "WEEKLY_SCOTUS_TAG_ID"}],
+    "total_count": 2,
+    "variables": [{"name": "WEEKLY_SCOTUS_TAG_ID"}, {"name": "AI_CASES_TAG_ID"}],
 }
 
 
@@ -285,10 +285,21 @@ def test_the_configured_website_environment_passes() -> None:
         ({"secrets": NO_SECRETS}, "lacks its secrets: BUTTONDOWN_API_KEY"),
         ({"variables": None}, "variables were unread"),
         (
-            {"variables": {"variables": [{"name": "WEEKLY_SCOTUS_TAG_ID"}, {"name": "X"}]}},
-            "outside ['WEEKLY_SCOTUS_TAG_ID']: X",
+            {
+                "variables": {
+                    "variables": [
+                        {"name": "WEEKLY_SCOTUS_TAG_ID"},
+                        {"name": "AI_CASES_TAG_ID"},
+                        {"name": "X"},
+                    ]
+                }
+            },
+            "outside ['AI_CASES_TAG_ID', 'WEEKLY_SCOTUS_TAG_ID']: X",
         ),
-        ({"variables": {"variables": []}}, "lacks its variables: WEEKLY_SCOTUS_TAG_ID"),
+        (
+            {"variables": {"variables": [{"name": "WEEKLY_SCOTUS_TAG_ID"}]}},
+            "lacks its variables: AI_CASES_TAG_ID",
+        ),
     ],
 )
 def test_each_website_weakening_is_named(overrides: dict[str, Any], fragment: str) -> None:

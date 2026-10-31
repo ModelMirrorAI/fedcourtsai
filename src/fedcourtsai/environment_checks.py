@@ -267,14 +267,14 @@ def environment_problems(
     return problems
 
 
-#: The environment `post-public-update`'s `post` job binds.
+#: The environment `post-public-update`'s `post` and `post-ai-cases` jobs bind.
 WEBSITE_ENVIRONMENT = "website"
 
-#: Its one secret, the Buttondown API key the weekly draft is created with.
+#: Its one secret, the Buttondown API key the drafts are created with.
 WEBSITE_SECRETS = frozenset({"BUTTONDOWN_API_KEY"})
 
-#: Its one variable, the Buttondown id of the tag the draft is addressed to.
-WEBSITE_VARIABLES = frozenset({"WEEKLY_SCOTUS_TAG_ID"})
+#: Its variables, the Buttondown ids of the tags the two drafts are addressed to.
+WEBSITE_VARIABLES = frozenset({"WEEKLY_SCOTUS_TAG_ID", "AI_CASES_TAG_ID"})
 
 
 def website_problems(
@@ -289,7 +289,7 @@ def website_problems(
     edit the list's emails, and its deployment-branch policy is what keeps that
     key from a workflow a write holder runs from their own branch. So: it
     exists, its deployment branches are a custom policy of exactly `main`, and
-    it holds exactly the key and the tag id, nothing else — a secret added
+    it holds exactly the key and the tag ids, nothing else — a secret added
     here would be handed to the same job. Required reviewers are not checked:
     the draft is the hold, and a reviewer only adds a wait. An unread listing
     is a problem, never a pass.

@@ -167,6 +167,11 @@ class Refreshed:
     entries: int
     # Requests this refresh sent: the docket and each page of entries.
     requests: int
+    # The docket's own fields, without its entries.
+    docket: Mapping[str, Any] = field(default_factory=dict, compare=False)
+    # Entries the stored docket lacked; empty on an onboard, which has no
+    # stored docket to be new against.
+    added: tuple[Mapping[str, Any], ...] = field(default=(), compare=False)
 
 
 def refresh_docket(
@@ -227,8 +232,16 @@ def refresh_docket(
         with corpus.connect(corpus_db_path) as conn:
             corpus.upsert_snapshot(conn, case_id, today, fresh)
     upsert_to_corpus(corpus_db_path, [from_api_docket(fresh)], last_pulled=today)
+    known = {e.get("id") for e in stored} if isinstance(stored, list) else None
+    added = () if known is None else tuple(e for e in entries if e.get("id") not in known)
     return Refreshed(
-        case_id=case_id, mode=mode, changed=changed, entries=len(entries), requests=sent
+        case_id=case_id,
+        mode=mode,
+        changed=changed,
+        entries=len(entries),
+        requests=sent,
+        docket=docket,
+        added=added,
     )
 
 
@@ -270,6 +283,7 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
     deadline: float | None = None,
     max_consecutive_transient_failures: int = 3,
     clock: Callable[[], float] = time.monotonic,
+    on_refreshed: Callable[[Refreshed], None] | None = None,
 ) -> WatchlistRefreshReport:
     """Refresh the planned dockets in order until the plan, the share or the time runs out.
 
@@ -284,6 +298,10 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
     place in the next run's plan: a never-refreshed docket longer than the page
     cap therefore fails every run, ahead of the onboards behind it, until the
     cap is raised, and the command exits non-zero on any failure so that is seen.
+
+    ``on_refreshed`` is called with each docket as soon as its write lands, so
+    a caller recording what a docket added keeps that record even if the run
+    is killed before it returns.
     """
     report = WatchlistRefreshReport()
     spent = 0
@@ -319,4 +337,6 @@ def refresh_watchlist(  # noqa: PLR0913 - each bound is a caller-tuned guard
         transient_run = 0
         spent += done.requests
         report.refreshed.append(done)
+        if on_refreshed is not None:
+            on_refreshed(done)
     return report

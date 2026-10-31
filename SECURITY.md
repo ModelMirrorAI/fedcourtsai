@@ -664,10 +664,11 @@ runbook, [docs/security.md](docs/security.md).
   promotion candidates and holds the read-only
   role, its own engine keys for the pre-promotion integration runs, the
   staging read-write role. A `website` environment, restricted to `main`,
-  holds one third-party key, the email list's Buttondown key, for the one job
-  that drafts the weekly public update (`docs/security.md`); the promotion
-  gate's admin-read stage refuses while it admits anything but `main`, holds
-  anything but that key and the draft's tag id, or the key's name is also a
+  holds one third-party key, the email list's Buttondown key, for the two
+  `post-public-update` jobs that draft the weekly public and AI-cases updates
+  (`docs/security.md`); the promotion gate's admin-read stage refuses while it
+  admits anything but `main`, holds anything but that key and the two drafts'
+  tag ids, or the key's name is also a
   repository or organization secret. Another, `review`, holds no secret and no role and admits
   `main` and `staging`; beyond that its content is a required-reviewer rule,
   and it exists only as the audit-logged hold
