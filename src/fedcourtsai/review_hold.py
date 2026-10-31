@@ -95,7 +95,7 @@ from .serialize import read_model
 from .spend import MeasuredSpend, iter_labeler_runs
 from .spend import measured_spend as _measured_spend
 
-__all__ = ["MeasuredSpend"]
+__all__ = ["SEAMS", "MeasuredSpend"]
 
 #: The lanes whose rounds the review hold may auto-release. The back-test is
 #: not one: its replay always waits on a maintainer's release.
