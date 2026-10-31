@@ -12,21 +12,24 @@ or, where the record has plainly moved on and the rule cannot say how, an
 maintainer's triage:
 
 - **The docket text decides; the order's text only checks it.** A ruling is
-  the CM/ECF form, a ruling verb with the motion's entry number directly after
-  it and naming a motion (``ORDER granting 45 Motion to Dismiss``), read with
-  the qualifiers in the rest of that phrase (``as moot``, ``in part``; ``as
-  to`` and ``only`` are triage). A number anywhere else (``re 45``, ``in
-  support of 45``) names a motion's subject, not the one ruled on, and an
-  entry that cites no entry number never rules. Where the order's text is
-  given, its decretal language must not disagree; it never resolves an event
-  on its own, and an opinion whose docket text states no ruling is triage.
-- **A ruling in part is stated, not inferred.**
+  the CM/ECF form: a ruling verb right after the entry's head, or opening a
+  later clause, with the motion's entry number directly after it and naming a
+  motion (``ORDER granting 45 Motion to Dismiss``). A verb anywhere else
+  (``Order granting 45`` inside a later motion's title) and a number anywhere
+  else (``re 45``) name a reference, not a ruling, and an entry that cites no
+  entry number never rules. Any qualifier in the ruling's clause that its
+  verb does not carry (``as to``, ``only``, ``moot``, ``in part``) is triage.
+  Where the order's text is given, its decretal language must not disagree;
+  it never resolves an event on its own, and an opinion whose docket text
+  states no ruling is triage. Leave is read from the docket text only.
 - **A closure is read from its own leading noun and must name nothing it is
   limited to**: a stipulation or notice of dismissal, an order granting one, a
   final approval of a settlement, or a consent judgment, followed by nothing
-  but prejudice words, the whole action, the filer and the rule. It resolves
-  the final disposition as no merits decision, and a motion still open as
-  mooted.
+  but prejudice words, the whole action, a generic filer and the rule. It
+  resolves the final disposition as no merits decision, and a motion still
+  open as mooted.
+- **A final judgment names its side in its docket text**, and is triage when
+  a later entry may replace it or it leaves any claim undecided.
 - **Every resolution cites the docket entry it read.**
 
 The input is the docket-entry shape CourtListener's ``docket-entries``
@@ -241,8 +244,8 @@ _WITH_LEAVE = re.compile(
 # A warning of what follows a failure to amend ("failure to file will result
 # in dismissal with prejudice") states a consequence, not the ruling's leave.
 _WARNING = re.compile(
-    r"\b(?:failure|fail(?:s|ing)?|if\s+(?:plaintiffs?|no|an?)\b)[^.;]*?"
-    r"\b(?:will|shall|may)\s+(?:result\s+in|be)\b[^.;]*",
+    r"\b(?:failure|fail(?:s|ing)?|if\s+(?:plaintiffs?|no|an?)\b)[^.;]{0,200}?"
+    r"\b(?:will|shall|may)\s+(?:result\s+in|be)\b[^.;]{0,200}",
     re.I,
 )
 
@@ -277,32 +280,52 @@ _DOCKET_VERBS: Final[tuple[tuple[str, MotionRuling | None], ...]] = (
     (r"terminating", None),
 )
 _DOCKET_VERB = re.compile(
-    r"\b(?:" + "|".join(f"(?P<v{i}>{form})" for i, (form, _) in enumerate(_DOCKET_VERBS)) + r")\b",
+    r"(?:" + "|".join(f"(?P<v{i}>{form})" for i, (form, _) in enumerate(_DOCKET_VERBS)) + r")\b",
     re.I,
 )
+# The head of a court entry's docket text, after which its first ruling verb
+# must stand: "ORDER granting", "MEMORANDUM OPINION AND ORDER denying", "ORDER
+# ADOPTING 58 REPORT AND RECOMMENDATIONS and granting". A verb anywhere else
+# ("ORDER granting 70 Motion for Reconsideration of Order granting 45", "The
+# Court is inclined toward granting 45") is a reference, not a ruling.
+_DOCKET_HEAD = re.compile(
+    r"\s*(?:(?:amended|corrected|redacted|sealed|electronic|text|minute|paperless|endorsed)\s+)*"
+    r"(?:(?:memorandum\s+)?(?:opinion\s+)?and\s+)?(?:memorandum\s+)?(?:order|opinion|ruling|decision)\b"
+    r"(?:\s*[:.,-])?\s*(?:adopting\s+[^;]{0,160}?\s+and\s+)?",
+    re.I,
+)
+# Further rulings in the same text follow a semicolon, a comma or "and".
+_NEXT_RULING = re.compile(r"(?:;|,|\s+and)\s*(?:and\s+)?(?=" + _DOCKET_VERB.pattern + r")", re.I)
 # A run of entry numbers as the direct object of a verb ("45", "[45]",
-# "ECF No. 45", "45 and 47"), which must go on to name a motion, so "granting
-# 45 days" is not a ruling on entry 45.
+# "ECF No. 45", "45 and 47"), which must go straight on to name a motion, so
+# "granting 45 days" is not a ruling on entry 45.
 _NUM = r"(?:(?:ecf|dkt|doc|docket)\.?\s*(?:nos?\.?|#)?\s*|\[\s*|#\s*)?(\d+)\s*\]?"
+_MOTION_PREFIX = (
+    r"(?:(?:joint|renewed|amended|corrected|cross|consolidated|first|second|third|supplemental|"
+    r"partial|sealed|unopposed|emergency|[\w.]+['\u2019]s?)\s+){0,3}"
+)
 _OBJECT_RUN = re.compile(
     r"\s*(?:the\s+)?" + _NUM + r"(?:\s*(?:,|and|&)\s*(?:the\s+)?" + _NUM + r")*"
-    r"(?=\s*(?:[\w'\u2019]+\s+){0,3}?motions?\b)",
+    r"(?=\s*" + _MOTION_PREFIX + r"motions?\b)",
     re.I,
 )
 _NUMBER = re.compile(r"\d+")
-# Where the phrase a verb governs ends: the next ruling verb, a semicolon, or
-# a sentence end not inside an ECF citation.
+# Where the motion's ruling clause ends: the next ruling, a semicolon, or a
+# sentence end not inside an ECF citation. A later motion inside the same
+# clause stays in it ("granting 45 Motion and 47 Motion in part"), since the
+# rule cannot tell which of the two a qualifier binds.
 _PHRASE_END = re.compile(
-    r";|(?<!\bno)(?<!\bnos)(?<!\bdkt)(?<!\becf)(?<!\bdoc)(?<!\bv)\.(?:\s+|$)|"
-    + _DOCKET_VERB.pattern,
+    r";|(?:,|\s+and)\s*(?:and\s+)?(?=" + _DOCKET_VERB.pattern + r")|"
+    r"(?<!\bno)(?<!\bnos)(?<!\bdkt)(?<!\becf)(?<!\bdoc)(?<!\bv)\.(?:\s+|$)",
     re.I,
 )
-# Qualifiers after the object that change how it was ruled on.
-_QUALIFIER_MOOT = re.compile(r"\bas\s+moot\b|\bmoot\b", re.I)
-_QUALIFIER_IN_PART = re.compile(r"\bin\s+part\b", re.I)
-_QUALIFIER_LIMITED = re.compile(
-    r"\bas\s+to\b|\bonly\b|\bto\s+the\s+extent\b|\binsofar\b|\bwith\s+respect\s+to\b|"
-    r"\bexcept\b",
+# A word in the motion's ruling clause that could qualify the ruling, or belong to
+# the motion's own title ("Motion to Dismiss in Part", "... as Moot"): the
+# rule cannot tell which, so any of them is triage, unless the verb itself
+# carried it ("denying as moot 45 Motion").
+_QUALIFIER = re.compile(
+    r"\bmoot\b|\bin\s+part\b|\bas\s+to\b|\bonly\b|\bexcept\b|\bto\s+the\s+extent\b|"
+    r"\binsofar\b|\bwith\s+respect\s+to\b|\bpartial(?:ly)?\b",
     re.I,
 )
 
@@ -315,44 +338,49 @@ def _object_numbers(text: str, at: int) -> tuple[set[int], int]:
     return {int(n) for n in _NUMBER.findall(match.group(0))}, match.end()
 
 
-def _qualified(ruling: MotionRuling | None, phrase: str) -> tuple[MotionRuling | None, str | None]:
-    """The ruling once the qualifiers in the object's own phrase are read."""
-    if ruling is None:
-        return None, "the docket text terminates the motion without saying how"
-    if _QUALIFIER_MOOT.search(phrase):
-        return MotionRuling.mooted, None
-    if _QUALIFIER_IN_PART.search(phrase) and ruling is not MotionRuling.mooted:
-        return MotionRuling.granted_in_part, None
-    if _QUALIFIER_LIMITED.search(phrase):
-        return None, "the docket text rules on the motion only in part or with a limit"
-    return ruling, None
+def _verb_positions(text: str) -> list[re.Match[str]]:
+    """The ruling verbs that stand where a ruling does: after the head, or a later clause."""
+    head = _DOCKET_HEAD.match(text)
+    if head is None:
+        return []
+    starts = [head.end(), *(m.end() for m in _NEXT_RULING.finditer(text, head.end()))]
+    found: list[re.Match[str]] = []
+    for start in starts:
+        verb = _DOCKET_VERB.match(text, start)
+        if verb is not None:
+            found.append(verb)
+    return found
 
 
 def read_docket_ruling(text: str, number: int) -> Reading:
     """Read a docket text for its ruling on motion ``number``.
 
-    The ruling is the verb whose direct object names ``number`` and goes on to
-    name a motion, as read with the qualifiers in the rest of that phrase ("as
-    moot", "in part"; "as to", "only" and the like are triage). None naming it
+    The ruling is a verb standing where a ruling does (right after the entry's
+    head, or after a semicolon or comma that opens another ruling) whose
+    direct object names ``number`` and goes straight on to name a motion. A
+    word in the motion's own phrase that could qualify the ruling is triage.
+    Leave is read from the motion's ruling up to the next one. None naming it
     reads no ruling; two that disagree read a conflict.
     """
     cleaned = _clean(text)
     found: set[MotionRuling] = set()
-    leave_text: list[str] = []
-    for match in _DOCKET_VERB.finditer(cleaned):
-        numbers, end = _object_numbers(cleaned, match.end())
+    leave = Leave.unstated
+    verbs = _verb_positions(cleaned)
+    for index, verb in enumerate(verbs):
+        numbers, end = _object_numbers(cleaned, verb.end())
         if number not in numbers:
             continue
         stop = _PHRASE_END.search(cleaned, end)
         phrase = cleaned[end : stop.start() if stop else len(cleaned)]
-        index = int(next(k for k, v in match.groupdict().items() if v is not None)[1:])
-        ruling, conflict = _qualified(_DOCKET_VERBS[index][1], phrase)
-        if conflict is not None:
-            return Reading(None, read_leave(cleaned), conflict)
-        assert ruling is not None
+        which = int(next(k for k, v in verb.groupdict().items() if v is not None)[1:])
+        ruling = _DOCKET_VERBS[which][1]
+        if ruling is None:
+            return Reading(None, leave, "the docket text terminates the motion without saying how")
+        if _QUALIFIER.search(phrase):
+            return Reading(None, leave, "the docket text qualifies its ruling on the motion")
         found.add(ruling)
-        leave_text.append(cleaned[match.start() :])
-    leave = read_leave(" ".join(leave_text)) if leave_text else Leave.unstated
+        following = verbs[index + 1].start() if index + 1 < len(verbs) else len(cleaned)
+        leave = read_leave(cleaned[verb.start() : following])
     if not found:
         return Reading(None, leave)
     if len(found) > 1:
@@ -447,6 +475,7 @@ _OTHER_MATTER = re.compile(
     re.I,
 )
 _MOTION_WORD = re.compile(r"\bmotions?\b", re.I)
+_QUALIFIER_MOOT = re.compile(r"\bmoot\b", re.I)
 _GRANT_WORD = re.compile(r"\bgrant(?:ed|s|ing)\b", re.I)
 _DENY_WORD = re.compile(r"\bden(?:ied|ies|ying)\b", re.I)
 _PART_QUALIFIER = re.compile(
@@ -536,7 +565,12 @@ def _qualify_tail(ruling: MotionRuling, tail: str) -> tuple[MotionRuling | None,
 
 
 def read_order_ruling(order_text: str, number: int) -> Reading:
-    """Read an order's decretal language for its ruling on motion ``number``."""
+    """Read an order's decretal language for its ruling on motion ``number``.
+
+    Leave is not read from an order's text: a decretal section can rule on
+    several motions with different leave, and the order only checks the
+    docket text's ruling.
+    """
     section = decretal(order_text)
     if section is None:
         return Reading(None, Leave.unstated)
@@ -547,16 +581,15 @@ def read_order_ruling(order_text: str, number: int) -> Reading:
             continue
         ruling, conflict = _clause_ruling(clause, number)
         if conflict is not None:
-            return Reading(None, read_leave(cleaned), conflict)
+            return Reading(None, Leave.unstated, conflict)
         if ruling is not None:
             found.add(ruling)
-    leave = read_leave(cleaned)
     if not found:
-        return Reading(None, leave)
+        return Reading(None, Leave.unstated)
     if len(found) > 1:
-        return Reading(None, leave, "the order rules on the motion in more than one way")
+        return Reading(None, Leave.unstated, "the order rules on the motion in more than one way")
     (ruling,) = found
-    return Reading(ruling, leave)
+    return Reading(ruling, Leave.unstated)
 
 
 # --- entries -----------------------------------------------------------------
@@ -649,8 +682,13 @@ _RECOMMENDATION = re.compile(r"\brecommend", re.I)
 _ADOPTING = re.compile(r"^\s*(?:\w+\s+)?order\s+adopting\b", re.I)
 
 
+# The court of appeals' orders and mandates land on the district docket too,
+# and their entry numbers are the appeal's own.
+_APPELLATE = re.compile(r"\busca\b|\bcourt\s+of\s+appeals\b|\bmandate\b", re.I)
+
+
 def _is_court_entry(text: str) -> bool:
-    if not _COURT_ENTRY.search(text):
+    if not _COURT_ENTRY.search(text) or _APPELLATE.search(text):
         return False
     return bool(_ADOPTING.search(text)) or not _RECOMMENDATION.search(text[:80])
 
@@ -677,19 +715,20 @@ _CLOSURE_HEADS = re.compile(
 # words, the whole action or all claims, who filed it, the rule it rests on,
 # and the clerk's trailer. Anything else (a party, a claim, a cause of action,
 # "re:", an appeal, a related case) leaves it unread.
-_NAME = r"(?-i:[A-Z][\w.,&'\u2019-]*)"
+# Each piece is atomic and the run possessive, so a tail that fails fails in
+# linear time.
 _CLOSURE_TAIL = re.compile(
-    r"(?:\s+|[,.;:]|"
+    r"(?>\s+|[,.;:]|"
     r"with(?:out)?\s+prejudice\b|"
     r"of\s+(?:the\s+|this\s+)?(?:entire\s+)?(?:action|case|matter)\b|"
     r"(?:of|as\s+to)\s+all\s+(?:claims|parties|defendants|counts)(?:\s+and\s+(?:counterclaims|parties))?\b|"
-    r"(?:filed\s+)?by\s+(?:all\s+parties|the\s+parties|"
-    rf"(?:plaintiffs?|defendants?)(?:\s+{_NAME})*|{_NAME}(?:\s+{_NAME})*)|"
+    r"(?:filed\s+)?by\s+(?:all\s+(?:parties|plaintiffs|defendants)|the\s+parties|plaintiffs?|defendants?)\b|"
     r"pursuant\s+to\s+(?:fed\.?\s*r\.?\s*civ\.?\s*p\.?\s*|federal\s+rule\s+of\s+civil\s+procedure\s+|rule\s+)?"
     r"41\S*|under\s+rule\s+41\S*|"
     r"and\s+(?:final\s+)?judgment\b|"
-    r"signed\s+by\s+.*$|\(\s*entered:.*$|\(\s*\w{2,4}\s*\)"
-    r")*",
+    r"signed\s+by\s+.*$|\(\s*entered:.*$|\(\s*\w{2,4}\s*\)|"
+    r"\(\s*[a-z.'\u2019-]+,\s*[a-z.'\u2019 -]+\)"
+    r")*+",
     re.I,
 )
 
@@ -717,6 +756,8 @@ _WITHDRAWAL_NOTICE = re.compile(
     re.I,
 )
 _LIMITED = re.compile(r"\bas\s+to\b|\bonly\b|\bin\s+part\b|\bpartial\b", re.I)
+# One movant's withdrawal of a joint motion leaves the others' standing.
+_JOINT = re.compile(r"\bjoint\b", re.I)
 
 
 def resolve_motion(  # noqa: PLR0911 - each return is one way a motion resolves
@@ -737,7 +778,10 @@ def resolve_motion(  # noqa: PLR0911 - each return is one way a motion resolves
     ruling resolves it mooted.
     """
     texts = order_texts or {}
-    for entry in _after(list(entries), event.entry_number):
+    listed = list(entries)
+    own = next((e for e in listed if _number(e) == event.entry_number), None)
+    joint = own is not None and bool(_JOINT.search(_entry_text(own)))
+    for entry in _after(listed, event.entry_number):
         docket_text = _entry_text(entry)
         cited = cite(entry)
         if _closes(docket_text):
@@ -747,7 +791,7 @@ def resolve_motion(  # noqa: PLR0911 - each return is one way a motion resolves
         notice = _WITHDRAWAL_NOTICE.match(docket_text)
         if notice is not None:
             named = {int(n) for n in notice.groups() if n is not None}
-            if event.entry_number in named and not _LIMITED.search(docket_text):
+            if event.entry_number in named and not joint and not _LIMITED.search(docket_text):
                 return MotionResolution(
                     event.moment, MotionRuling.withdrawn, None, cited, Source.docket_text
                 )
@@ -793,7 +837,7 @@ def _settle(
     event: MotionEvent, cited: Citation, from_docket: Reading, from_order: Reading
 ) -> MotionResolution | Unresolved:
     assert from_docket.ruling is not None
-    ruling, leave, source = from_docket.ruling, from_docket.leave, Source.docket_text
+    ruling, source = from_docket.ruling, Source.docket_text
     if from_order.ruling is not None:
         if from_order.ruling is not ruling:
             return Unresolved(
@@ -801,55 +845,52 @@ def _settle(
                 f"the docket text reads {ruling} and the order reads {from_order.ruling}",
                 (cited,),
             )
-        agreed = _leave(leave, from_order.leave)
-        if agreed is None:
-            return Unresolved(
-                event.moment,
-                f"the docket text reads leave {leave} and the order reads leave {from_order.leave}",
-                (cited,),
-            )
-        leave, source = agreed, Source.both
-    leave_read: Leave | None = None
+        source = Source.both
+    leave: Leave | None = None
     if event.moment is TrialMoment.dismissal and ruling in {
         MotionRuling.granted,
         MotionRuling.granted_in_part,
     }:
-        leave_read = leave
-    return MotionResolution(event.moment, ruling, leave_read, cited, source)
-
-
-def _leave(docket: Leave, order: Leave) -> Leave | None:
-    """The leave both readings support: a stated one wins over unstated; a clash is ``None``."""
-    if docket is order:
-        return docket
-    if docket is Leave.unstated:
-        return order
-    if order is Leave.unstated:
-        return docket
-    return None
+        leave = from_docket.leave
+    return MotionResolution(event.moment, ruling, leave, cited, source)
 
 
 # --- the final disposition ---------------------------------------------------
 
 _JUDGMENT_ENTRY = re.compile(
-    r"^\s*(?:(?:final|amended|clerk'?s|corrected)\s+)*judgment\b|"
+    r"^\s*(?:(?:final|amended|clerk'?s|corrected|partial|default)\s+)*judgment\b|"
     r"^\s*order\s+(?:and|of)\s+final\s+judgment\b",
     re.I,
 )
-# Not the final disposition: a partial, Rule 54(b), default, costs or fees judgment (read
-# from the entry's first sentence), or the court of appeals' judgment.
+# Not the final disposition: a partial, Rule 54(b) or default judgment (read
+# from the entry's first sentence), a judgment for costs or fees (read from its
+# head), or the court of appeals' judgment.
 _FIRST_SENTENCE = re.compile(r"^[^.;]*")
-_NOT_FINAL_LEAD = re.compile(
-    r"\bpartial\b|\bdefault\b|\brule\s+54\s*\(\s*b\s*\)|\bcosts?\b|\bfees\b", re.I
+_NOT_FINAL_LEAD = re.compile(r"\bpartial\b|\bdefault\b", re.I)
+# A judgment under Rule 54(b) or Rule 55 anywhere in its text is not the
+# action's final judgment ("pursuant to Fed. R. Civ. P. 55(b)(1)").
+_NOT_FINAL_RULE = re.compile(
+    r"\brule\s+54\s*\(\s*b\s*\)|\b54\s*\(\s*b\s*\)|\b55\s*\(\s*[ab]\s*\)|\brule\s+55\b", re.I
 )
-_APPELLATE = re.compile(r"\busca\b|\bcourt\s+of\s+appeals\b|\bmandate\b|\bappeal\b", re.I)
+_COSTS_HEAD = re.compile(
+    r"^\s*(?:clerk'?s\s+)?(?:judgment\s+(?:taxing|for|on)\s+(?:the\s+)?(?:costs|(?:attorneys?['\u2019]?\s+)?fees)|"
+    r"(?:bill|taxation)\s+of\s+costs)\b",
+    re.I,
+)
 # A judgment the rule will not read for a side: one limited to some parties or
-# claims, or one on a counterclaim or crossclaim.
-_JUDGMENT_TRIAGE = re.compile(r"\bas\s+to\b|\bcounter-?claims?\b|\bcross-?claims?\b", re.I)
+# claims, or one on a counterclaim, crossclaim or third-party claim.
+_JUDGMENT_TRIAGE = re.compile(
+    r"\bas\s+to\b|\bcounter-?claims?\b|\bcross-?claims?\b|\bthird[-\s]party\b|"
+    r"\bexcept\b|\bremand\w*|\bremains?\s+pending\b|\bremaining\b|"
+    r"\bdefendants?\s+(?:shall\s+)?takes?\s+nothing\b",
+    re.I,
+)
+# A later entry that may undo or replace the judgment.
 _SUPERSEDES = re.compile(
     r"^\s*(?:(?:clerk'?s)\s+)*(?:amended|corrected)\s+(?:final\s+)?judgment\b|"
     r"\bvacat\w*\s+(?:\w+\s+){0,4}?judgment\b|\bset\s+aside\b|\bnew\s+trial\b|"
-    r"\bjudgment\s+as\s+a\s+matter\s+of\s+law\b|\brule\s+(?:59|60)\b",
+    r"\bjudgment\s+as\s+a\s+matter\s+of\s+law\b|\brule\s+(?:59|60)\b|"
+    r"\balter\s+or\s+amend\b|\bremittitur\b|\bnotwithstanding\s+the\s+verdict\b|\bjnov\b",
     re.I,
 )
 _SIDE = r"(?:the\s+)?(?:(?!(?:against|and|on|in|as)\b)[\w.,&-]+\s+){0,2}?"
@@ -915,21 +956,37 @@ def resolve_judgment(
     """
     texts = order_texts or {}
     ordered = _ordered(entries)
+    passed: list[Citation] = []
     for index, entry in enumerate(ordered):
         docket_text = _entry_text(entry)
         cited = cite(entry)
         if _closes(docket_text):
+            if passed:
+                return Unresolved(
+                    TrialMoment.judgment,
+                    "a closure follows a judgment the rule passed over",
+                    (*passed, cited),
+                )
             return JudgmentResolution(JudgmentOutcome.no_merits_decision, cited, Source.docket_text)
-        if not _JUDGMENT_ENTRY.search(docket_text):
+        if not _JUDGMENT_ENTRY.search(docket_text) or _APPELLATE.search(docket_text):
             continue
         lead = _FIRST_SENTENCE.match(docket_text)
-        if (lead and _NOT_FINAL_LEAD.search(lead.group(0))) or _APPELLATE.search(docket_text):
+        if (
+            (lead and _NOT_FINAL_LEAD.search(lead.group(0)))
+            or _NOT_FINAL_RULE.search(docket_text)
+            or _COSTS_HEAD.search(docket_text)
+        ):
+            passed.append(cited)
             continue
-        later = [cite(e) for e in ordered[index + 1 :] if _SUPERSEDES.search(_entry_text(e))]
+        later = [
+            cite(e)
+            for e in ordered[index + 1 :]
+            if _SUPERSEDES.search(_entry_text(e)) or _JUDGMENT_ENTRY.search(_entry_text(e))
+        ]
         if later:
             return Unresolved(
                 TrialMoment.judgment,
-                "a later entry amends, vacates or sets aside the judgment",
+                "a later entry may amend, vacate, set aside or replace the judgment",
                 (cited, *later),
             )
         judgment_text = texts.get(cited.entry_id) if cited.entry_id is not None else None

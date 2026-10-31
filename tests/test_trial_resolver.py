@@ -7,6 +7,7 @@ a wrong one.
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from typing import Any
 
@@ -654,37 +655,81 @@ def test_an_order_on_another_entry_never_resolves_the_motion() -> None:
     assert ruling_on(MTD, docket, order_texts={1060: order}) is None
 
 
-@pytest.mark.parametrize(
-    ("text", "ruling"),
-    [
-        (
-            "ORDER denying 45 Motion to Dismiss as moot in light of the 52 Amended Complaint.",
-            MotionRuling.mooted,
-        ),
-        ("TEXT ORDER denying [45] Motion to Dismiss as MOOT", MotionRuling.mooted),
-        ("ORDER denying 45 Motion to Dismiss without prejudice as moot.", MotionRuling.mooted),
-        ("ORDER granting 45 Motion to Dismiss in part.", MotionRuling.granted_in_part),
-        (
-            "ORDER ADOPTING 58 REPORT AND RECOMMENDATIONS and granting 45 Motion to Dismiss",
-            MotionRuling.granted,
-        ),
-    ],
-)
-def test_qualifiers_after_the_object(text: str, ruling: MotionRuling) -> None:
+def test_the_adopting_order_rules() -> None:
+    text = "ORDER ADOPTING 58 REPORT AND RECOMMENDATIONS and granting 45 Motion to Dismiss"
     resolved = ruling_on(MTD, entry(60, text))
     assert isinstance(resolved, MotionResolution)
-    assert resolved.ruling is ruling
+    assert resolved.ruling is MotionRuling.granted
 
 
 @pytest.mark.parametrize(
     "text",
     [
+        # A qualifier after the number may be the ruling's or the motion's own
+        # title ("Motion to Dismiss in Part", "... as Moot"): triage either way.
+        "ORDER denying 45 Motion to Dismiss as moot in light of the 52 Amended Complaint.",
+        "TEXT ORDER denying [45] Motion to Dismiss as MOOT",
+        "ORDER denying 45 Motion to Dismiss without prejudice as moot.",
+        "ORDER granting 45 Motion to Dismiss in part.",
+        "ORDER denying 45 MOTION to Dismiss in Part Plaintiff's First Amended Complaint",
+        "ORDER granting 45 MOTION to Dismiss Case as Moot filed by Acme Corp",
         "ORDER granting 45 Motion to Dismiss as to Count I.",
         "ORDER granting 45 Motion to Dismiss only as to the federal claims.",
+        "ORDER granting 45 Motion to Dismiss except as to Count III, which is moot",
     ],
 )
-def test_a_limited_docket_ruling_is_triage(text: str) -> None:
+def test_a_qualified_docket_ruling_is_triage(text: str) -> None:
     assert isinstance(ruling_on(MTD, entry(60, text)), Unresolved)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ORDER granting 45 Motion to Dismiss, rendering 50 Motion to Stay Discovery moot",
+        "ORDER granting 45 Motion to Dismiss and 47 Motion to Dismiss in part",
+    ],
+)
+def test_a_qualifier_on_another_motion_stays_with_it(text: str) -> None:
+    resolved = ruling_on(MTD, entry(60, text))
+    assert (
+        isinstance(resolved, MotionResolution)
+        or resolved is None
+        or isinstance(resolved, Unresolved)
+    )
+    if isinstance(resolved, MotionResolution):
+        assert resolved.ruling is MotionRuling.granted
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ORDER granting 70 Motion for Reconsideration of Order granting 45 Motion to Dismiss",
+        "ORDER vacating 60 Order granting 45 Motion to Dismiss",
+        "ORDER striking 60 Order granting 45 Motion to Dismiss, entered in error",
+        "ORDER: The Court is inclined toward granting 45 Motion to Dismiss; hearing set for 3/1",
+        "ORDER of USCA granting 45 Motion to Dismiss Appeal",
+        "ORDER granting 30 days to file motion",
+    ],
+)
+def test_references_to_a_ruling_are_not_rulings(text: str) -> None:
+    assert ruling_on(MTD, entry(60, text)) is None
+    assert ruling_on(MotionEvent(TrialMoment.dismissal, 30), entry(60, text)) is None
+
+
+def test_leave_is_read_from_the_motions_own_ruling() -> None:
+    text = (
+        "ORDER granting 45 Motion to Dismiss with leave to amend; granting 47 Motion to "
+        + "Dismiss with prejudice"
+    )
+    resolved = ruling_on(MTD, entry(60, text))
+    assert isinstance(resolved, MotionResolution)
+    assert resolved.leave is Leave.with_leave
+
+
+def test_a_joint_motion_withdrawn_by_one_movant_stays_open() -> None:
+    motion = entry(45, "JOINT MOTION to Dismiss by Acme Corp. and Beta LLC", day="2026-01-10")
+    notice = entry(50, "NOTICE of Withdrawal of 45 Motion to Dismiss by Defendant Beta")
+    assert resolve_motion(MTD, [motion, notice]) is None
 
 
 def test_a_number_not_naming_a_motion_is_not_an_object() -> None:
@@ -721,6 +766,11 @@ def test_a_limited_withdrawal_is_not_read() -> None:
         "NOTICE of Voluntary Dismissal of Appeal",
         "NOTICE of Dismissal in Related Case 3:25-cv-01234",
         "ORDER GRANTING FINAL APPROVAL OF SETTLEMENT WITH DEFENDANT BANK OF AMERICA",
+        "NOTICE of Voluntary Dismissal by Plaintiff John Smith As To Defendant Acme Corp.",
+        "NOTICE OF VOLUNTARY DISMISSAL BY PLAINTIFF AS TO DEFENDANT ACME CORP ONLY",
+        "STIPULATION of Dismissal by Plaintiff Smith Of Defendant Jones Only",
+        "NOTICE of Voluntary Dismissal by Plaintiffs Re Defendant Beta",
+        "ORDER granting 70 Stipulation of Dismissal by Plaintiff Smith As To Defendant Acme",
         "ORDER granting 80 Motion for Final Approval of Settlement with the Toyota Defendants",
     ],
 )
@@ -731,7 +781,7 @@ def test_second_round_non_closures(text: str) -> None:
 @pytest.mark.parametrize(
     "text",
     [
-        "NOTICE of Voluntary Dismissal by Jane Doe",
+        "NOTICE of Voluntary Dismissal by Plaintiffs (Smith, John)",
         "STIPULATION of Dismissal with prejudice by all parties. Signed by Judge A on 4/1/2026.",
     ],
 )
@@ -778,3 +828,129 @@ def test_post_judgment_relief_supersedes() -> None:
         ),
     ]
     assert isinstance(resolve_judgment(entries), Unresolved)
+
+
+def test_the_closure_tail_fails_in_linear_time() -> None:
+    text = "STIPULATION of Dismissal" + " by Defendants" * 200 + " x"
+    started = time.perf_counter()
+    assert find_closure([entry(70, text)]) is None
+    assert time.perf_counter() - started < 0.5
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [
+        [
+            entry(60, "JUDGMENT in favor of Plaintiff and against Defendant, plus costs"),
+            entry(70, "STIPULATION of Dismissal with prejudice by all parties", day="2026-05-01"),
+        ],
+        [
+            entry(60, "PARTIAL JUDGMENT under Rule 54(b) in favor of Defendant Meta"),
+            entry(70, "STIPULATION of Dismissal with prejudice by all parties", day="2026-05-01"),
+        ],
+    ],
+)
+def test_a_closure_after_a_judgment_is_not_no_merits(entries: list[dict[str, Any]]) -> None:
+    resolved = resolve_judgment(entries)
+    assert not (
+        isinstance(resolved, JudgmentResolution)
+        and resolved.outcome is JudgmentOutcome.no_merits_decision
+    )
+
+
+@pytest.mark.parametrize(
+    ("entries", "expected"),
+    [
+        (
+            [
+                entry(
+                    60,
+                    "JUDGMENT in favor of Defendant. "
+                    + "Plaintiff's notice of appeal is due within 30 days",
+                )
+            ],
+            JudgmentOutcome.defendant,
+        ),
+        (
+            [
+                entry(
+                    60,
+                    "JUDGMENT in favor of Plaintiff and against Defendant "
+                    + "in the amount of $50,000, plus costs",
+                )
+            ],
+            JudgmentOutcome.plaintiff,
+        ),
+    ],
+)
+def test_a_judgment_mentioning_costs_or_appeal_is_still_final(
+    entries: list[dict[str, Any]], expected: JudgmentOutcome
+) -> None:
+    resolved = resolve_judgment(entries)
+    assert isinstance(resolved, JudgmentResolution)
+    assert resolved.outcome is expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "JUDGMENT in favor of Third-Party Defendant Gamma "
+        + "against Defendant/Third-Party Plaintiff Acme",
+    ],
+)
+def test_third_party_judgments_are_triage(text: str) -> None:
+    assert isinstance(resolve_judgment([entry(60, text)]), Unresolved)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "CLERK'S JUDGMENT in favor of Plaintiff against Defendant Acme "
+        + "pursuant to Fed. R. Civ. P. 55(b)(1)",
+        "JUDGMENT TAXING COSTS in favor of Defendant",
+    ],
+)
+def test_default_and_costs_judgments_are_passed_over(text: str) -> None:
+    assert resolve_judgment([entry(60, text)]) is None
+
+
+@pytest.mark.parametrize(
+    "later",
+    [
+        "ORDER granting 65 Motion to Alter or Amend Judgment",
+        "JUDGMENT in favor of Defendant",
+    ],
+)
+def test_a_later_judgment_or_alteration_is_triage(later: str) -> None:
+    entries = [
+        entry(60, "JUDGMENT in favor of Plaintiff", day="2026-05-01"),
+        entry(70, later, day="2026-06-01"),
+    ]
+    assert isinstance(resolve_judgment(entries), Unresolved)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "JUDGMENT in favor of defendants on all claims except Count V, "
+        + "which is remanded to state court",
+        "JUDGMENT in favor of defendant Beta and against plaintiff. "
+        + "Claims against Acme remain pending.",
+        "JUDGMENT: plaintiff shall take nothing on her claims; "
+        + "defendant shall take nothing on its claims",
+    ],
+)
+def test_judgments_that_leave_claims_or_cut_both_ways_are_triage(text: str) -> None:
+    assert isinstance(resolve_judgment([entry(60, text)]), Unresolved)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ORDER granting 45 Motion to Dismiss and 47 Motion to Dismiss in part",
+        "ORDER granting 45 Motion to Dismiss, rendering 50 Motion to Stay Discovery moot",
+        "ORDER granting 45 Motion to Dismiss and 50 Motion to Stay Discovery is moot",
+    ],
+)
+def test_a_qualifier_anywhere_in_the_ruling_clause_is_triage(text: str) -> None:
+    assert isinstance(resolve_motion(MTD, [MOTION, entry(60, text)]), Unresolved)
