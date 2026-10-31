@@ -981,6 +981,26 @@ def interim_disposing_text(payload: Mapping[str, Any]) -> str | None:
     return found
 
 
+def first_proceeding_date(payload: Mapping[str, Any]) -> date | None:
+    """The earliest date on an application's proceedings, or ``None`` where none is dated.
+
+    Descriptive only, for a read-side cut whose row has no docketed date: the
+    first proceeding entry is the application's submission, so its date is the
+    filing date the docket header leaves empty. Nothing ingest stores reads it.
+    """
+    dates = [
+        date.fromisoformat(entry["date_filed"])
+        for entry in _live_entries(payload)
+        if entry.get("date_filed")
+    ]
+    return min(dates) if dates else None
+
+
+def application_entry_texts(payload: Mapping[str, Any]) -> list[str]:
+    """Every proceeding entry's text, in docket order — the input the ask readers take."""
+    return [str(entry.get("description") or "") for entry in _live_entries(payload)]
+
+
 def interim_reading(payload: Mapping[str, Any]) -> tuple[InterimReading | None, date | None]:
     """(finer reading, decided) for an application's payload — descriptive only.
 
