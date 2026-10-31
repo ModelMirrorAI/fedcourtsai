@@ -954,3 +954,81 @@ def test_judgments_that_leave_claims_or_cut_both_ways_are_triage(text: str) -> N
 )
 def test_a_qualifier_anywhere_in_the_ruling_clause_is_triage(text: str) -> None:
     assert isinstance(resolve_motion(MTD, [MOTION, entry(60, text)]), Unresolved)
+
+
+def test_a_long_run_of_entry_numbers_fails_in_linear_time() -> None:
+    text = "ORDER granting " + "100 , " * 40 + "Stipulations to Extend Time"
+    started = time.perf_counter()
+    assert read_docket_ruling(text, 45).ruling is None
+    assert time.perf_counter() - started < 0.5
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "MOTION to Dismiss or, in the Alternative, to Transfer Venue by Acme Corp.",
+        "MOTION to Dismiss or Compel Arbitration by Acme Corp.",
+        "MOTION to Dismiss or Stay by Acme Corp.",
+    ],
+)
+def test_a_motion_to_dismiss_or_for_other_relief_is_not_the_dismissal_moment(text: str) -> None:
+    assert motion_moment(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "ORDER granting 45 Motion to Dismiss or, in the Alternative, to Transfer Venue. "
+        + "This case is TRANSFERRED to the Northern District of California.",
+        "ORDER granting 45 Motion to Dismiss for Failure to State a Claim. "
+        + "Counts I and II are dismissed. The motion is denied as to Count III.",
+        "ORDER granting 45 Motion to Dismiss Counts I and II but denying it on Count III.",
+        "ORDER granting 45 Motion to Dismiss filed by Smith. "
+        + "Defendant Jones's 47 Motion to Dismiss is GRANTED with leave to amend.",
+    ],
+)
+def test_a_later_limit_or_another_entry_in_the_ruling_run_is_triage(text: str) -> None:
+    assert isinstance(resolve_motion(MTD, [MOTION, entry(60, text)]), Unresolved)
+
+
+def test_a_motion_title_naming_failure_is_not_a_warning() -> None:
+    text = (
+        "ORDER granting 45 Motion to Dismiss for Failure to State a Claim, and Count I "
+        + "shall be dismissed with prejudice. Plaintiff may file an amended complaint "
+        + "within 21 days."
+    )
+    resolved = resolve_motion(MTD, [MOTION, entry(60, text)])
+    assert isinstance(resolved, MotionResolution)
+    assert resolved.leave is Leave.mixed
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "STIPULATION of Dismissal with prejudice signed by Plaintiff and Defendant Acme Corp. only",
+        "JOINT STIPULATION of Dismissal signed by counsel for Plaintiff and Defendant Beta LLC; "
+        + "claims against Gamma Inc. remain",
+    ],
+)
+def test_a_closure_signed_by_parties_is_not_read_past_the_signature(text: str) -> None:
+    assert find_closure([entry(70, text)]) is None
+
+
+@pytest.mark.parametrize(
+    "later",
+    [
+        "MANDATE of USCA as to 82 Notice of Appeal: REVERSED and REMANDED for further proceedings",
+        "ORDER granting 85 Motion to Reopen Case",
+    ],
+)
+def test_a_judgment_reversed_or_reopened_is_triage(later: str) -> None:
+    entries = [
+        entry(80, "JUDGMENT in favor of Defendant against Plaintiff."),
+        entry(90, later, day="2027-03-01"),
+    ]
+    assert isinstance(resolve_judgment(entries), Unresolved)
+
+
+def test_a_liability_only_judgment_is_triage() -> None:
+    text = "JUDGMENT in favor of Plaintiff on liability; damages to be determined at trial."
+    assert isinstance(resolve_judgment([entry(80, text)]), Unresolved)

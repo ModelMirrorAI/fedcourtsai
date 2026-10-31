@@ -17,8 +17,9 @@ maintainer's triage:
   motion (``ORDER granting 45 Motion to Dismiss``). A verb anywhere else
   (``Order granting 45`` inside a later motion's title) and a number anywhere
   else (``re 45``) name a reference, not a ruling, and an entry that cites no
-  entry number never rules. Any qualifier in the ruling's clause that its
-  verb does not carry (``as to``, ``only``, ``moot``, ``in part``) is triage.
+  entry number never rules. Anything in the ruling's run that could limit it
+  (``as to``, ``only``, ``moot``, ``or``, a second ruling word, another
+  entry's number) is triage.
   Where the order's text is given, its decretal language must not disagree;
   it never resolves an event on its own, and an opinion whose docket text
   states no ruling is triage. Leave is read from the docket text only.
@@ -210,7 +211,8 @@ _MOTION_KIND: Final[tuple[tuple[TrialMoment, re.Pattern[str]], ...]] = (
     (
         TrialMoment.dismissal,
         re.compile(
-            _MOTION_LEAD + r"to\s+dismiss\b(?![^.;]{0,60}\bcounterclaim)",
+            _MOTION_LEAD + r"to\s+dismiss\b"
+            r"(?![^.;]{0,60}\b(?:counterclaim|or|alternative\w*|transfer|stay|compel|arbitrat))",
             re.I,
         ),
     ),
@@ -244,7 +246,8 @@ _WITH_LEAVE = re.compile(
 # A warning of what follows a failure to amend ("failure to file will result
 # in dismissal with prejudice") states a consequence, not the ruling's leave.
 _WARNING = re.compile(
-    r"\b(?:failure|fail(?:s|ing)?|if\s+(?:plaintiffs?|no|an?)\b)[^.;]{0,200}?"
+    r"\b(?:(?:failure|fail(?:s|ing)?)\s+to\s+(?:timely\s+)?(?:file|amend|submit|replead)\b|"
+    r"if\s+(?:plaintiffs?|no|an?)\b)[^.;]{0,200}?"
     r"\b(?:will|shall|may)\s+(?:result\s+in|be)\b[^.;]{0,200}",
     re.I,
 )
@@ -299,33 +302,45 @@ _NEXT_RULING = re.compile(r"(?:;|,|\s+and)\s*(?:and\s+)?(?=" + _DOCKET_VERB.patt
 # A run of entry numbers as the direct object of a verb ("45", "[45]",
 # "ECF No. 45", "45 and 47"), which must go straight on to name a motion, so
 # "granting 45 days" is not a ruling on entry 45.
-_NUM = r"(?:(?:ecf|dkt|doc|docket)\.?\s*(?:nos?\.?|#)?\s*|\[\s*|#\s*)?(\d+)\s*\]?"
+_NUM = r"(?:(?:ecf|dkt|doc|docket)\.?\s*(?:nos?\.?|#)?\s*|\[\s*|#\s*)?(\d+)(?:\s*\])?"
 _MOTION_PREFIX = (
     r"(?:(?:joint|renewed|amended|corrected|cross|consolidated|first|second|third|supplemental|"
     r"partial|sealed|unopposed|emergency|[\w.]+['\u2019]s?)\s+){0,3}"
 )
 _OBJECT_RUN = re.compile(
-    r"\s*(?:the\s+)?" + _NUM + r"(?:\s*(?:,|and|&)\s*(?:the\s+)?" + _NUM + r")*"
+    r"\s*(?:the\s+)?" + _NUM + r"(?>\s*(?:,\s*and|,|and|&)\s*(?:the\s+)?" + _NUM + r")*+"
     r"(?=\s*" + _MOTION_PREFIX + r"motions?\b)",
     re.I,
 )
 _NUMBER = re.compile(r"\d+")
-# Where the motion's ruling clause ends: the next ruling, a semicolon, or a
-# sentence end not inside an ECF citation. A later motion inside the same
-# clause stays in it ("granting 45 Motion and 47 Motion in part"), since the
-# rule cannot tell which of the two a qualifier binds.
-_PHRASE_END = re.compile(
-    r";|(?:,|\s+and)\s*(?:and\s+)?(?=" + _DOCKET_VERB.pattern + r")|"
-    r"(?<!\bno)(?<!\bnos)(?<!\bdkt)(?<!\becf)(?<!\bdoc)(?<!\bv)\.(?:\s+|$)",
-    re.I,
-)
-# A word in the motion's ruling clause that could qualify the ruling, or belong to
-# the motion's own title ("Motion to Dismiss in Part", "... as Moot"): the
-# rule cannot tell which, so any of them is triage, unless the verb itself
-# carried it ("denying as moot 45 Motion").
+# The motion's ruling runs from its object to the next ruling verb, across
+# sentences, and stops at the clerk's trailer ("Signed by Judge ...").
+_TRAILER = re.compile(r"\bsigned\s+by\b|\(\s*entered\b", re.I)
+# A word in the ruling's run that could qualify it, belong to the motion's own
+# title ("Motion to Dismiss in Part", "... or, in the Alternative, to
+# Transfer"), or name a party ("Moot Holdings LLC"): the rule cannot tell
+# which, so any of them is triage, unless the verb itself carried it
+# ("denying as moot 45 Motion").
 _QUALIFIER = re.compile(
     r"\bmoot\b|\bin\s+part\b|\bas\s+to\b|\bonly\b|\bexcept\b|\bto\s+the\s+extent\b|"
-    r"\binsofar\b|\bwith\s+respect\s+to\b|\bpartial(?:ly)?\b",
+    r"\binsofar\b|\bwith\s+respect\s+to\b|\bpartial(?:ly)?\b|\bbut\b|\bor\b|\balternative\b|"
+    r"\bstay\w*|\btransfer\w*|\barbitrat\w*|\bcompel\w*|\bremand\w*|\bsever\w*",
+    re.I,
+)
+# A second ruling word in the run says it is not a single ruling ("granting 45
+# Motion ... The motion is denied as to Count III"); leave granted is not one.
+# Its case is read as written, so a party's name ("Grant Thornton LLP") is
+# not a ruling.
+_SECOND_RULING = re.compile(
+    r"\b(?:den(?:y|ies|ied|ying)|DEN(?:Y|IES|IED|YING)|Den(?:ies|ied|ying)|"
+    r"grant(?:s|ed|ing)?|GRANT(?:S|ED|ING)?|Grant(?:s|ed|ing))\b"
+    r"(?!\s+(?:\w+\s+){0,2}?(?i:leave)\b)|"
+    r"(?i:\bterminat\w*)"
+)
+# Another entry the run cites: its leave or limit may be that motion's.
+_CITED = re.compile(
+    r"(?:ecf|dkt|doc|docket)\.?\s*(?:nos?\.?|#)?\s*(\d+)|\[\s*(\d+)\s*\]|"
+    r"\b(\d+)(?=\s*" + _MOTION_PREFIX + r"motions?\b)",
     re.I,
 )
 
@@ -370,17 +385,19 @@ def read_docket_ruling(text: str, number: int) -> Reading:
         numbers, end = _object_numbers(cleaned, verb.end())
         if number not in numbers:
             continue
-        stop = _PHRASE_END.search(cleaned, end)
-        phrase = cleaned[end : stop.start() if stop else len(cleaned)]
+        following = verbs[index + 1].start() if index + 1 < len(verbs) else len(cleaned)
+        trailer = _TRAILER.search(cleaned, end, following)
+        run = cleaned[end : trailer.start() if trailer else following]
         which = int(next(k for k, v in verb.groupdict().items() if v is not None)[1:])
         ruling = _DOCKET_VERBS[which][1]
         if ruling is None:
             return Reading(None, leave, "the docket text terminates the motion without saying how")
-        if _QUALIFIER.search(phrase):
+        if _QUALIFIER.search(run) or _SECOND_RULING.search(run):
             return Reading(None, leave, "the docket text qualifies its ruling on the motion")
+        if any(int(n) != number for m in _CITED.finditer(run) for n in m.groups() if n):
+            return Reading(None, leave, "the docket text's ruling also speaks to another entry")
         found.add(ruling)
-        following = verbs[index + 1].start() if index + 1 < len(verbs) else len(cleaned)
-        leave = read_leave(cleaned[verb.start() : following])
+        leave = read_leave(cleaned[verb.start() : end + len(run)])
     if not found:
         return Reading(None, leave)
     if len(found) > 1:
@@ -726,7 +743,8 @@ _CLOSURE_TAIL = re.compile(
     r"pursuant\s+to\s+(?:fed\.?\s*r\.?\s*civ\.?\s*p\.?\s*|federal\s+rule\s+of\s+civil\s+procedure\s+|rule\s+)?"
     r"41\S*|under\s+rule\s+41\S*|"
     r"and\s+(?:final\s+)?judgment\b|"
-    r"signed\s+by\s[\s\S]*+|\(\s*entered:[\s\S]*+|\(\s*\w{2,4}\s*\)|"
+    r"signed\s+by\s+(?:(?:chief|senior|district|magistrate|u\.?s\.?|united\s+states)\s+)*judge\b[\s\S]*+|"
+    r"\(\s*entered:[\s\S]*+|\(\s*\w{2,4}\s*\)|"
     r"\(\s*[a-z.'\u2019-]+,\s*[a-z.'\u2019 -]+\)"
     r")*+",
     re.I,
@@ -882,7 +900,8 @@ _COSTS_HEAD = re.compile(
 _JUDGMENT_TRIAGE = re.compile(
     r"\bas\s+to\b|\bcounter-?claims?\b|\bcross-?claims?\b|\bthird[-\s]party\b|"
     r"\bexcept\b|\bremand\w*|\bremains?\s+pending\b|\bremaining\b|"
-    r"\bdefendants?\s+(?:shall\s+)?takes?\s+nothing\b",
+    r"\bdefendants?\s+(?:shall\s+)?takes?\s+nothing\b|\bliability\b|\bto\s+be\s+determined\b|"
+    r"\bdamages\s+(?:to\s+be|will\s+be|shall\s+be)\b",
     re.I,
 )
 # A later entry that may undo or replace the judgment.
@@ -890,7 +909,8 @@ _SUPERSEDES = re.compile(
     r"^\s*(?:(?:clerk'?s)\s+)*(?:amended|corrected)\s+(?:final\s+)?judgment\b|"
     r"\bvacat\w*\s+(?:\w+\s+){0,4}?judgment\b|\bset\s+aside\b|\bnew\s+trial\b|"
     r"\bjudgment\s+as\s+a\s+matter\s+of\s+law\b|\brule\s+(?:59|60)\b|"
-    r"\balter\s+or\s+amend\b|\bremittitur\b|\bnotwithstanding\s+the\s+verdict\b|\bjnov\b",
+    r"\balter\s+or\s+amend\b|\bremittitur\b|\bnotwithstanding\s+the\s+verdict\b|\bjnov\b|"
+    r"\breopen\w*|\brevers\w*|\bremand\w*",
     re.I,
 )
 _SIDE = r"(?:the\s+)?(?:(?!(?:against|and|on|in|as)\b)[\w.,&-]+\s+){0,2}?"

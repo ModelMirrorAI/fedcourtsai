@@ -34,7 +34,9 @@ filed it. Cross-motions for summary judgment are two events, one per moving
 party, so "per moving party" needs no extra outcome. Two defendants' separate
 motions to dismiss are two events. A motion renewed after an amended complaint
 is a fresh event: the first resolves mooted, the second opens on its own
-briefing.
+briefing. A motion to dismiss that asks for other relief in the alternative
+(to transfer, to stay, to compel arbitration) is not a `trial-dismissal`
+event, because a grant of it need not dismiss anything.
 
 **Partial rulings are outcomes, not ambiguity.** Most rulings in these cases
 grant some claims and deny others, so "in part" is a registered outcome on
@@ -100,20 +102,25 @@ a guessed outcome.
   70, `ORDER vacating 60 Order granting 45` rules on nothing about 45, and
   `granting 45 days` rules on nothing. An entry that cites no entry number
   never rules, because a docket can hold several motions of one kind.
-- **Any qualifier in the ruling's clause is triage.** The clause runs from the
-  verb to the next ruling, semicolon or sentence end. A verb that carries its
-  own qualifier reads as it says (`denying as moot` reads mooted, `granting in
-  part and denying in part` reads granted in part). Otherwise `moot`, `in
-  part`, `partial`, `as to`, `only`, `except`, `to the extent`, `insofar` or
-  `with respect to` anywhere in the clause sends the event to triage, whether
-  it limits the ruling, belongs to the motion's own title ("Motion to Dismiss
-  in Part"), names a party ("Moot Holdings LLC") or binds another motion in
-  the same clause; the rule cannot tell which. A bare "terminating" is triage.
+- **Anything that could limit the ruling is triage.** The ruling's run goes
+  from the motion's number to the next ruling verb, across sentences, and
+  stops at the clerk's trailer ("Signed by Judge ..."). A verb that carries
+  its own qualifier reads as it says (`denying as moot` reads mooted,
+  `granting in part and denying in part` reads granted in part). Otherwise
+  the run goes to triage when it holds a limit (`moot`, `in part`, `partial`,
+  `as to`, `only`, `except`, `but`, `to the extent`, `insofar`, `with respect
+  to`), other relief (`or`, `alternative`, a stay, a transfer, arbitration, a
+  remand, a severance), a second ruling word (`denied` after `granting`,
+  `terminated`), or another entry's number, whether the word limits the
+  ruling, belongs to the motion's own title ("Motion to Dismiss in Part"),
+  names a party ("Moot Holdings LLC") or speaks to another motion; the rule
+  cannot tell which. A bare "terminating" is triage.
 - **Leave is read from the docket text only**, from the motion's ruling up to
   the next ruling, and only for a dismissal granted in whole or in part.
   Leave-to-amend and prejudice phrases are read after a warning of what
-  follows a failure to amend ("failure to file will result in dismissal with
-  prejudice") is struck; leave stated both ways (some counts with prejudice,
+  follows a failure to file or amend ("failure to file will result in
+  dismissal with prejudice") is struck, which a motion's own title ("for
+  Failure to State a Claim") is not; leave stated both ways (some counts with prejudice,
   others with leave) reads `mixed`, and no phrase reads `unstated`.
 - **The order's text only checks.** Where it is given, its decretal language
   (the final run of "it is ordered" paragraphs, from the last concluding
@@ -133,7 +140,8 @@ a guessed outcome.
   final approval of a settlement, or a consent judgment, followed by nothing
   but prejudice words, the whole action or all claims, a filer named only
   generically (all parties, the parties, plaintiffs, defendants), the rule it
-  rests on, "and judgment", and the clerk's or filer's trailer. Anything else
+  rests on, "and judgment", the clerk's initials, a filer's trailer, and a
+  judge's signature line; a signature by the parties is not read past. Anything else
   after it (a named party, a claim, a cause of action, a crossclaim, an
   appeal, a related case) leaves it unread, and so does a motion for voluntary
   dismissal, a preliminary approval or a notice of settlement. A closure
@@ -142,7 +150,7 @@ a guessed outcome.
   partial or default judgment) is triage, since the merits may already be
   decided in part.
 - **A withdrawal notice** naming the motion as the first entry it cites, with
-  no limit ("as to", "only", "in part"), resolves the motion withdrawn, unless
+  no limit ("as to", "only", "in part", "partial"), resolves the motion withdrawn, unless
   the motion was a joint one, which one party's notice cannot withdraw.
 - **A final judgment** is an entry whose leading noun is a judgment. Its docket
   text must name the side, by "in favor of", "judgment against" or "plaintiff
@@ -150,9 +158,9 @@ a guessed outcome.
   judgment's own text, where given, must not contradict it. A judgment whose
   lead marks it partial or default, one under Rule 54(b) or Rule 55 anywhere
   in its text, one for costs, and a court of appeals' judgment are passed
-  over. A judgment that any later entry amends, vacates, sets aside, reopens
-  for a new trial or under Rule 59 or 60, or that a later judgment follows, is
-  triage.
+  over. A judgment that any later entry amends, vacates, sets aside, reopens,
+  reverses or remands, or reopens for a new trial or under Rule 59 or 60, or
+  that a later judgment follows, is triage.
 - **Every resolution cites the entry it read**: its CourtListener entry id,
   entry number and filing date.
 - **What goes to triage**, as an unrecorded outcome with the reason and the
@@ -161,9 +169,10 @@ a guessed outcome.
   "terminating"; an order clause citing several entries, or ruling with an
   exception or on part only; an opinion with no docket-text ruling; a final
   judgment whose docket text names no side, names both in different forms, is
-  limited to some parties or claims, leaves a claim pending or remanded, rules
-  on a counterclaim, crossclaim or third-party claim, or has the defendant
-  take nothing too; a judgment a later entry may replace; and a closure after
+  limited to some parties or claims (`as to`, `except`), leaves a claim
+  pending, remaining or remanded, decides liability with damages still to be
+  determined, rules on a counterclaim, crossclaim or third-party claim, or
+  has the defendant take nothing too; a judgment a later entry may replace; and a closure after
   a passed-over judgment.
 
 The order's text, where the resolver uses it, is the court's own order read
