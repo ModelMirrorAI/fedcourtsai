@@ -46,7 +46,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to two Buttondown drafts (the public update and the AI-cases update), never sends |
-| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) | script; the `qp-topic-label`, `qp-topic-label-applications` and `alignment-side-code` modes each run one Claude Code labeler |
+| `run-analytics`  | manual dispatch + weekly schedule (metrics refresh, Mon 05:41 UTC) + daily schedule (big-case board, 04:36 UTC) + weekly schedule (update history, Mon 12:59 UTC) + weekly schedules (topic labeling: petitions Tue 09:08 UTC, applications Wed 09:04 UTC, merits side coding Thu 09:14 UTC, behind the `review` hold) | script; the `qp-topic-label`, `qp-topic-label-applications`, `qp-topic-replicate`, `qp-topic-replicate-applications` and `alignment-side-code` modes each run one Claude Code labeler |
 | `summarize`      | daily schedule (03:43 UTC), manual dispatch (`limit`); every run spends only on the `review` release, or on auto-release within the trailing spend budget (*Auto-release*) | script; one Messages API call per case (two when a rejected response is retried), no tools and no agent |
 | `integration-test` | manual dispatch + daily canary  | script; engine-smoke runs one real agent cell, engine-actions-smoke one boot probe per engine (the canary), each repro-family scenario one real cell against its pinned record, and qp-labeler-smoke one labeling agent over a synthetic extract |
 | `corpus-check`   | schedule every 30 minutes (:19, :49), input-less manual dispatch; a check of PR code runs only on the maintainer's `corpus-check` approval, an allowlisted `at: main` query unapproved under `corpus-check-auto` | script — the PR's own declared command, or `main`'s code for an `at: main` query (no agent) |
@@ -574,7 +574,7 @@ queues behind the production run of the same mode. The modes:
   isolated environment) with its outcome and gate figures, which the publish
   job lands as `data/qp-topics/spend/<run_id>-<run_attempt>.json`: beside the
   labels file on a published run, alone on the same fixed branch in a PR titled
-  as a spend record on a refused or short one — onto the open labels PR where
+  as a spend record on a refused, short or replicate one — onto the open labels PR where
   there is one; either PR must be merged, not closed, or its records leave the
   measured total. Nothing retries a refused batch, and a scheduled run stands
   down while the frame's open labels PR holds an unmerged published batch
@@ -653,6 +653,23 @@ queues behind the production run of the same mode. The modes:
   naming its frame. A mode value rather than a dispatch input,
   because the inputs are near GitHub's cap. Its first run belongs on a
   `staging` ref, where the publish job is fenced as for the petition mode.
+- **`qp-topic-replicate`** and **`qp-topic-replicate-applications`**
+  (dispatch only) are one reference-only replicate of the petition or
+  application labeler ([qp-topic.md](qp-topic.md), *Replicates: how far one
+  labeler moves between runs*): the same
+  jobs, hold and spend ledger, with `qp-topic-resolve`'s `replicate` output
+  set. The extract cuts the frame's reference rows alone (`qp-corpus
+  --reference-only`), the measure step records the run with `qp-topics
+  --replicate-out` and writes no labels file, and the publish job lands the
+  run's spend record alone (outcome `replicate`) on the frame's fixed branch,
+  where it must be merged like any spend-record PR. Each dispatch is one
+  replicate, priced at the in-frame reference rows, and is held like any label
+  round, so while the frame's last gated run stands refused a replicate waits
+  for a maintainer too. Dispatch replicates **one at a time**: the extract,
+  label and publish jobs each take a per-frame concurrency group, which keeps
+  one pending run, so a third dispatch while one runs and one waits cancels the
+  waiting one. `fedcourts qp-topic-replicates` pools them. A replicate neither
+  clears nor sets the hold's refusal.
 - **`alignment-side-code`** (dispatch, or the weekly Thursday cron) is the
   same jobs over a third frame, `alignment-sides`: the merits side coder of
   [merits-alignment-baseline.md](merits-alignment-baseline.md). The extract is

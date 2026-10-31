@@ -271,7 +271,10 @@ def label_refusal(data_root: Path, frame: str, *, now: datetime | None = None) -
     extract job carried from the frame's open, unmerged PR): when the newest
     gated run of the frame — ``published`` or ``refused``, by ``recorded_at`` —
     was refused, a retry waits for a maintainer. An ``incomplete`` run was never
-    gated, so it neither sets nor clears the refusal. A record that will not
+    gated, so it neither sets nor clears the refusal, and neither does a
+    ``replicate``: it measured the reference block and published nothing by
+    design, so a replicate dispatched after a refusal cannot release the next
+    labeling round. A record that will not
     read keeps the hold, and so does one of the frame's records dated after
     ``now`` (this round's plan): a record from the future is not one a run
     wrote, and a forged ``published`` one would otherwise mask a refusal.
@@ -286,7 +289,7 @@ def label_refusal(data_root: Path, frame: str, *, now: datetime | None = None) -
             f"a {frame} labeling run record is dated after this round's plan, so the records "
             "cannot be trusted to name the last gated run"
         )
-    gated = [run for run in runs if run.frame == frame and run.outcome != "incomplete"]
+    gated = [run for run in runs if run.frame == frame and run.outcome in ("published", "refused")]
     if not gated:
         return None
     newest = max(gated, key=lambda run: (run.recorded_at, int(run.run_id), run.run_attempt))
