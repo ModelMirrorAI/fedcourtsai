@@ -1664,6 +1664,12 @@ Access mirrors each workflow's role in the pipeline:
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
+What the decision-below fill stores reaches every cert and merits predict cell
+as `record/documents/decision-below.txt` and `lower-court-docket.txt`. The
+residual: a wrong docket-number match or poisoned CourtListener text misleads a
+cert or merits forecast, read under the cells' data-not-instructions guard, and the
+cell's output rides to `collect` as an artifact like every cell's.
+
 The split is deliberate: a cell touches KBs of one case's data, so it reads the
 immutable index in place through its own sidecar and moves no full blob; the
 backlog derivations and the whole-corpus scanners (`run-analytics` and
@@ -2210,19 +2216,21 @@ sections roll it up per Term, so a forged row moves a published count a cell
 may anchor on, in the diff of the metrics-refresh PR that carries it, and the
 section reader does not repeat the write-time roster check. Its other readers
 are the analytic `merits-lineups` and `authorship-tally`, and `provision-opinion --writings`,
-which uses it only to pick a pilot cell's decisions and stages kind and
+which uses it only to pick an evaluate cell's decisions and stages kind and
 author from the digest-checked text object, not from the row. The same plan carries each writing's text, which the
 writer stores in the content store under `scotus/opinions/`, each writing's
 body and footnotes up to 1,000,000 characters apiece within the plan's 64 MB
 handoff cap. The one check on it, that it recounts to the word counts, is
 no control against a forged plan, which writes those counts too, so a
 compromised parse could store arbitrary text there, kept, like the rows,
-until a replacing pass exists. A pilot round's evaluate cell is its one
-cell reader (`provision-opinion --writings`, on a pilot row alone): the
-grader there reads it under the cells' data-not-instructions guard, the step
-takes an object only where its bytes match the row's digest, and the worst a
-forged text can do is mislead a pilot grade, which is uploaded for review
-rather than committed. That residual is likewise **pending the maintainer's
+until a replacing pass exists. Every evaluate cell reads it
+(`provision-opinion --writings`): the grader reads it under the cells'
+data-not-instructions guard, the step takes an object only where its bytes
+match the row's digest, and the worst a forged text can do is mislead the
+committed grades that read it — the forecast document's
+`predicted_reasoning_quality`, which enters no score and no rank key and which
+no board reads, and the leakage and `reasoning_quality` readings of a cell
+whose grader takes the forged text as the Court's. That residual is likewise **pending the maintainer's
 acceptance**, which merging the sweep's jobs gives; the text half of it is
 added by the change that stores the text, and waits on the same acceptance. The plan is the
 Court's word only as far as the parse job can be trusted; what the split

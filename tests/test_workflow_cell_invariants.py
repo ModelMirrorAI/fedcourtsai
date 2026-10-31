@@ -5083,13 +5083,13 @@ def test_the_evaluate_cell_provisions_its_snapshot_before_its_opinion() -> None:
     assert order == ["snapshot", "opinion"], order
 
 
-def test_the_evaluate_cell_stages_every_writing_on_a_pilot_row_alone() -> None:
-    """`--writings` widens a cell's information set, so only a pilot round passes it.
+def test_the_evaluate_cell_stages_every_writing_on_every_row() -> None:
+    """`--writings` is passed unconditionally, pilot row or not.
 
-    A registered evaluate cell's inputs are part of what its grades mean; the
-    concurrences and dissents reach a cell only on a row the pilot mode minted,
-    whose `pilot_section` the step reads, until the grade that reads them is
-    registered.
+    The registered forecast-document grade checks a forecast of who writes
+    separately against the concurrences and dissents, so every evaluate cell
+    stages them; a row-keyed condition would let a registered cell grade
+    without the writings its prompt names.
     """
     [step] = [
         step
@@ -5097,10 +5097,11 @@ def test_the_evaluate_cell_stages_every_writing_on_a_pilot_row_alone() -> None:
         for step in job.get("steps", []) or []
         if "provision-opinion" in (step.get("run") or "")
     ]
-    assert step["env"]["PILOT_SECTION"] == "${{ matrix.pilot_section }}"
+    assert "PILOT_SECTION" not in (step.get("env") or {})
     run = step["run"]
-    assert 'if [ -n "$PILOT_SECTION" ]; then writings=(--writings); fi' in run
-    assert run.count("--writings") == 1
+    assert run.strip() == (
+        'uv run fedcourts provision-opinion --court "$COURT_ID" --docket "$DOCKET_ID" --writings'
+    )
 
 
 def test_the_settled_case_cascades_keep_both_of_their_refusals() -> None:

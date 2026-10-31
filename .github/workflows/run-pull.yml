@@ -740,8 +740,8 @@ jobs:
       # The decision below for a pending cert petition from a federal court of
       # appeals (`fedcourts enrich-decision-below`; docs/data-pipeline.md):
       # the lower court's opinion on its judgment date and a short record of
-      # its docket, stored in the corpus and withheld from every cell until a
-      # re-bless switches the two kinds on. The rotation puts the cases the
+      # its docket, stored in the corpus and staged for cert and merits cells
+      # (`provision.LOWER_COURT_STAGES`). The rotation puts the cases the
       # ledger predicts first and re-attempts a case at most every 30 days.
       #
       # The same full windows, the same failure tolerance and the same

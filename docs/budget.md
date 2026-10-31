@@ -123,9 +123,9 @@ the topic labeler's runs are what that window counts.)
   the briefed moment's kept forecasts for up to 15 cases, one grading run per
   evaluator per event. At the table's evaluate rows ($5.92 + $1.30 + $1.29,
   $8.51 an event) that is about $130. The round is always held for a release
-  and never auto-released. It reads every writing of the decision, not only
-  the majority opinion a ledger round stages, and the evaluate rows were
-  measured on cert-stage gradings that read no opinion at all, so the figure
+  and never auto-released. It reads every writing of the decision, as every
+  evaluate cell does, and the evaluate rows were measured on cert-stage
+  gradings that read no opinion and graded no forecast document, so the figure
   reads low.
 
 Together, a 20-case replay and its pilot round (grading 15 of those cases)

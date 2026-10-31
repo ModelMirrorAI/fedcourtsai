@@ -370,6 +370,7 @@ from .pipeline.documents import (
     KIND_ARGUMENT_TRANSCRIPT,
     KIND_BRIEF_IN_OPPOSITION,
     KIND_PETITION,
+    LOWER_COURT_KINDS,
     OTHER_LIST,
     SCRUB_PASS_SHAPE,
     SCRUB_PASS_VALUE,
@@ -6160,7 +6161,7 @@ def reasoning_pilot_report_cmd(
         typer.Option(help="The label sheet's sha256 as recorded before the round; refuse others."),
     ] = None,
     prompt: Annotated[
-        Path | None, typer.Option(help="The draft prompt section the round ran, to hash.")
+        Path | None, typer.Option(help="The evaluate prompt the round graded under, to hash.")
     ] = None,
     round_id: Annotated[
         str | None,
@@ -6180,7 +6181,7 @@ def reasoning_pilot_report_cmd(
     each judge's grades and nulls, its grades beside the labels, leave-one-out
     agreement with the cell as the unit, the predictor-tracking check,
     own-family against other-family grades, and the splits on the mask.
-    Records the sample's, label sheet's, key's and prompt section's sha256, and
+    Records the sample's, label sheet's, key's and prompt's sha256, and
     with ``--expect-labels-sha256`` refuses a sheet that changed after its hash
     was recorded. With ``--round-id`` only that evaluate run's evaluations are
     read. Refuses a pilot root that is, holds or sits inside the ledger,
@@ -16120,8 +16121,8 @@ def enrich_decision_below_command(
     stores what upstream holds: the opinion on the judgment date as a
     `decision-below` document and the docket record as a `lower-court-docket`
     document, then stamps `decision_below_attempted_at`. A dry run walks and
-    counts without writing. Both kinds are held back from every cell
-    (`provision.WITHHELD_KINDS`) until the re-bless whose prompt names them.
+    counts without writing. Both kinds reach cert and merits cells only
+    (`provision.LOWER_COURT_STAGES`).
     Spends CourtListener REST requests through the shared client and this
     process's governor, never RECAP Fetch. Prints the per-case report as JSON on
     stdout and the counts on stderr.
@@ -19493,16 +19494,19 @@ def summarize_plan_cmd(
         if found.latest is None:
             return None
         day, payload = found.latest
-        # The argument transcript is a post-argument cell's input alone, and a
-        # withheld kind no cell's (`provision.documents_for_moment`); a summary
-        # is written from the record every predict cell shares.
+        # The argument transcript is a post-argument cell's input alone, a
+        # withheld kind no cell's, and the lower-court kinds no interim cell's
+        # (`provision.documents_for_moment`); a summary is written from the
+        # record every predict cell shares.
         return summaries.CaseRecord(
             snapshot=day,
             payload=payload,
             documents=[
                 (doc.kind, doc.text)
                 for doc in found.documents
-                if doc.kind != KIND_ARGUMENT_TRANSCRIPT and doc.kind not in provision.WITHHELD_KINDS
+                if doc.kind != KIND_ARGUMENT_TRANSCRIPT
+                and doc.kind not in provision.WITHHELD_KINDS
+                and doc.kind not in LOWER_COURT_KINDS
             ],
         )
 
@@ -19765,7 +19769,7 @@ def provision_opinion(
         typer.Option(
             "--writings",
             help="Also stage every writing of each decision the per-opinion record stores "
-            "text for, under record/opinion/writings/ (a pilot round's cells only).",
+            "text for, under record/opinion/writings/ (run-evaluate passes it on every cell).",
         ),
     ] = False,
 ) -> None:
@@ -19805,10 +19809,10 @@ def provision_opinion(
     record stores text for — the majority, each concurrence and each dissent, from
     the Court's own documents — under ``record/opinion/writings/`` with a
     ``writings.json`` manifest (:func:`fedcourtsai.provision.stage_writings`), each
-    object taken only where its bytes match the digest its pointer row records. It
-    is a pilot round's slot: run-evaluate passes it on a pilot row alone, so a
-    registered evaluate cell's information set is unchanged until the grade that
-    reads it is registered. A case with no stored writings gets none, and says so.
+    object taken only where its bytes match the digest its pointer row records.
+    run-evaluate passes it on every cell, since the registered grade of the
+    forecast document checks who wrote separately, and what each writing says,
+    against these files. A case with no stored writings gets none, and says so.
 
     Exits **1** where the corpus holds no row for the case at all, which is a
     different fact from a case with no opinion — the first says the coordinates
@@ -23464,7 +23468,7 @@ def evaluate_matrix_cmd(
     pilot_section: Annotated[
         Path | None,
         typer.Option(
-            help="A draft prompt section every cell reads beside its registered prompt, "
+            help="A pilot note every cell reads beside its registered prompt, "
             "carried on each row as `pilot_section`. Only for a pilot round, whose "
             "output never reaches the ledger; refused where no file is, or where it is "
             "a prompt an evaluator registers."
@@ -23510,9 +23514,9 @@ def evaluate_matrix_cmd(
 
     ``--pilot-section`` marks every row of a pilot round
     (`docs/outcome-decomposition.md`, *The pilot, and what it reports*): the
-    cell's kickoff names the section beside the registered prompt, so the
+    cell's kickoff names the note beside the registered prompt, so the
     registered prompt and every process digest stay as they are. A registered
-    prompt is refused as a section, so a pilot can never be mistaken for a
+    prompt is refused as a note, so a pilot can never be mistaken for a
     registered round. ``--calibration`` further marks them as the pilot's replay
     merits calibration cells.
     """
@@ -23577,7 +23581,7 @@ def _refuse_pilot_section(section: Path) -> None:
     }
     if section.resolve() in registered:
         typer.echo(
-            f"--pilot-section {section} is a registered evaluate prompt, not a draft section.",
+            f"--pilot-section {section} is a registered evaluate prompt, not a pilot note.",
             err=True,
         )
         raise typer.Exit(code=1)

@@ -188,6 +188,20 @@ the output directory you will write to.
    means this petition had no questions presented to match on, an empty list
    that nothing scored above the threshold, and a missing file that no list
    was built for this cell.
+
+   On a cert-stage or merits-stage cell whose case comes from a federal court
+   of appeals, `record/documents/` may also hold `decision-below.txt` (that
+   court's opinion on its judgment date, as CourtListener extracted it) and
+   `lower-court-docket.txt` (a short record of its docket: the panel where
+   recorded, and whether a petition for rehearing en banc was filed, how it
+   was disposed of and whether a dissent was noted, citing the entries read).
+   Both come from a match the pipeline made on CourtListener by the lower
+   court's docket number, not from the Court's own record, so check that the
+   opinion is the judgment the petition describes before you rely on it, and
+   prefer the petition's appendix where the two differ. A missing file means
+   no match was stored for this case — CourtListener lacked the docket or the
+   opinion, or the case has not been reached yet — never that there was no
+   decision below. Say in `reasoning.md` where your forecast rests on either.
 6. `record/context.json` — your cell's **mode** (`forward` or `replay`) and the
    **conditioning state** the harness froze for you: `band` (your
    grant-likelihood tier under the salience version named beside it in
@@ -197,7 +211,11 @@ the output directory you will write to.
    `distribution_count`, `cvsg_date`, and `term`. Use `band` rather than working
    it out yourself — it is what the evaluator scores your skill against, and it
    is recorded on your prediction. `signals_observable: false` means the snapshot
-   disclosed no proceedings, so `band` is null and nobody can derive one. A replay
+   disclosed no proceedings, so `band` is null and nobody can derive one.
+   `band_refused: "outside-segment"` means the active salience version's
+   segment leaves your docket out (under the current version, a petition for
+   an extraordinary writ under Rule 20), so `band` and `salience_version` are
+   null although the snapshot was readable. A replay
    cell's context may carry neither key; on a **cert-stage** cell where `band` is
    null or absent, anchor on your own caption class's floor — `federal`'s
    bracketed `reached` rate for a federal petitioner, `state`'s for a state

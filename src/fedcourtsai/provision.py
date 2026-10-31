@@ -59,10 +59,9 @@ from .pipeline.documents import (
     BIO_URL_JOIN,
     KIND_ARGUMENT_TRANSCRIPT,
     KIND_BRIEF_IN_OPPOSITION,
-    KIND_DECISION_BELOW,
     KIND_DESCRIPTIONS,
-    KIND_LOWER_COURT_DOCKET,
     KIND_MERITS_BRIEF_APPOINTED_AMICUS,
+    LOWER_COURT_KINDS,
     OTHER_LIST,
     CombinedBlock,
     ScrubbedSnapshot,
@@ -601,9 +600,7 @@ def _entry_raw_date(entry: Mapping[str, Any]) -> str | None:
     return str(raw) if raw else None
 
 
-WITHHELD_KINDS: frozenset[str] = frozenset(
-    {KIND_MERITS_BRIEF_APPOINTED_AMICUS, KIND_DECISION_BELOW, KIND_LOWER_COURT_DOCKET}
-)
+WITHHELD_KINDS: frozenset[str] = frozenset({KIND_MERITS_BRIEF_APPOINTED_AMICUS})
 """The document kinds the corpus stores and no cell is given, at any moment.
 
 Which kinds a cell reads is part of its information set, and the process digest
@@ -617,10 +614,27 @@ case-summary plan, which reads the record every predict cell shares.
 """
 
 
+LOWER_COURT_STAGES: frozenset[Stage] = frozenset({Stage.cert, Stage.merits})
+"""The stages whose cells are handed the decision below and the lower-court docket record.
+
+The two kinds the decision-below fill stores (``decision-below``,
+``lower-court-docket``) are the federal court of appeals' judgment and its
+docket, which the fill joins for a cert petition from a circuit; a cert cell
+weighs whether to review that judgment and a merits cell whether to affirm it.
+An interim cell's application comes from a district court or an agency the fill
+does not join, so its stage is left out. The harness boundary
+``decision-below-documents`` dates the cells that read them, and the predict
+prompt names both kinds. The case-summary plan, which reads the record every
+predict cell shares, leaves both out, since no interim cell is given them.
+"""
+
+
 def documents_for_moment(documents: Iterable[CaseDocument], event_id: str) -> list[CaseDocument]:
     """The documents a cell for ``event_id`` may be handed at all, before any date cut.
 
-    No kind in :data:`WITHHELD_KINDS` is handed to any cell.
+    No kind in :data:`WITHHELD_KINDS` is handed to any cell, and the
+    lower-court kinds (:data:`~fedcourtsai.pipeline.documents.LOWER_COURT_KINDS`)
+    only to a cell of a stage in :data:`LOWER_COURT_STAGES`.
 
     The argument transcript belongs to the post-argument moment alone. The date
     rule already keeps it from a grant or briefed cell, which are cut before the
@@ -641,6 +655,9 @@ def moment_admits_kind(kind: str, event_id: str) -> bool:
     """
     if kind in WITHHELD_KINDS:
         return False
+    if kind in LOWER_COURT_KINDS:
+        spec = moments.spec_for(event_id)
+        return spec is not None and spec.stage in LOWER_COURT_STAGES
     if kind != KIND_ARGUMENT_TRANSCRIPT:
         return True
     spec = moments.spec_for(event_id)

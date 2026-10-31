@@ -769,7 +769,7 @@ A third command writes into that same `record/` and reads the store a different
 way: `provision-opinion` stages a decided case's majority opinion at
 `record/opinion/` for an **evaluate** cell to grade a semantic claim against,
 on a `run-evaluate` step that runs on every cell and stages nothing where the
-row holds nothing (on a pilot round's row it also stages every writing of the
+row holds nothing (on every cell it also stages every writing of the
 decision, read from the `opinion_texts` pointers and the content store). It
 does *not* take `casestore` — the presence bit and the citation it stages are
 index facts and the content store exposes no rows — so it reads the row over
@@ -976,9 +976,9 @@ windows as the awaiting-grading opinion step, step-scoped and
 `continue-on-error` like that step, so it spends about 24 requests a typical
 window (four a case) and about a hundred a day, with its 3-minute timeout
 bounding a worst-case window; `run-analytics`'s `decision-below` mode runs
-the same pass as a 25-case dry run. Both kinds wait in
-`provision.WITHHELD_KINDS` for the re-bless that names them
-([document-provisioning.md](document-provisioning.md)).
+the same pass as a 25-case dry run. Both kinds are staged for cert and merits
+cells only (`provision.LOWER_COURT_STAGES`;
+[document-provisioning.md](document-provisioning.md)).
 
 `provision-snapshot --refuse-terminal` (the forward predict path's guard —
 `run-predict` in production, mirrored by the integration harness) refuses a

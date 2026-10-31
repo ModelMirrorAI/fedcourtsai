@@ -42,7 +42,7 @@ token or role, so privilege and outside reachability stay disjoint — see
 | `run-seed`       | daily schedules (4 windows), manual | script (no agent)    |
 | `run-repair`     | manual dispatch only (one maintenance pass per dispatch, dry-run by default) | script (no agent)    |
 | `run-predict`    | daily schedules (14:12 and 17:32 UTC), input-less dispatch (manual, or the dispatch App's chain jobs) | Claude Code + Codex + Gemini |
-| `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the unregistered `predicted_reasoning_quality` grade, or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
+| `run-evaluate`   | daily schedule (15:39 UTC), manual dispatch whose one input picks the derivation: the backlog, the `reasoning-pilot` round of the `predicted_reasoning_quality` grade (a re-grade of a fixed sample under the registered prompt), or its `reasoning-pilot-merits` round over the replay merits calibration cells (the newest merits back-test's kept forecasts), each always held for review and committing nothing | Claude Code + Codex + Gemini |
 | `run-backtest`   | biweekly schedule (even ISO weeks, Sat 06:23 UTC — pinned cert parameters over the paid population, spends only on the manual `review` release), manual dispatch (replay/engine/limit/terms params; `replay: merits` replays the predictors over decided argued cases at the merits grant and briefed moments instead, dispatch only; `replay: salience-gate` runs the token-free gate replay instead of the predictors) | Claude Code + Codex + Gemini (replay) |
 | `run-ops`        | daily schedule (ops report, weekly performance digest on the run summary, public status snapshot, prediction-reading digest), manual | script (no agent)    |
 | `post-public-update` | weekly schedule (Mon 12:57 UTC), manual dispatch (`week`; re-dispatching a missed week is safe, since the post is idempotent per week) | script (no agent); creates up to two Buttondown drafts (the public update and the AI-cases update), never sends |
@@ -893,7 +893,7 @@ the evaluate lane's opinion-hold window, so a just-decided case's body usually
 lands before the next evaluate tick (*The evaluate queue is level-triggered
 too*, below). A second step on the same windows, `enrich-decision-below
 --apply --max-cases 6`, stores the decision below for up to six pending cert
-petitions from the federal courts of appeals, withheld from cells
+petitions from the federal courts of appeals, staged for cert and merits cells
 ([document-provisioning.md](document-provisioning.md)). Those two steps alone in
 the live job hold the CourtListener token, and both are `continue-on-error`: a
 failed or slow enrichment never fails the live pull, whose facts the push and
@@ -3289,11 +3289,10 @@ the agent on every cell. It stages nothing where the corpus row holds no body,
 which is most cases, so an **absent** slot is the ordinary state and the grader
 masks. When a round's semantic claims all mask, read that step's outcome first:
 a failed staging and genuine non-coverage leave the same empty slot, and the
-step annotates the run summary where it failed. On a pilot round's row the
-same step also stages every writing of the decision under
-`record/opinion/writings/`, from the per-writing texts the per-opinion record
-stores, for the pilot grade of `predicted_reasoning.md`; no registered round's
-cell receives them.
+step annotates the run summary where it failed. On every cell the same step
+also stages every writing of the decision under `record/opinion/writings/`,
+from the per-writing texts the per-opinion record stores, for the grade of
+`predicted_reasoning.md` (`predicted_reasoning_quality`) to check against.
 
 A second pair of steps keeps the aliases worth having. The committed `predictions/` and
 `evaluations/` trees name every predictor elsewhere in the same case tree, at
