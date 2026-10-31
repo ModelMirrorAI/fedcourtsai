@@ -1,14 +1,14 @@
 {
   "actual_disposition": "granted",
   "actual_granted": 1,
-  "case_id": "scotus/9018001109",
+  "case_id": "scotus/65652781",
   "disposition_basis": "standard",
   "disposition_route": "plenary",
   "event_id": "evt-petition-disposition",
   "interim_signals": null,
   "judgment": null,
   "noted_dissent_from_denial": null,
-  "resolved_at": "2019-06-10",
+  "resolved_at": "2022-03-28",
   "schema_version": "1.0",
   "signals": {
     "cvsg_date": null,

@@ -1,13 +1,12 @@
-case_id: scotus/9020001009
+case_id: scotus/65652781
 decision_target: disposition
 description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
 moment: null
-opened_at: '2021-01-27'
+opened_at: '2021-12-07'
 resolved: true
 schema_version: '1.0'
 stage: null
-title: David Shinn, Director, Arizona Department of Corrections, Rehabilitation and
-  Reentry v. David Martinez Ramirez
+title: John Montenegro Cruz v. Arizona

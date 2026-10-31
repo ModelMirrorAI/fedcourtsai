@@ -1,12 +1,13 @@
-case_id: scotus/9021000511
+case_id: scotus/18739725
 decision_target: disposition
 description: null
 docket_entry_id: null
 event_id: evt-petition-disposition
 kind: petition
 moment: null
-opened_at: '2021-10-06'
+opened_at: '2020-05-20'
 resolved: true
 schema_version: '1.0'
 stage: null
-title: Tim Shoop, Warden v. Raymond A. Twyford, III
+title: David Shinn, Director, Arizona Department of Corrections v. George Russell
+  Kayer

@@ -1,18 +1,18 @@
 {
-  "actual_disposition": "granted",
+  "actual_disposition": "gvr",
   "actual_granted": 1,
-  "case_id": "scotus/9020001084",
+  "case_id": "scotus/18739725",
   "disposition_basis": "standard",
-  "disposition_route": "summary-merits",
+  "disposition_route": "gvr",
   "event_id": "evt-petition-disposition",
   "interim_signals": null,
   "judgment": null,
   "noted_dissent_from_denial": null,
-  "resolved_at": "2021-07-02",
+  "resolved_at": "2020-12-14",
   "schema_version": "1.0",
   "signals": {
     "cvsg_date": null,
-    "distribution_count": 8,
+    "distribution_count": 9,
     "distribution_parse": "dist-v2"
   },
   "source": null,
