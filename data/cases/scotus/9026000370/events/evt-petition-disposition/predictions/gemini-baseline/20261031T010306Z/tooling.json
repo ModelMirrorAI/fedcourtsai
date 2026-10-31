@@ -1,0 +1,14 @@
+{
+  "actor_id": "gemini-baseline",
+  "case_id": "scotus/9026000370",
+  "gaps": [],
+  "helpful": [],
+  "notes": "[harness] tooling.json did not validate; normalised: unknown key 'Tool_worked_well' = [\"fedcourts query (ranged corpus backend) worked quickly and cleanly to retri... dropped; unknown key 'event_id' = \"evt-petition-disposition\" dropped; unknown key 'friction' = [\"In fedcourts query, the --citation filter noted that only 200 SCOTUS rows c... dropped; unknown key 'wanted_feature' = [\"A filter on fedcourts query for procedural posture signals on cert petition... dropped",
+  "role": "predictor",
+  "run_id": "20261031T010306Z",
+  "schema_version": "1.0",
+  "tool_manifest": null,
+  "tools_used": [],
+  "used_base_rates": false,
+  "used_corpus_query": true
+}
