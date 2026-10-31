@@ -329,6 +329,73 @@ def load_pull_config(config_root: Path) -> PullConfig:
     return PullConfig.model_validate((data or {}).get("pull", {}))
 
 
+class CourtListenerLane(BaseModel):
+    """One lane's fixed share of the CourtListener account's daily requests."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    # Most requests one run of the lane may send. An enforced lane's client
+    # stops at it (`RateBudgetExceeded`), whatever the tier's own ceilings.
+    per_run: int = Field(gt=0)
+    # How many scheduled runs a day the share is sized for.
+    runs_per_day: int = Field(default=1, gt=0)
+    # A maintainer's dispatch rather than a schedule. Dispatched lanes share
+    # one slot: at most one of them runs on a day, so the day reserves the
+    # largest dispatched run rather than every one.
+    dispatched: bool = False
+    # False for a spender this package's client does not carry (the agent cells'
+    # MCP server, interactive sessions): its share is reserved, not enforced.
+    enforced: bool = True
+
+    @property
+    def per_day(self) -> int:
+        """The lane's daily share: its run cap times its runs a day."""
+        return self.per_run * self.runs_per_day
+
+
+class CourtListenerBudget(BaseModel):
+    """The ``courtlistener_budget`` section of ``tracking.yaml``: each lane's share.
+
+    The account's ceilings are per token, and each process's limiter counts only
+    its own requests, so the lanes share the account by a fixed split: the
+    scheduled lanes' run caps times their runs a day, plus the largest
+    dispatched run, stay under the account's daily ceiling.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    account_per_day: int = Field(gt=0)
+    lanes: dict[str, CourtListenerLane] = Field(min_length=1)
+
+    @property
+    def reserved_per_day(self) -> int:
+        """What one day can spend: every scheduled share plus the largest dispatched run."""
+        scheduled = sum(lane.per_day for lane in self.lanes.values() if not lane.dispatched)
+        dispatched = [lane.per_run for lane in self.lanes.values() if lane.dispatched]
+        return scheduled + max(dispatched, default=0)
+
+    @model_validator(mode="after")
+    def _fits_the_account(self) -> Self:
+        if self.reserved_per_day > self.account_per_day:
+            raise ValueError(
+                f"lane shares reserve {self.reserved_per_day} a day, "
+                f"over the account's {self.account_per_day}"
+            )
+        return self
+
+    def lane(self, name: str) -> CourtListenerLane:
+        """The named lane's share; an unknown lane is an error, never an unbounded client."""
+        if name not in self.lanes:
+            raise KeyError(f"no CourtListener lane {name!r} in {TRACKING_FILENAME}")
+        return self.lanes[name]
+
+
+def load_courtlistener_budget(config_root: Path) -> CourtListenerBudget:
+    """Read ``courtlistener_budget`` from ``config_root/tracking.yaml``; it must be present."""
+    data = yaml.safe_load((config_root / TRACKING_FILENAME).read_text()) or {}
+    return CourtListenerBudget.model_validate(data["courtlistener_budget"])
+
+
 class LiveConfig(BaseModel):
     """The ``live:`` section of ``tracking.yaml`` — the SCOTUS live channel.
 

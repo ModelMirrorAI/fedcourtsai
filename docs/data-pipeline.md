@@ -67,6 +67,21 @@ environment sets (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`). At roughly
 **3 requests per docket** the budget is a few hundred dockets a day at most — and the
 supremecourt.gov live channel spends none of it.
 
+Each process's governor counts only its own requests, so the lanes that spend
+the account share it by a **fixed split** (`courtlistener_budget` in
+`config/tracking.yaml`): every lane has a per-run request cap. A scheduled lane
+also names the runs a day it is sized for; the dispatched lanes (a maintainer's
+one-off runs) share a single slot, so at most one of them runs on a day. The
+scheduled caps times their runs, plus the largest dispatched run, stay under
+the account's daily ceiling, which the config refuses to load without. Each CLI
+command that builds a client names its lane, and the client stops at that
+lane's run cap (`RateBudgetExceeded`). The split holds only while those
+assumptions do: a second dispatched run on the same day, or an extra run of a
+scheduled lane (a dispatched `run-pull` live run runs both full-window
+steps), spends past it. The agent cells' MCP server and interactive
+sessions hold shares too, set aside rather than enforced, since their requests
+do not pass through this client.
+
 Because pull runs headless inside a CI job, budget pressure and a degraded
 upstream must **degrade a run, never hang it**. Three guards enforce that, all
 tuned in `config/tracking.yaml`: the throttle raises rather than sleep out an
