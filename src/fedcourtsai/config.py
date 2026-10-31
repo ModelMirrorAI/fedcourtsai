@@ -320,9 +320,10 @@ class PullConfig(BaseModel):
     # upstream modified since its stored snapshot, less this many days (at least
     # one: upstream reads the date in Pacific time), merged into it by id.
     entry_overlap_days: int = Field(default=2, ge=1)
-    # Each docket is read whole once in this many days, on a day its docket id
-    # picks, to catch an entry deleted upstream or changed without moving its
-    # modification time. 1 reads every docket whole every time.
+    # A docket is read whole once a day its docket id picks, one in this many,
+    # has passed since its last read, to catch an entry deleted upstream or
+    # changed without moving its modification time. 1 reads every docket whole
+    # on every refresh after its first that day.
     full_read_every_days: int = Field(default=7, ge=1)
 
 

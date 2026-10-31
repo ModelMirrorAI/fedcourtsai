@@ -41,9 +41,9 @@ pull:
   # date in Pacific time), merged into the stored entries by id. A long, quiet
   # docket costs two requests instead of one per twenty entries.
   entry_overlap_days: 2
-  # Each docket is read whole once a week, on a day its docket id picks, to
-  # catch an entry deleted upstream or changed without moving its modification
-  # time.
+  # A docket is read whole once a day its docket id picks (one a week) has
+  # passed since its last read, to catch an entry deleted upstream or changed
+  # without moving its modification time.
   full_read_every_days: 7
   # Discover newly-filed dockets in the tracked courts since the last run.
   # OFF: the live channel's frontier probing onboards newly filed SCOTUS

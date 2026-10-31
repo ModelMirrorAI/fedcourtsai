@@ -1426,13 +1426,18 @@ or network.
   failed with nothing written, so one bulk-loaded circuit docket with hundreds
   of entry pages cannot spend a window's hourly budget. A docket the corpus
   already holds is read **incrementally**: the docket, then the entries
-  upstream modified since its stored snapshot less `entry_overlap_days`,
-  merged into the stored entries by id (newest id first, upstream's order), so
-  a long, quiet docket costs two requests rather than one per twenty entries.
-  Once every `full_read_every_days`, on a day its docket id picks, the docket
-  is read whole instead, which catches an entry deleted upstream or changed
-  without moving its modification time; so is a docket whose stored entries
-  are not in upstream's order, so the first merge cannot read as a change.
+  upstream modified since its newest stored CourtListener read less
+  `entry_overlap_days`, merged into that read's entries by id (newest id
+  first, upstream's order), so a long, quiet docket costs two requests rather
+  than one per twenty entries. The merge base looks past a newer live-channel
+  snapshot stored under the same case, a few snapshots deep. The docket is
+  read whole instead once a day its id picks, one in every
+  `full_read_every_days`, has passed since that read (the rotation does not
+  reach a docket daily, so the day itself is usually missed), which catches an
+  entry deleted upstream or changed without moving its modification time. It
+  is also read whole when its stored entries are not in upstream's order, so
+  the first merge cannot read as a change, and when upstream returns a changed
+  entry without an id.
   `pull-all` prints how many refreshes took each read. The one-docket `fetch`
   always reads whole.
 - **Two forward jobs over the shared core:**

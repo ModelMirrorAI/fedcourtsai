@@ -61,7 +61,7 @@ from ..store import (
 )
 from ..voids import is_voided
 from .documents import holds_docket_documents
-from .entry_reads import full_read_due, merge_entries
+from .entry_reads import full_read_owed, merge_entries
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .moments import spec_for
@@ -110,65 +110,104 @@ class IncrementalEntries:
     An incremental read asks upstream for the entries modified on or after the
     stored snapshot's date less ``overlap_days`` and lays them over the stored
     entries by id, so a quiet docket costs one page of entries however long it
-    is. Each docket is still read whole once every ``full_read_every_days``, on
-    a day its id picks, which catches what an incremental read cannot see: an
-    entry deleted upstream, or one changed without moving its modification time.
+    is. A docket is still read whole when a day its id picks, one in every
+    ``full_read_every_days``, has fallen since its last CourtListener read,
+    which catches what an incremental read cannot see: an entry deleted
+    upstream, or one changed without moving its modification time. The pull
+    rotation does not reach a docket every day, so the test is whether that
+    day passed, not whether it is today.
     """
 
     overlap_days: int
     full_read_every_days: int
 
 
-def _merge_base(prior: tuple[date, dict[str, Any]] | None, docket_id: int) -> list[Any] | None:
-    """The stored entries an incremental read may merge into, or None to read whole.
+#: How many stored snapshots, newest first, a refresh looks through for one it
+#: can merge into. The live channel stores its own supremecourt.gov payload for a
+#: SCOTUS docket under the same key, so the newest snapshot is often not one a
+#: CourtListener read can extend; past this many, the docket is read whole.
+MERGE_BASE_LOOKBACK = 8
 
-    Only a snapshot of this same upstream docket whose entries are kept as
+
+def _mergeable_entries(payload: dict[str, Any], docket_id: int) -> list[Any] | None:
+    """A snapshot's entries if an incremental read may merge into them, else None.
+
+    Only a CourtListener snapshot of this same docket whose entries are kept as
     upstream serves them, newest id first, qualifies: the merge writes that
     order, so a stored list in any other order would read as a change on its
     first merge and queue a forecast for nothing.
     """
-    if prior is None or prior[1].get("id") != docket_id:
+    if payload.get("id") != docket_id:
         return None
-    stored = prior[1].get("docket_entries")
-    if not isinstance(stored, list):
-        return None
-    entry_ids: list[int] = []
-    for entry in stored:
-        entry_id = entry.get("id") if isinstance(entry, dict) else None
-        if not isinstance(entry_id, int) or isinstance(entry_id, bool):
-            return None
-        entry_ids.append(entry_id)
-    if any(newer <= older for newer, older in pairwise(entry_ids)):
+    stored = payload.get("docket_entries")
+    if not isinstance(stored, list) or not _ids_descending(stored):
         return None
     return stored
+
+
+def _ids_descending(entries: list[Any]) -> bool:
+    """Whether every entry carries an integer id, strictly newest first."""
+    entry_ids: list[int] = []
+    for entry in entries:
+        entry_id = entry.get("id") if isinstance(entry, dict) else None
+        if not isinstance(entry_id, int) or isinstance(entry_id, bool):
+            return False
+        entry_ids.append(entry_id)
+    return all(newer > older for newer, older in pairwise(entry_ids))
+
+
+def _merge_base(
+    conn: corpus.ReadConnection,
+    case_id: str,
+    docket_id: int,
+    prior: tuple[date, dict[str, Any]] | None,
+) -> tuple[date, list[Any]] | None:
+    """The newest stored CourtListener read of the docket to merge into, with its date."""
+    found = prior
+    for _ in range(MERGE_BASE_LOOKBACK):
+        if found is None:
+            return None
+        stored = _mergeable_entries(found[1], docket_id)
+        if stored is not None:
+            return found[0], stored
+        found = corpus.snapshot_at(conn, case_id, before=found[0])
+    return None
 
 
 def _read_entries(
     client: CourtListenerClient,
     docket_id: int,
-    prior: tuple[date, dict[str, Any]] | None,
+    base: tuple[date, list[Any]] | None,
     *,
     max_entry_pages: int,
     incremental: IncrementalEntries | None,
     today: date,
 ) -> tuple[list[Any], EntryRead]:
-    """The docket's whole entry list, read whole or merged from the changed ones."""
-    stored = _merge_base(prior, docket_id) if incremental is not None else None
+    """The docket's whole entry list, read whole or merged from the changed ones.
+
+    A whole read is taken when there is nothing to merge into, when the
+    docket's whole-read day fell since ``base`` was read, or when upstream
+    returns a changed entry without an integer id, which the merge could not
+    place.
+    """
     if (
-        incremental is None
-        or prior is None
-        or stored is None
-        or full_read_due(docket_id, today, incremental.full_read_every_days)
+        incremental is not None
+        and base is not None
+        and not full_read_owed(docket_id, base[0], today, incremental.full_read_every_days)
     ):
-        return client.iter_docket_entries(docket_id, max_pages=max_entry_pages), "full"
-    since = prior[0] - timedelta(days=incremental.overlap_days)
-    read = client.docket_entries(docket_id, max_pages=max_entry_pages, date_modified_gte=since)
-    if not read.complete:
-        raise EntryPageCapExceeded(
-            f"docket {docket_id} has more than {max_entry_pages} pages of entries "
-            f"changed since {since}"
-        )
-    return merge_entries(stored, read.entries), "incremental"
+        since = base[0] - timedelta(days=incremental.overlap_days)
+        read = client.docket_entries(docket_id, max_pages=max_entry_pages, date_modified_gte=since)
+        if not read.complete:
+            raise EntryPageCapExceeded(
+                f"docket {docket_id} has more than {max_entry_pages} pages of entries "
+                f"changed since {since}"
+            )
+        if all(
+            isinstance(e, dict) and isinstance(e.get("id"), int) and not isinstance(e["id"], bool)
+            for e in read.entries
+        ):
+            return merge_entries(base[1], read.entries), "incremental"
+    return client.iter_docket_entries(docket_id, max_pages=max_entry_pages), "full"
 
 
 def pull_case(
@@ -194,12 +233,13 @@ def pull_case(
     docket = client.get_docket(docket_id)
     with corpus.connect(corpus_db_path) as conn:
         prior = corpus.latest_snapshot(conn, case_id)
+        base = _merge_base(conn, case_id, docket_id, prior) if incremental is not None else None
     # A docket longer than the cap raises before anything is written, so it is
     # never stored as a truncated record that would diff as a real change.
     entries, entry_read = _read_entries(
         client,
         docket_id,
-        prior,
+        base,
         max_entry_pages=max_entry_pages,
         incremental=incremental,
         today=today,
