@@ -9747,7 +9747,78 @@ class AiCaseActivity(_Strict):
 
 
 QpTopicFrame = Literal["petitions", "applications", "alignment-sides"]
-QpTopicRunOutcome = Literal["published", "refused", "incomplete"]
+QpTopicRunOutcome = Literal["published", "refused", "incomplete", "replicate"]
+
+
+class QpTopicKindAgreement(_Strict):
+    """A replicate's agreement on one application ``input_kind`` of the reference block."""
+
+    input_kind: Literal["application-text", "docket-only"] = Field(
+        description="Which input shape the reference rows were read from"
+    )
+    agree: int = Field(ge=0, description="Reference rows of this kind where the two labels match")
+    n: int = Field(ge=0, description="Reference rows of this kind the replicate compared")
+
+    @model_validator(mode="after")
+    def _bounded(self) -> QpTopicKindAgreement:
+        if self.agree > self.n:
+            raise ValueError("agree cannot exceed n")
+        return self
+
+
+class QpTopicReplicate(_Strict):
+    """One reference-only replicate's item-level measurement (``docs/qp-topic.md``).
+
+    A replicate labels the frame's reference block alone and publishes nothing:
+    it exists to measure how far one labeler's agreement moves between runs on
+    identical inputs. The pooled figures sit on the run record beside this; what
+    this adds is what separates a run-level component from item-level noise —
+    which reference rows this run matched, as one character per reference entry
+    in ``case_id`` order — and the shares the gate candidates are cut by. The
+    reference entries are committed already, so the string discloses nothing a
+    reader of the reference file does not hold. ``reference_sha256`` pins which
+    reference the string indexes: replicates measured against a different block
+    are not pooled.
+    """
+
+    reference_sha256: str = Field(
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the committed reference file the replicate was measured against",
+    )
+    reference_entries: int = Field(ge=1, description="Entries in that reference file")
+    matches: str = Field(
+        pattern=r"^[01-]+$",
+        description="One character per reference entry in case_id order: 1 the labeler "
+        "matched the reference label, 0 it did not, - the entry was not in the replicate's "
+        "extract",
+    )
+    unclassifiable: int = Field(
+        ge=0,
+        description="Compared reference entries the labeler labeled `unclassifiable`",
+    )
+    per_input_kind: list[QpTopicKindAgreement] = Field(
+        default_factory=list,
+        description="Agreement per application input kind; empty on the petition frame, "
+        "whose reference rows are all questions-presented text",
+    )
+
+    @model_validator(mode="after")
+    def _consistent(self) -> QpTopicReplicate:
+        if len(self.matches) != self.reference_entries:
+            raise ValueError("matches carries one character per reference entry")
+        kinds = [row.input_kind for row in self.per_input_kind]
+        if len(set(kinds)) != len(kinds):
+            raise ValueError("an input kind appears twice")
+        compared = len(self.matches) - self.matches.count("-")
+        if self.unclassifiable > compared:
+            raise ValueError("unclassifiable cannot exceed the compared entries")
+        if self.per_input_kind and sum(row.n for row in self.per_input_kind) != compared:
+            raise ValueError("the per-kind n sum to the compared entries")
+        if self.per_input_kind and sum(row.agree for row in self.per_input_kind) != (
+            self.matches.count("1")
+        ):
+            raise ValueError("the per-kind agreements sum to the matched entries")
+        return self
 
 
 class QpTopicRunSpend(_Strict):
@@ -9786,7 +9857,9 @@ class QpTopicRunSpend(_Strict):
         "measured and fell below the gate; "
         "incomplete: it reached neither (a labels file short of the batch, a check ahead of "
         "the measurement that failed, or a measurement that cleared the gate but did not "
-        "reach publication), its gate figures carried wherever it was measured"
+        "reach publication), its gate figures carried wherever it was measured; "
+        "replicate: a reference-only replicate that labeled the reference block alone, "
+        "measured it, and published nothing by design, so it is neither a pass nor a refusal"
     )
     batch_rows: int = Field(ge=0, description="Rows in the extract the labeler was handed")
     label_lines: int = Field(ge=0, description="Label lines the run left behind")
@@ -9830,6 +9903,19 @@ class QpTopicRunSpend(_Strict):
         "none: the one that prices these token counts dearest, so an unpriced model's spend "
         "is still counted and never under-counted; null when priced at `model`'s own rate",
     )
+    replicate: QpTopicReplicate | None = Field(
+        default=None,
+        description="A replicate run's item-level measurement; present exactly when the "
+        "outcome is `replicate`",
+    )
+
+    def _check_replicate(self) -> None:
+        if (self.outcome == "replicate") != (self.replicate is not None):
+            raise ValueError("a replicate run, and only one, carries its replicate measurement")
+        if self.replicate is not None and self.agree is not None and self.n is not None:
+            matches = self.replicate.matches
+            if self.agree != matches.count("1") or self.n != len(matches) - matches.count("-"):
+                raise ValueError("agree and n are the replicate's matched and compared entries")
 
     @model_validator(mode="after")
     def _consistent(self) -> QpTopicRunSpend:
@@ -9849,6 +9935,7 @@ class QpTopicRunSpend(_Strict):
                 raise ValueError("a side-coding run carries no gate figures")
         elif self.outcome != "incomplete" and not measured:
             raise ValueError(f"a {self.outcome} run carries its gate figures")
+        self._check_replicate()
         if self.outcome == "published" and self.label_lines != self.batch_rows:
             raise ValueError("a published run labeled every row of its batch")
         if self.rate is not None and not measured:

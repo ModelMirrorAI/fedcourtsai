@@ -79,12 +79,14 @@ from ..schemas import (
     QpTopicApplicationPublishedEntry,
     QpTopicApplicationReference,
     QpTopicBatchEntry,
+    QpTopicKindAgreement,
     QpTopicLabel,
     QpTopicLabelAgreement,
     QpTopicLabelEntry,
     QpTopicLabels,
     QpTopicPublishedEntry,
     QpTopicReference,
+    QpTopicReplicate,
     QpTopicShadow,
     QpTopicTriangleRow,
 )
@@ -488,6 +490,7 @@ def derive_label_batch(
     ceiling: int | None = None,
     stratum: Callable[[str], str] = petition_stratum_key,
     seed: str = BATCH_ORDER_SEED,
+    reference_only: bool = False,
 ) -> QpTopicBatch:
     """Choose the rows one labeling dispatch labels, from committed state alone.
 
@@ -529,6 +532,14 @@ def derive_label_batch(
     The application frame cuts its batches by the same rule against the
     application reference block, with ``stratum`` set to
     :func:`application_stratum_key` and its own ``seed``.
+
+    ``reference_only`` keeps clause 1 and drops clause 2: the batch is the
+    in-frame reference members alone, with no fill. That is a **replicate**
+    batch (``docs/qp-topic.md``): it measures the labeler against the reference
+    and publishes nothing, so repeat replicates read identical inputs and their
+    spread is the labeler's run-to-run variation. The pool and strata are still
+    counted, so the arithmetic printed beside a replicate names the frame it was
+    cut from.
     """
     # Resolved here rather than as a default argument, which would bind the
     # module value once at import and ignore any later reading of it.
@@ -560,7 +571,8 @@ def derive_label_batch(
     for rows in buckets.values():
         rows.sort(key=lambda case_id: _batch_order_key(case_id, seed))
     allocation = _apportion(
-        {key: len(rows) for key, rows in buckets.items()}, budget - len(in_reference)
+        {key: len(rows) for key, rows in buckets.items()},
+        0 if reference_only else budget - len(in_reference),
     )
     drawn = [case_id for key in sorted(buckets) for case_id in buckets[key][: allocation[key]]]
     return QpTopicBatch(
@@ -1135,6 +1147,73 @@ def _accrue(
         batches=ledger,
         entries=sorted(published.values(), key=lambda row: row.case_id),
     )
+
+
+def measure_replicate(
+    *,
+    entries: Sequence[QpTopicLabelEntry],
+    texts: Mapping[str, QpText],
+    reference: QpTopicReference | QpTopicApplicationReference,
+    reference_sha256: str,
+) -> tuple[QpTopicAgreement, QpTopicReplicate]:
+    """Measure one reference-only replicate, without accruing anything.
+
+    A replicate's extract is the frame's reference rows alone
+    (``qp-corpus --reference-only``), so the joins :func:`build_labels` makes
+    are made here too — duplicates, the two-key reference join, and the exact
+    extract join — and one more: every extract row is a reference row, since a
+    replicate that labeled anything else was handed a labeling batch. What comes
+    back is the pooled agreement (the gate figures, which the run record carries
+    and nothing enforces) and the item-level record
+    :class:`~fedcourtsai.schemas.QpTopicReplicate` holds: which reference rows
+    this run matched, how many it called ``unclassifiable``, and the per-kind
+    split on the application block. No labels artifact is built, so a replicate
+    cannot publish whatever it measures.
+    """
+    seen = Counter(entry.case_id for entry in entries)
+    duplicates = sorted(case_id for case_id, count in seen.items() if count > 1)
+    if duplicates:
+        raise QpTopicError(f"duplicate case_id in the labels: {', '.join(duplicates)}")
+    members = {entry.case_id for entry in reference.entries}
+    strays = sorted(set(texts) - members)
+    if strays:
+        raise QpTopicError(
+            f"a replicate extract holds reference rows alone; {len(strays)} row(s) are not in "
+            f"the reference (e.g. {strays[:3]}) — this is a labeling batch, not a replicate"
+        )
+    _check_reference_join(entries, reference)
+    _check_extract_join(entries, texts)
+    labels = {entry.case_id: entry.label for entry in entries}
+    agreement = measure_agreement(labels, reference)
+    hand: Sequence[_ReferenceEntry] = reference.entries
+    ordered = sorted(hand, key=lambda entry: entry.case_id)
+    matches = "".join(
+        "-" if entry.case_id not in labels else "1" if labels[entry.case_id] == entry.label else "0"
+        for entry in ordered
+    )
+    per_kind: list[QpTopicKindAgreement] = []
+    if isinstance(reference, QpTopicApplicationReference):
+        for kind in get_args(InputKind):
+            rows = [
+                entry
+                for entry in reference.entries
+                if entry.input_kind == kind and entry.case_id in labels
+            ]
+            per_kind.append(
+                QpTopicKindAgreement(
+                    input_kind=kind,
+                    agree=sum(1 for entry in rows if labels[entry.case_id] == entry.label),
+                    n=len(rows),
+                )
+            )
+    replicate = QpTopicReplicate(
+        reference_sha256=reference_sha256,
+        reference_entries=len(ordered),
+        matches=matches,
+        unclassifiable=sum(1 for entry in ordered if labels.get(entry.case_id) == "unclassifiable"),
+        per_input_kind=per_kind,
+    )
+    return agreement, replicate
 
 
 def render_input_kind_split(

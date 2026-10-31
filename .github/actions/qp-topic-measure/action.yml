@@ -54,6 +54,14 @@ inputs:
       integration-test scenario records no spend).
     required: false
     default: ''
+  replicate-out:
+    description: >
+      Set for a reference-only replicate: `qp-topics --replicate-out` writes the
+      run's item-level record here, writes no labels artifact, and exits 0 on
+      either side of the gate, since a replicate measures the labeler and
+      publishes nothing. Empty (the default) is an ordinary labeling run.
+    required: false
+    default: ''
   data-root:
     description: >
       Data root holding `qp-topics/qp-topic-reference.json`; the labels
@@ -117,6 +125,7 @@ runs:
         FRAME_ROWS: ${{ inputs.frame-rows }}
         QP_FRAME: ${{ inputs.frame }}
         AGREEMENT_OUT: ${{ inputs.agreement-out }}
+        REPLICATE_OUT: ${{ inputs.replicate-out }}
         DATA_ROOT: ${{ inputs.data-root }}
         # The measure command reads the reference set and writes the artifact
         # under the settings data root, while `validate` takes the path as an
@@ -141,6 +150,9 @@ runs:
         if [ -n "$AGREEMENT_OUT" ]; then
           extra+=(--agreement-out "$AGREEMENT_OUT")
         fi
+        if [ -n "$REPLICATE_OUT" ]; then
+          extra+=(--replicate-out "$REPLICATE_OUT")
+        fi
         case "$QP_FRAME" in
           petitions|applications) ;;
           *)
@@ -162,7 +174,13 @@ runs:
         # later, into the PR body rendered from the same file.
         tr -d '\140' < "$RUNNER_TEMP/measured.txt" > "$RUNNER_TEMP/measured-safe.txt"
         {
-          if [ "$QP_FRAME" = applications ]; then
+          if [ -n "$REPLICATE_OUT" ]; then
+            echo "### qp-topic ${QP_FRAME} replicate (reference rows only, nothing published)"
+            echo
+            echo "One reference-only replicate: agreement with the frame's reference,"
+            echo "not accuracy, recorded for the run-to-run spread and gated on nothing"
+            echo "(see the replicate section of docs/qp-topic.md)."
+          elif [ "$QP_FRAME" = applications ]; then
             echo "### qp-topic-v1 application labeling run"
             echo
             echo "Agreement with the application reference block's adjudicated"
