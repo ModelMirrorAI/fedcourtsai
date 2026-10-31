@@ -15725,3 +15725,84 @@ freeze commit is recorded here.
     HARNESS_BOUNDARIES as H; n = {b.name for b in H};
     print({'decision-below-documents', 'context-band-refused'} <= n)"` prints
     `True` once the promotion record has stamped the rows.
+
+- **A file tool's retrieval-log row leads with its target, and a predict
+  cell's writes are held to its run directory by the tree; recorded
+  2026-10-31.** No freeze commit belongs to this entry: no prompt text or
+  other digest input changes, and `uv run fedcourts process-digest --all`
+  prints the same six `proc-v16` digests before and after this change.
+
+  **Capture.** A **capture** change of the masking-surface class. A call whose
+  params carry none of capture's query keys (`q`, `query`, `search`,
+  `citation`, `prompt`, `command`, `url`, `endpoint`) is kept as its whole
+  params object, and that object was serialized in sorted key order. It is
+  now serialized with its path key first, in the order `file_path`, `path`,
+  `absolute_path`, `notebook_path`, `dir_path`, and every other key after it
+  in sorted order; a call carrying no path key reads byte for byte as before.
+  The 500-character cut is unchanged. In sorted order a write's `content`
+  sorts ahead of `file_path`, so a long write lost its target. On `staging`
+  at `4443b9227` the 1,917 committed predict logs hold 1,083 claude `Write`
+  rows and 2,517 gemini `write_file` rows cut with no path key left in the
+  slice, and 710 more gemini `write_file` rows that keep the path after the
+  content. Gemini's 1,798 `read_file` rows that open with `end_line`, its
+  `replace` rows that open with another key, and any file search that opens
+  with its pattern keep the same keys in a new order.
+  - **What it reaches.** The slice passes `mask_retrieval_log` unrespelled,
+    so every evaluator reading a claude or gemini candidate's staged log on
+    the leakage grading's reading path now sees the target of each long
+    write, under unchanged evaluator digests. The predict lane audit
+    (`fedcourtsai.cell_access`) reads the same slice, so its `write` hits,
+    and the harness notes they raise, rise for claude and gemini logs
+    captured after the carrying merge: a count of those notes across the
+    merge compares two capture regimes. No scored figure reads a file tool's
+    slice; the self-provisioning count excludes file tools.
+  - **Why no label bump and no harness-boundary row.** No predict cell reads
+    anything different. Capture runs after the engine, on its own log, so it
+    is not a `process_version.HARNESS_BOUNDARIES` change, which registers
+    changes to what a predict cell reads. The exact side of a row is
+    `pipeline_sha` ancestry against the carrying merge; a row opening with a
+    path key is a strong hint only, since many read rows already did.
+  - **What stays blind.** Rows captured before the carrying merge keep their
+    cut: the transcripts are gone, so no re-capture can recover a target.
+
+  **Write confinement.** Before the agent starts, `run-predict` records every
+  entry under `data/` (after the hidden trees are out) and copies its files to
+  the runner temp directory (`fedcourts record-write-baseline`). The moment
+  the agent stops, ahead of the restore of the hidden trees, `fedcourts
+  confine-cell-writes` removes what the agent added and restores what it
+  changed or deleted anywhere under `data/` outside the cell's own
+  `predictions/<predictor_id>/<run_id>/`, and adds one harness note to the
+  cell's `flags.json` (`fedcourtsai.write_confinement`): a `warning` listing
+  what it put back, or a `blocker`, with the step failed, naming what it could
+  not. The cell artifact uploads its whole event directory and the collect
+  union adds any file `main` lacks, so a stray write beside the run
+  directory — gemini-baseline's `predictions/gemini-baseline/flags.json` on
+  scotus/9526000560, run `20261029T212853Z`, one level above its run
+  directory, is the observed case — could otherwise reach the ledger, and an
+  edit to the case `record/` would change what the stamp reads. The lane
+  audit finds 9 write hits on committed gemini logs at `4443b9227` and none
+  on claude or codex logs. No cell reads anything different, and a cell that
+  writes only its own run directory lands exactly as before, so this is not
+  a harness boundary either. What it contains is a careless write: a claude
+  or gemini agent runs as the runner's own user and can reach the baseline,
+  as `SECURITY.md` records for every runner-local signal.
+
+  **Audit.** The lane audit no longer reads codex's `spawn_agent`,
+  `send_input` and `send_message` calls, as it already did not read claude's
+  `Agent` and `Task`: their text is a subagent's instructions, which named the
+  hidden paths to forbid them in 30 of the audit's 63 hits on committed codex
+  logs at `4443b9227`. The subagent's own calls are audited as calls.
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live, on the first predict round after
+  the carrying merge:
+  - every cell's job log shows the "Confine the cell's writes to its
+    run directory" step printing `data tree unchanged outside the run` or a
+    `::warning::write confinement:` line per path it put back, and no cell's
+    event directory in the run PR holds a file under `predictions/<id>/`
+    outside a run directory;
+  - across that round's claude and gemini `retrieval_log.json` files, `jq -r
+    '.calls[] | select(.tool=="Write" or .tool=="write_file") | .query |
+    select(. != null) | .[0:13]'` prints `{"file_path":` on every row.

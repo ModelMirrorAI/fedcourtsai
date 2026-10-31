@@ -3315,6 +3315,21 @@ a file the checkout already carries is never overwritten, and a differing copy
 is refused with the checkout's kept — and `assert-paths` rejects any
 non-addition that slips past.
 
+A predict cell's writes are held to its own run directory by the tree as well
+as by its prompt. After the hide, `fedcourts record-write-baseline` records
+every entry under `data/` and copies its files to the runner temp directory;
+the first step after the watchdog's disarm, ahead of the restore, is `fedcourts
+confine-cell-writes`, which removes what the agent added and restores what it
+changed or deleted anywhere under `data/` outside
+`predictions/<predictor_id>/<run_id>/`, and notes it in the cell's `flags.json`
+([predicted-artifacts.md](predicted-artifacts.md)). The cell artifact uploads
+the whole event directory and the collect union adds any file `main` lacks, so
+without it a stray file beside the run directory, or an edited `event.yaml` for
+an event first materialized this run, would reach the run PR. It runs under
+`!cancelled()`, like the restore, and fails the step when a path cannot be put
+back. The scope is `data/` alone: the engine state, sidecar logs and watchdog
+bundle the harness writes at the workspace root are outside it.
+
 The same step in both cells, and a step of its own in every other job that
 starts an engine in a checkout (the back-test, the qp-topic labeler and the
 integration-test jobs), takes `AGENTS.md`, `CLAUDE.md` and `.claude/` out of

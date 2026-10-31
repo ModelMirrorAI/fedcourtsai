@@ -1056,6 +1056,9 @@ jobs:
       # Neither the deletion nor the move can propagate to the run PR: the
       # collect job unions each cell's data/ onto a freshly fetched clean
       # origin/main checkout, and `assert-paths` rejects any non-addition.
+      # Last, the data tree as the agent is handed it is recorded, so
+      # `confine-cell-writes` can put back whatever the agent changes outside
+      # its own run directory.
       - name: Remove the oracle, the committed cell record and the development instructions from the agent's tree
         run: |
           set -euo pipefail
@@ -1068,6 +1071,7 @@ jobs:
           rm -f AGENTS.md CLAUDE.md
           rm -rf .claude
           uv run fedcourts hide-cell-record --stash-dir "$RUNNER_TEMP/hidden-record"
+          uv run fedcourts record-write-baseline --stash-dir "$RUNNER_TEMP/write-baseline"
 
       # Install the engine's CLI at the version `.github/engines/<engine>/`
       # pins, in its own SECRET-FREE step: the lockfile fixes every package by
@@ -1741,10 +1745,32 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           done
 
+      # Hold the cell's writes to its own run directory: everything under data/
+      # outside predictions/<predictor>/<run>/ goes back to the baseline the
+      # hide step recorded, and anything put back is a harness note in the
+      # cell's flags.json. First after the disarm, which hands a codex cell's
+      # output back to the runner, and ahead of the restore, so a stray write
+      # reaches no later step, the artifact or the collect union. A path it
+      # cannot put back fails the step.
+      - name: Confine the cell's writes to its run directory
+        if: ${{ !cancelled() }}
+        env:
+          COURT_ID: ${{ matrix.court }}
+          DOCKET_ID: ${{ matrix.docket }}
+          EVENT_ID: ${{ matrix.event_id }}
+          PREDICTOR_ID: ${{ matrix.predictor_id }}
+          RUN_ID: ${{ matrix.run_id }}
+        run: |
+          set -euo pipefail
+          uv run fedcourts confine-cell-writes \
+            --court "$COURT_ID" --docket "$DOCKET_ID" --event "$EVENT_ID" \
+            --actor "$PREDICTOR_ID" --run-id "$RUN_ID" \
+            --stash-dir "$RUNNER_TEMP/write-baseline"
+
       # Put the hidden predictions/evaluations trees back the moment the agent
       # stops — ahead of every post-agent step that reads the tree (only the
-      # watchdog's disarm runs before it, and that one touches runner temp and
-      # the bundle alone). The stamp and `validate` read the committed trees,
+      # watchdog's disarm and the write confinement run before it, and those
+      # touch runner temp, the bundle and the data tree's baseline alone). The stamp and `validate` read the committed trees,
       # and the usage and retrieval captures write into the cell's own
       # predictions/<predictor>/<run>/, under a hidden tree's path. It restores
       # file by file and refuses to overwrite, because the agent writes its own

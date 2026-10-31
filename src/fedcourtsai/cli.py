@@ -86,6 +86,7 @@ from . import (
     summaries,
     tool_usage,
     window_records,
+    write_confinement,
 )
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
@@ -20275,6 +20276,147 @@ def restore_cell_record_cmd(
         typer.echo(f"restoring failed: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     typer.echo(f"restored {restored} file(s) from {stash_dir}")
+
+
+@app.command("record-write-baseline")
+def record_write_baseline_cmd(
+    stash_dir: Annotated[
+        Path,
+        typer.Option(
+            help="Where the baseline and its file copies are kept. Point it outside the "
+            "checkout, such as the runner temp dir."
+        ),
+    ],
+) -> None:
+    """Record what the data tree holds before a predict cell's agent starts.
+
+    The first half of the write confinement
+    (:mod:`fedcourtsai.write_confinement`): run after the hidden trees have been
+    moved out and before the engine starts, so the baseline is the tree the
+    agent is handed. ``confine-cell-writes`` compares against it once the agent
+    stops. Exits 1 when the stash already holds a baseline, since a second
+    recording would overwrite the first.
+    """
+    settings = get_settings()
+    try:
+        baseline = write_confinement.record_baseline(settings.data_root, stash_dir)
+    except (write_confinement.ConfinementError, OSError) as exc:
+        typer.echo(f"::error::recording the write baseline failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"recorded {len(baseline.entries)} data entr(ies) -> {stash_dir}")
+
+
+_WRITE_CONFINEMENT_PREFIX = "Harness check: this cell changed the data tree outside its own run"
+# How many paths of each kind the note quotes, and how much of each.
+_WRITE_CONFINEMENT_EXAMPLES = 3
+_WRITE_CONFINEMENT_PATH_CHARS = 160
+
+
+def _write_confinement_note(
+    report: write_confinement.ConfinementReport, event_id: str
+) -> AgentFlag:
+    def quoted(paths: list[str]) -> str:
+        shown = ", ".join(
+            ascii(path)[:_WRITE_CONFINEMENT_PATH_CHARS]
+            for path in paths[:_WRITE_CONFINEMENT_EXAMPLES]
+        )
+        more = (
+            f" and {len(paths) - _WRITE_CONFINEMENT_EXAMPLES} more"
+            if len(paths) > _WRITE_CONFINEMENT_EXAMPLES
+            else ""
+        )
+        return f"{shown}{more}"
+
+    parts = []
+    if report.removed:
+        parts.append(f"removed {len(report.removed)} added path(s) ({quoted(report.removed)})")
+    if report.restored:
+        parts.append(
+            f"restored {len(report.restored)} changed or deleted path(s) "
+            + f"({quoted(report.restored)})"
+        )
+    if report.failed:
+        parts.append(f"could not put back {len(report.failed)} path(s) ({quoted(report.failed)})")
+    return AgentFlag(
+        category=FlagCategory.other,
+        severity=FlagSeverity.blocker if report.failed else FlagSeverity.warning,
+        message=(
+            f"{_WRITE_CONFINEMENT_PREFIX} directory, so the harness put the tree back before "
+            + "anything read it: "
+            + "; ".join(parts)
+            + ". Paths are relative to data/; only this cell's predictions/<predictor_id>/"
+            + "<run_id>/ directory is the cell's to write."
+        )[:_FLAG_MESSAGE_LIMIT],
+        event_id=event_id,
+        source=FlagSource.harness,
+    )
+
+
+@app.command("confine-cell-writes")
+def confine_cell_writes_cmd(
+    court: Annotated[str, typer.Option()],
+    docket: Annotated[int, typer.Option()],
+    event: Annotated[str, typer.Option(help="Event id the cell acts on.")],
+    actor: Annotated[str, typer.Option(help="The cell's predictor_id.")],
+    run_id: Annotated[str, typer.Option(help="The fan-out run id (a UTC timestamp).")],
+    stash_dir: Annotated[
+        Path,
+        typer.Option(help="The stash `record-write-baseline` wrote; pass the same value."),
+    ],
+) -> None:
+    """Put the data tree back to its baseline everywhere outside the cell's run directory.
+
+    The second half of the write confinement
+    (:mod:`fedcourtsai.write_confinement`), run the moment the agent stops and
+    before the hidden trees come back, so nothing after it reads what the agent
+    wrote beside its own output. A file the baseline did not hold is removed, a
+    file it held that changed or went missing is restored from its copy, and a
+    directory the agent created is removed once empty. Anything put back is
+    noted in the cell's ``flags.json`` as a harness flag (normalised first, so
+    the note lands in a file that parses), and named in the run log.
+
+    Exits 1 when the baseline is missing or foreign, or when any path could not
+    be put back: the cell's tree is then not the one its output is judged
+    against, and the job says so rather than carrying it forward quietly.
+    """
+    settings = get_settings()
+    event_paths = CasePaths(settings.data_root, court, docket).event(event)
+    own = event_paths.prediction_dir(actor, run_id)
+    try:
+        report = write_confinement.confine_writes(settings.data_root, stash_dir, own)
+    except (write_confinement.ConfinementError, OSError) as exc:
+        typer.echo(f"::error::write confinement failed: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    case = ids.case_id(court, docket)
+    if not report.changed:
+        typer.echo(
+            f"write confinement: {case} {event} {actor}: data tree unchanged outside the run"
+        )
+        return
+    for label, paths in (
+        ("removed", report.removed),
+        ("restored", report.restored),
+        ("could not put back", report.failed),
+    ):
+        for path in paths:
+            typer.echo(
+                f"::warning::write confinement: {actor} {_one_line(case)} {label} "
+                + f"data/{_one_line(path)}",
+                err=True,
+            )
+    if own.is_dir():
+        where = CellCoordinates(
+            case_id=case, run_id=run_id, role=UsageRole.predictor, actor_id=actor
+        )
+        _normalise_cell_flags(event_paths, where)
+        _append_harness_notes(
+            event_paths.prediction_flags(actor, run_id),
+            where,
+            [_write_confinement_note(report, event)],
+            what="write-confinement note",
+        )
+    if report.failed:
+        raise typer.Exit(code=1)
 
 
 @app.command("corpus-integration-check")

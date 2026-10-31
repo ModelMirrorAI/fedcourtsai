@@ -138,6 +138,10 @@ _QUERY_KEYS = ("q", "query", "search", "citation", "prompt", "command", "url", "
 # The keys ahead of ``prompt`` in that order: a call carrying one keeps it, even
 # where a ``url`` and a ``prompt`` sit beside it.
 _OUTRANKS_PROMPT = _QUERY_KEYS[: _QUERY_KEYS.index("prompt")]
+# The keys a file tool names its target with. A call with no query key is kept
+# as its whole params object, and these lead it, so the path a file tool read,
+# searched or wrote survives the cut however long the content beside it.
+PATH_KEYS = ("file_path", "path", "absolute_path", "notebook_path", "dir_path")
 # A document/decision date in a result payload — the leakage grading's timing signal. The
 # quotes tolerate a backslash: a result often nests JSON inside a text block,
 # so the serialized form the regex scans carries escaped quotes.
@@ -263,10 +267,29 @@ def _query_candidate(params: Any) -> str | None:
             if isinstance(value, str) and value.strip():
                 return value.strip()
         try:
-            return json.dumps(params, sort_keys=True, default=str)
+            return _path_first_json(params)
         except (TypeError, ValueError):
             return None
     return None
+
+
+def _path_first_json(params: dict[Any, Any]) -> str:
+    """``params`` as JSON with its :data:`PATH_KEYS` first, then every other key sorted.
+
+    Laid out as ``json.dumps`` lays an object out, with each value serialized
+    under sorted keys, so a call carrying no path key reads exactly as the
+    sorted dump of the whole object. Params decoded from a transcript always
+    have string keys; any other mapping is dumped sorted.
+    """
+    if not all(isinstance(key, str) for key in params):
+        return json.dumps(params, sort_keys=True, default=str)
+    leading = [key for key in PATH_KEYS if key in params]
+    ordered = [*leading, *sorted(key for key in params if key not in leading)]
+    members = (
+        f"{json.dumps(key)}: {json.dumps(params[key], sort_keys=True, default=str)}"
+        for key in ordered
+    )
+    return "{" + ", ".join(members) + "}"
 
 
 def _fetch_target(params: dict[str, Any]) -> str | None:
