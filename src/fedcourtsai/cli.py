@@ -8816,11 +8816,13 @@ def qp_label_plan_cmd(
         Path | None, typer.Option(help="Also write the plan's markdown report here.")
     ] = None,
 ) -> None:
-    """Price a topic-label round: the plan document the review hold judges it on.
+    """Price a label round: the plan document the review hold judges it on.
 
     The round's price is its batch's rows at the labeler's per-row planning
-    rate (:data:`fedcourtsai.planning_rates.LABEL_RATES_USD_PER_ROW`; a model the
-    table does not name prices at its highest rate), written as
+    rate (:data:`fedcourtsai.planning_rates.LABEL_RATES_USD_PER_ROW`, or
+    :data:`~fedcourtsai.planning_rates.SIDE_CODE_RATES_USD_PER_ROW` on the
+    `alignment-sides` frame; a model the table does not name prices at its
+    highest rate), written as
     ``estimated_cost_usd_high`` — the figure ``hold-decision --seam label``
     compares against the per-round cap. Reads nothing and spends nothing.
     """

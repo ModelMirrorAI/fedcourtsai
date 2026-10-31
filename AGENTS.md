@@ -13,7 +13,7 @@ development** (change the Python package, workflows, docs, schemas, or prompts
 — in an interactive session on the branch-and-PR flow below, like any
 contributor; do **not** touch `data/`) or **data production** (a `run-pull`,
 `run-predict`, `run-evaluate` or `run-backtest` round, and the dispatched
-`qp-topic-label` and `qp-topic-label-applications` labeling runs — produce or update the corpus
+`qp-topic-label`, `qp-topic-label-applications` and `alignment-side-code` labeling runs — produce or update the corpus
 and/or the derived artifacts under `data/`; do **not** change pipeline code to
 make your task easier, and never weaken validation, CI, lint, type, or
 security checks). A cell never reads this file: its job takes `AGENTS.md`,

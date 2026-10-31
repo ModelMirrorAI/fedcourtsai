@@ -1844,9 +1844,14 @@ gate passes. The merits side coder (`run-analytics` `alignment-side-code`)
 runs on these same jobs as the lane's third frame, under the same grant and
 denials, with two additions its input calls for: the committed record
 (`data/`, `metrics/`) is out of every labeling agent's tree while it runs,
-since a grant it codes may already carry a committed outcome, and the
+since a grant it codes may already carry a committed outcome (prose under
+`docs/` and the test fixtures stay, and the prompt's no-recall rule is the
+only fence there, which is why every replay code carries the
+contamination-risk flag), and the
 sidecar naming which of its cases are decided reaches the job only after the
-agent has exited. The cert back-test's replay cells hold the same line at a
+agent has exited, and the publish job stamps the fields that sidecar decides
+on its own runner, from the coder's lines alone, so nothing the coding
+runner computed reaches the PR but those lines and the spend record. The cert back-test's replay cells hold the same line at a
 different seam: their workflow process legitimately keeps the read-only
 credentials job-wide (`corpus-readonly` — the replay needs a full local pull,
 and under the corpus-split mode mid-replay content-store reads), so the shared

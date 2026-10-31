@@ -114,8 +114,8 @@ def label_rate_usd_per_row(model: str, *, frame: str = "petitions") -> float:
     """The per-row rate a label round of ``model`` over ``frame`` prices at.
 
     A model the frame's table does not name prices at that table's highest
-    rate, so a new labeler model is never priced below the dearest one
-    measured.
+    rate, so a new labeler model is never priced below the dearest one the
+    table names.
     """
     rates = label_rates_for(frame)
     return rates.get(model, max(rates.values()))

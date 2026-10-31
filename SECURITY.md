@@ -123,12 +123,15 @@ runbook, [docs/security.md](docs/security.md).
   high-entropy by format, so that rule convicts every real file and the
   artifact could only ever publish empty. The partial labels the run wrote are
   scanned (`--extra-file`) before theirs, with the entropy rule left on: a
-  labels line is case ids, docket numbers and vocabulary words, none of them
-  high-entropy by format, so the reason to suppress it does not arise. (The
-  labels the run *publishes* are a different object, gated by `qp-topics`
-  reading every row against the vocabulary and the extract's keys; this file
-  is uploaded before that command runs, so it travels whether the gate
-  refuses or passes.) Containment of the one credential
+  labels line is case ids, docket numbers and vocabulary words, and a side
+  coder's line adds a short prose note, none of them high-entropy by format,
+  so the reason to suppress it does not arise. (The labels the run
+  *publishes* are a different object, gated by `qp-topics` reading every row
+  against the vocabulary and the extract's keys — on the side-coding frame by
+  `alignment-side-codes` re-stamping every line against the extract and the
+  modes sidecar on a runner no agent held, with each note capped by the
+  schema and read in the reviewed PR; this file is uploaded before either
+  command runs, so it travels whether the gate refuses or passes.) Containment of the one credential
   the scan is given there — the engine's own API key — and the
   credential-shape patterns are the *transcript* surface's whole gate, which
   is why it
@@ -269,7 +272,8 @@ runbook, [docs/security.md](docs/security.md).
   On a claude or gemini cell it can also simply create the watchdog's `REAPED`
   marker: those agents run as the runner user unsandboxed (claude
   `bypassPermissions`, gemini `--yolo`), so no runner-local path is out of reach
-  (the qp-topic labeler is the one agent held to a narrower grant, and it is not
+  (the labeling lane's agent — the qp-topic labeler, and the merits side coder
+  on the same jobs — is the one agent held to a narrower grant, and it is not
   a cell). A codex cell cannot — codex runs as a separate unprivileged account,
   and the marker sits under a runner-owned `RUNNER_TEMP` directory (mode 0755
   and not writable by that account; the codex setup additionally strips other

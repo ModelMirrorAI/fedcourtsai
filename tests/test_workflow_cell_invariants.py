@@ -5396,3 +5396,29 @@ def extract_job_outputs_digest(wf: dict[str, Any]) -> bool:
         job["outputs"].get("extract-sha256") == "${{ steps.extract.outputs.extract-sha256 }}"
         and 'sha256sum "$RUNNER_TEMP/qp-texts.json"' in step["run"]
     )
+
+
+def test_the_side_codes_are_restamped_where_no_agent_ran() -> None:
+    """The harness fields are stamped again on the publish runner.
+
+    The labeling job's stamp ran beside its agent, so the publish job
+    re-stamps from the coder's lines, the digest-checked extract and the
+    modes sidecar, ahead of the re-validation, and publishes that file.
+    """
+    wf = _load("run-analytics.yml")
+    publish = wf["jobs"]["qp-topic-publish"]["steps"]
+    names = [s.get("id") or s.get("name") for s in publish]
+    restamp = publish[names.index("restamp")]
+    assert names.index("Download the measured artifact") < names.index("restamp")
+    assert names.index("restamp") < names.index("revalidate")
+    assert "sha256sum --check --status" in restamp["run"]
+    assert restamp["env"]["EXTRACT_SHA256"] == (
+        "${{ needs.qp-topic-extract.outputs.extract-sha256 }}"
+    )
+    assert '--codes "$lines"' in restamp["run"]
+    assert 'cp "${LABELS_DIR}/${LABELS_NAME}" "$dir/${LABELS_NAME}"' in restamp["run"]
+    assert 'cp "$RUNNER_TEMP/restamp-report.txt" "$dir/measured.txt"' in restamp["run"]
+    downloads = {
+        s["with"]["name"]: s for s in publish if "download-artifact" in str(s.get("uses") or "")
+    }
+    assert {"qp-publish", "qp-texts", "alignment-modes"} == set(downloads)

@@ -237,8 +237,9 @@ Thursday cron, so each week's grants are coded inside `CLEAN_LAG_DAYS`. The
 coder holds no shell, no delegation and no retrieval tool, and the committed
 record (`data/`, `metrics/`) is out of its tree while it runs. The modes
 sidecar reaches the coding job only after the agent has exited, and the
-publish step checks the extract against the digest the extract job recorded
-before it stamps a grant date from it. Each round waits on the review hold,
+publish job stamps the harness fields (grant date, mode, contamination flag)
+on a runner no agent held, from the coder's lines, the sidecar and the
+extract checked against the digest the extract job recorded. Each round waits on the review hold,
 priced at the side coder's provisional rate
 (`planning_rates.SIDE_CODE_RATES_USD_PER_ROW`), and every run's spend lands in
 the labeling lane's spend ledger. The codes reach `main` as a reviewed PR on

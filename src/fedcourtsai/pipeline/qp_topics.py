@@ -311,7 +311,8 @@ def rate_source(model: str, *, frame: str) -> str:
     ``measured`` for a topic-label model the table names, ``provisional`` for a
     side-coder model the table names (that table is set ahead of any measured
     run), and ``highest-rate fallback`` for a model its frame's table does not
-    name.
+    name. Re-anchoring the side-coder table on a measured run moves its rows
+    to ``measured`` here too.
     """
     if model not in label_rates_for(frame):
         return "highest-rate fallback"

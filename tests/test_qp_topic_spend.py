@@ -338,3 +338,10 @@ def test_the_side_coding_plan_prices_at_its_own_provisional_table(tmp_path: Path
     # Never below the topic labeler's rate for the same model.
     for model, rate in LABEL_RATES_USD_PER_ROW.items():
         assert label_rate_usd_per_row(model, frame="alignment-sides") >= rate
+
+
+def test_a_short_side_coding_run_is_incomplete(tmp_path: Path) -> None:
+    code, output, out = _spend(tmp_path, "--frame", "alignment-sides", "--label-lines", "10")
+    assert code == 0, output
+    record = QpTopicRunSpend.model_validate_json(out.read_text())
+    assert (record.outcome, record.agree, record.rate) == ("incomplete", None, None)

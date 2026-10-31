@@ -23,6 +23,7 @@ from fedcourtsai.pipeline.alignment_side import (
     publish,
     read_code_lines,
     read_extract,
+    render_run_report,
 )
 from fedcourtsai.schemas import AlignmentCodeMode, AlignmentSideCode, AlignmentSideCodes
 
@@ -339,3 +340,14 @@ def test_the_extract_reads_the_corpus(tmp_path: Path, monkeypatch: pytest.Monkey
     assert len(json.loads((work / "qp-texts.json").read_text())) == 2
     assert json.loads((work / "qp-texts.batch.json").read_text()) == {"frame": 3, "rows": 2}
     assert json.loads((work / "alignment-modes.json").read_text())["scotus/02"] == "replay"
+
+
+def test_the_run_report_counts_one_runs_codes() -> None:
+    rows, modes = _extract("scotus/61", "scotus/62")
+    codes = publish(None, rows, modes, [_line("scotus/61"), _line("scotus/62")], **STAMP)  # type: ignore[arg-type]
+    run = codes.entries[0].run_id
+    block = render_run_report(codes, run_id=run)
+    assert f"run {run}: 2 code(s) added, 2 in the file" in block
+    assert "mode: forward " in block and "valence: clear " in block
+    assert "mean score (P conservative side prevails): " in block
+    assert render_run_report(codes, run_id="other") == "run other: no codes added\n"
