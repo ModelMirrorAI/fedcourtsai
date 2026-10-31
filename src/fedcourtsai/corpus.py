@@ -613,6 +613,34 @@ class CorpusRow(BaseModel):
         "existed, never parsed until the `salience-cert-backfill` run-repair pass "
         "reads its stored snapshot.",
     )
+    argument_set_for: date | None = Field(
+        default=None,
+        description="The day the docket's newest 'SET FOR ARGUMENT on …' entry names "
+        "(`pipeline.schedule_signals.argument_set_date`), whether or not it has "
+        "passed; a rescheduled argument reads its new day. Display data for the "
+        "published schedule (`data/schedule/schedule.json`). Written by the live "
+        "cert branch at ingest; fill-in latched. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = never set for argument, or not parsed.",
+    )
+    response_due: date | None = Field(
+        default=None,
+        description="The newest response deadline the proceedings state "
+        "(`pipeline.schedule_signals.response_deadline`): the docketing entry's "
+        "'(Response due …)', a call for response's '(Due …)', a granted extension, or a "
+        "Justice's request for a response to an application. Display data for the "
+        "published schedule. Written by the live channel at ingest; latched as a pair "
+        "with `response_due_state`. Withheld from the retrieval surface "
+        "(`RETRIEVAL_WITHHELD_COLUMNS`). None = no deadline stated, or not parsed.",
+    )
+    response_due_state: str | None = Field(
+        default=None,
+        description="Whether the response `response_due` names is still owed: `due` "
+        "(no answer since the newest deadline), `filed` (a respondent's response or "
+        "brief in opposition followed it) or `waived` (a waiver of the right to "
+        "respond did). The key of the `response_due` pair latch: a writer with no "
+        "reading (NULL) keeps both stored values, a fresh reading takes both. Withheld "
+        "from the retrieval surface. None = not parsed.",
+    )
     sample_weight: int | None = Field(
         default=None,
         description="Inverse inclusion probability of this row under the corpus's "
@@ -1125,7 +1153,18 @@ CREATE TABLE IF NOT EXISTS cases (
     -- for response (see CorpusRow and pipeline/cert_signals.py). Written by the
     -- live poll's cert branch at ingest; fill-in latched. Withheld from the
     -- retrieval surface. NULL = no dated call for response, or not parsed.
-    distributed_after_call INTEGER
+    distributed_after_call INTEGER,
+    -- The day the newest SET FOR ARGUMENT entry names (see CorpusRow and
+    -- pipeline/schedule_signals.py). Written by the live poll's cert branch at
+    -- ingest; fill-in latched. Withheld from the retrieval surface. NULL =
+    -- never set for argument, or not parsed.
+    argument_set_for TEXT,
+    -- The newest stated response deadline and whether it is still owed (due,
+    -- filed or waived). Written by the live poll at ingest; latched as a pair
+    -- keyed on response_due_state. Withheld from the retrieval surface. NULL =
+    -- no deadline stated, or not parsed.
+    response_due TEXT,
+    response_due_state TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_cases_court ON cases(court);
 CREATE INDEX IF NOT EXISTS idx_cases_disposition ON cases(disposition);
@@ -1311,6 +1350,9 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "cert_amicus_briefs": "INTEGER",
     "opening_writ": "TEXT",
     "distributed_after_call": "INTEGER",
+    "argument_set_for": "TEXT",
+    "response_due": "TEXT",
+    "response_due_state": "TEXT",
 }
 
 _COLUMNS = tuple(_CASES_COLUMN_DDL)
@@ -2157,6 +2199,9 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         "cert_amicus_briefs": row.cert_amicus_briefs,
         "opening_writ": row.opening_writ,
         "distributed_after_call": row.distributed_after_call,
+        "argument_set_for": row.argument_set_for.isoformat() if row.argument_set_for else None,
+        "response_due": row.response_due.isoformat() if row.response_due else None,
+        "response_due_state": row.response_due_state,
         "capital_case": int(row.capital_case),
     }
 
@@ -2282,6 +2327,9 @@ def _from_record(record: RecordRow) -> CorpusRow:
         cert_amicus_briefs=_optional_int(record, "cert_amicus_briefs"),
         opening_writ=_optional_str(record, "opening_writ"),
         distributed_after_call=_optional_int(record, "distributed_after_call"),
+        argument_set_for=_optional_date(record, "argument_set_for"),
+        response_due=_optional_date(record, "response_due"),
+        response_due_state=_optional_str(record, "response_due_state"),
         capital_case=bool(_optional_int(record, "capital_case")),
     )
 
@@ -2350,6 +2398,7 @@ def _update_clause(column: str) -> str:
         "opening_writ",
         "distributed_after_call",
         "interim_reading",
+        "argument_set_for",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -2501,6 +2550,18 @@ def _update_clause(column: str) -> str:
         # docket restates it), the same last-entry rule the backfill applies.
         clause = (
             f"{column}=CASE WHEN excluded.merits_judgment IS NULL "
+            f"THEN cases.{column} ELSE excluded.{column} END"
+        )
+    elif column in ("response_due", "response_due_state"):
+        # The response deadline moves as a PAIR, keyed on the incoming state, the
+        # merits pair's shape: a writer with no reading (a CourtListener row, a
+        # payload served without its proceedings) keeps both stored values, and
+        # a fresh reading takes both — its NULL date included, where a waiver or
+        # a response was filed before any deadline was stated. A fill-in latch
+        # would not do here, because the reading that matters most is the one
+        # that ends the deadline: a filed response must replace a stored `due`.
+        clause = (
+            f"{column}=CASE WHEN excluded.response_due_state IS NULL "
             f"THEN cases.{column} ELSE excluded.{column} END"
         )
     elif column == "counsel":
@@ -4424,7 +4485,8 @@ def opinion_body(row: CorpusRow) -> str | None:
 #: invited-brief, call-for-response, first-relist, argument-transcript and a
 #: consolidated member's lead-filed respondent brief dates are mint triggers, the
 #: opening petition's writ and the conferences distributed after a call for
-#: response are salience inputs, and the
+#: response are salience inputs, the argument day and response deadline the
+#: Court has set are display data for the published schedule, and the
 #: merits decision record and the cert-stage amicus count are analytics
 #: surfaces — what a stat-pack or a
 #: per-Justice vote reader would read — and no registered process has admitted
@@ -4448,6 +4510,9 @@ RETRIEVAL_WITHHELD_COLUMNS: frozenset[str] = frozenset(
         "cert_amicus_briefs",
         "opening_writ",
         "distributed_after_call",
+        "argument_set_for",
+        "response_due",
+        "response_due_state",
     }
 )
 

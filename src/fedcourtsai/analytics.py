@@ -4036,15 +4036,20 @@ _BIG_CASE_ASKING_RULE = (
 
 
 _BIG_CASE_SCHEDULE_RULE = (
-    "`scheduled` is joined by case id from the committed `data/schedule/schedule.json`, which "
-    "the live poll writes from the conference each pending public docket's newest "
-    "'DISTRIBUTED for Conference of ...' entry names. It is null where the case is not on "
-    "the schedule (decided, never distributed, or not read by the live channel) and where "
-    "the conference had already passed on the day the schedule was built. The row carries no "
-    "build day, so the board moves only when a case's date does; a reader rendering on a "
-    "later day drops a date that has since passed rather than show it as upcoming. A "
-    "schedule moves on every relist, so the field is display-only and never a ledger record: "
-    "nothing predicts, evaluates or scores on it, and no cell is provisioned with it."
+    "`schedule` and `scheduled` are joined by case id from the committed "
+    "`data/schedule/schedule.json`, which the live poll writes from what each pending public "
+    "docket's entries name: the conference its newest 'DISTRIBUTED for Conference of ...' "
+    "entry names while it is undecided, the day its newest 'SET FOR ARGUMENT on ...' entry "
+    "names while a granted case awaits decision and has not been argued on or after that day, "
+    "and the newest stated response deadline while the docket is undecided and no response or "
+    "waiver has followed it. "
+    "`schedule` lists each such date still ahead on the day the schedule was built, earliest "
+    "first; `scheduled` is its conference entry alone, or null. The row carries no build "
+    "day, so the board moves only when a case's date does; a reader rendering on a later day "
+    "drops a date that has since passed rather than show it as upcoming. A schedule moves on "
+    "every relist, reschedule and extension, so the fields are display-only and never a "
+    "ledger record: nothing predicts, evaluates or scores on them, and no cell is provisioned "
+    "with them."
 )
 
 
@@ -4379,13 +4384,14 @@ def _committed_docket_numbers(data_root: Path) -> dict[str, str]:
     return {entry.case_id: entry.docket_number.strip() for entry in labels.entries}
 
 
-def _committed_schedule(data_root: Path) -> dict[str, BigCaseScheduled]:
-    """Case id to its next scheduled date, from the committed schedule.
+def _committed_schedule(data_root: Path) -> dict[str, list[BigCaseScheduled]]:
+    """Case id to its upcoming dates, earliest first, from the committed schedule.
 
-    Only the rows the schedule itself still holds upcoming: a row whose
-    conference had passed when the schedule was written carries no date, and
-    joins as none. Absent when no live poll has written it, and an unreadable
-    file degrades the same way, loudly: a display field is not worth the board.
+    Only the dates the schedule itself still holds upcoming: a conference,
+    argument day or response deadline that had passed when the schedule was
+    written carries no upcoming date, and joins as none. Absent when no live
+    poll has written it, and an unreadable file degrades the same way, loudly:
+    a display field is not worth the board.
     """
     path = schedule_path(data_root)
     if not path.is_file():
@@ -4399,11 +4405,18 @@ def _committed_schedule(data_root: Path) -> dict[str, BigCaseScheduled]:
             file=sys.stderr,
         )
         return {}
-    return {
-        entry.case_id: BigCaseScheduled(kind="conference", date=entry.next_conference)
-        for entry in committed.entries
-        if entry.next_conference is not None
-    }
+    joined: dict[str, list[BigCaseScheduled]] = {}
+    for entry in committed.entries:
+        days: list[BigCaseScheduled] = []
+        if entry.next_conference is not None:
+            days.append(BigCaseScheduled(kind="conference", date=entry.next_conference))
+        if entry.argument is not None and entry.argument.upcoming is not None:
+            days.append(BigCaseScheduled(kind="argument", date=entry.argument.upcoming))
+        if entry.response_due is not None and entry.response_due.upcoming is not None:
+            days.append(BigCaseScheduled(kind="response_due", date=entry.response_due.upcoming))
+        if days:
+            joined[entry.case_id] = sorted(days, key=lambda day: (day.date, day.kind))
+    return joined
 
 
 @dataclass(frozen=True)
@@ -4676,7 +4689,7 @@ def build_big_case_board(
     Ledger-only: it reads ``data/`` and nothing else — the predictions, the
     committed qp-topic labels for the docket numbers a CourtListener id does not
     carry, every committed event definition's caption for the cross-petition
-    test, and the committed schedule for each row's next conference — with no
+    test, and the committed schedule for each row's upcoming dates — with no
     corpus, no network, no credentials, no clock, so it runs anywhere a
     checkout exists and reruns over
     an unchanged ledger reproduce the artifact byte for byte. That is also why it
@@ -4741,7 +4754,14 @@ def build_big_case_board(
     # The schedule is joined after the collapse: it is a fact about the docket,
     # not about any read, so it plays no part in which cases make the board.
     rows = [
-        row.model_copy(update={"scheduled": scheduled.get(row.case_id)})
+        row.model_copy(
+            update={
+                "schedule": scheduled[row.case_id],
+                "scheduled": next(
+                    (day for day in scheduled[row.case_id] if day.kind == "conference"), None
+                ),
+            }
+        )
         if row.case_id in scheduled
         else row
         for row in rows

@@ -300,6 +300,7 @@ from .pipeline import (
     order_lineups,
     order_scan,
     pre_mint,
+    qp_replicates,
     qp_topics,
     same_question,
     semantic,
@@ -438,6 +439,7 @@ from .pipeline.pull import (
     BACKLOG_MAX_POLL_AGE_DAYS,
     CaseDisposition,
     CaseReconciliation,
+    IncrementalEntries,
     PredictBacklog,
     derive_evaluate_backlog,
     derive_predict_backlog,
@@ -570,6 +572,8 @@ from .schemas import (
     QpTopicFrame,
     QpTopicLabels,
     QpTopicReference,
+    QpTopicReplicate,
+    QpTopicRunOutcome,
     QpTopicRunSpend,
     ReserveOccupant,
     RetrievalCall,
@@ -590,7 +594,7 @@ from .schemas import (
 from .serialize import read_model, write_json, write_raw_json, write_text, write_yaml
 from .set_aside import IncrementTiming, increment_timing
 from .slug_migration import converge_event_slugs
-from .spend import SpendVerdict, check_spend, spend_over, verdict_over
+from .spend import SpendVerdict, check_spend, iter_labeler_runs, spend_over, verdict_over
 from .store import (
     StratifiedRun,
     cases_due_for_pull,
@@ -2315,7 +2319,7 @@ def executive_success_cmd(
         DEFAULT_SCOPE_RULE,
         "--scope-rule",
         help="Which registered scope rule reads an application as executive action "
-        "(exec-action-v1).",
+        "(exec-action-v2, the default, or exec-action-v1).",
     ),
     reading: str = typer.Option(
         "finer",
@@ -2337,7 +2341,9 @@ def executive_success_cmd(
     withdrawn, moot, pending and unreadable rows are counted beside them. By
     default a stored denial is re-read from the row's latest snapshot under the
     finer interim reading, which names partial grants and denials as moot.
-    The same applications are counted again by controversy
+    A row with no docketed date takes its first proceeding entry's date where
+    a live snapshot is read. The
+    same applications are counted again by controversy
     (`pipeline.controversy`), each controversy once. An analytics artifact:
     nothing a predict or evaluate cell reads comes from it. Prints an
     `ExecutiveSuccess` (its `review_rows` list every in-scope and unknown-scope
@@ -2401,7 +2407,8 @@ def executive_success_cmd(
         f"{moment}): {result.applications} application(s) read for scope, "
         f"{result.extension_rows} extension(s) and {result.duplicate_rows} duplicate docket "
         f"row(s) left out, {result.filed_before_since} earlier and "
-        f"{result.filed_after_through} later than the cut; scope [{reasons}]; unknown scope "
+        f"{result.filed_after_through} later than the cut, {result.filed_from_first_entry} "
+        f"dated by their first proceeding; scope [{reasons}]; unknown scope "
         f"[{unknown}]; {result.reading} reading re-read {result.reread_rows} stored denial(s), "
         f"{result.reread_changed} relabeled, {result.reread_unobservable} unobservable and "
         f"{result.reread_after_through} decided after the cut; "
@@ -8095,18 +8102,19 @@ def schedule_cmd(
     ] = None,
     today: Annotated[
         str | None,
-        typer.Option(help="Judge passed conferences against this ISO date (default: UTC today)."),
+        typer.Option(help="Judge passed dates against this ISO date (default: UTC today)."),
     ] = None,
 ) -> None:
-    """Publish each pending public docket's next conference for the site timeline.
+    """Publish each pending public docket's next dates at the Court for the site timeline.
 
     Writes ``data/schedule/schedule.json`` — one row per docket with a committed
-    directory under ``data/cases`` whose corpus row is undecided and distributed
-    for a conference, enumerated from the committed tree alone. A conference
-    before today's UTC date is published as null with the reason, never as an
-    upcoming date. The live poll writes the same file after every cycle; this
-    command rebuilds it from a pulled corpus. Leaves a committed file alone when
-    no corpus is present.
+    directory under ``data/cases`` that has a date in play, enumerated from the
+    committed tree alone: the conference an undecided petition is distributed
+    for, the day a granted case awaiting decision is set for argument, and the
+    deadline for a response still owed. A date before today's UTC date is
+    published as null with the reason, never as an upcoming date. The live poll
+    writes the same file after every cycle; this command rebuilds it from a
+    pulled corpus. Leaves a committed file alone when no corpus is present.
     """
     settings = get_settings()
     destination = out if out is not None else schedule.schedule_path(settings.data_root)
@@ -8133,10 +8141,15 @@ def _write_schedule(data_root: Path, db_path: Path, destination: Path, *, as_of:
         staged.replace(destination)
     finally:
         staged.unlink(missing_ok=True)
-    upcoming = sum(1 for entry in built.entries if entry.next_conference is not None)
+    conferences = sum(1 for entry in built.entries if entry.next_conference is not None)
+    arguments = sum(1 for e in built.entries if e.argument is not None and e.argument.upcoming)
+    responses = sum(
+        1 for e in built.entries if e.response_due is not None and e.response_due.upcoming
+    )
     typer.echo(
-        f"schedule: {len(built.entries)} distributed public docket(s), {upcoming} with an "
-        f"upcoming conference, as of {built.as_of} -> {destination}"
+        f"schedule: {len(built.entries)} public docket(s) with a date in play; upcoming: "
+        f"{conferences} conference(s), {arguments} argument(s), {responses} response "
+        f"deadline(s), as of {built.as_of} -> {destination}"
     )
 
 
@@ -8154,7 +8167,7 @@ def _work_tree_root() -> Path | None:
     return None
 
 
-def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
+def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](  # noqa: PLR0912 - one refusal per state
     frame: Sequence[Row],
     *,
     data_root: Path,
@@ -8162,6 +8175,7 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
     scope: str,
     applications: bool = False,
     converged_ok: bool = False,
+    reference_only: bool = False,
 ) -> list[Row] | None:
     """The rows this dispatch labels, cut from the scoped frame by committed state.
 
@@ -8185,6 +8199,12 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
     ``applications`` cuts the application frame's batch by the same rule, from
     the application reference block and the application labels artifact,
     stratified on Term alone.
+
+    ``reference_only`` cuts a replicate batch instead: the in-frame reference
+    rows alone, with no fill. Neither stand-down applies to it — a replicate
+    measures the labeler rather than labeling the frame, so a converged frame
+    or a full reference block is no reason to skip one — while the coverage
+    floor still refuses, since a replicate under it measures a sliver.
     """
     reference_file = (
         qp_topics.application_reference_path(data_root)
@@ -8221,6 +8241,7 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
             labeled=labeled,
             stratum=stratum,
             seed=seed,
+            reference_only=reference_only,
         )
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-corpus: {exc}", err=True)
@@ -8259,7 +8280,7 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
             err=True,
         )
         raise typer.Exit(code=1)
-    if batch.converged:
+    if batch.converged and not reference_only:
         # Loud, and non-zero: the frame is labeled out. Another dispatch would
         # re-grade the reference set, publish not one new row, and spend a
         # labeling run to do it. A pull that ingests new petitions is what makes
@@ -8274,7 +8295,7 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
         if converged_ok:
             return None
         raise typer.Exit(code=1)
-    if not batch.fill:
+    if not batch.fill and not reference_only:
         # Rows left to label, but no budget to label them with: the reference set
         # fills the ceiling on its own. The run would read a full extract and
         # publish nothing, repeatably — the converged waste without the converged
@@ -8300,6 +8321,12 @@ def _labeling_batch[Row: (QpExtractRow, ApplicationExtractRow)](
         out.with_name(out.stem + ".batch.json"), qp_topics.batch_metadata(batch, seed=seed)
     )
     typer.echo(f"qp-corpus: batch derived from committed state ({scope})", err=True)
+    if reference_only:
+        typer.echo(
+            f"qp-corpus: replicate batch — the {batch.reference_rows} in-frame reference "
+            "row(s) alone, no fill; the run measures the labeler and publishes nothing",
+            err=True,
+        )
     typer.echo(qp_topics.render_batch(batch), err=True)
     selected = set(batch.case_ids)
     return [row for row in frame if row.case_id in selected]
@@ -8487,7 +8514,7 @@ def same_question_cmd(
 
 
 @app.command("qp-corpus")
-def qp_corpus(
+def qp_corpus(  # noqa: PLR0912 - a CLI entrypoint; each exit is one documented refusal
     out: Annotated[Path, typer.Option(help="JSON output path for the extracted texts.")],
     corpus_db: Annotated[
         Path | None,
@@ -8515,6 +8542,15 @@ def qp_corpus(
             help="Stand down cleanly on a frame with nothing new to label (converged, or a "
             "batch the reference set fills alone): write no extract and exit 0. The "
             "scheduled labeling run passes it; a dispatch keeps the refusal.",
+        ),
+    ] = False,
+    reference_only: Annotated[
+        bool,
+        typer.Option(
+            "--reference-only",
+            help="Cut a replicate batch: the frame's in-frame reference rows alone, with no "
+            "fill, for a run that measures the labeler and publishes nothing. Does not "
+            "combine with --all.",
         ),
     ] = False,
 ) -> None:
@@ -8589,6 +8625,13 @@ def qp_corpus(
     two states, and prints its coverage by Term, ask and input kind to stderr.
     ``--all`` does not combine with it.
 
+    **``--reference-only``** cuts a **replicate** batch on either frame: the
+    reference rows the frame holds and nothing else, for the reference-only
+    replicate mode that measures how far one labeler's agreement moves between
+    runs on identical inputs (``docs/qp-topic.md``). The coverage floor still
+    refuses; the two stand-downs do not apply, since a replicate labels nothing
+    the frame owes.
+
     The extract is a working file for one labeler run, **never a committed
     artifact**: it enumerates the ingested corpus and republishes stored
     petition text, neither of which any committed surface does, so writing it
@@ -8606,9 +8649,17 @@ def qp_corpus(
                 err=True,
             )
             raise typer.Exit(code=2)
+    if reference_only and all_texts:
+        typer.echo("qp-corpus: --reference-only cuts a labeling frame; --all is not one", err=True)
+        raise typer.Exit(code=2)
     if frame == "applications":
         _qp_corpus_applications(
-            settings, corpus_db, out, all_texts=all_texts, converged_ok=converged_ok
+            settings,
+            corpus_db,
+            out,
+            all_texts=all_texts,
+            converged_ok=converged_ok,
+            reference_only=reference_only,
         )
         return
     db_path = corpus_db if corpus_db is not None else corpus.corpus_db_path(settings.corpus_root)
@@ -8672,6 +8723,7 @@ def qp_corpus(
             out=out,
             scope=scope,
             converged_ok=converged_ok,
+            reference_only=reference_only,
         )
         if batch_rows is None:
             typer.echo("qp-corpus: nothing owed in this frame; standing down (--converged-ok)")
@@ -8699,6 +8751,7 @@ def _qp_corpus_applications(
     *,
     all_texts: bool,
     converged_ok: bool = False,
+    reference_only: bool = False,
 ) -> None:
     """``qp-corpus --frame applications``: the application extract, batched like the petitions'."""
     if all_texts:
@@ -8739,6 +8792,7 @@ def _qp_corpus_applications(
         scope="live-slice non-extension application dockets",
         applications=True,
         converged_ok=converged_ok,
+        reference_only=reference_only,
     )
     if rows is None:
         typer.echo("qp-corpus: nothing owed in this frame; standing down (--converged-ok)")
@@ -8748,7 +8802,7 @@ def _qp_corpus_applications(
 
 
 @app.command("qp-topics")
-def qp_topics_cmd(
+def qp_topics_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     labels: Annotated[
         Path,
         typer.Option(exists=True, help="Labeler's JSONL: one object per labeled text."),
@@ -8790,6 +8844,23 @@ def qp_topics_cmd(
             "--agreement-out",
             help="Also write the run's measured agreement (the gate figures) here as JSON, "
             "whether or not the run clears the gate; `qp-topic-spend` records it.",
+        ),
+    ] = None,
+    replicate_out: Annotated[
+        Path | None,
+        typer.Option(
+            "--replicate-out",
+            help="Measure a reference-only replicate instead: write its item-level record "
+            "here as JSON, write no labels artifact, and exit 0 on either side of the gate.",
+        ),
+    ] = None,
+    prompt_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--prompt-file",
+            exists=True,
+            help="With --replicate-out: the labeling prompt the labeler read, whose sha256 "
+            "the replicate record carries so replicates are pooled under one prompt.",
         ),
     ] = None,
 ) -> None:
@@ -8847,8 +8918,30 @@ def qp_topics_cmd(
     survives into its spend record (``fedcourts qp-topic-spend``). Nothing is
     written there when the labels never reach a measurement (a mis-joined or
     malformed labels file).
+
+    ``--replicate-out`` measures a **replicate** (``qp-corpus --reference-only``):
+    the same joins, plus a refusal of any extract row outside the reference,
+    then the pooled agreement to ``--agreement-out`` and the item-level record
+    to ``--replicate-out``, stamped with the sha256 of ``--prompt-file`` (the
+    labeling prompt, which it requires). No labels artifact is built or written, so the gate
+    decides nothing and the command exits 0 whatever the rate; a replicate
+    measures the labeler and publishes nothing (``docs/qp-topic.md``).
     """
     settings = get_settings()
+    if replicate_out is not None:
+        if prompt_file is None:
+            typer.echo("qp-topics: --replicate-out needs --prompt-file", err=True)
+            raise typer.Exit(code=2)
+        _qp_topics_replicate(
+            settings,
+            labels,
+            texts,
+            frame,
+            agreement_out,
+            replicate_out,
+            prompt_sha256=hashlib.sha256(prompt_file.read_bytes()).hexdigest(),
+        )
+        return
     if frame == "applications":
         _qp_topics_applications(settings, labels, texts, labeler, out, frame_rows, agreement_out)
         return
@@ -8921,6 +9014,70 @@ def _qp_topics_applications(
     typer.echo(f"qp-topics: gate passed -> {destination}")
 
 
+def _qp_topics_replicate(
+    settings: Settings,
+    labels: Path,
+    texts: Path,
+    frame: Literal["petitions", "applications"],
+    agreement_out: Path | None,
+    replicate_out: Path,
+    *,
+    prompt_sha256: str,
+) -> None:
+    """``qp-topics --replicate-out``: measure a reference-only replicate, publish nothing."""
+    applications = frame == "applications"
+    reference_path = (
+        qp_topics.application_reference_path(settings.data_root)
+        if applications
+        else qp_topics.reference_path(settings.data_root)
+    )
+    if not reference_path.is_file():
+        typer.echo(f"qp-topics: no reference at {reference_path}", err=True)
+        raise typer.Exit(code=1)
+    reference_sha256 = hashlib.sha256(reference_path.read_bytes()).hexdigest()
+    reference: QpTopicReference | QpTopicApplicationReference = (
+        read_model(reference_path, QpTopicApplicationReference)
+        if applications
+        else read_model(reference_path, QpTopicReference)
+    )
+    try:
+        entries = qp_topics.read_label_lines(labels)
+        agreement, replicate = qp_topics.measure_replicate(
+            entries=entries,
+            texts=qp_topics.read_texts(texts),
+            reference=reference,
+            reference_sha256=reference_sha256,
+            prompt_sha256=prompt_sha256,
+        )
+    except qp_topics.QpTopicError as exc:
+        typer.echo(f"qp-topics: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    if agreement_out is not None:
+        write_json(agreement_out, agreement)
+    write_json(replicate_out, replicate)
+    against = "the application reference block" if applications else "the v0 reference rater"
+    typer.echo(
+        f"qp-topics: replicate — {len(entries)} reference row(s) labeled, measured against "
+        f"{against}; nothing is published from a replicate"
+    )
+    if isinstance(reference, QpTopicApplicationReference):
+        typer.echo(
+            qp_topics.render_input_kind_split(
+                {entry.case_id: entry.label for entry in entries}, reference
+            )
+        )
+    typer.echo(qp_topics.render_agreement(agreement, against=against))
+    compared = agreement.overall_n
+    typer.echo(
+        f"  unclassifiable: {replicate.unclassifiable} of {compared} compared reference row(s)"
+    )
+    verdict = "would clear" if agreement.gate_passed else "would not clear"
+    typer.echo(
+        f"qp-topics: this replicate {verdict} the {qp_topics.AGREEMENT_GATE:.0%} publication "
+        f"gate; it is recorded, not gated -> {replicate_out}"
+    )
+
+
 def _report_labels_run(
     artifact: QpTopicLabels | QpTopicApplicationLabels, *, reference_name: str
 ) -> None:
@@ -8968,7 +9125,7 @@ def _report_labels_run(
 
 
 @app.command("qp-topic-spend")
-def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+def qp_topic_spend_cmd(  # noqa: PLR0912, PLR0913, PLR0915 - a CLI entrypoint; options map 1:1 to inputs
     *,
     execution_file: Annotated[
         Path,
@@ -9007,6 +9164,15 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "missing means the run was never measured.",
         ),
     ] = None,
+    replicate_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--replicate-file",
+            help="A replicate run's item-level record (`qp-topics --replicate-out`); present "
+            "means the run is a replicate. Absent or missing on a replicate run, the run was "
+            "never measured and records as incomplete.",
+        ),
+    ] = None,
     out: Annotated[
         Path | None,
         typer.Option(
@@ -9029,9 +9195,13 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
     measurement exists — a labels file short of the batch, or a check ahead of
     the measurement that failed. A refused run spends as much as a published
     one, which is why this record, not the labels artifact, carries the spend.
-    The ``alignment-sides`` frame (the merits side coder) has no reference
-    gate: its run is ``published`` when every row was coded and the codes file
-    written, ``incomplete`` otherwise, and it takes no agreement file.
+    A replicate run (``--replicate-file``, written by ``qp-topics
+    --replicate-out``) records as ``replicate`` with its item-level measurement
+    beside the gate figures; it publishes nothing by design, so it neither
+    clears nor sets the hold's refusal. The ``alignment-sides`` frame (the
+    merits side coder) has no reference gate: its run is ``published`` when
+    every row was coded and the codes file written, ``incomplete`` otherwise,
+    and it takes no agreement file.
 
     A model with no rate in ``MODEL_RATES`` is priced at the entry that prices
     these token counts dearest and named in ``priced_as``, so its spend is still
@@ -9082,8 +9252,18 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             "qp-topic-spend: --published needs a measurement that cleared the gate", err=True
         )
         raise typer.Exit(code=2)
-    outcome: Literal["published", "refused", "incomplete"]
-    if published:
+    replicate = _read_replicate_record(
+        replicate_file, published=published, side_coding=side_coding, agreement=agreement
+    )
+    outcome: QpTopicRunOutcome
+    if replicate is not None:
+        outcome = "replicate"
+    elif replicate_file is not None:
+        # A replicate that left no record was never measured as one. Whatever
+        # its agreement file says, it is not a refused labeling run, so it can
+        # never set the hold's refusal.
+        outcome = "incomplete"
+    elif published:
         outcome = "published"
     elif agreement is not None and not agreement.gate_passed:
         outcome = "refused"
@@ -9112,6 +9292,7 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
             cache_creation_input_tokens=counts.cache_creation_input_tokens,
             estimated_cost_usd=estimate_cost_usd(priced_as or model, counts),
             priced_as=priced_as,
+            replicate=replicate,
         )
     except ValueError as exc:
         typer.echo(f"qp-topic-spend: {exc}", err=True)
@@ -9126,6 +9307,36 @@ def qp_topic_spend_cmd(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to 
         f"qp-topic-spend: {frame} run {run_id} attempt {run_attempt} {outcome}, "
         f"{counts.total_tokens} tok ~${record.estimated_cost_usd:.2f} -> {destination}"
     )
+
+
+def _read_replicate_record(
+    path: Path | None,
+    *,
+    published: bool,
+    side_coding: bool,
+    agreement: QpTopicAgreement | None,
+) -> QpTopicReplicate | None:
+    """``qp-topic-spend --replicate-file``: the replicate's record, or ``None`` for a labeling run.
+
+    A missing file is an unmeasured replicate, which records as ``incomplete``.
+    """
+    if path is None or not path.is_file():
+        return None
+    if published or side_coding:
+        typer.echo(
+            "qp-topic-spend: a replicate publishes nothing and has a reference gate to "
+            "measure against, so it is neither --published nor a side-coding run",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    if agreement is None:
+        typer.echo("qp-topic-spend: a replicate record travels with its agreement file", err=True)
+        raise typer.Exit(code=2)
+    try:
+        return read_model(path, QpTopicReplicate)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"qp-topic-spend: cannot read {path}: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
 
 
 @app.command("qp-label-plan")
@@ -9190,6 +9401,129 @@ def qp_topic_pending_cmd(
     if reason is not None:
         typer.echo(f"qp-topic-pending: {reason}", err=True)
     typer.echo("false" if reason is None else "true")
+
+
+@app.command("qp-topic-replicates")
+def qp_topic_replicates_cmd(
+    *,
+    frame: Annotated[
+        Literal["petitions", "applications"],
+        typer.Option(help="The frame whose reference block the replicates labeled."),
+    ],
+    model: Annotated[
+        str,
+        typer.Option(
+            help="Pool this labeler model's replicate records alone (the labeling lane's "
+            "default model unless named)."
+        ),
+    ] = "claude-opus-5-5",
+    prompt_sha256: Annotated[
+        str | None,
+        typer.Option(
+            "--prompt-sha256",
+            help="Pool only replicates recorded under this labeling prompt digest; needed "
+            "when the records span more than one prompt.",
+        ),
+    ] = None,
+    labels: Annotated[
+        list[Path] | None,
+        typer.Option(
+            "--labels",
+            exists=True,
+            help="A labeling run's saved labels JSONL to pool beside the records, read on the "
+            "reference rows it holds (repeatable). Off the record: say where each came from.",
+        ),
+    ] = None,
+    out: Annotated[Path | None, typer.Option(help="Also write the spread as JSON here.")] = None,
+) -> None:
+    """Report how far one labeler's agreement moves between runs on the same reference rows.
+
+    Pools the frame's ``replicate`` run records under ``data/qp-topics/spend/``
+    (the reference-only replicate mode; ``docs/qp-topic.md``) for ``--model``,
+    measured against the reference file as committed now — a record measured
+    against another reference file is listed and left out, since its match
+    vector indexes other items or another standard. ``--labels`` adds a past
+    labeling run's saved labels, read on the reference rows it holds, so runs
+    made before the replicate mode existed can enter an exploratory pool; they
+    are not records, and a figure drawn from them says so.
+
+    Prints each run's rate and ``unclassifiable`` share, the run rates' spread,
+    the item-level term that spread would have were flipping items its only
+    source, the run-level component between them, the binomial error a fixed
+    floor assumes, the always/never/flipped item counts, Cochran's Q for a run
+    effect, and the per-kind split on the application block
+    (:mod:`fedcourtsai.pipeline.qp_replicates`), with the constant-labeler
+    floor and the run sd's interval beside them. Records under different
+    labeling prompts are refused as one pool; ``--prompt-sha256`` picks one.
+    Reads the committed records (and any ``--labels`` files named), spends
+    nothing, and chooses no gate.
+    """
+    settings = get_settings()
+    applications = frame == "applications"
+    reference_path = (
+        qp_topics.application_reference_path(settings.data_root)
+        if applications
+        else qp_topics.reference_path(settings.data_root)
+    )
+    if not reference_path.is_file():
+        typer.echo(f"qp-topic-replicates: no reference at {reference_path}", err=True)
+        raise typer.Exit(code=1)
+    reference_sha256 = hashlib.sha256(reference_path.read_bytes()).hexdigest()
+    rows: list[tuple[str, str, str]]
+    if applications:
+        block = read_model(reference_path, QpTopicApplicationReference)
+        rows = sorted((e.case_id, e.label, e.input_kind) for e in block.entries)
+    else:
+        petitions = read_model(reference_path, QpTopicReference)
+        rows = sorted((e.case_id, e.label, "") for e in petitions.entries)
+    kinds = tuple(kind for _, _, kind in rows) if applications else ()
+    try:
+        runs = iter_labeler_runs(settings.data_root)
+    except (OSError, ValueError) as exc:
+        typer.echo(f"qp-topic-replicates: cannot read the run records: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    pooled, skipped = qp_replicates.replicates_from_records(
+        runs,
+        frame=frame,
+        model=model,
+        reference_sha256=reference_sha256,
+        kinds=kinds,
+        prompt_sha256=prompt_sha256,
+    )
+    for run, why in skipped:
+        typer.echo(
+            f"qp-topic-replicates: left out run {run.run_id}-{run.run_attempt} ({why})",
+            err=True,
+        )
+    for path in labels or []:
+        try:
+            lines = qp_topics.read_label_lines(path)
+        except qp_topics.QpTopicError as exc:
+            typer.echo(f"qp-topic-replicates: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+        pooled.append(
+            qp_replicates.replicate_from_labels(
+                f"{path.name} (saved labels)", {e.case_id: e.label for e in lines}, rows
+            )
+        )
+    try:
+        result = qp_replicates.spread(pooled, [label for _, label, _ in rows])
+    except qp_replicates.ReplicateError as exc:
+        typer.echo(f"qp-topic-replicates: {exc} ({len(pooled)} pooled)", err=True)
+        raise typer.Exit(code=1) from exc
+    against = "the application reference block" if applications else "the v0 reference rater"
+    typer.echo(qp_replicates.render_spread(result, against=against))
+    typer.echo(f"  reference:       {reference_path.name} sha256 {reference_sha256[:12]}")
+    if out is not None:
+        write_raw_json(
+            out,
+            {
+                "frame": frame,
+                "model": model,
+                "reference_sha256": reference_sha256,
+                **result.as_json(),
+            },
+        )
 
 
 @app.command("corpus-status")
@@ -21272,6 +21606,10 @@ def pull_all(
             deadline=deadline,
             max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
             max_entry_pages=pull_cfg.max_entry_pages_per_case,
+            incremental=IncrementalEntries(
+                overlap_days=pull_cfg.entry_overlap_days,
+                full_read_every_days=pull_cfg.full_read_every_days,
+            ),
         )
     # Re-derive owed gradings from the ledger, on top of this poll's fresh
     # resolutions. `already_queued` keeps a case the poll just queued from being
@@ -21312,6 +21650,12 @@ def pull_all(
         )
         + "."
     )
+    if queues.entry_reads:
+        typer.echo(
+            "Entry reads: "
+            + ", ".join(f"{count} {kind}" for kind, count in sorted(queues.entry_reads.items()))
+            + "."
+        )
     for skipped in queues.predict_skipped_decided:
         typer.echo(
             "Skipped forward prediction for "

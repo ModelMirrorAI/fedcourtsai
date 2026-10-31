@@ -72,6 +72,7 @@ from .interim_signals import (
 )
 from .judgment import last_judgment_entry
 from .merits_signals import respondent_brief_date
+from .schedule_signals import argument_set_date, response_deadline
 
 CORPUS_SCHEMA_VERSION: Final = "1.0"
 
@@ -206,6 +207,25 @@ class CorpusRow(BaseModel):
         "(`pipeline.cert_signals.opening_writ`: certiorari, rule-20, ambiguous or "
         "other). Live cert branch only; None elsewhere — the storage fill-in latch "
         "keeps a stored reading when a writer carries none.",
+    )
+    argument_set_for: date | None = Field(
+        default=None,
+        description="The day the newest 'SET FOR ARGUMENT on …' entry names "
+        "(`pipeline.schedule_signals.argument_set_date`). Live cert branch only; None "
+        "elsewhere — the storage fill-in latch keeps a stored date when a writer "
+        "carries none.",
+    )
+    response_due: date | None = Field(
+        default=None,
+        description="The newest response deadline the proceedings state "
+        "(`pipeline.schedule_signals.response_deadline`). Live channel only; latched "
+        "as a pair with `response_due_state`.",
+    )
+    response_due_state: str | None = Field(
+        default=None,
+        description="Whether the response `response_due` names is still owed: `due`, "
+        "`filed` or `waived`. Live channel only; None = nothing read, which keeps the "
+        "stored pair.",
     )
     sg_brief_filed: date | None = Field(
         default=None,
@@ -635,6 +655,9 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         relisted_at=_date(record.get("relisted_at")),
         opening_writ=_clean(record.get("opening_writ")),
         distributed_after_call=_as_count(record.get("distributed_after_call")),
+        argument_set_for=_date(record.get("argument_set_for")),
+        response_due=_date(record.get("response_due")),
+        response_due_state=_clean(record.get("response_due_state")),
         originating_court_name=_clean(record.get("originating_court_name")),
         application_kind=_clean(record.get("application_kind")),
         interim_reading=_clean(record.get("interim_reading")),
@@ -998,6 +1021,26 @@ def interim_disposing_text(payload: Mapping[str, Any]) -> str | None:
     return found
 
 
+def first_proceeding_date(payload: Mapping[str, Any]) -> date | None:
+    """The earliest date on an application's proceedings, or ``None`` where none is dated.
+
+    Descriptive only, for a read-side cut whose row has no docketed date: the
+    first proceeding entry is the application's submission, so its date is the
+    filing date the docket header leaves empty. Nothing ingest stores reads it.
+    """
+    dates = [
+        date.fromisoformat(entry["date_filed"])
+        for entry in _live_entries(payload)
+        if entry.get("date_filed")
+    ]
+    return min(dates) if dates else None
+
+
+def application_entry_texts(payload: Mapping[str, Any]) -> list[str]:
+    """Every proceeding entry's text, in docket order — the input the ask readers take."""
+    return [str(entry.get("description") or "") for entry in _live_entries(payload)]
+
+
 def interim_reading(payload: Mapping[str, Any]) -> tuple[InterimReading | None, date | None]:
     """(finer reading, decided) for an application's supremecourt.gov payload.
 
@@ -1048,6 +1091,23 @@ def stored_application_kinds(payload: Mapping[str, Any]) -> tuple[str, str]:
     number = corpus.strip_docket_annotation(_clean(payload.get("CaseNumber")) or "")
     term = corpus.scotus_application_term_year(number)
     return application_kind_for_term(texts, term).value, application_kind_wide(texts).value
+
+
+def _live_schedule_fields(
+    payload: Mapping[str, Any], *, form: Literal["cert", "application"]
+) -> dict[str, str | None]:
+    """The dates the Court has set ahead, as record fields, for the published schedule.
+
+    An argument day on the cert branch only (an application is never argued),
+    and the response deadline with its state on either form.
+    """
+    argued_on = argument_set_date(payload) if form == "cert" else None
+    due, state = response_deadline(payload)
+    return {
+        "argument_set_for": argued_on.isoformat() if argued_on else None,
+        "response_due": due.isoformat() if due else None,
+        "response_due_state": state,
+    }
 
 
 def map_live_docket(
@@ -1215,6 +1275,7 @@ def map_live_docket(
         # The conferences first distributed for after a call for response,
         # counted under the reading `distribution_count` holds.
         "distributed_after_call": distributions_after_call(payload) if form == "cert" else None,
+        **_live_schedule_fields(payload, form=form),
         "originating_court_name": lower_court,
         "application_kind": ask,
         "application_kind_wide": ask_wide,
@@ -1503,6 +1564,9 @@ def to_corpus_row(
         relisted_at=row.relisted_at,
         opening_writ=row.opening_writ,
         distributed_after_call=row.distributed_after_call,
+        argument_set_for=row.argument_set_for,
+        response_due=row.response_due,
+        response_due_state=row.response_due_state,
         originating_court_name=row.originating_court_name,
         application_kind=row.application_kind,
         interim_reading=row.interim_reading,
