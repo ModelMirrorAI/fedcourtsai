@@ -1442,13 +1442,13 @@ def reread_applications_cmd(
         int | None,
         typer.Option(
             "--max-changes",
-            help="Blast-radius bound: refuse to apply more row writes (fills plus moves) "
-            "than this. Required with --apply.",
+            help="Blast-radius bound: refuse to apply more column writes (fills plus "
+            "moves, over both columns) than this. Required with --apply.",
         ),
         # No default: the dry run is where the number comes from.
     ] = None,
 ) -> None:
-    """Re-read stored resolved applications and fill the `interim_reading` column.
+    """Re-read stored resolved applications and fill `interim_reading` and `application_kind_wide`.
 
     The live application branch stores the finer interim reading
     (`pipeline.ingest.stored_interim_reading`) beside the registered
@@ -1460,13 +1460,18 @@ def reread_applications_cmd(
     overwritten and listed. The registered `disposition` is never read into or
     written. Corpus only: no committed outcome or prediction is opened.
 
-    The statpack's finer interim counts and the finer interim pool read the
-    column, and that pool refuses a rate over any Term with a resolved row left
-    unread, so the apply is what turns the pool on.
+    It fills `application_kind_wide`, the ask under the widened vocabulary
+    (`pipeline.ingest.stored_application_kinds`), the same way, and never
+    writes `application_kind`.
+
+    The statpack's finer and wide interim counts and the pools that read them
+    refuse a rate over any Term with a resolved row left unread, so the apply is
+    what turns those pools on.
 
     Prints the ledger — rows read, `unobservable`, `no_reading`, `unchanged`,
     `filled`, `moved`, the filled readings and every read row's `registered ->
-    finer` pair — then each move, then the `ApplicationRereadResult` as JSON.
+    finer` pair, then the same counts and `registered -> wide` pairs for the
+    widened ask — then each move, then the `ApplicationRereadResult` as JSON.
     **Read `unobservable` first**: against an index-only pull with no content
     store addressed every row lands there. One pass per invocation (the plan is
     the write set), the batch in one transaction. `--apply` requires an explicit
@@ -1523,8 +1528,15 @@ def reread_applications_cmd(
         f"filled readings: {result.filled_readings}; registered -> finer: "
         f"{result.finer_vs_registered}"
     )
+    typer.echo(
+        f"  widened ask: {result.kind_filled} NULL -> value, {result.kind_moved} value -> "
+        f"other value; {result.kind_unchanged} unchanged. registered -> wide: "
+        f"{result.wide_vs_registered}"
+    )
     for move in result.moves:
         typer.echo(f"  move {move.case_id} ({move.docket_number}): {move.was} -> {move.now}")
+    for move in result.kind_moves:
+        typer.echo(f"  move ask {move.case_id} ({move.docket_number}): {move.was} -> {move.now}")
     if not apply and max_changes is not None and result.total_changes > max_changes:
         typer.echo(
             f"note: {result.total_changes} total changes is above --max-changes {max_changes}; "

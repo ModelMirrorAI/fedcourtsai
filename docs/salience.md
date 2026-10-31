@@ -2165,6 +2165,37 @@ any interim cell has been scored, so none can be tuned to a result. The
 statpack merits section's disturbed rate pooled strictly-prior
 (`docs/decision-model.md`).
 
+**The interim window and the widened ask, from the OT2027 application Term.**
+Two rules change together at that Term, keyed on the application's own
+`YYAnnn` Term and registered in the `proc-v17` freeze-record entry, because
+each changes which rows the pool counts and the lookback knob's own rule
+forbids moving that part-way through a Term:
+- **The widened ask vocabulary** (`interim_signals.application_kind_wide`), a
+  superset of the registered one, reads the substantive wordings the
+  registered pattern leaves `unknown`: a stay asked without its article ("for
+  stay", "for a partial stay"), the recall and stay of a mandate, a writ of
+  injunction or an injunction pending appeal, the suspension of a denial's
+  effect, a temporary restraining order, interim relief, and a vacatur asked
+  as a verb. Bail and release asks, certificates of appealability, leave to
+  file and page-limit motions stay `unknown`. The corpus stores it beside the
+  registered kind (`application_kind_wide`, filled for history by the
+  `application-reread` pass); from OT2027 it is what `application_kind`
+  itself stores, so the reserve selects on it and every reader of the kind
+  follows. The statpack counts the widened slice per Term (`wide_resolved`,
+  `wide_granted`, their finer twins, `wide_finer_unread` and `wide_unread`).
+- **The interim window** (`base_rates.INTERIM_LOOKBACK_TERMS = 3`) replaces
+  the shared ten-Term lookback for an OT2027 or later cell: the three
+  application Terms strictly before its own, over the widened slice's counts,
+  under the same floor and refusing while a pooled Term holds a row the pass
+  has not read. A ten-Term pool reaching back to OT2016 carries the OT2020
+  and OT2021 spike in grants into a baseline for a docket that has since moved;
+  three Terms track the current docket and still clear the floor several times
+  over.
+
+An OT2026 cell keeps the ten-Term pool over the registered slice whatever its
+label, and an OT2026 application keeps the registered kind however late it is
+polled.
+
 **Pre-registered: the per-pool floor is 50 resolved.** The pack-level count
 above governs when the *stage* stops being descriptive-only; this governs
 whether any individual cell gets a baseline at all. `interim_base_rate` returns

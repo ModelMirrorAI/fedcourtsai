@@ -384,10 +384,22 @@ def test_a_cert_form_record_carries_no_finer_reading() -> None:
     assert record["interim_reading"] is None
 
 
-#: The names that carry the finer reading's **scored** binary and pool. A module
-#: that names one is a scorer or a count of the scored population, and each is
-#: gated on the scored prediction's label (`process_version.FINER_INTERIM_READING_FROM`).
-_FINER_SCORED_NAMES = frozenset({"interim_granted", "finer_granted", "finer_resolved"})
+#: The names that carry the finer reading's **scored** binary and pool, and the
+#: widened slice's pool counts. A module that names one is a scorer or a count of
+#: the scored population, and each is gated: the finer reading on the scored
+#: prediction's label (`process_version.FINER_INTERIM_READING_FROM`), the widened
+#: slice on the cell's application Term (`base_rates.INTERIM_WINDOW_FROM_TERM`).
+_FINER_SCORED_NAMES = frozenset(
+    {
+        "interim_granted",
+        "finer_granted",
+        "finer_resolved",
+        "wide_granted",
+        "wide_resolved",
+        "wide_finer_granted",
+        "wide_finer_resolved",
+    }
+)
 
 
 def _names_in(tree: ast.AST, names: frozenset[str]) -> set[str]:

@@ -357,9 +357,9 @@ PERSIST: Mapping[str, Persist] = {
         unchanged="The sal-v5 cert columns already filled; nothing to persist.",
     ),
     "application-reread": Persist(
-        message="repair: re-read the resolved applications' interim readings",
+        message="repair: re-read the resolved applications' interim readings and asks",
         label="application-reread pointer",
-        unchanged="Interim readings already filled; nothing to persist.",
+        unchanged="Interim readings and asks already filled; nothing to persist.",
     ),
 }
 

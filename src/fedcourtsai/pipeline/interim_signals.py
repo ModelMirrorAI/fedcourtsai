@@ -74,6 +74,64 @@ _SUBSTANTIVE_ASK_RE = re.compile(
 )
 
 
+# The widened ask vocabulary: every substantive wording the registered pattern
+# above misses, measured over the parsed Terms' `unknown` asks. A stay asked
+# without its article ("for stay", "for a partial stay", "for stays of
+# execution"), the recall-and-stay of a mandate, a writ of injunction or an
+# injunction pending appeal, the suspension of a denial's effect, a temporary
+# restraining order, interim relief, and a vacatur asked as a verb. Still
+# absent, and still `unknown`: bail and release asks, a certificate of
+# appealability, leave to file, and the page and word limit motions, none of
+# which asks the Court to suspend or undo a lower court's order.
+_SUBSTANTIVE_ASK_WIDE_RE = re.compile(
+    _SUBSTANTIVE_ASK_RE.pattern
+    + r"|\bfor\s+(?:an?\s+)?(?:(?:partial|emergency|administrative|temporary|immediate)\s+)*"
+    + r"stays?(?:or)?\b"
+    + r"|\bto\s+(?:recall\s+and\s+)?stay\b"
+    + r"|\bto\s+recall\s+(?:the\s+)?(?:mandate|remittitur)\b"
+    + r"|\bfor\s+(?:an?\s+)?recall\b"
+    + r"|\bfor\s+(?:an?\s+)?(?:(?:writ\s+of|emergency|temporary)\s+)*injunction"
+    + r"|^\s*(?:writ\s+of\s+)?injunction"
+    + r"|\binjunctive\s+relief\b"
+    + r"|\bfor\s+(?:an?\s+)?temporary\s+restraining\s+order\b"
+    + r"|\bfor\s+interim\s+relief\b"
+    + r"|\bto\s+suspend\s+the\s+effect\b"
+    + r"|\bvacate\b",
+    re.I,
+)
+
+#: The first application Term whose ``application_kind`` is the widened reading
+#: (:func:`application_kind_wide`), so the predicted interim population and the
+#: pool it is scored against are counted on one vocabulary from that Term on.
+#: Keyed on the docket's own ``YYAnnn`` Term, never a clock, so an OT2026
+#: application keeps the registered reading however late it is polled.
+WIDE_APPLICATION_KIND_FROM_TERM: Final = 2027
+
+
+def _read_ask(entry_texts: list[str], substantive: re.Pattern[str]) -> ApplicationKind:
+    for text in entry_texts:
+        match = _ASK_RE.search(text)
+        if match is None:
+            continue
+        ask = match.group("ask")
+        if _EXTENSION_ASK_RE.search(ask):
+            return ApplicationKind.extension
+        if substantive.search(ask):
+            return ApplicationKind.substantive
+    return ApplicationKind.unknown
+
+
+def application_kind_wide(entry_texts: list[str]) -> ApplicationKind:
+    """:func:`application_kind` under the widened ask vocabulary.
+
+    The same ask clause, the same first-ask rule and the same extension check,
+    with a substantive pattern that is a superset of the registered one, so a
+    row the registered reading calls ``substantive`` or ``extension`` reads the
+    same here and only an ``unknown`` can move.
+    """
+    return _read_ask(entry_texts, _SUBSTANTIVE_ASK_WIDE_RE)
+
+
 def application_kind(entry_texts: list[str]) -> ApplicationKind:
     """What the application asks for, read from the clause that states it.
 
@@ -86,16 +144,7 @@ def application_kind(entry_texts: list[str]) -> ApplicationKind:
     carries a second `Application (...)` reference is reciting a companion
     matter, not changing its own.
     """
-    for text in entry_texts:
-        match = _ASK_RE.search(text)
-        if match is None:
-            continue
-        ask = match.group("ask")
-        if _EXTENSION_ASK_RE.search(ask):
-            return ApplicationKind.extension
-        if _SUBSTANTIVE_ASK_RE.search(ask):
-            return ApplicationKind.substantive
-    return ApplicationKind.unknown
+    return _read_ask(entry_texts, _SUBSTANTIVE_ASK_RE)
 
 
 class ReferralPosture(StrEnum):

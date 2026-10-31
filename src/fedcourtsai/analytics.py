@@ -1476,6 +1476,12 @@ class _InterimAcc:
         "substantive_granted",
         "substantive_resolved",
         "unparsed",
+        "wide_finer_granted",
+        "wide_finer_resolved",
+        "wide_finer_unread",
+        "wide_granted",
+        "wide_resolved",
+        "wide_unread",
         "with_amicus",
     )
 
@@ -1490,6 +1496,12 @@ class _InterimAcc:
         self.finer_granted = 0
         self.finer_moot = 0
         self.finer_unread = 0
+        self.wide_resolved = 0
+        self.wide_granted = 0
+        self.wide_finer_resolved = 0
+        self.wide_finer_granted = 0
+        self.wide_finer_unread = 0
+        self.wide_unread = 0
         self.response_requested = 0
         self.referred_to_court = 0
         self.with_amicus = 0
@@ -1499,6 +1511,7 @@ class _InterimAcc:
         if row.application_kind is None:
             self.unparsed += 1
             return
+        self._add_wide(row)
         # The blob is external input to this pure function: a kind string
         # outside the vocabulary counts with the unreadable asks rather than
         # vanishing, so the kind split always sums to `applications`.
@@ -1530,6 +1543,35 @@ class _InterimAcc:
             self.referred_to_court += 1
         if row.amicus_briefs is not None and row.amicus_briefs > 0:
             self.with_amicus += 1
+
+    def _add_wide(self, row: CorpusRow) -> None:
+        """Count one application-parsed row under the widened ask vocabulary.
+
+        Beside the registered kind tally and never in place of it: the widened
+        slice is the stored ``application_kind_wide`` column, counted on the same
+        machine-readable resolution rule, and a resolved row with no stored
+        widened ask is counted ``wide_unread`` rather than guessed onto a side.
+        """
+        if row.disposition is None:
+            return
+        disposition = Disposition(row.disposition)
+        if not is_machine_readable(disposition):
+            return
+        if row.application_kind_wide not in _APPLICATION_KINDS:
+            self.wide_unread += 1
+            return
+        if row.application_kind_wide != ApplicationKind.substantive.value:
+            return
+        self.wide_resolved += 1
+        self.wide_granted += granted_flag(disposition)
+        if row.interim_reading == InterimReading.dismissed_moot.value:
+            return
+        scored = interim_reading_granted(row.interim_reading)
+        if scored is None:
+            self.wide_finer_unread += 1
+            return
+        self.wide_finer_resolved += 1
+        self.wide_finer_granted += scored
 
     def _add_finer(self, reading: str | None) -> None:
         """Count one resolved substantive row under the finer interim reading.
@@ -1565,6 +1607,12 @@ class _InterimAcc:
         self.finer_granted += other.finer_granted
         self.finer_moot += other.finer_moot
         self.finer_unread += other.finer_unread
+        self.wide_resolved += other.wide_resolved
+        self.wide_granted += other.wide_granted
+        self.wide_finer_resolved += other.wide_finer_resolved
+        self.wide_finer_granted += other.wide_finer_granted
+        self.wide_finer_unread += other.wide_finer_unread
+        self.wide_unread += other.wide_unread
         self.response_requested += other.response_requested
         self.referred_to_court += other.referred_to_court
         self.with_amicus += other.with_amicus
@@ -1598,6 +1646,12 @@ def _interim_counts(acc: _InterimAcc) -> dict[str, Any]:
         "finer_granted": acc.finer_granted,
         "finer_moot": acc.finer_moot,
         "finer_unread": acc.finer_unread,
+        "wide_resolved": acc.wide_resolved,
+        "wide_granted": acc.wide_granted,
+        "wide_finer_resolved": acc.wide_finer_resolved,
+        "wide_finer_granted": acc.wide_finer_granted,
+        "wide_finer_unread": acc.wide_finer_unread,
+        "wide_unread": acc.wide_unread,
     }
 
 

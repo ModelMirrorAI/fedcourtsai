@@ -1532,8 +1532,9 @@ call differently from the stored `call_for_response_at` is reported as
 swept for the same reason: every poll writes the three columns on the row it
 reads, so the class does not regrow once the history is filled.
 
-`application-reread` is corpus-only as well: it fills the `interim_reading`
-column, the finer interim reading the live application branch stores beside the
+`application-reread` is corpus-only as well: it fills the `application_kind_wide`
+column (the ask under the widened vocabulary the OT2027 interim pool counts on)
+and the `interim_reading` column, the finer interim reading the live application branch stores beside the
 registered `disposition` (`fedcourts reread-applications`), on the resolved
 application rows the live rotation no longer polls. Each row is re-read from its
 newest live-shaped snapshot with the function ingest calls; a NULL is filled,

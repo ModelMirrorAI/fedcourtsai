@@ -1476,13 +1476,15 @@ jobs:
 
       # Re-read the resolved interim applications and fill `interim_reading`,
       # the finer interim reading the live application branch stores beside the
-      # registered `disposition` at ingest. The live rotation skips a resolved
-      # application, so resolved history stays NULL until this runs, and the
-      # statpack's finer pool refuses a rate over any Term left unread. Each
+      # registered `disposition` at ingest, and `application_kind_wide`, the ask
+      # under the widened vocabulary beside `application_kind`. The live
+      # rotation skips a resolved application, so resolved history stays NULL
+      # until this runs, and the statpack pools that read either column refuse a
+      # rate over any Term left unread. Each
       # row is re-read from its latest live-shaped snapshot by the function
       # ingest calls; a NULL is filled, and a stored value that differs is
-      # overwritten and listed in the ledger. The registered `disposition` is
-      # never read into or written.
+      # overwritten and listed in the ledger. The registered `disposition` and
+      # `application_kind` are never written.
       #
       # Corpus-only: `outcome.json` is written once, at resolution, so no
       # committed artifact moves; a pointer-only commit, and no fetch/ff-only

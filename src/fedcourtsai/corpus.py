@@ -519,6 +519,18 @@ class CorpusRow(BaseModel):
         "reached). The upsert fills it in, so a writer that carries no reading "
         "keeps the stored one.",
     )
+    application_kind_wide: str | None = Field(
+        default=None,
+        description="The application's ask under the widened ask vocabulary "
+        "(`pipeline.interim_signals.application_kind_wide`: `extension` | "
+        "`substantive` | `unknown`), stored beside `application_kind`. From "
+        "the OT2027 application Term the two agree by construction, the widened "
+        "reading being what `application_kind` stores there; before it, this "
+        "column is what the OT2027 interim pool counts prior Terms on. Written "
+        "by the live channel's application branch and filled for stored rows by "
+        "the `reread-applications` pass. None means it was never read; the "
+        "upsert latches it as it does `application_kind`.",
+    )
     response_requested: bool | None = Field(
         default=None,
         description="Whether the Court (or a Circuit Justice) requested a "
@@ -1014,6 +1026,8 @@ CREATE TABLE IF NOT EXISTS cases (
     -- The finer interim reading beside the registered `disposition` (see
     -- CorpusRow and pipeline/interim_signals.py), written by the same branch.
     interim_reading     TEXT,
+    -- The ask under the widened vocabulary, beside `application_kind`.
+    application_kind_wide TEXT,
     response_requested  INTEGER,
     referred_to_court   INTEGER,
     amicus_briefs       INTEGER,
@@ -1273,6 +1287,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "evaluate_queued_at": "TEXT",
     "application_kind": "TEXT",
     "interim_reading": "TEXT",
+    "application_kind_wide": "TEXT",
     "response_requested": "INTEGER",
     "referred_to_court": "INTEGER",
     "amicus_briefs": "INTEGER",
@@ -2108,6 +2123,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
         ),
         "application_kind": row.application_kind,
         "interim_reading": row.interim_reading,
+        "application_kind_wide": row.application_kind_wide,
         "response_requested": (
             int(row.response_requested) if row.response_requested is not None else None
         ),
@@ -2246,6 +2262,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         evaluate_queued_at=_optional_date(record, "evaluate_queued_at"),
         application_kind=_optional_str(record, "application_kind"),
         interim_reading=_optional_str(record, "interim_reading"),
+        application_kind_wide=_optional_str(record, "application_kind_wide"),
         response_requested=_optional_bool(record, "response_requested"),
         referred_to_court=_optional_bool(record, "referred_to_court"),
         amicus_briefs=_optional_int(record, "amicus_briefs"),
@@ -2412,7 +2429,7 @@ def _update_clause(column: str) -> str:
             f"COALESCE(excluded.{column}, cases.{column}), "
             f"COALESCE(cases.{column}, excluded.{column}))"
         )
-    if column == "application_kind":
+    if column in ("application_kind", "application_kind_wide"):
         # The TEXT twin of the max-latch above: a degraded application parse
         # (proceedings missing) reads a confident 'unknown' — not NULL — so a
         # plain fill-in would let it wipe a real reading. 'unknown' only ever
@@ -4122,6 +4139,24 @@ def set_interim_readings(conn: sqlite3.Connection, readings: Iterable[tuple[str,
             cursor = conn.execute(
                 "UPDATE cases SET interim_reading = ? WHERE case_id = ?",
                 (reading, case_id),
+            )
+            written += cursor.rowcount
+    return written
+
+
+def set_application_kinds_wide(conn: sqlite3.Connection, kinds: Iterable[tuple[str, str]]) -> int:
+    """Write re-read ``application_kind_wide`` values onto stored application rows.
+
+    :func:`set_interim_readings`'s twin for the widened ask, under the same
+    contract: a direct ``UPDATE`` of the one column, overwriting a stored value
+    the dry-run ledger lists, in one transaction, returning the rows touched.
+    """
+    written = 0
+    with conn:
+        for case_id, kind in kinds:
+            cursor = conn.execute(
+                "UPDATE cases SET application_kind_wide = ? WHERE case_id = ?",
+                (kind, case_id),
             )
             written += cursor.rowcount
     return written

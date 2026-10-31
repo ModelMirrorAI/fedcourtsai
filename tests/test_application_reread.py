@@ -53,6 +53,9 @@ _DENIED = _payload("25A12", ("Feb 03 2026", "Application ({number}) denied by Ju
 _PENDING = _payload("25A13")
 
 
+_SAME = object()
+
+
 def _row(
     case_id: str,
     docket: str,
@@ -60,6 +63,7 @@ def _row(
     disposition: str | None,
     stored: str | None = None,
     kind: str | None = "substantive",
+    wide: str | object | None = _SAME,
     live: bool = True,
 ) -> corpus.CorpusRow:
     return corpus.CorpusRow(
@@ -70,6 +74,7 @@ def _row(
         disposition=disposition,
         last_live_polled=date(2026, 8, 1) if live else None,
         application_kind=kind,
+        application_kind_wide=kind if wide is _SAME else str(wide) if wide else None,
         interim_reading=stored,
     )
 
@@ -249,3 +254,59 @@ def test_the_command_prints_the_ledger_and_refuses_an_unbounded_apply(
     refused = CliRunner().invoke(app, ["reread-applications", "--apply", "--max-changes", "1"])
     assert refused.exit_code == 1
     assert "refusing to apply 2 change(s)" in refused.stderr
+
+
+def test_the_pass_fills_the_widened_ask_beside_the_registered_one(tmp_path: Path) -> None:
+    """A registered `unknown` whose ask the widened vocabulary reads is filled `substantive`.
+
+    `application_kind` is never written; the ledger pairs the two.
+    """
+    partial = _payload("24A885", ("Feb 01 2026", "Application ({number}) granted."))
+    partial["ProceedingsandOrder"][0]["Text"] = (  # type: ignore[index]
+        "Application (24A885) for a partial stay, submitted to The Chief Justice."
+    )
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row(
+                    "scotus/50",
+                    "24A885",
+                    disposition="granted",
+                    stored="granted",
+                    kind="unknown",
+                    wide=None,
+                )
+            ],
+        )
+        corpus.upsert_snapshot(conn, "scotus/50", date(2026, 2, 5), partial)
+        result = reread_applications(conn, apply=True, max_changes=1)
+        assert (result.kind_filled, result.kind_moved, result.total_changes) == (1, 0, 1)
+        assert result.wide_vs_registered == {"unknown -> substantive": 1}
+        row = corpus.get_row(conn, "scotus/50")
+        assert row is not None
+        assert (row.application_kind, row.application_kind_wide) == ("unknown", "substantive")
+        assert reread_applications(conn, apply=False).total_changes == 0
+
+
+@pytest.mark.parametrize(
+    ("number", "registered"),
+    [("26A40", "unknown"), ("27A40", "substantive")],
+)
+def test_ingest_stores_the_widened_ask_as_the_kind_from_its_term(
+    number: str, registered: str
+) -> None:
+    """From the OT2027 application Term `application_kind` is the widened reading."""
+    payload = {
+        "CaseNumber": f"{number} ",
+        "ProceedingsandOrder": [
+            {
+                "Date": "Jan 09 2028",
+                "Text": f"Application ({number}) for writ of injunction, submitted to "
+                "Justice Kagan.",
+                "Links": [],
+            }
+        ],
+    }
+    row = to_corpus_row(from_live_record(map_live_docket(payload, 40, form="application")))
+    assert (row.application_kind, row.application_kind_wide) == (registered, "substantive")

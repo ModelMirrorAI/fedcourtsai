@@ -610,8 +610,15 @@ of the requested relief**:
   (partial grants counted as granted, moot dismissals out of both),
   unweighted raw counts because the application stream carries no denial
   sampling. The `substantive_granted` / `substantive_resolved` columns beside
-  them are the older registered reading; do not anchor on them. The rate
-  exists only where that pooled sample reaches the pre-registered per-pool
+  them are the older registered reading; do not anchor on them. **From the
+  OT2027 application Term** (an application numbered `27Annn` or later) the
+  pool is narrower and wider at once: the **three** application-Terms before
+  yours (`application_term - 3 <= T < application_term`), over the widened
+  slice's `wide_finer_granted` / `wide_finer_resolved` counts — the widened ask
+  vocabulary, which reads a stay, an injunction or a recall of the mandate
+  however the application words it, and is what put your application in scope
+  — with `wide_unread` and `wide_finer_unread` zero in every pooled Term. The
+  rate exists only where that pooled sample reaches the pre-registered per-pool
   floor of **50** resolved substantive applications, moot dismissals already
   out, and where every pooled Term carries the finer counts with
   `finer_unread` zero (`INTERIM_BASE_RATE_MIN_RESOLVED`;

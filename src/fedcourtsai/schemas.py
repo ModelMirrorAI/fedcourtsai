@@ -10506,6 +10506,53 @@ class _StatPackInterimCounts(_Strict):
         "over this Term refuses a rate rather than count a partial Term. Absent "
         "with `finer_resolved`",
     )
+    wide_resolved: int | None = Field(
+        default=None,
+        ge=0,
+        description="The resolved applications the **widened** ask vocabulary "
+        "reads `substantive` (the corpus `application_kind_wide` column, "
+        "`interim_signals.application_kind_wide`), under the registered reading's "
+        "machine-readable rule — `substantive_resolved` plus the asks only the "
+        "widened vocabulary reads. The registered denominator of the interim pool "
+        "from `interim_signals.WIDE_APPLICATION_KIND_FROM_TERM`. Absent from a pack "
+        "built before the column was stored",
+    )
+    wide_granted: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `wide_resolved`, the applications the registered reading "
+        "grants. Absent with `wide_resolved`",
+    )
+    wide_finer_resolved: int | None = Field(
+        default=None,
+        ge=0,
+        description="`finer_resolved` over the widened slice: the widened slice's "
+        "resolved applications less its moot dismissals and its rows with no stored "
+        "finer reading (`wide_finer_unread`). The denominator of the interim pool "
+        "from `interim_signals.WIDE_APPLICATION_KIND_FROM_TERM` for a cell scored on "
+        "the finer reading. Absent with `wide_resolved`",
+    )
+    wide_finer_granted: int | None = Field(
+        default=None,
+        ge=0,
+        description="Of `wide_finer_resolved`, the applications the finer reading "
+        "grants in whole or in part. Absent with `wide_resolved`",
+    )
+    wide_finer_unread: int | None = Field(
+        default=None,
+        ge=0,
+        description="The widened slice's resolved applications with no stored "
+        "finer reading — `finer_unread` over the widened slice. Absent with "
+        "`wide_resolved`",
+    )
+    wide_unread: int | None = Field(
+        default=None,
+        ge=0,
+        description="Resolved, application-parsed rows with no stored widened ask "
+        "(a NULL or out-of-vocabulary `application_kind_wide`). Non-zero means the "
+        "`reread-applications` pass has not reached them, and a pool over this Term "
+        "that reads the widened slice refuses a rate. Absent with `wide_resolved`",
+    )
 
     @model_serializer(mode="wrap")
     def _omit_unset_duplicate_rows(self, handler: SerializerFunctionWrapHandler) -> Any:
@@ -10518,6 +10565,12 @@ class _StatPackInterimCounts(_Strict):
                 "finer_granted",
                 "finer_moot",
                 "finer_unread",
+                "wide_resolved",
+                "wide_granted",
+                "wide_finer_resolved",
+                "wide_finer_granted",
+                "wide_finer_unread",
+                "wide_unread",
             ):
                 if getattr(self, name) is None:
                     payload.pop(name, None)

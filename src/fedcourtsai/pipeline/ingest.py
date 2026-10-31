@@ -59,9 +59,11 @@ from .cert_signals import (
 )
 from .decision_record import DecisionRecord, read_decision_record
 from .interim_signals import (
+    WIDE_APPLICATION_KIND_FROM_TERM,
     InterimReading,
     application_arrival_date,
     application_kind,
+    application_kind_wide,
     escalation_signals,
     interim_disposition_date,
     match_interim_disposition,
@@ -225,6 +227,12 @@ class CorpusRow(BaseModel):
         "| `substantive` | `unknown`), from its own ask clause. Live application "
         "branch only; None elsewhere (never application-parsed) — the storage "
         "latch keeps a real reading over a degraded parse's `unknown`.",
+    )
+    application_kind_wide: str | None = Field(
+        default=None,
+        description="The application's ask under the widened ask vocabulary "
+        "(`interim_signals.application_kind_wide`), beside `application_kind`. "
+        "Live application branch only; None elsewhere.",
     )
     interim_reading: str | None = Field(
         default=None,
@@ -631,6 +639,7 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         originating_court_name=_clean(record.get("originating_court_name")),
         application_kind=_clean(record.get("application_kind")),
         interim_reading=_clean(record.get("interim_reading")),
+        application_kind_wide=_clean(record.get("application_kind_wide")),
         application_filed_at=_date(record.get("application_filed_at")),
         response_requested=_as_flag(record.get("response_requested")),
         referred_to_court=_as_flag(record.get("referred_to_court")),
@@ -1021,6 +1030,30 @@ def stored_interim_reading(payload: Mapping[str, Any]) -> str | None:
     return reading.value if reading is not None else None
 
 
+def stored_application_kinds(payload: Mapping[str, Any]) -> tuple[str, str]:
+    """The ``(application_kind, application_kind_wide)`` column values for an application.
+
+    The one function both writers call — :func:`map_live_docket` at ingest and
+    the ``reread-applications`` pass over stored snapshots. ``application_kind``
+    is the registered reading
+    (:func:`~fedcourtsai.pipeline.interim_signals.application_kind`) for an
+    application docketed before
+    :data:`~fedcourtsai.pipeline.interim_signals.WIDE_APPLICATION_KIND_FROM_TERM`
+    and the widened one from that Term on; ``application_kind_wide`` is always
+    the widened one. Keyed on the docket's own ``YYAnnn`` Term, so the latched
+    predict scope (:func:`fedcourtsai.corpus.is_out_of_predict_scope`) and every
+    other ``application_kind`` reader follow the widened vocabulary from that
+    Term without a reader of their own.
+    """
+    texts = [str(entry.get("description") or "") for entry in _live_entries(payload)]
+    wide = application_kind_wide(texts).value
+    number = corpus.strip_docket_annotation(_clean(payload.get("CaseNumber")) or "")
+    term = corpus.scotus_application_term_year(number)
+    if term is not None and term >= WIDE_APPLICATION_KIND_FROM_TERM:
+        return wide, wide
+    return application_kind(texts).value, wide
+
+
 def map_live_docket(
     payload: Mapping[str, Any],
     docket_id: int,
@@ -1055,6 +1088,7 @@ def map_live_docket(
     call_for_response: date | None = None
     relisted: date | None = None
     ask: str | None = None
+    ask_wide: str | None = None
     requested: bool | None = None
     referred: bool | None = None
     amici: int | None = None
@@ -1081,8 +1115,7 @@ def map_live_docket(
         # here because under the corpus split that text lives only in the
         # content store — a column is the one place a cohort can be assembled
         # from. Cert-form dockets leave all four None (never application-parsed).
-        texts = [str(entry.get("description") or "") for entry in entries]
-        ask = application_kind(texts).value
+        ask, ask_wide = stored_application_kinds(payload)
         # The three dated interim moments, read from the same entries the ladder
         # flags come from. Dates rather than flags because these open events.
         # The arrival is read here rather than left to the docketing date
@@ -1188,6 +1221,7 @@ def map_live_docket(
         "distributed_after_call": distributions_after_call(payload) if form == "cert" else None,
         "originating_court_name": lower_court,
         "application_kind": ask,
+        "application_kind_wide": ask_wide,
         # The finer reading beside the registered label, on the same
         # last-disposing-entry rule and never in its place: the registered
         # label stays what every cell stamped before the finer reading's label
@@ -1476,6 +1510,7 @@ def to_corpus_row(
         originating_court_name=row.originating_court_name,
         application_kind=row.application_kind,
         interim_reading=row.interim_reading,
+        application_kind_wide=row.application_kind_wide,
         response_requested=row.response_requested,
         response_requested_at=row.response_requested_at,
         response_filed_at=row.response_filed_at,

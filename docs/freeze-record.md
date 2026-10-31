@@ -15726,9 +15726,12 @@ freeze commit is recorded here.
     print({'decision-below-documents', 'context-band-refused'} <= n)"` prints
     `True` once the promotion record has stamped the rows.
 
-- **`proc-v17`, the interim reading: an interim cell stamped under `proc-v17`
-  or later is scored on the finer interim reading, where partial relief is a
-  grant and a moot dismissal leaves the scored set; recorded 2026-10-31.**
+- **`proc-v17`, the interim reading and the interim window: an interim cell
+  stamped under `proc-v17` or later is scored on the finer interim reading,
+  where partial relief is a grant and a moot dismissal leaves the scored set;
+  and from the OT2027 application Term the interim pool is a three-Term window
+  over a widened ask vocabulary, which also selects that Term's applications;
+  recorded 2026-10-31.**
   Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
   commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`), to be tagged
   **`prereg/proc-v17`**. Registered under the merge-stamped rule, so its
@@ -15872,6 +15875,63 @@ freeze commit is recorded here.
     `scotus/9526000477`. They keep `denied` and every prediction under them
     predates this label, so none is scored on the finer reading.
 
+  **The interim window and the widened ask, from the OT2027 application
+  Term.** Decided by the maintainer on 2026-10-30, before any OT2027
+  application exists, and keyed on the application's own `YYAnnn` Term rather
+  than the label, because each changes which rows the pool counts and the
+  lookback rule forbids that part-way through a Term:
+  - *The widened ask vocabulary*
+    (`pipeline.interim_signals.application_kind_wide`): the registered
+    substantive pattern plus a stay asked without its article or with a
+    qualifier ("for stay", "for a partial stay", "for stays of execution",
+    "for stay of removal"), "to stay", "to recall and stay", "to recall the
+    mandate" or remittitur, "for a recall", an injunction asked as "for
+    injunction", "for writ of injunction" or bare "Injunction", "injunctive
+    relief", "for temporary restraining order", "for interim relief", "to
+    suspend the effect", and "vacate". Bail and release asks stay `unknown`,
+    as do a certificate of appealability, leave to file, page and word limit
+    motions and "to issue the judgment forthwith": none asks the Court to
+    suspend or undo a lower court's order. The extension check still runs
+    first, so the widened reading is a superset that moves only `unknown`
+    asks. It is stored in `application_kind_wide` beside `application_kind`
+    (filled for history by the same `application-reread` pass), and for an
+    application numbered in OT2027 or later
+    (`interim_signals.WIDE_APPLICATION_KIND_FROM_TERM = 2027`)
+    `application_kind` itself stores it, so the reserve's scope, the party
+    rates and every other reader of the kind follow it from that Term.
+  - *The interim window* (`pipeline.base_rates.INTERIM_LOOKBACK_TERMS = 3`,
+    `INTERIM_WINDOW_FROM_TERM = 2027`): an interim cell on an OT2027 or later
+    application is scored against the three application Terms strictly before
+    its own, whatever `salience.base_rate_lookback_terms` says, over the
+    statpack's widened counts (`wide_granted` / `wide_resolved`, or
+    `wide_finer_granted` / `wide_finer_resolved` on the finer reading). It
+    keeps the floor of 50 and refuses while any pooled Term predates the
+    widened counts or holds a resolved row with no stored widened ask
+    (`wide_unread`) or, on the finer reading, no stored finer reading
+    (`wide_finer_unread`).
+  - *Why three Terms.* The ten-Term pool for an OT2027 cell reaches back to
+    OT2016 and carries the OT2020 and OT2021 grant spike (18.8% and 25.0% on
+    the registered counts) into a docket that has since moved; the three Terms
+    before OT2027 resolve several times the floor. A break-point rule was
+    considered and not taken: it needs a date chosen with the per-Term rates in
+    view, while a fixed width moves with the docket.
+  - *Not changed.* An OT2026 cell keeps the ten-Term pool over the registered
+    slice, and an OT2026 application keeps the registered kind however late it
+    is polled.
+
+  Measured over the same blob as above, after a local apply of the widened
+  ask to the scratch copy: the re-read reads 180 resolved `unknown` asks as
+  `substantive` and leaves 350 `unknown`, with no `extension` or
+  `substantive` row moving. Per Term, the widened slice's registered granted
+  over resolved (then finer) is OT2016 9/120 (9/120), OT2017 12/132 (13/132),
+  OT2018 13/123 (15/123), OT2019 13/132 (14/132), OT2020 26/141 (28/141),
+  OT2021 31/130 (18/117), OT2022 10/127 (10/127), OT2023 18/145 (17/142),
+  OT2024 22/226 (24/221), OT2025 17/253 (19/245) and OT2026 10/114 (10/112),
+  with `wide_unread` and `wide_finer_unread` 0 in every Term. An OT2027 cell's
+  pool is **49/593 = 8.26%** registered and **53/578 = 9.17%** finer, against
+  43/519 and 47/504 for three Terms of the registered slice and 161/1358 and
+  157/1327 for ten. The OT2026 pools above do not move.
+
   **Order of operations.**
   - The change merges to `staging` only after the `proc-v16` promotion
     branch is cut, and registers this label pending.
@@ -15899,12 +15959,19 @@ freeze commit is recorded here.
     CURRENT_PROCESS_LABEL as L, FINER_INTERIM_READING_FROM as F; print(L,
     F)"` prints `proc-v17 proc-v17`;
   - `gh workflow run run-repair.yml --ref main -f repair=application-reread
-    -f repair_mode=dry-run` reports 0 unobservable and about 11,800 fills.
-    After the apply, the same dry run reports `total_changes = 0`;
+    -f repair_mode=dry-run` reports 0 unobservable and about 11,800 fills of
+    each column, so about 23,600 `total_changes`. After the apply, the same
+    dry run reports `total_changes = 0`;
   - after the next `metrics-refresh`, `jq '[.interim.terms[] | {term,
-    finer_granted, finer_resolved, finer_moot, finer_unread}]'
-    metrics/statpack.json` shows `finer_unread` 0 in every Term and OT2021's
+    finer_granted, finer_resolved, finer_moot, finer_unread, wide_resolved,
+    wide_unread, wide_finer_unread}]' metrics/statpack.json` shows
+    `finer_unread`, `wide_unread` and `wide_finer_unread` 0 in every Term,
+    `wide_resolved` at or above `substantive_resolved` in each, and OT2021's
     `finer_moot` at 13 or more;
+  - `uv run python -c "from fedcourtsai.pipeline.base_rates import
+    INTERIM_LOOKBACK_TERMS as N, INTERIM_WINDOW_FROM_TERM as T; print(T, N)"`
+    prints `2027 3`, and on the first poll of a `27Annn` application its
+    corpus row's `application_kind` equals its `application_kind_wide`;
   - on the first interim evaluate collect PR after a `proc-v17` interim cell
     resolves, its `outcome.json` carries `interim_reading` and the stamped
     `segment_base_rate` equals the finer pool.

@@ -1773,7 +1773,7 @@ passes, commits from the same record.
 | `amicus-rederive` | `rederive-amicus-briefs` | `--max-changes` | — | — |
 | `cert-amicus-rederive` | `rederive-cert-amicus-briefs` | `--max-changes` (rows written: the dry run's `total_changes`, fills plus raises) | — | — |
 | `salience-cert-backfill` | `backfill-salience-cert-columns` | `--max-fills` (column fills across the three columns: the dry run's `total_fills`, not rows) | — | — |
-| `application-reread` | `reread-applications` | `--max-changes` (rows written: the dry run's `total_changes`, fills plus moves) | — | — |
+| `application-reread` | `reread-applications` | `--max-changes` (column values written: the dry run's `total_changes`, fills plus moves over both columns) | — | — |
 | `regrade-stale` | `stamp-cell --regrade` | — | cell list, **required in both modes** | — |
 | `opinion-votes` | `stamp-opinion-votes` (split: `--emit-corpus-projection`, `--projection --plan-out`, `--from-plan`) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
 | `order-votes` | `stamp-order-votes` (split, as above) | `--max-stamps` (outcomes stamped, new records and replacements together) | — | `replace-differing` |
