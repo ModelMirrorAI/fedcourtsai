@@ -7,20 +7,26 @@ from pathlib import Path
 import pytest
 from typer.testing import CliRunner
 
+from fedcourtsai import corpus
 from fedcourtsai.cli import app
 from fedcourtsai.corpus import CorpusRow
 from fedcourtsai.pipeline.alignment_side import (
+    CLEAN_LAG_DAYS,
     AlignmentSideError,
     FrameCase,
     build_extract,
     codes_path,
     extract_payload,
     frame_rows,
+    is_clean,
     modes_payload,
     publish,
     read_code_lines,
+    read_extract,
 )
 from fedcourtsai.schemas import AlignmentCodeMode, AlignmentSideCode, AlignmentSideCodes
+
+from .test_documents import _stored_qp
 
 runner = CliRunner()
 
@@ -146,6 +152,10 @@ def test_publish_stamps_the_harness_fields() -> None:
         ([_line("scotus/51"), _line("scotus/52", mode="forward")], "does not write"),
         ([_line("scotus/51"), _line("scotus/52", score=1.5)], "line 2"),
         ([_line("scotus/51"), _line("scotus/52", conservative_side="both")], "line 2"),
+        ([_line("scotus/51"), _line("scotus/52", score=True)], "not a number"),
+        ([_line("scotus/51"), _line("scotus/52", score="0.7")], "not a number"),
+        ([_line("scotus/51"), _line("scotus/52", note=["a"])], "not a string"),
+        ([_line("scotus/51"), _line("scotus/52", note="x" * 401)], "line 2"),
     ],
 )
 def test_publish_refuses_a_run_that_does_not_cover_the_extract_cleanly(
@@ -256,3 +266,50 @@ def test_the_extract_command_refuses_the_checkout(
         ],
     )
     assert outside.exit_code == 1  # no corpus
+
+
+def test_an_extract_naming_a_case_twice_is_refused() -> None:
+    rows, modes = _extract("scotus/55")
+    with pytest.raises(AlignmentSideError, match="twice"):
+        publish(None, rows * 2, modes, [_line("scotus/55")], **STAMP)  # type: ignore[arg-type]
+
+
+def test_a_clean_code_is_forward_and_made_soon_after_its_grant() -> None:
+    rows, modes = _extract("scotus/56")
+    soon = {**STAMP, "coded_at": date(2025, 1, 10 + CLEAN_LAG_DAYS - 9)}
+    (code,) = publish(None, rows, modes, [_line("scotus/56")], **soon).entries  # type: ignore[arg-type]
+    assert is_clean(code)
+    late = code.model_copy(update={"coded_at": date(2025, 6, 1)})
+    assert not is_clean(late)
+    replay = code.model_copy(update={"mode": "replay", "contamination_risk": True})
+    assert not is_clean(replay)
+
+
+def test_the_extract_reads_the_corpus(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path)
+    live = date(2026, 6, 2)
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(
+            conn,
+            [
+                _row("scotus/01", date(2025, 1, 10), last_live_polled=live),
+                _row(
+                    "scotus/02",
+                    date(2024, 1, 10),
+                    last_live_polled=live,
+                    merits_judgment="affirmed",
+                    merits_decided=date(2024, 6, 1),
+                ),
+                _row("scotus/03", date(2025, 1, 10), last_live_polled=live),  # no text
+                _row("scotus/04", date(2025, 1, 10)),  # off the live slice
+            ],
+        )
+        corpus.upsert_documents(
+            conn,
+            [_stored_qp(f"scotus/0{n}", f"Whether {n}?") for n in (1, 2, 4)],
+        )
+        extract = read_extract(conn, coded=[])
+    assert [r.case_id for r in extract.rows] == ["scotus/01", "scotus/02"]
+    assert extract.rows[1].questions_presented == "Whether 2?"
+    assert modes_payload(extract) == {"scotus/01": "forward", "scotus/02": "replay"}
+    assert (extract.frame, extract.no_text) == (3, 1)

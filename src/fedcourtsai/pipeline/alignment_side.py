@@ -13,13 +13,19 @@ be. This module is everything around that agent turn that needs no model:
   read, since a case is decided in the Term it is granted in or the next.
 - **The extract** (:func:`build_extract`): for each frame case not yet coded,
   the text it stood on at grant — the caption, the petitioner as captioned, the
-  court below, the grant date and the stored questions presented — and nothing
-  that postdates the grant. A case with no stored questions presented has
+  court below, the grant date and the stored questions presented — and no
+  outcome. The caption and petitioner are the corpus's as of its latest pull,
+  so a party substituted after the grant shows under its new name: a timing
+  difference, not an outcome. A case with no stored questions presented has
   nothing to code from and is counted, not guessed at. Each row's **mode** is
   decided here and kept off the coder's input, in a sidecar: ``replay`` if the
   case carried a merits judgment when the extract was cut, ``forward`` if not.
   The coder is not told which, so the mode cannot steer a code, and every
   ``replay`` code carries the contamination-risk flag.
+- **Clean codes** (:func:`is_clean`): a ``forward`` code made within
+  :data:`CLEAN_LAG_DAYS` of its grant, before any argument could have been
+  heard. Only these enter the clean check, since a forward code made long
+  after its grant may read commentary on an argued case.
 - **The publish rule** (:func:`publish`): a run's code lines must cover the
   extract exactly, keyed on the case id and docket number pair, and may add a
   case the committed file does not hold but never replace one. The file is
@@ -63,9 +69,22 @@ FIRST_GRANT_TERM: Final = 2021
 #: what a run can finish rather than to what the frame holds.
 CODE_ROW_CEILING: Final = 400
 
+#: The most days after its grant a forward code may be made and still count as
+#: a grant-time code in the clean check. Argument comes months after a grant,
+#: so a code within this lag predates it.
+CLEAN_LAG_DAYS: Final = 30
+
 
 class AlignmentSideError(ValueError):
     """A coding run's output that cannot be published."""
+
+
+def is_clean(code: AlignmentSideCode) -> bool:
+    """Whether a code is a grant-time code the clean check may read."""
+    return (
+        code.mode == AlignmentCodeMode.forward
+        and (code.coded_at - code.granted).days <= CLEAN_LAG_DAYS
+    )
 
 
 def codes_path(data_root: Path) -> Path:
@@ -257,6 +276,8 @@ def publish(
     stamped here from the extract and the run, never read from the coder.
     """
     rows = {str(r["case_id"]): r for r in extract_rows}
+    if len(rows) != len(extract_rows):
+        raise AlignmentSideError("the extract names a case twice")
     if set(modes) != set(rows):
         raise AlignmentSideError("the modes sidecar does not cover the extract exactly")
     seen: dict[str, AlignmentSideCode] = {}
@@ -275,15 +296,22 @@ def publish(
         if case_id in seen:
             raise AlignmentSideError(f"line {number}: {case_id} coded twice")
         mode = AlignmentCodeMode(modes[case_id])
+        score, note = line.get("score"), line.get("note")
+        # A bool is an int in Python, and pydantic's lax mode reads "0.7" as a
+        # float, so the coder's two free fields are type-checked here first.
+        if isinstance(score, bool) or not isinstance(score, int | float):
+            raise AlignmentSideError(f"line {number}: `score` is not a number")
+        if not isinstance(note, str):
+            raise AlignmentSideError(f"line {number}: `note` is not a string")
         try:
             seen[case_id] = AlignmentSideCode(
                 case_id=case_id,
                 docket_number=str(row["docket_number"]),
                 granted=date.fromisoformat(str(row["granted"])),
                 conservative_side=AlignmentSide(str(line.get("conservative_side"))),
-                score=line.get("score"),  # pydantic validates it
+                score=float(score),
                 valence=AlignmentValence(str(line.get("valence"))),
-                note=str(line.get("note", "")),
+                note=note,
                 mode=mode,
                 contamination_risk=mode == AlignmentCodeMode.replay,
                 model=model,
