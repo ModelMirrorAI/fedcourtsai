@@ -26,8 +26,12 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   predicate ride the shared exclusion rules (`corpus.OUT_OF_SCOPE_RULES`,
   applied via `out_of_scope_reason_full`): **pre-1925 mandatory-jurisdiction
   matters** (a bare, non-Term-prefixed docket number — a merits, not a
-  discretionary-cert, disposition meaning), **stale still-open petitions** from
-  long-past October Terms, cases whose only outcome signal is a **published
+  discretionary-cert, disposition meaning), **stale still-open petitions and
+  applications** whose docket number places them more than two October Terms
+  before the current one (`corpus.STALE_TERM_HORIZON`, a horizon that rolls
+  with the Term — a still-open docket that old is one whose outcome the corpus
+  never recorded, and a forward cell on it would forecast a long-public
+  decision), cases whose only outcome signal is a **published
   opinion with no machine-readable disposition**, **non-substantive
   stay/emergency applications** (`22A123` — an extension or unreadable ask; a
   *substantive* application is the interim predict scope, see

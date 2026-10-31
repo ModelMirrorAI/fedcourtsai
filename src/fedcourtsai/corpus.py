@@ -70,6 +70,7 @@ from .schemas import (
 from .supremecourt import (
     IFP_SERIAL_BASE,
     ArgumentSitting,
+    october_term_year,
     parse_scotus_application_number,
     parse_scotus_docket_number,
 )
@@ -2870,10 +2871,18 @@ def is_historical_mandatory(row: CorpusRow) -> bool:
 # revisit the pivot before the 2030 Term.
 _SCOTUS_TERM_RE = re.compile(r"^(\d{2})-\d+")
 
-# Provisional staleness cutoff (the scope reconcile refines it against the corpus). A SCOTUS
-# Term before this is long past any pending-petition horizon; far enough back that a
-# genuinely open modern cert petition is never caught.
-_STALE_TERM_CUTOFF_YEAR = 2015
+# How many October Terms behind the current one a still-open SCOTUS docket's own Term
+# may lag before the docket counts as stale. A petition held for a merits case can
+# outlive the Term after its own, so the horizon is two Terms: far enough back that a
+# genuinely pending petition or application is never caught, and rolling, so the
+# horizon keeps pace with the Term rather than freezing at the year it was written.
+STALE_TERM_HORIZON = 2
+
+#: The exclusion reason :func:`is_stale_unresolvable` files a row under.
+STALE_UNRESOLVABLE_REASON = (
+    "stale unresolvable old SCOTUS petition or application "
+    + f"(more than {STALE_TERM_HORIZON} Terms before the current one, still open)"
+)
 
 
 def scotus_term_year(docket_number: str) -> int | None:
@@ -3199,31 +3208,40 @@ def is_stale_unparsed_grant(row: CorpusRow, *, today: date) -> bool:
     return granted is not None and (today - granted).days > STALE_GRANT_DAYS
 
 
-def is_stale_unresolvable(row: CorpusRow) -> bool:
-    """Whether a SCOTUS row is an old petition the corpus can never resolve.
+def is_stale_unresolvable(row: CorpusRow, *, today: date | None = None) -> bool:
+    """Whether a SCOTUS row is an old petition or application the corpus can never resolve.
 
     Modern-format SCOTUS petitions from old Terms (e.g. ``93-7515`` -> OT1993,
-    ``01-7700`` -> OT2001) whose snapshots are bare stubs — empty docket entries,
-    null cert dates — sit perpetually open because deterministic outcome detection
-    has nothing to resolve them from, so they are re-predicted every run decades
-    after they actually resolved (the bulk of the feedback-issue noise).
+    ``01-7700`` -> OT2001) and interim applications (``16A450`` -> OT2016) whose
+    snapshots carry no disposition sit perpetually open because deterministic
+    outcome detection has nothing to resolve them from. Left in scope, they are
+    owed a **forward** forecast years after they actually resolved — a cell whose
+    predictor may remember the answer, on an event whose outcome is public.
     Distinct from :func:`is_historical_mandatory`: those are *pre-1925* mandatory-
     jurisdiction matters with bare sequential numbers; these are post-1925
-    discretionary-cert dockets that are simply too old to still be pending.
+    dockets that are simply too old to still be pending.
 
-    **Provisional and deliberately conservative — the scope reconcile refines it.** Caught
-    only when: SCOTUS; no realized ``disposition`` and no ``date_decided`` (still
-    open in the corpus); and a docket-number Term year older than
-    ``_STALE_TERM_CUTOFF_YEAR``. Rows whose Term year cannot be parsed from the
-    docket number are left in scope, so the rule may under-catch (a stub still
-    flags) but never drops a live modern petition.
+    **Deliberately conservative — the scope reconcile refines it.** Caught only
+    when: SCOTUS; no realized ``disposition`` and no ``date_decided`` (still open
+    in the corpus); and a docket-number Term year more than
+    :data:`STALE_TERM_HORIZON` Terms before the October Term ``today`` falls in
+    (:func:`~fedcourtsai.supremecourt.october_term_year`). Rows whose Term year
+    cannot be parsed from the docket number are left in scope, so the rule may
+    under-catch (a stub still flags) but never drops a live modern docket.
+    ``today`` defaults to the calendar day, so the horizon moves only at a Term
+    boundary.
     """
     if row.court != "scotus":
         return False
     if row.disposition is not None or row.date_decided is not None:
         return False
-    term_year = scotus_term_year(row.docket_number)
-    return term_year is not None and term_year < _STALE_TERM_CUTOFF_YEAR
+    term_year = scotus_term_year(row.docket_number) or scotus_application_term_year(
+        row.docket_number
+    )
+    if term_year is None:
+        return False
+    current = october_term_year(today if today is not None else date.today())
+    return term_year < current - STALE_TERM_HORIZON
 
 
 def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
@@ -3658,10 +3676,7 @@ BARE_OPINION_IMPORT_REASON = "bare bulk-import row whose snapshot links a publis
 # in this row-only list; they are applied by :func:`out_of_scope_reason_full`.
 OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     (is_historical_mandatory, "pre-1925 mandatory-jurisdiction matter"),
-    (
-        is_stale_unresolvable,
-        "stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
-    ),
+    (is_stale_unresolvable, STALE_UNRESOLVABLE_REASON),
     (
         is_published_opinion_unresolvable,
         "published opinion but no machine-readable cert disposition",

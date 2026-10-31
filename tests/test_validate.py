@@ -188,10 +188,10 @@ def test_run_scope_audit_tallies_open_exclusions_with_recoverable_split(tmp_path
     by_reason = {e.reason: e for e in audit.exclusions}
     assert set(by_reason) == {
         "pre-1925 mandatory-jurisdiction matter",
-        "stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
+        corpus.STALE_UNRESOLVABLE_REASON,
         corpus.BARE_OPINION_IMPORT_REASON,
     }
-    stale = by_reason["stale unresolvable old SCOTUS petition (pre-2015 Term, still open)"]
+    stale = by_reason[corpus.STALE_UNRESOLVABLE_REASON]
     assert (stale.cases, stale.open_events, stale.recoverable) == (2, 2, 1)
     assert stale.sample_cases == ["scotus/1004191", "scotus/1004289"]
     hist = by_reason["pre-1925 mandatory-jurisdiction matter"]
@@ -1988,7 +1988,7 @@ def test_cli_scope_audit_writes_audit_and_summary(tmp_path: Path) -> None:
     assert audit.scotus_open_events == 5
     assert {e.reason for e in audit.exclusions} == {
         "pre-1925 mandatory-jurisdiction matter",
-        "stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
+        corpus.STALE_UNRESOLVABLE_REASON,
         corpus.BARE_OPINION_IMPORT_REASON,
     }
 
