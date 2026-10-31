@@ -53,7 +53,7 @@ import json
 import re
 import sqlite3
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -72,7 +72,7 @@ from .pipeline.interim_signals import ApplicationKind
 from .pipeline.justices import bench_on, resolve_surname
 from .pipeline.semantic import semantic_claim_problems, semantic_grade_problems
 from .pipeline.vote_sources import REGISTERED_VOTE_SOURCES, VoteSource
-from .process_version import resolvable_runs
+from .process_version import EVALUATE_BLESSING_LABELS, label_ordinal, resolvable_runs
 from .schemas import (
     FILENAME_MODELS,
     MERITS_PROCEEDING_DISPOSITIONS,
@@ -164,18 +164,17 @@ CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
 CHECK_PREDICTION_SEMANTIC = "prediction_semantic_claims_conform"
 CHECK_EVALUATION_SEMANTIC = "evaluation_semantic_grades_gradeable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
-# A grade of `predicted_reasoning.md` reaches the ledger only under a registered
-# protocol; the check holds the ledger to that while the flag below is unset.
-CHECK_PREDICTED_REASONING_HELD = "predicted_reasoning_grade_awaits_registration"
+# A grade of `predicted_reasoning.md` reaches the ledger only from a judge whose
+# registered evaluate prompt asked for it.
+CHECK_PREDICTED_REASONING_REGISTERED = "predicted_reasoning_grade_only_under_a_prompt_that_asks"
 
-#: Whether the `predicted_reasoning_quality` grade is registered. It is: the
-#: evaluate prompt's *Grading the forecast document* section asks for it, under
-#: the process label the freeze record's registration entry names
+#: The label that registers the `predicted_reasoning_quality` grade: the first
+#: whose evaluate prompt's *Grading the forecast document* section asks for it
 #: (``docs/outcome-decomposition.md``, *Grading the forecast document,
-#: design*). Unset, no committed evaluation may carry the grade or its review,
-#: since a cell that filled the fields from the schema alone would commit a
-#: grade no pre-registration covers.
-PREDICTED_REASONING_GRADE_REGISTERED: Final = True
+#: design*). An evaluator digest blessed at this label or a later one asks for
+#: the grade; one blessed only earlier never did, so a grade under it is one no
+#: pre-registration covers.
+PREDICTED_REASONING_GRADE_FROM: Final = "proc-v16"
 CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 # `correct` is a function of two committed artifacts, so one cell's current
 # gradings must record the same bit whichever evaluator wrote them.
@@ -1450,36 +1449,74 @@ def check_evaluation_semantic_grades(data_root: Path) -> CorpusCheck:
     return _check(CHECK_EVALUATION_SEMANTIC, problems, checked=checked)
 
 
-def check_predicted_reasoning_grade_held(
-    data_root: Path, *, registered: bool = PREDICTED_REASONING_GRADE_REGISTERED
-) -> CorpusCheck:
-    """No committed evaluation carries a predicted-reasoning grade unless it is registered.
+def asks_predicted_reasoning_grade(
+    digest: str | None,
+    *,
+    blessing_labels: Mapping[str, tuple[str, ...]] = EVALUATE_BLESSING_LABELS,
+    from_label: str = PREDICTED_REASONING_GRADE_FROM,
+) -> bool:
+    """Whether an evaluator digest is blessed at ``from_label`` or a later label.
 
-    With ``registered`` set (:data:`PREDICTED_REASONING_GRADE_REGISTERED`, the
-    default) the check passes, reading nothing. Unset, it refuses every
-    committed evaluation carrying ``predicted_reasoning_quality`` or its
-    review, since nothing in a cell's digest stops an evaluate cell from
-    filling the schema's fields without a prompt asking for them. A file that
-    does not parse is ``validate_ledger``'s concern and is skipped here.
+    ``blessing_labels`` is the registry's evaluator-digest map, pending labels
+    included, so a judge registered at the registering label counts from the
+    change that registers it. A digest the map does not hold asks for nothing.
+    """
+    floor = label_ordinal(from_label)
+    if digest is None or floor is None:
+        return False
+    return any(
+        (ordinal := label_ordinal(label)) is not None and ordinal >= floor
+        for label in blessing_labels.get(digest, ())
+    )
+
+
+def check_predicted_reasoning_grade_registered(
+    data_root: Path,
+    *,
+    blessing_labels: Mapping[str, tuple[str, ...]] = EVALUATE_BLESSING_LABELS,
+    from_label: str = PREDICTED_REASONING_GRADE_FROM,
+) -> CorpusCheck:
+    """A committed predicted-reasoning grade comes from a prompt that asked for it.
+
+    Refuses ``predicted_reasoning_quality`` or ``predicted_reasoning_review`` on
+    an evaluation whose harness stamp names an evaluator digest not blessed at
+    :data:`PREDICTED_REASONING_GRADE_FROM` or later
+    (:func:`asks_predicted_reasoning_grade`): nothing in an earlier digest stops
+    a cell from filling the schema's fields without its prompt asking, and such
+    a grade is one no pre-registration covers. An unstamped evaluation carrying
+    either field is refused too, since no stamp shows which prompt it ran
+    under; every committed evaluation is stamped by the harness. Evaluations
+    carrying neither field pass whatever their stamp. A file that does not
+    parse is ``validate_ledger``'s concern and is skipped here.
     """
     problems: list[str] = []
     checked = 0
-    if not registered:
-        for path in _ledger_files(data_root, "*/*/events/*/evaluations/*/*/*/evaluation.json"):
-            try:
-                evaluation = Evaluation.model_validate(json.loads(path.read_text()))
-            except (OSError, ValueError, ValidationError):
-                continue
-            checked += 1
-            if (
-                evaluation.predicted_reasoning_quality is not None
-                or evaluation.predicted_reasoning_review is not None
-            ):
-                problems.append(
-                    f"evaluation {path}: carries a `predicted_reasoning_quality` grade or "
-                    "review, which no registered protocol covers yet"
-                )
-    return _check(CHECK_PREDICTED_REASONING_HELD, problems, checked=checked)
+    for path in _ledger_files(data_root, "*/*/events/*/evaluations/*/*/*/evaluation.json"):
+        try:
+            evaluation = Evaluation.model_validate(json.loads(path.read_text()))
+        except (OSError, ValueError, ValidationError):
+            continue
+        checked += 1
+        if (
+            evaluation.predicted_reasoning_quality is None
+            and evaluation.predicted_reasoning_review is None
+        ):
+            continue
+        stamp = evaluation.process_version
+        if stamp is None:
+            problems.append(
+                f"evaluation {path}: carries a `predicted_reasoning_quality` grade or review "
+                "but no process stamp, so nothing shows a prompt asked for it"
+            )
+        elif not asks_predicted_reasoning_grade(
+            stamp.digest, blessing_labels=blessing_labels, from_label=from_label
+        ):
+            problems.append(
+                f"evaluation {path}: carries a `predicted_reasoning_quality` grade or review "
+                f"under evaluator digest {stamp.digest}, which is not blessed at {from_label} "
+                "or later, so no registered prompt asked for it"
+            )
+    return _check(CHECK_PREDICTED_REASONING_REGISTERED, problems, checked=checked)
 
 
 def check_merits_predictions(data_root: Path) -> CorpusCheck:
@@ -2082,7 +2119,7 @@ def run_ledger_referential_checks(data_root: Path) -> list[CorpusCheck]:
         check_prediction_claims(data_root),
         check_prediction_semantic_claims(data_root),
         check_evaluation_semantic_grades(data_root),
-        check_predicted_reasoning_grade_held(data_root),
+        check_predicted_reasoning_grade_registered(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
         check_outcome_votes_held(data_root),
@@ -2125,7 +2162,7 @@ def _run_checks(
         check_prediction_claims(data_root),
         check_prediction_semantic_claims(data_root),
         check_evaluation_semantic_grades(data_root),
-        check_predicted_reasoning_grade_held(data_root),
+        check_predicted_reasoning_grade_registered(data_root),
         check_merits_predictions(data_root),
         check_scored_votes(data_root),
         check_outcome_votes_held(data_root),

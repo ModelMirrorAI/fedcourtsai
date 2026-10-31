@@ -77,7 +77,7 @@ def test_every_engine_kickoff_names_the_section_only_on_a_pilot_row() -> None:
     text = WORKFLOW.read_text()
     line = (
         "${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which "
-        "amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}"
+        "marks the round as a pilot and changes no instruction.', matrix.pilot_section) || '' }}"
     )
     assert text.count(line) == 3
 

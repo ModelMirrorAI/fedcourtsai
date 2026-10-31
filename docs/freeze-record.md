@@ -15483,7 +15483,10 @@ freeze commit is recorded here.
     the forecast document becomes an instruction to grade it only in those
     two fields, so `reasoning_quality` still grades `reasoning.md` alone. A
     candidate with no forecast document gets neither field. `validate` takes
-    a committed grade (`PREDICTED_REASONING_GRADE_REGISTERED`). The design is
+    a committed grade only from an evaluator digest blessed at this label or
+    later, and refuses one under an earlier or unstamped digest
+    (`predicted_reasoning_grade_only_under_a_prompt_that_asks`,
+    `PREDICTED_REASONING_GRADE_FROM`). The design is
     *Grading the forecast document, design* in
     [outcome-decomposition.md](outcome-decomposition.md), whose register now
     routes the document to this grade.
@@ -15492,6 +15495,11 @@ freeze commit is recorded here.
     merits cell stages each concurrence and dissent beside the majority, as
     the grade's check of who writes separately needs. It changes the
     information set of every judge-authored reading, not only this grade's.
+    The writings are staged on cert and interim evaluate cells too, so a cert
+    or interim cell graded after the case's merits decision sees merits
+    writings that one graded before it does not. The prompt limits their use
+    to what the document forecast a decision would hold, but cert and interim
+    readings can differ by grading date.
   - *The decision below, for cert and merits cells.* The `decision-below` and
     `lower-court-docket` kinds leave `provision.WITHHELD_KINDS` and are staged
     for cert-stage and merits-stage cells only
@@ -15520,8 +15528,10 @@ freeze commit is recorded here.
   - *The decision-below boundary.* `decision-below-documents` is registered
     **pending** by the change that stages the two kinds (every predictor,
     reach `all`, `gradual`, since the files reach cases by back-fill);
-    `promotion-record` stamps it at this label's carrying merge, with
-    `context-band-refused`. Both coincide with this label's window edge.
+    `promotion-record` stamps it at this label's carrying merge, so it
+    coincides with this label's window edge. `context-band-refused` is not
+    this batch's: it was registered with `sal-v6`'s activation and is
+    stamped by the promotion that carries that change.
   - *The pilot note.* run-evaluate's `reasoning-pilot` and
     `reasoning-pilot-merits` rounds stay: they re-grade a fixed sample under
     the registered prompt and upload rather than commit. The pilot file
@@ -15561,12 +15571,25 @@ freeze commit is recorded here.
   under any digest. At `origin/main` `7546878f3`, 198 resolved events carry a
   committed prediction; 194 of them (147 cert, 47 interim) carry 579 latest
   forward predictions with a forecast document, and every one of the 194 is
-  graded by all three judges, so the backlog would mint 0 cells for them. A
-  back-grade is 582 (judge × event) cells, a named-case `--force` round a
-  maintainer dispatches and releases. Its evaluations would become each
-  cell's latest grading, so their `reasoning_quality`, `big_case` and leakage
-  readings would replace the earlier judges' on every board that reads the
-  latest grading. Whether to run it, and when, is open.
+  graded by all three judges, so the backlog would mint 0 cells for them, and
+  never will. A back-grade is 582 (judge × event) cells, and no lane offers
+  it: run-evaluate's dispatch input picks a derivation, never a case, and
+  only the pilot derivations pass `--force`, whose output is uploaded, not
+  committed. Running it needs a new run-evaluate derivation, a workflow
+  change not built here.
+
+  Committing such a back-grade would re-score committed boards. Each of its
+  evaluations becomes its cell's latest grading
+  (`integrity.latest_evaluation_runs`), so it re-decides `leakage_suspected`,
+  which `store.stratify` reads to drop a cell from every rank key and scored
+  aggregate; it re-stamps `segment_base_rate`, `brier_skill_score` and
+  `claim_scores` against the statpack checked out at back-grade time on
+  every cell whose prediction froze no `cert_anchor`, which is every cell
+  placed before `proc-v15`; and the retiring digests' per-rubric readings
+  lose those cells. Whether the back-grade is a committed round at all, or a
+  cheaper route — an uploaded pilot-style round, or a grade-only evaluation
+  the latest-grading collapse skips for every other field — is an open
+  design question, as is whether and when to spend on it.
 
   **The retiring evaluator digests, and what was graded under them.**
   `sha256:ede96425…` (`claude-judge`), `sha256:fb4db8c6…` (`codex-judge`)
@@ -15631,8 +15654,8 @@ freeze commit is recorded here.
   The runnable effect check once it is live:
   - `uv run python -c "from fedcourtsai.process_version import
     CURRENT_PROCESS_LABEL as L; from fedcourtsai.validate import
-    PREDICTED_REASONING_GRADE_REGISTERED as R; print(L, R)"` prints
-    `proc-v16 True`, and `uv run fedcourts process-digest --all` prints the
+    PREDICTED_REASONING_GRADE_FROM as R; print(L, R)"` prints
+    `proc-v16 proc-v16`, and `uv run fedcourts process-digest --all` prints the
     six digests above;
   - on the first evaluate run's collect PR after the carrying merge, `jq -c
     '[.process_version.label, .predicted_reasoning_quality,

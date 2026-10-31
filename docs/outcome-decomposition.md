@@ -2087,8 +2087,10 @@ costs nothing. A grade of the document is what makes that content count.
 The schema carries the grade (`Evaluation.predicted_reasoning_quality`, with
 the central-claims list in `predicted_reasoning_review`), the registered
 evaluate prompt's *Grading the forecast document* section asks every judge for
-it on every stage, and `validate` takes a committed one
-(`PREDICTED_REASONING_GRADE_REGISTERED`). No artifact reads the grade:
+it on every stage, and `validate` takes a committed one from a judge whose
+digest is blessed at the registering label or later, refusing it under an
+earlier or unstamped one
+(`predicted_reasoning_grade_only_under_a_prompt_that_asks`). No artifact reads the grade:
 publication, with the agreement figures *The pilot* fixes to travel beside it,
 is a later change (*Registration* below). The design was settled before a
 single grade existed, for the same reason the rest of this document is: a
@@ -2303,12 +2305,16 @@ reports, so the report cannot be chosen after the grades are read.
 The grade is registered at the `proc-v16` re-bless, as one coordinated change
 ([freeze-record.md](freeze-record.md)): the evaluate prompt's *Grading the
 forecast document* section asking for it (the schema already carried the
-field and its central-claims list), the `validate` check that refuses an
-unregistered grade lifted, a freeze-record entry, and the register revised to
+field and its central-claims list), the `validate` check narrowed to refuse a
+grade only from a judge whose prompt did not ask for it, a freeze-record entry, and the register revised to
 match: its opening paragraph and its "every scored route is mechanical or
 graded, never prose" property name the registered grade, and a row routes the
 document to it. Every evaluate cell stages each writing of the decision
-(`provision-opinion --writings`) for the grade to check against. The prompt
+(`provision-opinion --writings`) for the grade to check against. That
+includes cert and interim cells, so one graded after the case's merits
+decision sees merits writings that one graded before it does not; the prompt
+limits their use to what the document forecast a decision would hold, but
+cert and interim readings can differ by grading date. The prompt
 change moves **every** evaluate digest, not only this grade's: the existing
 `reasoning_quality`, `big_case` and agreement readings start new signatures at
 that boundary, which is the cost of asking for the grade inside the evaluate
@@ -2320,12 +2326,22 @@ runs stamped with the grading's process version; committed evaluations are
 never edited. The backlog does not owe those runs: its idempotency gate asks
 whether a judge has graded the event, under any digest, so an event every
 judge graded before the registering label is never re-minted by the schedule.
-The back-grade is a named-case `--force` round a maintainer dispatches, and
-such a round's evaluations supersede the earlier ones as each (case, event,
-predictor, judge) cell's latest grading, so its `reasoning_quality`, `big_case`
-and leakage readings replace the earlier judges' on every board that reads
-the latest grading. Choosing that round, and its spend, is the open decision
-the freeze-record entry records.
+No lane offers the back-grade either: run-evaluate's dispatch input picks a
+derivation, never a case, and only the pilot derivations pass `--force`,
+whose output is uploaded rather than committed. It needs a new derivation,
+which is a workflow change.
+
+A committed back-grade would re-score committed boards. Each of its
+evaluations becomes its cell's latest grading
+(`integrity.latest_evaluation_runs`), so it re-decides `leakage_suspected`,
+which `store.stratify` reads to drop a cell from every rank key and scored
+aggregate; it re-stamps `segment_base_rate`, `brier_skill_score` and
+`claim_scores` against the statpack checked out at back-grade time on every
+cell whose prediction froze no `cert_anchor`; and the retiring digests'
+per-rubric readings lose those cells. So the shape of the back-grade is open:
+a committed round, an uploaded pilot-style round, or a grade-only evaluation
+the latest-grading collapse skips for every other field. The freeze-record
+entry records the counts it would cover.
 
 ### What is built, and what remains
 
@@ -2351,8 +2367,8 @@ are in the registration's freeze-record entry.
 What remains:
 
 1. **The back-grade** of the already-resolved forward documents
-   (*Registration* above): a maintainer-dispatched round, since the backlog
-   owes none of it.
+   (*Registration* above): its shape, a new run-evaluate derivation to run
+   it, and the decision to spend on it. The backlog owes none of it.
 2. **Publication**: a board or summary that reads the grade, per stage, per
    process version and per rubric, with the agreement figures *The pilot*
    fixes beside every mean, and the matching site change.

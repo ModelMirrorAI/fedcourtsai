@@ -703,9 +703,13 @@ runbook, [docs/security.md](docs/security.md).
 - **Prompt-injection awareness.** Third-party text is untrusted input, and it is
   the input a cell actually reads: the docket, the filed documents provisioned
   under `record/documents/` (party-authored), and — on an evaluate cell — the
-  majority opinion staged at `record/opinion/` (on a pilot round, every
-  writing of the decision beside it), which quotes whatever the
-  parties put in front of the Court. No round takes a case list from anything a
+  majority opinion staged at `record/opinion/` and every writing of the
+  decision beside it, which quote whatever the parties put in front of the
+  Court. A cert or merits predict cell may also read
+  `record/documents/decision-below.txt` and `lower-court-docket.txt`:
+  CourtListener's extraction of the lower court's opinion and docket, reached
+  by a match on the lower court's docket number that can be wrong, and neither
+  party-authored nor the Court's own record. No round takes a case list from anything a
   requester wrote, since the matrix is derived from committed corpus state.
   Agents are instructed to treat all of it as data, not instructions, and the
   cell's credential carries no `contents: write` — its output rides to `collect`

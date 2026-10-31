@@ -1187,7 +1187,7 @@ jobs:
           prompt: |
             Read ${{ matrix.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
-            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
+            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which marks the round as a pilot and changes no instruction.', matrix.pilot_section) || '' }}
 
             COURT_ID=${{ matrix.court }}
             DOCKET_ID=${{ matrix.docket }}
@@ -1258,7 +1258,7 @@ jobs:
           prompt: |
             Read ${{ matrix.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
-            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
+            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which marks the round as a pilot and changes no instruction.', matrix.pilot_section) || '' }}
 
             COURT_ID=${{ matrix.court }}
             DOCKET_ID=${{ matrix.docket }}
@@ -1354,7 +1354,7 @@ jobs:
           PROMPT: |
             Read ${{ matrix.prompt }}, then score every predictor's
             prediction for this cell against its outcome.json:
-            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which amends the evaluate prompt for this round only.', matrix.pilot_section) || '' }}
+            ${{ matrix.pilot_section && format('This is a pilot round: also read {0}, which marks the round as a pilot and changes no instruction.', matrix.pilot_section) || '' }}
 
             COURT_ID=${{ matrix.court }}
             DOCKET_ID=${{ matrix.docket }}

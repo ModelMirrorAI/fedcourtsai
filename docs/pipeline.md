@@ -3254,11 +3254,10 @@ the agent on every cell. It stages nothing where the corpus row holds no body,
 which is most cases, so an **absent** slot is the ordinary state and the grader
 masks. When a round's semantic claims all mask, read that step's outcome first:
 a failed staging and genuine non-coverage leave the same empty slot, and the
-step annotates the run summary where it failed. On a pilot round's row the
-same step also stages every writing of the decision under
-`record/opinion/writings/`, from the per-writing texts the per-opinion record
-stores, for the pilot grade of `predicted_reasoning.md`; no registered round's
-cell receives them.
+step annotates the run summary where it failed. On every cell the same step
+also stages every writing of the decision under `record/opinion/writings/`,
+from the per-writing texts the per-opinion record stores, for the grade of
+`predicted_reasoning.md` (`predicted_reasoning_quality`) to check against.
 
 A second pair of steps keeps the aliases worth having. The committed `predictions/` and
 `evaluations/` trees name every predictor elsewhere in the same case tree, at

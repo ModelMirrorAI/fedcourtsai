@@ -1664,6 +1664,12 @@ Access mirrors each workflow's role in the pipeline:
 | `run-ops`                                 | none          | the report reads GitHub state only |
 | `ci`                                      | none          | gate stays offline/fast          |
 
+What the decision-below fill stores reaches every cert and merits predict cell
+as `record/documents/decision-below.txt` and `lower-court-docket.txt`. The
+residual: a wrong docket-number match or poisoned CourtListener text misleads a
+cert or merits forecast, read under the cells' data-not-instructions guard, and the
+cell's output rides to `collect` as an artifact like every cell's.
+
 The split is deliberate: a cell touches KBs of one case's data, so it reads the
 immutable index in place through its own sidecar and moves no full blob; the
 backlog derivations and the whole-corpus scanners (`run-analytics` and
