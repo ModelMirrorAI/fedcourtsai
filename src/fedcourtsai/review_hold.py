@@ -90,7 +90,7 @@ from .collect import AUTO_RELEASED_MARKER
 from .config import SpendConfig, load_spend_config
 from .pipeline.qp_topics import run_spend_dir
 from .planning_rates import price_cells
-from .schemas import QpTopicRunSpend
+from .schemas import QpTopicFrame, QpTopicRunSpend
 from .serialize import read_model
 from .spend import MeasuredSpend, iter_labeler_runs
 from .spend import measured_spend as _measured_spend
@@ -738,7 +738,7 @@ def _label_refusal_for(
     (:func:`label_pending`), then a refusal (:func:`label_refusal`).
     """
     frame = plan.get("frame")
-    if frame not in ("petitions", "applications"):
+    if frame not in get_args(QpTopicFrame):
         return "the plan names no labeling frame"
     if carried_file is not None:
         try:

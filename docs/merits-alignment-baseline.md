@@ -69,8 +69,10 @@ recorded before the decision:
   presented. The caption and petitioner are the corpus's as of its latest
   pull, so a party substituted after the grant shows under its new name, a
   timing difference rather than an outcome. The run mode that executes the
-  coder must deny it every retrieval tool, so a code cannot rest on a filing,
-  a docket or a search the extract does not hold.
+  coder (`run-analytics` `alignment-side-code`, below) denies it every
+  retrieval tool and moves the committed record out of its tree, so a code
+  cannot rest on a filing, a docket, an outcome or a search the extract does
+  not hold.
 - **What it records.** Which party, petitioner or respondent, argues the
   conservative position; the score `s` in [0, 1], read as P(the conservative
   side prevails); a `valence` (`clear`, `weak` or `none`) saying how clearly
@@ -227,17 +229,27 @@ Built: baselines 1 and 2, the bloc rule, the three vote readings, and the
 read-only readout over the corpus's merits lineups; and, for the side coding,
 the coder's prompt, the extract (`fedcourts alignment-side-extract`), the
 committed artifact and its append-only publish step (`fedcourts
-alignment-side-codes`).
+alignment-side-codes`), and the run mode that executes them.
+
+The run mode is `run-analytics` `alignment-side-code`, the topic-labeling
+lane's third frame ([pipeline.md](pipeline.md)), dispatched or on a weekly
+Thursday cron, so each week's grants are coded inside `CLEAN_LAG_DAYS`. The
+coder holds no shell, no delegation and no retrieval tool, and the committed
+record (`data/`, `metrics/`) is out of its tree while it runs. The modes
+sidecar reaches the coding job only after the agent has exited, and the
+publish step checks the extract against the digest the extract job recorded
+before it stamps a grant date from it. Each round waits on the review hold,
+priced at the side coder's provisional rate
+(`planning_rates.SIDE_CODE_RATES_USD_PER_ROW`), and every run's spend lands in
+the labeling lane's spend ledger. The codes reach `main` as a reviewed PR on
+the fixed branch `merits-alignment/side-codes`, so the first run's 302 codes
+are read by a maintainer before any fit reads them.
 
 Owed, in order:
 
-- **The side-coding run.** The `run-analytics` mode that cuts the extract,
-  runs the coder with retrieval denied, publishes its codes by PR and records
-  its spend, behind the review hold at a planning rate of its own, on a
-  schedule that codes each new grant within `CLEAN_LAG_DAYS`. The extract and
-  the modes sidecar must stay out of the coder's reach (the modes off its
-  filesystem, or both files' digests recorded at the extract and checked at
-  publish), since the publish step stamps the grant date and mode from them.
+- **The first run.** A rehearsal from `staging`, which publishes nothing,
+  then the production run on `main`; its spend record re-anchors the
+  provisional rate.
 - **Baselines 3 and 4.** The ideal-point source and its terms of use
   (`docs/data-sources.md`), the outcome transform and the fit of `k`, each with
   a `stats-reviewer` pass on the fit and the reading rule.

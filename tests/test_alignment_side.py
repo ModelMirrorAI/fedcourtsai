@@ -236,10 +236,15 @@ def test_the_publish_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         "--coded-at",
         "2026-11-02",
     ]
-    result = runner.invoke(app, args)
+    report = tmp_path / "report.txt"
+    result = runner.invoke(app, [*args, "--report", str(report)])
     assert result.exit_code == 0, result.output
     written = AlignmentSideCodes.model_validate_json(codes_path(tmp_path / "data").read_text())
     assert [e.case_id for e in written.entries] == ["scotus/95"]
+    block = report.read_text()
+    assert "run 7: 1 code(s) added, 1 in the file" in block
+    # Counts only: the block goes into a public PR body.
+    assert "scotus/95" not in block and str(_line("scotus/95")["note"]) not in block
     again = runner.invoke(app, args)
     assert again.exit_code == 1
     assert "never revised" in again.stderr
@@ -287,8 +292,8 @@ def test_a_clean_code_is_forward_and_made_soon_after_its_grant() -> None:
     assert not is_clean(replay, argued=None)
 
 
-def test_the_extract_reads_the_corpus(tmp_path: Path) -> None:
-    db = corpus.corpus_db_path(tmp_path)
+def test_the_extract_reads_the_corpus(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
     live = date(2026, 6, 2)
     with corpus.connect(db) as conn:
         corpus.upsert_rows(
@@ -315,3 +320,22 @@ def test_the_extract_reads_the_corpus(tmp_path: Path) -> None:
     assert extract.rows[1].questions_presented == "Whether 2?"
     assert modes_payload(extract) == {"scotus/01": "forward", "scotus/02": "replay"}
     assert (extract.frame, extract.no_text) == (3, 1)
+    # The command writes the extract, the modes sidecar and the batch sidecar
+    # the labeling lane reads its frame and row counts from.
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    work = tmp_path / "work"
+    result = runner.invoke(
+        app,
+        [
+            "alignment-side-extract",
+            "--out",
+            str(work / "qp-texts.json"),
+            "--modes-out",
+            str(work / "alignment-modes.json"),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert len(json.loads((work / "qp-texts.json").read_text())) == 2
+    assert json.loads((work / "qp-texts.batch.json").read_text()) == {"frame": 3, "rows": 2}
+    assert json.loads((work / "alignment-modes.json").read_text())["scotus/02"] == "replay"

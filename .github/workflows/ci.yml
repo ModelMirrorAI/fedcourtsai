@@ -437,6 +437,7 @@ jobs:
           github.head_ref == 'metrics/salience-replay' ||
           github.head_ref == 'qp-topics/refresh' ||
           github.head_ref == 'qp-topics/applications-refresh' ||
+          github.head_ref == 'merits-alignment/side-codes' ||
           github.head_ref == 'summaries/refresh'
         )
       )

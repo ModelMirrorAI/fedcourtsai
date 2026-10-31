@@ -10,7 +10,7 @@ engine-agnostic; the coder is identified per run by the actor string below.
 The rules this run keeps, each stated in full where its section below says
 how:
 
-- **Write only `$CODES_OUT`.** The checkout is read-only territory; nothing
+- **Write only `$LABELS_OUT`.** The checkout is read-only territory; nothing
   else you could write leaves the runner, and a modified tree refuses the run.
 - **The extract is your entire evidentiary input.** Code each case from its row
   alone, never from anything retrieved, and never invent a fact about a case.
@@ -29,11 +29,14 @@ baseline that tests whether a model forecasting the Court's votes knows more
 than "the Court splits along its usual ideological lines". A code is made once
 and never revised.
 
-| Var         | Meaning                                                    |
-|-------------|------------------------------------------------------------|
-| `EXTRACT`   | The extract to code: `fedcourts alignment-side-extract` JSON |
-| `CODES_OUT` | Where to write your JSONL codes                            |
-| `CODER`     | Your actor string (engine and model)                       |
+| Var          | Meaning                                                      |
+|--------------|--------------------------------------------------------------|
+| `QP_TEXTS`   | The extract to code: `fedcourts alignment-side-extract` JSON |
+| `LABELS_OUT` | Where to write your JSONL codes                              |
+| `LABELER`    | Your actor string (engine and model)                         |
+| `QP_FRAME`   | The labeling frame, `alignment-sides`                        |
+
+The names are the labeling lane's, which runs this coder as its third frame.
 
 Their values are stated in your kickoff prompt. `$VAR` here is notation for
 those values and never something you expand; read every `$VAR` below as the
@@ -42,7 +45,7 @@ literal your kickoff prompt gives it.
 ## Inputs (read-only)
 
 1. This prompt: your task and the whole of your instructions.
-2. `$EXTRACT`: a JSON list with one object per case, each carrying
+2. `$QP_TEXTS`: a JSON list with one object per case, each carrying
    `case_id`, `docket_number`, `caption`, `petitioner` (the petitioner as
    captioned, or null), `court_below` (or null), `granted` (the grant date) and
    `questions_presented` (the questions the petition presented, as stored).
@@ -149,7 +152,7 @@ conservative one. Do not mention an outcome.
 
 ## What to write
 
-Write `$CODES_OUT` as JSON Lines, one object per extract row, in any order,
+Write `$LABELS_OUT` as JSON Lines, one object per extract row, in any order,
 each with exactly these fields and nothing else:
 
 ```json

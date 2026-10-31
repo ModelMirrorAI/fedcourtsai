@@ -9743,7 +9743,7 @@ class AiCaseActivity(_Strict):
         return self
 
 
-QpTopicFrame = Literal["petitions", "applications"]
+QpTopicFrame = Literal["petitions", "applications", "alignment-sides"]
 QpTopicRunOutcome = Literal["published", "refused", "incomplete"]
 
 
@@ -9769,14 +9769,18 @@ class QpTopicRunSpend(_Strict):
     lane: Literal["qp-topic-label"] = Field(
         default="qp-topic-label", description="The spend lane this run belongs to"
     )
-    frame: QpTopicFrame = Field(description="Which labeling frame the run labeled")
+    frame: QpTopicFrame = Field(
+        description="Which labeling frame the run labeled: a topic-label frame, or "
+        "`alignment-sides` for the merits side coder, which has no reference gate"
+    )
     run_id: str = Field(pattern=r"^[0-9]+$", description="The Actions run id of the labeling run")
     run_attempt: int = Field(ge=1, description="The labeling job's run attempt")
     labeler: str = Field(min_length=1, description="Who labeled — engine and model")
     model: str = Field(min_length=1, description="The model the cost rates were applied to")
     outcome: QpTopicRunOutcome = Field(
-        description="published: the batch cleared the reference gate and its labels were "
-        "handed to the publish job; refused: it was measured and fell below the gate; "
+        description="published: the batch cleared the reference gate (a side-coding run: "
+        "coded every row) and its labels were handed to the publish job; refused: it was "
+        "measured and fell below the gate; "
         "incomplete: it reached neither (a labels file short of the batch, a check ahead of "
         "the measurement that failed, or a measurement that cleared the gate but did not "
         "reach publication), its gate figures carried wherever it was measured"
@@ -9833,7 +9837,14 @@ class QpTopicRunSpend(_Strict):
             raise ValueError("agree and n are recorded together or not at all")
         if measured and self.agree is not None and self.n is not None and self.agree > self.n:
             raise ValueError("agree cannot exceed n")
-        if self.outcome != "incomplete" and not measured:
+        if self.frame == "alignment-sides":
+            # The merits side coder has no reference set, so no gate: a run is
+            # published or incomplete, and never carries gate figures.
+            if self.outcome == "refused":
+                raise ValueError("a side-coding run has no gate to be refused at")
+            if measured or self.rate is not None or self.floor is not None:
+                raise ValueError("a side-coding run carries no gate figures")
+        elif self.outcome != "incomplete" and not measured:
             raise ValueError(f"a {self.outcome} run carries its gate figures")
         if self.outcome == "published" and self.label_lines != self.batch_rows:
             raise ValueError("a published run labeled every row of its batch")
