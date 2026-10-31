@@ -5,7 +5,8 @@ name: run-pull
 #
 # - `pull` (the `17 *` crons or dispatch mode=pull):
 #   targeted CourtListener *enrichment* for the tracked set —
-#   not the primary freshness mechanism. CourtListener discovery is off (`pull.
+#   not the primary freshness mechanism — and, once a day, the AI
+#   watchlist's lower-court dockets (`fedcourts watchlist-refresh`). CourtListener discovery is off (`pull.
 #   discover_new_filings: false`): the live channel owns SCOTUS onboarding, and
 #   circuit discovery onboarded cases outside the prediction scope.
 # - `live` (the `47 *` crons or dispatch mode=live): the SCOTUS live channel
@@ -316,6 +317,33 @@ jobs:
             --evaluate-out evaluate-queue.json \
             --unrecorded-out unrecorded-queue.json
 
+      # The AI watchlist's lower-court dockets (config/ai-watchlist.yaml),
+      # refreshed facts-only on their own `watchlist` CourtListener share,
+      # sized for one run a day. `--once-a-day` spends nothing when a listed
+      # docket already carries today's (UTC) stamp, so the day's first pull
+      # window that runs takes the share and later windows and dispatches skip;
+      # a dropped 01:17 window is made up at 07:17. pull-all's rotation leaves
+      # these dockets out, so this step is their only refresh. A docket that
+      # fails writes nothing and fails the step, which the summary reports while
+      # the window still pushes what pull-all wrote. The step timeout backs the
+      # command's own 10-minute budget, which is checked only between dockets.
+      - name: Refresh the AI watchlist dockets
+        id: watchlist
+        continue-on-error: true
+        timeout-minutes: 16
+        env:
+          FEDCOURTS_COURTLISTENER_API_TOKEN: ${{ secrets.COURTLISTENER_API_TOKEN }}
+          FEDCOURTS_COURTLISTENER_RPM: ${{ vars.COURTLISTENER_RPM || '25' }}
+          FEDCOURTS_COURTLISTENER_RPH: ${{ vars.COURTLISTENER_RPH || '300' }}
+          FEDCOURTS_COURTLISTENER_RPD: ${{ vars.COURTLISTENER_RPD || '1400' }}
+        run: |
+          set -euo pipefail
+          if ! uv run fedcourts watchlist-refresh --once-a-day \
+              --report watchlist-report.json; then
+            echo "::warning::watchlist-refresh left at least one docket unrefreshed; the failed dockets are listed above"
+            exit 1
+          fi
+
       - name: Push the corpus blob to the remote
         run: |
           # pull-all wrote fresh facts, discovered filings, and bumped tracking
@@ -383,6 +411,7 @@ jobs:
         if: success() || failure()
         env:
           COMMITTED: ${{ steps.commit.outputs.committed }}
+          WATCHLIST_OUTCOME: ${{ steps.watchlist.outcome }}
         run: |
           set -euo pipefail
           count() {
@@ -417,6 +446,13 @@ jobs:
             echo "| predict backlog cases queued | ${predict} |"
             echo "| evaluate backlog cases owed | ${evaluate} |"
             echo "| outcomes left unrecorded | ${unrecorded} |"
+            echo "| AI watchlist refresh step | ${WATCHLIST_OUTCOME:-not run} |"
+            if [ -f watchlist-report.json ]; then
+              refreshed=$(jq '.refreshed | length' watchlist-report.json 2>/dev/null) || refreshed='—'
+              short=$(jq '(.failed | length) + (.deferred | length)' watchlist-report.json 2>/dev/null) || short='—'
+              echo "| AI watchlist dockets refreshed | ${refreshed} |"
+              echo "| AI watchlist dockets failed or deferred | ${short} |"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
           # Name each unrecorded case, not just the count: the window records
           # nothing rather than guessing a disposition, so a human has to see

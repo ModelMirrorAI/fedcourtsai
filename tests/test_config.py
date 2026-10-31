@@ -25,6 +25,7 @@ from fedcourtsai.config import (
     load_salience_config,
     load_spend_config,
     load_statpack_config,
+    load_watchlist_refresh_config,
 )
 from fedcourtsai.courtlistener import RateBudgetExceeded
 
@@ -403,6 +404,14 @@ def test_committed_courtlistener_lanes_fit_the_account() -> None:
     used = {name for call in calls for name in re.findall(r'"([a-z-]+)"', call)}
     assert used
     assert used <= {name for name, lane in budget.lanes.items() if lane.enforced}
+
+
+def test_a_watchlist_run_can_finish_its_longest_full_read() -> None:
+    # A full read is one docket request plus its entry pages; a share smaller
+    # than that would stop every run inside the same docket.
+    budget = load_courtlistener_budget(_REPO / "config")
+    cfg = load_watchlist_refresh_config(_REPO / "config")
+    assert cfg.max_entry_pages + 1 <= budget.lane("watchlist").per_run
 
 
 def test_pull_lane_is_sized_for_every_scheduled_pull_window() -> None:

@@ -333,6 +333,25 @@ def test_docket_entries_date_filter_rides_the_first_page() -> None:
     assert seen == [{"docket": "7", "date_filed__gte": "2026-01-02"}]
 
 
+def test_docket_entries_modified_filter_rides_every_page() -> None:
+    def handle(request: httpx.Request) -> httpx.Response:
+        params = dict(request.url.params)
+        seen.append(params)
+        if "cursor" in params:
+            return httpx.Response(200, json={"next": None, "results": [{"id": 1}]})
+        nxt = f"{_ENTRIES}?cursor=1&date_modified__gte=2026-10-29&docket=7"
+        return httpx.Response(200, json={"next": nxt, "results": [{"id": 2}]})
+
+    seen: list[dict[str, str]] = []
+    client = _client(httpx.MockTransport(handle))
+
+    read = client.docket_entries(7, max_pages=3, date_modified_gte=date(2026, 10, 29))
+
+    assert read.complete and [e["id"] for e in read.entries] == [2, 1]
+    assert seen[0] == {"docket": "7", "date_modified__gte": "2026-10-29"}
+    assert seen[1]["date_modified__gte"] == "2026-10-29"
+
+
 @pytest.mark.parametrize(
     ("next_url", "message"),
     [

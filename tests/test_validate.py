@@ -985,6 +985,31 @@ def test_untracked_court_fails_when_set_supplied(tmp_path: Path) -> None:
     assert any("ca9/1" in p for p in check.problems)
 
 
+def test_a_case_admitted_by_name_may_sit_in_an_untracked_court(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)  # corpus court is ca9
+    with corpus.connect(db) as conn:
+        # The watchlist pass stores no events; an event's court is held strictly.
+        conn.execute("DELETE FROM events")
+        conn.commit()
+    admitted = run_corpus_validation(
+        corpus_db_path=db,
+        data_root=tmp_path / "data",
+        today=TODAY,
+        tracked_courts=["ca1"],
+        admitted_case_ids=frozenset({"ca9/1"}),
+    )
+    other = run_corpus_validation(
+        corpus_db_path=db,
+        data_root=tmp_path / "data",
+        today=TODAY,
+        tracked_courts=["ca1"],
+        admitted_case_ids=frozenset({"ca9/2"}),
+    )
+    assert _verdict_by_check(admitted)[CHECK_DOMAIN_VALUES] is True
+    assert _verdict_by_check(other)[CHECK_DOMAIN_VALUES] is False
+
+
 def test_tracked_court_passes(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     _seed_corpus(db)

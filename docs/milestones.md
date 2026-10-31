@@ -139,7 +139,9 @@ added on a dated line. Each case names its AI-developer parties and one
 category from the file's closed vocabulary (copyright, government, product
 liability and so on), so the list's mix can be reported. Its cases carry an
 `ai` tag that follows them to any appeal or cert petition; the tag never
-changes SCOTUS selection.
+changes SCOTUS selection. `fedcourts watchlist-refresh` keeps every listed
+docket's record current in the corpus, facts only, on its own share of the
+CourtListener budget.
 
 What the step adds:
 

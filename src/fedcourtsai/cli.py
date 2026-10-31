@@ -89,6 +89,7 @@ from . import (
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
 from .agent_tooling import normalise_tooling
+from .ai_watchlist import AI_WATCHLIST_FILENAME, load_ai_watchlist, tagged_case_ids
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
@@ -169,6 +170,7 @@ from .config import (
     load_spend_config,
     load_statpack_config,
     load_summaries_config,
+    load_watchlist_refresh_config,
 )
 from .courtlistener import (
     CourtListenerClient,
@@ -297,6 +299,7 @@ from .pipeline import (
     semantic,
     vide_links,
     vote_sources,
+    watchlist_refresh,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
 from .pipeline.application_topics import (
@@ -762,6 +765,7 @@ def validate_corpus_cmd(
         today=as_of,
         baseline_count=baseline_count,
         tracked_courts=load_courts(settings.config_root),
+        admitted_case_ids=_watchlist_case_ids(settings),
     )
     destination = out if out is not None else settings.metrics_root / "corpus-validation.json"
     write_json(destination, verdict)
@@ -15237,6 +15241,99 @@ def pull(
     _fetch_one_docket(court, docket)
 
 
+def _watchlist_case_ids(settings: Settings) -> frozenset[str]:
+    """The AI watchlist's dockets, which ``watchlist-refresh`` owns; none without the file."""
+    path = settings.config_root / AI_WATCHLIST_FILENAME
+    return tagged_case_ids(load_ai_watchlist(path)) if path.exists() else frozenset()
+
+
+@app.command("watchlist-refresh")
+def watchlist_refresh_cmd(
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Print the plan (each docket's read mode and date) and stop: no "
+            "CourtListener request, no corpus write. Reads the corpus only.",
+        ),
+    ] = False,
+    report: Annotated[
+        Path | None,
+        typer.Option(help="Also write the run's report (refreshed, failed, deferred) as JSON."),
+    ] = None,
+    once_a_day: Annotated[
+        bool,
+        typer.Option(
+            "--once-a-day",
+            help="Do nothing when a listed docket was already refreshed today (UTC): the "
+            "lane's share is sized for one run a day, so the scheduled windows after the "
+            "first, and a dispatch the same day, spend nothing.",
+        ),
+    ] = False,
+) -> None:
+    """Keep the AI watchlist's dockets current in the corpus, facts only.
+
+    Refreshes every docket ``config/ai-watchlist.yaml`` names on the
+    ``watchlist`` lane's share: a snapshot when the docket changed and a
+    ``cases`` row stamped ``last_pulled``, and no events, outcomes or queues.
+    Incremental reads (entries changed since the last refresh) go first, then
+    whole reads: onboarding a docket, which spreads the list over several runs,
+    and a weekly re-read where the share left covers it. Stops at a wall-clock
+    budget or a run of transient failures, deferring the rest. Exits 1 when any
+    docket failed, so a docket past the page cap is seen.
+    """
+    settings = get_settings()
+    cfg = load_watchlist_refresh_config(settings.config_root)
+    watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+    dockets = [pair for case in watchlist.cases for pair in case.dockets()]
+    today = datetime.now(UTC).date()
+    db = corpus.corpus_db_path(settings.corpus_root)
+    with corpus.connect_readonly(db, backend=settings.corpus_backend) as conn:
+        plan = watchlist_refresh.plan_refresh(
+            conn,
+            dockets,
+            today=today,
+            overlap_days=cfg.overlap_days,
+            full_read_every_days=cfg.full_read_every_days,
+        )
+    for p in plan:
+        since = f" since {p.since}" if p.since else ""
+        typer.echo(f"{p.case_id}\t{p.mode.value}{since}\tlast_pulled={p.last_pulled or '-'}")
+    if once_a_day and watchlist_refresh.refreshed_on(plan, today):
+        typer.echo(f"watchlist-refresh: already ran on {today}; the share is one run a day")
+        return
+    if dry_run:
+        typer.echo(f"watchlist-refresh: dry run, {len(plan)} docket(s) planned, nothing read")
+        return
+    share = load_courtlistener_budget(settings.config_root).lane("watchlist").per_run
+    deadline = time.monotonic() + cfg.max_run_minutes * 60
+    with _client("watchlist") as client:
+        result = watchlist_refresh.refresh_watchlist(
+            client,
+            db,
+            plan,
+            max_entry_pages=cfg.max_entry_pages,
+            today=today,
+            share=share,
+            deadline=deadline,
+            max_consecutive_transient_failures=cfg.max_consecutive_transient_failures,
+        )
+    _ensure_corpus_layout(db)
+    if report is not None:
+        write_raw_json(report, result.as_json())
+    changed = sum(1 for r in result.refreshed if r.changed)
+    stopped = f"; stopped: {result.stop_reason}" if result.stop_reason else ""
+    typer.echo(
+        f"watchlist-refresh: refreshed {len(result.refreshed)}/{len(plan)} "
+        f"({changed} changed), failed {len(result.failed)}, "
+        f"deferred {len(result.deferred)}{stopped}"
+    )
+    for case_id, reason in sorted(result.failed.items()):
+        typer.echo(f"  failed {case_id}: {reason}", err=True)
+    if result.failed:
+        raise typer.Exit(1)
+
+
 @app.command("probe-live-terms")
 def probe_live_terms(
     max_term: Annotated[
@@ -20450,6 +20547,7 @@ def pull_all(
             limit=cap,
             skip_closed=pull_cfg.skip_closed,
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
+            exclude=_watchlist_case_ids(settings),
         )
         queues = pull_cases(
             client,

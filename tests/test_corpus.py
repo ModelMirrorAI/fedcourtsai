@@ -2012,6 +2012,17 @@ def test_rotation_orders_never_pulled_first_then_oldest(tmp_path: Path) -> None:
     assert order == ["ca9/2", "ca9/3", "ca9/1"]
 
 
+def test_rotation_leaves_out_excluded_cases(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [_active("ca9/1"), _active("ca9/2"), _active("scotus/3")]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        picked = corpus.rotation_for_pull(
+            conn, limit=10, eligible_reserve=5, exclude=frozenset({"ca9/2", "scotus/3"})
+        )
+    assert [r.case_id for r in picked] == ["ca9/1"]
+
+
 def test_rotation_respects_limit(tmp_path: Path) -> None:
     db = tmp_path / "corpus.db"
     rows = [_active(f"ca9/{i}", last_pulled=None) for i in range(5)]
