@@ -1,0 +1,147 @@
+{
+  "$defs": {
+    "AlignmentCodeMode": {
+      "description": "Whether the case was still undecided (forward) or already decided (replay) when coded.",
+      "enum": [
+        "forward",
+        "replay"
+      ],
+      "title": "AlignmentCodeMode",
+      "type": "string"
+    },
+    "AlignmentSide": {
+      "description": "Which party argues the conservative position in a granted merits case.",
+      "enum": [
+        "petitioner",
+        "respondent"
+      ],
+      "title": "AlignmentSide",
+      "type": "string"
+    },
+    "AlignmentSideCode": {
+      "additionalProperties": false,
+      "description": "One granted merits case's side coding: its conservative side and alignment score.\n\nThe input the score baselines read (``docs/merits-alignment-baseline.md``),\nmade once by an agent pass that reads the case's grant-time text and never\nrevised. ``contamination_risk`` is true exactly on a ``replay`` code: the\ncase was decided before it was coded, so the coder may know the outcome\nfrom training, and any fit on such codes is labeled possibly optimistic.",
+      "properties": {
+        "case_id": {
+          "description": "Canonical ``<court>/<docket>`` id \u2014 joins the corpus row and ``data/cases``",
+          "minLength": 1,
+          "title": "Case Id",
+          "type": "string"
+        },
+        "coded_at": {
+          "description": "The day the code was made",
+          "format": "date",
+          "title": "Coded At",
+          "type": "string"
+        },
+        "conservative_side": {
+          "$ref": "#/$defs/AlignmentSide",
+          "description": "The party whose position is the conservative one"
+        },
+        "contamination_risk": {
+          "description": "True exactly on a `replay` code: the coder may know the outcome from training, so a fit on it may be optimistic",
+          "title": "Contamination Risk",
+          "type": "boolean"
+        },
+        "docket_number": {
+          "description": "The Court's own docket number \u2014 the second half of the extract join key",
+          "minLength": 1,
+          "title": "Docket Number",
+          "type": "string"
+        },
+        "granted": {
+          "description": "The cert grant date the coded text stood at",
+          "format": "date",
+          "title": "Granted",
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/$defs/AlignmentCodeMode",
+          "description": "`forward` if the case was undecided when coded, `replay` if decided"
+        },
+        "model": {
+          "description": "The model that made the code",
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "note": {
+          "description": "The coder's one-sentence reason for the side, in its own words",
+          "maxLength": 400,
+          "minLength": 1,
+          "title": "Note",
+          "type": "string"
+        },
+        "run_id": {
+          "description": "The workflow run that made the code",
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "score": {
+          "description": "The alignment score `s`: how conservative the outcome will be, read as P(the conservative side prevails)",
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Score",
+          "type": "number"
+        },
+        "valence": {
+          "$ref": "#/$defs/AlignmentValence",
+          "description": "How clearly the case divides on ideological lines; analytics only"
+        }
+      },
+      "required": [
+        "case_id",
+        "docket_number",
+        "granted",
+        "conservative_side",
+        "score",
+        "valence",
+        "note",
+        "mode",
+        "contamination_risk",
+        "model",
+        "run_id",
+        "coded_at"
+      ],
+      "title": "AlignmentSideCode",
+      "type": "object"
+    },
+    "AlignmentValence": {
+      "description": "How clearly a case divides on ideological lines, in the coder's reading.\n\nRecorded for analytics; the score baselines read only the side and the score.\n``none`` is a real reading (a technical question with no ideological\nvalence), not a gap: the side is still called, as the side whose position\nthe coding guide's conservative priorities favor.",
+      "enum": [
+        "clear",
+        "weak",
+        "none"
+      ],
+      "title": "AlignmentValence",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "``data/merits-alignment/alignment-side-codes.json`` \u2014 every side code made so far.\n\n**Append-only**: a case is coded once and its code is never revised, so a\npublish that would replace an entry is refused (``fedcourts\nalignment-side-codes``). Entries are sorted by ``case_id``, one per case.",
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/AlignmentSideCode"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scheme": {
+      "const": "alignment-side-v1",
+      "default": "alignment-side-v1",
+      "description": "The coding guide every entry was made under",
+      "title": "Scheme",
+      "type": "string"
+    }
+  },
+  "title": "AlignmentSideCodes",
+  "type": "object"
+}

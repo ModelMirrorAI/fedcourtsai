@@ -62,21 +62,83 @@ and how conservative the outcome will be. That coding is a judgment, and it is
 where much of a baseline's apparent skill could hide, so it is made once and
 recorded before the decision:
 
-- **When.** At grant, one agent pass reads only the record as it stands. It
-  records which party argues the conservative position and a score `s` in
-  [0, 1] for how conservative the outcome will be.
-- **How it is committed.** The pass is committed like a prediction and never
-  revised. It is stored as its own baseline predictor and kept for analytics.
-- **Past Terms.** OT2022–OT2025 grants are coded by the same pass, run on each
-  case's record as of grant time (replay mode). The agent may know those
-  outcomes from training, so every past-Term score carries a
-  **contamination-risk** flag, and any fit on them is labeled as possibly
-  optimistic. The clean check is a fit on scores recorded at grant time only,
-  reported separately. The pass runs at grant, so the first full Term of
-  clean scores is the grants of the first Term it runs for from that Term's
-  start; most of those cases are decided in the following Term. A clean
-  out-of-sample reading fits on that set and is scored on the grants of the
-  Term after it, and its report names both Terms.
+- **What it reads.** One agent pass, the side coder
+  (`.github/prompts/alignment-side-code.md`), reads each granted case as it
+  stood on the grant date and nothing else: the caption, the petitioner as
+  captioned, the court below, the grant date and the stored questions
+  presented. The caption and petitioner are the corpus's as of its latest
+  pull, so a party substituted after the grant shows under its new name, a
+  timing difference rather than an outcome. The run mode that executes the
+  coder must deny it every retrieval tool, so a code cannot rest on a filing,
+  a docket or a search the extract does not hold.
+- **What it records.** Which party, petitioner or respondent, argues the
+  conservative position; the score `s` in [0, 1], read as P(the conservative
+  side prevails); a `valence` (`clear`, `weak` or `none`) saying how clearly
+  the case divides on ideological lines, kept for analytics and read by no
+  baseline's fit; and a one-sentence note. The conservative side follows one
+  stated principle: the position the Justices appointed by Republican
+  presidents would be expected to take if the Court divided along its usual
+  lines, the same line the majority-alignment bloc draws. The prompt lists
+  where that principle points, row by row (criminal procedure, religion,
+  speech, firearms, discrimination, abortion, economic regulation, agencies and
+  the executive, unions, federalism and remedies, immigration, elections), with
+  a fallback for a question no row decides. It is the repository's own guide,
+  not the Supreme Court Database's decision-direction coding, which places a
+  civil-liberties claimant on the liberal side and so reverses the modern
+  alignment on free exercise, compelled speech and firearms. A side is always
+  called, even on a case with no valence.
+- **What the score is graded against.** The conservative side prevails where
+  the judgment below is disturbed and that side is the petitioner, or left
+  standing and that side is the respondent, on the merits binary
+  [decision-model.md](decision-model.md) declares: a reversal, a vacatur and
+  an affirmance in part are disturbed, and a DIG and an equally divided
+  affirmance are not. A terminated case has no judgment and is not graded.
+- **How it is committed.** Each code lands in
+  `data/merits-alignment/alignment-side-codes.json` (`AlignmentSideCodes`)
+  and is never revised: `fedcourts alignment-side-codes` refuses a run that
+  would replace a committed code. That guard is in the publish step; `validate
+  data` checks the file's schema but not its history, so a hand edit of a
+  landed entry is caught only by review of the data PR that makes it. The grant date, mode, contamination flag,
+  model, run and day are stamped by the harness from the extract and the run,
+  never taken from the coder.
+- **Which cases.** The frame is every SCOTUS cert grant that opened a merits
+  proceeding and did not ride the cert order, granted in OT2021 or later, on
+  the live slice (`pipeline.alignment_side`). Starting at OT2021 covers every
+  case decided from OT2022 on, since a case is decided in its grant Term or
+  the next. A case with no stored questions presented has nothing to code from
+  and is counted, not guessed at.
+- **Past Terms.** A case already decided when its extract is cut is coded in
+  **replay** mode. The coder is not told which cases those are, and is told
+  not to recall outcomes, but it may know them from training, so every replay
+  code carries the **contamination-risk** flag and any fit on them is labeled
+  as possibly optimistic. A case still undecided when cut is coded in
+  **forward** mode. Undecided is not the same as grant-time, since a forward
+  code made after argument may read what the argument said, so the clean
+  check reads only **clean** codes (`pipeline.alignment_side.is_clean`):
+  forward codes made within `CLEAN_LAG_DAYS` (30) of their grant and before
+  their case's argument, which an expedited case can hold inside the lag. A replay case decided after the coder's training cutoff is
+  plausibly uncontaminated, but it keeps the flag: the cutoff is not recorded
+  per code, and a fit that relied on it would rest on an unverified claim.
+  The clean check is a fit on clean codes only, reported separately. Codes
+  begin after OT2026 opened, so OT2026's early grants cannot be clean, and the
+  first full Term of clean codes is the OT2027 grants, most of them decided in
+  OT2028. A clean out-of-sample reading fits on those and is scored on the
+  OT2028 grants, if the run has coded every grant within the lag throughout.
+- **Valence in the fits.** The fits of the outcome transform and of `k` pool
+  every code, `none` included, because the baselines read every case; every
+  fit is also reported split by valence, so a `k` pulled toward 9–0 by
+  forced calls on cases with no ideological content is visible beside the
+  `clear` cases' own.
+
+On the production corpus whose newest pull is 2026-10-31, the frame holds 331
+grants, 29 of them with no stored questions presented, so a first run codes
+302 cases: 267 in replay and 35 forward. That fits one run, whose extract is
+capped at `CODE_ROW_CEILING` rows (400), earliest grants first.
+
+```bash
+uv run fedcourts alignment-side-extract --out <outside the checkout>/extract.json \
+  --modes-out <outside the checkout>/modes.json
+```
 
 ## The readings
 
@@ -162,13 +224,20 @@ command's output on one corpus vintage: re-run the command for current ones.
 ## What is built, and what remains owed
 
 Built: baselines 1 and 2, the bloc rule, the three vote readings, and the
-read-only readout over the corpus's merits lineups.
+read-only readout over the corpus's merits lineups; and, for the side coding,
+the coder's prompt, the extract (`fedcourts alignment-side-extract`), the
+committed artifact and its append-only publish step (`fedcourts
+alignment-side-codes`).
 
 Owed, in order:
 
-- **The side-coding pass.** Its prompt, the run mode that executes it at grant
-  and in replay over OT2022–OT2025, and where its records live in the ledger,
-  with the contamination-risk flag on every replay record.
+- **The side-coding run.** The `run-analytics` mode that cuts the extract,
+  runs the coder with retrieval denied, publishes its codes by PR and records
+  its spend, behind the review hold at a planning rate of its own, on a
+  schedule that codes each new grant within `CLEAN_LAG_DAYS`. The extract and
+  the modes sidecar must stay out of the coder's reach (the modes off its
+  filesystem, or both files' digests recorded at the extract and checked at
+  publish), since the publish step stamps the grant date and mode from them.
 - **Baselines 3 and 4.** The ideal-point source and its terms of use
   (`docs/data-sources.md`), the outcome transform and the fit of `k`, each with
   a `stats-reviewer` pass on the fit and the reading rule.

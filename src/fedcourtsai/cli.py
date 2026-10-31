@@ -281,6 +281,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     alignment_baseline,
+    alignment_side,
     application_backfill,
     argument_features,
     authorship,
@@ -507,6 +508,7 @@ from .schemas import (
     AgentFlags,
     AgentToolingFeedback,
     AiCaseActivityEntry,
+    AlignmentSideCodes,
     AuthorshipTally,
     Backtest,
     BlindingRecord,
@@ -6327,6 +6329,123 @@ def merits_lineups_cmd(
             }
         )
     )
+
+
+@app.command("alignment-side-extract")
+def alignment_side_extract_cmd(
+    out: Annotated[Path, typer.Option(help="JSON output path for the coder's extract.")],
+    modes_out: Annotated[
+        Path, typer.Option("--modes-out", help="JSON output path for the modes sidecar.")
+    ],
+) -> None:
+    """Cut one side-coding run's extract: each uncoded merits grant's grant-time text.
+
+    The frame (`pipeline/alignment_side.py`) is every SCOTUS cert grant that
+    opened a merits proceeding and did not ride the cert order, granted in
+    OT2021 or later, on the live slice. Each case not yet in the committed
+    side codes, and with stored questions presented, gets one row: case id,
+    docket number, caption, petitioner as captioned, court below, grant date
+    and the questions presented, nothing postdating the grant. At most
+    `CODE_ROW_CEILING` rows, earliest grants first. Each row's mode (`replay`
+    if the case carried a merits judgment when cut, else `forward`) goes to
+    `--modes-out`, which the coder never reads. Both files are working files
+    for one run and are refused inside the checkout, since the extract
+    republishes stored petition text. Prints the frame's counts to stderr; an
+    empty extract writes nothing and exits 0, a missing corpus exits 1.
+    """
+    settings = get_settings()
+    for destination in (out.resolve(), modes_out.resolve()):
+        for boundary in (_work_tree_root(), settings.data_root.resolve()):
+            if boundary is not None and (
+                destination == boundary or boundary in destination.parents
+            ):
+                typer.echo(
+                    f"alignment-side-extract: refusing to write inside the checkout ({boundary}); "
+                    "the extract republishes stored petition text",
+                    err=True,
+                )
+                raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before cutting a side-coding extract.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    committed = alignment_side.codes_path(settings.data_root)
+    coded = (
+        [e.case_id for e in read_model(committed, AlignmentSideCodes).entries]
+        if committed.is_file()
+        else []
+    )
+    try:
+        with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+            extract = alignment_side.read_extract(conn, coded)
+    except Exception as exc:
+        # Broad for the reason the topic extract's read is: a content-store
+        # transport failure surfaces as whatever the client raises.
+        typer.echo(f"alignment-side-extract: cannot read the corpus at {db_path}: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    modes = alignment_side.modes_payload(extract)
+    replay = sum(1 for mode in modes.values() if mode == "replay")
+    typer.echo(
+        f"alignment-side-extract: frame {extract.frame} grant(s); {extract.already_coded} "
+        f"already coded, {extract.no_text} with no stored questions presented, "
+        f"{extract.deferred} deferred past the {alignment_side.CODE_ROW_CEILING}-row ceiling; "
+        f"{len(extract.rows)} row(s), {replay} replay",
+        err=True,
+    )
+    if not extract.rows:
+        typer.echo("alignment-side-extract: nothing owed; standing down")
+        return
+    write_raw_json(out, alignment_side.extract_payload(extract))
+    write_raw_json(modes_out, modes)
+    typer.echo(f"alignment-side-extract: {len(extract.rows)} row(s) -> {out}")
+
+
+@app.command("alignment-side-codes")
+def alignment_side_codes_cmd(
+    extract: Annotated[Path, typer.Option(help="The run's extract.")],
+    modes: Annotated[Path, typer.Option(help="The run's modes sidecar.")],
+    codes: Annotated[Path, typer.Option(help="The coder's JSONL output.")],
+    model: Annotated[str, typer.Option(help="The model the coder ran.")],
+    run_id: Annotated[str, typer.Option("--run-id", help="The workflow run id.")],
+    coded_at: Annotated[
+        str | None,
+        typer.Option("--coded-at", help="The run's day, YYYY-MM-DD (default: today, UTC)."),
+    ] = None,
+) -> None:
+    """Publish one side-coding run into the committed side codes, append-only.
+
+    The code lines must name every extract row exactly once by its case id and
+    docket number and carry only the coder's fields (side, score, valence,
+    note); the grant date, mode, contamination flag, model, run and day are
+    stamped here. A line for a case the committed file already codes is
+    refused, since a code is never revised. Writes
+    `data/merits-alignment/alignment-side-codes.json`; any refusal exits 1 and
+    writes nothing.
+    """
+    settings = get_settings()
+    day = date.fromisoformat(coded_at) if coded_at else datetime.now(UTC).date()
+    committed = alignment_side.codes_path(settings.data_root)
+    try:
+        prior = read_model(committed, AlignmentSideCodes) if committed.is_file() else None
+        merged = alignment_side.publish(
+            prior,
+            json.loads(extract.read_text()),
+            json.loads(modes.read_text()),
+            alignment_side.read_code_lines(codes),
+            model=model,
+            run_id=run_id,
+            coded_at=day,
+        )
+    except (OSError, ValueError) as exc:
+        typer.echo(f"alignment-side-codes: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    added = len(merged.entries) - (len(prior.entries) if prior is not None else 0)
+    write_json(committed, merged)
+    typer.echo(f"alignment-side-codes: {added} code(s) added, {len(merged.entries)} in all")
 
 
 @app.command("justice-priors")
