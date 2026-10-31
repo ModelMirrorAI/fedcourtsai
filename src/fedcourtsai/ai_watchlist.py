@@ -8,10 +8,11 @@ same PR as the cases it admits.
 
 Every docket a listed case names, its own and each related one, is in the set
 :func:`tagged_case_ids` returns, the dockets a case-level surface tags ``ai``,
-so the tag follows a case to every court it reaches. The tag is a label for
-display surfaces only: nothing here widens the corpus's court allowlist,
-admits a case to prediction scope, or changes SCOTUS selection, which is why
-a ``scotus`` docket is refused.
+so the tag follows a case to every court it reaches. The same set is what
+``watchlist-refresh`` keeps current in the corpus, facts only: those dockets are
+admitted by name, not their courts, and the pull rotation leaves them out. None
+of this admits a case to prediction scope or changes SCOTUS selection, which is
+why a ``scotus`` docket is refused.
 """
 
 from __future__ import annotations
@@ -29,6 +30,8 @@ from fedcourtsai import ids
 
 #: The tag every watchlist docket carries on case-level surfaces.
 AI_TAG = "ai"
+#: The watchlist's file, under the config root.
+AI_WATCHLIST_FILENAME = "ai-watchlist.yaml"
 
 _CATEGORY = re.compile(r"^[a-z][a-z0-9-]*$")
 #: A CourtListener court id, as the corpus stores it (``cand``, ``ca9``, ``jpml``).

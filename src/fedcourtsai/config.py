@@ -329,6 +329,43 @@ def load_pull_config(config_root: Path) -> PullConfig:
     return PullConfig.model_validate((data or {}).get("pull", {}))
 
 
+class WatchlistRefreshConfig(BaseModel):
+    """The ``watchlist_refresh`` section of ``tracking.yaml``: the AI watchlist's own pass.
+
+    ``watchlist-refresh`` keeps the dockets ``config/ai-watchlist.yaml`` names
+    current, apart from the SCOTUS rotation and on its own CourtListener lane.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    # Most pages of entries (twenty a page) one full read of a docket may take.
+    # Sized above the longest listed docket, so a full read of each completes.
+    max_entry_pages: int = Field(default=150, ge=1)
+    # Days before the last refresh an incremental read reaches back. At least
+    # one: ``last_pulled`` is a UTC date, while upstream reads a bare date as
+    # midnight in its own (Pacific) zone, so a zero overlap would skip what
+    # changed between the last refresh and that midnight.
+    overlap_days: int = Field(default=2, ge=1)
+    # Each docket is read whole once in this many days, on a day its id picks,
+    # which catches what an incremental read cannot: a deleted entry, or a
+    # document attached without moving its entry's modification time.
+    full_read_every_days: int = Field(default=7, ge=1)
+    # Wall-clock budget for one run, in minutes, checked between dockets. The
+    # step runs in the pull job after pull-all, so this and
+    # `pull.max_run_minutes` together stay under the job's timeout.
+    max_run_minutes: float = Field(default=10.0, gt=0)
+    # Stop after this many transient upstream failures (timeouts, 5xx, 429) in a
+    # row, deferring the rest: the upstream is degraded.
+    max_consecutive_transient_failures: int = Field(default=3, ge=1)
+
+
+def load_watchlist_refresh_config(config_root: Path) -> WatchlistRefreshConfig:
+    """Read ``watchlist_refresh`` from ``config_root/tracking.yaml``; absent, the defaults."""
+    path = config_root / TRACKING_FILENAME
+    data = yaml.safe_load(path.read_text()) if path.exists() else {}
+    return WatchlistRefreshConfig.model_validate((data or {}).get("watchlist_refresh", {}))
+
+
 class CourtListenerLane(BaseModel):
     """One lane's fixed share of the CourtListener account's daily requests."""
 

@@ -697,6 +697,12 @@ courtlistener_budget:
     # enrich-decision-below --apply, each full live window: 6 cases, about four
     # requests each and sixteen at worst; a worst-case window defers its tail.
     decision-below-fill: {per_run: 60, runs_per_day: 4}
+    # watchlist-refresh, the day's first pull window: the AI watchlist's 37
+    # dockets, about two requests each once onboarded (incremental reads),
+    # with whole reads taking what is left. Above
+    # watchlist_refresh.max_entry_pages + 1, so a run can finish the longest
+    # onboard read. `--once-a-day` keeps later windows from spending it again.
+    watchlist: {per_run: 160, runs_per_day: 1}
     # The agent cells' CourtListener MCP servers (their own client), across
     # the day's predict and evaluate rounds and the daily integration-test
     # engine smokes.
@@ -714,6 +720,26 @@ courtlistener_budget:
     order-scan: {per_run: 150, dispatched: true}
     # fetch, one docket by hand.
     fetch: {per_run: 50, dispatched: true}
+
+# The AI watchlist's own refresh (`watchlist-refresh`): the dockets
+# config/ai-watchlist.yaml names, admitted by name rather than by court, stored
+# as facts only (no events, no predictions), and left out of the pull rotation.
+watchlist_refresh:
+  # Pages of entries (twenty a page) one full read may take: above the longest
+  # listed docket, the OpenAI MDL's ~133 pages on 2026-10-31.
+  max_entry_pages: 150
+  # An incremental read asks for entries modified since the last refresh, less
+  # this many days (at least one: upstream reads the date in Pacific time).
+  overlap_days: 2
+  # Each docket is read whole once a week, on a day its docket id picks, when
+  # what is left of the run's share covers it; a longer docket is read
+  # incrementally that day instead.
+  full_read_every_days: 7
+  # Wall-clock budget for one run, checked between dockets. With pull's 25
+  # minutes it stays under the pull job's 45-minute timeout.
+  max_run_minutes: 10
+  # Stop after this many transient upstream failures in a row.
+  max_consecutive_transient_failures: 3
 
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener
