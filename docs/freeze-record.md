@@ -15452,3 +15452,196 @@ freeze commit is recorded here.
   - `uv run python -c "from fedcourtsai.process_version import
     HARNESS_BOUNDARIES as H; print('context-band-refused' in {b.name for b
     in H})"` prints `True` once the promotion record has stamped the row.
+
+- **`proc-v16`: the forecast document is graded on every stage, cert and
+  merits cells read the decision below, and the predict prompt names a refused
+  band; recorded 2026-10-31.** Carried to `main` by the promotion tagged
+  `<FILL: promotion tag>` (merge commit `<FILL: merge sha>`, merged
+  `<FILL: merged time utc>`), to be tagged **`prereg/proc-v16`**. Registered
+  under the merge-stamped rule, so its counting instant, its six bless moments
+  and every window edge it moves are the carrying merge's committer time. Both
+  prompts change, so it takes the two supersession shapes `proc-v15` took
+  ([process-version.md](process-version.md#freezing-the-cutover-procedure)):
+  each predictor's open `proc-v15` window **closes** at this label's instant
+  and a `proc-v16` window opens there for each new digest, and the three
+  judges' blessings are replaced. Nothing is de-counted. Until the carrying
+  merge stamps the six new blessings, the carried bless map is empty while
+  `FROZEN_SINCE` stays at `proc-v15`'s instant, so every board built in that
+  interval counts nothing of this label.
+
+  **What moved, in what every cell reads.**
+  - *The forecast document's grade, `predicted_reasoning_quality`.* The
+    evaluate prompt gains a *Grading the forecast document* section: every
+    judge grades each candidate's `predicted_reasoning.md` on every stage, 0
+    to 1 on the anchored rubric, with the three to five central claims the
+    grade rests on (`predicted_reasoning_review`), or a null with the
+    record's ground for it. The rubric, its anchors, the central-claims list,
+    the null rule and the rule that the vote weighs less than the disposition
+    and the ground are the pilot section's at sha256
+    `3f03b9f2cf067d1bbb07fd681dcdacf47a649a4364cace605130eb73c1b31ce1`,
+    reframed as a registered section; the prompt's instruction not to grade
+    the forecast document becomes an instruction to grade it only in those
+    two fields, so `reasoning_quality` still grades `reasoning.md` alone. A
+    candidate with no forecast document gets neither field. `validate` takes
+    a committed grade (`PREDICTED_REASONING_GRADE_REGISTERED`). The design is
+    *Grading the forecast document, design* in
+    [outcome-decomposition.md](outcome-decomposition.md), whose register now
+    routes the document to this grade.
+  - *Every writing of the decision, on every evaluate cell.* run-evaluate's
+    opinion step passes `provision-opinion --writings` on every row, so a
+    merits cell stages each concurrence and dissent beside the majority, as
+    the grade's check of who writes separately needs. It changes the
+    information set of every judge-authored reading, not only this grade's.
+  - *The decision below, for cert and merits cells.* The `decision-below` and
+    `lower-court-docket` kinds leave `provision.WITHHELD_KINDS` and are staged
+    for cert-stage and merits-stage cells only
+    (`provision.LOWER_COURT_STAGES`), never interim: the maintainer's choice,
+    2026-10-31, since an interim application comes from a court the fill does
+    not join. The predict prompt names both files, says they come from a
+    CourtListener match by the lower court's docket number rather than the
+    Court's record, and says a missing file means no match was stored, never
+    that there was no decision below. The fill
+    (`fedcourts enrich-decision-below`, in `run-pull`'s live job) reaches
+    cases on a rotation, cases the ledger forecasts and the salience selection
+    first, then never-attempted before stale, so the share of cells holding
+    the files grows window by window rather than at the merge. The merits
+    back-test replay sweep stages neither kind, because the fill walks
+    undecided cases only and a decided case holds them by accident of timing;
+    the case-summary plan reads neither.
+  - *A refused band, named.* The predict prompt's description of `band`'s
+    null cases names `context.band_refused`: `"outside-segment"` where the
+    active salience version's segment leaves the docket out, so `band` and
+    `salience_version` are null although the snapshot was readable. The
+    field and its `context-band-refused` boundary were registered by the
+    `sal-v6` activation entry, which left the prompt sentence for this
+    re-bless.
+
+  **What the harness releases with this label.**
+  - *The decision-below boundary.* `decision-below-documents` is registered
+    **pending** by the change that stages the two kinds (every predictor,
+    reach `all`, `gradual`, since the files reach cases by back-fill);
+    `promotion-record` stamps it at this label's carrying merge, with
+    `context-band-refused`. Both coincide with this label's window edge.
+  - *The pilot note.* run-evaluate's `reasoning-pilot` and
+    `reasoning-pilot-merits` rounds stay: they re-grade a fixed sample under
+    the registered prompt and upload rather than commit. The pilot file
+    (`.github/prompts/pilot/predicted-reasoning-quality.md`) carries no
+    rubric; it marks the round and changes no instruction, and the round's
+    report hashes the evaluate prompt.
+
+  **The pilot evidence.** Two merits calibration rounds,
+  `20261026T100615Z` and `20261028T144848Z`, graded the replay merits
+  calibration cells against the maintainer's 10 hand labels (label sheet
+  sha256 `d51670c53fbf79300f8e0335129ca17f32637110dc7e8032df1a0c9deac9ddd0`,
+  sample sha256 `62eb08a3…`); the second graded under the section at sha256
+  `3f03b9f2…` registered here. The maintainer read the second round's regrade
+  on 2026-10-28 and accepted it as reasonable. The reading is the one *The
+  pilot, and what it reports* fixes: the labels are a reference, not ground
+  truth, and the judges are not required to match the maintainer exactly.
+
+  **What scored figures move.** None. The grade is collected, not published:
+  no board, summary or site page reads it, and it enters no claim total, no
+  rank key and no other grade. Publishing it, per stage, per process version
+  and per rubric, with its agreement figures beside every mean, is a later
+  change with its own site change. Every judge-authored reading
+  (`reasoning_quality`, `big_case`, the leakage grading, the semantic
+  grades) starts a new rubric signature at this label, and series that span
+  it read per rubric ([metrics/README.md](../metrics/README.md)).
+
+  **The back-grade, not yet owed by anything.** The registration says the
+  already-resolved forward documents are graded once, in new evaluation runs
+  stamped with this label; committed evaluations are never edited. The
+  backlog does not owe those runs: its idempotency gate
+  (`matrix.event_has_evaluations`) asks whether a judge has graded the event,
+  under any digest. At `origin/main` `7546878f3`, 198 resolved events carry a
+  committed prediction; 194 of them (147 cert, 47 interim) carry 579 latest
+  forward predictions with a forecast document, and every one of the 194 is
+  graded by all three judges, so the backlog would mint 0 cells for them. A
+  back-grade is 582 (judge × event) cells, a named-case `--force` round a
+  maintainer dispatches and releases. Its evaluations would become each
+  cell's latest grading, so their `reasoning_quality`, `big_case` and leakage
+  readings would replace the earlier judges' on every board that reads the
+  latest grading. Whether to run it, and when, is open.
+
+  **The retiring evaluator digests, and what was graded under them.**
+  `sha256:ede96425…` (`claude-judge`), `sha256:fb4db8c6…` (`codex-judge`)
+  and `sha256:e4813060…` (`gemini-judge`) leave the blessed set. At
+  `origin/main` `7546878f3` they stamp **0**, **0** and **0** committed
+  evaluations.
+
+  **Digests** (`uv run fedcourts process-digest --all`, the `proc-v15` column
+  as the registry blesses it):
+
+  | Actor | Before | `proc-v16` |
+  | --- | --- | --- |
+  | `claude-baseline` | `sha256:11ddd73ac5e4ef4d883f51997f00822dd737df2c9d52b0f8f599a27aa3dde31a` (`proc-v15`) | `sha256:6a7047b68d17cc856aeabec7b557db010e775081f4efa58af5e9bf7d53417b94` (new) |
+  | `codex-baseline` | `sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990` (`proc-v15`) | `sha256:bf956e358b5e31f3d72302c1b660d638ce16e4c4a0fa542887dd0c591c275e04` (new) |
+  | `gemini-baseline` | `sha256:274fea05cdeb0d3b004926de218364183603bbf331e3a2a5cdfcf7fe4909ec07` (`proc-v15`) | `sha256:758b95e861e1913da28900f558837a2fdbc0c1f4a4341ae130be83cd7e752164` (new) |
+  | `claude-judge` | `sha256:ede964258702cee0803a5255106a9ddc542164c017dd5e56ce47813c8b028388` | `sha256:ef9fca9df049ddb6ddea79169838364cb368a1ecd051249329cef8b5084ec9d2` (new) |
+  | `codex-judge` | `sha256:fb4db8c6b28902554a44e42078039dd467afe47bd986a4aa40ba4435307f60c0` | `sha256:00059397cd53a4153ad7e0cabfeb27200977cf748a336215884e2ba3ceaa9c82` (new) |
+  | `gemini-judge` | `sha256:e481306013cbb61ab29747a4eafd2d8d55c7694d196fe470ce14c78d2663310c` | `sha256:50251dc49781cef719feb0852a09daac15af3f4dd3f3120abf481f1a3c5f1e6e` (new) |
+
+  **Step 0.** At `origin/main` `7546878f3` (`2026-10-31T10:37:34Z`), the
+  count of committed files under `data/cases` naming `sha256:<digest>` is
+  **0** for each of the six newly blessed digests, and **3332** files there
+  carry a `process_version` stamp.
+
+  **Windows** (`COUNTING_WINDOWS`, once the carrying merge stamps them):
+
+  | Predictor | Label | Opens | Closes |
+  | --- | --- | --- | --- |
+  | `claude-baseline` (`11ddd73a…`) | `proc-v15` | `2026-10-30T16:38:43Z` | this label's instant (was open) |
+  | `codex-baseline` (`3df3d7aa…`) | `proc-v15` | `2026-10-30T16:38:43Z` | this label's instant (was open) |
+  | `gemini-baseline` (`274fea05…`) | `proc-v15` | `2026-10-30T16:38:43Z` | this label's instant (was open) |
+  | `claude-baseline` (`6a7047b6…`) | `proc-v16` | this label's instant | open (new) |
+  | `codex-baseline` (`bf956e35…`) | `proc-v16` | this label's instant | open (new) |
+  | `gemini-baseline` (`758b95e8…`) | `proc-v16` | this label's instant | open (new) |
+
+  Earlier windows keep the closes earlier labels gave them.
+
+  **What the close owes, provisional.** Run with this commit's pending rows
+  stamped by hand at a provisional instant, `2026-11-01T00:00:00Z`, in a
+  scratch copy of the registry, over `origin/main`'s ledger at `7546878f3`.
+  `uv run fedcourts successor-disclosures --closed proc-v15 --successor
+  proc-v16`:
+
+  ```
+  successor proc-v16 closes proc-v15 at 2026-11-01T00:00:00+00:00
+    closed proc-v15 claude-baseline: 11 counted event(s) — 0 resolved, 11 pending at close
+    closed proc-v15 gemini-baseline: 8 counted event(s) — 0 resolved, 8 pending at close
+    closed proc-v15 codex-baseline: 11 counted event(s) — 0 resolved, 11 pending at close
+    split events: 0 (0 resolved) — in no complete grid
+  ```
+
+  Cells keep landing until the instant, so the run is repeated once the
+  carrying merge has stamped the registry, and a dated follow-up entry quotes
+  it before any `proc-v15` window figure is quoted outside the committed
+  board.
+
+  **Evidence for the change other than the closed windows' boards.** The
+  pilot evidence above for the grade; for the decision below, the measured
+  match rate in [document-provisioning.md](document-provisioning.md). Every
+  closed window has 0 resolved events, so no score motivates either change.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L; from fedcourtsai.validate import
+    PREDICTED_REASONING_GRADE_REGISTERED as R; print(L, R)"` prints
+    `proc-v16 True`, and `uv run fedcourts process-digest --all` prints the
+    six digests above;
+  - on the first evaluate run's collect PR after the carrying merge, `jq -c
+    '[.process_version.label, .predicted_reasoning_quality,
+    (.predicted_reasoning_review.central_claims | length)]'
+    data/cases/scotus/*/events/*/evaluations/*/*/<run_id>/evaluation.json`
+    prints `"proc-v16"` and, for every candidate with a forecast document, a
+    number with 3 to 5 claims or a null beside a `not_gradeable` ground; each
+    merits cell's job log shows `provision-opinion` staging its writings
+    where the corpus stores them;
+  - on the first predict run after the carrying merge, a forward cert or
+    merits cell on a case the fill has reached carries
+    `record/documents/decision-below.txt`, and no interim cell carries
+    either lower-court file;
+  - on `main`, `uv run python -c "from fedcourtsai.process_version import
+    HARNESS_BOUNDARIES as H; n = {b.name for b in H};
+    print({'decision-below-documents', 'context-band-refused'} <= n)"` prints
+    `True` once the promotion record has stamped the rows.
