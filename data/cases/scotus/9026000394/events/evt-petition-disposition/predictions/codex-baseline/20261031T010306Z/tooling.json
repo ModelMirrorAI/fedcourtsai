@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000394",
+  "run_id": "20261031T010306Z",
+  "role": "predictor",
+  "actor_id": "codex-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts paths", "fedcourts query", "CourtListener MCP opinion search", "web search and official-opinion retrieval", "committed statpack", "fedcourts validate"],
+  "helpful": ["Frozen cert anchor", "Complete petition and appendix", "Observable response request in snapshot", "Historical docket-number corpus lookup", "Paid-segment signal cuts"],
+  "gaps": ["Reporter-citation corpus lookup had sparse coverage", "Default uv cache path was not writable; temporary cache and no-sync mode resolved it"],
+  "notes": "No packages installed. Opinion citation lookup returned no hit, but the CourtListener name search located the official amended LTL opinion. A broad grant query included interim applications and was not treated as a matched cert prior. No response brief was yet due in the provisioned record."
+}

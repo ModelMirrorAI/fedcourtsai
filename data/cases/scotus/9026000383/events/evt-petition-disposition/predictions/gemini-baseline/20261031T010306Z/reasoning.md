@@ -1,0 +1,36 @@
+# Predictor Rationale: *Felicia Scroggins v. City of Shreveport, Louisiana* (No. 26-383)
+
+## Summary of Forecast
+- **Predicted Disposition:** `denied` (`granted = 0`)
+- **`probability` / `disposition`:** `0.002` (0.2%)
+- **`relist-increment`:** `0.015` (1.5%)
+- **`cvsg-increment`:** `0.001` (0.1%)
+- **`summary-disposition-route`:** `0.35` (35% conditional on grant)
+- **`dissent-from-denial`:** `0.002` (0.2% conditional on denial)
+- **`big_case_score`:** `0.02`
+
+## Base-Rate Anchoring (`metrics/statpack.md` & `record/context.json`)
+From `record/context.json`, this cell runs in `forward` mode at `moment: distribution` (`cutoff: null`, `snapshot_date: 2026-10-31`) in Term `2026`, with `band: "baseline"`, `salience_version: "sal-v4"`, `distribution_count: 1`, and `cvsg_date: null`.
+- **Frozen Cert Anchor:** `record/context.json` provides `cert_anchor.rate = 0.050890782339271884` (~5.09%), pooled over the 10 prior Terms (OT2017–OT2025 in the rendered table) for the `baseline` band's risk-set (`reached`) rate under `sal-v4`.
+- **Terminal Baseline Band & Relist-0 Cuts:** While ~5.09% is the risk-set rate for all paid petitions in the `baseline` class (which includes petitions that later draw responses, relists, or CVSGs), petitions that *end* in the `baseline` band grant at roughly 0.8% (`granted`) + 0.4% (`gvr`) = **1.2%** across the live/historical slice (`n = 9,937` resolved). Similarly, in the **Cert petitions by relist count (paid scored segment)** table, `relist_bucket = 0` (distributed once, never relisted) shows a resolved base rate of 96.8% denied, 1.3% dismissed, 1.3% granted, and 0.5% gvr (1.8% grant family, `n = 10,204`).
+- **Amicus and Originating Circuit Cuts:** The docket carries **0 amicus briefs** (`cert_amicus = 0` bucket: 95.0% denied, 2.0% granted, 1.8% gvr, `n = 11,109`) and no CVSG (`cvsg = none`: 92.4% denied, 4.1% granted, 2.3% gvr, `n = 13,549`). Originating court `ca5` in the modern discretionary-cert slice sits at 94.6% denied, 1.7% granted, 2.1% gvr (`n = 5,414`).
+
+## Case-Specific Adjustments Downward from the Anchor
+Starting from the 5.09% risk-set anchor (and ~1.2%–1.8% terminal baseline/zero-relist rate), several strong case-specific factors warrant adjusting `P(grant)` sharply downward to **0.002 (0.2%)**:
+
+1. **Respondent Waived Response and No Call for Response Issued:** Respondent City of Shreveport filed a formal waiver of its right to respond on October 10, 2026, and the petition was distributed on October 28, 2026 for the November 13, 2026 conference without the Court requesting a response. Under Supreme Court practice, the Court almost never grants certiorari (or even relists for plenary consideration) without first calling for a response.
+2. **Pro Se Paid Petition with Purely Fact-Bound Error-Correction Claims:** Although docketed on the paid docket (`sJsonCaseType: "Paid"`), Petitioner Felicia Scroggins is proceeding *pro se* (`petition.txt`, cover & p. 22). The petition asserts no circuit split; indeed, the Table of Authorities cites only Supreme Court cases on general summary-judgment standards (*Anderson*, *Reeves*, *Tolan*, *McDonnell Douglas*), *Cleveland*, *Loudermill*, and three Fifth Circuit decisions (*Weber v. BNSF Ry. Co.*, *Chevron Phillips*, and *EEOC v. LHC Group*).
+3. **Unpublished Two-Sentence Rule 47.6 Affirmance Below:** The Fifth Circuit's opinion (`appendix.txt`, App-1) is an unpublished per curiam order under 5th Cir. R. 47.6 stating in its entirety: *"After reviewing the parties' briefs and the record, we find no reversible error. We AFFIRM."* It sets no circuit precedent and creates no conflict with any other court of appeals.
+4. **Fatal Vehicle and Alternative-Ground Obstacles in the District Court's Ruling:** Reading the Western District of Louisiana's Memorandum Ruling (`appendix.txt`, App-2 to App-22) shows why this case is an exceptionally poor vehicle even on its own terms:
+   - Petitioner missed **1,153 of 1,779 available workdays (64.6% of shifts)** over a five-year window (June 2018 to November 2022), returning just before the 365-day statutory sick-leave limit on two occasions (App-4 to App-5).
+   - Although Petitioner returned to a temporary light-duty schedule (four hours/day, five days/week) on December 19, 2022—which by department policy could not exceed 90 days—her own October 17, 2022 psychological fitness-for-duty evaluation and January 19, 2023 Pre-Disciplinary Conference statements indicated ongoing sleep disturbances, crying spells, fear of being triggered on emergency and non-emergency calls, and belief that she was not prepared to resume full Fire Engineer duties (App-5 to App-6, App-16 to App-17).
+   - Crucially, the district court held in the alternative (App-17 to App-18 n.1) that even if Petitioner could establish a prima facie case (i.e., even if she were a "qualified individual" under 42 U.S.C. § 12111(8)), the City articulated a legitimate, nondiscriminatory reason for her termination (64.6% absenteeism over five years, investigated across seven employees exceeding a 20% threshold) and Petitioner produced no evidence of pretext or disparate treatment. That independent alternative holding insulates the judgment from Question 1.
+   - Furthermore, the Civil Service Board already reduced her termination to a 45-day suspension (affirmed by the state district court), and the federal district court held that she waived/abandoned her procedural due-process claim by failing to brief it in her summary-judgment opposition (App-6, App-21).
+5. **Prior Related Petition Denied in Same Posture (`No. 26-80`):** Corpus lookup of Petitioner's earlier petition mentioned in the Related Proceedings section (`Felicia Scroggins v. City of Shreveport, Louisiana`, No. 26-80, arising from her 2018 lawsuit, CA5 No. 24-30777) shows that it was distributed once on September 28, 2026 without a response or relist and denied on October 5, 2026.
+
+## Secondary Claims and Distributions
+- **`relist-increment` (`0.015`):** Because no response was filed and none has been requested prior to the October 28 distribution, a further distribution would only occur if the Court Either reschedules/calls for a response (which would re-distribute the petition once the BIO arrives) or relists directly. Given the pro se fact-bound nature of the petition, the probability of another distribution is ~1.5%.
+- **`cvsg-increment` (`0.001`):** Virtually zero chance of a CVSG on a municipal firefighter's pro se fact-bound summary-judgment appeal.
+- **`summary-disposition-route` (`0.35`):** Conditional on a grant, because Question 2 explicitly invokes *Tolan v. Cotton* (a summary reversal on Rule 56 grounds) and the Fifth Circuit opinion is a two-sentence Rule 47.6 affirmance, roughly 35% of the tiny grant probability mass would be a summary GVR/reversal versus 65% plenary review on Question 1.
+- **`dissent-from-denial` (`0.002`) & `order-writers` (`0.001` each):** There is no hot-button issue or circuit split that attracts separate cert-stage writings from any Justice.
+- **`big_case_score` (`0.02`):** Even if decided, the case is a fact-bound application of settled ADA qualification and Rule 56 summary-judgment standards to an individual municipal employee's absenteeism record.

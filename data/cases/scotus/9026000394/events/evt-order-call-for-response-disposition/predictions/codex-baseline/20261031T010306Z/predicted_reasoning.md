@@ -1,0 +1,13 @@
+# Forecast
+
+The Court will deny certiorari after receiving DBMP's requested response. The probability of any grant, including a summary grant, is 24%.
+
+The snapshot contains one distribution, on October 28 for the November 13, 2026 conference, followed by the October 30 response request. The response is due November 30. Expect another distribution after the response and the ordinary reply interval, most likely in December 2026 or January 2027, with a decision around that period or shortly thereafter. Expect one or two additional distributions in total, usually an administrative redistribution followed, possibly, by one genuine post-conference relist. The probability of at least one additional distribution is 97%. That number does not predict a 97% chance of substantive relisting: the already scheduled conference precedes the response deadline, making redistribution especially likely under the claim's counting rule.
+
+The Court will not call for the Solicitor General's views; the probability of a new CVSG is 8%. If it does, expect the invitation at a conference after the response arrives, likely in winter 2026–27, delaying final action into a later part of 2027. The bankruptcy-system interest makes an invitation possible but not the expected route.
+
+If review is granted, expect plenary briefing and argument, not disposition in the certiorari order. Conditional on a grant, the probability of a summary-disposition route is 6%. No provisioned intervening Supreme Court decision supplies an obvious GVR instruction, and deciding how good faith operates in this stay-relief posture requires more than routine error correction.
+
+If the Court takes the case, expect a question confined to whether a financially non-distressed debtor's use of a divisional merger and section 524(g) can establish bad faith constituting cause for stay relief under section 362(d)(1). The Court would be more likely to examine that standard than to adjudicate every constitutional, fraudulent-transfer, or nondebtor-release objection to the Texas Two-Step. If granted, the likely doctrinal dispute is whether a feasible asbestos trust suffices to defeat bad-faith objections without a separate inquiry into the debtor's need for bankruptcy protection.
+
+Expect denial without a separate writing. Conditional on denial, the probability of a noted dissent or statement respecting denial is 14%. Gorsuch is the most plausible writer in the low-probability separate-writing branch, with Thomas and Jackson other possibilities; no particular Justice's vote is forecast as certain. The order-writer probabilities are unconditional, independent authorship probabilities, not a distribution of votes.

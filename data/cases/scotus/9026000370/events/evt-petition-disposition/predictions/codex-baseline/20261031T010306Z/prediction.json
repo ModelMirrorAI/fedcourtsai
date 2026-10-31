@@ -1,0 +1,99 @@
+{
+  "big_case_rationale": "A rule governing above-cost bundled pricing and constructive tying could affect multiproduct businesses well beyond radio ratings, although this is an interlocutory private commercial dispute rather than a nationwide governmental program.",
+  "big_case_score": 0.58,
+  "case_id": "scotus/9026000370",
+  "claim_distributions": [
+    {
+      "claim_id": "order-writers",
+      "probabilities": {
+        "Alito": 0.009,
+        "Barrett": 0.004,
+        "Gorsuch": 0.012,
+        "Jackson": 0.003,
+        "Kagan": 0.003,
+        "Kavanaugh": 0.008,
+        "Roberts": 0.003,
+        "Sotomayor": 0.003,
+        "Thomas": 0.018
+      }
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "disposition",
+      "probability": 0.14
+    },
+    {
+      "claim_id": "relist-increment",
+      "probability": 0.26
+    },
+    {
+      "claim_id": "cvsg-increment",
+      "probability": 0.06
+    },
+    {
+      "claim_id": "summary-disposition-route",
+      "probability": 0.07
+    },
+    {
+      "claim_id": "dissent-from-denial",
+      "probability": 0.06
+    }
+  ],
+  "confidence": null,
+  "context": {
+    "amicus_briefs": null,
+    "band": "baseline",
+    "cert_anchor": {
+      "lookback_terms": 10,
+      "rate": 0.050890782339271884,
+      "statpack_digest": "sha256:063aea1961d5833e02e3aa0254477260a34f98f23a2751a1620aaf7c8db03726"
+    },
+    "cut_anchor_index": null,
+    "cut_kind": null,
+    "cutoff": null,
+    "cvsg_date": null,
+    "decided_before": null,
+    "distribution_count": 1,
+    "mode": "forward",
+    "paper_only_filings": false,
+    "referred_to_court": null,
+    "response_requested": null,
+    "salience_version": "sal-v4",
+    "schema_version": "1.0",
+    "signals_observable": true,
+    "snapshot_contact_scrub": {
+      "blocks": 0,
+      "fields": 0,
+      "sides": []
+    },
+    "snapshot_date": "2026-10-31",
+    "snapshot_provenance": "as-stored",
+    "snapshot_uptake": "read",
+    "term": 2026,
+    "vide_links": []
+  },
+  "created_at": "2026-10-31T01:35:53.200074Z",
+  "engine": "codex",
+  "event_id": "evt-petition-disposition",
+  "granted": 0,
+  "input_snapshot": "2026-10-31.json",
+  "judgment": null,
+  "model": "gpt-6.1-sol",
+  "predicted_disposition": "denied",
+  "predicted_reasoning_doc": "predicted_reasoning.md",
+  "predictor_id": "codex-baseline",
+  "probability": 0.14,
+  "process_version": {
+    "algo": "sha256",
+    "digest": "sha256:3df3d7aa2267e392cf047493c336737c9ea5a30b310919e027eeb3a850027990",
+    "label": "proc-v15",
+    "pipeline_sha": "a0d01ccdcd07e178a9f214431707eeaacdd449d4",
+    "stamped_at": "2026-10-31T01:35:53.200074Z"
+  },
+  "reasoning_doc": "reasoning.md",
+  "run_id": "20261031T010306Z",
+  "schema_version": "1.0",
+  "semantic_claims": null,
+  "votes": []
+}
