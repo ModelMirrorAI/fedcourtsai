@@ -637,9 +637,8 @@ INTERIM_WINDOW_FROM_TERM: Final = WIDE_APPLICATION_KIND_FROM_TERM
 #: baseline's ``salience.base_rate_lookback_terms`` because the interim docket
 #: moved more within ten Terms than the cert docket did — a pool reaching back
 #: to OT2016 carries the OT2020 and OT2021 spike into an OT2027 cell's baseline — and
-#: still above the floor: the three Terms before OT2027 resolved 593 substantive
-#: applications on the widened vocabulary at the measurement the freeze record
-#: states, against :data:`INTERIM_BASE_RATE_MIN_RESOLVED`'s 50.
+#: still several times the floor (:data:`INTERIM_BASE_RATE_MIN_RESOLVED`) on
+#: the measurement the ``proc-v17`` freeze-record entry states.
 INTERIM_LOOKBACK_TERMS: Final = 3
 
 

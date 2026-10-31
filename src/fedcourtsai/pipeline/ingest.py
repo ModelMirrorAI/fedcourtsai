@@ -59,10 +59,9 @@ from .cert_signals import (
 )
 from .decision_record import DecisionRecord, read_decision_record
 from .interim_signals import (
-    WIDE_APPLICATION_KIND_FROM_TERM,
     InterimReading,
     application_arrival_date,
-    application_kind,
+    application_kind_for_term,
     application_kind_wide,
     escalation_signals,
     interim_disposition_date,
@@ -1046,12 +1045,9 @@ def stored_application_kinds(payload: Mapping[str, Any]) -> tuple[str, str]:
     Term without a reader of their own.
     """
     texts = [str(entry.get("description") or "") for entry in _live_entries(payload)]
-    wide = application_kind_wide(texts).value
     number = corpus.strip_docket_annotation(_clean(payload.get("CaseNumber")) or "")
     term = corpus.scotus_application_term_year(number)
-    if term is not None and term >= WIDE_APPLICATION_KIND_FROM_TERM:
-        return wide, wide
-    return application_kind(texts).value, wide
+    return application_kind_for_term(texts, term).value, application_kind_wide(texts).value
 
 
 def map_live_docket(

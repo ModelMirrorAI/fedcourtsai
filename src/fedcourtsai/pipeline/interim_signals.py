@@ -86,7 +86,7 @@ _SUBSTANTIVE_ASK_RE = re.compile(
 _SUBSTANTIVE_ASK_WIDE_RE = re.compile(
     _SUBSTANTIVE_ASK_RE.pattern
     + r"|\bfor\s+(?:an?\s+)?(?:(?:partial|emergency|administrative|temporary|immediate)\s+)*"
-    + r"stays?(?:or)?\b"
+    + r"stays?(?:or)?\b"  # "stayor": the Clerk's run-together "stay or"
     + r"|\bto\s+(?:recall\s+and\s+)?stay\b"
     + r"|\bto\s+recall\s+(?:the\s+)?(?:mandate|remittitur)\b"
     + r"|\bfor\s+(?:an?\s+)?recall\b"
@@ -130,6 +130,20 @@ def application_kind_wide(entry_texts: list[str]) -> ApplicationKind:
     same here and only an ``unknown`` can move.
     """
     return _read_ask(entry_texts, _SUBSTANTIVE_ASK_WIDE_RE)
+
+
+def application_kind_for_term(entry_texts: list[str], term: int | None) -> ApplicationKind:
+    """The ask as stored for an application of ``term``: the reading every selector shares.
+
+    :func:`application_kind_wide` from :data:`WIDE_APPLICATION_KIND_FROM_TERM`
+    on, :func:`application_kind` before it and where the Term cannot be read.
+    Ingest stores it as ``application_kind`` and the document selector reads
+    its head filing with it, so the predict queue and the selector admit one
+    class on every Term.
+    """
+    if term is not None and term >= WIDE_APPLICATION_KIND_FROM_TERM:
+        return application_kind_wide(entry_texts)
+    return application_kind(entry_texts)
 
 
 def application_kind(entry_texts: list[str]) -> ApplicationKind:

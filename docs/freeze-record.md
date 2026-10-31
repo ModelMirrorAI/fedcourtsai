@@ -15829,7 +15829,11 @@ freeze commit is recorded here.
      finer reading, and a cell stamped before this label is scored under
      `interim-v2` (`pipeline.claims.declared_claim_set_for`). The dataset
      export carries `scored_granted` beside `actual_granted`, so a
-     recomputation from the bundle uses the right target.
+     recomputation from the bundle uses the right target. The same pooled
+     figure spans two more changes at the OT2027 application Term: its
+     cells' population is selected on the widened ask, and their baseline is
+     the three-Term window. A pooled interim figure quoted across OT2026 and
+     OT2027 cells names both.
 
   **The measurement**, read 2026-10-31 from a dev checkout of this change
   over blob
@@ -15913,8 +15917,11 @@ freeze commit is recorded here.
     OT2016 and carries the OT2020 and OT2021 grant spike (18.8% and 25.0% on
     the registered counts) into a docket that has since moved; the three Terms
     before OT2027 resolve several times the floor. A break-point rule was
-    considered and not taken: it needs a date chosen with the per-Term rates in
-    view, while a fixed width moves with the docket.
+    considered and not taken, because its date would be chosen against the
+    per-Term rates. The width of three was itself chosen with those rates in
+    view, on the OT2024 to OT2026 counts the 2026-10-30 decision read; that
+    is disclosed here rather than avoided, and the alternatives are stated
+    below so the window's effect can be read apart from the vocabulary's.
   - *Not changed.* An OT2026 cell keeps the ten-Term pool over the registered
     slice, and an OT2026 application keeps the registered kind however late it
     is polled.
@@ -15922,15 +15929,22 @@ freeze commit is recorded here.
   Measured over the same blob as above, after a local apply of the widened
   ask to the scratch copy: the re-read reads 180 resolved `unknown` asks as
   `substantive` and leaves 350 `unknown`, with no `extension` or
-  `substantive` row moving. Per Term, the widened slice's registered granted
+  `substantive` row moving. 178 of the 180 are in OT2016 to OT2026 and
+  machine-readable, so they enter the per-Term counts below; the other two
+  do not. Per Term, the widened slice's registered granted
   over resolved (then finer) is OT2016 9/120 (9/120), OT2017 12/132 (13/132),
   OT2018 13/123 (15/123), OT2019 13/132 (14/132), OT2020 26/141 (28/141),
   OT2021 31/130 (18/117), OT2022 10/127 (10/127), OT2023 18/145 (17/142),
   OT2024 22/226 (24/221), OT2025 17/253 (19/245) and OT2026 10/114 (10/112),
-  with `wide_unread` and `wide_finer_unread` 0 in every Term. An OT2027 cell's
-  pool is **49/593 = 8.26%** registered and **53/578 = 9.17%** finer, against
-  43/519 and 47/504 for three Terms of the registered slice and 161/1358 and
-  157/1327 for ten. The OT2026 pools above do not move.
+  with `wide_unread` and `wide_finer_unread` 0 in every Term. At this vintage
+  an OT2027 cell's pool reads **49/593 = 8.26%** registered and **53/578 =
+  9.17%** finer. Against it: three Terms of the registered slice read 43/519
+  and 47/504; ten Terms of the widened slice read 172/1523 = 11.29% and
+  168/1492 = 11.26%; ten of the registered slice read 161/1358 and 157/1327.
+  So the window, not the vocabulary, moves the rate. OT2026 is Term to date
+  at the 2026-07-13 snapshot, so its row and the OT2027 pool grow before the
+  first OT2027 cell is graded, and the rate it is scored against is the one
+  the statpack carries then. The OT2026 pools above do not move.
 
   **Order of operations.**
   - The change merges to `staging` only after the `proc-v16` promotion

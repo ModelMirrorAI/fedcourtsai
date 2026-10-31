@@ -310,3 +310,22 @@ def test_ingest_stores_the_widened_ask_as_the_kind_from_its_term(
     }
     row = to_corpus_row(from_live_record(map_live_docket(payload, 40, form="application")))
     assert (row.application_kind, row.application_kind_wide) == (registered, "substantive")
+
+
+def test_the_upsert_keeps_a_widened_ask_over_a_degraded_unknown(tmp_path: Path) -> None:
+    """`application_kind_wide` shares `application_kind`'s latch.
+
+    An `unknown` (a degraded parse) or a NULL (a writer with no ask) keeps a
+    stored real reading; a fresh real reading replaces it.
+    """
+    with corpus.connect(tmp_path / "c.db") as conn:
+        corpus.upsert_rows(conn, [_row("scotus/60", "25A60", disposition=None, wide="substantive")])
+        for degraded in ("unknown", None):
+            corpus.upsert_rows(conn, [_row("scotus/60", "25A60", disposition=None, wide=degraded)])
+            row = corpus.get_row(conn, "scotus/60")
+            assert row is not None
+            assert row.application_kind_wide == "substantive"
+        corpus.upsert_rows(conn, [_row("scotus/60", "25A60", disposition=None, wide="extension")])
+        row = corpus.get_row(conn, "scotus/60")
+        assert row is not None
+        assert row.application_kind_wide == "extension"

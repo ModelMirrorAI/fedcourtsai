@@ -10425,7 +10425,11 @@ class _StatPackInterimCounts(_Strict):
         "disposition — the raw denominator behind `substantive_grant_rate`. An "
         "application whose disposing entry the interim vocabulary never matched "
         "stays out of the denominator, visibly unresolved, so the resolved set "
-        "is selected for machine-matchable resolution text",
+        "is selected for machine-matchable resolution text. Counted on the stored "
+        "`application_kind`, which is the registered ask vocabulary before the "
+        "OT2027 application Term and the widened one from it, so a series of "
+        "these counts across that Term changes vocabulary there; the `wide_*` "
+        "counts are the widened vocabulary on every Term",
     )
     substantive_granted: int = Field(
         default=0,

@@ -620,8 +620,9 @@ of the requested relief**:
   — with `wide_unread` and `wide_finer_unread` zero in every pooled Term. The
   rate exists only where that pooled sample reaches the pre-registered per-pool
   floor of **50** resolved substantive applications, moot dismissals already
-  out, and where every pooled Term carries the finer counts with
-  `finer_unread` zero (`INTERIM_BASE_RATE_MIN_RESOLVED`;
+  out, and where every pooled Term carries the counts it pools with their
+  unread count zero — `finer_unread` before OT2027, `wide_unread` and
+  `wide_finer_unread` from it (`INTERIM_BASE_RATE_MIN_RESOLVED`;
   `docs/salience.md`, *The interim docket*). Below the floor there is **no
   baseline and no substitute**: not the pack-level rate, which contains your
   own Term, not a single Term's, and not the cert band table, which is a

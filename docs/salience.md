@@ -2194,7 +2194,14 @@ forbids moving that part-way through a Term:
 
 An OT2026 cell keeps the ten-Term pool over the registered slice whatever its
 label, and an OT2026 application keeps the registered kind however late it is
-polled.
+polled. Two consequences travel with the rule. Every count keyed on the stored
+`application_kind` — the statpack's `substantive_*` columns, the party rates,
+the executive-success and arrival-cut readouts, the interim-reading census —
+changes vocabulary at OT2027, so a series across that Term is not one
+vocabulary; the `wide_*` counts are. And the window refuses while any of its
+Terms holds a resolved row the `application-reread` pass cannot read, so a row
+with no stored live-shaped snapshot in one of the three Terms holds every cell
+of the next Term at no baseline until it is read.
 
 **Pre-registered: the per-pool floor is 50 resolved.** The pack-level count
 above governs when the *stage* stops being descriptive-only; this governs

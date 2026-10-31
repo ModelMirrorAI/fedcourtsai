@@ -1776,7 +1776,9 @@ pooled over application Terms strictly before the case's own
 (`finer_granted` / `finer_resolved`) for a cell whose scored prediction takes
 the finer interim reading, each cell's baseline paired with the binary its
 Brier was taken against, and a pooled figure spanning the change naming both
-windows in its composition — subject to its own per-pool floor and
+windows in its composition; from the OT2027 application Term, the three Terms
+before the cell's own over the widened ask vocabulary
+(`base_rates.INTERIM_LOOKBACK_TERMS`, `docs/salience.md`) — subject to its own per-pool floor and
 carrying the selection caveats registered in
 [`docs/salience.md`](../docs/salience.md) — notably that the pool is the whole
 substantive slice while the scored cells are reserve-selected on the escalation

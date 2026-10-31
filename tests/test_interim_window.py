@@ -210,3 +210,11 @@ def test_the_statpack_counts_the_widened_slice_beside_the_registered_one() -> No
     assert (acc.wide_resolved, acc.wide_granted) == (4, 2)
     assert (acc.wide_finer_resolved, acc.wide_finer_granted, acc.wide_finer_unread) == (2, 2, 1)
     assert acc.wide_unread == 1
+
+
+def test_a_twin_number_joins_no_widened_count() -> None:
+    """A second row for a counted number is tallied a duplicate before any count reads it."""
+    acc = _InterimAcc()
+    acc.add(_row("unknown", "substantive", "granted", "granted"))
+    acc.skip_duplicate()
+    assert (acc.wide_resolved, acc.duplicate_rows) == (1, 1)
