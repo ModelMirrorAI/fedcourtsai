@@ -935,9 +935,9 @@ stays outside the gate:
   over the statpack Terms strictly before the cell's docket-number Term, within
   `salience.base_rate_lookback_terms`, so
   the figure depends on the docket Term. For the `sal-v4` cells the board holds
-  before the `sal-v6` activation, on the committed pack that is 5.12%
-  baseline / 17.22% elevated / 34.97% high / 72.93% federal / 22.70% state for
-  an OT2025 docket and 5.02% / 16.89% / 35.51% / 70.79% / 23.63% for an OT2026
+  before the `sal-v6` activation, on the committed pack that is 5.21%
+  baseline / 17.40% elevated / 35.44% high / 75.82% federal / 22.82% state for
+  an OT2025 docket and 5.09% / 17.00% / 35.69% / 73.30% / 23.52% for an OT2026
   one (`uv run fedcourts segment-anchors --term 2025 --term 2026
   --salience-version sal-v4`; the bare command pools the active `sal-v6`). A band row
   that mixes docket Terms states its count per docket Term beside the anchors.

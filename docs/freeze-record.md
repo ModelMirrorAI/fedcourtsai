@@ -15338,9 +15338,18 @@ freeze commit is recorded here.
   **What it moves.** The live pass scores, latches and stamps under `sal-v6`.
   A petition distributed again after a call for response loses the relist
   that distribution read as; a Rule 20 writ leaves the scored segment and is
-  neither scored nor latched (one already latched keeps its latch, which is
-  one-way). `unlatch-overselected` would de-select pending petitions the new
-  rule demotes; it is not part of activation and is not run. The scored
+  neither scored nor latched. The pass stamps such a row with `sal-v6` and no
+  score, so the gate reads it as deferred rather than failing open into the
+  predict scope as an unscored row would, and the `sal-v4` score the corpus
+  column held on it is cleared; one already latched keeps its latch, which is
+  one-way. A cohort's capacity counts no existing latch, so the first `sal-v6`
+  pass latches each pending conference's `sal-v6` top-N beside the `sal-v4`
+  latches already there: the conferences pending at the flip fund more
+  petitions than either version alone would, once. The size is the
+  `newly_selected` count of `uv run fedcourts reconcile-salience-selection`, a
+  dry run read before the promotion. `unlatch-overselected` would de-select
+  pending petitions the new rule demotes; it is not part of activation and is
+  not run. The scored
   window opens at the first post-promotion metrics refresh, as for every
   earlier flip. A cell minted before it pools a `sal-v6` anchor from the
   committed `alt_segments` block, but reads `statpack.md`'s `sal-v4` table
@@ -15367,7 +15376,7 @@ freeze commit is recorded here.
   The frames are 11,942 resolved rows under `sal-v6` against 12,168 under
   `sal-v4`, the 12,168 the registration entry's census frame counts; the 226
   rows `sal-v6` leaves out are the writs, carrying 2 grant-family outcomes
-  (831 against 829 over the two frames). Per Term, `sal-v6`'s `elevated`
+  (829 against 831 over the two frames). Per Term, `sal-v6`'s `elevated`
   terminal rate is above `sal-v4`'s in all eight complete Terms (14.7% to
   25.3% against 7.8% to 13.1%), on 127 to 184 resolved rows a Term against
   207 to 295; `high` moves both ways (lower in four Terms, higher in four).

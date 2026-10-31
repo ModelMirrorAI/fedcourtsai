@@ -996,8 +996,10 @@ entry, read past an extension application), fill-in latched and kept off the
 same entry through the same reader, so the two never disagree about which
 dockets are writs. The scope is `sal-v5`'s and `sal-v6`'s, not Tier 0: a writ
 stays in predict scope, and under the active `sal-v6` it is neither scored nor
-selected (a writ latched under `sal-v4` keeps its latch, since the latch is
-one-way).
+selected. The live pass stamps it with the active version and no score, so the
+gate reads it as deferred, not as a row no pass has reached, which the gate's
+fail-open would fund; a writ latched under `sal-v4` keeps its latch, since the
+latch is one-way.
 
 **What is owed before the statpack can publish `sal-v5` honestly.** Both row
 inputs the two new rules read are latched by the live poll at ingest, and a row
@@ -1076,9 +1078,15 @@ the relist that distribution read as, so it scores, bands and ranks lower; on
 the post-back-fill pack that thins `elevated` and `high` and raises
 `elevated`'s rate (the 2026-10-31 entry of [freeze-record.md](freeze-record.md)
 quotes the pooled figures). A Rule 20 writ leaves the scored segment: the live
-pass neither scores nor latches it, and a cell placed on one freezes no band.
-The sequencing is every earlier flip's: the promotion carrying the flip, then
-a metrics refresh, then prediction. The committed `statpack.json` already
+pass neither scores nor latches it, stamping it deferred, and a cell placed on
+one freezes no band. The first pass under the flip also latches each pending
+conference cohort's `sal-v6` top-N beside the latches `sal-v4` already placed
+there, because a cohort's capacity counts no existing latch; that pass funds
+more petitions in the conferences then pending than either version alone
+would. The sequencing is every earlier flip's: the promotion carrying the
+flip, then a metrics refresh, then prediction. Nothing enforces that order, so
+a scheduled predict run that falls between the promotion and the refresh
+mints its cells against the old table. The committed `statpack.json` already
 carries a `sal-v6` block in `alt_segments`, so a cell minted before that
 refresh does get a pooled anchor, but `statpack.md` still renders `sal-v4`'s
 table, which the predict prompt reads as a version mismatch, sending the cell

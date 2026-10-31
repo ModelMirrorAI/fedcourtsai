@@ -3806,6 +3806,23 @@ def set_salience_scores(
         )
 
 
+def refuse_salience_scores(conn: sqlite3.Connection, case_ids: Iterable[str], version: str) -> None:
+    """Stamp the active version with no score on each case its segment refuses.
+
+    The salience pass's writer for an in-scope row outside the active
+    version's segment. The version marks the row as decided under it, so
+    :func:`is_salience_deferred` reads an unlatched one as deferred rather
+    than failing open, and a score another version wrote does not survive
+    into a column that holds the active version's view alone. The latch is
+    left as it stands.
+    """
+    with conn:
+        conn.executemany(
+            "UPDATE cases SET salience_score = NULL, salience_version = ? WHERE case_id = ?",
+            [(version, case_id) for case_id in case_ids],
+        )
+
+
 def latch_salience_selected(conn: sqlite3.Connection, case_ids: Iterable[str]) -> None:
     """Latch ``salience_selected`` on each case. One-way (0->1): only ever sets, never clears.
 

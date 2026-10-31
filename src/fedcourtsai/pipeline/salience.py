@@ -1197,8 +1197,9 @@ def plan_cohorts(
     already_selected: set[str] = set()
     eligible = 0
     for row in rows:
-        # A row outside the version's own segment (sal-v5's Rule 20 writs) is
-        # neither scored nor selected under it, exactly like a Tier-0 row.
+        # A row outside the version's own segment (the Rule 20 writs sal-v5
+        # and later leave out) is neither scored nor selected under it; the
+        # live write passes stamp it as refused (`_planned_selection`).
         if not active.in_segment(row):
             continue
         eligible += 1
@@ -1343,14 +1344,32 @@ def _reserve_occupant(
 
 def _planned_selection(
     conn: sqlite3.Connection, config: SalienceConfig, *, as_of: date
-) -> tuple[tuple[dict[str, float], list[str], int, int], list[ReserveOccupant]]:
-    """The selection plan beside the reserve occupants it was planned against.
+) -> tuple[tuple[dict[str, float], list[str], int, int], list[ReserveOccupant], list[str]]:
+    """The selection plan beside the reserve occupants and the refused rows.
 
     One snapshot read per pending occupant, so the cost is bounded by the
     reserve's size plus whatever latched applications remain unresolved.
     ``as_of`` is the pass's own date, which the reserve's age-out measures to.
+
+    The third element names the in-scope rows outside the active version's
+    segment. The write passes stamp them with the active version and no score
+    (:func:`fedcourtsai.corpus.refuse_salience_scores`), so the gate reads
+    each as scored and not selected — deferred — rather than as never scored,
+    which the gate's fail-open would treat as selected.
     """
     occupancy: list[ReserveOccupant] = []
+    active = scorer()
+    refused: list[str] = []
+
+    def in_scope(row: corpus.CorpusRow) -> bool:
+        # Tier-0 excluded, and every IFP docket — the granted ones the IFP
+        # rule readmits belong to the merits stream, which this cert-stage
+        # gate does not fund: not scored, not selected.
+        if corpus.out_of_scope_reason_full(conn, row) is not None or corpus.is_ifp_petition(row):
+            return False
+        if not active.in_segment(row):
+            refused.append(row.case_id)
+        return True
 
     def released(row: corpus.CorpusRow) -> bool:
         occupant = _reserve_occupant(
@@ -1360,21 +1379,13 @@ def _planned_selection(
         return not occupant.holds_slot
 
     plan = plan_cohorts(
-        (
-            row
-            for row in corpus.iter_rows(conn, court="scotus")
-            # Tier-0 excluded, and every IFP docket — the granted ones the
-            # IFP rule readmits belong to the merits stream, which this
-            # cert-stage gate does not fund: not scored, not selected.
-            if corpus.out_of_scope_reason_full(conn, row) is None
-            and not corpus.is_ifp_petition(row)
-        ),
+        (row for row in corpus.iter_rows(conn, court="scotus") if in_scope(row)),
         config,
         released=released,
         application_twins=corpus.duplicate_application_case_ids(conn),
         as_of=as_of,
     )
-    return plan, occupancy
+    return plan, occupancy, refused
 
 
 def _selection_plan(
@@ -1418,8 +1429,9 @@ def apply_salience_selection(
     distribution moment (``store``'s admission), so an unminted pick would
     sit latched with nothing to forecast.
     """
-    scores, to_select, _, _ = _selection_plan(conn, config, as_of=as_of)
+    (scores, to_select, _, _), _, refused = _planned_selection(conn, config, as_of=as_of)
     corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
+    corpus.refuse_salience_scores(conn, refused, SALIENCE_VERSION)
     corpus.latch_salience_selected(conn, to_select)
     _mint_owed_arrival_events(conn, data_root)
     return to_select
@@ -1505,11 +1517,12 @@ def reconcile_salience_selection(
     ``as_of`` is the pass's own date, which the interim reserve's age-out
     measures each application's filing date to.
     """
-    (scores, to_select, eligible, conferences), occupancy = _planned_selection(
+    (scores, to_select, eligible, conferences), occupancy, refused = _planned_selection(
         conn, config, as_of=as_of
     )
     if apply:
         corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
+        corpus.refuse_salience_scores(conn, refused, SALIENCE_VERSION)
         corpus.latch_salience_selected(conn, to_select)
         _mint_owed_arrival_events(conn, data_root)
     return SalienceSelectionResult(

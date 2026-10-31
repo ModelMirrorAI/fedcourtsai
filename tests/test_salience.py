@@ -619,6 +619,39 @@ def test_the_live_pass_leaves_a_rule_20_writ_out_under_the_active_sal_v6(
     assert _selected_ids(db) == {"scotus/cert"}
 
 
+def test_the_live_pass_stamps_a_refused_writ_as_deferred(tmp_path: Path) -> None:
+    """A Rule 20 writ the active segment refuses is stamped with the active
+    version and no score, so the gate reads it as deferred rather than failing
+    open into the predict scope, and a score an older version left on it is
+    cleared."""
+    writ = _v5_row("scotus/writ", distribution_count=3, opening_writ="rule-20")
+    fresh = _v5_row("scotus/fresh-writ", distribution_count=3, opening_writ="rule-20")
+    cert = _v5_row("scotus/cert", distribution_count=3, opening_writ="certiorari")
+    db = _seed(tmp_path, [writ, fresh, cert])
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_score = 0.4, salience_version = 'sal-v4' "
+            "WHERE case_id = 'scotus/writ'"
+        )
+        conn.commit()
+        reconcile_salience_selection(
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(per_conference_capacity=1),
+            apply=True,
+            as_of=_PASS_DATE,
+        )
+        for case_id in ("scotus/writ", "scotus/fresh-writ"):
+            row = corpus.get_row(conn, case_id)
+            assert row is not None
+            assert row.salience_version == SALIENCE_VERSION
+            assert row.salience_score is None
+            assert corpus.is_salience_deferred(row)
+        kept = corpus.get_row(conn, "scotus/cert")
+        assert kept is not None and kept.salience_score is not None
+        assert not corpus.is_salience_deferred(kept)
+
+
 def test_the_active_scorer_is_what_the_bare_helpers_dispatch_to() -> None:
     """The module-level helpers are delegations, not a second implementation.
 
