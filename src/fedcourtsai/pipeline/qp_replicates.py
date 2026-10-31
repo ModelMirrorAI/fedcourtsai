@@ -1,8 +1,8 @@
 """How far one topic labeler's agreement moves between runs on identical inputs.
 
-A single labeling run's agreement with the reference block carries a run-level
-component the binomial error at the block's ``n`` does not: two runs of one
-model on the same rows can land several points apart (``docs/qp-topic.md``).
+A single labeling run's agreement with the reference block may carry a
+run-level component the binomial error at the block's ``n`` does not capture
+(``docs/qp-topic.md``).
 The replicate mode measures that directly. Each replicate labels the frame's
 reference rows alone and publishes nothing, and its run record carries which
 reference rows it matched (:class:`~fedcourtsai.schemas.QpTopicReplicate`).
@@ -16,13 +16,27 @@ spread of the run rates into its two sources:
   estimated without bias by ``k/(k-1) * p̂_i (1 - p̂_i)`` from the k runs;
 - **a run-level component** — whatever moves every item of one run together
   (the session's reading of a rule, a drifting prompt, a model-side change). Its
-  variance is the run rates' sample variance less the item-level term: the
-  crossed items x runs analysis of variance, where item main effects cancel
-  from the run means because every run reads the same items.
+  variance is the run rates' sample variance less the item-level term. Item
+  main effects cancel from the run means because every run reads the same
+  items, so this is the crossed items x runs analysis of variance estimator up
+  to a factor ``(n-1)/n`` (the item term absorbs ``1/n`` of any run effect),
+  which is negligible at the block sizes here.
+
+Two assumptions bound what the split means. It is **linear on the probability
+scale**: a run effect cannot move an item every run matches, so "run-level" is
+a component of this block's agreement, not a property of the labeler on other
+items. And it treats items as **independent within a run**: a labeler that
+reads its rows in chunks or shared contexts puts any chunk effect in the
+run-level bucket. Replicates pool only under one reference file and one
+labeling prompt, since a revision of either would land there too.
 
 Cochran's Q tests the null of no run effect (equal match probability across
-runs) on the same table. All of it is descriptive input to the gate decision
-``docs/qp-topic.md`` pre-registers; nothing here chooses a floor.
+runs) on the same table. With few replicates the run sd itself is imprecise —
+its chi-square interval on ``k - 1`` degrees of freedom is printed beside it —
+and the binomial error at ``n`` is a different estimand (item sampling: how far
+this block's rate stands from a frame's), so it is printed apart, never as a
+component of one total. All of it is descriptive input to a variance-aware
+gate not yet pre-registered; nothing here chooses a floor.
 """
 
 from __future__ import annotations
@@ -57,6 +71,8 @@ class Replicate:
     matches: str
     unclassifiable: int
     kinds: tuple[str, ...] = ()
+    #: The labeling prompt's sha256, where the run recorded one (saved labels do not).
+    prompt_sha256: str | None = None
 
 
 @dataclass(frozen=True)
@@ -68,6 +84,7 @@ class KindSpread:
     rates: tuple[float, ...]
     mean: float
     sd: float | None
+    floor: float | None = None
 
 
 @dataclass(frozen=True)
@@ -89,6 +106,11 @@ class ReplicateSpread:
     p_value: float | None
     unclassifiable_shares: tuple[float, ...]
     per_kind: tuple[KindSpread, ...] = field(default_factory=tuple)
+    #: The constant-labeler floor on the shared items: the largest reference
+    #: class's share, which every rate here has to be read against.
+    floor: float | None = None
+    #: The run sd's 95% interval from the chi-square on ``k - 1`` df.
+    run_sd_interval: tuple[float, float] | None = None
 
     @property
     def runs(self) -> int:
@@ -129,6 +151,8 @@ class ReplicateSpread:
             "run_component_var": self.run_component_var,
             "run_component_sd": self.run_component_sd,
             "binomial_sd": self.binomial_sd,
+            "floor": self.floor,
+            "run_sd_interval": list(self.run_sd_interval) if self.run_sd_interval else None,
             "always": self.always,
             "never": self.never,
             "flip": self.flip,
@@ -137,7 +161,14 @@ class ReplicateSpread:
             "p_value": self.p_value,
             "unclassifiable_shares": list(self.unclassifiable_shares),
             "per_input_kind": [
-                {"input_kind": k.kind, "n": k.n, "rates": list(k.rates), "mean": k.mean, "sd": k.sd}
+                {
+                    "input_kind": k.kind,
+                    "n": k.n,
+                    "rates": list(k.rates),
+                    "mean": k.mean,
+                    "sd": k.sd,
+                    "floor": k.floor,
+                }
                 for k in self.per_kind
             ],
         }
@@ -185,6 +216,32 @@ def chi2_sf(statistic: float, df: int) -> float:
     return min(1.0, math.exp(log_prefix) * h)
 
 
+def chi2_quantile(probability: float, df: int) -> float:
+    """The chi-square quantile: ``x`` with ``P(X <= x) = probability``, by bisection on
+    :func:`chi2_sf`, which is monotone, to well below any printed precision."""
+    if not 0 < probability < 1:
+        raise ReplicateError("a quantile's probability lies strictly between 0 and 1")
+    low, high = 0.0, max(1.0, float(df))
+    while 1 - chi2_sf(high, df) < probability:
+        high *= 2
+    for _ in range(200):
+        middle = (low + high) / 2
+        if 1 - chi2_sf(middle, df) < probability:
+            low = middle
+        else:
+            high = middle
+    return (low + high) / 2
+
+
+def _floor(labels: Sequence[str]) -> float | None:
+    if not labels:
+        return None
+    counts: dict[str, int] = {}
+    for label in labels:
+        counts[label] = counts.get(label, 0) + 1
+    return max(counts.values()) / len(labels)
+
+
 def _sample_sd(values: Sequence[float]) -> float | None:
     if len(values) < 2:
         return None
@@ -192,17 +249,27 @@ def _sample_sd(values: Sequence[float]) -> float | None:
     return math.sqrt(sum((v - mean) ** 2 for v in values) / (len(values) - 1))
 
 
-def spread(replicates: Sequence[Replicate]) -> ReplicateSpread:
+def spread(
+    replicates: Sequence[Replicate], reference_labels: Sequence[str] = ()
+) -> ReplicateSpread:
     """Pool k replicates over the reference items every one of them compared.
 
-    Refuses fewer than two replicates, vectors of different lengths (they index
-    different reference files), and a pool with no item compared by all.
+    ``reference_labels`` is the reference's label per position, in the same
+    order; given, the constant-labeler floor is reported on the shared items
+    (and per kind). Refuses fewer than two replicates, vectors of different
+    lengths (they index different reference files), replicates recorded under
+    different labeling prompts, and a pool with no item compared by all.
     """
     if len(replicates) < 2:
         raise ReplicateError("a spread needs at least two replicates")
     length = len(replicates[0].matches)
     if any(len(r.matches) != length for r in replicates):
         raise ReplicateError("the replicates index reference files of different lengths")
+    prompts = {r.prompt_sha256 for r in replicates if r.prompt_sha256 is not None}
+    if len(prompts) > 1:
+        raise ReplicateError("the replicates were recorded under different labeling prompts")
+    if reference_labels and len(reference_labels) != length:
+        raise ReplicateError("the reference labels do not index the replicates' items")
     kinds = replicates[0].kinds
     if any(r.kinds != kinds for r in replicates):
         raise ReplicateError("the replicates name different input kinds for the same items")
@@ -239,14 +306,22 @@ def spread(replicates: Sequence[Replicate]) -> ReplicateSpread:
                     rates=kind_rates,
                     mean=sum(kind_rates) / k,
                     sd=_sample_sd(kind_rates),
+                    floor=_floor([reference_labels[i] for i in positions])
+                    if reference_labels
+                    else None,
                 )
             )
+    run_sd = math.sqrt(run_var)
+    interval = (
+        run_sd * math.sqrt((k - 1) / chi2_quantile(0.975, k - 1)),
+        run_sd * math.sqrt((k - 1) / chi2_quantile(0.025, k - 1)),
+    )
     return ReplicateSpread(
         names=tuple(r.name for r in replicates),
         items=n,
         rates=rates,
         mean=mean,
-        run_sd=math.sqrt(run_var),
+        run_sd=run_sd,
         item_noise_var=item_noise_var,
         run_component_var=run_var - item_noise_var,
         binomial_sd=math.sqrt(mean * (1 - mean) / n),
@@ -259,6 +334,8 @@ def spread(replicates: Sequence[Replicate]) -> ReplicateSpread:
             r.unclassifiable / (length - r.matches.count("-")) for r in replicates
         ),
         per_kind=tuple(per_kind),
+        floor=_floor([reference_labels[i] for i in shared]) if reference_labels else None,
+        run_sd_interval=interval,
     )
 
 
@@ -269,21 +346,31 @@ def replicates_from_records(
     model: str,
     reference_sha256: str,
     kinds: Sequence[str] = (),
-) -> tuple[list[Replicate], list[QpTopicRunSpend]]:
+    prompt_sha256: str | None = None,
+) -> tuple[list[Replicate], list[tuple[QpTopicRunSpend, str]]]:
     """The frame's replicate records for ``model`` against this reference, and the rest.
 
-    Returns the replicates to pool and the frame's replicate records left out —
-    another model's, or measured against a different reference file, whose
-    match vectors index other items or another standard. Ordered by run id and
-    attempt so a report lists them the same way every time.
+    Returns the replicates to pool and the frame's replicate records left out,
+    each with why — another model's, one measured against a different reference
+    file (its match string indexes other items or another standard), or one
+    under another labeling prompt than ``prompt_sha256``. With no
+    ``prompt_sha256`` every prompt is kept, and :func:`spread` refuses a pool
+    that mixes them. Ordered by run id and attempt so a report lists them the
+    same way every time.
     """
     pooled: list[Replicate] = []
-    skipped: list[QpTopicRunSpend] = []
+    skipped: list[tuple[QpTopicRunSpend, str]] = []
     for run in sorted(runs, key=lambda r: (int(r.run_id), r.run_attempt)):
         if run.frame != frame or run.outcome != "replicate" or run.replicate is None:
             continue
-        if run.model != model or run.replicate.reference_sha256 != reference_sha256:
-            skipped.append(run)
+        if run.model != model:
+            skipped.append((run, f"labeled by {run.model}"))
+            continue
+        if run.replicate.reference_sha256 != reference_sha256:
+            skipped.append((run, "measured against another reference file"))
+            continue
+        if prompt_sha256 is not None and run.replicate.prompt_sha256 != prompt_sha256:
+            skipped.append((run, "labeled under another prompt"))
             continue
         pooled.append(
             Replicate(
@@ -291,6 +378,7 @@ def replicates_from_records(
                 matches=run.replicate.matches,
                 unclassifiable=run.replicate.unclassifiable,
                 kinds=tuple(kinds),
+                prompt_sha256=run.replicate.prompt_sha256,
             )
         )
     return pooled, skipped
@@ -339,14 +427,26 @@ def render_spread(spread_: ReplicateSpread, *, against: str) -> str:
         lines.append(f"  {name:{width}s}  {rate:.1%}  (unclassifiable {share:.1%} of compared)")
     lines += [
         f"  mean:            {spread_.mean:.1%}",
-        f"  run sd:          {spread_.run_sd:.2%} (sample sd of the run rates, k-1)",
+        "  floor:           "
+        + ("n/a" if spread_.floor is None else f"{spread_.floor:.1%}")
+        + " (a constant labeler on the same items; every rate reads against it)",
+        f"  run sd:          {spread_.run_sd:.2%} (sample sd of the run rates, "
+        f"{spread_.runs - 1} df"
+        + (
+            ""
+            if spread_.run_sd_interval is None
+            else f"; 95% interval {spread_.run_sd_interval[0]:.2%} to "
+            f"{spread_.run_sd_interval[1]:.2%}"
+        )
+        + ")",
         f"  predictive sd:   {spread_.predictive_sd:.2%} (a next run on these items)",
         f"  item-level sd:   {spread_.item_noise_sd:.2%} (the run sd were flipping items "
         "the only source)",
         f"  run-level var:   {spread_.run_component_var:+.6f} "
         f"(sd {spread_.run_component_sd:.2%} truncated at 0; run var less item-level var)",
-        f"  binomial sd:     {spread_.binomial_sd:.2%} (sqrt(p(1-p)/n), the single-run error "
-        "a fixed floor assumes)",
+        f"  binomial sd:     {spread_.binomial_sd:.2%} (sqrt(p(1-p)/n): item-sampling error, "
+        "how far this block's rate may stand from a frame's — a different estimand, not a "
+        "component of the run sd)",
         f"  items:           {spread_.always} always matched, {spread_.never} never, "
         f"{spread_.flip} flipped between runs",
     ]
@@ -360,5 +460,8 @@ def render_spread(spread_: ReplicateSpread, *, against: str) -> str:
     for kind in spread_.per_kind:
         rates = ", ".join(f"{rate:.1%}" for rate in kind.rates)
         sd = "n/a" if kind.sd is None else f"{kind.sd:.2%}"
-        lines.append(f"  {kind.kind:17s} n={kind.n}: {rates} (mean {kind.mean:.1%}, sd {sd})")
+        floor = "n/a" if kind.floor is None else f"{kind.floor:.1%}"
+        lines.append(
+            f"  {kind.kind:17s} n={kind.n}: {rates} (mean {kind.mean:.1%}, sd {sd}, floor {floor})"
+        )
     return "\n".join(lines)

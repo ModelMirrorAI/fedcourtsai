@@ -226,7 +226,7 @@ on:
           - decision-below
         default: corpus-stats
       label_model:
-        description: "qp-topic-label and alignment-side-code modes only: the agent's model."
+        description: "Labeling modes only (qp-topic-label, qp-topic-label-applications, the two qp-topic-replicate modes, alignment-side-code): the agent's model."
         # The scheduled runs use this default too, through `qp-topic-resolve`,
         # which carries the same literal and refuses any other value.
         # A choice, not a free string: the value is spliced into the agent's own
@@ -2501,6 +2501,9 @@ jobs:
           replicate-out: >-
             ${{ needs.qp-topic-resolve.outputs.replicate == 'true'
             && format('{0}/qp-replicate.json', runner.temp) || '' }}
+          # The prompt the labeler read, restored from the commit by the
+          # pristine step; a replicate record carries its digest.
+          prompt-file: ${{ needs.qp-topic-resolve.outputs.prompt }}
           transcript-hint: >-
             The qp-label-transcript run artifact carries the turn-by-turn
             transcript to diagnose from (absent only when the scan withheld it
@@ -2660,7 +2663,8 @@ jobs:
       - name: Stage the measured artifact for the publish job
         id: stage_publish
         if: >-
-          ${{ !cancelled() && (steps.measure.outcome == 'success'
+          ${{ !cancelled() && ((steps.measure.outcome == 'success'
+          && needs.qp-topic-resolve.outputs.replicate != 'true')
           || steps.side_codes.outcome == 'success' || steps.spend.outcome == 'success') }}
         env:
           # The composite's declared output, not a path convention: where the
@@ -2864,6 +2868,7 @@ jobs:
         id: revalidate
         env:
           REPO: ${{ github.repository }}
+          REPLICATE: ${{ needs.qp-topic-resolve.outputs.replicate }}
         run: |
           set -euo pipefail
           dir="$RUNNER_TEMP/qp-publish"
@@ -2882,6 +2887,12 @@ jobs:
           fi
           labels=false
           if [ -f "$dir/${LABELS_NAME}" ]; then
+            # Checked here, on the runner no agent held, as well as by the stage
+            # step on the labeling runner: a replicate publishes nothing.
+            if [ "$REPLICATE" = true ]; then
+              echo "::error::a replicate's hand-off carries a labels file; refusing to publish it"
+              exit 1
+            fi
             labels=true
             if [ ! -f "$dir/measured.txt" ]; then
               echo "::error::the labels file crossed without its measured block"
@@ -2982,6 +2993,7 @@ jobs:
           # reads off `main`'s subjects.
           AUTO_RELEASED: ${{ needs.qp-topic-extract.outputs.auto-release }}
           OWNER: ${{ github.repository_owner }}
+          REPLICATE: ${{ needs.qp-topic-resolve.outputs.replicate }}
         run: |
           set -euo pipefail
           gh auth setup-git
@@ -3011,7 +3023,9 @@ jobs:
             esac
             title="data(qp-topics): spend record of a ${outcome} ${frame_word} labeling run, no labels published (run ${GITHUB_RUN_ID})${mark}"
             {
-              if [ "$outcome" = replicate ]; then
+              if [ "$REPLICATE" = true ] && [ "$outcome" != replicate ]; then
+                printf '%s\n\n' "A reference-only replicate of the \`${QP_FRAME}\` labeler \`${LABELER}\` that was never measured as one (outcome \`${outcome}\`): it published nothing, and its record neither clears nor sets the hold's refusal. ${spend_line} **Merge this PR; do not close it.** It touches only \`data/qp-topics/spend/\`, and closing it drops the run's spend from the measured total."
+              elif [ "$REPLICATE" = true ]; then
                 printf '%s\n\n' "A reference-only replicate of the \`${QP_FRAME}\` labeler \`${LABELER}\`: it labeled the frame's reference rows alone and published nothing by design. ${spend_line} The record carries the run's agreement and which reference rows it matched, so \`fedcourts qp-topic-replicates\` can pool it with the frame's other replicates to separate run-to-run spread from item-level noise (\`docs/qp-topic.md\`). A replicate neither clears nor sets the hold's refusal. **Merge this PR; do not close it.** It touches only \`data/qp-topics/spend/\`, and closing it drops the run's spend from the measured total and its measurement from the pool."
               else
                 printf '%s\n\n' "A \`${QP_FRAME}\` labeling run by \`${LABELER}\` that published no labels: outcome \`${outcome}\`. ${spend_line} A refused or short run spends as much as one that publishes, so its spend is recorded and counted toward the measured spend total all the same (\`docs/qp-topic.md\`). The batch is not retried on its own: the next run's batch is cut deterministically from the same committed state against the same reference set, so unless the frame has grown it is largely the same rows scored the same way, and while this frame's last gated run stands refused that run waits on a maintainer's release, which calls for a stated change. **Merge this PR; do not close it.** It touches only \`data/qp-topics/spend/\`, and closing it drops the run's spend from the measured total and, for a refused run, the refusal the hold reads."

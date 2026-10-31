@@ -883,6 +883,7 @@ def _write_run(
         record["batch_rows"] = record["label_lines"] = 200
         record["replicate"] = {
             "reference_sha256": "0" * 64,
+            "prompt_sha256": "1" * 64,
             "reference_entries": 200,
             "matches": "1" * 160 + "0" * 40,
             "unclassifiable": 20,

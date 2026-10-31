@@ -35,6 +35,7 @@ from fedcourtsai.pipeline.qp_topics import (
     measure_replicate,
 )
 from fedcourtsai.schemas import (
+    QpTopicAgreement,
     QpTopicApplicationReference,
     QpTopicLabel,
     QpTopicLabelEntry,
@@ -69,9 +70,7 @@ def _line(case_id: str, docket: str, label: QpTopicLabel) -> QpTopicLabelEntry:
 
 
 def _lines(miss: frozenset[str] = frozenset()) -> list[QpTopicLabelEntry]:
-    return [
-        _line(c, d, "unclassifiable" if c in miss else "immigration") for c, d, _ in _REFERENCE
-    ]
+    return [_line(c, d, "unclassifiable" if c in miss else "immigration") for c, d, _ in _REFERENCE]
 
 
 def _texts(rows: list[tuple[str, str]] | None = None) -> dict[str, QpText]:
@@ -102,6 +101,7 @@ def test_a_replicate_is_measured_row_by_row_in_reference_order() -> None:
         texts=_texts(),
         reference=_block(),
         reference_sha256="a" * 64,
+        prompt_sha256="c" * 64,
     )
     assert (agreement.overall_agree, agreement.overall_n) == (8, 10)
     assert replicate.matches == "0111101111"
@@ -115,23 +115,39 @@ def test_a_replicate_refuses_an_extract_row_outside_the_reference() -> None:
     rows = [(c, d) for c, d, _ in _REFERENCE] + [_FRESH[0]]
     with pytest.raises(QpTopicError, match="not a replicate"):
         measure_replicate(
-            entries=lines, texts=_texts(rows), reference=_block(), reference_sha256="a" * 64
+            entries=lines,
+            texts=_texts(rows),
+            reference=_block(),
+            reference_sha256="a" * 64,
+            prompt_sha256="c" * 64,
         )
 
 
 def test_the_replicate_record_is_bound_to_its_counts() -> None:
     with pytest.raises(ValueError, match="one character per reference entry"):
         QpTopicReplicate(
-            reference_sha256="a" * 64, reference_entries=3, matches="11", unclassifiable=0
+            reference_sha256="a" * 64,
+            prompt_sha256="c" * 64,
+            reference_entries=3,
+            matches="11",
+            unclassifiable=0,
         )
     with pytest.raises(ValueError, match="per-kind n sum"):
         QpTopicReplicate(
             reference_sha256="a" * 64,
+            prompt_sha256="c" * 64,
             reference_entries=2,
             matches="10",
             unclassifiable=0,
             per_input_kind=[{"input_kind": "docket-only", "agree": 1, "n": 1}],
         )
+
+
+def _prompt(tmp_path: Path) -> Path:
+    path = tmp_path / "qp-topic-label.md"
+    if not path.exists():
+        path.write_text("Label every row.\n")
+    return path
 
 
 def _seed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path, Path]:
@@ -182,6 +198,8 @@ def test_the_command_records_a_replicate_and_writes_no_labels(
             str(tmp_path / "agreement.json"),
             "--replicate-out",
             str(tmp_path / "replicate.out.json"),
+            "--prompt-file",
+            str(_prompt(tmp_path)),
         ],
     )
     assert result.exit_code == 0, result.output
@@ -251,6 +269,8 @@ def test_a_replicate_run_records_as_replicate_and_the_pool_reads_it(
             str(tmp_path / "agreement.json"),
             "--replicate-out",
             str(tmp_path / "replicate.out.json"),
+            "--prompt-file",
+            str(_prompt(tmp_path)),
         ],
     )
     assert measured.exit_code == 0, measured.output
@@ -301,6 +321,7 @@ def test_a_record_against_another_reference_is_left_out_of_the_pool() -> None:
             estimated_cost_usd=1.0,
             replicate={
                 "reference_sha256": sha,
+                "prompt_sha256": "c" * 64,
                 "reference_entries": 3,
                 "matches": "110",
                 "unclassifiable": 0,
@@ -314,7 +335,10 @@ def test_a_record_against_another_reference_is_left_out_of_the_pool() -> None:
         reference_sha256="a" * 64,
     )
     assert [r.name for r in pooled] == ["run 1-1", "run 2-1"]
-    assert [r.run_id for r in skipped] == ["3", "4"]
+    assert [(r.run_id, why) for r, why in skipped] == [
+        ("3", "measured against another reference file"),
+        ("4", "labeled by x"),
+    ]
 
 
 def test_the_chi_square_tail_matches_known_quantiles() -> None:
@@ -368,3 +392,151 @@ def test_saved_labels_are_read_on_the_reference_rows_they_hold() -> None:
     assert replicate.matches == "1-0"
     assert replicate.unclassifiable == 1
     assert replicate.kinds == ()
+
+
+def test_a_replicate_without_a_prompt_file_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, texts, labels = _seed(tmp_path, monkeypatch)
+    result = runner.invoke(
+        app,
+        [
+            "qp-topics",
+            "--frame",
+            "applications",
+            "--labels",
+            str(labels),
+            "--texts",
+            str(texts),
+            "--labeler",
+            "claude-code/test",
+            "--replicate-out",
+            str(tmp_path / "r.json"),
+        ],
+    )
+    assert result.exit_code == 2
+    assert not (tmp_path / "r.json").exists()
+
+
+def test_a_replicate_that_left_no_record_is_incomplete_never_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data, _, _ = _seed(tmp_path, monkeypatch)
+    write_json(
+        tmp_path / "agreement.json",
+        QpTopicAgreement(
+            overall_agree=7,
+            overall_n=10,
+            overall_rate=0.7,
+            uncovered=0,
+            floor=0.8,
+            gate_passed=False,
+        ),
+    )
+    result = _record(tmp_path, "201", "--replicate-file", str(tmp_path / "missing.json"))
+    assert result.exit_code == 0, result.output
+    record = read_model(qp_topics.run_spend_path(data, "201", 1), QpTopicRunSpend)
+    # A refused outcome would set the hold's refusal, which no replicate may do.
+    assert record.outcome == "incomplete"
+
+
+def _spend_record(**update: Any) -> dict[str, Any]:
+    record: dict[str, Any] = {
+        "frame": "petitions",
+        "run_id": "1",
+        "run_attempt": 1,
+        "labeler": "claude-code/claude-opus-5-5",
+        "model": "claude-opus-5-5",
+        "outcome": "replicate",
+        "batch_rows": 3,
+        "label_lines": 3,
+        "agree": 2,
+        "n": 3,
+        "rate": 2 / 3,
+        "floor": 0.5,
+        "recorded_at": "2026-11-01T00:00:00Z",
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "estimated_cost_usd": 1.0,
+        "replicate": {
+            "reference_sha256": "a" * 64,
+            "prompt_sha256": "c" * 64,
+            "reference_entries": 3,
+            "matches": "110",
+            "unclassifiable": 0,
+        },
+    }
+    record.update(update)
+    return record
+
+
+@pytest.mark.parametrize(
+    ("update", "message"),
+    [
+        ({"replicate": None}, "carries its replicate measurement"),
+        ({"outcome": "refused"}, "carries its replicate measurement"),
+        ({"agree": 1, "rate": 1 / 3}, "matched and compared entries"),
+        (
+            {"frame": "alignment-sides", "agree": None, "n": None, "rate": None, "floor": None},
+            "never replicate",
+        ),
+    ],
+)
+def test_the_run_record_binds_a_replicate_to_its_outcome(
+    update: dict[str, Any], message: str
+) -> None:
+    QpTopicRunSpend.model_validate(_spend_record())
+    with pytest.raises(ValueError, match=message):
+        QpTopicRunSpend.model_validate(_spend_record(**update))
+
+
+def test_the_replicate_record_refuses_impossible_counts() -> None:
+    base = {
+        "reference_sha256": "a" * 64,
+        "prompt_sha256": "c" * 64,
+        "reference_entries": 3,
+        "matches": "1-0",
+    }
+    with pytest.raises(ValueError, match="unclassifiable cannot exceed"):
+        QpTopicReplicate.model_validate({**base, "unclassifiable": 3})
+    with pytest.raises(ValueError, match="per-kind agreements"):
+        QpTopicReplicate.model_validate(
+            {
+                **base,
+                "unclassifiable": 0,
+                "per_input_kind": [
+                    {"input_kind": "docket-only", "agree": 0, "n": 1},
+                    {"input_kind": "application-text", "agree": 0, "n": 1},
+                ],
+            }
+        )
+
+
+def test_reference_only_does_not_combine_with_the_measurement_form(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app, ["qp-corpus", "--out", str(tmp_path / "x.json"), "--all", "--reference-only"]
+    )
+    assert result.exit_code == 2
+
+
+def test_replicates_under_different_prompts_are_not_pooled() -> None:
+    with pytest.raises(ReplicateError, match="different labeling prompts"):
+        spread(
+            [
+                Replicate("a", "11", 0, prompt_sha256="c" * 64),
+                Replicate("b", "10", 0, prompt_sha256="d" * 64),
+            ]
+        )
+
+
+def test_the_spread_reports_its_floor_and_the_run_sd_interval() -> None:
+    runs = [Replicate("a", "1110", 0), Replicate("b", "1100", 0), Replicate("c", "1000", 0)]
+    result = spread(runs, ["x", "x", "x", "y"])
+    assert result.floor == pytest.approx(0.75)
+    assert result.run_sd_interval is not None
+    low, high = result.run_sd_interval
+    # 2 df: the 2.5% and 97.5% chi-square quantiles are 0.0506 and 7.378.
+    assert low == pytest.approx(0.25 * math.sqrt(2 / 7.377758908227871), rel=1e-6)
+    assert high == pytest.approx(0.25 * math.sqrt(2 / 0.050635615968579795), rel=1e-6)

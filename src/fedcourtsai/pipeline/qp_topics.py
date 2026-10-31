@@ -1155,6 +1155,7 @@ def measure_replicate(
     texts: Mapping[str, QpText],
     reference: QpTopicReference | QpTopicApplicationReference,
     reference_sha256: str,
+    prompt_sha256: str,
 ) -> tuple[QpTopicAgreement, QpTopicReplicate]:
     """Measure one reference-only replicate, without accruing anything.
 
@@ -1208,6 +1209,7 @@ def measure_replicate(
             )
     replicate = QpTopicReplicate(
         reference_sha256=reference_sha256,
+        prompt_sha256=prompt_sha256,
         reference_entries=len(ordered),
         matches=matches,
         unclassifiable=sum(1 for entry in ordered if labels.get(entry.case_id) == "unclassifiable"),

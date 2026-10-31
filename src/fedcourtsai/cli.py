@@ -8661,7 +8661,7 @@ def _qp_corpus_applications(
 
 
 @app.command("qp-topics")
-def qp_topics_cmd(
+def qp_topics_cmd(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map 1:1 to inputs
     labels: Annotated[
         Path,
         typer.Option(exists=True, help="Labeler's JSONL: one object per labeled text."),
@@ -8711,6 +8711,15 @@ def qp_topics_cmd(
             "--replicate-out",
             help="Measure a reference-only replicate instead: write its item-level record "
             "here as JSON, write no labels artifact, and exit 0 on either side of the gate.",
+        ),
+    ] = None,
+    prompt_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--prompt-file",
+            exists=True,
+            help="With --replicate-out: the labeling prompt the labeler read, whose sha256 "
+            "the replicate record carries so replicates are pooled under one prompt.",
         ),
     ] = None,
 ) -> None:
@@ -8772,13 +8781,25 @@ def qp_topics_cmd(
     ``--replicate-out`` measures a **replicate** (``qp-corpus --reference-only``):
     the same joins, plus a refusal of any extract row outside the reference,
     then the pooled agreement to ``--agreement-out`` and the item-level record
-    to ``--replicate-out``. No labels artifact is built or written, so the gate
+    to ``--replicate-out``, stamped with the sha256 of ``--prompt-file`` (the
+    labeling prompt, which it requires). No labels artifact is built or written, so the gate
     decides nothing and the command exits 0 whatever the rate; a replicate
     measures the labeler and publishes nothing (``docs/qp-topic.md``).
     """
     settings = get_settings()
     if replicate_out is not None:
-        _qp_topics_replicate(settings, labels, texts, frame, agreement_out, replicate_out)
+        if prompt_file is None:
+            typer.echo("qp-topics: --replicate-out needs --prompt-file", err=True)
+            raise typer.Exit(code=2)
+        _qp_topics_replicate(
+            settings,
+            labels,
+            texts,
+            frame,
+            agreement_out,
+            replicate_out,
+            prompt_sha256=hashlib.sha256(prompt_file.read_bytes()).hexdigest(),
+        )
         return
     if frame == "applications":
         _qp_topics_applications(settings, labels, texts, labeler, out, frame_rows, agreement_out)
@@ -8859,6 +8880,8 @@ def _qp_topics_replicate(
     frame: Literal["petitions", "applications"],
     agreement_out: Path | None,
     replicate_out: Path,
+    *,
+    prompt_sha256: str,
 ) -> None:
     """``qp-topics --replicate-out``: measure a reference-only replicate, publish nothing."""
     applications = frame == "applications"
@@ -8883,6 +8906,7 @@ def _qp_topics_replicate(
             texts=qp_topics.read_texts(texts),
             reference=reference,
             reference_sha256=reference_sha256,
+            prompt_sha256=prompt_sha256,
         )
     except qp_topics.QpTopicError as exc:
         typer.echo(f"qp-topics: {exc}", err=True)
@@ -8960,7 +8984,7 @@ def _report_labels_run(
 
 
 @app.command("qp-topic-spend")
-def qp_topic_spend_cmd(  # noqa: PLR0912, PLR0913 - a CLI entrypoint; options map 1:1 to inputs
+def qp_topic_spend_cmd(  # noqa: PLR0912, PLR0913, PLR0915 - a CLI entrypoint; options map 1:1 to inputs
     *,
     execution_file: Annotated[
         Path,
@@ -9093,6 +9117,11 @@ def qp_topic_spend_cmd(  # noqa: PLR0912, PLR0913 - a CLI entrypoint; options ma
     outcome: QpTopicRunOutcome
     if replicate is not None:
         outcome = "replicate"
+    elif replicate_file is not None:
+        # A replicate that left no record was never measured as one. Whatever
+        # its agreement file says, it is not a refused labeling run, so it can
+        # never set the hold's refusal.
+        outcome = "incomplete"
     elif published:
         outcome = "published"
     elif agreement is not None and not agreement.gate_passed:
@@ -9241,8 +9270,20 @@ def qp_topic_replicates_cmd(
         typer.Option(help="The frame whose reference block the replicates labeled."),
     ],
     model: Annotated[
-        str, typer.Option(help="Pool this labeler model's replicate records alone.")
+        str,
+        typer.Option(
+            help="Pool this labeler model's replicate records alone (the labeling lane's "
+            "default model unless named)."
+        ),
     ] = "claude-opus-5-5",
+    prompt_sha256: Annotated[
+        str | None,
+        typer.Option(
+            "--prompt-sha256",
+            help="Pool only replicates recorded under this labeling prompt digest; needed "
+            "when the records span more than one prompt.",
+        ),
+    ] = None,
     labels: Annotated[
         list[Path] | None,
         typer.Option(
@@ -9270,8 +9311,11 @@ def qp_topic_replicates_cmd(
     source, the run-level component between them, the binomial error a fixed
     floor assumes, the always/never/flipped item counts, Cochran's Q for a run
     effect, and the per-kind split on the application block
-    (:mod:`fedcourtsai.pipeline.qp_replicates`). Reads committed files and
-    spends nothing; it chooses no gate.
+    (:mod:`fedcourtsai.pipeline.qp_replicates`), with the constant-labeler
+    floor and the run sd's interval beside them. Records under different
+    labeling prompts are refused as one pool; ``--prompt-sha256`` picks one.
+    Reads the committed records (and any ``--labels`` files named), spends
+    nothing, and chooses no gate.
     """
     settings = get_settings()
     applications = frame == "applications"
@@ -9298,12 +9342,16 @@ def qp_topic_replicates_cmd(
         typer.echo(f"qp-topic-replicates: cannot read the run records: {exc}", err=True)
         raise typer.Exit(code=1) from exc
     pooled, skipped = qp_replicates.replicates_from_records(
-        runs, frame=frame, model=model, reference_sha256=reference_sha256, kinds=kinds
+        runs,
+        frame=frame,
+        model=model,
+        reference_sha256=reference_sha256,
+        kinds=kinds,
+        prompt_sha256=prompt_sha256,
     )
-    for run in skipped:
+    for run, why in skipped:
         typer.echo(
-            f"qp-topic-replicates: left out run {run.run_id}-{run.run_attempt} "
-            f"({run.model}, measured against another reference file or model)",
+            f"qp-topic-replicates: left out run {run.run_id}-{run.run_attempt} ({why})",
             err=True,
         )
     for path in labels or []:
@@ -9318,7 +9366,7 @@ def qp_topic_replicates_cmd(
             )
         )
     try:
-        result = qp_replicates.spread(pooled)
+        result = qp_replicates.spread(pooled, [label for _, label, _ in rows])
     except qp_replicates.ReplicateError as exc:
         typer.echo(f"qp-topic-replicates: {exc} ({len(pooled)} pooled)", err=True)
         raise typer.Exit(code=1) from exc

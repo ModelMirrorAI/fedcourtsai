@@ -36,7 +36,7 @@
     },
     "QpTopicReplicate": {
       "additionalProperties": false,
-      "description": "One reference-only replicate's item-level measurement (``docs/qp-topic.md``).\n\nA replicate labels the frame's reference block alone and publishes nothing:\nit exists to measure how far one labeler's agreement moves between runs on\nidentical inputs. The pooled figures sit on the run record beside this; what\nthis adds is what separates a run-level component from item-level noise \u2014\nwhich reference rows this run matched, as one character per reference entry\nin ``case_id`` order \u2014 and the shares the gate candidates are cut by. The\nreference entries are committed already, so the string discloses nothing a\nreader of the reference file does not hold. ``reference_sha256`` pins which\nreference the string indexes: replicates measured against a different block\nare not pooled.",
+      "description": "One reference-only replicate's item-level measurement (``docs/qp-topic.md``).\n\nA replicate labels the frame's reference block alone and publishes nothing:\nit exists to measure how far one labeler's agreement moves between runs on\nidentical inputs. The pooled figures sit on the run record beside this; what\nthis adds is what separates a run-level component from item-level noise \u2014\nwhich reference rows this run matched, as one character per reference entry\nin ``case_id`` order \u2014 and the shares the gate candidates are cut by. The\nreference entries are committed already, so the string discloses nothing a\nreader of the reference file does not hold. ``reference_sha256`` pins which\nreference the string indexes and ``prompt_sha256`` which labeling prompt was\nread: replicates that differ on either are not pooled, since a reference\nrevision or a prompt edit would land in the run-level component.",
       "properties": {
         "matches": {
           "description": "One character per reference entry in case_id order: 1 the labeler matched the reference label, 0 it did not, - the entry was not in the replicate's extract",
@@ -51,6 +51,12 @@
           },
           "title": "Per Input Kind",
           "type": "array"
+        },
+        "prompt_sha256": {
+          "description": "sha256 of the labeling prompt the replicate's labeler read; replicates under different prompts are not pooled",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Prompt Sha256",
+          "type": "string"
         },
         "reference_entries": {
           "description": "Entries in that reference file",
@@ -73,6 +79,7 @@
       },
       "required": [
         "reference_sha256",
+        "prompt_sha256",
         "reference_entries",
         "matches",
         "unclassifiable"

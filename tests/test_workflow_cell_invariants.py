@@ -1680,7 +1680,8 @@ def test_the_qp_labeling_run_publishes_on_its_count_not_on_the_agents_verdict() 
     # its frame, so its success carries the codes file exactly as the measure
     # step's carries the labels.
     assert _norm(stage["if"]) == (
-        "${{ !cancelled() && (steps.measure.outcome == 'success' "
+        "${{ !cancelled() && ((steps.measure.outcome == 'success' "
+        "&& needs.qp-topic-resolve.outputs.replicate != 'true') "
         "|| steps.side_codes.outcome == 'success' || steps.spend.outcome == 'success') }}"
     )
     assert 'if [ "$MEASURED" = success ]; then' in stage["run"]
@@ -5309,8 +5310,15 @@ def test_a_replicate_mode_labels_the_reference_alone_and_publishes_no_labels() -
         ), step_id
     spend = next(s for s in label_steps if s.get("id") == "spend")
     assert '--replicate-file "$RUNNER_TEMP/qp-replicate.json"' in spend["run"]
+    assert measure["with"]["prompt-file"] == "${{ needs.qp-topic-resolve.outputs.prompt }}"
+    # The publish runner, which no agent held, refuses labels in a replicate's hand-off.
+    revalidate = next(
+        s for s in wf["jobs"]["qp-topic-publish"]["steps"] if s.get("id") == "revalidate"
+    )
+    assert revalidate["env"]["REPLICATE"] == "${{ needs.qp-topic-resolve.outputs.replicate }}"
+    assert "a replicate's hand-off carries a labels file" in revalidate["run"]
     action = (REPO_ROOT / ".github" / "actions" / "qp-topic-measure" / "action.yml").read_text()
-    assert '--replicate-out "$REPLICATE_OUT"' in action
+    assert '--replicate-out "$REPLICATE_OUT" --prompt-file "$PROMPT_FILE"' in action
 
 
 def test_a_scheduled_label_run_takes_the_dispatch_default_model() -> None:

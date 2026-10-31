@@ -1133,7 +1133,7 @@ reference-only replicate, below), and its gate figures
 (agree, n, rate, floor) wherever it was measured. A model with no rate in
 `pricing.MODEL_RATES` is priced at the entry that prices its token counts
 dearest and named in `priced_as`, so no run's spend is dropped. A published run's labels PR carries the record beside
-the labels file; a refused or incomplete run's record lands alone on the same
+the labels file; a refused, incomplete or replicate run's record lands alone on the same
 fixed branch, in a PR titled as a spend record of a run that published no
 labels, with the gate figures in its body — onto the frame's open PR where one
 is open, so a pending batch is kept. Neither is ever auto-merged, and both
@@ -1155,9 +1155,9 @@ gate figures.
 
 ### Replicates: how far one labeler moves between runs
 
-Two runs of one labeler on identical reference inputs can land several points
-apart, so a single run's agreement carries a **run-level component** the
-binomial error at the reference block's `n` does not capture. A fixed per-run
+Runs of one labeler on the same reference rows may land several points apart,
+so a single run's agreement may carry a **run-level component** the binomial
+error at the reference block's `n` does not capture. A fixed per-run
 floor then refuses some runs on luck, and passes others on luck once retries
 are allowed. The **replicate mode** measures that spread directly, as input to
 a variance-aware gate that is pre-registered separately, before any batch is
@@ -1168,7 +1168,7 @@ petition frame) or `qp-topic-replicate-applications` (the application frame),
 with no cron. It runs the labeling lane's own jobs, hold and spend ledger with
 two differences:
 
-- **The extract is the frame's reference rows alone** (`qp-corpus
+- **The extract is the frame's in-frame reference rows alone** (`qp-corpus
   --reference-only`): clause 1 of the batch rule without clause 2, so every
   replicate of a frame reads identical inputs, and the coverage floor still
   refuses one that would measure a sliver. The labeler reads the same prompt
@@ -1186,35 +1186,49 @@ The record (`QpTopicRunSpend.replicate`, the `QpTopicReplicate` model) carries
 the gate figures and, beside them, which reference rows the run matched — one
 character per reference entry in `case_id` order — the count it labeled
 `unclassifiable`, the per-input-kind split on the application block, and the
-sha256 of the reference file it was measured against. The reference entries are
+sha256 of the reference file it was measured against and of the labeling
+prompt its labeler read. The reference entries are
 committed already, so the match string discloses nothing a reader of the
 reference file does not hold. **A replicate neither clears nor sets the hold's
 refusal**: it measured the reference and published nothing by design, so
 `label_refusal` reads `published` and `refused` runs alone, and a replicate
 dispatched after a refusal cannot release the next labeling round. Its spend
 counts toward the measured total like any run's, and its round is priced and
-held like any label round's, at the reference block's row count.
+held like any label round's, at the in-frame reference row count — so while a
+frame's last gated run stands refused, a replicate of that frame waits for a
+maintainer's release too. Dispatch replicates **one at a time**: the lane's
+jobs take per-frame concurrency groups, which keep one pending run, so a third
+dispatch while one runs and one waits cancels the waiting one.
 
 `fedcourts qp-topic-replicates --frame <frame>` pools the frame's replicate
-records for one labeler model against the reference file as committed now (a
-record measured against another reference file is listed and left out, since
-its match string indexes other items or another standard) and separates the
-spread of the run rates into its two sources: **item-level noise**, the
+records for one labeler model against the reference file as committed now and
+under one labeling prompt (a record measured against another reference file,
+by another model, or under another prompt is listed and left out, since a
+revision of either would otherwise land in the run-level figure) and separates
+the spread of the run rates into its two sources: **item-level noise**, the
 variance the run rate would have if items flipping independently between runs
 were its only source (`sum p_i(1 - p_i) / n^2`, estimated from the k runs
 without bias), and the **run-level component**, the run rates' sample variance
-less that term — the crossed items x runs analysis of variance, in which every
-run reads the same items, so item difficulty cancels from the run means. It
-also prints each run's `unclassifiable` share, the binomial error a fixed floor
-assumes, the always / never / flipped item counts, Cochran's Q for a run
-effect, and the per-kind split. Every figure is agreement with the frame's
+less that term — the crossed items x runs analysis of variance estimator up to
+a factor `(n - 1)/n`, since every run reads the same items and item difficulty
+cancels from the run means. The split is linear on the probability scale and
+treats items as independent within a run, so a component that cannot move an
+item every run matches, or a chunk effect inside one session, reads as
+run-level. It also prints the constant-labeler floor on the same items (every
+rate reads against it), the run sd's 95% chi-square interval on `k - 1`
+degrees of freedom — with a handful of replicates the run sd is itself
+imprecise — each run's `unclassifiable` share, the always / never / flipped
+item counts, Cochran's Q for a run effect, the per-kind split, and, apart, the
+binomial error at `n`: item-sampling error, how far this block's rate may stand
+from a frame's, a different estimand from the run sd and never a component of
+one total; a variance-aware gate has to reckon with both. Every figure is agreement with the frame's
 reference on the reference block's own items: it says how far a next run on
 these items may land, not how a labeler reads rows the block does not hold.
 `--labels` adds a past labeling run's saved labels, read on the reference rows
 it holds, to an exploratory pool beside the records; those runs are not
 records, and a figure drawn from them says which runs it pooled and against
-which reference. The command reads committed files, spends nothing, and
-chooses no gate.
+which reference. The command reads the committed records and any saved labels
+it is handed, spends nothing, and chooses no gate.
 
 ### Publication keys on the count, not on the agent's verdict
 

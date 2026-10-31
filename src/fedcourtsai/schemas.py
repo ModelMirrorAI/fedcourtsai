@@ -9777,13 +9777,19 @@ class QpTopicReplicate(_Strict):
     in ``case_id`` order — and the shares the gate candidates are cut by. The
     reference entries are committed already, so the string discloses nothing a
     reader of the reference file does not hold. ``reference_sha256`` pins which
-    reference the string indexes: replicates measured against a different block
-    are not pooled.
+    reference the string indexes and ``prompt_sha256`` which labeling prompt was
+    read: replicates that differ on either are not pooled, since a reference
+    revision or a prompt edit would land in the run-level component.
     """
 
     reference_sha256: str = Field(
         pattern=r"^[0-9a-f]{64}$",
         description="sha256 of the committed reference file the replicate was measured against",
+    )
+    prompt_sha256: str = Field(
+        pattern=r"^[0-9a-f]{64}$",
+        description="sha256 of the labeling prompt the replicate's labeler read; replicates "
+        "under different prompts are not pooled",
     )
     reference_entries: int = Field(ge=1, description="Entries in that reference file")
     matches: str = Field(
@@ -9929,8 +9935,8 @@ class QpTopicRunSpend(_Strict):
         if self.frame == "alignment-sides":
             # The merits side coder has no reference set, so no gate: a run is
             # published or incomplete, and never carries gate figures.
-            if self.outcome == "refused":
-                raise ValueError("a side-coding run has no gate to be refused at")
+            if self.outcome in ("refused", "replicate"):
+                raise ValueError(f"a side-coding run has no gate, so it is never {self.outcome}")
             if measured or self.rate is not None or self.floor is not None:
                 raise ValueError("a side-coding run carries no gate figures")
         elif self.outcome != "incomplete" and not measured:

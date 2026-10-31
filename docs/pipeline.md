@@ -574,7 +574,7 @@ queues behind the production run of the same mode. The modes:
   isolated environment) with its outcome and gate figures, which the publish
   job lands as `data/qp-topics/spend/<run_id>-<run_attempt>.json`: beside the
   labels file on a published run, alone on the same fixed branch in a PR titled
-  as a spend record on a refused or short one — onto the open labels PR where
+  as a spend record on a refused, short or replicate one — onto the open labels PR where
   there is one; either PR must be merged, not closed, or its records leave the
   measured total. Nothing retries a refused batch, and a scheduled run stands
   down while the frame's open labels PR holds an unmerged published batch
@@ -655,16 +655,21 @@ queues behind the production run of the same mode. The modes:
   `staging` ref, where the publish job is fenced as for the petition mode.
 - **`qp-topic-replicate`** and **`qp-topic-replicate-applications`**
   (dispatch only) are one reference-only replicate of the petition or
-  application labeler ([qp-topic.md](qp-topic.md), *Replicates*): the same
+  application labeler ([qp-topic.md](qp-topic.md), *Replicates: how far one
+  labeler moves between runs*): the same
   jobs, hold and spend ledger, with `qp-topic-resolve`'s `replicate` output
   set. The extract cuts the frame's reference rows alone (`qp-corpus
   --reference-only`), the measure step records the run with `qp-topics
   --replicate-out` and writes no labels file, and the publish job lands the
   run's spend record alone (outcome `replicate`) on the frame's fixed branch,
   where it must be merged like any spend-record PR. Each dispatch is one
-  replicate, priced at the reference block's rows;
-  `fedcourts qp-topic-replicates` pools them. A replicate neither clears nor
-  sets the hold's refusal.
+  replicate, priced at the in-frame reference rows, and is held like any label
+  round, so while the frame's last gated run stands refused a replicate waits
+  for a maintainer too. Dispatch replicates **one at a time**: the extract,
+  label and publish jobs each take a per-frame concurrency group, which keeps
+  one pending run, so a third dispatch while one runs and one waits cancels the
+  waiting one. `fedcourts qp-topic-replicates` pools them. A replicate neither
+  clears nor sets the hold's refusal.
 - **`alignment-side-code`** (dispatch, or the weekly Thursday cron) is the
   same jobs over a third frame, `alignment-sides`: the merits side coder of
   [merits-alignment-baseline.md](merits-alignment-baseline.md). The extract is
