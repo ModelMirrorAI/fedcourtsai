@@ -66,7 +66,7 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, cast, get_args
 
 from .. import corpus, ids
 from ..paths import CasePaths
@@ -76,6 +76,7 @@ from ..schemas import (
     MERITS_PROCEEDING_DISPOSITIONS,
     Disposition,
     EventKind,
+    InterimReadingLabel,
     InterimResolutionSignals,
     Judgment,
     MeritsDecisionMethod,
@@ -100,6 +101,7 @@ from .cert_signals import (
     snapshot_carries_proceedings,
 )
 from .ingest import CorpusRow
+from .interim_signals import interim_reading_granted
 from .judgment import (
     judgment_disturbed,
     judgment_rode_the_grant_order,
@@ -118,6 +120,8 @@ from .redocket import (
 #: models carry every column detection and the outcome builder touch, so one
 #: rule serves both without a conversion that could drop a field.
 ResolvableRow = CorpusRow | corpus.CorpusRow
+
+_FINER_LABELS: frozenset[str] = frozenset(get_args(InterimReadingLabel))
 
 # Which grants open a merits proceeding is one definition, shared with the
 # judgment backfill and the statpack's merits section so the population that is
@@ -995,6 +999,11 @@ def _build_outcome(
     (response requested, referral, amicus count), observations nobody makes on a
     petition.
 
+    An interim recording also copies the finer reading (``interim_reading``,
+    with its scored binary ``interim_granted``) from the row's own column, beside
+    the registered label and never in its place; a cert recording carries
+    neither.
+
     ``route`` and ``dissent`` are the cert-order markers the caller computed
     from the payload in hand (:func:`disposition_route`,
     :func:`noted_dissent_from_denial`). They are gated off an interim recording
@@ -1005,6 +1014,14 @@ def _build_outcome(
     """
     resolved_at = corpus.resolution_date(row)
     assert row.disposition is not None and resolved_at is not None
+    # The finer interim reading rides beside the registered label, copied from
+    # its own column and never derived from `disposition`. A value outside the
+    # vocabulary (a blob this code does not know) is recorded as no reading.
+    finer = (
+        cast(InterimReadingLabel, row.interim_reading)
+        if interim and row.interim_reading in _FINER_LABELS
+        else None
+    )
     return Outcome(
         case_id=row.case_id,
         event_id=event_id,
@@ -1024,6 +1041,8 @@ def _build_outcome(
         ),
         source=row.citations[0] if row.citations else None,
         disposition_basis=basis,
+        interim_reading=finer,
+        interim_granted=interim_reading_granted(finer),
         disposition_route=None if interim else route,
         noted_dissent_from_denial=None if interim else dissent,
     )

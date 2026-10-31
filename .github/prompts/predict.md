@@ -565,16 +565,21 @@ An interim cell predicts a substantive application — a stay, an injunction, a
 vacatur pending certiorari — and the event resolves as the **grant or denial
 of the requested relief**:
 
-- **`granted` / `probability`** — the interim resolver emits exactly four
-  labels: `granted`, `denied`, `withdrawn`, `dismissed`. Draw
-  `predicted_disposition` from those four only; `gvr`, `summary-reversal`, and
-  `granted-in-part` are cert-stage routes the interim vocabulary never
-  records. It matches denial language **first**, so a mixed
-  "granted in part and denied in part" order resolves as `denied` /
-  ungranted (a pre-registered collapse — `docs/salience.md`, *The interim
-  docket*). So `probability` is P(the disposing entry reads as an
-  **unqualified grant**), not P(any relief): scoring partial relief as a grant
-  would over-state your number on exactly the mixed shadow-docket shape.
+- **`granted` / `probability`** — `probability` is P(the Court grants the
+  requested relief **in whole or in part** | the application is not dismissed
+  or denied as moot). The outcome records the finer interim reading
+  (`outcome.interim_reading`): a partial grant ("granted in part and denied in
+  part", "granted as to …", "granted insofar as …") is `granted-in-part` and
+  scores as a grant; a denial, a withdrawal, and a dismissal that is not for
+  mootness score as ungranted; and an application dismissed or denied **as
+  moot** — including one "dismissed in light of" relief granted on a companion
+  application — leaves the scored set, because it decided nothing about its
+  ask. So do not discount your number for the chance the application goes
+  moot; price the relief conditional on a decision. Draw `predicted_disposition`
+  from `granted`, `granted-in-part`, `denied`, `withdrawn` or `dismissed`;
+  `gvr` and `summary-reversal` are cert-stage routes, and `correct` is scored
+  on which side of the granted/ungranted line your label falls, so
+  `granted-in-part` and `granted` score alike.
 - **What the record shows.** None of the cert signals exists here: an
   application is not distributed for conference, and a CVSG is a cert-stage
   act. Key on your **frozen conditioning, not on the docket's shape**: where
@@ -597,14 +602,19 @@ of the requested relief**:
   puts the application in scope, not a rung it climbs.
 - **The statpack's interim-docket section carries a scored base rate.** The
   yardstick an interim cell's skill is scored against is the **substantive
-  resolved slice's grant rate, pooled over application-Terms strictly before
-  your own** — the same leakage rule the cert band rate keeps, bounded to the
-  ten Terms before yours (`application_term - 10 <= T < application_term`)
-  exactly as the merits rate is, over the section's per-Term
-  `substantive_granted` / `substantive_resolved` counts, unweighted raw counts
-  because the application stream carries no denial sampling. It exists only
-  where that pooled sample reaches the pre-registered per-pool floor of **50**
-  resolved substantive applications (`INTERIM_BASE_RATE_MIN_RESOLVED`;
+  resolved slice's grant rate under the finer reading, pooled over
+  application-Terms strictly before your own** — the same leakage rule the
+  cert band rate keeps, bounded to the ten Terms before yours
+  (`application_term - 10 <= T < application_term`) exactly as the merits rate
+  is, over the section's per-Term `finer_granted` / `finer_resolved` counts
+  (partial grants counted as granted, moot dismissals out of both),
+  unweighted raw counts because the application stream carries no denial
+  sampling. The `substantive_granted` / `substantive_resolved` columns beside
+  them are the older registered reading; do not anchor on them. The rate
+  exists only where that pooled sample reaches the pre-registered per-pool
+  floor of **50** resolved substantive applications, moot dismissals already
+  out, and where every pooled Term carries the finer counts with
+  `finer_unread` zero (`INTERIM_BASE_RATE_MIN_RESOLVED`;
   `docs/salience.md`, *The interim docket*). Below the floor there is **no
   baseline and no substitute**: not the pack-level rate, which contains your
   own Term, not a single Term's, and not the cert band table, which is a
@@ -660,8 +670,9 @@ of the requested relief**:
 - **Four declared claims.** Every interim moment declares the `interim-v2`
   set, and you state a probability for each of its four claims — no additions,
   no declining, per the declared-set rule under `prediction.json` below:
-  - `interim-disposition` — P(the disposing entry reads as an **unqualified
-    grant**). It **must equal your top-level `probability`** exactly; the two
+  - `interim-disposition` — P(relief granted **in whole or in part** | not
+    dismissed or denied as moot), the target above. It **must equal your
+    top-level `probability`** exactly; the two
     are one belief written twice so the set is self-describing, and a divergent
     pair voids the whole block. It is a distinct claim from the cert set's
     `disposition`, deliberately: the two price different populations resolving

@@ -322,6 +322,42 @@
       "title": "Event Id",
       "type": "string"
     },
+    "interim_granted": {
+      "anyOf": [
+        {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The binary the finer interim reading scores: 1 for `granted` or `granted-in-part` (relief in whole or in part), 0 for `denied`, `withdrawn` or `dismissed`, null for `dismissed-moot` \u2014 a moot application decided nothing about its ask and leaves the scored set \u2014 and wherever `interim_reading` is null. Omitted from the file while null",
+      "title": "Interim Granted"
+    },
+    "interim_reading": {
+      "anyOf": [
+        {
+          "enum": [
+            "granted",
+            "granted-in-part",
+            "denied",
+            "dismissed-moot",
+            "withdrawn",
+            "dismissed"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The finer interim reading of the application's disposing entry, recorded beside `actual_disposition` and never in its place (`pipeline.interim_signals.read_interim_disposition`): a partial grant is `granted-in-part` and a dismissal or denial as moot is `dismissed-moot`. Interim outcomes only, copied from the corpus `interim_reading` column at resolution. A prediction stamped under `process_version.FINER_INTERIM_READING_FROM` or later is scored on `interim_granted`; an earlier one keeps `actual_granted`. Null where no finer reading was taken; omitted from the file while null",
+      "title": "Interim Reading"
+    },
     "interim_signals": {
       "anyOf": [
         {

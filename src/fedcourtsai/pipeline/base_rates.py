@@ -31,6 +31,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
+from typing import Literal
 
 from ..schemas import (
     CERT_ORDER_DISPOSITIONS,
@@ -619,8 +620,18 @@ def summary_route_base_rate(
 INTERIM_BASE_RATE_MIN_RESOLVED = 50
 
 
+#: Which interim counts a pool reads: the registered collapse, or the finer
+#: reading a cell stamped under ``process_version.FINER_INTERIM_READING_FROM`` or
+#: later is scored on (:func:`interim_base_rate`).
+InterimPoolReading = Literal["registered", "finer"]
+
+
 def interim_base_rate(
-    application_term: int, statpack: StatPack, *, lookback_terms: int = 0
+    application_term: int,
+    statpack: StatPack,
+    *,
+    lookback_terms: int = 0,
+    reading: InterimPoolReading = "registered",
 ) -> float | None:
     """The historical grant rate an interim cell's skill is scored against.
 
@@ -678,6 +689,20 @@ def interim_base_rate(
     ``docs/salience.md``: withdrawn and dismissed resolutions count as ungranted,
     and a mixed partial disposition reads denial-first.
 
+    ``reading`` picks which counts are pooled. ``"registered"`` (the default)
+    pools ``substantive_granted`` over ``substantive_resolved`` under the two
+    collapses above. ``"finer"`` pools ``finer_granted`` over ``finer_resolved``
+    — a partial grant counts as granted, and an application dismissed or denied
+    as moot leaves numerator and denominator — and is the pool for a cell whose
+    scored prediction takes the finer reading
+    (:func:`fedcourtsai.pipeline.evaluate.scores_finer_reading`). The floor
+    applies to the finer denominator, moot dismissals already out. A finer pool
+    refuses (``None``) wherever a pooled Term was built before the finer counts
+    existed or still holds a resolved row with no stored finer reading
+    (``finer_unread``): a Term counted partly would understate its denominator
+    by exactly the rows the ``reread-applications`` pass has not reached, so the
+    pool waits for the pass rather than quote a rate over a partial census.
+
     No pool-integrity guard corresponds to :func:`merits_base_rate`'s
     ``cert_order_excluded`` refusal, and none is missing: that guard exists
     because a merits Term's parsed counts can silently contain a class the rate
@@ -694,8 +719,14 @@ def interim_base_rate(
             continue  # leakage guard: the case's own and later Terms never contribute
         if oldest is not None and entry.term < oldest:
             continue  # outside the configured lookback window
-        granted += entry.substantive_granted
-        resolved += entry.substantive_resolved
+        if reading == "registered":
+            granted += entry.substantive_granted
+            resolved += entry.substantive_resolved
+            continue
+        if entry.finer_resolved is None or entry.finer_granted is None or entry.finer_unread:
+            return None  # a pooled Term the finer counts do not yet cover in full
+        granted += entry.finer_granted
+        resolved += entry.finer_resolved
     if resolved < INTERIM_BASE_RATE_MIN_RESOLVED:
         return None
     return granted / resolved

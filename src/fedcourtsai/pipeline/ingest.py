@@ -226,6 +226,14 @@ class CorpusRow(BaseModel):
         "branch only; None elsewhere (never application-parsed) — the storage "
         "latch keeps a real reading over a degraded parse's `unknown`.",
     )
+    interim_reading: str | None = Field(
+        default=None,
+        description="The finer interim reading of the application's disposing "
+        "entry, beside the registered `disposition` "
+        "(`interim_signals.read_interim_disposition`, last disposing entry). "
+        "Live application branch only; None elsewhere and while pending — the "
+        "storage fill-in keeps a stored reading.",
+    )
     response_requested: bool | None = Field(
         default=None,
         description="Whether the Court requested a response to an interim "
@@ -622,6 +630,7 @@ def _normalize(record: Mapping[str, Any], source: CorpusSource) -> CorpusRow:
         distributed_after_call=_as_count(record.get("distributed_after_call")),
         originating_court_name=_clean(record.get("originating_court_name")),
         application_kind=_clean(record.get("application_kind")),
+        interim_reading=_clean(record.get("interim_reading")),
         application_filed_at=_date(record.get("application_filed_at")),
         response_requested=_as_flag(record.get("response_requested")),
         referred_to_court=_as_flag(record.get("referred_to_court")),
@@ -982,11 +991,14 @@ def interim_disposing_text(payload: Mapping[str, Any]) -> str | None:
 
 
 def interim_reading(payload: Mapping[str, Any]) -> tuple[InterimReading | None, date | None]:
-    """(finer reading, decided) for an application's payload — descriptive only.
+    """(finer reading, decided) for an application's supremecourt.gov payload.
 
     The :func:`interim_resolution` twin under
     :func:`~fedcourtsai.pipeline.interim_signals.read_interim_disposition`, on
-    the same last-disposing-entry rule. Nothing ingest stores reads it.
+    the same last-disposing-entry rule. :func:`map_live_docket` stores it in the
+    ``interim_reading`` column beside the registered label, and the
+    ``reread-applications`` pass fills that column for stored rows from the same
+    function, so the two writers cannot read one snapshot differently.
     """
     resolved: tuple[InterimReading | None, date | None] = (None, None)
     for entry in _live_entries(payload):
@@ -996,6 +1008,17 @@ def interim_reading(payload: Mapping[str, Any]) -> tuple[InterimReading | None, 
         decided = date.fromisoformat(entry["date_filed"]) if entry.get("date_filed") else None
         resolved = (reading, decided)
     return resolved
+
+
+def stored_interim_reading(payload: Mapping[str, Any]) -> str | None:
+    """The ``interim_reading`` column value for an application's payload, or ``None``.
+
+    :func:`interim_reading`'s label as stored: the one function both writers of
+    the column call — :func:`map_live_docket` at ingest and the
+    ``reread-applications`` pass over stored snapshots.
+    """
+    reading = interim_reading(payload)[0]
+    return reading.value if reading is not None else None
 
 
 def map_live_docket(
@@ -1165,6 +1188,11 @@ def map_live_docket(
         "distributed_after_call": distributions_after_call(payload) if form == "cert" else None,
         "originating_court_name": lower_court,
         "application_kind": ask,
+        # The finer reading beside the registered label, on the same
+        # last-disposing-entry rule and never in its place: the registered
+        # label stays what every cell stamped before the finer reading's label
+        # is scored on.
+        "interim_reading": stored_interim_reading(payload) if form == "application" else None,
         "application_filed_at": (
             application_filed_on.isoformat() if application_filed_on else None
         ),
@@ -1447,6 +1475,7 @@ def to_corpus_row(
         distributed_after_call=row.distributed_after_call,
         originating_court_name=row.originating_court_name,
         application_kind=row.application_kind,
+        interim_reading=row.interim_reading,
         response_requested=row.response_requested,
         response_requested_at=row.response_requested_at,
         response_filed_at=row.response_filed_at,

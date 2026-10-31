@@ -25,9 +25,10 @@ import cycle around it.
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import date
 from enum import StrEnum
+from typing import Final
 
 from ..schemas import Disposition
 from .cert_signals import entry_date
@@ -183,8 +184,17 @@ _GRANT_VERB_RE = re.compile(r"\bgranted\b", re.I)
 # The application dismissed or denied **as moot** — "Application (25A1229)
 # denied as moot by Justice Thomas.", "The application … is dismissed as moot."
 # A short gap between the verb and "as moot" admits "denied without prejudice as
-# moot"; a comma ends it, so a later clause's mootness never reaches back.
-_MOOT_RE = re.compile(r"\b(?:denied|dismissed)\b[^,;]{0,40}?\bas\s+moot\b", re.I)
+# moot"; a comma ends it, so a later clause's mootness never reaches back. The
+# second form is the consolidated-docket mootness the Court words without the
+# word: "Application (21A247) dismissed in light of the relief granted in No.
+# 21A244." decides nothing about the application's own ask, whatever word
+# follows "in light of" — the "granted" there is the lead application's relief,
+# which is what the registered scan latches.
+_MOOT_RE = re.compile(
+    r"\b(?:denied|dismissed)\b[^,;]{0,40}?\bas\s+moot\b"
+    r"|\bdismissed\b[^,;]{0,40}?\bin\s+light\s+of\b",
+    re.I,
+)
 
 
 def application_clauses(text: str) -> list[str]:
@@ -287,20 +297,67 @@ def read_interim_disposition(text: str) -> InterimReading | None:
     both forms carry a word the registered reading latches the wrong way. A
     **partial grant** ("granted in part and denied in part", "granted as to …",
     "granted insofar as …") is ``granted-in-part``; a **moot dismissal**
-    ("denied as moot", "dismissed as moot") is ``dismissed-moot``. The partial
-    reading wins over the moot one, so "granted in part and otherwise dismissed
-    as moot" records the relief that was granted. Anything else is
-    :func:`match_interim_disposition`'s label, unchanged.
+    ("denied as moot", "dismissed as moot", "dismissed in light of …") is
+    ``dismissed-moot``. The partial reading wins over the moot one, so "granted
+    in part and otherwise dismissed as moot" records the relief that was
+    granted.
 
-    Descriptive only: nothing stored, scored or provisioned reads it.
+    Anything else is the registered vocabulary read **over the application's own
+    clauses** first — the first clause :func:`match_interim_disposition` reads
+    decides — so "The application for stay is granted, and the motion to
+    expedite is denied as moot." reads the application's ``granted`` rather than
+    the side motion's denial, which the registered scan, not clause-scoped,
+    takes. Only where no clause reads does the registered scan over the whole
+    entry stand, unchanged.
+
+    It is stored beside the registered label (the corpus ``interim_reading``
+    column, written by ingest on the same last-disposing-entry rule) and scored
+    for a cell stamped under
+    :data:`fedcourtsai.process_version.FINER_INTERIM_READING_FROM` or later
+    (:func:`interim_reading_granted`); a cell stamped earlier keeps the
+    registered reading.
     """
     clauses = application_clauses(text)
     if any(_partial_grant(clause) for clause in clauses):
         return InterimReading.granted_in_part
     if any(_MOOT_RE.search(clause) for clause in clauses):
         return InterimReading.dismissed_moot
+    for clause in clauses:
+        in_clause = match_interim_disposition(clause)
+        if in_clause is not None:
+            return InterimReading(in_clause[0].value)
     matched = match_interim_disposition(text)
     return None if matched is None else InterimReading(matched[0].value)
+
+
+#: The finer readings that decide the application's ask, and the binary each
+#: scores as. A partial grant is relief, so it scores as a grant; a withdrawal and
+#: a dismissal that is not for mootness stay ungranted, as the registered reading
+#: holds them. ``dismissed-moot`` is absent on purpose: it decided nothing about
+#: the ask, so it leaves the scored set and the base-rate denominator.
+_FINER_GRANTED: Final[Mapping[InterimReading, int]] = {
+    InterimReading.granted: 1,
+    InterimReading.granted_in_part: 1,
+    InterimReading.denied: 0,
+    InterimReading.withdrawn: 0,
+    InterimReading.dismissed: 0,
+}
+
+
+def interim_reading_granted(reading: InterimReading | str | None) -> int | None:
+    """The scored binary of one finer reading: ``1``, ``0``, or ``None`` for unscored.
+
+    ``None`` for ``dismissed-moot`` (the application leaves the scored set and
+    the base-rate denominator), for no reading at all, and for a string outside
+    the vocabulary — a stored value from a blob this code does not know is never
+    guessed into a grant or a denial.
+    """
+    if reading is None:
+        return None
+    try:
+        return _FINER_GRANTED.get(InterimReading(reading))
+    except ValueError:
+        return None
 
 
 def referral_posture(entry_texts: list[str]) -> ReferralPosture:

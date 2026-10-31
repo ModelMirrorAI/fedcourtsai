@@ -27,11 +27,17 @@ from __future__ import annotations
 from typing import Final
 
 from ..corpus import CorpusRow, scotus_application_term_year, scotus_term_year
-from ..schemas import Outcome, Prediction, StatPack, VoteValue
+from ..process_version import scores_finer_interim_reading
+from ..schemas import GRANTED_DISPOSITIONS, Outcome, Prediction, StatPack, VoteValue
 
 # `merits_base_rate` is re-exported, not used here — see the module docstring
 # and `__all__`, which is what states the re-export to both linters.
-from .base_rates import _pooled_band_rate, interim_base_rate, merits_base_rate
+from .base_rates import (
+    InterimPoolReading,
+    _pooled_band_rate,
+    interim_base_rate,
+    merits_base_rate,
+)
 from .justices import normalize_justice_name
 from .moments import scores_votes
 from .salience import SALIENCE_VERSION, salience_band, scorer
@@ -48,7 +54,11 @@ __all__ = [
     "is_correct",
     "judgment_correct",
     "merits_base_rate",
+    "scored_granted",
+    "scores_finer_reading",
     "segment_base_rate",
+    "stage_brier_score",
+    "stage_correct",
     "vote_accuracy",
 ]
 
@@ -75,6 +85,62 @@ def is_correct(prediction: Prediction, outcome: Outcome) -> int:
     return int(prediction.predicted_disposition == outcome.actual_disposition)
 
 
+def scores_finer_reading(prediction: Prediction | None) -> bool:
+    """Whether an interim cell's scored ``prediction`` takes the finer interim reading.
+
+    Keyed on the label the prediction was stamped under
+    (:func:`fedcourtsai.process_version.scores_finer_interim_reading`), never on
+    the grading's: the predict prompt a cell answered states what its
+    probability means, so a re-grade under a later label never moves a cell onto
+    a target it was not asked about.
+    """
+    if prediction is None or prediction.process_version is None:
+        return False
+    return scores_finer_interim_reading(prediction.process_version.label)
+
+
+def scored_granted(prediction: Prediction, outcome: Outcome, *, interim: bool) -> int | None:
+    """The binary ``prediction`` is scored against, or ``None`` where it is unscored.
+
+    ``outcome.actual_granted`` everywhere except an **interim** cell whose
+    prediction takes the finer reading (:func:`scores_finer_reading`), which is
+    scored against ``outcome.interim_granted``: a partial grant is a grant, and
+    an application dismissed or denied as moot — or an outcome recorded before
+    the finer reading was stored — is ``None``, unscored rather than scored on a
+    reading the cell was not asked about. ``interim`` is the caller's: the
+    event's stage, which neither artifact records.
+    """
+    if interim and scores_finer_reading(prediction):
+        return outcome.interim_granted
+    return outcome.actual_granted
+
+
+def stage_correct(prediction: Prediction, outcome: Outcome, *, interim: bool) -> int | None:
+    """:func:`is_correct`, unless the finer interim reading scores the cell.
+
+    Under the finer reading ``correct`` follows the binary rather than the
+    label: 1 iff the predicted disposition is on the same side of the
+    granted/ungranted line as ``interim_granted`` (a predicted ``granted``
+    against a ``granted-in-part`` reading is correct, a predicted ``dismissed``
+    against a ``withdrawn`` one is too), so the accuracy column and the Brier
+    score the same event. ``None`` where the cell is unscored.
+    """
+    if not (interim and scores_finer_reading(prediction)):
+        return is_correct(prediction, outcome)
+    target = outcome.interim_granted
+    if target is None:
+        return None
+    return int((prediction.predicted_disposition in GRANTED_DISPOSITIONS) == bool(target))
+
+
+def stage_brier_score(prediction: Prediction, outcome: Outcome, *, interim: bool) -> float | None:
+    """:func:`brier_score` against :func:`scored_granted`, ``None`` where unscored."""
+    target = scored_granted(prediction, outcome, interim=interim)
+    if target is None:
+        return None
+    return (prediction.probability - target) ** 2
+
+
 def brier_score(prediction: Prediction, outcome: Outcome) -> float:
     """Brier score for the stage's declared binary forecast (lower is better).
 
@@ -86,7 +152,11 @@ def brier_score(prediction: Prediction, outcome: Outcome) -> float:
 
 
 def segment_base_rate(
-    row: CorpusRow, statpack: StatPack, *, lookback_terms: int = 0
+    row: CorpusRow,
+    statpack: StatPack,
+    *,
+    lookback_terms: int = 0,
+    reading: InterimPoolReading = "registered",
 ) -> float | None:
     """The stage-appropriate prior-Term rate for a case, banded from the row **now**.
 
@@ -133,10 +203,16 @@ def segment_base_rate(
     recency of the Court's behaviour, and keeps it from shifting — silently, and in
     every published skill number — as the walker's coverage changes. It bounds
     the interim arm's pool identically.
+
+    ``reading`` reaches the interim arm alone: ``"finer"`` is the pool for a
+    cell whose scored prediction takes the finer interim reading
+    (:func:`scores_finer_reading`), and the cert and merits arms ignore it.
     """
     application_term = scotus_application_term_year(row.docket_number)
     if application_term is not None:
-        return interim_base_rate(application_term, statpack, lookback_terms=lookback_terms)
+        return interim_base_rate(
+            application_term, statpack, lookback_terms=lookback_terms, reading=reading
+        )
     term = scotus_term_year(row.docket_number)
     if term is None:
         return None

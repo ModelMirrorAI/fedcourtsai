@@ -42,7 +42,7 @@ from collections.abc import Callable, Collection, Mapping
 from typing import Literal, Protocol
 
 from ..ids import parse_event_kind
-from ..process_version import asked_authorship_claims
+from ..process_version import asked_authorship_claims, scores_finer_interim_reading
 from ..schemas import (
     ClaimDistribution,
     ClaimProbability,
@@ -1340,6 +1340,48 @@ def _distribution_block_problems(prediction: Prediction) -> list[str]:
     return problems
 
 
+#: Every declared interim claim set's version opens this way (``interim-v1``,
+#: ``interim-v2``), which is how :func:`score_claims` knows a block is an interim
+#: cell's without the event's stage, which neither artifact records.
+_INTERIM_SET_PREFIX = "interim-"
+
+ClaimMaskReason = Literal["signal-before-run", "dismissed-moot", "finer-reading-absent"]
+
+
+def _takes_finer_reading(prediction: Prediction) -> bool:
+    """Whether the scored prediction was stamped under the finer interim reading's label."""
+    label = prediction.process_version.label if prediction.process_version else None
+    return scores_finer_interim_reading(label)
+
+
+def _finer_disposition(outcome: Outcome) -> tuple[int | None, ClaimMaskReason | None]:
+    """The interim disposition claim's resolution under the finer reading, and its mask.
+
+    ``interim_granted`` where the outcome records one. Otherwise masked, with
+    the reason: the application was dismissed or denied as moot, or the outcome
+    was recorded before the finer reading was stored.
+    """
+    if outcome.interim_granted is not None:
+        return outcome.interim_granted, None
+    if outcome.interim_reading == "dismissed-moot":
+        return None, "dismissed-moot"
+    return None, "finer-reading-absent"
+
+
+def _finer_interim_baseline(
+    context: PredictionContext, statpack: StatPack, *, lookback_terms: int
+) -> float | None:
+    """The interim disposition claim's baseline under the finer reading.
+
+    :func:`_baseline_interim_disposition`'s pool over the finer counts
+    (``interim_base_rate(..., reading="finer")``), the same pool ``stamp-cell``
+    stamps as the cell's ``segment_base_rate``.
+    """
+    if context.term is None:
+        return None
+    return interim_base_rate(context.term, statpack, lookback_terms=lookback_terms, reading="finer")
+
+
 def score_claims(
     prediction: Prediction,
     outcome: Outcome,
@@ -1412,6 +1454,10 @@ def score_claims(
     total: float | None = None
     floor: float | None = None
     vacuous = moment_vacuous_claims(prediction.event_id)
+    # The finer interim reading re-reads the disposition claim alone: its
+    # resolution and its pool. The increment claims resolve on the escalation
+    # signals, which the reading does not touch, so they score as before.
+    finer = set_version.startswith(_INTERIM_SET_PREFIX) and _takes_finer_reading(prediction)
     for claim_id in claim_ids:
         probability = stated[claim_id]
         resolved = (
@@ -1419,19 +1465,25 @@ def score_claims(
             if claim_id in vacuous
             else resolve_claim(claim_id, prediction.context, outcome, federal_party=federal_party)
         )
-        mask_reason: Literal["signal-before-run"] | None = None
+        mask_reason: ClaimMaskReason | None = None
+        if finer and claim_id == CLAIM_INTERIM_DISPOSITION:
+            resolved, mask_reason = _finer_disposition(outcome)
         if (
             resolved is not None
             and increment_timing is not None
             and increment_timing(claim_id) == "signal-before-run"
         ):
             resolved, mask_reason = None, "signal-before-run"
-        baseline = claim_baseline(
-            claim_id,
-            prediction.context,
-            statpack,
-            lookback_terms=lookback_terms,
-            grant_term=grant_term,
+        baseline = (
+            _finer_interim_baseline(prediction.context, statpack, lookback_terms=lookback_terms)
+            if finer and claim_id == CLAIM_INTERIM_DISPOSITION
+            else claim_baseline(
+                claim_id,
+                prediction.context,
+                statpack,
+                lookback_terms=lookback_terms,
+                grant_term=grant_term,
+            )
         )
         score: float | None = None
         if resolved is not None and baseline is not None:

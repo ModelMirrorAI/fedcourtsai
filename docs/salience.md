@@ -2126,29 +2126,40 @@ wherever it is quoted. Two collapses in the resolved labels are likewise
 recorded here rather than discovered later: an unmatched resolution never
 enters the denominator (the accumulation rule above), and a mixed partial
 disposition — "granted in part and denied in part", a real shadow-docket
-shape — currently reads **denial-first** through the interim vocabulary and
-lands as `denied` / ungranted; if that collapse proves material once volume
-exists, changing it is a new reading applied forward, never a silent
-relabel. A finer, descriptive reader
+shape — reads **denial-first** through the interim vocabulary and lands as
+`denied` / ungranted. That registered reading is what the corpus `disposition`
+column stores and what every cell stamped before `proc-v17` is scored on, and
+it is never relabeled.
+
+**The finer reading, from `proc-v17`.** A finer reader
 (`interim_signals.read_interim_disposition`) names a partial grant
-`granted-in-part` and an application dismissed or denied as moot
-`dismissed-moot`, and nothing stored, scored or provisioned reads it: the
-corpus label, every outcome, the claims, this estimator and a cell's
-retrievable priors all keep the registered collapse, and
-`fedcourts interim-reading-census` measures what the finer reader names. A new
-interim reading is the next process label's to register, in its own
-freeze-record entry (the 2026-10-16 entry records the decision and what that
-entry must settle); nothing here binds its terms. Three shapes are read wrongly
-today. Under the **registered** scan, whose denial pattern is not
-clause-scoped, an order granting the application while denying a side request
-as moot ("…is granted, and the motion to expedite is denied as moot.") reads
-`denied`; the census lists the stored denials whose application clause grants,
-and the finer reader falls back to the same label. Under the **finer** reader,
-a partial stay worded only in a later sentence ("The application is granted.
-The order is stayed insofar as …") reads as a plain grant, and a filing that
-merely asks for partial relief ("Reply … asks that the application be granted
-in part") reads `granted-in-part`, since the reader keys on the clause and not
-on who is speaking. The floor, the estimator, and the collapses are fixed here, before
+`granted-in-part` and an application dismissed or denied as moot — or
+"dismissed in light of" relief granted elsewhere — `dismissed-moot`, and reads
+the application's own clause before the whole entry, so a side motion's denial
+no longer reads as the application's. The corpus stores it beside the
+registered label (`interim_reading`, written by the live application branch
+and filled for history by run-repair's `application-reread` pass), each
+interim `outcome.json` records it with its binary (`interim_reading`,
+`interim_granted`), and the statpack's interim section counts it per Term
+(`finer_resolved`, `finer_granted`, `finer_moot`, `finer_unread`). An interim
+cell whose scored prediction was stamped under `proc-v17` or later
+(`process_version.FINER_INTERIM_READING_FROM`, keyed on the prediction's label
+and never the grading's) is scored on it: partial relief counts as granted,
+withdrawn and non-moot dismissed stay ungranted, and a moot dismissal leaves
+the scored set — its Brier, `correct` and skill are null and its
+`interim-disposition` claim is masked `dismissed-moot` — and leaves the pool's
+numerator and denominator alike. The pool is the estimator below over the
+finer counts, under the same leakage rule, window and floor, the floor read
+against the finer denominator; it refuses a rate while any pooled Term still
+holds a resolved row with no stored finer reading. The terms are registered in
+the `proc-v17` freeze-record entry. Two shapes the finer reader still reads
+wrongly: a partial stay worded only in a later sentence ("The application is
+granted. The order is stayed insofar as …") reads as a plain grant, and a
+filing that merely asks for partial relief ("Reply … asks that the
+application be granted in part") reads `granted-in-part`, since the reader
+keys on the clause and not on who is speaking. `fedcourts
+interim-reading-census` measures what the finer reader names against the
+stored registered labels. The floor, the estimator, and the collapses are fixed here, before
 any interim cell has been scored, so none can be tuned to a result. The
 **merits** stage's baseline is registered the same way and likewise wired — the
 statpack merits section's disturbed rate pooled strictly-prior

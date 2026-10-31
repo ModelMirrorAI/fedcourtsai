@@ -15725,3 +15725,160 @@ freeze commit is recorded here.
     HARNESS_BOUNDARIES as H; n = {b.name for b in H};
     print({'decision-below-documents', 'context-band-refused'} <= n)"` prints
     `True` once the promotion record has stamped the rows.
+
+- **`proc-v17`, the interim reading: an interim cell stamped under `proc-v17`
+  or later is scored on the finer interim reading, where partial relief is a
+  grant and a moot dismissal leaves the scored set; recorded 2026-10-31.**
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge sha>`, merged `<FILL: merged time utc>`). This entry
+  registers the terms the 2026-10-16 interim partial-grant and moot entry said
+  the next label's own entry must settle. The label's digests, its window
+  supersessions and their census are the `register-process` run's, made once
+  `proc-v16` is on `main`, and are added to the change before it merges. Both
+  prompts change, so every digest moves. No harness boundary is registered:
+  the change is keyed on the label, and every board already reads a label's
+  cells as their own window.
+
+  **The reading.** `pipeline.interim_signals.read_interim_disposition`, as the
+  2026-10-16 entry describes it, with two corrections:
+  - "dismissed" followed within 40 characters, with no comma or semicolon, by
+    "in light of" is `dismissed-moot`, whatever word follows. "Application
+    (21A247) dismissed in light of the relief granted in No. 21A244." decided
+    nothing about its own ask, while the registered scan reads the lead
+    application's "granted" as this one's grant.
+  - Where neither the partial nor the moot form reads, the registered
+    vocabulary is read over the application's own clauses first, and the
+    first clause that reads decides. "The application for stay is granted,
+    and the motion to expedite is denied as moot." reads `granted`. Only
+    where no clause reads does the registered scan over the whole entry
+    stand.
+
+  **Where it lives.** Beside the registered reading, never in its place:
+  - the corpus `interim_reading` column, written by the live application
+    branch on the last-disposing-entry rule
+    (`pipeline.ingest.stored_interim_reading`) and filled for stored history
+    by run-repair's `application-reread` pass (`fedcourts
+    reread-applications`), which calls the same function;
+  - `Outcome.interim_reading` and its binary `Outcome.interim_granted`,
+    copied from the column when an interim outcome is written. Outcomes are
+    written once, so no committed `outcome.json` gains or changes a field;
+  - the statpack interim section's per-Term `finer_resolved`,
+    `finer_granted`, `finer_moot` and `finer_unread`.
+
+  The corpus `disposition` column, `actual_disposition`, `actual_granted` and
+  `disposition_basis` are unchanged for every outcome, so every cell stamped
+  before this label keeps its registered reading through any re-grade.
+
+  **The settled questions.**
+  1. *Separate outcome fields:* `interim_reading` and `interim_granted`, as
+     above.
+  2. *The reader is keyed on the scored prediction's label*
+     (`process_version.FINER_INTERIM_READING_FROM = "proc-v17"`,
+     `pipeline.evaluate.scores_finer_reading`), never the grading's. A
+     prediction stamped under an earlier label, an unstamped one, or a label
+     that is not a `proc-vN` keeps the registered reading. The key reaches
+     the Brier (`stage_brier_score`), `correct` (`stage_correct`), the claim
+     block (`score_claims`), the skill stamped beside them, and
+     `segment_base_rate` (`interim_base_rate(..., reading="finer")`) in
+     `stamp-cell`. `validate`'s `evaluation_correct_agrees` compares stamped
+     bits, so it needs no key.
+  3. *A moot dismissal is unscored, not scored in an unranked stratum.* Its
+     Brier, `correct` and skill are null, and its `interim-disposition` claim
+     is masked with the reason `dismissed-moot`. An outcome that records no
+     finer reading is unscored the same way, with the claim masked
+     `finer-reading-absent`. Neither mask is the vacuous one: both are
+     conditioned on the outcome. The three increment claims resolve on the
+     escalation signals, which the reading does not touch, so they score as
+     before.
+  4. *The probability target* is P(the requested relief is granted in whole
+     or in part | the application is not dismissed or denied as moot).
+  5. *`correct` follows the binary:* 1 iff the predicted disposition falls on
+     the same side of the granted line as `interim_granted`, so a predicted
+     `granted` against a `granted-in-part` reading is correct.
+  6. *The vocabulary:* no `Disposition` member is added. `dismissed-moot`
+     stays an `InterimReading` value and is no predictable label, because a
+     moot outcome is unscored. `granted-in-part`, already a `Disposition`
+     member on the granted side, becomes a label an interim prediction may
+     state.
+  7. *A withdrawn application, and one dismissed other than as moot, stay
+     ungranted*, as `docs/salience.md` registers them.
+  8. *The per-pool floor* stays 50 and applies to the finer denominator, moot
+     dismissals already out. The finer pool also refuses (no baseline) while
+     any pooled Term predates the finer counts or holds a resolved row with
+     no stored finer reading (`finer_unread`), so it waits for the
+     `application-reread` apply rather than pool a partial census.
+  9. *Skill across the label change:* a `proc-v17` interim cell's skill is
+     against the finer pool and an earlier cell's against the registered
+     one. They are different targets over different denominators, so no
+     interim skill figure pools the two. Each board reads them as separate
+     windows, and any pooled interim figure quoted across the change names
+     both readings.
+
+  **The measurement**, read 2026-10-31 from a dev checkout of this change
+  over blob
+  `3ddb381fd12cd67f71ec68e98c9d82d876c1ac0bbdfc61ef8bce966f53c41a05`
+  (`freshness: latest pull 2026-10-31, latest snapshot 2026-07-13`, the
+  pointer matching `origin/main`'s), with the content store addressed.
+  - The `reread-applications` dry run read all 11,808 resolved application
+    rows: 0 unobservable and 0 with no finer reading. It would fill all
+    11,808. Beside the registered label: 2,085 `denied` stay `denied`, 9,641
+    `granted` stay `granted` and 31 `withdrawn` stay `withdrawn`. Where they
+    part: `denied` to `dismissed-moot` 16, `denied` to `granted-in-part` 9,
+    `denied` to `granted` 1, `dismissed` to `dismissed-moot` 5, `granted` to
+    `dismissed-moot` 14, and `granted` to `granted-in-part` 6.
+  - Over the substantive slice, after a local apply to a scratch copy of the
+    blob, the per-Term counts are as follows (registered granted over
+    resolved, then finer granted over resolved, then moot):
+
+    | Term | Registered | Finer | Moot |
+    | --- | --- | --- | --- |
+    | OT2016 | 9/107 | 9/107 | 0 |
+    | OT2017 | 12/124 | 13/124 | 0 |
+    | OT2018 | 12/113 | 14/113 | 0 |
+    | OT2019 | 12/119 | 13/119 | 0 |
+    | OT2020 | 25/133 | 27/133 | 0 |
+    | OT2021 | 30/120 | 17/107 | 13 |
+    | OT2022 | 9/103 | 9/103 | 0 |
+    | OT2023 | 18/127 | 17/124 | 3 |
+    | OT2024 | 16/194 | 18/189 | 5 |
+    | OT2025 | 17/226 | 19/218 | 8 |
+    | OT2026 | 10/99 | 10/97 | 2 |
+
+    OT2021's 13 are the OSHA applications dismissed in light of the relief
+    granted in the lead application, which the registered reading counts as
+    grants. Every Term's `finer_unread` is 0.
+  - The pool an OT2026 interim cell is scored against, at the registered
+    lookback of 10: **160/1366 = 11.71%** registered and **156/1337 =
+    11.67%** finer.
+  - The committed interim outcomes on rows the finer reading names
+    `dismissed-moot` are the six on `scotus/9526000139` and
+    `scotus/9526000477`. They keep `denied` and every prediction under them
+    predates this label, so none is scored on the finer reading.
+
+  **Order of operations.**
+  - The change merges to `staging` only after the `proc-v16` promotion
+    branch is cut, and registers this label pending.
+  - The `application-reread` apply runs from `main` after the carrying
+    promotion, and before the first `proc-v17` interim cell is graded. Until
+    it does, the finer pool refuses and such a cell is stamped with no
+    baseline.
+
+  **Evidence for the change other than a score.** The 2026-10-16 census and
+  the replication record on the executive-action emergency docket, which
+  found the OSHA cluster. No interim cell has a resolved `proc-v16` or later
+  forecast that motivates it.
+
+  The runnable effect check once it is live:
+  - `uv run python -c "from fedcourtsai.process_version import
+    CURRENT_PROCESS_LABEL as L, FINER_INTERIM_READING_FROM as F; print(L,
+    F)"` prints `proc-v17 proc-v17`;
+  - `gh workflow run run-repair.yml --ref main -f repair=application-reread
+    -f repair_mode=dry-run` reports 0 unobservable and about 11,800 fills.
+    After the apply, the same dry run reports `total_changes = 0`;
+  - after the next `metrics-refresh`, `jq '[.interim.terms[] | {term,
+    finer_granted, finer_resolved, finer_moot, finer_unread}]'
+    metrics/statpack.json` shows `finer_unread` 0 in every Term and OT2021's
+    `finer_moot` at 13 or more;
+  - on the first interim evaluate collect PR after a `proc-v17` interim cell
+    resolves, its `outcome.json` carries `interim_reading` and the stamped
+    `segment_base_rate` equals the finer pool.

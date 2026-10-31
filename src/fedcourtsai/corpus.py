@@ -506,6 +506,19 @@ class CorpusRow(BaseModel):
         "keeps a real reading over an `unknown` (a degraded payload parses "
         "confidently to `unknown`, the interim twin of the confident 0).",
     )
+    interim_reading: str | None = Field(
+        default=None,
+        description="The finer interim reading of the application's disposing "
+        "entry (`pipeline.interim_signals.read_interim_disposition`: `granted` | "
+        "`granted-in-part` | `denied` | `dismissed-moot` | `withdrawn` | "
+        "`dismissed`), stored beside the registered `disposition` and never "
+        "replacing it. Written by the live channel's application branch on the "
+        "same last-disposing-entry rule, and filled for stored rows by the "
+        "`reread-applications` pass. None means no reading was taken (a "
+        "pending application, a cert-form row, or a row the pass has not "
+        "reached). The upsert fills it in, so a writer that carries no reading "
+        "keeps the stored one.",
+    )
     response_requested: bool | None = Field(
         default=None,
         description="Whether the Court (or a Circuit Justice) requested a "
@@ -998,6 +1011,9 @@ CREATE TABLE IF NOT EXISTS cases (
     -- the live channel's application branch. NULL = never application-parsed —
     -- the conditioning set a future interim base rate accumulates over.
     application_kind    TEXT,
+    -- The finer interim reading beside the registered `disposition` (see
+    -- CorpusRow and pipeline/interim_signals.py), written by the same branch.
+    interim_reading     TEXT,
     response_requested  INTEGER,
     referred_to_court   INTEGER,
     amicus_briefs       INTEGER,
@@ -1256,6 +1272,7 @@ _CASES_COLUMN_DDL: dict[str, str] = {
     "predict_queued_at": "TEXT",
     "evaluate_queued_at": "TEXT",
     "application_kind": "TEXT",
+    "interim_reading": "TEXT",
     "response_requested": "INTEGER",
     "referred_to_court": "INTEGER",
     "amicus_briefs": "INTEGER",
@@ -2090,6 +2107,7 @@ def _to_record(row: CorpusRow) -> dict[str, object]:
             row.evaluate_queued_at.isoformat() if row.evaluate_queued_at else None
         ),
         "application_kind": row.application_kind,
+        "interim_reading": row.interim_reading,
         "response_requested": (
             int(row.response_requested) if row.response_requested is not None else None
         ),
@@ -2227,6 +2245,7 @@ def _from_record(record: RecordRow) -> CorpusRow:
         predict_queued_at=_optional_date(record, "predict_queued_at"),
         evaluate_queued_at=_optional_date(record, "evaluate_queued_at"),
         application_kind=_optional_str(record, "application_kind"),
+        interim_reading=_optional_str(record, "interim_reading"),
         response_requested=_optional_bool(record, "response_requested"),
         referred_to_court=_optional_bool(record, "referred_to_court"),
         amicus_briefs=_optional_int(record, "amicus_briefs"),
@@ -2313,6 +2332,7 @@ def _update_clause(column: str) -> str:
         "argument_transcript_at",
         "opening_writ",
         "distributed_after_call",
+        "interim_reading",
     ):
         # Channel-supplied values only ever fill in: a writer that does not carry
         # the fact (a CourtListener enrichment without the live channel's
@@ -2342,6 +2362,10 @@ def _update_clause(column: str) -> str:
         # comparison at exactly the moment it is supposed to settle it.
         # `decision_below_attempted_at` is the enrichment cursor's shape again:
         # only its own pass carries it.
+        # `interim_reading` is the fill-in in its plainest form: only the
+        # application branch and the `reread-applications` pass carry it, a
+        # pending application reads NULL, and a fresh reading of a later
+        # disposing entry replaces the stored one as the registered label does.
         return f"{column}=COALESCE(excluded.{column}, cases.{column})"
     if column in (
         "distribution_count",
@@ -4068,6 +4092,36 @@ def raise_cert_amicus_briefs(conn: sqlite3.Connection, counts: Iterable[tuple[st
                 "UPDATE cases SET cert_amicus_briefs = ? WHERE case_id = ? "
                 "AND (cert_amicus_briefs IS NULL OR cert_amicus_briefs < ?)",
                 (count, case_id, count),
+            )
+            written += cursor.rowcount
+    return written
+
+
+def set_interim_readings(conn: sqlite3.Connection, readings: Iterable[tuple[str, str]]) -> int:
+    """Write re-read ``interim_reading`` values onto stored application rows.
+
+    The writer of :mod:`fedcourtsai.pipeline.application_reread`. A direct
+    ``UPDATE`` of the one column, for the reason :func:`raise_cert_amicus_briefs`
+    gives: an upsert re-asserts the whole row and mirrors its ``case.json`` per
+    row, for a single TEXT value. It writes the index only, so a store-side
+    rebuild from ``case.json`` would bring back NULL on a resolved row the live
+    rotation no longer polls; re-running the pass fills it again.
+
+    Unlike the upsert's fill-in, it overwrites a stored value: the pass reads the
+    same stored snapshot with the same function ingest uses
+    (:func:`fedcourtsai.pipeline.ingest.stored_interim_reading`), so a value that
+    differs is a reading the code has since corrected, and the dry-run ledger
+    lists every such move before an apply.
+
+    One transaction over the whole batch; returns the rows the statements
+    actually touched, which a caller compares against what it planned to write.
+    """
+    written = 0
+    with conn:
+        for case_id, reading in readings:
+            cursor = conn.execute(
+                "UPDATE cases SET interim_reading = ? WHERE case_id = ?",
+                (reading, case_id),
             )
             written += cursor.rowcount
     return written

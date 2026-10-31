@@ -308,6 +308,7 @@ from .pipeline import (
     watchlist_refresh,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
+from .pipeline.application_reread import reread_applications
 from .pipeline.application_topics import (
     APPLICATION_EXTRACT_RULE,
     ApplicationExtractRow,
@@ -385,7 +386,13 @@ from .pipeline.documents import (
     holds_docket_documents,
     questions_presented_extract,
 )
-from .pipeline.evaluate import brier_score, brier_skill, is_correct
+from .pipeline.evaluate import (
+    brier_skill,
+    scored_granted,
+    scores_finer_reading,
+    stage_brier_score,
+    stage_correct,
+)
 from .pipeline.exec_action import EXEC_ACTION_RULES
 from .pipeline.executive_success import DEFAULT_SCOPE_RULE, READINGS, executive_success
 from .pipeline.filing_simulation import filing_simulation
@@ -1420,6 +1427,118 @@ def rederive_amicus_briefs_cmd(
             "record did not reconstruct moved (expected — that arm is unmeasured), or "
             "that the reading is not the widening it claims. The first two are ordinary; "
             "triage the per-row moves above before raising it.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+
+@app.command("reread-applications")
+def reread_applications_cmd(
+    apply: Annotated[
+        bool,
+        typer.Option("--apply", help="Write the re-read columns; omit for a dry-run plan."),
+    ] = False,
+    max_changes: Annotated[
+        int | None,
+        typer.Option(
+            "--max-changes",
+            help="Blast-radius bound: refuse to apply more row writes (fills plus moves) "
+            "than this. Required with --apply.",
+        ),
+        # No default: the dry run is where the number comes from.
+    ] = None,
+) -> None:
+    """Re-read stored resolved applications and fill the `interim_reading` column.
+
+    The live application branch stores the finer interim reading
+    (`pipeline.ingest.stored_interim_reading`) beside the registered
+    `disposition` at ingest, but the live rotation skips a resolved application,
+    so resolved history stays NULL. This pass re-reads every resolved,
+    application-parsed live-slice SCOTUS row from its latest live-shaped snapshot
+    with the same function and writes what ingest would have: a NULL is filled,
+    and a stored value that differs (a reading the code has since corrected) is
+    overwritten and listed. The registered `disposition` is never read into or
+    written. Corpus only: no committed outcome or prediction is opened.
+
+    The statpack's finer interim counts and the finer interim pool read the
+    column, and that pool refuses a rate over any Term with a resolved row left
+    unread, so the apply is what turns the pool on.
+
+    Prints the ledger — rows read, `unobservable`, `no_reading`, `unchanged`,
+    `filled`, `moved`, the filled readings and every read row's `registered ->
+    finer` pair — then each move, then the `ApplicationRereadResult` as JSON.
+    **Read `unobservable` first**: against an index-only pull with no content
+    store addressed every row lands there. One pass per invocation (the plan is
+    the write set), the batch in one transaction. `--apply` requires an explicit
+    `--max-changes` and refuses above it. Idempotent: re-running after an apply
+    reports `total_changes = 0`. Run where the corpus is pulled (`run-repair`'s
+    `application-reread` pass in production; a dev checkout serves the dry run).
+    Exits 1 when the corpus is absent or the apply is refused.
+    """
+    settings = get_settings()
+    if apply and max_changes is None:
+        typer.echo(
+            "reread-applications: --apply requires an explicit --max-changes. "
+            "Read the dry run first and pass the total_changes you are approving.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before re-reading the applications.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if settings.corpus_backend == "local":
+        corpus_sha, _ = corpus_remote.digest_file(db_path)
+    elif settings.corpus_pointer is None:
+        pointer_file = corpus_remote.pointer_path_for(db_path)
+        corpus_sha = (
+            corpus_ranged.read_index_pointer(pointer_file).sha256 if pointer_file.is_file() else ""
+        )
+    else:
+        corpus_sha = corpus.resolve_read_pointer(db_path).sha256
+        typer.echo(
+            "corpus provenance: out-of-band pointer override in effect — the "
+            "recorded corpus_sha256 names the override's blob",
+            err=True,
+        )
+    with corpus.connect_maintenance(db_path, apply=apply) as conn:
+        result = reread_applications(
+            conn, apply=apply, corpus_sha256=corpus_sha, max_changes=max_changes
+        )
+    verb = "refused to write" if result.refused else ("wrote" if apply else "would write")
+    typer.echo(
+        f"reread-applications ({'applied' if apply else 'dry-run'}): "
+        f"{result.eligible} resolved application row(s); {result.read} read, "
+        f"{result.unobservable} unobservable (untouched), {result.no_reading} with no "
+        "finer reading (untouched). Read `unobservable` first: against an index-only "
+        "pull every row lands there"
+    )
+    typer.echo(
+        f"  {verb} {result.total_changes}: {result.filled} NULL -> value, "
+        f"{result.moved} value -> other value; {result.unchanged} unchanged. "
+        f"filled readings: {result.filled_readings}; registered -> finer: "
+        f"{result.finer_vs_registered}"
+    )
+    for move in result.moves:
+        typer.echo(f"  move {move.case_id} ({move.docket_number}): {move.was} -> {move.now}")
+    if not apply and max_changes is not None and result.total_changes > max_changes:
+        typer.echo(
+            f"note: {result.total_changes} total changes is above --max-changes {max_changes}; "
+            "an apply would refuse.",
+            err=True,
+        )
+    typer.echo(result.model_dump_json())
+    if result.refused:
+        typer.echo(
+            f"reread-applications: refusing to apply {result.total_changes} change(s) "
+            f"(--max-changes {max_changes}). Nothing was written. A row the poll resolved "
+            "since the dry run is already written by ingest, so the total ordinarily "
+            "falls between the two dispatches; one above the dry run's means the "
+            "population widened — triage the ledger before raising the bound.",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -13221,7 +13340,9 @@ def _skill_record_for(
             "correct": correct,
             "brier_score": brier,
             "segment_base_rate": rate,
-            "brier_skill_score": _harness_skill_for(brier, outcome, rate),
+            "brier_skill_score": _harness_skill_for(
+                brier, _harness_target_for(event_paths, evaluation, outcome), rate
+            ),
             "base_rate_basis": None,
             "base_rate_salience_version": None,
             "base_rate_statpack_digest": None,
@@ -13344,7 +13465,9 @@ def _cert_skill_record_for(
     fields: dict[str, object] = {
         "brier_score": brier,
         "segment_base_rate": rate,
-        "brier_skill_score": _harness_skill_for(brier, outcome, rate),
+        "brier_skill_score": _harness_skill_for(
+            brier, outcome.actual_granted if outcome is not None else None, rate
+        ),
         "base_rate_basis": basis,
         "base_rate_salience_version": version,
         "base_rate_statpack_digest": digest,
@@ -13582,7 +13705,8 @@ def _harness_correct_for(
     latest = _scored_prediction_for(event_paths, evaluation)
     if latest is None or outcome is None:
         return None
-    return is_correct(latest, outcome)
+    interim = _event_stage_and_opened(event_paths)[0] == Stage.interim
+    return stage_correct(latest, outcome, interim=interim)
 
 
 def _harness_brier_for(
@@ -13609,7 +13733,8 @@ def _harness_brier_for(
     latest = _scored_prediction_for(event_paths, evaluation)
     if latest is None or outcome is None:
         return None
-    return brier_score(latest, outcome)
+    interim = _event_stage_and_opened(event_paths)[0] == Stage.interim
+    return stage_brier_score(latest, outcome, interim=interim)
 
 
 def _harness_base_rate_for(
@@ -13658,11 +13783,16 @@ def _harness_base_rate_for(
     latest = _scored_prediction_for(event_paths, evaluation)
     if latest is None or latest.context is None or latest.context.term is None:
         return None
-    return interim_base_rate(latest.context.term, statpack, lookback_terms=lookback)
+    return interim_base_rate(
+        latest.context.term,
+        statpack,
+        lookback_terms=lookback,
+        reading="finer" if scores_finer_reading(latest) else "registered",
+    )
 
 
 def _harness_skill_for(
-    brier: float | None, outcome: Outcome | None, base_rate: float | None
+    brier: float | None, target: int | None, base_rate: float | None
 ) -> float | None:
     """The Brier skill of a stamped base rate against the *stamped* Brier.
 
@@ -13673,14 +13803,32 @@ def _harness_skill_for(
     construction end to end: nothing the evaluator wrote reaches the numerator
     or the denominator. ``None`` when any input is missing — no stamped Brier,
     no stamped rate, no committed outcome to score against — and where the
-    baseline is already exact, the ratio's undefined case. (The outcome guard is
-    redundant against the Brier's, which is ``None`` whenever the outcome is;
-    it is kept because it is what makes ``actual_granted`` reachable, and
-    because the two would have to be un-coupled by hand to make it wrong.)
+    baseline is already exact, the ratio's undefined case. ``target`` is the
+    binary the Brier was scored against (:func:`_harness_target_for`), so the
+    baseline is scored against the same one — ``outcome.actual_granted``, or an
+    interim cell's finer ``interim_granted`` — and is ``None`` exactly where the
+    Brier is.
     """
-    if brier is None or base_rate is None or outcome is None:
+    if brier is None or base_rate is None or target is None:
         return None
-    return brier_skill(brier, outcome.actual_granted, base_rate)
+    return brier_skill(brier, target, base_rate)
+
+
+def _harness_target_for(
+    event_paths: EventPaths, evaluation: Evaluation, outcome: Outcome | None
+) -> int | None:
+    """The binary the stamped Brier scores this evaluation against, or ``None``.
+
+    :func:`fedcourtsai.pipeline.evaluate.scored_granted` over the scored
+    prediction and the committed outcome, on the event's stage: the finer
+    interim reading's ``interim_granted`` for an interim cell whose prediction
+    takes it, ``actual_granted`` otherwise.
+    """
+    latest = _scored_prediction_for(event_paths, evaluation)
+    if latest is None or outcome is None:
+        return None
+    interim = _event_stage_and_opened(event_paths)[0] == Stage.interim
+    return scored_granted(latest, outcome, interim=interim)
 
 
 def _grant_term_for(event_paths: EventPaths) -> int | None:

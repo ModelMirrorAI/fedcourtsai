@@ -290,6 +290,62 @@
           "title": "Extension",
           "type": "integer"
         },
+        "finer_granted": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `finer_resolved`, the applications the finer reading grants in whole or in part (`granted`, `granted-in-part`). Absent with `finer_resolved`",
+          "title": "Finer Granted"
+        },
+        "finer_moot": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved substantive applications the finer reading names `dismissed-moot` \u2014 out of the finer pool's numerator and denominator, because a moot application decided nothing about its ask. Absent with `finer_resolved`",
+          "title": "Finer Moot"
+        },
+        "finer_resolved": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The resolved substantive applications the **finer** interim reading scores (the corpus `interim_reading` column, `interim_signals.interim_reading_granted`): `substantive_resolved` less the moot dismissals (`finer_moot`) and the rows with no stored finer reading (`finer_unread`). The denominator of the pool a cell stamped under `process_version.FINER_INTERIM_READING_FROM` or later is scored against. Absent from a pack built before the finer reading was stored, so absent reads as unknown, never as zero",
+          "title": "Finer Resolved"
+        },
+        "finer_unread": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved substantive applications with no stored finer reading (a NULL or out-of-vocabulary `interim_reading`). Non-zero means the `reread-applications` pass has not reached them, and a finer pool over this Term refuses a rate rather than count a partial Term. Absent with `finer_resolved`",
+          "title": "Finer Unread"
+        },
         "referred_to_court": {
           "default": 0,
           "description": "Substantive applications referred to the full Court rather than decided by a Circuit Justice alone",
@@ -404,6 +460,62 @@
           "minimum": 0,
           "title": "Extension",
           "type": "integer"
+        },
+        "finer_granted": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Of `finer_resolved`, the applications the finer reading grants in whole or in part (`granted`, `granted-in-part`). Absent with `finer_resolved`",
+          "title": "Finer Granted"
+        },
+        "finer_moot": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved substantive applications the finer reading names `dismissed-moot` \u2014 out of the finer pool's numerator and denominator, because a moot application decided nothing about its ask. Absent with `finer_resolved`",
+          "title": "Finer Moot"
+        },
+        "finer_resolved": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The resolved substantive applications the **finer** interim reading scores (the corpus `interim_reading` column, `interim_signals.interim_reading_granted`): `substantive_resolved` less the moot dismissals (`finer_moot`) and the rows with no stored finer reading (`finer_unread`). The denominator of the pool a cell stamped under `process_version.FINER_INTERIM_READING_FROM` or later is scored against. Absent from a pack built before the finer reading was stored, so absent reads as unknown, never as zero",
+          "title": "Finer Resolved"
+        },
+        "finer_unread": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resolved substantive applications with no stored finer reading (a NULL or out-of-vocabulary `interim_reading`). Non-zero means the `reread-applications` pass has not reached them, and a finer pool over this Term refuses a rate rather than count a partial Term. Absent with `finer_resolved`",
+          "title": "Finer Unread"
         },
         "referred_to_court": {
           "default": 0,

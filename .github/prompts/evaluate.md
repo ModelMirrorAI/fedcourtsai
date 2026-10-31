@@ -310,9 +310,18 @@ fails the cell.
     rate (positive beats it, ~0 merely parrots it, negative is worse). Omit when
     `segment_base_rate` is omitted or the baseline is already exact.
   - **Interim-stage cells** (the event's stage is `interim` — a stay/injunction
-    application): `correct` and `brier_score` are computed identically —
-    `granted` there denotes the requested relief, and you read
-    `outcome.actual_granted` as recorded rather than re-deriving it. **Write
+    application): `granted` there denotes the requested relief, and which
+    binary scores the cell is keyed on the label the scored prediction was
+    stamped under (`prediction.json`'s `process_version.label`). A prediction
+    stamped `proc-v17` or later is scored on the finer interim reading: read
+    `outcome.interim_granted` as recorded (a partial grant is 1; a moot
+    dismissal is null), compute `brier_score` against it and set `correct` to
+    1 iff your judged side of the granted/ungranted line matches — and where
+    `interim_granted` is null, leave `brier_score` and `correct` null, since
+    the cell is unscored. An earlier prediction is scored on
+    `outcome.actual_granted` exactly as for a cert cell. Never re-derive
+    either from the order text. `stamp-cell` recomputes both from the
+    committed artifacts and overwrites what you wrote. **Write
     neither `segment_base_rate` nor `brier_skill_score`, and leave
     `base_rate_basis` null.** The rate is not yours here: the interim baseline
     is the substantive slice's grant rate pooled over application-Terms

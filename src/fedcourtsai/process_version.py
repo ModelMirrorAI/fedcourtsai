@@ -231,6 +231,17 @@ PINNED_CERT_ANCHOR_FROM = "proc-v15"
 # never relabels a committed grading.
 AUTHORSHIP_CLAIMS_FROM = "proc-v12"
 
+# The first label whose **interim** cells are scored on the finer interim
+# reading (`Outcome.interim_reading` / `interim_granted`): a partial grant scores
+# as a grant, and an application dismissed or denied as moot leaves the scored
+# set and the base-rate denominator (`pipeline.evaluate.scored_granted`,
+# `pipeline.base_rates.interim_base_rate`'s `finer` pool). Keyed on the **scored
+# prediction's** label, like AUTHORSHIP_CLAIMS_FROM, because what the predict
+# prompt told the cell its probability means is what it is scored against: a
+# cell stamped under an earlier label keeps the registered reading through any
+# later re-grade.
+FINER_INTERIM_READING_FROM = "proc-v17"
+
 _LABEL_PATTERN = re.compile(r"proc-v(\d+)")
 
 
@@ -256,6 +267,19 @@ def asked_authorship_claims(label: str | None, *, states_distributions: bool) ->
         return states_distributions
     ordinal = label_ordinal(label)
     threshold = label_ordinal(AUTHORSHIP_CLAIMS_FROM)
+    return ordinal is not None and threshold is not None and ordinal >= threshold
+
+
+def scores_finer_interim_reading(label: str | None) -> bool:
+    """Whether an interim cell whose prediction was stamped under ``label`` takes the finer reading.
+
+    True from :data:`FINER_INTERIM_READING_FROM` on. False for an earlier label,
+    for an unstamped record (``None``) and for a label that is not a ``proc-vN``
+    at all, so an unrecognised label keeps the registered reading rather than
+    acquiring a new scoring rule by accident.
+    """
+    ordinal = label_ordinal(label)
+    threshold = label_ordinal(FINER_INTERIM_READING_FROM)
     return ordinal is not None and threshold is not None and ordinal >= threshold
 
 
