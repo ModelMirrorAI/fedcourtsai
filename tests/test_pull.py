@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -7,10 +7,21 @@ import httpx
 from fedcourtsai import corpus
 from fedcourtsai.cli import _format_discovery_failures, _format_refresh_failures
 from fedcourtsai.config import PredictScope
-from fedcourtsai.courtlistener import CourtListenerClient, EntryPageCapExceeded, RateBudgetExceeded
+from fedcourtsai.courtlistener import (
+    CourtListenerClient,
+    EntryPageCapExceeded,
+    EntryPages,
+    RateBudgetExceeded,
+)
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.discover import discover_cases
-from fedcourtsai.pipeline.pull import _in_predict_scope, pull_case, pull_cases
+from fedcourtsai.pipeline.entry_reads import full_read_due
+from fedcourtsai.pipeline.pull import (
+    IncrementalEntries,
+    _in_predict_scope,
+    pull_case,
+    pull_cases,
+)
 from fedcourtsai.schemas import Disposition, EventKind, Stage
 from fedcourtsai.store import open_events, resolved_events
 from tests.conftest import seed_prediction
@@ -764,3 +775,133 @@ def test_gvr_disposed_docket_skips_the_forward_predict_queue(tmp_path: Path) -> 
     skipped = queues.predict_skipped_decided
     assert [(e["court"], e["docket"]) for e in skipped] == [("ca9", 64512345)]
     assert "terminal" in str(skipped[0]["reason"])
+
+
+class IncrementalFakeClient(FakeClient):
+    """A FakeClient that also answers the cursor read, recording which kind was asked."""
+
+    def __init__(
+        self,
+        docket: dict[str, Any],
+        entries: list[dict[str, Any]],
+        *,
+        changed: list[dict[str, Any]] | None = None,
+        complete: bool = True,
+    ) -> None:
+        super().__init__(docket, entries)
+        self._changed = changed or []
+        self._complete = complete
+        self.reads: list[tuple[str, date | None]] = []
+
+    def iter_docket_entries(self, docket_id: int, *, max_pages: int = 25) -> list[dict[str, Any]]:
+        self.reads.append(("whole", None))
+        return super().iter_docket_entries(docket_id, max_pages=max_pages)
+
+    def docket_entries(
+        self, docket_id: int, *, max_pages: int, date_modified_gte: date | None = None
+    ) -> EntryPages:
+        self.reads.append(("since", date_modified_gte))
+        return EntryPages(list(self._changed), 1, self._complete)
+
+
+def _not_due_today(docket_id: int) -> int:
+    """A full-read period on which today is not ``docket_id``'s whole-read day."""
+    return next(n for n in range(2, 40) if not full_read_due(docket_id, date.today(), n))
+
+
+def _incremental_pull(client: FakeClient, tmp_path: Path, *, every_days: int | None = None) -> Any:
+    every = every_days if every_days is not None else _not_due_today(DOCKET["id"])
+    return pull_case(
+        cast(CourtListenerClient, client),
+        corpus.corpus_db_path(tmp_path / "corpus"),
+        tmp_path / "data",
+        "ca9",
+        64512345,
+        incremental=IncrementalEntries(overlap_days=2, full_read_every_days=every),
+    )
+
+
+def _stored_entry_ids(tmp_path: Path) -> list[int]:
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        snap = corpus.latest_snapshot(conn, "ca9/64512345")
+    assert snap is not None
+    return [e["id"] for e in snap[1]["docket_entries"]]
+
+
+STORED = [{"id": 3, "description": "Brief"}, {"id": 1, "description": "Petition"}]
+
+
+def test_a_stored_docket_is_refreshed_from_its_changed_entries(tmp_path: Path) -> None:
+    onboard = IncrementalFakeClient(DOCKET, STORED)
+    first = _incremental_pull(onboard, tmp_path)
+    # Nothing stored yet: only a whole read will do.
+    assert onboard.reads == [("whole", None)] and first.entry_read == "full"
+
+    changed = [{"id": 4, "description": "Order"}, {"id": 3, "description": "Brief, amended"}]
+    refresh = IncrementalFakeClient(DOCKET, [], changed=changed)
+    second = _incremental_pull(refresh, tmp_path)
+    # One page of what moved since the stored snapshot, less the overlap.
+    assert refresh.reads == [("since", date.today() - timedelta(days=2))]
+    assert second.entry_read == "incremental" and second.changed is True
+    with corpus.connect(corpus.corpus_db_path(tmp_path / "corpus")) as conn:
+        snap = corpus.latest_snapshot(conn, "ca9/64512345")
+    assert snap is not None
+    assert snap[1]["docket_entries"] == [changed[0], changed[1], STORED[1]]
+
+
+def test_a_quiet_docket_read_incrementally_reports_no_change(tmp_path: Path) -> None:
+    _incremental_pull(IncrementalFakeClient(DOCKET, STORED), tmp_path)
+    quiet = _incremental_pull(IncrementalFakeClient(DOCKET, [], changed=[]), tmp_path)
+    assert quiet.entry_read == "incremental"
+    # The merged docket equals the stored one, so nothing is queued for it.
+    assert quiet.changed is False
+    assert _stored_entry_ids(tmp_path) == [3, 1]
+
+
+def test_the_docket_is_read_whole_on_its_full_read_day(tmp_path: Path) -> None:
+    _incremental_pull(IncrementalFakeClient(DOCKET, STORED), tmp_path)
+    # An entry deleted upstream is seen only by a whole read.
+    whole = IncrementalFakeClient(DOCKET, [STORED[0]])
+    result = _incremental_pull(whole, tmp_path, every_days=1)
+    assert whole.reads == [("whole", None)] and result.entry_read == "full"
+    assert _stored_entry_ids(tmp_path) == [3]
+
+
+def test_stored_entries_out_of_upstream_order_are_read_whole(tmp_path: Path) -> None:
+    # A merge writes newest id first; a stored list in another order would read
+    # as a change on its first merge, so it is replaced by a whole read instead.
+    _incremental_pull(IncrementalFakeClient(DOCKET, list(reversed(STORED))), tmp_path)
+    again = IncrementalFakeClient(DOCKET, list(reversed(STORED)))
+    result = _incremental_pull(again, tmp_path)
+    assert again.reads == [("whole", None)] and result.entry_read == "full"
+    assert result.changed is False
+
+
+def test_a_snapshot_of_another_docket_is_never_merged_into(tmp_path: Path) -> None:
+    _incremental_pull(IncrementalFakeClient({**DOCKET, "id": 1}, STORED), tmp_path)
+    again = IncrementalFakeClient(DOCKET, STORED)
+    assert _incremental_pull(again, tmp_path).entry_read == "full"
+    assert again.reads == [("whole", None)]
+
+
+def test_an_incremental_read_past_the_page_cap_writes_nothing(tmp_path: Path) -> None:
+    _incremental_pull(IncrementalFakeClient(DOCKET, STORED), tmp_path)
+    capped = IncrementalFakeClient(DOCKET, [], changed=[{"id": 9}], complete=False)
+    try:
+        _incremental_pull(capped, tmp_path)
+    except EntryPageCapExceeded as exc:
+        assert "changed since" in str(exc)
+    else:
+        raise AssertionError("an incomplete incremental read must refuse")
+    assert _stored_entry_ids(tmp_path) == [3, 1]
+
+
+def test_pull_cases_counts_each_kind_of_entry_read(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    every = _not_due_today(DOCKET["id"])
+    policy = IncrementalEntries(overlap_days=2, full_read_every_days=every)
+    client = cast(CourtListenerClient, IncrementalFakeClient(DOCKET, STORED))
+    first = pull_cases(client, db, tmp_path / "data", [("ca9", 64512345)], incremental=policy)
+    second = pull_cases(client, db, tmp_path / "data", [("ca9", 64512345)], incremental=policy)
+    assert first.entry_reads == {"full": 1}
+    assert second.entry_reads == {"incremental": 1}

@@ -1424,7 +1424,17 @@ or network.
   cursor (`docket-entries/` ignores a page number), at most
   `max_entry_pages_per_case` pages of twenty; a longer docket is recorded as
   failed with nothing written, so one bulk-loaded circuit docket with hundreds
-  of entry pages cannot spend a window's hourly budget.
+  of entry pages cannot spend a window's hourly budget. A docket the corpus
+  already holds is read **incrementally**: the docket, then the entries
+  upstream modified since its stored snapshot less `entry_overlap_days`,
+  merged into the stored entries by id (newest id first, upstream's order), so
+  a long, quiet docket costs two requests rather than one per twenty entries.
+  Once every `full_read_every_days`, on a day its docket id picks, the docket
+  is read whole instead, which catches an entry deleted upstream or changed
+  without moving its modification time; so is a docket whose stored entries
+  are not in upstream's order, so the first merge cannot read as a change.
+  `pull-all` prints how many refreshes took each read. The one-docket `fetch`
+  always reads whole.
 - **Two forward jobs over the shared core:**
   1. **Refresh** active known cases (`pull_case`), routing changed cases with
      open case-baseline events onto the predict queue — a `predict_queued_at`

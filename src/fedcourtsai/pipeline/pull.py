@@ -21,10 +21,11 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from enum import StrEnum
+from itertools import pairwise
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 
@@ -60,6 +61,7 @@ from ..store import (
 )
 from ..voids import is_voided
 from .documents import holds_docket_documents
+from .entry_reads import full_read_due, merge_entries
 from .events import AmbiguousEntry, extract_events
 from .ingest import from_api_docket, upsert_to_corpus
 from .moments import spec_for
@@ -71,6 +73,9 @@ from .outcome import (
     resolve_case,
     termination_signal,
 )
+
+#: How one refresh read a docket's entries.
+EntryRead = Literal["full", "incremental"]
 
 
 @dataclass
@@ -93,6 +98,77 @@ class PullResult:
     # as genuinely pending. Keeps decided-looking cases out of the forward
     # prediction queue.
     termination_signal: str | None = None
+    # How the docket's entries were read: whole, or only those changed since
+    # the stored snapshot (merged into it by id).
+    entry_read: EntryRead = "full"
+
+
+@dataclass(frozen=True)
+class IncrementalEntries:
+    """When a refresh may read only the entries changed since its stored snapshot.
+
+    An incremental read asks upstream for the entries modified on or after the
+    stored snapshot's date less ``overlap_days`` and lays them over the stored
+    entries by id, so a quiet docket costs one page of entries however long it
+    is. Each docket is still read whole once every ``full_read_every_days``, on
+    a day its id picks, which catches what an incremental read cannot see: an
+    entry deleted upstream, or one changed without moving its modification time.
+    """
+
+    overlap_days: int
+    full_read_every_days: int
+
+
+def _merge_base(prior: tuple[date, dict[str, Any]] | None, docket_id: int) -> list[Any] | None:
+    """The stored entries an incremental read may merge into, or None to read whole.
+
+    Only a snapshot of this same upstream docket whose entries are kept as
+    upstream serves them, newest id first, qualifies: the merge writes that
+    order, so a stored list in any other order would read as a change on its
+    first merge and queue a forecast for nothing.
+    """
+    if prior is None or prior[1].get("id") != docket_id:
+        return None
+    stored = prior[1].get("docket_entries")
+    if not isinstance(stored, list):
+        return None
+    entry_ids: list[int] = []
+    for entry in stored:
+        entry_id = entry.get("id") if isinstance(entry, dict) else None
+        if not isinstance(entry_id, int) or isinstance(entry_id, bool):
+            return None
+        entry_ids.append(entry_id)
+    if any(newer <= older for newer, older in pairwise(entry_ids)):
+        return None
+    return stored
+
+
+def _read_entries(
+    client: CourtListenerClient,
+    docket_id: int,
+    prior: tuple[date, dict[str, Any]] | None,
+    *,
+    max_entry_pages: int,
+    incremental: IncrementalEntries | None,
+    today: date,
+) -> tuple[list[Any], EntryRead]:
+    """The docket's whole entry list, read whole or merged from the changed ones."""
+    stored = _merge_base(prior, docket_id) if incremental is not None else None
+    if (
+        incremental is None
+        or prior is None
+        or stored is None
+        or full_read_due(docket_id, today, incremental.full_read_every_days)
+    ):
+        return client.iter_docket_entries(docket_id, max_pages=max_entry_pages), "full"
+    since = prior[0] - timedelta(days=incremental.overlap_days)
+    read = client.docket_entries(docket_id, max_pages=max_entry_pages, date_modified_gte=since)
+    if not read.complete:
+        raise EntryPageCapExceeded(
+            f"docket {docket_id} has more than {max_entry_pages} pages of entries "
+            f"changed since {since}"
+        )
+    return merge_entries(stored, read.entries), "incremental"
 
 
 def pull_case(
@@ -103,22 +179,38 @@ def pull_case(
     docket_id: int,
     *,
     max_entry_pages: int = DEFAULT_MAX_ENTRY_PAGES,
+    incremental: IncrementalEntries | None = None,
 ) -> PullResult:
+    """Refresh one docket: store its snapshot and row, detect outcomes, re-extract events.
+
+    With ``incremental`` set, a docket the corpus already holds is read as the
+    entries changed since its stored snapshot, merged into it
+    (:class:`IncrementalEntries`); without it, or for a docket never stored,
+    every entry is read.
+    """
     case_id = ids.case_id(court_id, docket_id)
+    today = date.today()
 
     docket = client.get_docket(docket_id)
+    with corpus.connect(corpus_db_path) as conn:
+        prior = corpus.latest_snapshot(conn, case_id)
     # A docket longer than the cap raises before anything is written, so it is
     # never stored as a truncated record that would diff as a real change.
-    entries = client.iter_docket_entries(docket_id, max_pages=max_entry_pages)
+    entries, entry_read = _read_entries(
+        client,
+        docket_id,
+        prior,
+        max_entry_pages=max_entry_pages,
+        incremental=incremental,
+        today=today,
+    )
     fresh = {**docket, "docket_entries": entries}
 
-    today = date.today()
     # Change detection and snapshot storage both live in the corpus now: compare
     # the fresh full docket against the latest snapshot the corpus holds, then
     # store today's. A docket with no prior snapshot is an onboard (`changed`).
+    changed = prior is None or prior[1] != fresh
     with corpus.connect(corpus_db_path) as conn:
-        prior = corpus.latest_snapshot(conn, case_id)
-        changed = prior is None or prior[1] != fresh
         corpus.upsert_snapshot(conn, case_id, today, fresh)
 
     row = from_api_docket(fresh)
@@ -161,6 +253,7 @@ def pull_case(
         unrecorded=list(resolution.unrecorded),
         ambiguous=list(extraction.ambiguous),
         termination_signal=termination_signal(fresh),
+        entry_read=entry_read,
     )
 
 
@@ -221,6 +314,9 @@ class PullQueues:
     # the stalest-first front of the next window's rotation.
     stopped: str | None = None
     deferred: list[dict[str, object]] = field(default_factory=list)
+    # Refreshed dockets by how their entries were read (``full`` /
+    # ``incremental``), for the run log.
+    entry_reads: dict[str, int] = field(default_factory=dict)
     # Live-channel only: the ledger-outcome convergence's counts for the run
     # log (recorded / unrecorded / failed / deferred), or ``{"error": <type>}``
     # when the pass itself raised and was skipped. Empty when it did not run.
@@ -1730,6 +1826,7 @@ def pull_cases(  # noqa: PLR0913 - the rotation's guards are each a caller-tuned
     deadline: float | None = None,
     max_consecutive_transient_failures: int | None = None,
     max_entry_pages: int = DEFAULT_MAX_ENTRY_PAGES,
+    incremental: IncrementalEntries | None = None,
     time_fn: Callable[[], float] = time.monotonic,
 ) -> PullQueues:
     """Refresh each due case and sort it into the predict / evaluate / unrecorded queues.
@@ -1762,6 +1859,10 @@ def pull_cases(  # noqa: PLR0913 - the rotation's guards are each a caller-tuned
     timeouts/5xx/429s in a row (each doomed case burns a full retry cycle of
     budget and minutes; deterministic errors like a 404 never trip it), and
     :class:`RateBudgetExceeded` from the client when the API budget is spent.
+
+    ``incremental`` lets each refresh read only the entries changed since the
+    docket's stored snapshot (:func:`pull_case`); the count of each kind of read
+    lands on ``entry_reads``.
     """
     queues = PullQueues()
     gated = scope == PredictScope.scotus_docket
@@ -1778,7 +1879,13 @@ def pull_cases(  # noqa: PLR0913 - the rotation's guards are each a caller-tuned
             break
         try:
             result = pull_case(
-                client, corpus_db_path, data_root, court, docket, max_entry_pages=max_entry_pages
+                client,
+                corpus_db_path,
+                data_root,
+                court,
+                docket,
+                max_entry_pages=max_entry_pages,
+                incremental=incremental,
             )
         except RateBudgetExceeded as exc:
             # The next request cannot fit the API budget this window; every
@@ -1810,6 +1917,7 @@ def pull_cases(  # noqa: PLR0913 - the rotation's guards are each a caller-tuned
                 consecutive_transient = 0
             continue
         consecutive_transient = 0
+        queues.entry_reads[result.entry_read] = queues.entry_reads.get(result.entry_read, 0) + 1
         in_scope = not gated or _in_predict_scope(corpus_db_path, result.case_id)
         events = forecastable_events(corpus_db_path, court, docket)
         if in_scope and result.changed and events:

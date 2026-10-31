@@ -35,6 +35,16 @@ pull:
   # may read, following upstream's cursor. A longer docket is recorded as failed
   # with nothing written, so a single docket cannot spend a window's budget.
   max_entry_pages_per_case: 25
+  # A docket the corpus already holds is refreshed incrementally: one request
+  # for the docket and one page of the entries upstream modified since its
+  # stored snapshot, less this overlap (at least one day: upstream reads the
+  # date in Pacific time), merged into the stored entries by id. A long, quiet
+  # docket costs two requests instead of one per twenty entries.
+  entry_overlap_days: 2
+  # Each docket is read whole once a week, on a day its docket id picks, to
+  # catch an entry deleted upstream or changed without moving its modification
+  # time.
+  full_read_every_days: 7
   # Discover newly-filed dockets in the tracked courts since the last run.
   # OFF: the live channel's frontier probing onboards newly filed SCOTUS
   # petitions (fresher, budget-free), and circuit discovery onboarded cases
