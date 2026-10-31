@@ -520,6 +520,26 @@ def sg_office_annotations(row: corpus.CorpusRow, moment: date | None) -> Counsel
     )
 
 
+def office_entries(row: corpus.CorpusRow, moment: date | None) -> tuple[corpus.CounselEntry, ...]:
+    """The petitioner- and respondent-side entries ``sg-office-v1`` reads as the office.
+
+    The per-entry half of :func:`sg_office_annotations`, under the same roster,
+    the same docket life and the same side guard (``other`` is never read), for
+    a reader that needs to know *which* party the office appears for rather than
+    only on which side: an entry is returned exactly where the annotation's
+    per-entry reading is the office. Pure and total, in served order.
+    """
+    life = docket_life(row, moment)
+    found: list[corpus.CounselEntry] = []
+    for entry in row.counsel:
+        if entry.role not in _READ_ROLES:
+            continue
+        member = _ROSTER_BY_ALIAS.get(normalize_attorney(entry.attorney or ""))
+        if member is not None and _read_entry(member, entry.party, life) == "office":
+            found.append(entry)
+    return tuple(found)
+
+
 #: Every registered counsel annotation rule, keyed by version label. Added to,
 #: never edited: a cut names the rule it ran under.
 COUNSEL_RULES: Final[

@@ -15725,3 +15725,104 @@ freeze commit is recorded here.
     HARNESS_BOUNDARIES as H; n = {b.name for b in H};
     print({'decision-below-documents', 'context-band-refused'} <= n)"` prints
     `True` once the promotion record has stamped the rows.
+
+- **`caption-v4` and `sal-v7` registered, inactive; recorded 2026-11-01.** No
+  freeze commit belongs to this entry, on the `sal-v6` registration's pattern:
+  the salience version sits outside the process digest (`pipeline_sha` is not
+  an input), carries its own data-visible boundary
+  (`context.salience_version`), and a registration re-blesses nothing.
+  `SALIENCE_VERSION` stays `sal-v6`, so nothing the live pass selects, latches
+  or stamps moves; `statpack.json` and `salience-replay.json` carry an eighth
+  version's bands from their next render. No prompt text or other digest input
+  changes.
+
+  **What `caption-v4` is.** `caption-v2` with one check run ahead of every
+  caption pattern: a petition whose captioned petitioner has the Solicitor
+  General's office as counsel of record reads `federal`. The entry must be on
+  the petitioner side, marked counsel of record, name an attorney `sg-office-v1`
+  places in the office on the docket, and carry a party whose lead (the name
+  up to its first comma, folded) is the caption's lead or its trailing words.
+  `caption-v1` to `caption-v3` are unchanged.
+
+  **What `sal-v7` is.** `sal-v6`'s score, writ scope, `dist-v2` pin,
+  cutpoints, band vocabulary and arrival draw, as the same callables, with
+  the band, the carve-in and the reachable ladder read through `caption-v4`.
+
+  **Why the party match answers `sal-v5`'s exclusion.** The two post-outcome
+  shapes the 2026-10-30 entry names, a supporting United States amicus and a
+  government petition consolidated at the grant, are listed under a party
+  other than the captioned petitioner. On the census frame (live-slice, paid,
+  modern-cert scored segment) `caption-v3` moves 21 rows off their `caption-v2`
+  class and `caption-v4` moves 16, every one of them among `caption-v3`'s 21.
+  The 5 it does not move are the 5 that entry names: 19-1257, 25-840, 18-1587,
+  24-20 and 24-422.
+
+  **When the entry exists.** The office's entry for the captioned petitioner
+  is on the earliest stored snapshot of each of the 5 pending moved rows
+  (25-952, 26-111, 26-145, 26-146, 26-379), and on a snapshot from before the
+  outcome of the 2 resolved moved rows that have one (25-1103, on 2026-07-16
+  against its 2026-10-13 grant; 26-48, on 2026-08-13 against its 2026-10-05
+  GVR). The other 9 resolved moved rows (19-71, 19-546, 20-1044, 20-1478,
+  23-411, 24-1246, 25-1083, 25-701, 25-886) have no stored snapshot from
+  before their outcome, so their entry cannot be dated. The declared residual
+  is the office substituting for a captioned petitioner after the grant.
+
+  **The census.** `uv run fedcourts caption-census --rule-version <v>`,
+  pooled over the complete Terms OT2018–OT2024:
+
+  | class | `caption-v2` | `caption-v4` |
+  | --- | --: | --: |
+  | federal | 125/165 | 129/171 |
+  | state | 79/340 | 79/340 |
+  | private | 524/9,947 | 520/9,941 |
+
+  Per Term the moves are OT2019 +2 `federal` (2 grant-family), OT2020 +2
+  (0), OT2023 +1 (1) and OT2024 +1 (1), each from `private`. The incomplete
+  Terms move OT2025 +4 (3 grant-family; one of the four from `state`) and OT2026 +1
+  (1). Of the 16 moved rows' captions, 12 name a federal agency or an
+  officer's title; 19-71, 19-546, 25-952 and 26-111 carry a personal name
+  only. The shapes were surfaced by forecasts flagged on petitions later
+  granted, so the migrated rows' grant record is partly outcome-selected and
+  no recall gain may be quoted from the `federal` cell's rate.
+
+  **The band moves.** `uv run python scripts/checks/caption_v4_band_census.py`,
+  `sal-v6` against `sal-v7` over the same frame inside `sal-v6`'s segment:
+
+  | status | `sal-v6` band | `sal-v7` band | rows |
+  | --- | --- | --- | --: |
+  | pending | baseline | federal | 2 |
+  | pending | elevated | federal | 1 |
+  | pending | state | federal | 2 |
+  | resolved | baseline | federal | 6 |
+  | resolved | elevated | federal | 3 |
+  | resolved | high | federal | 2 |
+
+  Of the 5 pending rows, 25-952, 26-145 and 26-146 are already selected under
+  `sal-v6`; 26-111 and 26-379 are not.
+
+  The figures are on production index blob `3ddb381f…c41a05` (newest pull
+  2026-10-31, newest stored snapshot row 2026-07-13), with the per-case
+  content store read the same day.
+
+  **Not owed by this registration, owed by an activation.** The frozen cell
+  band reads no counsel today (`cell_context` builds its base row without
+  it), and replay and back-test snapshots carry none by design, so a
+  `sal-v7` cell band, a replay comparison at matched recall, and a reviewed
+  census are the flip's prerequisites (`docs/salience.md`, the `sal-v7`
+  section).
+
+  Carried to `main` by the promotion tagged `<FILL: promotion tag>` (merge
+  commit `<FILL: merge hash>`, merged `<FILL: merged-at>`).
+
+  The runnable effect check once it is live:
+  - on `main`, `uv run python -c "from fedcourtsai.pipeline.salience import
+    SALIENCE_VERSION, SCORERS; from fedcourtsai.pipeline.caption import
+    CAPTION_RULES; print(SALIENCE_VERSION, 'sal-v7' in SCORERS, 'caption-v4'
+    in CAPTION_RULES)"` prints `sal-v6 True True`;
+  - after the first post-promotion metrics refresh, `jq -r
+    '[.terms[].alt_segments[].salience_version] | unique | join(" ")'
+    metrics/statpack.json` includes `sal-v7`, and `.terms[].salience_version`
+    stays `sal-v6`;
+  - where the corpus is pulled, `CHECK_SUMMARY=<file> uv run python
+    scripts/checks/caption_v4_band_census.py` lists the moves above, with any
+    petition docketed since added to the pending rows.

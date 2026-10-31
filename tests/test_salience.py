@@ -202,6 +202,8 @@ def test_the_carve_out_set_is_exactly_the_strongest_band(version: str) -> None:
         "sal-v5": ("federal", "high"),
         # sal-v6 is sal-v5's relist rule over sal-v3's caption-v2 carve-in.
         "sal-v6": ("federal", "high"),
+        # sal-v7 is sal-v6 with the carve-in read through caption-v4.
+        "sal-v7": ("federal", "high"),
         # Indexed, never `.get` with a self-satisfying fallback: a prefix
         # compared against a prefix of its own length passes for any version,
         # so a new registration must state its carve prefix here or KeyError.
@@ -362,7 +364,7 @@ def test_sal_v5_reads_as_sal_v4_without_any_of_its_three_inputs() -> None:
             assert v5.in_segment(row) and v4.in_segment(row)
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_the_relist_rule_does_not_count_a_superseded_first_distribution(version: str) -> None:
     """A call for response takes the petition off its first conference, so the
     distribution after the response is the conference it was deferred to."""
@@ -429,7 +431,7 @@ def _docket_after(events: tuple[str, ...]) -> list[dict[str, str]]:
     return entries
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_the_relist_rule_band_never_weakens_over_any_order_of_docket_events(version: str) -> None:
     """The statpack's risk sets read a band as monotone over a petition's life.
 
@@ -456,7 +458,7 @@ def test_the_relist_rule_band_never_weakens_over_any_order_of_docket_events(vers
     assert checked == 4 + 16 + 64 + 256
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_a_call_after_a_reschedule_or_relist_never_removes_a_counted_relist(version: str) -> None:
     """The two scenarios the review raised: a petition at two distributions after
     a reschedule (`elevated`) and at three (`high`) keeps its band when a call
@@ -563,9 +565,103 @@ def test_sal_v6_reads_as_sal_v4_without_a_call_or_a_writ() -> None:
                 assert v6.in_segment(row), key
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+def test_sal_v7_is_registered_and_sal_v6_stays_active() -> None:
+    """sal-v7 is registered beside sal-v6, inactive: the live pass still scores,
+    latches and stamps under sal-v6. It is sal-v6's relist rule, writ scope and
+    parse pin as the same callables."""
+    assert "sal-v7" in SCORERS
+    assert SALIENCE_VERSION == "sal-v6"
+    assert registered_versions()[0] == "sal-v6"
+    v6, v7 = scorer("sal-v6"), scorer("sal-v7")
+    assert v7.bands == v6.bands
+    assert v7.distribution_parse == v6.distribution_parse == "dist-v2"
+    assert v7.selects_arrivals is True
+    assert v7.score is v6.score
+    assert v7.admits is v6.admits
+
+
+def _sg_for_petitioner(party: str, *, of_record: bool = True) -> corpus.CounselEntry:
+    return corpus.CounselEntry(
+        party=party,
+        attorney="D. John Sauer",
+        role=corpus.CounselRole.petitioner,
+        counsel_of_record=of_record,
+    )
+
+
+def test_sal_v7_bands_and_carves_an_sg_represented_warden_as_federal() -> None:
+    """The office as counsel of record for the captioned Warden moves the band,
+    the carve-in and the ladder to `federal` under sal-v7, where sal-v6 reads the
+    sub-national officer fallback's `state`."""
+    v6, v7 = scorer("sal-v6"), scorer("sal-v7")
+    floor = load_salience_config(Path("config")).floor
+    row = _v5_row(
+        distribution_count=1,
+        petitioner_title="Juan Baltazar, Warden, et al.",
+        counsel=[_sg_for_petitioner("Baltazar, Warden, et al.")],
+    )
+    assert v6.band(row) == "state"
+    assert v7.band(row) == "federal"
+    assert v7.reachable_bands(row) == ("federal",)
+    assert v7.carve_out(row, v7.score(row), floor) is True
+    assert v6.carve_out(row, v6.score(row), floor) is False
+
+
+def test_sal_v7_never_reads_a_supporting_amicus_or_a_consolidation() -> None:
+    """The two post-outcome shapes that set sal-v5 aside: the office listed under
+    the petitioner for "United States" on a private or state petition. sal-v5
+    reads both `federal`; sal-v7 reads each exactly as sal-v6 does."""
+    v5, v6, v7 = scorer("sal-v5"), scorer("sal-v6"), scorer("sal-v7")
+    for title in (
+        "International Partners for Ethical Care, Inc., et al.",
+        "Mark Brnovich, Attorney General of Arizona, et al.",
+    ):
+        row = _v5_row(
+            distribution_count=1,
+            petitioner_title=title,
+            counsel=[_sg_for_petitioner("United States")],
+        )
+        assert v5.band(row) == "federal", title
+        assert v7.band(row) == v6.band(row) != "federal", title
+        assert v7.reachable_bands(row) == v6.reachable_bands(row), title
+
+
+def test_sal_v7_reads_as_sal_v6_without_the_office_for_the_captioned_petitioner() -> None:
+    """With no office entry for the captioned petitioner, sal-v7 scores, bands,
+    carves, ladders and scopes exactly as sal-v6: caption-v4's counsel check is
+    its only input beyond sal-v6's."""
+    v6, v7 = scorer("sal-v6"), scorer("sal-v7")
+    floor = load_salience_config(Path("config")).floor
+    others = [
+        [],
+        [_sg_for_petitioner("United States")],
+        [_sg_for_petitioner("Somebody Else")],
+        [_sg_for_petitioner("John Doe", of_record=False)],
+        [_sg_for_petitioner("John Doe").model_copy(update={"role": corpus.CounselRole.respondent})],
+    ]
+    for count in (None, 0, 1, 2, 3, 4):
+        for after in (None, 1):
+            for title in ("United States", "State of Texas", "John Doe", "Michael Smith, Warden"):
+                for counsel in others:
+                    row = _v5_row(
+                        distribution_count=count,
+                        distributed_after_call=after,
+                        petitioner_title=title,
+                        counsel=counsel,
+                    )
+                    key = (count, after, title, counsel)
+                    assert v7.score(row) == v6.score(row), key
+                    assert v7.band(row) == v6.band(row), key
+                    assert v7.reachable_bands(row) == v6.reachable_bands(row), key
+                    assert v7.carve_out(row, v7.score(row), floor) == v6.carve_out(
+                        row, v6.score(row), floor
+                    ), key
+                    assert v7.in_segment(row) == v6.in_segment(row), key
+
+
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_the_writ_scope_leaves_rule_20_writs_out_of_scoring_and_selection(version: str) -> None:
-    """A Rule 20 writ is outside sal-v5's and sal-v6's segment: not scored, not cohorted, not
+    """A Rule 20 writ is outside the writ-scoped versions' segment: not scored, not cohorted, not
     carved in. A sealed certiorari petition captioned "In re …" stays in, because
     the opening entry, not the caption, classifies — and sal-v4 still scores both."""
     config = SalienceConfig(per_conference_capacity=5, floor=0.28)
@@ -1845,6 +1941,7 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
         "sal-v3",
         "sal-v4",
         "sal-v5",
+        "sal-v7",
     )
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
@@ -2177,6 +2274,7 @@ def test_every_registered_scorer_pins_a_registered_distribution_parse(version: s
         "sal-v4": "dist-v2",
         "sal-v5": "dist-v2",
         "sal-v6": "dist-v2",
+        "sal-v7": "dist-v2",
     }
     assert SCORERS[version].distribution_parse in DISTRIBUTION_PARSES
     assert SCORERS[version].distribution_parse == expected[version]
@@ -2794,12 +2892,12 @@ def _activate(monkeypatch: pytest.MonkeyPatch, version: str) -> None:
     monkeypatch.setattr(salience_module, "SALIENCE_VERSION", version)
 
 
-@pytest.mark.parametrize("version", ["sal-v5", "sal-v6"])
+@pytest.mark.parametrize("version", ["sal-v5", "sal-v6", "sal-v7"])
 def test_the_band_freeze_refuses_a_rule_20_writ_only_under_a_version_that_excludes_it(
     monkeypatch: pytest.MonkeyPatch, version: str
 ) -> None:
     """The segment is read off the payload's opening petition entry: a writ of
-    mandamus freezes no band under sal-v5 or sal-v6, a sealed certiorari petition captioned
+    mandamus freezes no band under sal-v5, sal-v6 or sal-v7, a sealed certiorari petition captioned
     "In re" still does, and under sal-v4, whose segment narrows nothing, the writ is banded."""
     writ = _warden_payload(opening="Petition for a writ of mandamus filed.", sg=False)
     sealed = {
