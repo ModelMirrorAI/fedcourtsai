@@ -281,6 +281,7 @@ from .ops import (
 from .paths import CasePaths, EventPaths
 from .pipeline import (
     alignment_baseline,
+    alignment_score,
     alignment_side,
     application_backfill,
     argument_features,
@@ -537,6 +538,7 @@ from .schemas import (
     FlagSeverity,
     FlagSource,
     ForwardClaimRecord,
+    Judgment,
     Leaderboard,
     LeaderboardEntry,
     LeaderboardStageEntry,
@@ -6596,6 +6598,122 @@ def merits_alignment_baseline_cmd(
                 f"{_pct(reading.exact_split_accuracy)} ({reading.exact_split_hits}), "
                 f"full coalition {_pct(reading.full_coalition_accuracy)} "
                 f"({reading.full_coalition_hits})",
+                err=True,
+            )
+    typer.echo(readout.model_dump_json())
+
+
+@app.command("alignment-score-baseline")
+def alignment_score_baseline_cmd(
+    first_term: Annotated[
+        int, typer.Option("--first-term", help="First decision Term to score.")
+    ] = 2022,
+    last_term: Annotated[
+        int, typer.Option("--last-term", help="Last decision Term to score.")
+    ] = 2025,
+    positions: Annotated[
+        Path | None,
+        typer.Option(
+            "--positions",
+            help="Justice positions (JSON: source, dated releases of positions by Term); "
+            "omit to score baseline 3 only.",
+        ),
+    ] = None,
+) -> None:
+    """Score the coded merits alignment baselines over the committed side codes, read-only.
+
+    Baseline 3 (score outcome: P(the conservative side prevails) is the code's
+    score, Brier-scored raw and after a monotone transform fitted on earlier
+    Terms and on the Term itself) and, given `--positions`, baseline 4 (score
+    votes: one spread `k` maps the score and each Justice's published position
+    to a vote), per decision Term (`pipeline/alignment_score.py`). Reads the
+    committed side codes, the corpus's merits judgments and its merits lineups.
+    Writes nothing. Prints a line per Term to stderr and the readout JSON to
+    stdout; a reversed range or an unreadable positions file exits 2, a missing
+    corpus or codes file 1.
+    """
+    if first_term > last_term:
+        typer.echo("alignment-score-baseline: --first-term must not exceed --last-term.", err=True)
+        raise typer.Exit(code=2)
+    table = None
+    if positions is not None:
+        try:
+            table = alignment_score.JusticePositions.model_validate_json(positions.read_text())
+        except (OSError, ValueError) as exc:
+            typer.echo(f"alignment-score-baseline: {positions}: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+    settings = get_settings()
+    committed = alignment_side.codes_path(settings.data_root)
+    if not committed.is_file():
+        typer.echo(f"alignment-score-baseline: no side codes at {committed}.", err=True)
+        raise typer.Exit(code=1)
+    codes = read_model(committed, AlignmentSideCodes).entries
+    db_path = corpus.corpus_db_path(settings.corpus_root)
+    if settings.corpus_backend != "ranged" and not db_path.exists():
+        typer.echo(
+            f"the corpus database is missing at {db_path}; provision it (fedcourts corpus-pull) "
+            "before scoring the alignment baselines.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    coded = {c.case_id for c in codes}
+    judgments: dict[str, tuple[Judgment, date]] = {}
+    unread = 0
+    with corpus.connect_readonly(db_path, backend=settings.corpus_backend) as conn:
+        for row in corpus.iter_rows(conn, court="scotus"):
+            if (
+                row.case_id not in coded
+                or row.merits_judgment is None
+                or row.merits_decided is None
+            ):
+                continue
+            try:
+                judgment = Judgment(row.merits_judgment)
+            except ValueError:
+                # Re-validated rather than trusted, as every reader of the column does.
+                unread += 1
+                continue
+            judgments[row.case_id] = (judgment, row.merits_decided)
+        # From the first coded decision Term, not `--first-term`: out-of-sample
+        # fits read every earlier Term's lineups whatever range is scored.
+        lineups = merits_lineups.merits_lineups(
+            conn,
+            first_term=min([first_term, *(october_term_year(on) for _, on in judgments.values())]),
+            last_term=last_term,
+        )
+    readout = alignment_score.score_readout(
+        codes, judgments, lineups, first_term=first_term, last_term=last_term, positions=table
+    )
+
+    def _num(value: float | None, spec: str) -> str:
+        return "-" if value is None else format(value, spec)
+
+    typer.echo(
+        f"alignment-score-baseline: {readout.codes} code(s), {readout.decided} decided, "
+        f"{unread} with a judgment outside the vocabulary left out; "
+        f"positions {readout.positions_source or 'not given'}",
+        err=True,
+    )
+    for term in readout.terms:
+        o = term.outcome
+        typer.echo(
+            f"OT{term.term}: {o.decisions} decided ({o.scored.contamination_risk} replay); "
+            f"call {o.call_hits}/{o.decisions}, Brier raw {_num(o.brier_raw, '.3f')}, "
+            f"calibrated out {_num(o.brier_calibrated_out_of_sample, '.3f')}, "
+            f"in {_num(o.brier_calibrated_in_sample, '.3f')}",
+            err=True,
+        )
+        for label, votes in (
+            ("out of sample", term.votes_out_of_sample),
+            ("in sample", term.votes_in_sample),
+        ):
+            if votes is None:
+                continue
+            typer.echo(
+                f"  votes {label}: k {_num(votes.k, 'g')}, {votes.decisions} of {term.lineups} "
+                f"lineups; justice {_num(votes.justice_accuracy, '.1%')}, exact split "
+                f"{_num(votes.exact_split_accuracy, '.1%')}, full coalition "
+                f"{_num(votes.full_coalition_accuracy, '.1%')}",
                 err=True,
             )
     typer.echo(readout.model_dump_json())
