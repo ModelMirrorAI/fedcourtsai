@@ -1788,7 +1788,11 @@ def _anchor_reproduces(
 
     Every other cell passes: an earlier label's cert grading keeps the
     registered reading (the coherence check alone), and a cert cell on the
-    terminal fallback stays the evaluator's.
+    terminal fallback is not re-pooled — its band is the evaluate cell's
+    provisioned terminal band, which no committed record carries — so the
+    coherence check is what holds it, whether the evaluator recorded it (before
+    :data:`fedcourtsai.process_version.HARNESS_TERMINAL_ANCHOR_FROM`) or the
+    stamp did.
     """
     if stage != Stage.cert:
         return True

@@ -323,6 +323,7 @@ from .pipeline.base_rates import (
     merits_base_rate,
     prediction_base_rate,
     statpack_digest,
+    terminal_base_rate,
 )
 from .pipeline.bulk_scrub import scrub_bulk_cluster_fields
 from .pipeline.caption import CAPTION_RULE_VERSION, CAPTION_RULES, caption_census
@@ -9819,9 +9820,10 @@ def segment_anchors_command(
     A cert cell's skill is computed against the ``segment_base_rate`` it
     records. From proc-v9 on, where the scored prediction froze a band, the
     stamp writes that rate through this same pooler, so it is the pool printed
-    here. On an earlier label's grading and on the terminal fallback it is the
-    evaluator's pooling of the rendered statpack table, which can sit up to
-    about 0.0005 from the exact pool.
+    here; from proc-v17 on, so is the terminal fallback's rate, pooled over the
+    evaluate cell's provisioned terminal band. On an earlier label's grading it
+    is the evaluator's pooling of the rendered statpack table, which can sit up
+    to about 0.0005 from the exact pool.
 
     Reads only the committed ``metrics/statpack.json`` (no corpus) and pools
     each band through the scorer's own pooler,
@@ -11603,11 +11605,14 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     (``base_rate_statpack_digest``) — from
     :data:`fedcourtsai.process_version.PINNED_CERT_ANCHOR_FROM` on, the anchor
     the prediction's context froze at provisioning where it carries one, so the
-    build is the one in force when the forecast was placed. Every other cert
-    cell — an earlier label's grading, and a prediction that froze no band,
-    whose terminal fallback re-derives a band from the corpus row — keeps the
-    evaluator's three numbers, and the leaderboard's coherence check is what
-    holds that arithmetic to its record. The label is the stamp's own: the one this
+    build is the one in force when the forecast was placed. From
+    :data:`fedcourtsai.process_version.HARNESS_TERMINAL_ANCHOR_FROM` on, a cert
+    grading whose prediction froze no band takes the same treatment over the
+    **terminal** band the evaluate cell's own provisioned ``record/context.json``
+    carries, at the terminal rate, with ``base_rate_basis: terminal``. Every
+    other cert cell — an earlier label's grading — keeps the evaluator's three
+    numbers, and the leaderboard's coherence check is what holds that
+    arithmetic to its record. The label is the stamp's own: the one this
     invocation writes, or on a re-grade the one the record carries, so a
     re-grade never moves a grading onto a rule its label did not register.
 
@@ -11734,8 +11739,12 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
     # cannot be the agent's word. `record/` is gitignored, so `prediction.json` is
     # where it has to become durable. Absent when provisioning left nothing to
     # freeze — and the evaluator then falls back to the terminal band rather
-    # than inventing one.
-    provisioned = _read_cell_context(case_paths) if role == "predictor" else None
+    # than inventing one. On an evaluate cell the same file is the grader's own
+    # record, provisioned off the decided docket and so carrying the terminal
+    # band: the population a cert grading whose scored prediction froze no band
+    # is priced against (:func:`_terminal_skill_record_for`). Not read on a
+    # re-grade, which keeps every cert anchor as first stamped.
+    provisioned = _read_cell_context(case_paths) if not regrade else None
 
     graded = 0
     basis_records: dict[Path, tuple[str | None, str | None, Prediction | None]] = {}
@@ -11796,7 +11805,13 @@ def stamp_cell(  # noqa: PLR0913 - a CLI entrypoint; options map 1:1 to inputs
                 else process_version.CURRENT_PROCESS_LABEL
             )
             skill_fields, basis_records[path] = _skill_record_for(
-                event_paths, record, settings, label, regrade=regrade, anchor_refusals=refusals
+                event_paths,
+                record,
+                settings,
+                label,
+                regrade=regrade,
+                anchor_refusals=refusals,
+                terminal_context=provisioned,
             )
             cell_update.update(skill_fields)
         write_json(path, record.model_copy(update=cell_update))
@@ -12763,9 +12778,10 @@ def _require_reproducible_trio(
     ``brier_skill_score`` together, or commit a genuine re-derivation — after
     which the re-grade proceeds. A correction that leaves the binary alone (a
     disposition relabelled within the granted set, say) reproduces and passes.
-    A cert record the harness owns (:func:`_harness_owns_cert_record`, judged
-    on the label the record already carries, which a re-grade preserves) is
-    recomputed whole like a merits one, so it is never refused here.
+    A cert record the harness owns (:func:`_harness_owns_cert_record` or
+    :func:`_harness_owns_terminal_record`, judged on the label the record
+    already carries, which a re-grade preserves) is recomputed whole like a
+    merits one, so it is never refused here.
     """
     stage = _event_stage_and_opened(event_paths)[0]
     if stage in _HARNESS_SKILL_STAGES:
@@ -12773,7 +12789,9 @@ def _require_reproducible_trio(
     outcome = _outcome_for(event_paths)
     for path, record in records:
         label = record.process_version.label if record.process_version is not None else None
-        if _harness_owns_cert_record(stage, label, _scored_prediction_for(event_paths, record)):
+        if _harness_owns_cert_record(
+            stage, label, _scored_prediction_for(event_paths, record)
+        ) or _harness_owns_terminal_record(stage, label):
             continue
         recorded = record.brier_score
         if recorded is None:
@@ -13100,8 +13118,10 @@ def _statpack_for(settings: Settings) -> StatPack | None:
 #: evaluator recording it: both pool a Term-keyed ratio of the statpack's
 #: published integer counts, with no salience band to choose between and so no
 #: judgment for an evaluator to exercise. The cert stage is absent: its record
-#: is the harness's only from a label on and only over a frozen band
-#: (:func:`_harness_owns_cert_record`) — see :func:`stamp_cell`. It governs the
+#: is the harness's only from a label on — over a frozen band
+#: (:func:`_harness_owns_cert_record`), and from a later label over the
+#: terminal fallback too (:func:`_harness_owns_terminal_record`) — see
+#: :func:`stamp_cell`. It governs the
 #: *skill record* only: ``correct`` needs no pooled rate and so no band, and is
 #: stamped on every stage including cert.
 _HARNESS_SKILL_STAGES = (Stage.merits, Stage.interim)
@@ -13115,6 +13135,7 @@ def _skill_record_for(
     *,
     regrade: bool = False,
     anchor_refusals: list[str] | None = None,
+    terminal_context: PredictionContext | None = None,
 ) -> tuple[dict[str, object], tuple[str | None, str | None, Prediction | None]]:
     """This cell's ``correct`` and skill record as a stamp update, plus its basis trio.
 
@@ -13138,13 +13159,18 @@ def _skill_record_for(
     **cert** grading stamped under a label
     :func:`fedcourtsai.process_version.harness_stamps_cert_anchor` admits whose
     scored prediction froze a band, the whole record is the harness's
-    (:func:`_cert_skill_record_for`). On any other **cert** cell the Brier, the
-    rate, and the skill are the evaluator's — which band population the rate was taken
-    over is a judgment about the scored prediction's frozen band, and the
-    leaderboard's coherence check is what stands between that arithmetic and the
-    published column — so only the version half of the basis record is derived
-    here (:func:`_base_rate_salience_version_for`), exactly as ``claim_scores``
-    is: deterministically, and overwriting whatever the evaluator wrote.
+    (:func:`_cert_skill_record_for`); under a label
+    :func:`fedcourtsai.process_version.harness_stamps_terminal_anchor` admits,
+    so is the record of a cert grading whose scored prediction froze none,
+    priced against the terminal band in ``terminal_context``, the evaluate
+    cell's own provisioned record (:func:`_terminal_skill_record_for`). On any
+    other **cert** cell the Brier, the rate, and the skill are the evaluator's —
+    which band population the rate was taken over is a judgment about the
+    scored prediction's frozen band, and the leaderboard's coherence check is
+    what stands between that arithmetic and the published column — so only the
+    version half of the basis record is derived here
+    (:func:`_base_rate_salience_version_for`), exactly as ``claim_scores`` is:
+    deterministically, and overwriting whatever the evaluator wrote.
 
     On a stage of :data:`_HARNESS_SKILL_STAGES` the **whole** record is the
     harness's, and all five fields are assigned unconditionally. The Brier, the
@@ -13201,6 +13227,17 @@ def _skill_record_for(
                 anchor_refusals=anchor_refusals,
             )
             return {"correct": correct} | fields, (basis, version, latest)
+        if _harness_owns_terminal_record(stage, label):
+            fields, basis, version = _terminal_skill_record_for(
+                event_paths,
+                evaluation,
+                settings,
+                outcome,
+                latest,
+                terminal_context,
+                regrade=regrade,
+            )
+            return {"correct": correct} | fields, (basis, version, latest)
         context = latest.context if latest is not None else None
         version = _base_rate_salience_version_for(evaluation, context)
         return (
@@ -13242,9 +13279,10 @@ def _harness_owns_cert_record(
     the anchor mechanical: the population is the risk set of that band under
     the version that assigned it, keyed on the frozen docket Term, so nothing is
     left to judge. A cert prediction that froze **no** band takes the terminal
-    fallback, which re-derives a band from the corpus row — a read the stamp
-    does not make — so that record stays the evaluator's, under the evaluator path's
-    guards.
+    fallback instead: the harness's from
+    :data:`fedcourtsai.process_version.HARNESS_TERMINAL_ANCHOR_FROM` on
+    (:func:`_harness_owns_terminal_record`), the evaluator's under an earlier
+    label, under the evaluator path's guards.
     """
     return (
         stage == Stage.cert
@@ -13253,6 +13291,145 @@ def _harness_owns_cert_record(
         and scored.context is not None
         and scored.context.band is not None
     )
+
+
+def _harness_owns_terminal_record(stage: Stage | None, label: str | None) -> bool:
+    """Whether this cell's terminal-fallback cert skill record is the harness's.
+
+    Asked only of a cell :func:`_harness_owns_cert_record` declined: a cert
+    cell stamped under a label from
+    :data:`fedcourtsai.process_version.HARNESS_TERMINAL_ANCHOR_FROM` on whose
+    scored prediction froze no band, or that has no scored prediction at all.
+    The terminal band is no judgment either: it is the band the evaluate cell's
+    own ``record/context.json`` carries, which provisioning bands off the
+    decided docket with the same scorer that freezes a predict cell's band, so
+    nothing is left for the evaluator to choose.
+    """
+    return stage == Stage.cert and process_version.harness_stamps_terminal_anchor(label)
+
+
+def _warn_on_discarded_basis(evaluation: Evaluation, basis: str | None) -> None:
+    """Say when a stamped ``base_rate_basis`` replaces a different one the evaluator wrote.
+
+    Not a number, so :func:`_warn_on_discarded_number` cannot say it; a judge's
+    wrong basis would otherwise be corrected silently whenever the two tables'
+    rates happen to agree.
+    """
+    if evaluation.base_rate_basis is not None and evaluation.base_rate_basis != basis:
+        typer.echo(
+            f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} "
+            + f"recorded base_rate_basis {evaluation.base_rate_basis!r} for a "
+            + f"harness-stamped field; the stamp wrote {basis!r}.",
+            err=True,
+        )
+
+
+def _terminal_skill_record_for(
+    event_paths: EventPaths,
+    evaluation: Evaluation,
+    settings: Settings,
+    outcome: Outcome | None,
+    scored: Prediction | None,
+    terminal_context: PredictionContext | None,
+    *,
+    regrade: bool,
+) -> tuple[dict[str, object], str | None, str | None]:
+    """The harness's whole cert skill record on the terminal fallback.
+
+    For a cell :func:`_harness_owns_terminal_record` admits. The anchor is
+    :func:`fedcourtsai.pipeline.base_rates.terminal_base_rate`: the scorer's
+    own pooler over the evaluate cell's provisioned ``(band, salience_version,
+    term)``, the **terminal** rate (``est_grant_rate``, over the petitions that
+    ended in the band), strictly-prior Terms inside
+    ``salience.base_rate_lookback_terms``. So it is the exact ``terminal`` pool
+    ``fedcourts segment-anchors`` prints rather than a transcription off the
+    rendered ``metrics/statpack.md``, and a band whose version the rendered
+    table no longer shows still pools from the Terms' ``alt_segments``. The
+    Brier and the skill are stamped beside it from the same committed
+    artifacts, as on the frozen-band path.
+
+    The basis is ``terminal`` and the version the provisioned one wherever the
+    pool yields a rate. Where it does not, rate, basis, version, build, window
+    and skill are all null, the omission the frozen-band path takes for the
+    same cases: no scored prediction to grade, no readable provisioned context
+    (said per cell), a context with no band (a snapshot that disclosed no
+    proceedings, or a row outside the active version's segment), no Term, no
+    readable statpack, or no prior Term carrying the band under its version.
+
+    **A re-grade keeps the anchor as stamped**, for the reason the frozen-band
+    path gives: a strictly-prior pool is not moved by an outcome correction.
+    """
+    brier = _harness_brier_for(event_paths, evaluation, outcome)
+    rate: float | None
+    digest: str | None
+    lookback: int | None
+    basis: str | None
+    version: str | None
+    if regrade:
+        rate = evaluation.segment_base_rate
+        digest = evaluation.base_rate_statpack_digest
+        lookback = evaluation.base_rate_lookback_terms
+        basis = evaluation.base_rate_basis
+        version = evaluation.base_rate_salience_version
+    else:
+        if scored is None:
+            rate, digest, lookback = None, None, None
+        else:
+            rate, digest, lookback = _pool_terminal_anchor(evaluation, terminal_context, settings)
+        _warn_on_discarded_number(
+            evaluation, "segment_base_rate", evaluation.segment_base_rate, rate
+        )
+        basis = "terminal" if rate is not None else None
+        # `terminal_base_rate` yields a rate only off a context carrying band,
+        # Term, and version, so a rate implies the version it was pooled under.
+        version = (
+            terminal_context.salience_version
+            if rate is not None and terminal_context is not None
+            else None
+        )
+        _warn_on_discarded_basis(evaluation, basis)
+    _warn_on_discarded_number(evaluation, "brier_score", evaluation.brier_score, brier)
+    fields: dict[str, object] = {
+        "brier_score": brier,
+        "segment_base_rate": rate,
+        "brier_skill_score": _harness_skill_for(brier, outcome, rate),
+        "base_rate_basis": basis,
+        "base_rate_salience_version": version,
+        "base_rate_statpack_digest": digest,
+        "base_rate_lookback_terms": lookback,
+    }
+    return fields, basis, version
+
+
+def _pool_terminal_anchor(
+    evaluation: Evaluation, context: PredictionContext | None, settings: Settings
+) -> tuple[float | None, str | None, int | None]:
+    """The terminal cert anchor pooled now: ``(rate, statpack build, lookback window)``.
+
+    All three ``None`` where no rate pools, so a build and a window are only
+    ever named beside the rate they produced.
+    """
+    if context is None:
+        typer.echo(
+            f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id}: no "
+            + "provisioned record/context.json, so this terminal-fallback cert cell's "
+            + "segment base rate and skill are cleared rather than pooled.",
+            err=True,
+        )
+        return None, None, None
+    statpack = _statpack_for(settings)
+    if statpack is None:
+        typer.echo(
+            "::warning::stamp: no readable metrics/statpack.json — this cert cell's "
+            "segment base rate and skill are cleared rather than pooled.",
+            err=True,
+        )
+        return None, None, None
+    lookback = load_salience_config(settings.config_root).base_rate_lookback_terms
+    rate = terminal_base_rate(context, statpack, lookback_terms=lookback)
+    if rate is None:
+        return None, None, None
+    return rate, statpack_digest(statpack), lookback
 
 
 def _cert_skill_record_for(
@@ -13330,16 +13507,7 @@ def _cert_skill_record_for(
         # `prediction_base_rate` yields a rate only off a context carrying band,
         # Term, and version, so a rate implies the version it was pooled under.
         version = scored.context.salience_version if rate is not None and scored.context else None
-        if evaluation.base_rate_basis is not None and evaluation.base_rate_basis != basis:
-            # Not a number, so `_warn_on_discarded_number` cannot say it; a
-            # judge's wrong basis would otherwise be corrected silently whenever
-            # the two tables' rates happen to agree.
-            typer.echo(
-                f"::warning::stamp: {evaluation.evaluator_id}/{evaluation.predictor_id} "
-                + f"recorded base_rate_basis {evaluation.base_rate_basis!r} for a "
-                + f"harness-stamped field; the stamp wrote {basis!r}.",
-                err=True,
-            )
+        _warn_on_discarded_basis(evaluation, basis)
     _warn_on_discarded_number(evaluation, "brier_score", evaluation.brier_score, brier)
     fields: dict[str, object] = {
         "brier_score": brier,
