@@ -9861,6 +9861,90 @@ class QpTopicRunSpend(_Strict):
         return self
 
 
+class TopicCutFrame(_Strict):
+    """One labels frame the topic cut joins forecasts to, and its coverage caveat."""
+
+    frame: Literal["petitions", "applications"] = Field(
+        description="petitions (cert and merits forecasts) or applications (interim forecasts)"
+    )
+    vocabulary: Literal["qp-topic-v0", "qp-topic-v1"] = Field(
+        description="The topic vocabulary the frame's labels are in"
+    )
+    labeler: str | None = Field(
+        description="Who labeled the frame; null when no gate-passing labels artifact is read"
+    )
+    labeled_cases: int = Field(ge=0, description="Cases the frame's labels artifact labels")
+    agreement_agree: int | None = Field(
+        ge=0, description="Reference entries the labeler matched; null when no labels are read"
+    )
+    agreement_n: int | None = Field(
+        ge=0, description="Reference entries compared; null when no labels are read"
+    )
+    scope: str = Field(
+        min_length=1,
+        description="The coverage caveat every cell joined to this frame carries verbatim",
+    )
+
+
+class TopicCutRecord(_Strict):
+    """One predictor's record on one (moment, topic) cell, by the board's own rule."""
+
+    predictor_id: str = Field(min_length=1, description="The predictor")
+    events_scored: int = Field(ge=0, description="Distinct (case, event) pairs scored")
+    forward: LeaderboardStratum | None = Field(
+        description="The forward stratum's record; null when it holds no cell"
+    )
+    retrospective: LeaderboardStratum | None = Field(
+        description="The retrospective stratum's record; null when it holds no cell"
+    )
+    procedural: LeaderboardStratum | None = Field(
+        description="The procedural stratum's record; null when it holds no cell"
+    )
+
+
+class TopicCutCell(_Strict):
+    """Every forecast of one moment on cases of one topic (or unlabeled)."""
+
+    moment: str = Field(min_length=1, description="The stage/moment key the boards aggregate on")
+    frame: Literal["petitions", "applications"] | None = Field(
+        description="The labels frame the moment joins; null for a stage-less forecast"
+    )
+    topic: str = Field(
+        min_length=1, description="The case's topic label, or `unlabeled` when it carries none"
+    )
+    forecast_events: int = Field(
+        ge=0, description="Events with at least one committed forecast, whatever its scope"
+    )
+    forecast_cells: int = Field(
+        ge=0, description="Committed (predictor, event) forecasts, whatever their scope"
+    )
+    events_scored: int = Field(
+        ge=0, description="Distinct events scored under the cut's process scope"
+    )
+    scope: str = Field(min_length=1, description="The frame's coverage caveat, verbatim")
+    records: list[TopicCutRecord] = Field(
+        default_factory=list, description="Each predictor's scoped record, in id order"
+    )
+
+
+class TopicCut(_Strict):
+    """Every forecast cut by its case's topic, per forecast moment (descriptive only).
+
+    Nothing is scored on topic and no board conditions on it: no rank, no
+    paired figure and no topic baseline, only each predictor's per-stratum
+    record re-read over each topic's cells. See ``docs/qp-topic.md``.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    process_scope: Literal["frozen", "all"] = Field(
+        description="The process scope the scored counts and records are read under"
+    )
+    frames: list[TopicCutFrame] = Field(description="The two labels frames, each with its scope")
+    cells: list[TopicCutCell] = Field(
+        description="One cell per (moment, topic), unlabeled included, in key order"
+    )
+
+
 class DispositionShare(_Strict):
     """One realized outcome's count and share of the resolved cases in a slice.
 

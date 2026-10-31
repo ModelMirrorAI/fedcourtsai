@@ -618,6 +618,7 @@ from .supremecourt import (
     october_term_year,
     parse_scotus_docket_number,
 )
+from .topic_cut import build_topic_cut
 from .usage import (
     parse_claude_served_models,
     parse_claude_usage,
@@ -9515,6 +9516,66 @@ def corpus_seed_slice(  # noqa: PLR0913, PLR0917 - a CLI entrypoint; options map
             f"corpus-seed-slice: {len(result.census.missing)} requested case(s) "
             "have no row in the source corpus",
             err=True,
+        )
+
+
+@app.command("topic-cut")
+def topic_cut_cmd(
+    out: Annotated[
+        Path | None, typer.Option(help="Also write the cut as JSON here (default: stdout only).")
+    ] = None,
+    all_versions: Annotated[
+        bool,
+        typer.Option(
+            "--all-versions",
+            help="Read the scored counts and records over every process version, as "
+            "`leaderboard --all-versions` does (default: the frozen headline scope).",
+        ),
+    ] = False,
+) -> None:
+    """Cut every forecast by its case's topic, per forecast moment (descriptive only).
+
+    Joins each committed forecast to its case's topic label — a cert or merits
+    forecast to the petition's ``qp-topic-v0`` label, an interim forecast to its
+    application's ``qp-topic-v1`` label — and reports, per ``stage@moment`` and
+    topic: the committed forecasts (events and predictor cells, whatever their
+    scope), the events scored under the process scope, and each predictor's
+    forward, retrospective and procedural record by the board's own aggregate
+    (:mod:`fedcourtsai.topic_cut`). A forecast whose case carries no label is
+    reported as ``unlabeled`` beside every topic, never dropped. Every cell
+    carries its frame's coverage caveat verbatim.
+
+    Nothing is scored on topic and no board conditions on it: there is no rank
+    and no paired figure. The cut is built over the same stratify pass, skill
+    terms, band facts and vote scores the leaderboard is, so a record here is
+    the board's record re-read over one topic's cells. Reads the committed
+    ledger, the labels artifacts and ``metrics/statpack.json``; no corpus, no
+    spend. Its figures are not published until a stats review has read them
+    (``docs/qp-topic.md``).
+    """
+    settings = get_settings()
+    scope: Literal["frozen", "all"] = "all" if all_versions else "frozen"
+    run = stratify(settings.data_root, frozen_only=not all_versions)
+    cells = list(run.cells)
+    statpack = _read_best_effort(settings.metrics_root / "statpack.json", StatPack)
+    cut = build_topic_cut(
+        settings.data_root,
+        cells,
+        process_scope=scope,
+        skills=skill_components(cells, settings.data_root, statpack),
+        facts=cell_facts(cells, settings.data_root),
+        vote_scores=vote_scores(cells, settings.data_root),
+    )
+    if out is not None:
+        write_json(out, cut)
+    for frame in cut.frames:
+        typer.echo(f"{frame.frame} ({frame.vocabulary}): {frame.scope}")
+    typer.echo("")
+    typer.echo(f"{'moment':24s} {'topic':40s} {'events':>7s} {'cells':>6s} {'scored':>7s}")
+    for cell in cut.cells:
+        typer.echo(
+            f"{cell.moment:24s} {cell.topic:40s} {cell.forecast_events:7d} "
+            f"{cell.forecast_cells:6d} {cell.events_scored:7d}"
         )
 
 
