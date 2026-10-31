@@ -76,6 +76,7 @@ from .process_version import resolvable_runs
 from .schemas import (
     FILENAME_MODELS,
     MERITS_PROCEEDING_DISPOSITIONS,
+    AiCaseActivity,
     CorpusCheck,
     CorpusScopeAudit,
     CorpusValidation,
@@ -352,6 +353,29 @@ def _run_spend_problems(file: Path) -> list[str] | None:
     return []
 
 
+_ACTIVITY_NAME: Final = re.compile(r"^(?P<day>[0-9]{4}-[0-9]{2}-[0-9]{2})\.json$")
+
+
+def _ai_activity_problems(file: Path) -> list[str] | None:
+    """Validate one AI-case activity record; ``None`` if the file is not one.
+
+    Matched by position — ``ai-cases/activity/<file>`` — since the records are
+    named for their day. The name must spell the record's own ``day``.
+    """
+    if file.parent.name != "activity" or file.parent.parent.name != "ai-cases":
+        return None
+    name = _ACTIVITY_NAME.match(file.name)
+    if name is None:
+        return ["not an activity record: expected activity/<YYYY-MM-DD>.json"]
+    try:
+        record = AiCaseActivity.model_validate(json.loads(file.read_text()))
+    except (OSError, ValueError) as exc:
+        return [str(exc)]
+    if record.day.isoformat() != name["day"]:
+        return [f"named {name['day']} but records day {record.day.isoformat()}"]
+    return []
+
+
 def validate_ledger(path: Path) -> LedgerValidation:
     """Validate every known artifact under ``path`` against its schema model.
 
@@ -366,7 +390,9 @@ def validate_ledger(path: Path) -> LedgerValidation:
     ``summaries/`` files are checked too, against the summary contract
     (:func:`fedcourtsai.summaries.summary_file_problems`), and so are the topic
     labeler's run spend records under ``qp-topics/spend/``
-    (:func:`_run_spend_problems`); both are matched by position, not filename.
+    (:func:`_run_spend_problems`) and the AI-case activity records under
+    ``ai-cases/activity/`` (:func:`_ai_activity_problems`); all are matched by
+    position, not filename.
     """
     problems: list[str] = []
     checked = 0
@@ -381,6 +407,8 @@ def validate_ledger(path: Path) -> LedgerValidation:
             problems.extend(f"{file}: {problem}" for problem in summary)
             continue
         spend = _run_spend_problems(file)
+        if spend is None:
+            spend = _ai_activity_problems(file)
         if spend is not None:
             checked += 1
             problems.extend(f"{file}: {problem}" for problem in spend)

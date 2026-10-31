@@ -637,7 +637,13 @@ record. Those are written only from records whose snapshot is the Court's own
 supremecourt.gov docket JSON and whose documents are supremecourt.gov filings,
 so what they restate is public-record Court content outside the CC BY-ND term,
 and the prompt asks for a summary in the model's own words rather than
-quotation. There is also a **non-git** public
+quotation. Beside them sit the AI watchlist's activity records
+(`data/ai-cases/activity/`), on the footing of the `order-scan` report below:
+court-record identifiers (court, docket and entry numbers, filing dates), the
+kind our rule reads from each entry, the watchlist's own case name, and a link
+to the entry on CourtListener, whose path carries CourtListener's slug of the
+docket caption. They copy no entry text and no CourtListener value-add field.
+There is also a **non-git** public
 channel that carries corpus-derived text: `run-analytics`' one-day
 GitHub Actions artifacts, which on a public repository any logged-in user can
 download for their retention window. What each one

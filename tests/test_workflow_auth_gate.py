@@ -322,8 +322,8 @@ def test_a_lane_environment_is_bound_by_its_own_workflow_alone() -> None:
     """`corpus-check`'s reviewer approves one question — run this SHA's check —
     and the read-only role trusts it for that; `corpus-check-auto` hands the
     same role, unapproved, to the job that runs an allowlisted subcommand at
-    `main`; `website` holds the email list's key for the one job that drafts
-    the weekly update. A job elsewhere binding any of them would reach what it
+    `main`; `website` holds the email list's key for the two jobs that draft
+    the weekly updates. A job elsewhere binding any of them would reach what it
     holds for a purpose it was not set up for."""
     bound: dict[str, set[str]] = {env: set() for envs in LANE_ENVIRONMENTS.values() for env in envs}
     for path in sorted(WORKFLOWS.glob("*.y*ml")):
@@ -890,11 +890,12 @@ def test_a_job_that_names_a_secret_binds_a_branch_policied_environment() -> None
             ), f"{path.name}:{job_name} names a secret under environment {environment!r}"
 
 
-def test_the_public_update_poster_refuses_any_ref_but_main_first() -> None:
-    """The `website` key's job states its branch requirement as its first step,
+@pytest.mark.parametrize("job_name", ["post", "post-ai-cases"])
+def test_the_public_update_poster_refuses_any_ref_but_main_first(job_name: str) -> None:
+    """Each `website` key job states its branch requirement as its first step,
     so an unedited copy of the file on another ref stops before the key is
     used even if the environment's branch policy is loosened."""
-    job = _jobs(_load("post-public-update.yml"))["post"]
+    job = _jobs(_load("post-public-update.yml"))[job_name]
     assert job.get("environment") == "website"
     first = _steps(job)[0]
     assert "REF_NAME" in str(first.get("env"))

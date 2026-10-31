@@ -98,7 +98,15 @@ a day the docket id picks, which catches deletions and documents that did not
 move an entry's modification time, taken only where the share left covers the
 docket's stored length. Like pull, a run stops at a wall-clock budget or a run
 of transient failures and defers the rest. Corpus validation accepts these rows
-outside the tracked courts by name, and no other row of those courts.
+outside the tracked courts by name, and no other row of those courts. A refresh
+that finds entries the stored docket lacked records the significant ones
+(`fedcourtsai.ai_activity`: opinions, judgments, rulings on principal motions,
+those motions, complaints, appeals, settlements and dismissals; routine business
+dropped) in the committed `data/ai-cases/activity/<YYYY-MM-DD>.json`, which the
+weekly AI-cases email renders. An entry filed more than 14 days before it was
+first seen is old history and is not recorded, and a docket's first refresh
+records nothing. The record carries identifiers, dates, kinds and
+links, never docket text.
 
 Because pull runs headless inside a CI job, budget pressure and a degraded
 upstream must **degrade a run, never hang it**. Three guards enforce that, all

@@ -1,5 +1,6 @@
 from collections.abc import Callable
-from datetime import date, timedelta
+from contextlib import nullcontext
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
 
@@ -8,6 +9,7 @@ import pytest
 from typer.testing import CliRunner
 
 from fedcourtsai import corpus
+from fedcourtsai.ai_activity import activity_path
 from fedcourtsai.cli import app
 from fedcourtsai.courtlistener import (
     CourtListenerClient,
@@ -26,6 +28,8 @@ from fedcourtsai.pipeline.watchlist_refresh import (
     refresh_watchlist,
     refreshed_on,
 )
+from fedcourtsai.schemas import AiCaseActivity
+from fedcourtsai.serialize import read_model
 
 TODAY = date(2026, 11, 2)
 
@@ -205,6 +209,7 @@ def test_incremental_read_merges_into_the_stored_docket(tmp_path: Path) -> None:
         snap = corpus.latest_snapshot(conn, "cand/7")
     assert snap is not None and snap[0] == later
     assert [e["id"] for e in snap[1]["docket_entries"]] == [5, 1]
+    assert [e["id"] for e in done.added] == [5]
 
 
 def test_an_unchanged_docket_stores_no_new_snapshot(tmp_path: Path) -> None:
@@ -419,3 +424,36 @@ def test_dry_run_plans_every_listed_docket_and_reads_nothing(
     assert result.exit_code == 0, result.output
     assert "cand/71450167\tonboard" in result.output
     assert "nothing read" in result.output
+
+
+def test_the_command_records_a_day_of_significant_new_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    today = datetime.now(UTC).date()
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    first = FakeClient(
+        {71450167: [{"id": 1, "date_filed": "2025-09-24", "description": "COMPLAINT"}]}
+    )
+    monkeypatch.setattr("fedcourtsai.cli._client", lambda _lane: nullcontext(first))
+    onboard = CliRunner().invoke(app, ["watchlist-refresh"])
+    assert onboard.exit_code == 0, onboard.output
+    # Onboarding records nothing: a whole docket is history, not news.
+    assert not activity_path(tmp_path / "data", today).exists()
+
+    judgment = {
+        "id": 9,
+        "entry_number": 40,
+        "date_filed": today.isoformat(),
+        "description": "JUDGMENT.",
+    }
+    second = FakeClient(
+        {71450167: [judgment, *first.entries[71450167]]}, changed={71450167: [judgment]}
+    )
+    monkeypatch.setattr("fedcourtsai.cli._client", lambda _lane: nullcontext(second))
+    refreshed = CliRunner().invoke(app, ["watchlist-refresh"])
+    assert refreshed.exit_code == 0, refreshed.output
+    record = read_model(activity_path(tmp_path / "data", today), AiCaseActivity)
+    assert [(e.case, e.category, e.entry_id, e.kind) for e in record.entries] == [
+        ("X.AI v. OpenAI", "competitor", 9, "judgment")
+    ]
