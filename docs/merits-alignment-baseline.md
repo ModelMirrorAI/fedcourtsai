@@ -62,21 +62,49 @@ and how conservative the outcome will be. That coding is a judgment, and it is
 where much of a baseline's apparent skill could hide, so it is made once and
 recorded before the decision:
 
-- **When.** At grant, one agent pass reads only the record as it stands. It
-  records which party argues the conservative position and a score `s` in
-  [0, 1] for how conservative the outcome will be.
-- **How it is committed.** The pass is committed like a prediction and never
-  revised. It is stored as its own baseline predictor and kept for analytics.
-- **Past Terms.** OT2022–OT2025 grants are coded by the same pass, run on each
-  case's record as of grant time (replay mode). The agent may know those
-  outcomes from training, so every past-Term score carries a
-  **contamination-risk** flag, and any fit on them is labeled as possibly
-  optimistic. The clean check is a fit on scores recorded at grant time only,
-  reported separately. The pass runs at grant, so the first full Term of
-  clean scores is the grants of the first Term it runs for from that Term's
-  start; most of those cases are decided in the following Term. A clean
-  out-of-sample reading fits on that set and is scored on the grants of the
-  Term after it, and its report names both Terms.
+- **What it reads.** One agent pass, the side coder
+  (`.github/prompts/alignment-side-code.md`), reads each granted case as it
+  stood on the grant date and nothing else: the caption, the petitioner as
+  captioned, the court below, the grant date and the stored questions
+  presented. Its tools allow no retrieval, so a code cannot rest on a filing,
+  a docket or a search the grant-time text does not hold.
+- **What it records.** Which party, petitioner or respondent, argues the
+  conservative position; the score `s` in [0, 1], read as P(the conservative
+  side prevails); a `valence` (`clear`, `weak` or `none`) saying how clearly
+  the case divides on ideological lines, kept for analytics and read by no
+  baseline; and a one-sentence note. The conservative side is the one the
+  Supreme Court Database's decision-direction convention would code
+  conservative if the Court adopted its position, which the prompt states
+  category by category, so the side is a convention applied rather than a
+  fresh judgment. A side is always called, even on a case with no valence.
+- **How it is committed.** Each code lands in
+  `data/merits-alignment/alignment-side-codes.json` (`AlignmentSideCodes`)
+  and is never revised: `fedcourts alignment-side-codes` refuses a run that
+  would replace a committed code. The grant date, mode, contamination flag,
+  model, run and day are stamped by the harness from the extract and the run,
+  never taken from the coder.
+- **Which cases.** The frame is every SCOTUS cert grant that opened a merits
+  proceeding and did not ride the cert order, granted in OT2021 or later, on
+  the live slice (`pipeline.alignment_side`). Starting at OT2021 covers every
+  case decided from OT2022 on, since a case is decided in its grant Term or
+  the next. A case with no stored questions presented has nothing to code from
+  and is counted, not guessed at.
+- **Past Terms.** A case already decided when its extract is cut is coded in
+  **replay** mode. The coder is not told which cases those are, and is told
+  not to recall outcomes, but it may know them from training, so every replay
+  code carries the **contamination-risk** flag and any fit on them is labeled
+  as possibly optimistic. A case still undecided when cut is coded in
+  **forward** mode, and its code is the grant-time record the clean check
+  reads. The clean check is a fit on forward codes only, reported separately.
+  The first full Term of forward codes is the grants of the first Term the
+  pass runs for from that Term's start; most of those cases are decided in the
+  following Term. A clean out-of-sample reading fits on that set and is scored
+  on the grants of the Term after it, and its report names both Terms.
+
+On the production corpus whose newest pull is 2026-10-31, the frame holds 331
+grants, 29 of them with no stored questions presented, so a first run codes
+302 cases: 267 in replay and 35 forward. That fits one run, whose extract is
+capped at `CODE_ROW_CEILING` rows (400), earliest grants first.
 
 ## The readings
 
@@ -162,13 +190,17 @@ command's output on one corpus vintage: re-run the command for current ones.
 ## What is built, and what remains owed
 
 Built: baselines 1 and 2, the bloc rule, the three vote readings, and the
-read-only readout over the corpus's merits lineups.
+read-only readout over the corpus's merits lineups; and, for the side coding,
+the coder's prompt, the extract (`fedcourts alignment-side-extract`), the
+committed artifact and its append-only publish step (`fedcourts
+alignment-side-codes`).
 
 Owed, in order:
 
-- **The side-coding pass.** Its prompt, the run mode that executes it at grant
-  and in replay over OT2022–OT2025, and where its records live in the ledger,
-  with the contamination-risk flag on every replay record.
+- **The side-coding run.** The `run-analytics` mode that cuts the extract,
+  runs the coder with retrieval denied, publishes its codes by PR and records
+  its spend, behind the review hold at a planning rate of its own, on a
+  schedule that codes each new grant soon after it lands.
 - **Baselines 3 and 4.** The ideal-point source and its terms of use
   (`docs/data-sources.md`), the outcome transform and the fit of `k`, each with
   a `stats-reviewer` pass on the fit and the reading rule.

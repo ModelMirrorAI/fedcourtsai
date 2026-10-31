@@ -9153,6 +9153,113 @@ class QpTopicApplicationReference(_Strict):
         return self
 
 
+class AlignmentSide(StrEnum):
+    """Which party argues the conservative position in a granted merits case."""
+
+    petitioner = "petitioner"
+    respondent = "respondent"
+
+
+class AlignmentValence(StrEnum):
+    """How clearly a case divides on ideological lines, in the coder's reading.
+
+    Recorded for analytics; the score baselines read only the side and the score.
+    ``none`` is a real reading (a technical question with no ideological
+    valence), not a gap: the side is still called, as the side whose position
+    the coding guide's conservative priorities favor.
+    """
+
+    clear = "clear"
+    weak = "weak"
+    none = "none"
+
+
+class AlignmentCodeMode(StrEnum):
+    """Whether the case was still undecided (forward) or already decided (replay) when coded."""
+
+    forward = "forward"
+    replay = "replay"
+
+
+class AlignmentSideCode(_Strict):
+    """One granted merits case's side coding: its conservative side and alignment score.
+
+    The input the score baselines read (``docs/merits-alignment-baseline.md``),
+    made once by an agent pass that reads the case's grant-time text and never
+    revised. ``contamination_risk`` is true exactly on a ``replay`` code: the
+    case was decided before it was coded, so the coder may know the outcome
+    from training, and any fit on such codes is labeled possibly optimistic.
+    """
+
+    case_id: str = Field(
+        min_length=1,
+        description="Canonical ``<court>/<docket>`` id — joins the corpus row and ``data/cases``",
+    )
+    docket_number: str = Field(
+        min_length=1,
+        description="The Court's own docket number — the second half of the extract join key",
+    )
+    granted: date = Field(description="The cert grant date the coded text stood at")
+    conservative_side: AlignmentSide = Field(
+        description="The party whose position is the conservative one"
+    )
+    score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description="The alignment score `s`: how conservative the outcome will be, read as "
+        "P(the conservative side prevails)",
+    )
+    valence: AlignmentValence = Field(
+        description="How clearly the case divides on ideological lines; analytics only"
+    )
+    note: str = Field(
+        min_length=1,
+        max_length=400,
+        description="The coder's one-sentence reason for the side, in its own words",
+    )
+    mode: AlignmentCodeMode = Field(
+        description="`forward` if the case was undecided when coded, `replay` if decided"
+    )
+    contamination_risk: bool = Field(
+        description="True exactly on a `replay` code: the coder may know the outcome from "
+        "training, so a fit on it may be optimistic"
+    )
+    model: str = Field(min_length=1, description="The model that made the code")
+    run_id: str = Field(min_length=1, description="The workflow run that made the code")
+    coded_at: date = Field(description="The day the code was made")
+
+    @model_validator(mode="after")
+    def _contamination_follows_mode(self) -> AlignmentSideCode:
+        if self.contamination_risk != (self.mode == AlignmentCodeMode.replay):
+            raise ValueError("`contamination_risk` must be true exactly on a `replay` code")
+        if self.coded_at < self.granted:
+            raise ValueError("a code cannot predate the grant it was made at")
+        return self
+
+
+class AlignmentSideCodes(_Strict):
+    """``data/merits-alignment/alignment-side-codes.json`` — every side code made so far.
+
+    **Append-only**: a case is coded once and its code is never revised, so a
+    publish that would replace an entry is refused (``fedcourts
+    alignment-side-codes``). Entries are sorted by ``case_id``, one per case.
+    """
+
+    schema_version: Literal["1.0"] = SCHEMA_VERSION
+    scheme: Literal["alignment-side-v1"] = Field(
+        default="alignment-side-v1",
+        description="The coding guide every entry was made under",
+    )
+    entries: list[AlignmentSideCode] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _one_per_case_in_order(self) -> AlignmentSideCodes:
+        ids = [entry.case_id for entry in self.entries]
+        if ids != sorted(set(ids)):
+            raise ValueError("entries must be one per case, sorted by `case_id`")
+        return self
+
+
 class QpTopicLabelEntry(_Strict):
     """One labeled question-presented text: a case, its primary topic, and its optional facets.
 
@@ -14512,6 +14619,7 @@ FILENAME_MODELS: dict[str, type[_Strict]] = {
     "qp-topic-reference-applications.json": QpTopicApplicationReference,
     "qp-topics.json": QpTopicLabels,
     "qp-topics-applications.json": QpTopicApplicationLabels,
+    "alignment-side-codes.json": AlignmentSideCodes,
 }
 
 EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
@@ -14555,6 +14663,7 @@ EXPORTABLE_MODELS: dict[str, type[BaseModel]] = {
     "qp_topics": QpTopicLabels,
     "qp_topics_applications": QpTopicApplicationLabels,
     "qp_topic_run_spend": QpTopicRunSpend,
+    "alignment_side_codes": AlignmentSideCodes,
     "ai_case_activity": AiCaseActivity,
     "case_summary_front_matter": CaseSummaryFrontMatter,
     "summary_plan": SummaryPlan,
