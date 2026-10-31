@@ -96,7 +96,12 @@ def _case_pair(case_id: str) -> tuple[str, int] | None:
 
 
 def cases_due_for_pull(
-    corpus_db_path: Path, *, limit: int, skip_closed: bool = True, eligible_reserve: int = 0
+    corpus_db_path: Path,
+    *,
+    limit: int,
+    skip_closed: bool = True,
+    eligible_reserve: int = 0,
+    exclude: frozenset[str] = frozenset(),
 ) -> list[tuple[str, int]]:
     """The ``(court, docket)`` cases ``pull`` should refresh this run, stalest first.
 
@@ -106,8 +111,9 @@ def cases_due_for_pull(
     large active set rotates over successive days. ``eligible_reserve`` reserves
     up to that many slots for the stalest SCOTUS dockets so the in-scope
     set rotates ahead of the general active set (see
-    :func:`fedcourtsai.corpus.rotation_for_pull`). Empty if the corpus does not
-    exist yet (reading must not create it).
+    :func:`fedcourtsai.corpus.rotation_for_pull`); ``exclude`` names cases
+    another pass owns. Empty if the corpus does not exist yet (reading must not
+    create it).
     """
     if not corpus_db_path.exists():
         return []
@@ -115,7 +121,11 @@ def cases_due_for_pull(
     # writes this file anyway.
     with corpus.connect(corpus_db_path) as conn:
         rows = corpus.rotation_for_pull(
-            conn, limit=limit, skip_closed=skip_closed, eligible_reserve=eligible_reserve
+            conn,
+            limit=limit,
+            skip_closed=skip_closed,
+            eligible_reserve=eligible_reserve,
+            exclude=exclude,
         )
     return [pair for row in rows if (pair := _case_pair(row.case_id)) is not None]
 

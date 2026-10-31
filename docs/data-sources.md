@@ -637,7 +637,13 @@ record. Those are written only from records whose snapshot is the Court's own
 supremecourt.gov docket JSON and whose documents are supremecourt.gov filings,
 so what they restate is public-record Court content outside the CC BY-ND term,
 and the prompt asks for a summary in the model's own words rather than
-quotation. There is also a **non-git** public
+quotation. Beside them sit the AI watchlist's activity records
+(`data/ai-cases/activity/`), on the footing of the `order-scan` report below:
+court-record identifiers (court, docket and entry numbers, filing dates), the
+kind our rule reads from each entry, the watchlist's own case name, and a link
+to the entry on CourtListener, whose path carries CourtListener's slug of the
+docket caption. They copy no entry text and no CourtListener value-add field.
+There is also a **non-git** public
 channel that carries corpus-derived text: `run-analytics`' one-day
 GitHub Actions artifacts, which on a public repository any logged-in user can
 download for their retention window. What each one
@@ -733,7 +739,10 @@ The automated consumer stays within CourtListener's published API limits by desi
   (`FEDCOURTS_COURTLISTENER_RPM` / `_RPH` / `_RPD`, wired from repo variables
   to the held Free Law Project tier described below), with
   per-run caps in [`config/tracking.yaml`](../config/tracking.yaml) well under
-  them.
+  them. Every lane below spends the same account under its own fixed share
+  (`courtlistener_budget` there), its client stopping at the lane's run cap,
+  and the shares are sized to stay under the daily ceiling while the dispatched
+  lanes run at most one a day ([data-pipeline.md](data-pipeline.md)).
 - **Opinion enrichment shares that budget**, through the same client and the
   same configured ceilings; the `enrich-opinions` scope, its per-case request
   count, and the headroom arithmetic are owned by

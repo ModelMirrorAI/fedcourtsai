@@ -76,6 +76,7 @@ from .process_version import resolvable_runs
 from .schemas import (
     FILENAME_MODELS,
     MERITS_PROCEEDING_DISPOSITIONS,
+    AiCaseActivity,
     CorpusCheck,
     CorpusScopeAudit,
     CorpusValidation,
@@ -352,6 +353,29 @@ def _run_spend_problems(file: Path) -> list[str] | None:
     return []
 
 
+_ACTIVITY_NAME: Final = re.compile(r"^(?P<day>[0-9]{4}-[0-9]{2}-[0-9]{2})\.json$")
+
+
+def _ai_activity_problems(file: Path) -> list[str] | None:
+    """Validate one AI-case activity record; ``None`` if the file is not one.
+
+    Matched by position — ``ai-cases/activity/<file>`` — since the records are
+    named for their day. The name must spell the record's own ``day``.
+    """
+    if file.parent.name != "activity" or file.parent.parent.name != "ai-cases":
+        return None
+    name = _ACTIVITY_NAME.match(file.name)
+    if name is None:
+        return ["not an activity record: expected activity/<YYYY-MM-DD>.json"]
+    try:
+        record = AiCaseActivity.model_validate(json.loads(file.read_text()))
+    except (OSError, ValueError) as exc:
+        return [str(exc)]
+    if record.day.isoformat() != name["day"]:
+        return [f"named {name['day']} but records day {record.day.isoformat()}"]
+    return []
+
+
 def validate_ledger(path: Path) -> LedgerValidation:
     """Validate every known artifact under ``path`` against its schema model.
 
@@ -366,7 +390,9 @@ def validate_ledger(path: Path) -> LedgerValidation:
     ``summaries/`` files are checked too, against the summary contract
     (:func:`fedcourtsai.summaries.summary_file_problems`), and so are the topic
     labeler's run spend records under ``qp-topics/spend/``
-    (:func:`_run_spend_problems`); both are matched by position, not filename.
+    (:func:`_run_spend_problems`) and the AI-case activity records under
+    ``ai-cases/activity/`` (:func:`_ai_activity_problems`); all are matched by
+    position, not filename.
     """
     problems: list[str] = []
     checked = 0
@@ -381,6 +407,8 @@ def validate_ledger(path: Path) -> LedgerValidation:
             problems.extend(f"{file}: {problem}" for problem in summary)
             continue
         spend = _run_spend_problems(file)
+        if spend is None:
+            spend = _ai_activity_problems(file)
         if spend is not None:
             checked += 1
             problems.extend(f"{file}: {problem}" for problem in spend)
@@ -794,7 +822,11 @@ def check_case_dates(conn: sqlite3.Connection, today: date) -> CorpusCheck:
     )
 
 
-def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | None) -> CorpusCheck:
+def check_domain_values(
+    conn: sqlite3.Connection,
+    tracked_courts: list[str] | None,
+    admitted_case_ids: frozenset[str] = frozenset(),
+) -> CorpusCheck:
     """Coded columns must hold values from their declared vocabulary.
 
     A case ``disposition`` (when set) must be a :class:`~fedcourtsai.schemas.Disposition`,
@@ -809,6 +841,9 @@ def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | No
     off-vocabulary value would latch as if it were a real reading. The
     tracked-court half is skipped
     when no court set is supplied, keeping the verdict a pure function of its inputs.
+    ``admitted_case_ids`` are cases admitted by name rather than by court (the AI
+    watchlist's dockets): their rows may sit in an untracked court, and no other
+    row of that court may.
     """
     checked = corpus.count(conn) + corpus.event_count(conn)
     problems: list[str] = []
@@ -843,10 +878,14 @@ def check_domain_values(conn: sqlite3.Connection, tracked_courts: list[str] | No
     if tracked_courts:
         courts = sorted(set(tracked_courts))
         court_ph = ", ".join("?" for _ in courts)
+        admitted = sorted(admitted_case_ids)
+        admitted_clause = (
+            f"AND case_id NOT IN ({', '.join('?' for _ in admitted)}) " if admitted else ""
+        )
         for r in conn.execute(
             f"SELECT case_id, court FROM cases WHERE court NOT IN ({court_ph}) "
-            f"ORDER BY case_id LIMIT ?",
-            (*courts, _MAX_PROBLEMS),
+            f"{admitted_clause}ORDER BY case_id LIMIT ?",
+            (*courts, *admitted, _MAX_PROBLEMS),
         ):
             problems.append(f"case {r['case_id']!r} is in untracked court {r['court']!r}")
         for r in conn.execute(
@@ -2061,6 +2100,7 @@ def _run_checks(
     today: date,
     baseline_count: int | None,
     tracked_courts: list[str] | None,
+    admitted_case_ids: frozenset[str],
 ) -> CorpusValidation:
     """Run every check against an open corpus and roll the results into a verdict."""
     checks = [
@@ -2071,7 +2111,7 @@ def _run_checks(
         check_snapshot_not_future(conn, today),
         check_stale_unparsed_grants(conn, today),
         check_case_dates(conn, today),
-        check_domain_values(conn, tracked_courts),
+        check_domain_values(conn, tracked_courts, admitted_case_ids),
         check_no_duplicates(conn),
         check_ledger_references(conn, data_root),
         # Corpus-dependent, so it stays off `run_ledger_referential_checks` —
@@ -2107,6 +2147,7 @@ def run_corpus_validation(
     today: date,
     baseline_count: int | None = None,
     tracked_courts: list[str] | None = None,
+    admitted_case_ids: frozenset[str] = frozenset(),
 ) -> CorpusValidation:
     """Validate the corpus + ledger and return the verdict (the CLI is a thin wrapper).
 
@@ -2114,7 +2155,8 @@ def run_corpus_validation(
     checks), so the command is safe to call before a corpus pull. If the file
     exists but does not open as a database, that is itself a failed integrity check
     rather than a crash. ``tracked_courts`` scopes the domain check; absent it, the
-    court-membership half is skipped.
+    court-membership half is skipped. ``admitted_case_ids`` are the cases admitted
+    by name outside those courts.
     """
     if not corpus_db_path.exists():
         return CorpusValidation(ok=True, skipped=True)
@@ -2126,6 +2168,7 @@ def run_corpus_validation(
                 today=today,
                 baseline_count=baseline_count,
                 tracked_courts=tracked_courts,
+                admitted_case_ids=admitted_case_ids,
             )
     except sqlite3.Error as exc:
         opens = _check(

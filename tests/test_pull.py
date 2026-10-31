@@ -7,7 +7,7 @@ import httpx
 from fedcourtsai import corpus
 from fedcourtsai.cli import _format_discovery_failures, _format_refresh_failures
 from fedcourtsai.config import PredictScope
-from fedcourtsai.courtlistener import CourtListenerClient, RateBudgetExceeded
+from fedcourtsai.courtlistener import CourtListenerClient, EntryPageCapExceeded, RateBudgetExceeded
 from fedcourtsai.paths import CasePaths
 from fedcourtsai.pipeline.discover import discover_cases
 from fedcourtsai.pipeline.pull import _in_predict_scope, pull_case, pull_cases
@@ -39,7 +39,7 @@ class FakeClient:
     def get_docket(self, docket_id: int) -> dict[str, Any]:
         return self._docket
 
-    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:
+    def iter_docket_entries(self, docket_id: int, *, max_pages: int = 25) -> list[dict[str, Any]]:
         return self._entries
 
 
@@ -177,7 +177,7 @@ class FakeMultiClient:
     def get_docket(self, docket_id: int) -> dict[str, Any]:
         return self._dockets[docket_id]
 
-    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:
+    def iter_docket_entries(self, docket_id: int, *, max_pages: int = 25) -> list[dict[str, Any]]:
         return [{"id": 1, "description": "Filed"}]
 
 
@@ -374,7 +374,7 @@ class FakeDiscoverPullClient:
     def get_docket(self, docket_id: int) -> dict[str, Any]:
         return self.docket
 
-    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:
+    def iter_docket_entries(self, docket_id: int, *, max_pages: int = 25) -> list[dict[str, Any]]:
         return self.entries
 
 
@@ -399,7 +399,7 @@ class FlakyMultiClient:
             )
         return self._dockets[docket_id]
 
-    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:
+    def iter_docket_entries(self, docket_id: int, *, max_pages: int = 25) -> list[dict[str, Any]]:
         return [{"id": 1, "description": "Filed"}]
 
 
@@ -434,13 +434,62 @@ def test_pull_cases_isolates_a_failed_docket_from_the_rest(tmp_path: Path) -> No
     assert "404" in str(queues.failed[0]["reason"])
 
 
+class LongDocketClient(FlakyMultiClient):
+    """One docket's entries run past the page cap the rotation passes down."""
+
+    def __init__(self, dockets: dict[int, dict[str, Any]], long: int) -> None:
+        super().__init__(dockets, fail_on=-1)
+        self._long = long
+        self.caps: list[int] = []
+
+    def iter_docket_entries(self, docket_id: int, *, max_pages: int = 25) -> list[dict[str, Any]]:
+        self.caps.append(max_pages)
+        if docket_id == self._long:
+            raise EntryPageCapExceeded(f"docket {docket_id} has more than {max_pages} pages")
+        return super().iter_docket_entries(docket_id, max_pages=max_pages)
+
+
+def test_a_docket_past_the_page_cap_is_recorded_and_nothing_written(tmp_path: Path) -> None:
+    db = corpus.corpus_db_path(tmp_path / "corpus")
+    data_root = tmp_path / "data"
+    base = "https://www.courtlistener.com/api/rest/v4/courts"
+    client = LongDocketClient(
+        {
+            901: {"id": 901, "court": f"{base}/ca9/", "date_filed": "2026-01-02"},
+            903: {"id": 903, "court": f"{base}/ca9/", "date_filed": "2026-01-02"},
+        },
+        long=903,
+    )
+    _open_event(db, "ca9", 901)
+    _open_event(db, "ca9", 903)
+
+    queues = pull_cases(
+        cast(CourtListenerClient, client),
+        db,
+        data_root,
+        [("ca9", 903), ("ca9", 901)],
+        max_entry_pages=3,
+    )
+
+    assert client.caps == [3, 3]
+    assert [(f["court"], f["docket"]) for f in queues.failed] == [("ca9", 903)]
+    assert "more than 3 pages" in str(queues.failed[0]["reason"])
+    assert queues.stopped is None
+    assert [(e["court"], e["docket"]) for e in queues.predict] == [("ca9", 901)]
+    with corpus.connect(db) as conn:
+        assert corpus.latest_snapshot(conn, "ca9/903") is None
+        assert corpus.latest_snapshot(conn, "ca9/901") is not None
+
+
 class TimeoutClient:
     """Every fetch raises a transient transport error (a degraded upstream)."""
 
     def get_docket(self, docket_id: int) -> dict[str, Any]:
         raise httpx.ReadTimeout("The read operation timed out")
 
-    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:  # pragma: no cover
+    def iter_docket_entries(
+        self, docket_id: int, *, max_pages: int = 25
+    ) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
 
@@ -450,7 +499,9 @@ class BudgetClient:
     def get_docket(self, docket_id: int) -> dict[str, Any]:
         raise RateBudgetExceeded("next request must wait 3000s, over the 300s bound")
 
-    def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:  # pragma: no cover
+    def iter_docket_entries(
+        self, docket_id: int, *, max_pages: int = 25
+    ) -> list[dict[str, Any]]:  # pragma: no cover
         return []
 
 
@@ -512,7 +563,9 @@ def test_deterministic_failures_never_trip_the_breaker(tmp_path: Path) -> None:
                 response=httpx.Response(404),
             )
 
-        def iter_docket_entries(self, docket_id: int) -> list[dict[str, Any]]:  # pragma: no cover
+        def iter_docket_entries(
+            self, docket_id: int, *, max_pages: int = 25
+        ) -> list[dict[str, Any]]:  # pragma: no cover
             return []
 
     queues = pull_cases(

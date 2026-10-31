@@ -1,10 +1,15 @@
+import re
 from pathlib import Path
 
 import pytest
 import yaml
 from pydantic import ValidationError
+from typer.testing import CliRunner
 
+from fedcourtsai import cli
+from fedcourtsai.cli import _client
 from fedcourtsai.config import (
+    CourtListenerBudget,
     PredictConfig,
     PredictScope,
     PullConfig,
@@ -12,6 +17,7 @@ from fedcourtsai.config import (
     Settings,
     StatpackConfig,
     SweepCapsConfig,
+    load_courtlistener_budget,
     load_courts,
     load_predict_config,
     load_pull_config,
@@ -19,7 +25,9 @@ from fedcourtsai.config import (
     load_salience_config,
     load_spend_config,
     load_statpack_config,
+    load_watchlist_refresh_config,
 )
+from fedcourtsai.courtlistener import RateBudgetExceeded
 
 
 def _write_tracking(root: Path, body: str) -> None:
@@ -381,3 +389,105 @@ def test_sweep_caps_reject_a_ceiling_below_the_cap() -> None:
         SweepCapsConfig(response_fills=60, response_fills_ceiling=50)
     with pytest.raises(ValueError):
         SweepCapsConfig.model_validate({"docket_marking": 5})  # a misspelled cap is refused
+
+
+_REPO = Path(__file__).resolve().parent.parent
+
+
+def test_committed_courtlistener_lanes_fit_the_account() -> None:
+    budget = load_courtlistener_budget(_REPO / "config")
+
+    assert budget.reserved_per_day <= budget.account_per_day
+    # Every lane the CLI builds a client for has a share.
+    cli_source = (_REPO / "src" / "fedcourtsai" / "cli.py").read_text()
+    calls = re.findall(r"_client\(((?:\"[a-z-]+\"| if | else |[a-z_])+)\)", cli_source)
+    used = {name for call in calls for name in re.findall(r'"([a-z-]+)"', call)}
+    assert used
+    assert used <= {name for name, lane in budget.lanes.items() if lane.enforced}
+
+
+def test_a_watchlist_run_can_finish_its_longest_full_read() -> None:
+    # A full read is one docket request plus its entry pages; a share smaller
+    # than that would stop every run inside the same docket.
+    budget = load_courtlistener_budget(_REPO / "config")
+    cfg = load_watchlist_refresh_config(_REPO / "config")
+    assert cfg.max_entry_pages + 1 <= budget.lane("watchlist").per_run
+
+
+def test_pull_lane_is_sized_for_every_scheduled_pull_window() -> None:
+    budget = load_courtlistener_budget(_REPO / "config")
+    workflow = yaml.safe_load((_REPO / ".github" / "workflows" / "run-pull.yml").read_text())
+    crons = [entry["cron"] for entry in workflow[True]["schedule"]]
+    pull_windows = sum(len(cron.split()[1].split(",")) for cron in crons if cron.split()[0] == "17")
+
+    assert pull_windows == budget.lane("pull").runs_per_day
+
+
+def test_lane_shares_over_the_account_are_refused() -> None:
+    with pytest.raises(ValidationError, match="over the account's 100"):
+        CourtListenerBudget.model_validate(
+            {
+                "account_per_day": 100,
+                "lanes": {
+                    "a": {"per_run": 30, "runs_per_day": 2},
+                    "b": {"per_run": 50, "runs_per_day": 1, "enforced": False},
+                },
+            }
+        )
+
+
+def test_dispatched_lanes_reserve_only_the_largest_run() -> None:
+    budget = CourtListenerBudget.model_validate(
+        {
+            "account_per_day": 100,
+            "lanes": {
+                "a": {"per_run": 20, "runs_per_day": 2},
+                "b": {"per_run": 50, "dispatched": True},
+                "c": {"per_run": 60, "dispatched": True},
+            },
+        }
+    )
+    assert budget.reserved_per_day == 100
+    with pytest.raises(ValidationError, match="reserve 101 a day, over the account's 100"):
+        CourtListenerBudget.model_validate(
+            {
+                "account_per_day": 100,
+                "lanes": {
+                    "a": {"per_run": 20, "runs_per_day": 2},
+                    "c": {"per_run": 61, "dispatched": True},
+                },
+            }
+        )
+
+
+def test_an_unknown_lane_is_an_error_not_an_unbounded_client() -> None:
+    budget = CourtListenerBudget.model_validate(
+        {"account_per_day": 100, "lanes": {"a": {"per_run": 10, "runs_per_day": 1}}}
+    )
+    with pytest.raises(KeyError, match="no CourtListener lane 'b'"):
+        budget.lane("b")
+
+
+def test_cli_client_caps_a_run_at_its_lane_share() -> None:
+    budget = load_courtlistener_budget(_REPO / "config")
+    with _client("fetch") as client:
+        day = client._rate_limiter._windows[-1]
+    assert day.period == 86400.0
+    assert day.max_requests == budget.lane("fetch").per_run
+
+
+def test_a_fetch_past_its_share_fails_cleanly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def over_budget(*_args: object, **_kwargs: object) -> None:
+        raise RateBudgetExceeded("daily window full")
+
+    monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(tmp_path / "corpus"))
+    monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
+    monkeypatch.setattr(cli, "pull_case", over_budget)
+
+    result = CliRunner().invoke(cli.app, ["pull", "--court", "ca9", "--docket", "1"])
+
+    assert result.exit_code == 1
+    assert "ca9/1: not fetched: daily window full" in result.output
+    assert not (tmp_path / "corpus").exists()

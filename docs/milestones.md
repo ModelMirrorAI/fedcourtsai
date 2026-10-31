@@ -35,14 +35,15 @@ Public releases are anchored to the Court's calendar, so predictions publish
 None of the releases depends on the funding below. Funding changes how much of
 the docket, how many moments, and how many models each release covers.
 
-Between releases, the site's email list is planned to carry two optional
-updates a subscriber chooses: a **weekly SCOTUS update** (what resolved against
-what each model forecast, and the forecasts newly committed) and an **AI-cases
-feed** (new filings and rulings on the AI-case watchlist below, with that
-slice's forecasts as an opt-in addition). Each update's body is rendered from
-committed data; the only model-written text is an optional ruling summary,
-labelled with its model. Each send will be a draft a person approves, and
-neither update is scored. They cost almost nothing beyond those summaries, so
+Between releases, the site's email list carries two optional updates a
+subscriber chooses: a **weekly SCOTUS update** (what resolved against what each
+model forecast, and the forecasts newly committed) and a weekly **AI-cases
+feed** (new rulings and major filings on the AI-case watchlist below, each
+linked to the public docket). Each update's body is rendered from committed
+data, and each send is a draft a person approves; neither update is scored.
+Still to come for the AI-cases feed: that slice's forecasts as an opt-in
+addition, once the watchlist has forecasts, and an optional ruling summary
+labelled with its model. They cost almost nothing beyond those summaries, so
 they sit outside the scaling plan.
 
 ## The scaling plan
@@ -139,7 +140,9 @@ added on a dated line. Each case names its AI-developer parties and one
 category from the file's closed vocabulary (copyright, government, product
 liability and so on), so the list's mix can be reported. Its cases carry an
 `ai` tag that follows them to any appeal or cert petition; the tag never
-changes SCOTUS selection.
+changes SCOTUS selection. `fedcourts watchlist-refresh` keeps every listed
+docket's record current in the corpus, facts only, on its own share of the
+CourtListener budget.
 
 What the step adds:
 
@@ -149,9 +152,9 @@ What the step adds:
   the usual result, and *no merits decision* for a settlement or voluntary
   dismissal. Nothing is voided: a settlement or a mooted motion is something
   forecasts price in.
-- **The AI-cases feed before any forecast.** New filings and rulings on watchlist
-  dockets, with links to the public record, ship first; forecasts are added
-  once the district moments are registered.
+- **The AI-cases feed before any forecast.** The feed carries new filings and
+  rulings on watchlist dockets, with links to the public record; forecasts are
+  added once the district moments are registered.
 - **Forecasts on a developer's own case.** Several watchlist cases name as a
   party the developer of one of the project's predictors. A comparison of how
   a predictor forecasts its own developer's cases against the other predictors

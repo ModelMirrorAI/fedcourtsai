@@ -94,7 +94,7 @@ logger = logging.getLogger(__name__)
 # and stamps with. A refit is a NEW version registered alongside, never an
 # in-place edit, so any past ranking replays against the function that produced
 # it — see :data:`SCORERS`.
-SALIENCE_VERSION = "sal-v4"
+SALIENCE_VERSION = "sal-v6"
 
 # sal-v1 builds a ranking score from empirical grant rates. Every constant below
 # is a real SCOTUS cert grant rate from ``metrics/statpack.md`` (denial-reweighted),
@@ -642,9 +642,10 @@ _SAL_V3 = SalienceScorer(
 # the count under a stable label would re-point every published per-band rate at
 # a population it was never measured on.
 #
-# The ACTIVE version: `SALIENCE_VERSION` names sal-v4, and
-# `cert_signals.DEFAULT_DISTRIBUTION_PARSE` names `dist-v2` with it. The two move
-# together by necessity, not by tidiness — the relist-increment claim reads its
+# Activated with `cert_signals.DEFAULT_DISTRIBUTION_PARSE` naming `dist-v2`
+# beside it, and superseded by sal-v6, which pins the same parse. The version and
+# the default parse move together by necessity, not by tidiness, wherever an
+# activation changes the pinned parse — the relist-increment claim reads its
 # prediction-time count from the frozen context (the active scorer's parse) and
 # its resolution-time count from the outcome's signals block (stamped with the
 # default parse at resolution), so a split between them would resolve every
@@ -664,12 +665,10 @@ _SAL_V4 = SalienceScorer(
     distribution_parse="dist-v2",
 )
 
-# sal-v5: registered, NOT active. `SALIENCE_VERSION` still names sal-v4, so the
-# live pass, the corpus stamp and every cell's frozen context are sal-v4's;
-# sal-v5's bands are published beside it in the statpack's `alt_segments` and
-# scored in every gate replay. It is never activated: its caption-v3 counsel
-# reading carries post-outcome information, so sal-v6 is the candidate
-# registered in its place (docs/salience.md).
+# sal-v5: registered, never active. Its bands are published in the statpack's
+# `alt_segments` and scored in every gate replay. It is never activated: its
+# caption-v3 counsel reading carries post-outcome information, so sal-v6 is
+# activated in its place (docs/salience.md).
 _SAL_V5 = SalienceScorer(
     version="sal-v5",
     score=_sal_v5_score,
@@ -682,11 +681,11 @@ _SAL_V5 = SalienceScorer(
     admits=_sal_v5_admits,
 )
 
-# sal-v6: registered, NOT active, for the same reason sal-v5 was registered
-# first: `SALIENCE_VERSION` still names sal-v4, and the flip is a separate
-# registration step (docs/salience.md). It is sal-v5's relist rule and writ
-# scope over sal-v3's caption-v2 carve-out and reachable ladder, reusing
-# each as the SAME callable so the versions cannot drift in what they share.
+# sal-v6: the ACTIVE version (`SALIENCE_VERSION`), registered inactive first and
+# flipped as a separate step (docs/salience.md). It is sal-v5's relist rule and
+# writ scope over sal-v3's caption-v2 carve-out and reachable ladder, reusing
+# each as the SAME callable so the versions cannot drift in what they share. It
+# pins `dist-v2`, the default parse, so its activation moved one constant.
 _SAL_V6 = SalienceScorer(
     version="sal-v6",
     score=_sal_v5_score,  # sal-v5's relist count; the caption never weights it
@@ -1198,8 +1197,9 @@ def plan_cohorts(
     already_selected: set[str] = set()
     eligible = 0
     for row in rows:
-        # A row outside the version's own segment (sal-v5's Rule 20 writs) is
-        # neither scored nor selected under it, exactly like a Tier-0 row.
+        # A row outside the version's own segment (the Rule 20 writs sal-v5
+        # and later leave out) is neither scored nor selected under it; the
+        # live write passes stamp it as refused (`_planned_selection`).
         if not active.in_segment(row):
             continue
         eligible += 1
@@ -1344,14 +1344,32 @@ def _reserve_occupant(
 
 def _planned_selection(
     conn: sqlite3.Connection, config: SalienceConfig, *, as_of: date
-) -> tuple[tuple[dict[str, float], list[str], int, int], list[ReserveOccupant]]:
-    """The selection plan beside the reserve occupants it was planned against.
+) -> tuple[tuple[dict[str, float], list[str], int, int], list[ReserveOccupant], list[str]]:
+    """The selection plan beside the reserve occupants and the refused rows.
 
     One snapshot read per pending occupant, so the cost is bounded by the
     reserve's size plus whatever latched applications remain unresolved.
     ``as_of`` is the pass's own date, which the reserve's age-out measures to.
+
+    The third element names the in-scope rows outside the active version's
+    segment. The write passes stamp them with the active version and no score
+    (:func:`fedcourtsai.corpus.refuse_salience_scores`), so the gate reads
+    each as scored and not selected — deferred — rather than as never scored,
+    which the gate's fail-open would treat as selected.
     """
     occupancy: list[ReserveOccupant] = []
+    active = scorer()
+    refused: list[str] = []
+
+    def in_scope(row: corpus.CorpusRow) -> bool:
+        # Tier-0 excluded, and every IFP docket — the granted ones the IFP
+        # rule readmits belong to the merits stream, which this cert-stage
+        # gate does not fund: not scored, not selected.
+        if corpus.out_of_scope_reason_full(conn, row) is not None or corpus.is_ifp_petition(row):
+            return False
+        if not active.in_segment(row):
+            refused.append(row.case_id)
+        return True
 
     def released(row: corpus.CorpusRow) -> bool:
         occupant = _reserve_occupant(
@@ -1361,21 +1379,13 @@ def _planned_selection(
         return not occupant.holds_slot
 
     plan = plan_cohorts(
-        (
-            row
-            for row in corpus.iter_rows(conn, court="scotus")
-            # Tier-0 excluded, and every IFP docket — the granted ones the
-            # IFP rule readmits belong to the merits stream, which this
-            # cert-stage gate does not fund: not scored, not selected.
-            if corpus.out_of_scope_reason_full(conn, row) is None
-            and not corpus.is_ifp_petition(row)
-        ),
+        (row for row in corpus.iter_rows(conn, court="scotus") if in_scope(row)),
         config,
         released=released,
         application_twins=corpus.duplicate_application_case_ids(conn),
         as_of=as_of,
     )
-    return plan, occupancy
+    return plan, occupancy, refused
 
 
 def _selection_plan(
@@ -1419,8 +1429,9 @@ def apply_salience_selection(
     distribution moment (``store``'s admission), so an unminted pick would
     sit latched with nothing to forecast.
     """
-    scores, to_select, _, _ = _selection_plan(conn, config, as_of=as_of)
+    (scores, to_select, _, _), _, refused = _planned_selection(conn, config, as_of=as_of)
     corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
+    corpus.refuse_salience_scores(conn, refused, SALIENCE_VERSION)
     corpus.latch_salience_selected(conn, to_select)
     _mint_owed_arrival_events(conn, data_root)
     return to_select
@@ -1506,11 +1517,12 @@ def reconcile_salience_selection(
     ``as_of`` is the pass's own date, which the interim reserve's age-out
     measures each application's filing date to.
     """
-    (scores, to_select, eligible, conferences), occupancy = _planned_selection(
+    (scores, to_select, eligible, conferences), occupancy, refused = _planned_selection(
         conn, config, as_of=as_of
     )
     if apply:
         corpus.set_salience_scores(conn, scores, SALIENCE_VERSION)
+        corpus.refuse_salience_scores(conn, refused, SALIENCE_VERSION)
         corpus.latch_salience_selected(conn, to_select)
         _mint_owed_arrival_events(conn, data_root)
     return SalienceSelectionResult(

@@ -74,8 +74,9 @@ def build(
     row outside the active version's segment
     (:meth:`.salience.SalienceScorer.in_segment`, read off the payload's own
     opening petition entry): a version that does not score a row has no band to
-    freeze for it. The signals still freeze, so the null band is told apart from
-    an unobservable docket by ``signals_observable``.
+    freeze for it. The signals still freeze, and the refusal is stamped as
+    ``band_refused="outside-segment"``, so the null band is told apart from an
+    unobservable docket and from an application without inference.
     """
     # Both payload shapes: the REST record carries `docket_number`, the live
     # supremecourt.gov JSON carries `CaseNumber`. Only the live shape carries
@@ -154,10 +155,13 @@ def build(
     # evaluator a base rate for a population it was excluded from. The segment
     # is read off the projected row, so the refusal follows the cell's own
     # payload exactly as the band does. Under a version that narrows nothing
-    # (`admits` unset, every version through sal-v4) this never refuses.
+    # (`admits` unset, every version through sal-v4) this never refuses. The
+    # refusal is stamped as `band_refused`, so a reader need not infer it from
+    # a null band beside `signals_observable`.
+    outside_segment = observable and not application and not active.in_segment(projected.row)
     band = (
         active.band(projected.row)
-        if observable and not application and active.in_segment(projected.row)
+        if observable and not application and not outside_segment
         else None
     )
     # The Term axis follows the docket form, because the two stages' baselines
@@ -189,6 +193,7 @@ def build(
         cvsg_date=cvsg,
         band=band,
         salience_version=active.version if band else None,
+        band_refused="outside-segment" if outside_segment else None,
         response_requested=projected.row.response_requested if application else None,
         referred_to_court=projected.row.referred_to_court if application else None,
         amicus_briefs=projected.row.amicus_briefs if application else None,

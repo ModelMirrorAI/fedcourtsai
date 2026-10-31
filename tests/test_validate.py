@@ -188,10 +188,10 @@ def test_run_scope_audit_tallies_open_exclusions_with_recoverable_split(tmp_path
     by_reason = {e.reason: e for e in audit.exclusions}
     assert set(by_reason) == {
         "pre-1925 mandatory-jurisdiction matter",
-        "stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
+        corpus.STALE_UNRESOLVABLE_REASON,
         corpus.BARE_OPINION_IMPORT_REASON,
     }
-    stale = by_reason["stale unresolvable old SCOTUS petition (pre-2015 Term, still open)"]
+    stale = by_reason[corpus.STALE_UNRESOLVABLE_REASON]
     assert (stale.cases, stale.open_events, stale.recoverable) == (2, 2, 1)
     assert stale.sample_cases == ["scotus/1004191", "scotus/1004289"]
     hist = by_reason["pre-1925 mandatory-jurisdiction matter"]
@@ -983,6 +983,31 @@ def test_untracked_court_fails_when_set_supplied(tmp_path: Path) -> None:
     check = next(c for c in verdict.checks if c.name == CHECK_DOMAIN_VALUES)
     assert not check.passed
     assert any("ca9/1" in p for p in check.problems)
+
+
+def test_a_case_admitted_by_name_may_sit_in_an_untracked_court(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    _seed_corpus(db)  # corpus court is ca9
+    with corpus.connect(db) as conn:
+        # The watchlist pass stores no events; an event's court is held strictly.
+        conn.execute("DELETE FROM events")
+        conn.commit()
+    admitted = run_corpus_validation(
+        corpus_db_path=db,
+        data_root=tmp_path / "data",
+        today=TODAY,
+        tracked_courts=["ca1"],
+        admitted_case_ids=frozenset({"ca9/1"}),
+    )
+    other = run_corpus_validation(
+        corpus_db_path=db,
+        data_root=tmp_path / "data",
+        today=TODAY,
+        tracked_courts=["ca1"],
+        admitted_case_ids=frozenset({"ca9/2"}),
+    )
+    assert _verdict_by_check(admitted)[CHECK_DOMAIN_VALUES] is True
+    assert _verdict_by_check(other)[CHECK_DOMAIN_VALUES] is False
 
 
 def test_tracked_court_passes(tmp_path: Path) -> None:
@@ -1963,7 +1988,7 @@ def test_cli_scope_audit_writes_audit_and_summary(tmp_path: Path) -> None:
     assert audit.scotus_open_events == 5
     assert {e.reason for e in audit.exclusions} == {
         "pre-1925 mandatory-jurisdiction matter",
-        "stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
+        corpus.STALE_UNRESOLVABLE_REASON,
         corpus.BARE_OPINION_IMPORT_REASON,
     }
 

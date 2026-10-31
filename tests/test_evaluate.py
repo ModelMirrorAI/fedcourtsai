@@ -178,6 +178,7 @@ def test_segment_base_rate_none_for_a_row_outside_the_active_segment(
     out of its segment, as the frozen cell band does; under sal-v4 it does not."""
     pack = _statpack(_term(2023, {"high": (0.40, 100)}))
     writ = _row("24-100").model_copy(update={"opening_writ": "rule-20"})
+    monkeypatch.setattr(salience_module, "SALIENCE_VERSION", "sal-v4")
     assert segment_base_rate(writ, pack) == pytest.approx(0.40)
     monkeypatch.setattr(salience_module, "SALIENCE_VERSION", version)
     assert segment_base_rate(writ, pack) is None

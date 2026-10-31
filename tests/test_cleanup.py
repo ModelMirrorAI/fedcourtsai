@@ -159,7 +159,7 @@ def test_render_cleanup_pr_table_and_closes() -> None:
     prunable = [
         cleanup.PrunableCase(
             case_id="scotus/1004191",
-            reason="stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
+            reason=corpus.STALE_UNRESOLVABLE_REASON,
             paths=["data/cases/scotus/1004191/events/evt-petition-disposition/predictions"],
         ),
         cleanup.PrunableCase(
@@ -172,10 +172,7 @@ def test_render_cleanup_pr_table_and_closes() -> None:
     assert pr.branch == "cleanup/out-of-scope-predictions-RID"
     assert pr.title == "cleanup: prune predictions for 2 out-of-scope cases"
     assert pr.commit_message == pr.title
-    assert (
-        "| `scotus/1004191` | stale unresolvable old SCOTUS petition "
-        "(pre-2015 Term, still open) | 1 |" in pr.body
-    )
+    assert f"| `scotus/1004191` | {corpus.STALE_UNRESOLVABLE_REASON} | 1 |" in pr.body
     assert "| `scotus/1001931` | pre-1925 mandatory-jurisdiction matter | 2 |" in pr.body
     assert "Closes #320." in pr.body
     assert "not** auto-merged" in pr.body

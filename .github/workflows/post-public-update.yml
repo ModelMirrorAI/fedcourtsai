@@ -1,17 +1,19 @@
 name: post-public-update
 
-# The weekly public update for the site's email list, delivered as a Buttondown
-# DRAFT. Each Monday it renders the last complete ISO week from the committed
-# ledger (`fedcourts public-update`'s renderer) and creates one draft addressed
-# to the subscribers carrying the `weekly-scotus` tag. Nothing here sends: the
-# maintainer reads the draft and presses send in Buttondown. A week with nothing
-# resolved and no new forecast posts nothing.
+# The weekly public updates for the site's email list, delivered as Buttondown
+# DRAFTS. Each Monday the `post` job renders the last complete ISO week from the
+# committed ledger (`fedcourts public-update`'s renderer) and creates one draft
+# addressed to the subscribers carrying the `weekly-scotus` tag, and the
+# `post-ai-cases` job does the same for the AI watchlist's docket activity and
+# the `ai-cases` tag. Nothing here sends: the maintainer reads each draft and
+# presses send in Buttondown. A week with nothing to report posts nothing.
 #
 # Its own workflow, rather than a job on run-ops, because it is a different
 # risk class: it holds a third-party key that can send to the list, and that
-# key lives in the `website` environment, bound by this one job. A deployment
-# environment brings the run gate with it, and putting it on run-ops would
-# gate the ops report and the daily digest too, which hold nothing of the kind.
+# key lives in the `website` environment, bound by this workflow's two drafting
+# jobs alone. A deployment environment brings the run gate with it, and putting
+# it on run-ops would gate the ops report and the daily digest too, which hold
+# nothing of the kind.
 #
 # It reads only committed data (no corpus, no model call) and writes nothing
 # to the repository, so the token it runs with is read-only. The post is
@@ -141,8 +143,73 @@ jobs:
           fi
           cat post.txt >> "$GITHUB_STEP_SUMMARY"
 
+  # The AI-cases update: the AI watchlist's significant docket activity over
+  # the same last complete week (`fedcourts post-ai-cases-update`), read from
+  # the committed records under data/ai-cases/activity/ that run-pull's
+  # watchlist refresh writes. Its own job on the same trigger, environment and
+  # key, addressed to the `ai-cases` tag; a week with no recorded activity
+  # posts nothing. Until the tag's id is set on the environment, the job says
+  # so and posts nothing.
+  post-ai-cases:
+    needs: [authorize]
+    if: >-
+      ${{ needs.authorize.result == 'success'
+      && (needs.authorize.outputs.attempt == github.run_attempt
+      || contains(needs.authorize.outputs.rerunners, format(',{0},', github.triggering_actor))) }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    environment: website
+    permissions:
+      contents: read # read the committed activity records under data/
+    steps:
+      - name: Refuse a run from anything but the main branch
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "${REF_NAME}" != "main" ]; then
+            echo "::error::post-public-update runs only from 'main' (started from '${REF_NAME}'). The website environment's deployment branches should already refuse this — if this message is what stopped the run, check that policy too (docs/security.md)."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # this job pushes nothing
+
+      - uses: ./.github/actions/setup-python-env
+        with:
+          restore-cache: "false"
+
+      - name: Create the week's AI-cases draft
+        env:
+          BUTTONDOWN_API_KEY: ${{ secrets.BUTTONDOWN_API_KEY }}
+          # The ai-cases tag's Buttondown id, a plain variable on the website
+          # environment, as the weekly tag's is.
+          TAG_ID: ${{ vars.AI_CASES_TAG_ID }}
+          WEEK: ${{ inputs.week }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TAG_ID}" ]; then
+            echo "::warning::The ai-cases tag id is not set on the website environment; no AI-cases draft was made."
+            echo "AI-cases update skipped: the tag id is not set." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          set +e
+          uv run fedcourts post-ai-cases-update --tag-id "${TAG_ID}" --week "${WEEK}" > post.txt
+          status=$?
+          set -e
+          if [ "$status" -eq 3 ]; then
+            echo "No AI-case activity recorded this week; no draft created." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          if [ "$status" -ne 0 ]; then
+            echo "Buttondown post failed (exit $status); see the step log." >> "$GITHUB_STEP_SUMMARY"
+            exit "$status"
+          fi
+          cat post.txt >> "$GITHUB_STEP_SUMMARY"
+
   run-gate:
-    needs: [authorize, post]
+    needs: [authorize, post, post-ai-cases]
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5

@@ -48,6 +48,7 @@ from typer._click.exceptions import UsageError
 from typer.core import TyperCommand
 
 from . import (
+    ai_activity,
     analytics,
     blinding,
     casestore,
@@ -89,6 +90,8 @@ from . import (
 from .agent_feedback import issue_bodies, open_issue_once, post_agent_feedback, post_once
 from .agent_flags import CellCoordinates, coordinates_from_path, normalise_flags
 from .agent_tooling import normalise_tooling
+from .ai_cases_update import ai_cases_subject, build_ai_cases_update, render_ai_cases_update
+from .ai_watchlist import AI_WATCHLIST_FILENAME, load_ai_watchlist, tagged_case_ids
 from .application_migration import (
     MOTION_BASELINE_EVENT_ID,
     relabel_application_baseline_events,
@@ -158,6 +161,7 @@ from .config import (
     PredictScope,
     Settings,
     get_settings,
+    load_courtlistener_budget,
     load_courts,
     load_evaluate_config,
     load_historical_config,
@@ -168,8 +172,14 @@ from .config import (
     load_spend_config,
     load_statpack_config,
     load_summaries_config,
+    load_watchlist_refresh_config,
 )
-from .courtlistener import CourtListenerClient, default_rate_limiter
+from .courtlistener import (
+    CourtListenerClient,
+    EntryPageCapExceeded,
+    RateBudgetExceeded,
+    default_rate_limiter,
+)
 from .dataset_export import (
     BuildContext,
     ExportError,
@@ -291,6 +301,7 @@ from .pipeline import (
     semantic,
     vide_links,
     vote_sources,
+    watchlist_refresh,
 )
 from .pipeline.amicus_rederive import AmicusRederiveResult, rederive_amicus_briefs
 from .pipeline.application_topics import (
@@ -494,6 +505,7 @@ from .schemas import (
     AgentFlag,
     AgentFlags,
     AgentToolingFeedback,
+    AiCaseActivityEntry,
     AuthorshipTally,
     Backtest,
     BlindingRecord,
@@ -655,8 +667,15 @@ def _main(
     """Predict events in US federal courts."""
 
 
-def _client() -> CourtListenerClient:
+def _client(lane: str) -> CourtListenerClient:
+    """A CourtListener client held to the tier's ceilings and to ``lane``'s run cap.
+
+    The lane's share (``courtlistener_budget`` in ``tracking.yaml``) narrows the
+    daily window to one run's cap: a process counts only its own requests, so the
+    cap is what keeps the lanes' runs together under the account's ceiling.
+    """
     s = get_settings()
+    share = load_courtlistener_budget(s.config_root).lane(lane)
     return CourtListenerClient(
         base_url=s.courtlistener_base_url,
         api_token=s.courtlistener_api_token,
@@ -664,7 +683,7 @@ def _client() -> CourtListenerClient:
         rate_limiter=default_rate_limiter(
             s.courtlistener_rpm,
             s.courtlistener_rph,
-            s.courtlistener_rpd,
+            min(s.courtlistener_rpd, share.per_run),
             max_wait=s.courtlistener_max_wait,
         ),
     )
@@ -749,6 +768,7 @@ def validate_corpus_cmd(
         today=as_of,
         baseline_count=baseline_count,
         tracked_courts=load_courts(settings.config_root),
+        admitted_case_ids=_watchlist_case_ids(settings),
     )
     destination = out if out is not None else settings.metrics_root / "corpus-validation.json"
     write_json(destination, verdict)
@@ -4174,7 +4194,10 @@ def enrich_opinions_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect_maintenance(db_path, apply=apply) as conn, _client() as client:
+    with (
+        corpus.connect_maintenance(db_path, apply=apply) as conn,
+        _client("opinion-hold" if awaiting_grading else "opinion-walk") as client,
+    ):
         result = enrich_opinions(
             conn,
             client,
@@ -14597,6 +14620,129 @@ def post_public_update_cmd(
     typer.echo(f"post-public-update: {chosen}: {verb} {draft.email_id}{where}")
 
 
+def _ai_cases_span(week: str, day: str) -> tuple[date, date]:
+    """The span an AI-cases command names: one day, one ISO week, or the last complete week."""
+    if week and day:
+        raise typer.BadParameter("give at most one of --week and --day")
+    if day:
+        try:
+            one = date.fromisoformat(day)
+        except ValueError as exc:
+            raise typer.BadParameter(f"--day {day!r} is not a YYYY-MM-DD date") from exc
+        return one, one
+    try:
+        return week_bounds(week or last_complete_week(datetime.now(UTC)))
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+
+@app.command("ai-cases-update")
+def ai_cases_update_cmd(
+    *,
+    week: Annotated[
+        str, typer.Option(help="ISO week to render, as YYYY-Www; default the last complete week.")
+    ] = "",
+    day: Annotated[str, typer.Option(help="One day to render instead, as YYYY-MM-DD.")] = "",
+    out: Annotated[
+        Path | None, typer.Option(help="Write the Markdown here; omit to print it.")
+    ] = None,
+) -> None:
+    """Render the AI-cases update from the committed watchlist activity records.
+
+    Read-only and deterministic: the same tree and span render the same bytes.
+    Exits 3, writing nothing, when the span recorded no significant entry.
+    """
+    settings = get_settings()
+    start, end = _ai_cases_span(week, day)
+    update = build_ai_cases_update(settings.data_root, start, end)
+    if update.empty:
+        typer.echo(f"ai-cases-update: nothing to send for {start} to {end}.", err=True)
+        raise typer.Exit(code=3)
+    text = render_ai_cases_update(update)
+    if out is None:
+        typer.echo(text, nl=False)
+        return
+    write_text(out, text)
+    typer.echo(f"ai-cases-update: {start} to {end}: {update.items} item(s) -> {out}", err=True)
+
+
+@app.command("post-ai-cases-update")
+def post_ai_cases_update_cmd(
+    *,
+    tag: Annotated[
+        str,
+        typer.Option(
+            help="Buttondown tag name whose subscribers the draft is addressed to; "
+            "resolving a name lists the account's tags. Or give --tag-id."
+        ),
+    ] = "",
+    tag_id: Annotated[
+        str,
+        typer.Option(
+            "--tag-id",
+            help="Buttondown tag id the draft is addressed to; needs no read beyond emails.",
+        ),
+    ] = "",
+    week: Annotated[
+        str, typer.Option(help="ISO week to post, as YYYY-Www; default the last complete week.")
+    ] = "",
+    day: Annotated[str, typer.Option(help="One day to post instead, as YYYY-MM-DD.")] = "",
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run", help="Render the subject and body and print them; contact nothing."
+        ),
+    ] = False,
+) -> None:
+    """Create the AI-cases update as a Buttondown draft for one tag's subscribers.
+
+    Draft only: a person reads it and presses send in Buttondown. Idempotent per
+    span, since an email already carrying the span's subject is returned rather
+    than duplicated. Exits 3 on a span with nothing to send, 2 on a bad span or a
+    missing key, 1 when Buttondown refuses. The key is read from the environment
+    and never printed.
+    """
+    settings = get_settings()
+    if bool(tag.strip()) == bool(tag_id.strip()):
+        typer.echo("post-ai-cases-update: give exactly one of --tag or --tag-id.", err=True)
+        raise typer.Exit(code=2)
+    try:
+        start, end = _ai_cases_span(week, day)
+    except typer.BadParameter as exc:
+        typer.echo(f"post-ai-cases-update: {exc}", err=True)
+        raise typer.Exit(code=2) from exc
+    update = build_ai_cases_update(settings.data_root, start, end)
+    if update.empty:
+        typer.echo(f"post-ai-cases-update: nothing to send for {start} to {end}.", err=True)
+        raise typer.Exit(code=3)
+    subject = ai_cases_subject(update)
+    body = render_ai_cases_update(update, title=False)
+    if dry_run:
+        typer.echo(f"Subject: {subject}\nTag: {tag.strip() or tag_id.strip()}\n\n{body}", nl=False)
+        return
+    api_key = os.environ.get(API_KEY_ENV, "")
+    if not api_key.strip():
+        typer.echo(
+            f"post-ai-cases-update: the {API_KEY_ENV} environment variable is unset.", err=True
+        )
+        raise typer.Exit(code=2)
+    try:
+        with make_client(api_key) as client:
+            draft = post_draft(
+                client,
+                subject=subject,
+                body=body,
+                tag_name=tag.strip() or None,
+                tag_id_value=tag_id.strip() or None,
+            )
+    except ButtondownError as exc:
+        typer.echo(f"post-ai-cases-update: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
+    verb = "created draft" if draft.created else f"already present ({draft.status})"
+    where = f" {draft.url}" if draft.url else ""
+    typer.echo(f"post-ai-cases-update: {start} to {end}: {verb} {draft.email_id}{where}")
+
+
 @app.command("daily-digest")
 def daily_digest(
     *,
@@ -15192,8 +15338,13 @@ def _fetch_one_docket(court: str, docket: int) -> None:
     """Fetch one docket via REST and ingest it into the corpus (onboard/refresh)."""
     settings = get_settings()
     db = corpus.corpus_db_path(settings.corpus_root)
-    with _client() as client:
-        result = pull_case(client, db, settings.data_root, court, docket)
+    try:
+        with _client("fetch") as client:
+            result = pull_case(client, db, settings.data_root, court, docket)
+    except (RateBudgetExceeded, EntryPageCapExceeded) as exc:
+        # Nothing is written when the read stops short: report and fail cleanly.
+        typer.echo(f"{court}/{docket}: not fetched: {exc}", err=True)
+        raise typer.Exit(1) from exc
     _ensure_corpus_layout(db)
     typer.echo(
         f"{result.case_id} changed={result.changed} snapshot={result.snapshot} "
@@ -15214,6 +15365,121 @@ def pull(
     should run). The first pull of a docket onboards it.
     """
     _fetch_one_docket(court, docket)
+
+
+def _watchlist_case_ids(settings: Settings) -> frozenset[str]:
+    """The AI watchlist's dockets, which ``watchlist-refresh`` owns; none without the file."""
+    path = settings.config_root / AI_WATCHLIST_FILENAME
+    return tagged_case_ids(load_ai_watchlist(path)) if path.exists() else frozenset()
+
+
+@app.command("watchlist-refresh")
+def watchlist_refresh_cmd(
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Print the plan (each docket's read mode and date) and stop: no "
+            "CourtListener request, no corpus write. Reads the corpus only.",
+        ),
+    ] = False,
+    report: Annotated[
+        Path | None,
+        typer.Option(help="Also write the run's report (refreshed, failed, deferred) as JSON."),
+    ] = None,
+    once_a_day: Annotated[
+        bool,
+        typer.Option(
+            "--once-a-day",
+            help="Do nothing when a listed docket was already refreshed today (UTC): the "
+            "lane's share is sized for one run a day, so the scheduled windows after the "
+            "first, and a dispatch the same day, spend nothing.",
+        ),
+    ] = False,
+) -> None:
+    """Keep the AI watchlist's dockets current in the corpus, facts only.
+
+    Refreshes every docket ``config/ai-watchlist.yaml`` names on the
+    ``watchlist`` lane's share: a snapshot when the docket changed and a
+    ``cases`` row stamped ``last_pulled``, and no events, outcomes or queues.
+    Incremental reads (entries changed since the last refresh) go first, then
+    whole reads: onboarding a docket, which spreads the list over several runs,
+    and a weekly re-read where the share left covers it. Stops at a wall-clock
+    budget or a run of transient failures, deferring the rest. Exits 1 when any
+    docket failed, so a docket past the page cap is seen.
+    """
+    settings = get_settings()
+    cfg = load_watchlist_refresh_config(settings.config_root)
+    watchlist = load_ai_watchlist(settings.config_root / AI_WATCHLIST_FILENAME)
+    dockets = [pair for case in watchlist.cases for pair in case.dockets()]
+    today = datetime.now(UTC).date()
+    db = corpus.corpus_db_path(settings.corpus_root)
+    with corpus.connect_readonly(db, backend=settings.corpus_backend) as conn:
+        plan = watchlist_refresh.plan_refresh(
+            conn,
+            dockets,
+            today=today,
+            overlap_days=cfg.overlap_days,
+            full_read_every_days=cfg.full_read_every_days,
+        )
+    for p in plan:
+        since = f" since {p.since}" if p.since else ""
+        typer.echo(f"{p.case_id}\t{p.mode.value}{since}\tlast_pulled={p.last_pulled or '-'}")
+    if once_a_day and watchlist_refresh.refreshed_on(plan, today):
+        typer.echo(f"watchlist-refresh: already ran on {today}; the share is one run a day")
+        return
+    if dry_run:
+        typer.echo(f"watchlist-refresh: dry run, {len(plan)} docket(s) planned, nothing read")
+        return
+    share = load_courtlistener_budget(settings.config_root).lane("watchlist").per_run
+    deadline = time.monotonic() + cfg.max_run_minutes * 60
+    named = {
+        ids.case_id(court, docket_id): (case.name, case.category)
+        for case in watchlist.cases
+        for court, docket_id in case.dockets()
+    }
+    recorded: list[AiCaseActivityEntry] = []
+
+    def record(done: watchlist_refresh.Refreshed) -> None:
+        # Recorded docket by docket, as each write lands: an entry the corpus
+        # has stored is never "new" again, so a run killed part-way must
+        # already have recorded what it stored.
+        found = ai_activity.activity_entries(
+            *named[done.case_id], done.docket, done.added, today=today
+        )
+        if found:
+            ai_activity.record_activity(settings.data_root, today, found)
+            recorded.extend(found)
+
+    with _client("watchlist") as client:
+        result = watchlist_refresh.refresh_watchlist(
+            client,
+            db,
+            plan,
+            max_entry_pages=cfg.max_entry_pages,
+            today=today,
+            share=share,
+            deadline=deadline,
+            max_consecutive_transient_failures=cfg.max_consecutive_transient_failures,
+            on_refreshed=record,
+        )
+    _ensure_corpus_layout(db)
+    if recorded:
+        path = ai_activity.activity_path(settings.data_root, today)
+        typer.echo(f"watchlist-refresh: {len(recorded)} significant new entr(ies) -> {path}")
+    if report is not None:
+        write_raw_json(report, result.as_json())
+    changed = sum(1 for r in result.refreshed if r.changed)
+    stopped = f"; stopped: {result.stop_reason}" if result.stop_reason else ""
+    typer.echo(
+        f"watchlist-refresh: refreshed {len(result.refreshed)}/{len(plan)} "
+        f"({changed} changed), failed {len(result.failed)}, "
+        f"deferred {len(result.deferred)}{stopped}"
+    )
+    for case_id, reason in sorted(result.failed.items()):
+        typer.echo(f"  failed {case_id}: {reason}", err=True)
+    if result.failed:
+        raise typer.Exit(1)
 
 
 @app.command("probe-live-terms")
@@ -15478,7 +15744,7 @@ def decision_below_command(
         raise typer.Exit(code=2)
     inputs = _decision_below_corpus_inputs(case_ids, sample)
     inputs.extend(_decision_below_docket_inputs(serials))
-    with _client() as client:
+    with _client("decision-below") as client:
         report = decision_below.match_cases(client, inputs)
     typer.echo(report.model_dump_json(indent=2))
     counts = ", ".join(f"{n} {status}" for status, n in sorted(report.counts.items()))
@@ -15558,7 +15824,10 @@ def enrich_decision_below_command(
         raise typer.Exit(code=1)
     today = datetime.now(UTC).date()
     char_cap = load_live_config(settings.config_root).document_text_cap
-    with corpus.connect_maintenance(db_path, apply=apply) as conn, _client() as client:
+    with (
+        corpus.connect_maintenance(db_path, apply=apply) as conn,
+        _client("decision-below-fill" if apply else "decision-below") as client,
+    ):
         settled: list[str] = []
         if case_ids:
             rows: list[corpus.CorpusRow] = []
@@ -15685,7 +15954,7 @@ def order_scan_command(
         except (OSError, ValueError) as exc:
             typer.echo(f"order-scan: cannot read --resume {resume}: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-    with _client() as client:
+    with _client("order-scan") as client:
         report = order_scan.scan(client, scan_config, max_requests=cap, prior=prior)
     typer.echo(report.model_dump_json(indent=2))
     for line in order_scan.summary_lines(report):
@@ -20405,7 +20674,7 @@ def pull_all(
     cap = pull_cfg.max_cases_per_run if limit is None else min(limit, pull_cfg.max_cases_per_run)
     deadline = time.monotonic() + pull_cfg.max_run_minutes * 60
     db = corpus.corpus_db_path(settings.corpus_root)
-    with _client() as client:
+    with _client("pull") as client:
         if pull_cfg.discover_new_filings:
             disc = discover_cases(
                 client,
@@ -20426,6 +20695,7 @@ def pull_all(
             limit=cap,
             skip_closed=pull_cfg.skip_closed,
             eligible_reserve=pull_cfg.eligible_refresh_reserve,
+            exclude=_watchlist_case_ids(settings),
         )
         queues = pull_cases(
             client,
@@ -20435,6 +20705,7 @@ def pull_all(
             scope=scope,
             deadline=deadline,
             max_consecutive_transient_failures=pull_cfg.max_consecutive_transient_failures,
+            max_entry_pages=pull_cfg.max_entry_pages_per_case,
         )
     # Re-derive owed gradings from the ledger, on top of this poll's fresh
     # resolutions. `already_queued` keeps a case the poll just queued from being
@@ -20902,7 +21173,7 @@ def discover(
     )
     start = date.fromisoformat(since) if since else date.today()
     db = corpus.corpus_db_path(settings.corpus_root)
-    with _client() as client:
+    with _client("pull") as client:
         result = discover_cases(client, db, courts, max_new=cap, default_since=start)
     for cd in result.courts:
         typer.echo(f"{cd.court}\tonboarded={cd.onboarded}\twatermark={cd.watermark}")
@@ -26020,7 +26291,7 @@ def cleanup_out_of_scope_predictions_cmd(
 
     Reads the corpus (must be pulled) and the committed ``data/`` tree and
     finds every ``…/predictions`` directory whose case an exclusion predicate drops —
-    pre-1925 mandatory jurisdiction or a stale unresolvable old SCOTUS petition;
+    pre-1925 mandatory jurisdiction or a stale unresolvable old SCOTUS petition or application;
     the event definition and any ``outcome.json`` stay, only the out-of-scope
     predictions go. Prints a JSON summary
     ``{"prunable":[{case_id,reason,paths}],"removed":<bool>,"pr":<branch/title/commit/body|null>}``;

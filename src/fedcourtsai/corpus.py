@@ -2870,10 +2870,21 @@ def is_historical_mandatory(row: CorpusRow) -> bool:
 # revisit the pivot before the 2030 Term.
 _SCOTUS_TERM_RE = re.compile(r"^(\d{2})-\d+")
 
-# Provisional staleness cutoff (the scope reconcile refines it against the corpus). A SCOTUS
-# Term before this is long past any pending-petition horizon; far enough back that a
-# genuinely open modern cert petition is never caught.
-_STALE_TERM_CUTOFF_YEAR = 2015
+# The staleness cutoff: a still-open SCOTUS petition or application docketed in an
+# October Term before this one is past any pending horizon — even a petition held for
+# a merits case resolves within the Term after its own — so the corpus never recorded
+# its outcome rather than the Court never reached it. A fixed year rather than one
+# read off the calendar, so every scope seam (the reconcile, the audit, the cleanup
+# sweep, the backlog) decides a row identically on any day. Raise it as Terms pass:
+# a cutoff left behind under-catches, and the scope audit's per-Term buckets show the
+# open rows it no longer reaches.
+STALE_TERM_CUTOFF_YEAR = 2024
+
+#: The exclusion reason :func:`is_stale_unresolvable` files a row under.
+STALE_UNRESOLVABLE_REASON = (
+    "stale unresolvable old SCOTUS petition or application "
+    + f"(docketed before OT{STALE_TERM_CUTOFF_YEAR}, still open)"
+)
 
 
 def scotus_term_year(docket_number: str) -> int | None:
@@ -3200,30 +3211,34 @@ def is_stale_unparsed_grant(row: CorpusRow, *, today: date) -> bool:
 
 
 def is_stale_unresolvable(row: CorpusRow) -> bool:
-    """Whether a SCOTUS row is an old petition the corpus can never resolve.
+    """Whether a SCOTUS row is an old petition or application the corpus can never resolve.
 
     Modern-format SCOTUS petitions from old Terms (e.g. ``93-7515`` -> OT1993,
-    ``01-7700`` -> OT2001) whose snapshots are bare stubs — empty docket entries,
-    null cert dates — sit perpetually open because deterministic outcome detection
-    has nothing to resolve them from, so they are re-predicted every run decades
-    after they actually resolved (the bulk of the feedback-issue noise).
+    ``01-7700`` -> OT2001) and interim applications (``16A450`` -> OT2016) whose
+    snapshots carry no disposition sit perpetually open because deterministic
+    outcome detection has nothing to resolve them from. Left in scope, they are
+    owed a **forward** forecast years after they actually resolved — a cell whose
+    predictor may remember the answer, on an event whose outcome is public.
     Distinct from :func:`is_historical_mandatory`: those are *pre-1925* mandatory-
     jurisdiction matters with bare sequential numbers; these are post-1925
-    discretionary-cert dockets that are simply too old to still be pending.
+    dockets that are simply too old to still be pending.
 
-    **Provisional and deliberately conservative — the scope reconcile refines it.** Caught
-    only when: SCOTUS; no realized ``disposition`` and no ``date_decided`` (still
-    open in the corpus); and a docket-number Term year older than
-    ``_STALE_TERM_CUTOFF_YEAR``. Rows whose Term year cannot be parsed from the
-    docket number are left in scope, so the rule may under-catch (a stub still
-    flags) but never drops a live modern petition.
+    **Deliberately conservative — the scope reconcile refines it.** Caught only
+    when: SCOTUS; no realized ``disposition`` and no ``date_decided`` (still open
+    in the corpus); and a docket-number Term year before
+    :data:`STALE_TERM_CUTOFF_YEAR`. Rows whose Term year cannot be parsed from
+    the docket number (a bare number, an original docket, a labelled or
+    historical application spelling) are left in scope, so the rule may
+    under-catch (a stub still flags) but never drops a live modern docket.
     """
     if row.court != "scotus":
         return False
     if row.disposition is not None or row.date_decided is not None:
         return False
-    term_year = scotus_term_year(row.docket_number)
-    return term_year is not None and term_year < _STALE_TERM_CUTOFF_YEAR
+    term_year = scotus_term_year(row.docket_number) or scotus_application_term_year(
+        row.docket_number
+    )
+    return term_year is not None and term_year < STALE_TERM_CUTOFF_YEAR
 
 
 def is_published_opinion_unresolvable(row: CorpusRow) -> bool:
@@ -3658,10 +3673,7 @@ BARE_OPINION_IMPORT_REASON = "bare bulk-import row whose snapshot links a publis
 # in this row-only list; they are applied by :func:`out_of_scope_reason_full`.
 OUT_OF_SCOPE_RULES: list[tuple[Callable[[CorpusRow], bool], str]] = [
     (is_historical_mandatory, "pre-1925 mandatory-jurisdiction matter"),
-    (
-        is_stale_unresolvable,
-        "stale unresolvable old SCOTUS petition (pre-2015 Term, still open)",
-    ),
+    (is_stale_unresolvable, STALE_UNRESOLVABLE_REASON),
     (
         is_published_opinion_unresolvable,
         "published opinion but no machine-readable cert disposition",
@@ -3803,6 +3815,23 @@ def set_salience_scores(
         conn.executemany(
             "UPDATE cases SET salience_score = ?, salience_version = ? WHERE case_id = ?",
             [(score, version, case_id) for case_id, score in scores.items()],
+        )
+
+
+def refuse_salience_scores(conn: sqlite3.Connection, case_ids: Iterable[str], version: str) -> None:
+    """Stamp the active version with no score on each case its segment refuses.
+
+    The salience pass's writer for an in-scope row outside the active
+    version's segment. The version marks the row as decided under it, so
+    :func:`is_salience_deferred` reads an unlatched one as deferred rather
+    than failing open, and a score another version wrote does not survive
+    into a column that holds the active version's view alone. The latch is
+    left as it stands.
+    """
+    with conn:
+        conn.executemany(
+            "UPDATE cases SET salience_score = NULL, salience_version = ? WHERE case_id = ?",
+            [(version, case_id) for case_id in case_ids],
         )
 
 
@@ -5166,27 +5195,33 @@ def _rotation_rows(
     limit: int,
     skip_closed: bool,
     only_scotus: bool = False,
+    exclude: frozenset[str] = frozenset(),
 ) -> list[CorpusRow]:
     """Stalest-first active cases: never-pulled first, then oldest ``last_pulled``.
 
     The shared query behind :func:`rotation_for_pull`. ``skip_closed`` drops cases
     carrying a realized ``disposition`` / ``date_decided`` (their outcome is known);
-    ``only_scotus`` further restricts to SCOTUS dockets (the prediction scope).
-    ``case_id`` breaks ties so the order is deterministic.
+    ``only_scotus`` further restricts to SCOTUS dockets (the prediction scope);
+    ``exclude`` drops the named case ids. ``case_id`` breaks ties so the order is
+    deterministic.
     """
     if limit <= 0:
         return []
     clauses: list[str] = []
+    params: list[object] = []
     if skip_closed:
         clauses.append("disposition IS NULL AND date_decided IS NULL")
     if only_scotus:
         clauses.append("court = 'scotus'")
+    if exclude:
+        clauses.append(f"case_id NOT IN ({', '.join('?' for _ in exclude)})")
+        params.extend(sorted(exclude))
     where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
     cur = conn.execute(
         f"SELECT * FROM cases{where} "
         "ORDER BY last_pulled IS NOT NULL, last_pulled ASC, case_id ASC "
         "LIMIT ?",
-        (limit,),
+        (*params, limit),
     )
     return [_from_record(record) for record in cur]
 
@@ -5197,6 +5232,7 @@ def rotation_for_pull(
     limit: int,
     skip_closed: bool = True,
     eligible_reserve: int = 0,
+    exclude: frozenset[str] = frozenset(),
 ) -> list[CorpusRow]:
     """The next ``limit`` cases ``pull`` should refresh, stalest first.
 
@@ -5218,6 +5254,10 @@ def rotation_for_pull(
     behind the much larger active set. Reserve slots the SCOTUS pool cannot fill
     fall through to the general rotation, so the reserve never wastes budget; a
     case picked by the reserve is not picked again by the general fill.
+
+    ``exclude`` names cases another pass owns, so this rotation never reads them:
+    the AI watchlist's dockets, which ``watchlist-refresh`` keeps current on its
+    own share and without event extraction.
     """
     if limit <= 0:
         return []
@@ -5225,14 +5265,18 @@ def rotation_for_pull(
     picked: list[CorpusRow] = []
     seen: set[str] = set()
     if reserve > 0:
-        for row in _rotation_rows(conn, limit=reserve, skip_closed=skip_closed, only_scotus=True):
+        for row in _rotation_rows(
+            conn, limit=reserve, skip_closed=skip_closed, only_scotus=True, exclude=exclude
+        ):
             picked.append(row)
             seen.add(row.case_id)
     remaining = limit - len(picked)
     if remaining > 0:
         # Over-fetch by the reserved count so dropping cases already taken by the
         # eligible reserve still leaves ``remaining`` distinct general cases.
-        for row in _rotation_rows(conn, limit=remaining + len(seen), skip_closed=skip_closed):
+        for row in _rotation_rows(
+            conn, limit=remaining + len(seen), skip_closed=skip_closed, exclude=exclude
+        ):
             if row.case_id in seen:
                 continue
             picked.append(row)

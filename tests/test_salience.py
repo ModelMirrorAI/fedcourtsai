@@ -280,8 +280,8 @@ def test_sal_v4_is_sal_v3_with_the_parse_pin_moved_and_nothing_else() -> None:
     }
 
 
-def test_sal_v4_is_the_active_version_and_the_default_parse_moved_with_it() -> None:
-    """Activation is one commit moving two constants, and this is the pair.
+def test_sal_v4_moved_the_default_parse_with_it_and_the_active_version_still_pins_it() -> None:
+    """sal-v4's activation was one commit moving two constants, and this is the pair.
 
     A sal-v4 context frozen while the corpus `distribution_count` column still
     held `dist-v1` counts would compare a narrower prediction-time count against
@@ -290,12 +290,13 @@ def test_sal_v4_is_the_active_version_and_the_default_parse_moved_with_it() -> N
     the column is written at — moves in the same commit as the active version,
     and the column is re-derived under `dist-v2` before either does.
     """
-    assert SALIENCE_VERSION == "sal-v4"
     assert DEFAULT_DISTRIBUTION_PARSE == "dist-v2"
     # Not `salience_bands()`: sal-v4 shares sal-v3's band tuple object, so a band
     # comparison passes either way and would guard nothing. The parse is the
     # field the two versions differ in, so it is the one that distinguishes an
-    # active sal-v3 from an active sal-v4.
+    # active sal-v3 from an active sal-v4 — and sal-v6, active after it, pins the
+    # same parse, so its activation moved one constant, not two.
+    assert SCORERS["sal-v4"].distribution_parse == "dist-v2"
     assert scorer().distribution_parse == "dist-v2"
     assert scorer().distribution_parse == DEFAULT_DISTRIBUTION_PARSE
     # sal-v3 stays registered and unmoved: activation re-points the pointer, it
@@ -330,13 +331,12 @@ def _v5_row(
     )
 
 
-def test_sal_v5_is_registered_and_sal_v4_stays_active() -> None:
-    """Registration and activation are separate steps: sal-v5 is scored and
-    published beside the live scorer, and nothing the live pass stamps moves."""
+def test_sal_v5_is_registered_and_never_active() -> None:
+    """sal-v5 is scored and published beside the live scorer and never becomes it:
+    its caption-v3 reading carries post-outcome information."""
     assert "sal-v5" in SCORERS
-    assert SALIENCE_VERSION == "sal-v4"
-    assert scorer().version == "sal-v4"
-    assert registered_versions()[0] == "sal-v4"
+    assert SALIENCE_VERSION != "sal-v5"
+    assert registered_versions()[0] != "sal-v5"
     v4, v5 = scorer("sal-v4"), scorer("sal-v5")
     assert v5.bands == v4.bands
     assert v5.distribution_parse == v4.distribution_parse == "dist-v2"
@@ -503,12 +503,15 @@ def test_sal_v5_bands_and_carves_an_sg_represented_warden_as_federal() -> None:
     assert v5.band(respondent_side) == "state"
 
 
-def test_sal_v6_is_registered_and_sal_v4_stays_active() -> None:
-    """sal-v6 is registered beside sal-v5, inactive: the live pass still scores,
-    latches and stamps under sal-v4."""
+def test_sal_v6_is_the_active_version() -> None:
+    """sal-v6 is the active scorer: the live pass scores, latches and stamps under
+    it, it leads every all-versions report, and it pins the default parse, so its
+    activation moved the version pointer alone."""
     assert "sal-v6" in SCORERS and "sal-v5" in SCORERS
-    assert SALIENCE_VERSION == "sal-v4"
-    assert scorer().version == "sal-v4"
+    assert SALIENCE_VERSION == "sal-v6"
+    assert scorer().version == "sal-v6"
+    assert registered_versions()[0] == "sal-v6"
+    assert scorer().distribution_parse == DEFAULT_DISTRIBUTION_PARSE
     v4, v5, v6 = scorer("sal-v4"), scorer("sal-v5"), scorer("sal-v6")
     assert v6.bands == v4.bands
     assert v6.distribution_parse == "dist-v2"
@@ -596,13 +599,14 @@ def test_the_writ_scope_leaves_rule_20_writs_out_of_scoring_and_selection(versio
     assert set(v4_pick) == {"scotus/writ", "scotus/sealed", "scotus/unparsed"}
 
 
-def test_the_live_pass_still_selects_a_rule_20_writ_under_the_active_sal_v4(
+def test_the_live_pass_leaves_a_rule_20_writ_out_under_the_active_sal_v6(
     tmp_path: Path,
 ) -> None:
-    """sal-v5 is registered, not active: the live pass's scope is sal-v4's, so a
-    writ the inactive version leaves out is still scored and latched today."""
+    """The live pass's scope is the active sal-v6's, so a Rule 20 writ is neither
+    scored nor latched, while a certiorari petition beside it is."""
     writ = _v5_row("scotus/writ", distribution_count=3, opening_writ="rule-20")
-    db = _seed(tmp_path, [writ])
+    cert = _v5_row("scotus/cert", distribution_count=3, opening_writ="certiorari")
+    db = _seed(tmp_path, [writ, cert])
     with corpus.connect(db) as conn:
         result = reconcile_salience_selection(
             conn,
@@ -611,8 +615,41 @@ def test_the_live_pass_still_selects_a_rule_20_writ_under_the_active_sal_v4(
             apply=True,
             as_of=_PASS_DATE,
         )
-    assert result.version == "sal-v4"
-    assert _selected_ids(db) == {"scotus/writ"}
+    assert result.version == "sal-v6"
+    assert _selected_ids(db) == {"scotus/cert"}
+
+
+def test_the_live_pass_stamps_a_refused_writ_as_deferred(tmp_path: Path) -> None:
+    """A Rule 20 writ the active segment refuses is stamped with the active
+    version and no score, so the gate reads it as deferred rather than failing
+    open into the predict scope, and a score an older version left on it is
+    cleared."""
+    writ = _v5_row("scotus/writ", distribution_count=3, opening_writ="rule-20")
+    fresh = _v5_row("scotus/fresh-writ", distribution_count=3, opening_writ="rule-20")
+    cert = _v5_row("scotus/cert", distribution_count=3, opening_writ="certiorari")
+    db = _seed(tmp_path, [writ, fresh, cert])
+    with corpus.connect(db) as conn:
+        conn.execute(
+            "UPDATE cases SET salience_score = 0.4, salience_version = 'sal-v4' "
+            "WHERE case_id = 'scotus/writ'"
+        )
+        conn.commit()
+        reconcile_salience_selection(
+            conn,
+            _data_root(tmp_path),
+            SalienceConfig(per_conference_capacity=1),
+            apply=True,
+            as_of=_PASS_DATE,
+        )
+        for case_id in ("scotus/writ", "scotus/fresh-writ"):
+            row = corpus.get_row(conn, case_id)
+            assert row is not None
+            assert row.salience_version == SALIENCE_VERSION
+            assert row.salience_score is None
+            assert corpus.is_salience_deferred(row)
+        kept = corpus.get_row(conn, "scotus/cert")
+        assert kept is not None and kept.salience_score is not None
+        assert not corpus.is_salience_deferred(kept)
 
 
 def test_the_active_scorer_is_what_the_bare_helpers_dispatch_to() -> None:
@@ -1806,8 +1843,8 @@ def test_a_second_version_is_reachable_and_the_active_one_is_unchanged(
         "sal-v1",
         "sal-v2",
         "sal-v3",
+        "sal-v4",
         "sal-v5",
-        "sal-v6",
     )
     row = _petition("scotus/1", distribution_count=3, cvsg=True)
     assert scorer("sal-toy").band(row) == "hot"
@@ -2763,14 +2800,16 @@ def test_the_band_freeze_refuses_a_rule_20_writ_only_under_a_version_that_exclud
 ) -> None:
     """The segment is read off the payload's opening petition entry: a writ of
     mandamus freezes no band under sal-v5 or sal-v6, a sealed certiorari petition captioned
-    "In re" still does, and under the active sal-v4 the writ is banded as before."""
+    "In re" still does, and under sal-v4, whose segment narrows nothing, the writ is banded."""
     writ = _warden_payload(opening="Petition for a writ of mandamus filed.", sg=False)
     sealed = {
         **_warden_payload(sg=False),
         "PetitionerTitle": "In re Grand Jury Subpoena, Petitioner",
     }
+    _activate(monkeypatch, "sal-v4")
     as_v4 = cell_context.build("scotus/100", date(2025, 10, 2), writ, "forward")
     assert as_v4.band == "state" and as_v4.salience_version == "sal-v4"
+    assert as_v4.band_refused is None
 
     _activate(monkeypatch, version)
     refused = cell_context.build("scotus/100", date(2025, 10, 2), writ, "forward")
@@ -2778,5 +2817,22 @@ def test_the_band_freeze_refuses_a_rule_20_writ_only_under_a_version_that_exclud
     assert refused.band is None
     assert refused.salience_version is None
     assert refused.distribution_count == 1  # the signals still freeze; only the band is refused
+    assert refused.band_refused == "outside-segment"  # and the refusal says why
     kept = cell_context.build("scotus/101", date(2025, 10, 2), sealed, "forward")
     assert kept.band is not None
+    assert kept.band_refused is None
+
+
+def test_band_refused_marks_only_a_segment_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`band_refused` names the segment refusal and nothing else: an unobservable
+    writ and an application docket freeze a null band with no refusal stamped,
+    since neither is a row the active version left out of its segment."""
+    _activate(monkeypatch, "sal-v6")
+    writ = _warden_payload(opening="Petition for a writ of mandamus filed.", sg=False)
+    unobservable = {key: value for key, value in writ.items() if key != "ProceedingsandOrder"}
+    blind = cell_context.build("scotus/100", date(2025, 10, 2), unobservable, "forward")
+    assert blind.signals_observable is False
+    assert blind.band is None and blind.band_refused is None
+    application = {**writ, "CaseNumber": "25A100"}
+    interim = cell_context.build("scotus/102", date(2025, 10, 2), application, "forward")
+    assert interim.band is None and interim.band_refused is None

@@ -838,7 +838,8 @@ deliberate exceptions, by environment: the two holds below,
 `corpus-check`'s `run` and `run-auto` jobs, which bind `corpus-check` and
 `corpus-check-auto` (the paragraphs after them), the corpus writer jobs,
 which bind `corpus-write` (the paragraph after those), `post-public-update`'s
-`post` job, which binds `website` (*The `website` environment*), and
+`post` and `post-ai-cases` jobs, which bind `website` (*The `website`
+environment*), and
 `staging-corpus-refresh`'s `refresh` job, which binds `staging`. The `approval` jobs of run-predict,
 run-evaluate, run-backtest and summarize, and run-analytics's
 `qp-topic-approval`, declare
@@ -1513,11 +1514,13 @@ path and is not a sandbox. The back-test and local cells, launched by
 
 ## The `website` environment
 
-`post-public-update` creates the weekly public update as a **draft** in
-Buttondown, the service that runs the site's email list. Its `post` job alone
-binds `website`, which holds one secret, the Buttondown API key. No other job
-in the repository names that environment, so neither an agent cell nor any job
-that binds `prod`, `staging` or `review` can read the key.
+`post-public-update` creates the weekly public updates as **drafts** in
+Buttondown, the service that runs the site's email list. Its `post` and
+`post-ai-cases` jobs alone bind `website`, which holds one secret, the
+Buttondown API key. No other job in the repository names that environment, so
+neither an agent cell nor any job that binds `prod`, `staging` or `review` can
+read the key. Both jobs read only committed files under `data/`, with a
+read-only token.
 
 Configure it with:
 
@@ -1529,22 +1532,23 @@ Configure it with:
   admin-read `contexts` stage checks it whenever it runs, whether or not a
 workflow references it yet, together with the
   contents below (`fedcourts assert-website-environment`): exactly `main`,
-  exactly the one secret and the one variable, nothing else (anything added
-  here is handed to the same job), and no repository or organization secret
+  exactly the one secret and the two variables, nothing else (anything added
+  here is handed to both jobs), and no repository or organization secret
   of the key's name. Required reviewers are not checked, since the draft is
   the hold. The job's first step also refuses any ref but `main`. That
   step is a backstop for an unedited copy of the workflow on another ref, such
   as `staging`; a branch that edits the workflow can delete it.
 - **one secret**: the Buttondown API key, with the permissions below.
-- **one variable**: the Buttondown id of the `weekly-scotus` tag the draft is
-  addressed to. It is not a secret; it lives here so the job that uses it is
-  the only one that reads it.
+- **two variables**: the Buttondown ids of the tags the drafts are addressed
+  to, `WEEKLY_SCOTUS_TAG_ID` for the weekly SCOTUS update and `AI_CASES_TAG_ID`
+  for the AI-cases update. They are not secrets; they live here so the jobs
+  that use them are the only ones that read them.
 - **no required reviewers**: the draft is the hold, since nothing is sent
   until the maintainer presses send in Buttondown.
 
 The key's Buttondown permission is **emails: write**, and **none** on every
-other category. Emails write is what creating a draft needs. The draft's
-audience is the tag id from the variable, so the key never lists tags or reads
+other category. Emails write is what creating a draft needs. Each draft's
+audience is a tag id from a variable, so the key never lists tags or reads
 subscribers. Buttondown has no draft-only level, so emails write could also
 send, schedule or edit an email. The guard is the code:
 `fedcourtsai.buttondown` writes exactly one request, a create with the status

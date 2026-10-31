@@ -524,6 +524,51 @@ def test_is_stale_unresolvable_ignores_unparseable_and_non_scotus() -> None:
     assert corpus.is_stale_unresolvable(lower) is False
 
 
+def test_is_stale_unresolvable_detects_old_open_application() -> None:
+    # An interim application from an old Term ("16A450" -> OT2016) still open in
+    # the corpus is as stale as an old petition: its outcome is long public, so a
+    # forward cell on it would forecast a decided event.
+    row = corpus.CorpusRow(case_id="scotus/72406996", court="scotus", docket_number="16A450")
+    assert corpus.is_stale_unresolvable(row) is True
+    assert corpus.out_of_scope_reason(row) == corpus.STALE_UNRESOLVABLE_REASON
+
+
+def test_is_stale_unresolvable_cutoff_boundary() -> None:
+    # The Term before the cutoff is stale; the cutoff Term itself is not.
+    before = corpus.STALE_TERM_CUTOFF_YEAR - 1 - 2000
+    at = corpus.STALE_TERM_CUTOFF_YEAR - 2000
+    for docket, stale in (
+        (f"{before}-1234", True),
+        (f"{before}A456", True),
+        (f"{at}-1234", False),
+        (f"{at}A456", False),
+    ):
+        row = corpus.CorpusRow(case_id="scotus/20", court="scotus", docket_number=docket)
+        assert corpus.is_stale_unresolvable(row) is stale, docket
+
+
+def test_is_stale_unresolvable_keeps_current_application() -> None:
+    # A current or recent Term's application may be pending — never drop it.
+    for docket in ("26A10", "25A900", "24A1099 *** CAPITAL CASE ***"):
+        row = corpus.CorpusRow(case_id="scotus/22", court="scotus", docket_number=docket)
+        assert corpus.is_stale_unresolvable(row) is False
+
+
+def test_is_stale_unresolvable_leaves_unparsed_application_spellings_in_scope() -> None:
+    # Labelled and historical application spellings carry no parseable Term, so
+    # the rule under-catches them rather than guessing.
+    for docket in ("No. 16A450", "A-363"):
+        row = corpus.CorpusRow(case_id="scotus/23", court="scotus", docket_number=docket)
+        assert corpus.is_stale_unresolvable(row) is False
+
+
+def test_consolidated_old_applications_are_out_of_scope() -> None:
+    # A consolidated row whose members are all old open applications classifies
+    # out of scope through the application branch of the stale rule.
+    row = corpus.CorpusRow(case_id="scotus/24", court="scotus", docket_number="16A450; 16A451")
+    assert corpus.is_consolidated_out_of_scope(row) is True
+
+
 def test_is_published_opinion_unresolvable_detects_opinion_only_disposition() -> None:
     # The observed upstream shape — a still-open SCOTUS docket
     # (no disposition, no decision date) whose only outcome signal is a linked published
@@ -2010,6 +2055,17 @@ def test_rotation_orders_never_pulled_first_then_oldest(tmp_path: Path) -> None:
         corpus.upsert_rows(conn, rows)
         order = [r.case_id for r in corpus.rotation_for_pull(conn, limit=10)]
     assert order == ["ca9/2", "ca9/3", "ca9/1"]
+
+
+def test_rotation_leaves_out_excluded_cases(tmp_path: Path) -> None:
+    db = tmp_path / "corpus.db"
+    rows = [_active("ca9/1"), _active("ca9/2"), _active("scotus/3")]
+    with corpus.connect(db) as conn:
+        corpus.upsert_rows(conn, rows)
+        picked = corpus.rotation_for_pull(
+            conn, limit=10, eligible_reserve=5, exclude=frozenset({"ca9/2", "scotus/3"})
+        )
+    assert [r.case_id for r in picked] == ["ca9/1"]
 
 
 def test_rotation_respects_limit(tmp_path: Path) -> None:

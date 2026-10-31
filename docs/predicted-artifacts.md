@@ -252,7 +252,8 @@ absent optional field as null.
     "distribution_count": 1,
     "cvsg_date": null,
     "band": "baseline",
-    "salience_version": "sal-v4",
+    "salience_version": "sal-v6",
+    "band_refused": null,
     "response_requested": null,
     "referred_to_court": null,
     "amicus_briefs": null,
@@ -856,7 +857,9 @@ directory without knowing which part is which invites trusting the wrong half.
   `REPLAY_CUTOFF` carries), **which rule bounded the entries inside that
   cutoff** (`cut_kind`, with `cut_anchor_index` beside it), and the
   conditioning state frozen at provisioning: the
-  salience band, the distribution count and CVSG date as at that cutoff (as at
+  salience band (or, where the active scorer's segment leaves the row out, a null
+  band with the reason in `band_refused`, `"outside-segment"`; null wherever no
+  such refusal happened, an unobservable or application docket included), the distribution count and CVSG date as at that cutoff (as at
   the snapshot where there is none), the Term, the dockets the payload links as `Vide` (`vide_links`), whether the docket puts its filings on paper only under Rule 34.6, so nothing is posted to stage (`paper_only_filings`), what the contact scrub withheld from the staged snapshot (`snapshot_contact_scrub`: the self-represented sides it keyed on, empty where it did not run, and the blocks and values it replaced), on a cert cell that froze a band the skill anchor pooled at placement (`cert_anchor`: the risk-set rate over the frozen band, version and Term, the statpack build it was pooled from and the lookback window; null on a cell of any other stage, on a cert cell that froze no band, and where no statpack was readable), and — on an
   application cell only — the interim escalation trio on the same footing. Written by provisioning and copied on by the stamp. It
   matters that it is harness-owned more than most: the band a cell is scored
@@ -1116,7 +1119,7 @@ as on the predictions above:
   },
   "segment_base_rate": 0.067,
   "base_rate_basis": "risk_set",
-  "base_rate_salience_version": "sal-v4",
+  "base_rate_salience_version": "sal-v6",
   "brier_skill_score": 0.443,
   "claim_scores": {
     "declared_set_version": "cert-v2",

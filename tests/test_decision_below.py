@@ -304,8 +304,21 @@ class _Upstream:
         if parts[-1] == "docket-entries":
             if self.entries_status != 200:
                 return httpx.Response(self.entries_status, json={"detail": "refused"})
-            rows = self.entries.get(int(params["docket"]), [])
-            return self._page(rows, self.entries_next)
+            docket = int(params["docket"])
+            rows = self.entries.get(docket, [])
+            # Upstream pages entries by cursor: the next link re-asks for the
+            # same docket with a cursor token.
+            since = params.get("date_filed__gte")
+            echo = f"&date_filed__gte={since}" if since else ""
+            nxt = f"{_BASE}docket-entries/?cursor=c{len(self.requests)}&docket={docket}{echo}"
+            return httpx.Response(
+                200,
+                json={
+                    "count": len(rows),
+                    "next": nxt if self.entries_next else None,
+                    "results": rows,
+                },
+            )
         resource, ident = parts[-2], int(parts[-1])
         if resource != "opinions" or ident not in self.opinions:
             return httpx.Response(404, json={"detail": "Not found."})
@@ -734,7 +747,7 @@ def test_command_matches_a_named_scotus_number(monkeypatch: pytest.MonkeyPatch) 
     upstream = _matched_upstream()
     monkeypatch.setenv("FEDCOURTS_COURTLISTENER_API_TOKEN", "test-token")
     monkeypatch.setattr(cli_module, "SupremeCourtClient", _Court)
-    monkeypatch.setattr(cli_module, "_client", lambda: _client(upstream))
+    monkeypatch.setattr(cli_module, "_client", lambda _lane: _client(upstream))
     result = CliRunner().invoke(cli_module.app, ["decision-below", "--docket", "25-100"])
     assert result.exit_code == 0, result.output
     assert "1 of 1 matched" in result.output
@@ -965,7 +978,7 @@ def test_the_fill_command_stores_a_named_case(
     monkeypatch.setenv("FEDCOURTS_CORPUS_ROOT", str(root))
     monkeypatch.setenv("FEDCOURTS_DATA_ROOT", str(tmp_path / "data"))
     monkeypatch.setenv("FEDCOURTS_COURTLISTENER_API_TOKEN", "test-token")
-    monkeypatch.setattr(cli_module, "_client", lambda: _client(_matched_upstream()))
+    monkeypatch.setattr(cli_module, "_client", lambda _lane: _client(_matched_upstream()))
     result = CliRunner().invoke(
         cli_module.app, ["enrich-decision-below", "--apply", "--case", "scotus/1"]
     )
