@@ -369,7 +369,7 @@
     },
     "PredictedReasoningReview": {
       "additionalProperties": false,
-      "description": "A judge's review of one prediction's ``predicted_reasoning.md``.\n\nCarries what stands behind ``Evaluation.predicted_reasoning_quality``: the\nclaims the judge treated as central, or, where the judge returned no\ngrade, the record's ground for that. Designed and piloted before it is\nregistered (``docs/outcome-decomposition.md``, *Grading the forecast\ndocument, design*); no evaluate prompt asks for it until registration.",
+      "description": "A judge's review of one prediction's ``predicted_reasoning.md``.\n\nCarries what stands behind ``Evaluation.predicted_reasoning_quality``: the\nclaims the judge treated as central, or, where the judge returned no\ngrade, the record's ground for that. The evaluate prompt's *Grading the\nforecast document* section asks for it on every stage\n(``docs/outcome-decomposition.md``, *Grading the forecast document,\ndesign*).",
       "properties": {
         "central_claims": {
           "description": "The claims, at most five, the judge treated as central to the document, in the order the document gives them weight. Required beside a grade; may be empty beside a null one",
@@ -752,7 +752,7 @@
         }
       ],
       "default": null,
-      "description": "The judge's 0-1 grade of the prediction's `predicted_reasoning.md` alone \u2014 how well its forecast of what the Court would do and say held up \u2014 on the anchored rubric in `docs/outcome-decomposition.md` (*Grading the forecast document, design*). Not a grade of the prediction as a whole, and never folded into `reasoning_quality`, which grades `reasoning.md`. Null where the record cannot grade it (`predicted_reasoning_review.not_gradeable` says why) and on every evaluation whose prompt did not ask for it",
+      "description": "The judge's 0-1 grade of the prediction's `predicted_reasoning.md` alone \u2014 how well its forecast of what the Court would do and say held up \u2014 on the anchored rubric in `docs/outcome-decomposition.md` (*Grading the forecast document, design*). Not a grade of the prediction as a whole, and never folded into `reasoning_quality`, which grades `reasoning.md`. Null where the record cannot grade it (`predicted_reasoning_review.not_gradeable` says why), where the prediction names no forecast document, and on every evaluation whose prompt did not ask for it",
       "title": "Predicted Reasoning Quality"
     },
     "predicted_reasoning_review": {
@@ -765,7 +765,7 @@
         }
       ],
       "default": null,
-      "description": "What stands behind `predicted_reasoning_quality`: the central claims the grade rests on, or the record's ground for a null grade. Null wherever the grade was not asked for"
+      "description": "What stands behind `predicted_reasoning_quality`: the central claims the grade rests on, or the record's ground for a null grade. Null wherever the grade was not asked for, and where the prediction names no forecast document"
     },
     "prediction_run_id": {
       "anyOf": [

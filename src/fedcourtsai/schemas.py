@@ -2449,9 +2449,10 @@ class PredictedReasoningReview(_Strict):
 
     Carries what stands behind ``Evaluation.predicted_reasoning_quality``: the
     claims the judge treated as central, or, where the judge returned no
-    grade, the record's ground for that. Designed and piloted before it is
-    registered (``docs/outcome-decomposition.md``, *Grading the forecast
-    document, design*); no evaluate prompt asks for it until registration.
+    grade, the record's ground for that. The evaluate prompt's *Grading the
+    forecast document* section asks for it on every stage
+    (``docs/outcome-decomposition.md``, *Grading the forecast document,
+    design*).
     """
 
     central_claims: list[CentralClaim] = Field(
@@ -2586,13 +2587,15 @@ class Evaluation(_Strict):
         "design*). Not a grade of the prediction as a whole, and never folded "
         "into `reasoning_quality`, which grades `reasoning.md`. Null where the "
         "record cannot grade it (`predicted_reasoning_review.not_gradeable` says "
-        "why) and on every evaluation whose prompt did not ask for it",
+        "why), where the prediction names no forecast document, and on every "
+        "evaluation whose prompt did not ask for it",
     )
     predicted_reasoning_review: PredictedReasoningReview | None = Field(
         default=None,
         description="What stands behind `predicted_reasoning_quality`: the "
         "central claims the grade rests on, or the record's ground for a null "
-        "grade. Null wherever the grade was not asked for",
+        "grade. Null wherever the grade was not asked for, and where the "
+        "prediction names no forecast document",
     )
     leakage_suspected: bool | None = Field(
         default=None,

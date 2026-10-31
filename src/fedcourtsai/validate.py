@@ -164,17 +164,18 @@ CHECK_PREDICTION_CLAIMS = "prediction_claims_scoreable"
 CHECK_PREDICTION_SEMANTIC = "prediction_semantic_claims_conform"
 CHECK_EVALUATION_SEMANTIC = "evaluation_semantic_grades_gradeable"
 CHECK_MERITS_PREDICTIONS = "merits_predictions_carry_judgment"
-# A grade of `predicted_reasoning.md` reaches the ledger only once its protocol
-# is registered; until then the pilot grades it off the ledger.
+# A grade of `predicted_reasoning.md` reaches the ledger only under a registered
+# protocol; the check holds the ledger to that while the flag below is unset.
 CHECK_PREDICTED_REASONING_HELD = "predicted_reasoning_grade_awaits_registration"
 
-#: Whether the `predicted_reasoning_quality` grade is registered. Until it is,
-#: no committed evaluation may carry the grade or its review: the pilot grades
-#: off the ledger, and a registered evaluate cell that filled the fields from
-#: the schema alone would commit a grade no pre-registration covers
-#: (``docs/outcome-decomposition.md``, *Grading the forecast document, design*).
-#: Flipped in the change that registers it.
-PREDICTED_REASONING_GRADE_REGISTERED: Final = False
+#: Whether the `predicted_reasoning_quality` grade is registered. It is: the
+#: evaluate prompt's *Grading the forecast document* section asks for it, under
+#: the process label the freeze record's registration entry names
+#: (``docs/outcome-decomposition.md``, *Grading the forecast document,
+#: design*). Unset, no committed evaluation may carry the grade or its review,
+#: since a cell that filled the fields from the schema alone would commit a
+#: grade no pre-registration covers.
+PREDICTED_REASONING_GRADE_REGISTERED: Final = True
 CHECK_SCORED_VOTES = "vote_accuracy_only_on_merits_events"
 # `correct` is a function of two committed artifacts, so one cell's current
 # gradings must record the same bit whichever evaluator wrote them.
@@ -1452,14 +1453,14 @@ def check_evaluation_semantic_grades(data_root: Path) -> CorpusCheck:
 def check_predicted_reasoning_grade_held(
     data_root: Path, *, registered: bool = PREDICTED_REASONING_GRADE_REGISTERED
 ) -> CorpusCheck:
-    """No committed evaluation carries a predicted-reasoning grade before it is registered.
+    """No committed evaluation carries a predicted-reasoning grade unless it is registered.
 
-    The schema carries ``predicted_reasoning_quality`` and its review ahead of
-    registration so the pilot can write them, and nothing in a cell's digest
-    stops a registered evaluate cell from filling them too: its prompt points
-    it at the schema. This check is what keeps the pilot's promise that no
-    unregistered grade is committed. A file that does not parse is
-    ``validate_ledger``'s concern and is skipped here.
+    With ``registered`` set (:data:`PREDICTED_REASONING_GRADE_REGISTERED`, the
+    default) the check passes, reading nothing. Unset, it refuses every
+    committed evaluation carrying ``predicted_reasoning_quality`` or its
+    review, since nothing in a cell's digest stops an evaluate cell from
+    filling the schema's fields without a prompt asking for them. A file that
+    does not parse is ``validate_ledger``'s concern and is skipped here.
     """
     problems: list[str] = []
     checked = 0

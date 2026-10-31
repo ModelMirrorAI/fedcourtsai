@@ -1,6 +1,6 @@
 """run-evaluate's pilot modes: a pilot round that spends and commits nothing.
 
-The pilot of the unregistered ``predicted_reasoning_quality`` grade
+A pilot round of the ``predicted_reasoning_quality`` grade
 (``docs/outcome-decomposition.md``, *The pilot, and what it reports*) rides the
 evaluate cell, so it shares the workflow; these tests hold the mode to the
 promises its comments make — derived cells, always held, never collected, and
@@ -97,7 +97,7 @@ def test_the_report_job_reaches_nothing() -> None:
     assert "pilot-report" in workflow["jobs"]["run-gate"]["needs"]
     report = _step(job, "Report the round")["run"]
     assert '--round-id "$ROUND_ID"' in report
-    assert f"--prompt {SECTION}" in report
+    assert "--prompt .github/prompts/evaluate.md" in report
 
 
 def test_the_merits_pilot_takes_its_source_from_a_reviewed_merits_backtest_run() -> None:

@@ -211,7 +211,11 @@ the output directory you will write to.
    `distribution_count`, `cvsg_date`, and `term`. Use `band` rather than working
    it out yourself — it is what the evaluator scores your skill against, and it
    is recorded on your prediction. `signals_observable: false` means the snapshot
-   disclosed no proceedings, so `band` is null and nobody can derive one. A replay
+   disclosed no proceedings, so `band` is null and nobody can derive one.
+   `band_refused: "outside-segment"` means the active salience version's
+   segment leaves your docket out (under the current version, a petition for
+   an extraordinary writ under Rule 20), so `band` and `salience_version` are
+   null although the snapshot was readable. A replay
    cell's context may carry neither key; on a **cert-stage** cell where `band` is
    null or absent, anchor on your own caption class's floor — `federal`'s
    bracketed `reached` rate for a federal petitioner, `state`'s for a state

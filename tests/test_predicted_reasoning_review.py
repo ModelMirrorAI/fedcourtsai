@@ -27,6 +27,7 @@ from fedcourtsai.schemas import (
 from fedcourtsai.serialize import read_model, write_json
 from fedcourtsai.validate import (
     CHECK_PREDICTED_REASONING_HELD,
+    PREDICTED_REASONING_GRADE_REGISTERED,
     check_predicted_reasoning_grade_held,
 )
 
@@ -133,13 +134,13 @@ def test_a_null_grade_may_list_the_claims_the_record_could_not_settle() -> None:
     assert evaluation.predicted_reasoning_quality is None
 
 
-def test_no_committed_evaluation_carries_the_grade_before_registration(tmp_path: Path) -> None:
-    """The pilot grades off the ledger; a committed grade is one no protocol covers yet."""
+def test_unregistered_no_committed_evaluation_carries_the_grade(tmp_path: Path) -> None:
+    """Unset, the flag refuses a committed grade, which no protocol would cover."""
     data_root = tmp_path / "data"
     ep = CasePaths(data_root, "scotus", 1).event("evt-petition-disposition")
     path = ep.evaluation("e", "p", "r")
     write_json(path, _evaluation())
-    check = check_predicted_reasoning_grade_held(data_root)
+    check = check_predicted_reasoning_grade_held(data_root, registered=False)
     assert check.name == CHECK_PREDICTED_REASONING_HELD
     assert check.passed and check.checked == 1
 
@@ -150,7 +151,39 @@ def test_no_committed_evaluation_carries_the_grade_before_registration(tmp_path:
             predicted_reasoning_review=PredictedReasoningReview(central_claims=_CLAIMS),
         ),
     )
-    check = check_predicted_reasoning_grade_held(data_root)
+    check = check_predicted_reasoning_grade_held(data_root, registered=False)
     assert not check.passed
     assert any("no registered protocol" in p for p in check.problems)
     assert check_predicted_reasoning_grade_held(data_root, registered=True).passed
+
+
+def test_the_grade_is_registered_so_a_committed_grade_passes(tmp_path: Path) -> None:
+    """The evaluate prompt asks for the grade, so the ledger takes it by default."""
+    assert PREDICTED_REASONING_GRADE_REGISTERED is True
+    data_root = tmp_path / "data"
+    path = (
+        CasePaths(data_root, "scotus", 1)
+        .event("evt-petition-disposition")
+        .evaluation("e", "p", "r")
+    )
+    write_json(
+        path,
+        _evaluation(
+            predicted_reasoning_quality=0.75,
+            predicted_reasoning_review=PredictedReasoningReview(central_claims=_CLAIMS),
+        ),
+    )
+    assert check_predicted_reasoning_grade_held(data_root).passed
+
+
+def test_the_evaluate_prompt_asks_for_the_grade_and_the_pilot_note_does_not() -> None:
+    """The rubric lives in the registered prompt once; the pilot note repeats none of it."""
+    root = Path(__file__).resolve().parent.parent / ".github" / "prompts"
+    prompt = (root / "evaluate.md").read_text()
+    assert "**Grading the forecast document — every stage" in prompt
+    for field in ("`predicted_reasoning_quality`", "`predicted_reasoning_review`"):
+        assert field in prompt
+    assert "Do not score the forecast document" not in prompt
+    note = (root / "pilot" / "predicted-reasoning-quality.md").read_text()
+    assert "| Grade | Anchor |" not in note
+    assert "central_claims" not in note

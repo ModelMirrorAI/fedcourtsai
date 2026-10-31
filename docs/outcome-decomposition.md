@@ -9,9 +9,9 @@ scores them.
 
 **The mechanical family is implemented at all three stages; everything else here
 is pre-registration — with two carve-outs: the semantic family, which is
-declared but neither pre-registered nor producing anything; and a design for
-grading `predicted_reasoning.md` itself (*Grading the forecast document,
-design*), not yet registered.** The scoring rule is `pipeline.base_rates.claim_score`; the
+declared but neither pre-registered nor producing anything; and the grade of
+`predicted_reasoning.md` itself (*Grading the forecast document, design*),
+registered and collected on every stage, and published by no board yet.** The scoring rule is `pipeline.base_rates.claim_score`; the
 declared sets — `cert-v3` on every declared cert moment (`cert-v2`'s five
 binary claims and the `order-writers` distribution claim), `interim-v2` on every
 interim moment (`interim-v1`'s four binary claims and `order-writers`), and
@@ -44,9 +44,10 @@ pre-registration: the decomposition and the rule are settled before there is
 data to fit them to, which is the only order in which the choice of rule is
 credible. That section is the exception, and says so at its own head; no
 published number depends on it, and it is superseded rather than edited. The
-section after it, *Grading the forecast document, design*, is a design for a
-grade of `predicted_reasoning.md` itself, settled before any grade exists and
-not yet registered.
+section after it, *Grading the forecast document, design*, is the grade of
+`predicted_reasoning.md` itself: designed before any grade existed, piloted
+against the maintainer's labels, and registered; no published number depends
+on it yet.
 
 ## Naming
 
@@ -1076,12 +1077,13 @@ tracked on its own and not restated here.
 
 `predicted_reasoning.md` is a forecast document, and the whole point of keeping
 it apart from `reasoning.md` is that a forecast can be scored while a rationale
-cannot. Nothing in the registered process grades the document itself: prose
-is not resolvable deterministically, and the graded protocol designed for it
-(*Grading the forecast document, design*) is not yet registered. What is
-scored are the **structured** claims that carry the same content — the
-mechanical `claims` block, and on a merits cell the graded `semantic_claims`
-block. This register is the join between the two. Every
+cannot. Prose is not resolvable deterministically, so what is **scored** are
+the structured claims that carry the same content — the mechanical `claims`
+block, and on a merits cell the graded `semantic_claims` block. The document
+itself is **graded** as a whole, by a reader under an anchored rubric
+(`predicted_reasoning_quality`, *Grading the forecast document, design*): a
+grade beside the scores, never folded into one, and published by no board
+yet. This register is the join between the content classes and those routes. Every
 content class the predict prompt asks a cell to commit to appears here with its
 route, so that *unscored* is a stated position rather than an oversight. A class
 the prompt elicits and this table does not name is a defect in one of them.
@@ -1116,11 +1118,15 @@ pre-registered rule that keeps it there permanently.
 | merits | Whether a separate writing splits the rationale from the result | Context-only; **mechanical** family the day a field records it | Existence is a countable docket fact, not a reader's judgment, so it belongs with a real baseline and a proper score rather than as prose graded by impression. `semantic-v1` holds no place for it |
 | merits | Which question presented the Court reaches and which it leaves | Context-only | The merits-side twin of the cert QP row, with the same framing gap |
 | merits | Authorship and the writing roles | `majority-author`, `separate-writers` (`merits-v2`) | Distribution claims the predict prompt elicits on every merits cell (*The authorship claims*); they resolve from the `merits_author` and `writing_roles` the opinions writer stamps on a merits outcome |
+| any | The forecast document as a whole: its central claims, including what it volunteers beyond the declared sets | `predicted_reasoning_quality`, with its central-claims list in `predicted_reasoning_review` | **Graded**, not scored, on every stage. Collected by every judge on every cell from the registering label on; no board reads it yet, and it enters no claim total, no rank key and no other grade |
 | any | The rationale for the predictor's own number | Never scored, by construction | That is `reasoning.md`, a different document with a different epistemic status: it resolves against nothing. `reasoning_quality` grades its soundness and grades no forecast |
 
 Three properties of the table are worth reading off it. **Every scored route is
 mechanical or graded, never prose** — the document is the human-readable form of
 a structured claim, and the two must agree, but only the structure resolves.
+The document's own route is the graded one: `predicted_reasoning_quality` is a
+reader's grade of the whole document under an anchored rubric, recorded beside
+the scores and never inside any of them.
 **Banked is not scored**: six declared claims carry no baseline yet — the two
 cert increments, `dissent-from-denial`, and all three interim increments — and
 their probabilities accumulate against cuts that do not exist rather than
@@ -2067,8 +2073,9 @@ resolution to mint the grading cell, and its opinion text for the grader to read
 ## Grading the forecast document, design (`predicted_reasoning_quality`)
 
 The register above routes every content class the predict prompt elicits to a
-structured claim or to context-only, and leaves `predicted_reasoning.md` itself
-ungraded. That position says less than it seems to: prose is not resolvable
+structured claim or to context-only, and routes `predicted_reasoning.md` itself
+to this grade. Without it, the document would go ungraded, a position that
+says less than it seems to: prose is not resolvable
 **deterministically**, but the project already resolves non-deterministic objects
 by a reader under discipline (`reasoning_quality`, the `semantic-v1` grades, the
 QP-topic labeler). And the structured blocks score only what was declared in
@@ -2076,16 +2083,16 @@ advance, so the most informative part of a forecast — the specific, checkable
 things a predictor volunteered beyond the declared sets — earns nothing and
 costs nothing. A grade of the document is what makes that content count.
 
-**This section is a design, not a registered process.** The schema carries the
-grade (`Evaluation.predicted_reasoning_quality`, with the central-claims list in
-`predicted_reasoning_review`) and a draft prompt section asks for it
-(`.github/prompts/pilot/predicted-reasoning-quality.md`), but no registered
-evaluate prompt reads that section, no artifact reads the grade, and `validate`
-refuses a committed one (`predicted_reasoning_grade_awaits_registration`); the
-register's opening position above stands until the grade is registered
-(*Registration* below). It is settled here,
-before a single grade exists, for the same reason the rest of this document is:
-a rubric chosen after reading the grades is a rubric fitted to them.
+**This section is a registered process, collected and not yet published.**
+The schema carries the grade (`Evaluation.predicted_reasoning_quality`, with
+the central-claims list in `predicted_reasoning_review`), the registered
+evaluate prompt's *Grading the forecast document* section asks every judge for
+it on every stage, and `validate` takes a committed one
+(`PREDICTED_REASONING_GRADE_REGISTERED`). No artifact reads the grade:
+publication, with the agreement figures *The pilot* fixes to travel beside it,
+is a later change (*Registration* below). The design was settled before a
+single grade existed, for the same reason the rest of this document is: a
+rubric chosen after reading the grades is a rubric fitted to them.
 
 ### What is graded, and by whom
 
@@ -2242,16 +2249,16 @@ with each other and with the maintainer, and fixes in advance *what* it
 reports, so the report cannot be chosen after the grades are read.
 
 - **Population.** About 60 already-resolved cert and interim documents, graded
-  by every configured judge with the draft prompt section, plus replay merits
+  by every configured judge with the prompt section, plus replay merits
   cells on 10–20 decided OT2024–25 cases. The replay merits grades are
   **calibration evidence only**, reported separately: those opinions are
   public, so a replay document can carry its outcome, and the grades never
   test a predictor.
 - **Output.** A pilot report, outside `data/`. A pilot grade is never committed
-  to the ledger and never read by any metrics artifact. Each round the draft
-  prompt section goes through gets its own report, stamped with the section's
-  hash, which the operator supplies since the evaluations do not record it, so
-  the reports together list every round.
+  to the ledger and never read by any metrics artifact. Each round gets its
+  own report, stamped with the hash of the prompt it graded under, which the
+  operator supplies since the evaluations do not record it, so the reports
+  together list every round.
 - **Reference labels.** The maintainer grades **10** cert and interim pilot
   documents on the same rubric to start, more as needed, chosen to span the
   scale. The maintainer grades blind to predictor identity and before seeing
@@ -2293,39 +2300,59 @@ reports, so the report cannot be chosen after the grades are read.
 
 ### Registration
 
-The grade is registered at a process re-bless, as one coordinated change: the
-evaluate prompt's section asking for it (the schema already carries the field
-and its central-claims list), lifting the `validate` check that refuses a
-committed grade until then, the matching site change if the grade is published, a
-freeze-record entry, and the register revised to match: its opening paragraph
-and its "every scored route is mechanical or graded, never prose" property name
-the registered grade, and a row routes the document to it. The prompt change
-moves **every** evaluate digest, not only this grade's: the existing
+The grade is registered at the `proc-v16` re-bless, as one coordinated change
+([freeze-record.md](freeze-record.md)): the evaluate prompt's *Grading the
+forecast document* section asking for it (the schema already carried the
+field and its central-claims list), the `validate` check that refused a
+committed grade lifted, a freeze-record entry, and the register revised to
+match: its opening paragraph and its "every scored route is mechanical or
+graded, never prose" property name the registered grade, and a row routes the
+document to it. Every evaluate cell stages each writing of the decision
+(`provision-opinion --writings`) for the grade to check against. The prompt
+change moves **every** evaluate digest, not only this grade's: the existing
 `reasoning_quality`, `big_case` and agreement readings start new signatures at
 that boundary, which is the cost of asking for the grade inside the evaluate
-cell. After registration the already-resolved forward documents are graded
-**once**, in new evaluation runs stamped with the grading's process version;
-committed evaluations are never edited.
+cell. No site change rides it, since no artifact publishes the grade; the
+change that publishes it carries the site change and the agreement figures.
 
-### What remains unbuilt
+The already-resolved forward documents are graded **once**, in new evaluation
+runs stamped with the grading's process version; committed evaluations are
+never edited. The backlog does not owe those runs: its idempotency gate asks
+whether a judge has graded the event, under any digest, so an event every
+judge graded before the registering label is never re-minted by the schedule.
+The back-grade is a named-case `--force` round a maintainer dispatches, and
+such a round's evaluations supersede the earlier ones as each (case, event,
+predictor, judge) cell's latest grading, so its `reasoning_quality`, `big_case`
+and leakage readings replace the earlier judges' on every board that reads
+the latest grading. Choosing that round, and its spend, is the open decision
+the freeze-record entry records.
 
-1. **The merits calibration cells.** The schema fields, the draft prompt
-   section, the cert and interim sample (`fedcourts reasoning-pilot-sample`,
-   which also writes the blind labeling packet), the report (`fedcourts
-   reasoning-pilot-report`) and the round itself (run-evaluate's
-   `reasoning-pilot` dispatch mode, which grades the sample with the section
-   and uploads the evaluations and the report rather than committing them)
-   exist, and a pilot row stages every writing of the decision (`fedcourts
-   provision-opinion --writings`, from the per-writing texts the
-   `opinion-record` pass stores). The replay merits calibration cells come
-   from a merits back-test's kept forecasts (`run-backtest`'s `replay:
-   merits`, its `merits-forecasts` artifact): `fedcourts
-   reasoning-pilot-merits-sample` lays them into the round's working tree as
-   resolved merits events and samples them, and `evaluate-matrix
-   --calibration` marks their rows. run-evaluate's
-   `reasoning-pilot-merits` dispatch mode is the round that grades them: it
-   takes the newest successful merits back-test's artifact on `main`, lays
-   each cell's event into its checkout, and uploads the evaluations and the
-   report as the cert and interim round does.
-2. **The reference labels and the pilot run itself.**
-3. **Registration**, as above.
+### What is built, and what remains
+
+The pilot is built and has run. The cert and interim sample (`fedcourts
+reasoning-pilot-sample`, which also writes the blind labeling packet), the
+report (`fedcourts reasoning-pilot-report`) and the round (run-evaluate's
+`reasoning-pilot` dispatch mode, which re-grades the sample and uploads the
+evaluations and the report rather than committing them) exist. The replay
+merits calibration cells come from a merits back-test's kept forecasts
+(`run-backtest`'s `replay: merits`, its `merits-forecasts` artifact):
+`fedcourts reasoning-pilot-merits-sample` lays them into the round's working
+tree as resolved merits events and samples them, `evaluate-matrix
+--calibration` marks their rows, and run-evaluate's `reasoning-pilot-merits`
+dispatch mode grades them as the cert and interim round does. A pilot round
+grades under the registered evaluate prompt; the pilot note
+(`.github/prompts/pilot/predicted-reasoning-quality.md`) marks the round and
+changes no instruction. Every evaluate cell stages each writing of the
+decision (`fedcourts provision-opinion --writings`, from the per-writing texts
+the `opinion-record` pass stores). The two merits calibration rounds against
+the maintainer's reference labels, and the reading that accepted the rubric,
+are in the registration's freeze-record entry.
+
+What remains:
+
+1. **The back-grade** of the already-resolved forward documents
+   (*Registration* above): a maintainer-dispatched round, since the backlog
+   owes none of it.
+2. **Publication**: a board or summary that reads the grade, per stage, per
+   process version and per rubric, with the agreement figures *The pilot*
+   fixes beside every mean, and the matching site change.

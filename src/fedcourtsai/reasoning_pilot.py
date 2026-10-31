@@ -1,11 +1,11 @@
 """The pilot of the ``predicted_reasoning_quality`` grade: its sample and its report.
 
 The design is ``docs/outcome-decomposition.md``, *Grading the forecast
-document, design*. The grade is not registered, so nothing here reads or
-writes the ledger's evaluations: the sample names already-resolved cells for a
-pilot evaluate round, and the report reads that round's evaluations from a
-directory outside ``data/`` (laid out like ``data/``), beside the maintainer's
-reference labels.
+document, design*. Nothing here reads or writes the ledger's evaluations: the
+sample names already-resolved cells for a pilot evaluate round, which re-grades
+them under the registered evaluate prompt, and the report reads that round's
+evaluations from a directory outside ``data/`` (laid out like ``data/``),
+beside the maintainer's reference labels.
 
 The report fixes in advance what it carries, so it cannot be chosen after the
 grades are read: per stage, and never pooled across stages, each judge's grades
@@ -420,11 +420,11 @@ class StageReport(_Report):
 
 
 class PilotReport(_Report):
-    """The pilot report over one round of the draft prompt section, per stage."""
+    """The pilot report over one pilot round, per stage."""
 
     pilot_root: str
     prompt_sha256: str | None = Field(
-        description="sha256 of the draft prompt section the round ran, as the operator "
+        description="sha256 of the prompt the round graded under, as the operator "
         "supplied it; the evaluations do not record it"
     )
     sample_sha256: str = Field(description="sha256 of the sample file's bytes")
