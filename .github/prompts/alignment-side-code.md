@@ -74,9 +74,9 @@ Code each case **as of its grant date**, from its own row and nothing else:
 the legal conservative movement of the grant date would count as its own: the
 position the Justices appointed by Republican presidents would be expected to
 take if the Court divided along its usual ideological lines. That is one
-principle, and the categories below apply it; they are a list of where it
-points, not a second rule. Where the extract's text and a category disagree,
-the principle wins.
+principle, and the rows below apply it. Where a row applies, the row decides;
+the principle itself decides only a question no row covers, through the
+fallback below.
 
 - **Criminal procedure, habeas, the death penalty:** the government and the
   prosecution, against the defendant or prisoner.
@@ -84,7 +84,7 @@ the principle wins.
   defending a government's accommodation or support of religion against an
   Establishment Clause challenge.
 - **Speech and association:** the party the conservative bloc has sided with
-  on the question presented. A claimant resisting compelled speech or a
+  in comparable cases decided before the grant date. A claimant resisting compelled speech or a
   compelled subsidy (for a cause, a union or a message it opposes), a
   campaign-finance challenger, and a speaker regulated for a religious or
   conservative message are conservative; a claimant seeking protection for
@@ -125,7 +125,9 @@ worth.
 **The score** `score` is your probability, in `[0, 1]`, that **the conservative
 side prevails**: that the Court disturbs the judgment below (reverses or
 vacates it, in whole or in part) where the conservative side is the petitioner,
-or leaves it standing where the conservative side is the respondent. The
+or leaves it standing where the conservative side is the respondent. A
+dismissal as improvidently granted and an affirmance by an equally divided
+Court leave the judgment standing. The
 petitioner lost below, by construction of a cert petition. Base the score on the
 questions, that posture, and the Court as it sat on the grant date; do not
 default to `0.5` for an unfamiliar subject, and do not push every score toward

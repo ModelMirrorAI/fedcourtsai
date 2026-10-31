@@ -23,9 +23,9 @@ be. This module is everything around that agent turn that needs no model:
   The coder is not told which, so the mode cannot steer a code, and every
   ``replay`` code carries the contamination-risk flag.
 - **Clean codes** (:func:`is_clean`): a ``forward`` code made within
-  :data:`CLEAN_LAG_DAYS` of its grant, before any argument could have been
-  heard. Only these enter the clean check, since a forward code made long
-  after its grant may read commentary on an argued case.
+  :data:`CLEAN_LAG_DAYS` of its grant and before its case's argument. Only
+  these enter the clean check, since a forward code made long after its grant
+  may read commentary on an argued case.
 - **The publish rule** (:func:`publish`): a run's code lines must cover the
   extract exactly, keyed on the case id and docket number pair, and may add a
   case the committed file does not hold but never replace one. The file is
@@ -70,8 +70,8 @@ FIRST_GRANT_TERM: Final = 2021
 CODE_ROW_CEILING: Final = 400
 
 #: The most days after its grant a forward code may be made and still count as
-#: a grant-time code in the clean check. Argument comes months after a grant,
-#: so a code within this lag predates it.
+#: a grant-time code in the clean check. Argument ordinarily comes months after
+#: a grant; an expedited case argued sooner is held by the argument date.
 CLEAN_LAG_DAYS: Final = 30
 
 
@@ -79,11 +79,17 @@ class AlignmentSideError(ValueError):
     """A coding run's output that cannot be published."""
 
 
-def is_clean(code: AlignmentSideCode) -> bool:
-    """Whether a code is a grant-time code the clean check may read."""
+def is_clean(code: AlignmentSideCode, *, argued: date | None) -> bool:
+    """Whether a code is a grant-time code the clean check may read.
+
+    Forward, made within :data:`CLEAN_LAG_DAYS` of its grant, and, where the
+    case has been argued, made before the argument: an expedited case can be
+    argued inside the lag.
+    """
     return (
         code.mode == AlignmentCodeMode.forward
         and (code.coded_at - code.granted).days <= CLEAN_LAG_DAYS
+        and (argued is None or code.coded_at < argued)
     )
 
 

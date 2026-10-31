@@ -115,8 +115,8 @@ recorded before the decision:
   **forward** mode. Undecided is not the same as grant-time, since a forward
   code made after argument may read what the argument said, so the clean
   check reads only **clean** codes (`pipeline.alignment_side.is_clean`):
-  forward codes made within `CLEAN_LAG_DAYS` (30) of their grant, before any
-  argument. A replay case decided after the coder's training cutoff is
+  forward codes made within `CLEAN_LAG_DAYS` (30) of their grant and before
+  their case's argument, which an expedited case can hold inside the lag. A replay case decided after the coder's training cutoff is
   plausibly uncontaminated, but it keeps the flag: the cutoff is not recorded
   per code, and a fit that relied on it would rest on an unverified claim.
   The clean check is a fit on clean codes only, reported separately. Codes

@@ -278,11 +278,13 @@ def test_a_clean_code_is_forward_and_made_soon_after_its_grant() -> None:
     rows, modes = _extract("scotus/56")
     soon = {**STAMP, "coded_at": date(2025, 1, 10 + CLEAN_LAG_DAYS - 9)}
     (code,) = publish(None, rows, modes, [_line("scotus/56")], **soon).entries  # type: ignore[arg-type]
-    assert is_clean(code)
+    assert is_clean(code, argued=None)
+    assert is_clean(code, argued=date(2025, 3, 1))
+    assert not is_clean(code, argued=code.coded_at)  # expedited: argued inside the lag
     late = code.model_copy(update={"coded_at": date(2025, 6, 1)})
-    assert not is_clean(late)
+    assert not is_clean(late, argued=None)
     replay = code.model_copy(update={"mode": "replay", "contamination_risk": True})
-    assert not is_clean(replay)
+    assert not is_clean(replay, argued=None)
 
 
 def test_the_extract_reads_the_corpus(tmp_path: Path) -> None:
