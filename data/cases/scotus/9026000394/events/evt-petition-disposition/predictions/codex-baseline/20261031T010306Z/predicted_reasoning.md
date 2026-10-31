@@ -1,0 +1,11 @@
+# Forecast of the Court's disposition
+
+The Court will most likely **deny certiorari**, leaving the Fourth Circuit's decision in place without endorsing its reasoning. The snapshot already shows **one distribution** and the **October 30, 2026 response request**. The petition will likely leave the November 13 conference track and be distributed again after the response due November 30 and the opportunity for a reply. I expect **one additional distribution** before denial, with no further substantive relist as the central forecast. The probability of at least one additional distribution is 98%; redistribution to accommodate the requested response counts for this claim even without a substantive conference reconsideration.
+
+I expect **no call for the Solicitor General's views**. A CVSG is a 12% alternative, most plausibly after the response and reply, rather than before ordinary briefing is complete.
+
+If the Court grants review, it will most likely set the case for full briefing and argument on the petition's single question, focused on whether a solvent Texas Two-Step debtor's use of bankruptcy supplies bad-faith cause for relief under **§ 362(d)**. A narrowing to the good-faith standard governing stay relief is more plausible than an expansion to the constitutional validity of the bankruptcy or every divisional merger. Conditional on plenary review, the likely doctrinal contest is whether the Fourth Circuit's dual bad-faith/futility requirement permissibly preserves the asbestos-trust mechanism or improperly insulates a non-distressed debtor's litigation tactic.
+
+Conditional on any grant, I assign only **5%** to disposition in the grant order itself. The Court is much more likely to take argument than summarily reverse or issue a grant-vacate-remand order; the record identifies no controlling intervening decision requiring reconsideration.
+
+A denial will most likely carry **no noted dissent or separate statement**. I assign 14% conditional probability to at least one dissent from, or statement respecting, denial. If one appears, Barrett or Gorsuch are plausible authors; that possibility is not the central forecast. I do not predict a merits opinion accompanying an ordinary denial.

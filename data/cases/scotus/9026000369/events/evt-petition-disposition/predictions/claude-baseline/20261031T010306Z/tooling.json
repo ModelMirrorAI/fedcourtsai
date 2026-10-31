@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000369",
+  "run_id": "20261031T010306Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md"],
+  "helpful": ["cert_anchor in context.json", "provisioned appendix showing unpublished memo disposition"],
+  "gaps": ["No way to filter priors by waiver-then-amicus posture or by QP topic (e.g., Rooker-Feldman)"],
+  "notes": "Corpus query priors were generic; statpack cuts and the provisioned documents carried the forecast."
+}

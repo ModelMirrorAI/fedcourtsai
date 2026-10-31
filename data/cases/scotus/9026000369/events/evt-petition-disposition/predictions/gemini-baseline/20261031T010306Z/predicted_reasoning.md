@@ -1,0 +1,21 @@
+# Predicted Reasoning — *John Torsten Loop v. Washington, et al.* (No. 26-369)
+
+## Conference Trajectory: Relists and CVSG
+
+The docket currently records a single distribution (`distribution_count = 1`), made on October 28, 2026, for the Conference of November 13, 2026, after both sets of respondents—the State of Washington and Attorney General Bob Ferguson, as well as JAMS Mediation, Arbitration, and ADR Services and retired Judge Helen L. Halpert—waived their right to respond. The Court has not called for a response (CFR).
+
+- **Further relists (`relist-increment = 0.04`):** The petition will be denied on the Monday order list immediately following the November 13, 2026 Conference without being relisted or redistributed. Because both sets of respondents waived a response and no CFR was issued prior to distribution, a further distribution would occur only if a Justice requests a response or holds the case for a subsequent conference. Given the unpublished, two-paragraph Ninth Circuit memorandum disposition and the severe vehicle defects below, the probability of any additional distribution is low (4%).
+- **Call for the Views of the Solicitor General (`cvsg-increment = 0.002`):** The Court will not issue a CVSG. This dispute arises out of a state-court marital dissolution arbitration and a federal 42 U.S.C. § 1983 suit against state officials and a private ADR provider; it implicates no federal agency, federal program, treaty, or federal regulatory scheme on which the Solicitor General's views would be sought.
+
+## Scope of Review (Conditional on a Grant)
+
+- **Questions presented:** If the Court were to grant certiorari, it would limit review to Question 1—whether the *Rooker-Feldman* doctrine barred subject-matter jurisdiction over petitioner's 42 U.S.C. § 1983 complaint—and decline to reach Question 2 (whether the Fourteenth Amendment permits a State to delegate adjudication affecting parental rights to a private arbitrator without heightened procedural safeguards). Question 2 was never addressed by either the Western District of Washington or the Ninth Circuit, which affirmed dismissal solely on threshold grounds, and the Court would not address the substantive Fourteenth Amendment and state-action questions in the first instance.
+- **Conditional merits ground:** If granted on Question 1, the Court would address the boundary under *Exxon Mobil Corp. v. Saudi Basic Industries Corp.*, 544 U.S. 280 (2005), *Skinner v. Switzer*, 562 U.S. 521 (2011), and *T. M. v. University of Maryland Medical System Corp.*, 608 U.S. ___ (2026), between a barred de facto appeal seeking to enjoin and invalidate a state-court order confirming an arbitration award and an independent § 1983 challenge to the state-authorized procedures that produced that order.
+
+## Summary Disposition vs. Plenary Review
+
+- **Summary disposition route (`summary-disposition-route = 0.25`):** Conditional on the unlikely event of a grant, plenary review (75% conditional share) is likelier than summary disposition (25% conditional share). A grant, vacate, and remand (GVR) is unavailing because the Court's recent *Rooker-Feldman* decision in *T. M. v. University of Maryland Medical System Corp.*, No. 25-197 (decided June 18, 2026), was issued before the Ninth Circuit denied rehearing on June 30, 2026, and held *against* narrowing *Rooker-Feldman* for pending state appeals where the plaintiff seeks to declare a state-court order unconstitutional and enjoin its enforcement. Nor does the record support a summary reversal given the district court's alternative Rule 12(b)(6) holdings on sovereign, judicial, and arbitral immunity.
+
+## Separate Writings Respecting Denial
+
+- **Dissent or statement respecting denial (`dissent-from-denial = 0.015`):** The Court will issue a standard, unsigned order denying certiorari without noted dissent or separate statement. In the small (1.5%) event of a separate writing, Justice Thomas (most plausibly, given his concurrence in *T. M.* and interest in both *Rooker-Feldman* and parental rights) or Justice Alito or Justice Gorsuch is the likeliest author of a brief statement respecting the denial of certiorari noting the recurring nature of family-court ADR delegation while observing that the procedural posture and threshold defects make this case an unsuitable vehicle.

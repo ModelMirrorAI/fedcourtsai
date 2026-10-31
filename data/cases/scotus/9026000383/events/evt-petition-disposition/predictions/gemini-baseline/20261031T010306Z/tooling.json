@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "case_id": "scotus/9026000383",
+  "run_id": "20261031T010306Z",
+  "role": "predictor",
+  "actor_id": "gemini-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": [
+    "fedcourts paths",
+    "fedcourts query",
+    "fedcourts validate",
+    "courtlistener MCP search"
+  ],
+  "helpful": [
+    "Provisioned petition.txt and appendix.txt (containing the full W.D. La. summary-judgment ruling and CA5 affirmance)",
+    "fedcourts query --docket-number for checking related prior petition No. 26-80",
+    "metrics/statpack.md and record/context.json cert_anchor"
+  ],
+  "gaps": [],
+  "notes": "All provisioned filings (petition, questions presented, and appendix) were clean and complete."
+}

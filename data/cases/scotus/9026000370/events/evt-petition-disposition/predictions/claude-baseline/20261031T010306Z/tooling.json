@@ -1,0 +1,12 @@
+{
+  "case_id": "scotus/9026000370",
+  "run_id": "20261031T010306Z",
+  "role": "predictor",
+  "actor_id": "claude-baseline",
+  "used_corpus_query": true,
+  "used_base_rates": true,
+  "tools_used": ["fedcourts query", "metrics/statpack.md", "provisioned documents"],
+  "helpful": ["cert_anchor in context.json", "amicus-count cut in statpack", "provisioned petition and appendix"],
+  "gaps": ["No topic/free-text corpus search to find prior bundled-discount / Section 2 petitions (e.g., 3M v. LePage's)", "No statpack cut conditioned on a respondent waiver"],
+  "notes": "Structured corpus filters were of little use for this antitrust-specific question."
+}
