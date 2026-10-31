@@ -324,7 +324,8 @@ _TRAILER = re.compile(r"\bsigned\s+by\b|\(\s*entered\b", re.I)
 _QUALIFIER = re.compile(
     r"\bmoot\b|\bin\s+part\b|\bas\s+to\b|\bonly\b|\bexcept\b|\bto\s+the\s+extent\b|"
     r"\binsofar\b|\bwith\s+respect\s+to\b|\bpartial(?:ly)?\b|\bbut\b|\bor\b|\balternative\b|"
-    r"\bstay\w*|\btransfer\w*|\barbitrat\w*|\bcompel\w*|\bremand\w*|\bsever\w*",
+    r"\bstay\w*|\btransfer\w*|\barbitrat\w*|\bcompel\w*|\bremand\w*|\bsever\w*|"
+    r"\bproceed\w*|\bsurviv\w*|\bnot\s+(?:be\s+)?dismissed\b|\bremain\w*|\bcounts?\b",
     re.I,
 )
 # A second ruling word in the run says it is not a single ruling ("granting 45
@@ -386,13 +387,21 @@ def read_docket_ruling(text: str, number: int) -> Reading:
         if number not in numbers:
             continue
         following = verbs[index + 1].start() if index + 1 < len(verbs) else len(cleaned)
-        trailer = _TRAILER.search(cleaned, end, following)
-        run = cleaned[end : trailer.start() if trailer else following]
+        trailer = _TRAILER.search(cleaned, end)
+        run = cleaned[end : min(following, trailer.start() if trailer else following)]
+        # A limit on this motion may stand after another ruling's clause, so
+        # the rest of the text up to the trailer is read too, with the other
+        # rulings' own verbs blanked.
+        rest = cleaned[end : trailer.start() if trailer else len(cleaned)]
+        for other in verbs[index + 1 :]:
+            if other.start() - end < len(rest):
+                lo, hi = other.start() - end, other.end() - end
+                rest = rest[:lo] + " " * (hi - lo) + rest[hi:]
         which = int(next(k for k, v in verb.groupdict().items() if v is not None)[1:])
         ruling = _DOCKET_VERBS[which][1]
         if ruling is None:
             return Reading(None, leave, "the docket text terminates the motion without saying how")
-        if _QUALIFIER.search(run) or _SECOND_RULING.search(run):
+        if _QUALIFIER.search(rest) or _SECOND_RULING.search(rest):
             return Reading(None, leave, "the docket text qualifies its ruling on the motion")
         if any(int(n) != number for m in _CITED.finditer(run) for n in m.groups() if n):
             return Reading(None, leave, "the docket text's ruling also speaks to another entry")
@@ -743,7 +752,8 @@ _CLOSURE_TAIL = re.compile(
     r"pursuant\s+to\s+(?:fed\.?\s*r\.?\s*civ\.?\s*p\.?\s*|federal\s+rule\s+of\s+civil\s+procedure\s+|rule\s+)?"
     r"41\S*|under\s+rule\s+41\S*|"
     r"and\s+(?:final\s+)?judgment\b|"
-    r"signed\s+by\s+(?:(?:chief|senior|district|magistrate|u\.?s\.?|united\s+states)\s+)*judge\b[\s\S]*+|"
+    r"signed\s+by\s+(?:(?:chief|senior|district|magistrate|u\.?s\.?|united\s+states)\s+)*judge\s+"
+    r"[\w.'\u2019 -]{1,60}?\s+on\s+\d{1,2}/\d{1,2}/\d{2,4}|"
     r"\(\s*entered:[\s\S]*+|\(\s*\w{2,4}\s*\)|"
     r"\(\s*[a-z.'\u2019-]+,\s*[a-z.'\u2019 -]+\)"
     r")*+",

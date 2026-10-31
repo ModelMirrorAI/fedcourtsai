@@ -997,9 +997,26 @@ def test_a_motion_title_naming_failure_is_not_a_warning() -> None:
         + "shall be dismissed with prejudice. Plaintiff may file an amended complaint "
         + "within 21 days."
     )
-    resolved = resolve_motion(MTD, [MOTION, entry(60, text)])
-    assert isinstance(resolved, MotionResolution)
-    assert resolved.leave is Leave.mixed
+    assert read_leave(text) is Leave.mixed
+
+
+def test_a_later_sentence_on_some_counts_is_triage() -> None:
+    for text in [
+        "ORDER granting 45 Motion to Dismiss; denying 47 Motion to Strike. "
+        + "The motion to dismiss is denied as to Count III.",
+        "ORDER granting 45 Motion to Dismiss. Count III shall proceed to discovery.",
+        "ORDER granting 45 Motion to Dismiss. Count III survives.",
+        "ORDER granting 45 Motion to Dismiss. Plaintiff's negligence claim is not dismissed.",
+    ]:
+        assert isinstance(resolve_motion(MTD, [MOTION, entry(60, text)]), Unresolved), text
+
+
+def test_a_closure_is_not_read_past_the_judge_signature() -> None:
+    text = (
+        "ORDER granting 50 Stipulation of Dismissal. Signed by Judge X on 2/1/2026. "
+        + "Claims against Acme only. (ab)"
+    )
+    assert find_closure([entry(70, text)]) is None
 
 
 @pytest.mark.parametrize(

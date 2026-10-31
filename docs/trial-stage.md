@@ -104,13 +104,16 @@ a guessed outcome.
   never rules, because a docket can hold several motions of one kind.
 - **Anything that could limit the ruling is triage.** The ruling's run goes
   from the motion's number to the next ruling verb, across sentences, and
-  stops at the clerk's trailer ("Signed by Judge ..."). A verb that carries
+  stops at the clerk's trailer ("Signed by Judge ..."); the rest of the text
+  up to the trailer is read for limits too, since one on this motion can
+  follow another motion's ruling. A verb that carries
   its own qualifier reads as it says (`denying as moot` reads mooted,
   `granting in part and denying in part` reads granted in part). Otherwise
   the run goes to triage when it holds a limit (`moot`, `in part`, `partial`,
   `as to`, `only`, `except`, `but`, `to the extent`, `insofar`, `with respect
   to`), other relief (`or`, `alternative`, a stay, a transfer, arbitration, a
-  remand, a severance), a second ruling word (`denied` after `granting`,
+  remand, a severance), a claim or count that proceeds, survives, remains or
+  is not dismissed, a second ruling word (`denied` after `granting`,
   `terminated`), or another entry's number, whether the word limits the
   ruling, belongs to the motion's own title ("Motion to Dismiss in Part"),
   names a party ("Moot Holdings LLC") or speaks to another motion; the rule
@@ -141,7 +144,8 @@ a guessed outcome.
   but prejudice words, the whole action or all claims, a filer named only
   generically (all parties, the parties, plaintiffs, defendants), the rule it
   rests on, "and judgment", the clerk's initials, a filer's trailer, and a
-  judge's signature line; a signature by the parties is not read past. Anything else
+  judge's dated signature line ("Signed by Judge X on 2/1/2026"); nothing
+  after a signature is read past but the entry date and the initials. Anything else
   after it (a named party, a claim, a cause of action, a crossclaim, an
   appeal, a related case) leaves it unread, and so does a motion for voluntary
   dismissal, a preliminary approval or a notice of settlement. A closure
