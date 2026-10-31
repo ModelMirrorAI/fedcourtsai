@@ -158,6 +158,7 @@ from .config import (
     PredictScope,
     Settings,
     get_settings,
+    load_courtlistener_budget,
     load_courts,
     load_evaluate_config,
     load_historical_config,
@@ -655,8 +656,15 @@ def _main(
     """Predict events in US federal courts."""
 
 
-def _client() -> CourtListenerClient:
+def _client(lane: str) -> CourtListenerClient:
+    """A CourtListener client held to the tier's ceilings and to ``lane``'s run cap.
+
+    The lane's share (``courtlistener_budget`` in ``tracking.yaml``) narrows the
+    daily window to one run's cap: a process counts only its own requests, so the
+    cap is what keeps the lanes' runs together under the account's ceiling.
+    """
     s = get_settings()
+    share = load_courtlistener_budget(s.config_root).lane(lane)
     return CourtListenerClient(
         base_url=s.courtlistener_base_url,
         api_token=s.courtlistener_api_token,
@@ -664,7 +672,7 @@ def _client() -> CourtListenerClient:
         rate_limiter=default_rate_limiter(
             s.courtlistener_rpm,
             s.courtlistener_rph,
-            s.courtlistener_rpd,
+            min(s.courtlistener_rpd, share.per_run),
             max_wait=s.courtlistener_max_wait,
         ),
     )
@@ -4174,7 +4182,10 @@ def enrich_opinions_cmd(
             err=True,
         )
         raise typer.Exit(code=1)
-    with corpus.connect_maintenance(db_path, apply=apply) as conn, _client() as client:
+    with (
+        corpus.connect_maintenance(db_path, apply=apply) as conn,
+        _client("opinion-hold" if awaiting_grading else "opinion-walk") as client,
+    ):
         result = enrich_opinions(
             conn,
             client,
@@ -15192,7 +15203,7 @@ def _fetch_one_docket(court: str, docket: int) -> None:
     """Fetch one docket via REST and ingest it into the corpus (onboard/refresh)."""
     settings = get_settings()
     db = corpus.corpus_db_path(settings.corpus_root)
-    with _client() as client:
+    with _client("fetch") as client:
         result = pull_case(client, db, settings.data_root, court, docket)
     _ensure_corpus_layout(db)
     typer.echo(
@@ -15478,7 +15489,7 @@ def decision_below_command(
         raise typer.Exit(code=2)
     inputs = _decision_below_corpus_inputs(case_ids, sample)
     inputs.extend(_decision_below_docket_inputs(serials))
-    with _client() as client:
+    with _client("decision-below") as client:
         report = decision_below.match_cases(client, inputs)
     typer.echo(report.model_dump_json(indent=2))
     counts = ", ".join(f"{n} {status}" for status, n in sorted(report.counts.items()))
@@ -15558,7 +15569,10 @@ def enrich_decision_below_command(
         raise typer.Exit(code=1)
     today = datetime.now(UTC).date()
     char_cap = load_live_config(settings.config_root).document_text_cap
-    with corpus.connect_maintenance(db_path, apply=apply) as conn, _client() as client:
+    with (
+        corpus.connect_maintenance(db_path, apply=apply) as conn,
+        _client("decision-below-fill" if apply else "decision-below") as client,
+    ):
         settled: list[str] = []
         if case_ids:
             rows: list[corpus.CorpusRow] = []
@@ -15685,7 +15699,7 @@ def order_scan_command(
         except (OSError, ValueError) as exc:
             typer.echo(f"order-scan: cannot read --resume {resume}: {exc}", err=True)
             raise typer.Exit(code=2) from exc
-    with _client() as client:
+    with _client("order-scan") as client:
         report = order_scan.scan(client, scan_config, max_requests=cap, prior=prior)
     typer.echo(report.model_dump_json(indent=2))
     for line in order_scan.summary_lines(report):
@@ -20405,7 +20419,7 @@ def pull_all(
     cap = pull_cfg.max_cases_per_run if limit is None else min(limit, pull_cfg.max_cases_per_run)
     deadline = time.monotonic() + pull_cfg.max_run_minutes * 60
     db = corpus.corpus_db_path(settings.corpus_root)
-    with _client() as client:
+    with _client("pull") as client:
         if pull_cfg.discover_new_filings:
             disc = discover_cases(
                 client,
@@ -20903,7 +20917,7 @@ def discover(
     )
     start = date.fromisoformat(since) if since else date.today()
     db = corpus.corpus_db_path(settings.corpus_root)
-    with _client() as client:
+    with _client("pull") as client:
         result = discover_cases(client, db, courts, max_new=cap, default_since=start)
     for cd in result.courts:
         typer.echo(f"{cd.court}\tonboarded={cd.onboarded}\twatermark={cd.watermark}")

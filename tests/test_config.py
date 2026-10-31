@@ -1,10 +1,13 @@
+import re
 from pathlib import Path
 
 import pytest
 import yaml
 from pydantic import ValidationError
 
+from fedcourtsai.cli import _client
 from fedcourtsai.config import (
+    CourtListenerBudget,
     PredictConfig,
     PredictScope,
     PullConfig,
@@ -12,6 +15,7 @@ from fedcourtsai.config import (
     Settings,
     StatpackConfig,
     SweepCapsConfig,
+    load_courtlistener_budget,
     load_courts,
     load_predict_config,
     load_pull_config,
@@ -381,3 +385,56 @@ def test_sweep_caps_reject_a_ceiling_below_the_cap() -> None:
         SweepCapsConfig(response_fills=60, response_fills_ceiling=50)
     with pytest.raises(ValueError):
         SweepCapsConfig.model_validate({"docket_marking": 5})  # a misspelled cap is refused
+
+
+_REPO = Path(__file__).resolve().parent.parent
+
+
+def test_committed_courtlistener_lanes_fit_the_account() -> None:
+    budget = load_courtlistener_budget(_REPO / "config")
+
+    assert sum(lane.per_day for lane in budget.lanes.values()) <= budget.account_per_day
+    # Every lane the CLI builds a client for has a share.
+    cli_source = (_REPO / "src" / "fedcourtsai" / "cli.py").read_text()
+    calls = re.findall(r"_client\(((?:\"[a-z-]+\"| if | else |[a-z_])+)\)", cli_source)
+    used = {name for call in calls for name in re.findall(r'"([a-z-]+)"', call)}
+    assert used
+    assert used <= {name for name, lane in budget.lanes.items() if lane.enforced}
+
+
+def test_pull_lane_is_sized_for_every_scheduled_pull_window() -> None:
+    budget = load_courtlistener_budget(_REPO / "config")
+    workflow = yaml.safe_load((_REPO / ".github" / "workflows" / "run-pull.yml").read_text())
+    crons = [entry["cron"] for entry in workflow[True]["schedule"]]
+    pull_windows = sum(len(cron.split()[1].split(",")) for cron in crons if cron.split()[0] == "17")
+
+    assert pull_windows == budget.lane("pull").runs_per_day
+
+
+def test_lane_shares_over_the_account_are_refused() -> None:
+    with pytest.raises(ValidationError, match="over the account's 100"):
+        CourtListenerBudget.model_validate(
+            {
+                "account_per_day": 100,
+                "lanes": {
+                    "a": {"per_run": 30, "runs_per_day": 2},
+                    "b": {"per_run": 50, "runs_per_day": 1, "enforced": False},
+                },
+            }
+        )
+
+
+def test_an_unknown_lane_is_an_error_not_an_unbounded_client() -> None:
+    budget = CourtListenerBudget.model_validate(
+        {"account_per_day": 100, "lanes": {"a": {"per_run": 10, "runs_per_day": 1}}}
+    )
+    with pytest.raises(KeyError, match="no CourtListener lane 'b'"):
+        budget.lane("b")
+
+
+def test_cli_client_caps_a_run_at_its_lane_share() -> None:
+    budget = load_courtlistener_budget(_REPO / "config")
+    with _client("fetch") as client:
+        day = client._rate_limiter._windows[-1]
+    assert day.period == 86400.0
+    assert day.max_requests == budget.lane("fetch").per_run

@@ -675,6 +675,40 @@ summaries:
   # applied (docs/case-summaries.md).
   max_document_chars: 100000
 
+# Each lane's fixed share of the CourtListener account (Tier 4: 1,400 requests a
+# day). A process's limiter counts only its own requests, so the lanes share the
+# account by a split rather than a shared counter: `per_run` is the most one run
+# of the lane may send (an enforced lane's client stops there), and
+# `per_run` x `runs_per_day`, summed over the lanes, stays under
+# `account_per_day`. The config fails to load when it does not. A lane the
+# package's client does not carry is `enforced: false`: its share is set aside,
+# not policed. Raising one lane means lowering another.
+courtlistener_budget:
+  account_per_day: 1400
+  lanes:
+    # pull-all and discover, the four `17 *` run-pull windows: 30 dockets at a
+    # docket read plus one entries page each, for most.
+    pull: {per_run: 80, runs_per_day: 4}
+    # enrich-opinions --awaiting-grading, each full live window (8 cases).
+    opinion-hold: {per_run: 30, runs_per_day: 4}
+    # enrich-opinions as a dispatched walk (run-pull mode=enrich-opinions); a
+    # longer walk spans several dispatches.
+    opinion-walk: {per_run: 150, runs_per_day: 1}
+    # enrich-decision-below --apply, each full live window (6 cases).
+    decision-below-fill: {per_run: 40, runs_per_day: 4}
+    # decision-below and enrich-decision-below's dry run (run-analytics mode
+    # decision-below), dispatched.
+    decision-below: {per_run: 100, runs_per_day: 1}
+    # order-scan (run-analytics), dispatched; config/order-scan.yaml caps a run
+    # at the same 150.
+    order-scan: {per_run: 150, runs_per_day: 1}
+    # fetch, one docket at a time by hand.
+    fetch: {per_run: 25, runs_per_day: 1}
+    # The agent cells' CourtListener MCP server (its own client).
+    agent-cells: {per_run: 150, runs_per_day: 1, enforced: false}
+    # Interactive sessions and ad-hoc checks.
+    sessions: {per_run: 50, runs_per_day: 1, enforced: false}
+
 courts:
   # The tracked set: SCOTUS + all 13 federal courts of appeals, by CourtListener
   # court id. pull keeps these current. District courts are intentionally out
