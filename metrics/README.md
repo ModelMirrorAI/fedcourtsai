@@ -1038,7 +1038,17 @@ stays outside the gate:
   comparison and can turn all three negative, so a low figure locates a
   disagreement rather than assigning blame. It never affects the ranking, and
   `events` beside it is small enough to matter — tau-b over a handful of shared
-  events moves a long way on one disagreement.
+  events moves a long way on one disagreement. `events` counts **cases**, one
+  leave-one-out point per case, despite its name.
+
+  **The panel is only as wide as the reads on each case.** On a case exactly two
+  evaluators read, each one's peer mean is the other's read, so the two
+  leave-one-out points on it are one comparison counted under both judges. A
+  judge that records few `big_case` reads leaves most of the other two judges'
+  cases in that shape, and their two figures then approach one two-judge
+  statistic printed twice rather than two independent checks. Compare the
+  evaluators' `events` before quoting their figures side by side, and quote
+  the panel's width with any figure taken from this map.
 
   Both agreement figures read a judge's **current** read of a case, under the
   one-grading-per-cell-per-judge rule above: the collapse to the newest grading
@@ -1096,11 +1106,14 @@ stays outside the gate:
   apply to every scored surface), rolled up per predictor **per stratum** and
   published beside the leaderboard.
   `fedcourts claim-scores` produces it, deterministic and offline, defaulting
-  to the same frozen process scope as the board. While no committed
-  `claim_scores` block reaches that scope *and* this surface's population —
-  every block committed today is `interim-v1`, and the population is the cert
-  stage's first moment only (below) — it renders its honest suppressed state:
-  zero counts, every
+  to the same frozen process scope as the board. Its population is the cert
+  stage's first moment only (below). Membership is by stage and moment, never
+  by set version: those cells carry the cert stage's declarations (the
+  `cert-v*` sets, listed per stratum in `declared_set_versions`), and a later
+  cert moment's or another stage's block sits outside the surface whatever it
+  declares. Where no committed
+  `claim_scores` block reaches that scope *and* that population, it renders
+  its honest suppressed state: zero counts, every
   coefficient null, and a stratum with no cells at all carrying a null
   agreement record rather than a zero-filled one. The scoring rule, the claim
   declarations, and every
