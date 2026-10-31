@@ -129,10 +129,11 @@ _RULES: Final[tuple[tuple[EntryKind, re.Pattern[str]], ...]] = (
     (
         EntryKind.opinion,
         re.compile(
-            r"^\s*(?:(?:memorandum|amended|corrected|redacted|sealed)\s+)*opinion\b"
+            r"^\s*(?:"
+            r"(?:(?:memorandum|amended|corrected|redacted|sealed)\s+)*opinion\b"
             r"(?!\s+(?:of|from)\s+(?:counsel|expert))|"
-            r"^\s*(?:memorandum|order)\s+(?:and|&)\s+(?:order|opinion)\b|"
-            r"^\s*(?:\w+\s+){0,2}findings\s+of\s+fact",
+            r"(?:memorandum|order)\s+(?:and|&)\s+(?:order|opinion)\b|"
+            r"(?:\w+\s+){0,2}findings\s+of\s+fact)",
             re.I,
         ),
     ),
