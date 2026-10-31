@@ -55,6 +55,27 @@ Two different scopes apply, and keeping them apart is what bounds the bill:
   predicted, and the lower-court link columns (`originating_court` /
   `originating_docket_number`) are retrieval context — never a scope trigger.
 
+  **Prediction slices** widen the court predicate by name, never by court. A
+  slice is a committed list of lower-court dockets, registered in
+  `fedcourtsai.prediction_slices.SLICES` with the file it reads. One is
+  registered, `ai-watchlist`, which reads `config/ai-watchlist.yaml` and admits
+  every docket that file names, each listed case's own and its related ones. A
+  slice is switched on by naming it in `predict.slices` (`config/tracking.yaml`);
+  the committed list is empty, so the scope is the SCOTUS docket alone. A
+  switched-on slice admits exactly its dockets at the matrix backstop (the
+  predict and evaluate matrices, and `predict-plan` / `evaluate-plan`, which
+  rehearse them) and no other docket of their courts. The hard exclusions and
+  the reconcile's `predict_excluded` latch still apply to a slice docket; the
+  salience gate does not, because the list is the slice's selection. An enabled
+  slice whose file is missing, a SCOTUS docket in a slice, and a docket two
+  enabled slices both name are each refused rather than read. Each slice is its
+  own **population** (`store.in_population`): the SCOTUS figures read the SCOTUS
+  population only, so a slice's events never pool with the Court's
+  ([metrics/README.md](../metrics/README.md)). Admission is only the scope half
+  of a slice. Its moments, prompts, decision model, pull-side queueing and its
+  own process version ([process-version.md](process-version.md)) are switched
+  on with it.
+
   Within this prediction scope, [salience.md](salience.md) describes a live
   **salience-ordered** gate — hard eligibility filters, then a deterministic
   ranking that spends the tournament on the most salient slice up to a fundable

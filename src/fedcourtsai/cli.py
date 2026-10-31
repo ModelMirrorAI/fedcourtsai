@@ -460,6 +460,7 @@ from .pipeline.scope_reconcile import reconcile_predict_scope
 from .planning_rates import PLANNING_RATES_USD_PER_CELL as _PLANNING_RATES_USD_PER_CELL
 from .planning_rates import PLANNING_USD_PER_CELL as _PLANNING_USD_PER_CELL
 from .planning_rates import price_cells
+from .prediction_slices import Population, load_slices
 from .pricing import DEFAULT_MODELS, MODEL_RATES, TokenCounts, estimate_cost_usd
 from .promotion_body import Batch, batch_prs, render, same_body, splice
 from .promotion_train import (
@@ -14788,8 +14789,10 @@ def ops_report(  # noqa: PLR0913 - one option per independent read-only feed
         # Leakage grading is an all-versions diagnostic, like flags/tooling above
         # (which read the ledger directly): shakedown contamination is exactly
         # what it must surface, so it must NOT ride the frozen `stratified` stream
-        # — that would blank the leakage digest during the shakedown window.
-        evaluations=iter_evaluations(settings.data_root),
+        # — that would blank the leakage digest during the shakedown window. For
+        # the same reason it reads every population, a prediction slice's
+        # gradings included, as flags/tooling do.
+        evaluations=iter_evaluations(settings.data_root, population=None),
         substance=substance,
         data_health=data_health,
         open_triggers=open_triggers,
@@ -21723,7 +21726,7 @@ def _cohort_narrowing_reason(data_root: Path, court: str, docket: int, event_id:
     )
 
 
-def _scope_filtered(
+def _scope_filtered(  # noqa: PLR0913 - the matrix backstop's inputs, all keyword past the corpus
     cases: list[CaseRequest],
     scope: PredictScope,
     corpus_root: Path,
@@ -21733,6 +21736,7 @@ def _scope_filtered(
     data_root: Path | None = None,
     dropped_out: list[_DropRecord] | None = None,
     cohort_narrowed_out: list[_DropRecord] | None = None,
+    slices: Mapping[str, Population] | None = None,
 ) -> list[CaseRequest]:
     """Drop out-of-scope cases under ``scotus_docket``; the matrix backstop.
 
@@ -21751,6 +21755,13 @@ def _scope_filtered(
     visible note (to stderr, so the matrix JSON on stdout stays clean)
     explaining why a manual run produced an empty matrix. ``scope == all``
     passes every case through unchanged.
+
+    ``slices`` are the enabled prediction slices
+    (:func:`fedcourtsai.prediction_slices.load_slices`): a lower-court docket a
+    slice's committed list names is admitted past the court predicate, and no
+    other docket of its court is. The hard exclusions below still apply to it;
+    the salience drop does not, because a slice's list is its selection. With
+    no slice enabled (the default) the predicate is the court alone.
 
     A SCOTUS docket is still dropped when the shared exclusion reasoning
     matches it: the scope reconcile's ``predict_excluded`` latch, or any reason from
@@ -21818,9 +21829,15 @@ def _scope_filtered(
     kept: list[CaseRequest] = []
     with corpus.connect_readonly(db_path, backend=corpus_backend) as conn:
         for case in cases:
-            row = corpus.get_row(conn, ids.case_id(case.court, case.docket))
+            case_id = ids.case_id(case.court, case.docket)
+            row = corpus.get_row(conn, case_id)
             drop: str | None
-            if row is None or row.court != "scotus":
+            in_slice = (
+                row is not None
+                and row.court != "scotus"
+                and any(population.admits_case(case_id) for population in (slices or {}).values())
+            )
+            if row is None or (row.court != "scotus" and not in_slice):
                 drop = "out of prediction scope (predict.scope=scotus_docket, not a SCOTUS docket)."
             elif row.predict_excluded:
                 drop = "latched out of predict scope by the corpus reconcile."
@@ -21828,6 +21845,7 @@ def _scope_filtered(
                 drop = f"{reason}."
             elif (
                 not for_grading
+                and not in_slice
                 and corpus.is_salience_deferred(row)
                 and not corpus.has_open_merits_event(conn, row.case_id)
             ):
@@ -23077,6 +23095,7 @@ def _predict_fanout(
         data_root=settings.data_root,
         dropped_out=scope_dropped,
         cohort_narrowed_out=cohort_narrowed,
+        slices=load_slices(settings.config_root, predict_config.slices),
     )
     # One clock for the whole plan, so a fan-out that straddles midnight cannot
     # apply a different staleness bound to selection than to the re-check.
@@ -23383,17 +23402,18 @@ def _evaluate_fanout(
     hold the same cells.
     """
     settings = get_settings()
-    scope = load_predict_config(settings.config_root).scope
+    predict_config = load_predict_config(settings.config_root)
     scope_dropped: list[_DropRecord] = []
     resolution = _ResolveReport()
     cases = _resolve_cases(
         _scope_filtered(
             requested_cases,
-            scope,
+            predict_config.scope,
             settings.corpus_root,
             settings.corpus_backend,
             for_grading=True,
             dropped_out=scope_dropped,
+            slices=load_slices(settings.config_root, predict_config.slices),
         ),
         lambda c, d: resolved_events(
             corpus.corpus_db_path(settings.corpus_root), c, d, backend=settings.corpus_backend

@@ -113,6 +113,7 @@ from .integrity import (
 from .pipeline.base_rates import prediction_base_rate, realized_band_rate, statpack_digest
 from .pipeline.evaluate import bench_vote_accuracy, brier_score, is_correct
 from .pipeline.moments import first_moment, scores_votes
+from .prediction_slices import SCOTUS_POPULATION
 from .process_version import (
     HARNESS_BOUNDARIES,
     BoundaryHistoryError,
@@ -187,6 +188,7 @@ from .store import (
     EvaluationKey,
     SetAsideCell,
     evaluation_key,
+    in_population,
     prediction_counts,
     scored_prediction,
     scored_prediction_cell,
@@ -1055,6 +1057,9 @@ def _scoped_evaluations(
     """
     scoped: list[Evaluation] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
+        # The SCOTUS population only (`store.in_population`), as `store.stratify` reads.
+        if not in_population(path.parents[4], SCOTUS_POPULATION):
+            continue
         evaluation = read_model(path, Evaluation)
         if voided_reason(evaluation) is None and in_scope(evaluation):
             scoped.append(evaluation)

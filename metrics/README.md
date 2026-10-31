@@ -1442,6 +1442,24 @@ forecastable, and with no baseline to subtract the *whole* of the grade is
 retrievable rather than an increment over one. The backtest-as-iteration
 doctrine below applies to them in full.
 
+**Every figure here is a SCOTUS figure.** A prediction slice — a committed
+list of lower-court dockets the predict scope can admit
+(`fedcourtsai.prediction_slices`; the *Scope* section of
+[docs/data-pipeline.md](../docs/data-pipeline.md)) — is a population of its
+own, beside the forward and retrospective strata and orthogonal to them. The
+readers every artifact here is built on (`store.stratify`,
+`store.iter_predictions`, `store.iter_evaluations`,
+`store.iter_predicted_events`, and the leaderboard's and window records' own
+ledger walks) read the SCOTUS population only, so `leaderboard.json`,
+`claim-scores.json`, `big-cases.json` and the rest never pool a slice's events
+with the Court's, and none is subject to the salience gate. The ops report's
+diagnostics are the exception by design: its ledger census and its leakage
+digest read every population, since contamination in a slice's cell is as much
+their subject as in the Court's, and neither is a performance figure. No slice is
+switched on, so no artifact's shape or figures change. A slice's figures, once
+it has cells, are built over its own population, under its own process
+version, and are never differenced against or pooled into a SCOTUS figure.
+
 **Forward vs retrospective.** Snapshotting controls what a predictor can *read*,
 but not what its model already *knows*: a prediction over an event that resolved
 before the model's training cutoff has the outcome inside the model's weights —

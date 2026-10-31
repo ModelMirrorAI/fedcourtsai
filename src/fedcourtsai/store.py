@@ -38,6 +38,7 @@ from .paths import CasePaths
 from .pipeline import moments
 from .pipeline.cert_signals import conference_sat_since, considering_conference
 from .pipeline.moments import first_moment
+from .prediction_slices import SCOTUS_POPULATION, Population
 from .process_version import (
     counted_on_event,
     freeze_in_force,
@@ -1206,7 +1207,23 @@ def prediction_counts(event_dir: Path, predictor_id: str, prediction: Prediction
     )
 
 
-def iter_evaluations(data_root: Path) -> list[Evaluation]:
+def in_population(event_dir: Path, population: Population) -> bool:
+    """Whether the event at ``event_dir`` is in ``population``.
+
+    ``event_dir`` is ``<cases>/<court>/<docket>/events/<event>``.
+
+    The population guard every figure reader applies: the SCOTUS figures read
+    the SCOTUS population only, so a prediction slice's events
+    (:mod:`fedcourtsai.prediction_slices`) never pool with the Court's, and a
+    slice's own figures read its list only.
+    """
+    docket = event_dir.parents[1].name
+    return docket.isdigit() and population.admits(event_dir.parents[2].name, int(docket))
+
+
+def iter_evaluations(
+    data_root: Path, *, population: Population | None = SCOTUS_POPULATION
+) -> list[Evaluation]:
     """Every ``evaluation.json`` in the derived ledger, in stable path order.
 
     Walks ``data/cases/<court>/<docket>/events/<event>/evaluations/<evaluator>/
@@ -1218,12 +1235,21 @@ def iter_evaluations(data_root: Path) -> list[Evaluation]:
     report's leakage digest, an all-versions diagnostic whose subject is what
     each grading recorded, so a superseded run is evidence rather than a
     duplicate. Nothing that scores a predictor reads the ledger this way.
+    ``population`` (the SCOTUS docket by default) is the guard
+    :func:`in_population` states; ``None`` reads every population, which is the
+    ops report's reading, since a leak in a slice's cell is as much its subject
+    as one in the Court's.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
         return []
     pattern = "*/*/events/*/evaluations/*/*/*/evaluation.json"
-    return [read_model(path, Evaluation) for path in sorted(cases_dir.glob(pattern))]
+    return [
+        read_model(path, Evaluation)
+        for path in sorted(cases_dir.glob(pattern))
+        # <event_dir>/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
+        if population is None or in_population(path.parents[4], population)
+    ]
 
 
 def _declares_forecastable(event: corpus.CorpusEvent, stage: Stage) -> bool:
@@ -1609,6 +1635,7 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
     frozen_only: bool = True,
     policy: ForwardClaimPolicy = FORWARD_CLAIM_POLICY,
     apply_set_aside: bool = True,
+    population: Population = SCOTUS_POPULATION,
 ) -> StratifiedRun:
     """Every evaluation joined to its stratum, stage, and forecast moment, in path order.
 
@@ -1721,6 +1748,12 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
     artifacts were built under, which their own commands
     (``release-sensitivity``, the cohort cut, the dataset export) keep, so a
     re-run of them reproduces what was published.
+
+    **One population.** Only cells whose case is in ``population`` — the
+    SCOTUS docket by default — enter the pass (:func:`in_population`), before
+    the scope gate and so before anything is collapsed or counted: a
+    prediction slice's events are a population of their own and never pool
+    into a SCOTUS figure.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -1735,9 +1768,11 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
     claimed_forward = 0
     scoped: list[_ScopedCell] = []
     for path in sorted(cases_dir.glob("*/*/events/*/evaluations/*/*/*/evaluation.json")):
-        evaluation = read_model(path, Evaluation)
         # event_dir/evaluations/<evaluator>/<predictor>/<run>/evaluation.json
         event_dir = path.parents[4]
+        if not in_population(event_dir, population):
+            continue
+        evaluation = read_model(path, Evaluation)
         scored = scored_prediction(event_dir, evaluation.predictor_id, evaluation.prediction_run_id)
         if scored is None:
             raise FileNotFoundError(
@@ -1860,7 +1895,7 @@ def stratify(  # noqa: PLR0912, PLR0915 - one pass: scope gate, collapse, window
 
 
 def iter_stratified_evaluations(
-    data_root: Path, *, frozen_only: bool = True
+    data_root: Path, *, frozen_only: bool = True, population: Population = SCOTUS_POPULATION
 ) -> list[StratifiedCell]:
     """:func:`stratify`'s scorable cells alone, for a caller that needs no ledger.
 
@@ -1868,7 +1903,7 @@ def iter_stratified_evaluations(
     exclusion records they publish and the cells they aggregate come from one
     pass.
     """
-    return stratify(data_root, frozen_only=frozen_only).cells
+    return stratify(data_root, frozen_only=frozen_only, population=population).cells
 
 
 def ledger_cell_counts(data_root: Path) -> tuple[int, int, int]:
@@ -1905,14 +1940,17 @@ class PredictedEventRef(NamedTuple):
     latest_run_id: str
 
 
-def iter_predicted_events(data_root: Path) -> list[PredictedEventRef]:
+def iter_predicted_events(
+    data_root: Path, *, population: Population = SCOTUS_POPULATION
+) -> list[PredictedEventRef]:
     """Every event with at least one committed prediction, newest run first.
 
     ``latest_run_id`` is the newest run id under the event across all
     predictors; run ids are UTC timestamps, so descending lexical order is
     newest-first, and the ordering is total (case, then event) so two callers
     reading the same tree agree on "the newest event". Returns nothing if the
-    ledger does not exist yet (reading must not create it).
+    ledger does not exist yet (reading must not create it). Only events in
+    ``population`` (the SCOTUS docket by default, :func:`in_population`) are listed.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -1921,9 +1959,9 @@ def iter_predicted_events(data_root: Path) -> list[PredictedEventRef]:
     by_event: dict[tuple[str, str], str] = {}
     for path in cases_dir.glob("*/*/events/*/predictions/*/*/prediction.json"):
         event_dir = path.parents[3]
-        docket = event_dir.parents[1].name
-        if not docket.isdigit():
+        if not in_population(event_dir, population):
             continue
+        docket = event_dir.parents[1].name
         key = (ids.case_id(event_dir.parents[2].name, int(docket)), event_dir.name)
         run_id = path.parent.name
         by_event[key] = max(by_event.get(key, ""), run_id)
@@ -1983,7 +2021,9 @@ def _counted_among_stamps(
     return counted_on_event(stamp, lambda: stamps)
 
 
-def iter_predictions(data_root: Path) -> list[LedgerPrediction]:
+def iter_predictions(
+    data_root: Path, *, population: Population = SCOTUS_POPULATION
+) -> list[LedgerPrediction]:
     """Every committed prediction, in a total path order.
 
     The whole-ledger counterpart of :func:`iter_predicted_events`, which reads
@@ -1991,7 +2031,8 @@ def iter_predictions(data_root: Path) -> list[LedgerPrediction]:
     numbers rather than a selection index pays once here. Ordered by
     (case, event, predictor, run) so two callers reading the same tree agree,
     and returns nothing where the ledger does not exist yet (reading must not
-    create it).
+    create it). Only predictions in ``population`` (the SCOTUS docket by
+    default, :func:`in_population`) are read.
     """
     cases_dir = data_root / "cases"
     if not cases_dir.exists():
@@ -2000,9 +2041,9 @@ def iter_predictions(data_root: Path) -> list[LedgerPrediction]:
     # <cases>/<court>/<docket>/events/<event>/predictions/<predictor>/<run>/prediction.json
     for path in sorted(cases_dir.glob("*/*/events/*/predictions/*/*/prediction.json")):
         event_dir = path.parents[3]
-        docket = event_dir.parents[1].name
-        if not docket.isdigit():
+        if not in_population(event_dir, population):
             continue
+        docket = event_dir.parents[1].name
         court_id = event_dir.parents[2].name
         docket_id = int(docket)
         rows.append(

@@ -250,6 +250,25 @@ count and each moved figure recomputed with the cell counted, so the rule's
 boundary is published together with what the figure reads on its other side. A
 new reason is one more value in that vocabulary and its own dated entry.
 
+The **population guard** is a membership rule of the same kind. Every figure
+reader (`store.stratify`, `store.iter_predictions`, `store.iter_evaluations`,
+`store.iter_predicted_events`, and the leaderboard's and window records' own
+ledger walks) reads one population, the SCOTUS docket unless a caller names a
+prediction slice (`fedcourtsai.prediction_slices`), so a slice's cells never
+enter a SCOTUS figure. The ops report's leakage digest and ledger census are
+diagnostics and read every population. While no slice is switched on and every committed cell
+sits under `data/cases/scotus/`, the guard moves no figure.
+
+**A prediction slice is its own process.** A slice runs its own moments and
+its own prompt text (the circuit's panel rules, the trial court's motion-level
+outcomes), so its cells carry digests no SCOTUS cell carries, under a label of
+the slice's own that opens counting windows of its own. That is what keeps a
+slice from moving a SCOTUS figure: switching one on re-blesses no SCOTUS
+digest, and a SCOTUS window never holds a slice cell. Two slices never share a
+label, so they never pool either. No slice process is registered yet. The
+first is registered in the change that switches its slice on, with a dated
+freeze-record entry like any other label.
+
 ## The stamp is the harness's word, not the agent's
 
 The agent writes `prediction.json` / `evaluation.json`; a post-agent step
